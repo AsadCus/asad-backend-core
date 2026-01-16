@@ -1,0 +1,181 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+
+class RolePermissionSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        // Create permissions
+        $permissions = [
+            'dashboard view',
+            'master view',
+            'user view',
+            'user create',
+            'user edit',
+            'user delete',
+            'sales view',
+            'sales create',
+            'sales edit',
+            'sales delete',
+            'customer view',
+            'customer create',
+            'customer edit',
+            'customer delete',
+            'supplier view',
+            'supplier create',
+            'supplier edit',
+            'supplier delete',
+            'maid view',
+            'maid create',
+            'maid edit',
+            'maid delete',
+            'quotation view',
+            'quotation create',
+            'quotation edit',
+            'quotation delete',
+            'order view',
+            'order create',
+            'order edit',
+            'order delete',
+            'invoice view',
+            'invoice create',
+            'invoice edit',
+            'invoice delete',
+            'receipt view',
+            'receipt create',
+            'receipt edit',
+            'receipt delete',
+            'schedule view',
+            'schedule create',
+            'schedule edit',
+            'schedule delete',
+            'agreement view',
+            'agreement create',
+            'agreement edit',
+            'agreement delete',
+        ];
+
+        foreach ($permissions as $permission) {
+            Permission::firstOrCreate(['name' => $permission]);
+        }
+
+        // Create roles
+        $roles = [
+            ['name' => 'admin', 'guard_name' => 'web'],
+            ['name' => 'sales', 'guard_name' => 'web'],
+            ['name' => 'supplier', 'guard_name' => 'web'],
+            ['name' => 'customer', 'guard_name' => 'web'],
+        ];
+
+        Role::insert($roles);
+
+        // Assign permissions
+        Role::findByName('admin')->givePermissionTo([
+            'dashboard view',
+            'master view',
+            'user view',
+            'user create',
+            'user edit',
+            'user delete',
+            'sales view',
+            'sales create',
+            'sales edit',
+            'sales delete',
+            'customer view',
+            'customer create',
+            'customer edit',
+            'customer delete',
+            'supplier view',
+            'supplier create',
+            'supplier edit',
+            'supplier delete',
+            'maid view',
+            'maid create',
+            'maid edit',
+            'maid delete',
+            'quotation view',
+            'quotation create',
+            'quotation edit',
+            'quotation delete',
+            'order view',
+            'order create',
+            'order edit',
+            'order delete',
+            'invoice view',
+            'invoice create',
+            'invoice edit',
+            'invoice delete',
+            'receipt view',
+            'receipt create',
+            'receipt edit',
+            'receipt delete',
+            'schedule view',
+            'schedule create',
+            'schedule edit',
+            'schedule delete',
+            'agreement view',
+            'agreement create',
+            'agreement edit',
+            'agreement delete',
+        ]);
+        Role::findByName('sales')->givePermissionTo([
+            'dashboard view',
+            'customer view',
+            'customer create',
+            'customer edit',
+            'customer delete',
+            'supplier view',
+            'supplier create',
+            'supplier edit',
+            'supplier delete',
+            'maid view',
+            'maid create',
+            'maid edit',
+            'maid delete',
+            'quotation view',
+            'quotation create',
+            'quotation edit',
+            'quotation delete',
+            'order view',
+            'order create',
+            'order edit',
+            'order delete',
+            'invoice view',
+            'invoice create',
+            'invoice edit',
+            'invoice delete',
+            'receipt view',
+            'receipt create',
+            'receipt edit',
+            'receipt delete',
+            'schedule view',
+            'schedule create',
+            'schedule edit',
+            'agreement view',
+            'agreement create',
+            'agreement edit',
+        ]);
+        Role::findByName('supplier')->givePermissionTo([
+            'dashboard view',
+            'maid view',
+            'maid create',
+            'maid edit',
+            'maid delete',
+        ]);
+        Role::findByName('customer')->givePermissionTo([
+            'dashboard view',
+            'maid view',
+        ]);
+    }
+}

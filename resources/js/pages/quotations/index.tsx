@@ -1,0 +1,508 @@
+import { ActionType } from '@/components/action-column';
+import { ColumnFilter } from '@/components/column-filter';
+import useConfirmDialog from '@/components/confirm-popup';
+import { DataTable } from '@/components/data-table';
+import { DateRangeFilter } from '@/components/date-range-filter';
+import { createSelectColumn } from '@/components/select-column';
+import { Badge } from '@/components/ui/badge';
+import AppLayout from '@/layouts/app-layout';
+import { formatCurrency } from '@/lib/utils';
+import {
+    create,
+    destroy,
+    edit,
+    getForShow,
+    index,
+    show,
+} from '@/routes/quotation';
+import { SharedData, type BreadcrumbItem } from '@/types';
+import { Head, router, usePage } from '@inertiajs/react';
+import { ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
+import QuotationPreviewModal from './components/quotation-preview-modal';
+import {
+    getAvailableQuotationActions,
+    QuotationStatusAction,
+} from './components/quotation-status-action';
+import { QuotationItemSchema } from './items/schema';
+import {
+    paymentMethods,
+    paymentPlans,
+    QuotationSchema,
+    statusColors,
+    statuses,
+} from './schema';
+
+interface QuotationsProps {
+    data: {
+        quotationsForDatatable: QuotationSchema[];
+        maids: [];
+        customers: [];
+    };
+}
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Quotation',
+        href: index().url,
+    },
+];
+
+const columns: ColumnDef<QuotationSchema>[] = [
+    createSelectColumn<QuotationSchema>(),
+    {
+        accessorKey: 'id',
+        header: 'ID',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'quotation_number',
+        header: 'Quotation No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const status = row.original.status ?? 'draft';
+            const label =
+                statuses.find((s) => s.value === status)?.label || status;
+            const color = statusColors[status as keyof typeof statusColors];
+
+            return (
+                <Badge className={`${color} rounded-full px-3 py-1 text-sm`}>
+                    {label}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'customer_id',
+        header: 'Customer ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'customer_number',
+        header: 'Customer No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'customer_name',
+        header: 'Customer Name',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'maid_id',
+        header: 'Maid ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'maid_number',
+        header: 'Maid No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'maid_name',
+        header: 'Maid Name',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'description',
+        header: 'Description',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'quotation_date',
+        header: 'Quotation Date',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+    {
+        accessorKey: 'expiry_date',
+        header: 'Expiry Date',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+    {
+        accessorKey: 'commencement_date',
+        header: 'Commencement Date',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+    {
+        accessorKey: 'monthly_salary',
+        header: 'Monthly Salary',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'loan_duration',
+        header: 'Loan Duration',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'rest_day_of_the_week',
+        header: 'Rest Day of the Week',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const d = row.getValue('rest_day_of_the_week');
+            const values = Array.isArray(d)
+                ? d
+                : typeof d === 'string'
+                  ? d.split(',').map((v) => v.trim())
+                  : [];
+
+            return (
+                <div className="flex flex-wrap gap-1">
+                    {values.map((value: string, index: number) => (
+                        <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs"
+                        >
+                            {value}
+                        </Badge>
+                    ))}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'rest_days_per_month',
+        header: 'Rest Days / Month',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'compensation_off_in_lieu',
+        header: 'Compensation Off in Lieu',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'items_count',
+        header: 'Items Count',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'total_amount',
+        header: 'Amount',
+        meta: { exportable: true },
+        cell: ({ row }) => formatCurrency(row.original.total_amount),
+    },
+    {
+        accessorKey: 'payment_plan',
+        header: 'Payment Plan',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const paymentPlan = row.original.payment_plan ?? 'full';
+            const label =
+                paymentPlans.find((s) => s.value === paymentPlan)?.label ||
+                paymentPlan;
+
+            return label;
+        },
+    },
+    {
+        accessorKey: 'payment_method',
+        header: 'Payment Method',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const paymentMethod = row.original.payment_method ?? 'transfer';
+            const label =
+                paymentMethods.find((s) => s.value === paymentMethod)?.label ||
+                paymentMethod;
+
+            return label;
+        },
+    },
+    {
+        accessorKey: 'created_at',
+        header: 'Created At',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+    {
+        accessorKey: 'updated_at',
+        header: 'Updated At',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+];
+
+export default function QuotationsIndex({ data }: QuotationsProps) {
+    const { auth } = usePage<SharedData>().props;
+    const userPermissions = auth.permissions || [];
+    const actions: ActionType[] = [];
+
+    if (userPermissions.includes('quotation create')) actions.push('add');
+    if (userPermissions.includes('quotation view'))
+        actions.push('preview', 'download');
+    if (userPermissions.includes('quotation delete')) actions.push('delete');
+
+    const hasEditPermission = userPermissions.includes('quotation edit');
+    const { quotationsForDatatable, maids, customers } = data;
+    const { confirm, ConfirmDialog } = useConfirmDialog();
+    const [
+        quotationStatusActionDialogOpen,
+        setQuotationStatusActionDialogOpen,
+    ] = useState(false);
+    const [quotationStatusActionType, setQuotationStatusActionType] = useState<
+        'accept' | 'convert' | 'reject' | 'expire' | null
+    >(null);
+    const [selectedQuotationForStatus, setSelectedQuotationForStatus] =
+        useState<QuotationSchema | null>(null);
+
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    const [selectedQuotationForPreview, setSelectedQuotationForPreview] =
+        useState<QuotationSchema | null>(null);
+    const [previewItems, setPreviewItems] = useState<QuotationItemSchema[]>([]);
+
+    const handleQuotationStatusAction = (
+        action: ActionType,
+        quotation: QuotationSchema,
+    ) => {
+        if (!hasEditPermission) {
+            return;
+        }
+
+        const determineStatusActionType = ():
+            | 'accept'
+            | 'convert'
+            | 'reject'
+            | 'expire' => {
+            if (action === 'quotation-status-accept') return 'accept';
+            if (action === 'quotation-status-convert') return 'convert';
+            if (action === 'quotation-status-reject') return 'reject';
+            return 'expire';
+        };
+
+        setQuotationStatusActionType(determineStatusActionType());
+        setSelectedQuotationForStatus(quotation);
+        setQuotationStatusActionDialogOpen(true);
+    };
+
+    const handlePreview = async (quotation: QuotationSchema) => {
+        try {
+            if (!quotation.id) return;
+
+            const response = await fetch(getForShow(quotation.id).url);
+            if (response.ok) {
+                const quotation = await response.json();
+                setSelectedQuotationForPreview(quotation);
+                setPreviewItems(quotation.items);
+            } else {
+                setSelectedQuotationForPreview(quotation);
+                setPreviewItems([]);
+            }
+
+            setPreviewModalOpen(true);
+        } catch (error) {
+            console.error('Error fetching quotation items:', error);
+            setPreviewItems([]);
+            setSelectedQuotationForPreview(quotation);
+            setPreviewModalOpen(true);
+        }
+    };
+
+    return (
+        <>
+            <AppLayout breadcrumbs={breadcrumbs}>
+                <Head title="Quotation" />
+                <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold">Quotation</h2>
+                    </div>
+
+                    <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                        <DataTable
+                            columns={columns}
+                            data={quotationsForDatatable}
+                            actions={actions}
+                            getRowActions={(q) => {
+                                const rowActions: ActionType[] = [];
+
+                                if (hasEditPermission && !q.have_invoices) {
+                                    rowActions.push('edit');
+                                }
+
+                                if (hasEditPermission) {
+                                    const statusActions =
+                                        getAvailableQuotationActions(
+                                            q.status,
+                                        ).map(
+                                            (s) =>
+                                                `quotation-status-${s}` as ActionType,
+                                        );
+                                    rowActions.push(...statusActions);
+                                }
+
+                                return rowActions;
+                            }}
+                            url={index().url}
+                            onAction={(action, row) => {
+                                if (action === 'add') {
+                                    router.get(create().url);
+                                }
+
+                                const quotationId = row?.original.id;
+
+                                if (quotationId !== undefined) {
+                                    if (action === 'view') {
+                                        router.get(show(quotationId).url);
+                                    } else if (action === 'preview') {
+                                        handlePreview(row!.original);
+                                    } else if (action === 'download') {
+                                        (async () => {
+                                            try {
+                                                const response = await fetch(
+                                                    `/quotation/${quotationId}/generate-pdf`,
+                                                );
+                                                if (!response.ok)
+                                                    throw new Error(
+                                                        'Failed to generate PDF',
+                                                    );
+                                                const blob =
+                                                    await response.blob();
+                                                const url =
+                                                    globalThis.URL.createObjectURL(
+                                                        blob,
+                                                    );
+
+                                                // Open in new tab
+                                                globalThis.open(url, '_blank');
+
+                                                // Trigger download
+                                                const link =
+                                                    document.createElement('a');
+                                                link.href = url;
+                                                link.download = `quotation-${row?.original.quotation_number}.pdf`;
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                link.remove();
+                                            } catch (error) {
+                                                console.error(
+                                                    'Error opening PDF:',
+                                                    error,
+                                                );
+                                            }
+                                        })();
+                                    } else if (action === 'edit') {
+                                        router.get(edit(quotationId).url);
+                                    } else if (
+                                        action.startsWith('quotation-status-')
+                                    ) {
+                                        handleQuotationStatusAction(
+                                            action,
+                                            row!.original,
+                                        );
+                                        return;
+                                    } else if (action === 'delete') {
+                                        confirm({
+                                            title: 'Delete Quotation',
+                                            message: `Are you sure you want to delete quotation "${row?.original.quotation_number}"?`,
+                                            confirmText: 'Delete',
+                                            cancelText: 'Cancel',
+                                            onConfirm: () => {
+                                                router.delete(
+                                                    destroy(quotationId).url,
+                                                );
+                                            },
+                                        });
+                                    }
+                                }
+                            }}
+                            initialState={{
+                                pagination: {
+                                    pageSize: 50,
+                                    pageIndex: 0,
+                                },
+                                columnVisibility: {
+                                    id: false,
+                                    customer_id: false,
+                                    customer_number: false,
+                                    maid_id: false,
+                                    maid_number: false,
+                                    maid_name: false,
+                                    description: false,
+                                    expiry_date: false,
+                                    commencement_date: false,
+                                    monthly_salary: false,
+                                    loan_duration: false,
+                                    rest_day_of_the_week: false,
+                                    rest_days_per_month: false,
+                                    compensation_off_in_lieu: false,
+                                    items_count: false,
+                                    payment_plan: false,
+                                    payment_method: false,
+                                    created_at: false,
+                                    updated_at: false,
+                                },
+                            }}
+                            renderFilter={(table) => (
+                                <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="status"
+                                        title="Status"
+                                        options={statuses}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="customer_id"
+                                        title="Customer"
+                                        options={customers}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="maid_id"
+                                        title="Maid"
+                                        options={maids}
+                                    />
+                                    <DateRangeFilter
+                                        table={table}
+                                        columnId="quotation_date"
+                                        title="Quotation Date"
+                                        quickDate={true}
+                                    />
+                                    <DateRangeFilter
+                                        table={table}
+                                        columnId="created_at"
+                                        title="Created At"
+                                        quickDate={true}
+                                    />
+                                </>
+                            )}
+                        />
+                    </div>
+                </div>
+            </AppLayout>
+
+            <ConfirmDialog />
+
+            {selectedQuotationForStatus && (
+                <QuotationStatusAction
+                    quotationId={selectedQuotationForStatus.id}
+                    action={quotationStatusActionType ?? null}
+                    isOpen={quotationStatusActionDialogOpen}
+                    onClose={() => {
+                        setQuotationStatusActionDialogOpen(false);
+                        setQuotationStatusActionType(null);
+                        setSelectedQuotationForStatus(null);
+                    }}
+                />
+            )}
+
+            {/* Preview Modal */}
+            {previewModalOpen && selectedQuotationForPreview && (
+                <QuotationPreviewModal
+                    data={selectedQuotationForPreview}
+                    items={previewItems}
+                    open={previewModalOpen}
+                    onOpenChange={setPreviewModalOpen}
+                />
+            )}
+        </>
+    );
+}

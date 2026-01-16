@@ -1,0 +1,149 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Invoice;
+use App\Helpers\FormatService;
+use Illuminate\Support\Facades\DB;
+
+class InvoiceService
+{
+    protected $formatService, $quotationItemService;
+
+    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService)
+    {
+        $this->formatService = $formatService;
+        $this->quotationItemService = $quotationItemService;
+    }
+
+    public function get()
+    {
+        return Invoice::with('order')->get();
+    }
+
+    public function getForDataTable()
+    {
+        return Invoice::with('order')->orderBy('invoice_number', 'desc')->get()->map(function ($i) {
+            return [
+                'id' => $i->id,
+                'invoice_number' => $i->invoice_number,
+                'quotation_id' => $i->order->quotation->id,
+                'quotation_number' => $i->order->quotation->quotation_number,
+                'order_id' => $i->order_id,
+                'order_number' => $i->order->order_number,
+                'customer_id' => $i->order->quotation->customer->id,
+                'customer_number' => $i->order->quotation->customer->customer_number,
+                'customer_name' => $i->order->quotation->customer->user->name,
+                'type' => $i->type,
+                'description' => $i->description,
+                'amount' => $this->formatService->cleanDecimal($i->amount),
+                'invoice_date' => $i->invoice_date_formatted,
+                'due_date' => $i->due_date_formatted,
+                'status' => $i->status,
+            ];
+        });
+    }
+
+    public function getForFilter()
+    {
+        return Invoice::get()->map(fn($i) => [
+            'value' => $i->id,
+            'label' => $i->invoice_number,
+        ]);
+    }
+
+    public function store(array $data): Invoice
+    {
+        return DB::transaction(function () use ($data) {
+            $invoice = Invoice::create([
+                'order_id' => $data['order_id'],
+                'type' => $data['type'] ?? null,
+                'description' => $data['description'],
+                'amount' => $data['amount'],
+                'invoice_date' => $data['invoice_date'],
+                'due_date' => $data['due_date'] ?? null,
+                'status' => $data['status'] ?? 'issued',
+            ]);
+
+            if (!empty($data['items'])) {
+                $quotationItemIds = $this->quotationItemService->replaceQuotationItems($invoice->order->quotation->id, $data['items']);
+                if (!empty($quotationItemIds)) {
+                    $invoice->quotationItems()->sync($quotationItemIds);
+                }
+            }
+
+            return $invoice;
+        });
+    }
+
+    public function getForEditShow($id)
+    {
+        $i = Invoice::with('order')->findOrFail($id);
+
+        return [
+            'id' => $i->id,
+            'invoice_number' => $i->invoice_number,
+            'customer_id' => $i->order->quotation->customer->id,
+            'customer_number' => $i->order->quotation->customer->customer_number,
+            'customer_name' => $i->order->quotation->customer->user->name,
+            'customer_email' => $i->order->quotation->customer->user->email,
+            'customer_contact' => $i->order->quotation->customer->user->contact,
+            'customer_address' => $i->order->quotation->customer->address,
+            'order_id' => $i->order_id,
+            'order_number' => $i->order->order_number,
+            'maid_id' => $i->order->quotation->maid_id,
+            'maid_name' => $i->order->quotation->maid->name,
+            'type' => $i->type,
+            'description' => $i->description,
+            'amount' => $this->formatService->cleanDecimal($i->amount),
+            'payment_plan' => $i->order->quotation->payment_plan,
+            'payment_method' => $i->order->quotation->payment_method,
+            'placement_fee' => $this->formatService->cleanDecimal($i->order->quotation->total_amount),
+            'invoice_date' => $i->invoice_date_formatted,
+            'due_date' => $i->due_date_formatted,
+            'status' => $i->status,
+            'items' => $i->quotationItems->map(fn($item) => [
+                'id' => $item->id,
+                'quotation_id' => $item->quotation_id,
+                'parent_id' => $item->parent_id,
+                'type' => $item->type,
+                'description' => $item->description,
+                'is_header' => $item->is_header,
+                'is_placement_fee' => $item->is_placement_fee,
+                'quantity' => $this->formatService->cleanDecimal($item->quantity),
+                'rate' => $this->formatService->cleanDecimal($item->rate),
+                'sort_order' => $item->sort_order,
+            ]),
+        ];
+    }
+
+    public function update(array $data, int $id): Invoice
+    {
+        return DB::transaction(function () use ($data, $id) {
+            $invoice = Invoice::where('order_id', $data['order_id'] ?? null)->with('order.quotation')->findOrFail($id);
+
+            $invoice->update([
+                'type' => $data['type'] ?? null,
+                'description' => $data['description'],
+                'amount' => $data['amount'],
+                'invoice_date' => $data['invoice_date'],
+                'due_date' => $data['due_date'] ?? null,
+                'status' => $data['status'] ?? 'issued',
+            ]);
+
+            if (array_key_exists('items', $data)) {
+                $quotationItemIds = $this->quotationItemService->replaceQuotationItems($invoice->order->quotation->id, $data['items']);
+                if (!empty($quotationItemIds)) {
+                    $invoice->quotationItems()->sync($quotationItemIds);
+                }
+            }
+
+            return $invoice;
+        });
+    }
+
+    public function delete($id)
+    {
+        return Invoice::find($id)?->delete() ?? false;
+    }
+}

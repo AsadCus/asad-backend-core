@@ -1,0 +1,63 @@
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Row } from '@tanstack/react-table';
+import { EllipsisVertical } from 'lucide-react';
+import { ActionMenuItems } from './action-menu-items';
+
+export type ActionType =
+    | 'add'
+    | 'preview'
+    | 'view'
+    | 'edit'
+    | 'delete'
+    | 'download'
+    | 'handle-customer'
+    | 'select-maid'
+    | 'recommend-maid'
+    | 'create-quotation'
+    | 'maid-status-schedule'
+    | 'maid-status-complete'
+    | 'maid-status-finalize'
+    | 'maid-status-cancel'
+    | 'maid-status-update'
+    | 'set-default-year'
+    | 'quotation-create'
+    | 'quotation-status-accept'
+    | 'quotation-status-convert'
+    | 'quotation-status-reject'
+    | 'quotation-status-expire';
+
+interface ActionColumnProps<TData> {
+    row: Row<TData> | TData;
+    actions?: ActionType[];
+    onAction?: (action: ActionType, row: Row<TData> | TData) => void;
+}
+
+export function ActionColumn<TData>({
+    row,
+    actions = [],
+    onAction,
+}: ActionColumnProps<TData>) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <EllipsisVertical className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <ActionMenuItems
+                    row={row}
+                    actions={actions}
+                    onAction={onAction}
+                    mode="dropdown"
+                />
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}

@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Models;
+
+use App\Helpers\NumberGenerator;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+
+class Invoice extends Model
+{
+    protected $fillable = [
+        'order_id',
+        'invoice_number',
+        'type',
+        'description',
+        'amount',
+        'invoice_date',
+        'due_date',
+        'status',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'invoice_date' => 'date',
+        'due_date' => 'date',
+    ];
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function quotationItems(): BelongsToMany
+    {
+        return $this->belongsToMany(QuotationItem::class, 'invoice_items');
+    }
+
+    public function receipt(): HasMany
+    {
+        return $this->hasMany(Receipt::class, 'invoice_id');
+    }
+
+    public function invoiceNotes(): HasMany
+    {
+        return $this->hasMany(InvoiceNotes::class);
+    }
+
+    public function outstandingAmount(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $totalPaid = $this->receipt->sum('amount');
+                return max(0, (float)$this->amount - (float)$totalPaid);
+            }
+        );
+    }
+
+    // Formatting Helpers
+    public function getInvoiceDateFormattedAttribute(): ?string
+    {
+        return $this->invoice_date
+            ? Carbon::parse($this->invoice_date)->translatedFormat('d F Y')
+            : null;
+    }
+
+    public function getDueDateFormattedAttribute(): ?string
+    {
+        return $this->due_date
+            ? Carbon::parse($this->due_date)->translatedFormat('d F Y')
+            : null;
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($invoice) {
+            if (empty($invoice->invoice_number)) {
+                $invoice->invoice_number = NumberGenerator::generate('invoice');
+            }
+        });
+    }
+}

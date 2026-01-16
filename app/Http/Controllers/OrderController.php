@@ -1,0 +1,106 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Inertia\Inertia;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Services\OrderService;
+use App\Services\QuotationService;
+use App\Http\Controllers\Controller;
+use App\Rules\OrderRule;
+use App\Services\CustomerService;
+
+class OrderController extends Controller
+{
+    protected $orderService, $quotationService, $orderRule, $customerService;
+
+    public function __construct(OrderService $orderService, QuotationService $quotationService, OrderRule $orderRule, CustomerService $customerService)
+    {
+        $this->orderService = $orderService;
+        $this->quotationService = $quotationService;
+        $this->orderRule = $orderRule;
+        $this->customerService = $customerService;
+    }
+
+    public function index()
+    {
+        $data['ordersForDatatable'] = $this->orderService->getForDataTable();
+        $data['quotationOptions'] = $this->quotationService->getForFilter();
+        $data['orderOptions'] = $this->orderService->getForFilter();
+        $data['customerOptions'] = $this->customerService->getForFilter();
+        $data['quotationCanOrderOptions'] = $this->quotationService->getCanCreateOrderForFilter();
+
+        return Inertia::render('orders/index', [
+            'data' => $data,
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        if ($request['quotation_id']) {
+            $data['quotation'] = $this->quotationService->getForEditShow($request['quotation_id']);
+
+            return Inertia::render('orders/create', [
+                'data' => $data,
+            ]);
+        } else {
+            return redirect()->route('order.index')->with('error', 'Select quotation first to create order');
+        }
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate($this->orderRule->rules());
+        $this->orderService->store($validated);
+
+        return redirect()->route('invoice.index')->with('success', 'Invoices created successfully.');
+    }
+
+    public function show($id)
+    {
+        $data['data'] = $this->orderService->getForEditShow($id);
+        $data['quotation'] = $this->quotationService->getForEditShow($data['data']['quotation_id']);
+
+        return Inertia::render('orders/view', [
+            'data' => $data,
+        ]);
+    }
+
+    public function edit($id)
+    {
+        $data['data'] = $this->orderService->getForEditShow($id);
+        $data['quotation'] = $this->quotationService->getForEditShow($data['data']['quotation_id']);
+
+        return Inertia::render('orders/edit', [
+            'data' => $data,
+        ]);
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $validated = $request->validate($this->orderRule->rules($id));
+        $this->orderService->update($validated, $id);
+
+        // return redirect()->route('order.index')->with('success', 'Order updated successfully.');
+        return redirect()->route('invoice.index')->with('success', 'Invoices updated successfully.');
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $ids = $request->input('ids');
+
+        if ($ids && is_array($ids)) {
+            foreach ($ids as $deleteId) {
+                $this->orderService->delete($deleteId);
+            }
+            return redirect()->route('order.index')
+                ->with('success', 'Selected orders deleted successfully.');
+        }
+
+        $this->orderService->delete($id);
+
+        return redirect()->route('order.index')
+            ->with('success', 'Order deleted successfully.');
+    }
+}

@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Inertia\Inertia;
+use Illuminate\Http\Request;
+use App\Services\OrderService;
+use App\Services\InvoiceService;
+use App\Http\Controllers\Controller;
+use App\Services\CustomerService;
+use App\Services\QuotationService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log;
+
+class InvoiceController extends Controller
+{
+    protected $invoiceService, $orderService, $quotationService, $customerService;
+
+    public function __construct(InvoiceService $invoiceService, OrderService $orderService, QuotationService $quotationService, CustomerService $customerService)
+    {
+        $this->invoiceService = $invoiceService;
+        $this->orderService = $orderService;
+        $this->quotationService = $quotationService;
+        $this->customerService = $customerService;
+    }
+
+    public function index()
+    {
+        $data['invoicesForDatatable'] = $this->invoiceService->getForDataTable();
+        $data['quotationOptions'] = $this->quotationService->getForFilter();
+        $data['orderOptions'] = $this->orderService->getForFilter();
+        $data['customerOptions'] = $this->customerService->getForFilter();
+
+        return Inertia::render('invoices/index', [
+            'data' => $data,
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        if ($request['quotation_id']) {
+            $data['quotation'] = $this->quotationService->getForEditShow($request['quotation_id']);
+
+            return Inertia::render('invoices/create', [
+                'data' => $data,
+            ]);
+        } else {
+            return redirect()->route('invoice.index')->with('error', 'Select order first to create invoice');
+        }
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'order_id' => 'required|exists:orders,id',
+            'description' => 'nullable|string',
+        ]);
+
+        $this->invoiceService->store($validated);
+
+        return redirect()->route('invoice.index')
+            ->with('success', 'Invoice created successfully.');
+    }
+
+    public function show($id)
+    {
+        $data['data'] = $this->invoiceService->getForEditShow($id);
+        $data['order'] = $this->orderService->getForEditShow($data['data']['id']);
+        $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
+
+        return Inertia::render('invoices/view', [
+            'data' => $data,
+        ]);
+    }
+
+    public function getForShow($id)
+    {
+        return response()->json($this->invoiceService->getForEditShow($id));
+    }
+
+    public function edit($id)
+    {
+        $data['data'] = $this->invoiceService->getForEditShow($id);
+        $data['order'] = $this->orderService->getForEditShow($data['data']['id']);
+        $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
+
+        return Inertia::render('invoices/edit', [
+            'data' => $data,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'order_id' => 'required|exists:orders,id',
+            'description' => 'nullable|string',
+        ]);
+
+        $this->invoiceService->update($validated, $id);
+
+        return redirect()->route('invoice.index')
+            ->with('success', 'Invoice updated successfully.');
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $ids = $request->input('ids');
+
+        if ($ids && is_array($ids)) {
+            foreach ($ids as $deleteId) {
+                $this->invoiceService->delete($deleteId);
+            }
+            return redirect()->route('invoice.index')
+                ->with('success', 'Selected invoices deleted successfully.');
+        }
+
+        $this->invoiceService->delete($id);
+
+        return redirect()->route('invoice.index')
+            ->with('success', 'Invoice deleted successfully.');
+    }
+
+    public function generatePdf($id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $invoice = $this->invoiceService->getForEditShow($id);
+
+            $html = view('invoices.pdf', [
+                'data' => $invoice,
+                'items' => $invoice['items'],
+            ])->render();
+
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96);
+
+            return $pdf->stream($invoice['invoice_number'] . '.pdf');
+        } catch (\Exception $e) {
+            Log::error('Invoice PDF Generation Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+        }
+    }
+}
