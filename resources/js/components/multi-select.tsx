@@ -866,7 +866,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                 getAllOptions().length
                             } options selected. ${placeholder}`}
                             className={cn(
-                                'flex h-auto min-h-9 items-center justify-between rounded-md border bg-inherit p-1 hover:bg-inherit [&_svg]:pointer-events-auto',
+                                'flex h-auto min-h-9 items-center justify-between rounded-md border bg-inherit px-3 py-1 hover:bg-inherit [&_svg]:pointer-events-auto',
                                 autoSize ? 'w-auto' : 'w-full',
                                 responsiveSettings.compactMode &&
                                     'min-h-8 text-sm',
@@ -1083,26 +1083,26 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                                 }
                                             }}
                                             aria-label={`Clear all ${selectedValues.length} selected options`}
-                                            className="mx-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:outline-none"
+                                            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:outline-none"
                                         >
                                             <XIcon className="h-4 w-4" />
                                         </div>
                                         <Separator
                                             orientation="vertical"
-                                            className="flex h-full min-h-6"
+                                            className="mx-1 flex h-full min-h-6"
                                         />
                                         <ChevronDown
-                                            className="mx-1 h-4 cursor-pointer text-muted-foreground"
+                                            className="h-4 cursor-pointer text-muted-foreground"
                                             aria-hidden="true"
                                         />
                                     </div>
                                 </div>
                             ) : (
                                 <div className="mx-auto flex w-full items-center justify-between">
-                                    <span className="mx-2 text-sm font-normal text-muted-foreground">
+                                    <span className="text-sm font-normal text-muted-foreground">
                                         {placeholder}
                                     </span>
-                                    <ChevronDown className="mx-1 h-4 cursor-pointer text-muted-foreground" />
+                                    <ChevronDown className="h-4 cursor-pointer text-muted-foreground" />
                                 </div>
                             )}
                         </Button>
@@ -1151,65 +1151,128 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                     navigate results.
                                 </div>
                             )}
-                            <CommandList
-                                className={cn(
-                                    'multiselect-scrollbar max-h-[40vh] overflow-y-auto',
-                                    screenSize === 'mobile' && 'max-h-[50vh]',
-                                    'overscroll-behavior-y-contain',
-                                )}
-                            >
-                                <CommandEmpty>
-                                    {emptyIndicator || 'No results found.'}
-                                </CommandEmpty>{' '}
-                                {!hideSelectAll && !searchValue && (
-                                    <CommandGroup>
-                                        <CommandItem
-                                            key="all"
-                                            onSelect={toggleAll}
-                                            role="option"
-                                            aria-selected={
-                                                selectedValues.length ===
-                                                getAllOptions().filter(
-                                                    (opt) => !opt.disabled,
-                                                ).length
-                                            }
-                                            aria-label={`Select all ${
-                                                getAllOptions().length
-                                            } options`}
-                                            className="cursor-pointer"
-                                        >
-                                            <div
-                                                className={cn(
-                                                    'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
+                            <CommandList className="max-h-[unset] overflow-y-hidden">
+                                <div
+                                    className={cn(
+                                        'multiselect-scrollbar max-h-[30vh] overflow-y-auto',
+                                        screenSize === 'mobile' &&
+                                            'max-h-[40vh]',
+                                        'overscroll-behavior-y-contain',
+                                    )}
+                                >
+                                    <CommandEmpty>
+                                        {emptyIndicator || 'No results found.'}
+                                    </CommandEmpty>{' '}
+                                    {!hideSelectAll && !searchValue && (
+                                        <CommandGroup>
+                                            <CommandItem
+                                                key="all"
+                                                onSelect={toggleAll}
+                                                role="option"
+                                                aria-selected={
                                                     selectedValues.length ===
-                                                        getAllOptions().filter(
-                                                            (opt) =>
-                                                                !opt.disabled,
-                                                        ).length
-                                                        ? 'bg-primary text-primary-foreground'
-                                                        : 'opacity-50 [&_svg]:invisible',
-                                                )}
-                                                aria-hidden="true"
+                                                    getAllOptions().filter(
+                                                        (opt) => !opt.disabled,
+                                                    ).length
+                                                }
+                                                aria-label={`Select all ${
+                                                    getAllOptions().length
+                                                } options`}
+                                                className="cursor-pointer"
                                             >
-                                                <CheckIcon className="h-4 w-4 text-primary-foreground" />
-                                            </div>
-                                            <span>
-                                                (Select All
-                                                {getAllOptions().length > 20
-                                                    ? ` - ${getAllOptions().length} options`
-                                                    : ''}
-                                                )
-                                            </span>
-                                        </CommandItem>
-                                    </CommandGroup>
-                                )}
-                                {isGroupedOptions(filteredOptions) ? (
-                                    filteredOptions.map((group) => (
-                                        <CommandGroup
-                                            key={group.heading}
-                                            heading={group.heading}
-                                        >
-                                            {group.options.map((option) => {
+                                                <div
+                                                    className={cn(
+                                                        'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
+                                                        selectedValues.length ===
+                                                            getAllOptions().filter(
+                                                                (opt) =>
+                                                                    !opt.disabled,
+                                                            ).length
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'opacity-50 [&_svg]:invisible',
+                                                    )}
+                                                    aria-hidden="true"
+                                                >
+                                                    <CheckIcon className="h-4 w-4 text-primary-foreground" />
+                                                </div>
+                                                <span>
+                                                    (Select All
+                                                    {getAllOptions().length > 20
+                                                        ? ` - ${getAllOptions().length} options`
+                                                        : ''}
+                                                    )
+                                                </span>
+                                            </CommandItem>
+                                        </CommandGroup>
+                                    )}
+                                    {isGroupedOptions(filteredOptions) ? (
+                                        filteredOptions.map((group) => (
+                                            <CommandGroup
+                                                key={group.heading}
+                                                heading={group.heading}
+                                            >
+                                                {group.options.map((option) => {
+                                                    const isSelected =
+                                                        selectedValues.includes(
+                                                            option.value,
+                                                        );
+                                                    return (
+                                                        <CommandItem
+                                                            key={option.value}
+                                                            onSelect={() =>
+                                                                toggleOption(
+                                                                    option.value,
+                                                                )
+                                                            }
+                                                            role="option"
+                                                            aria-selected={
+                                                                isSelected
+                                                            }
+                                                            aria-disabled={
+                                                                option.disabled
+                                                            }
+                                                            aria-label={`${option.label}${
+                                                                isSelected
+                                                                    ? ', selected'
+                                                                    : ', not selected'
+                                                            }${option.disabled ? ', disabled' : ''}`}
+                                                            className={cn(
+                                                                'cursor-pointer',
+                                                                option.disabled &&
+                                                                    'cursor-not-allowed opacity-50',
+                                                            )}
+                                                            disabled={
+                                                                option.disabled
+                                                            }
+                                                        >
+                                                            <div
+                                                                className={cn(
+                                                                    'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
+                                                                    isSelected
+                                                                        ? 'bg-primary text-primary-foreground'
+                                                                        : 'opacity-50 [&_svg]:invisible',
+                                                                )}
+                                                                aria-hidden="true"
+                                                            >
+                                                                <CheckIcon className="h-4 w-4 text-primary-foreground" />
+                                                            </div>
+                                                            {option.icon && (
+                                                                <option.icon
+                                                                    className="mr-2 h-4 w-4 text-muted-foreground"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            )}
+                                                            <span>
+                                                                {option.label}
+                                                            </span>
+                                                        </CommandItem>
+                                                    );
+                                                })}
+                                            </CommandGroup>
+                                        ))
+                                    ) : (
+                                        <CommandGroup>
+                                            {filteredOptions.map((option) => {
                                                 const isSelected =
                                                     selectedValues.includes(
                                                         option.value,
@@ -1267,62 +1330,8 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                                 );
                                             })}
                                         </CommandGroup>
-                                    ))
-                                ) : (
-                                    <CommandGroup>
-                                        {filteredOptions.map((option) => {
-                                            const isSelected =
-                                                selectedValues.includes(
-                                                    option.value,
-                                                );
-                                            return (
-                                                <CommandItem
-                                                    key={option.value}
-                                                    onSelect={() =>
-                                                        toggleOption(
-                                                            option.value,
-                                                        )
-                                                    }
-                                                    role="option"
-                                                    aria-selected={isSelected}
-                                                    aria-disabled={
-                                                        option.disabled
-                                                    }
-                                                    aria-label={`${option.label}${
-                                                        isSelected
-                                                            ? ', selected'
-                                                            : ', not selected'
-                                                    }${option.disabled ? ', disabled' : ''}`}
-                                                    className={cn(
-                                                        'cursor-pointer',
-                                                        option.disabled &&
-                                                            'cursor-not-allowed opacity-50',
-                                                    )}
-                                                    disabled={option.disabled}
-                                                >
-                                                    <div
-                                                        className={cn(
-                                                            'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
-                                                            isSelected
-                                                                ? 'bg-primary text-primary-foreground'
-                                                                : 'opacity-50 [&_svg]:invisible',
-                                                        )}
-                                                        aria-hidden="true"
-                                                    >
-                                                        <CheckIcon className="h-4 w-4 text-primary-foreground" />
-                                                    </div>
-                                                    {option.icon && (
-                                                        <option.icon
-                                                            className="mr-2 h-4 w-4 text-muted-foreground"
-                                                            aria-hidden="true"
-                                                        />
-                                                    )}
-                                                    <span>{option.label}</span>
-                                                </CommandItem>
-                                            );
-                                        })}
-                                    </CommandGroup>
-                                )}
+                                    )}
+                                </div>
                                 <CommandSeparator />
                                 <CommandGroup>
                                     <div className="flex items-center justify-between">
