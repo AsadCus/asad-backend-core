@@ -97,6 +97,11 @@ class QuotationController extends Controller
 
         $this->noteService->sync($validatedNotes['model'], $quotation->id, $validatedNotes['notes']);
 
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+            ->log('Quotation created successfully #' . $quotation->quotation_number);
+
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation created successfully.');
     }
@@ -142,20 +147,35 @@ class QuotationController extends Controller
 
         $this->noteService->sync($validatedNotes['model'], $quotation->id, $validatedNotes['notes']);
 
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+            ->log('Quotation updated successfully #' . $quotation->quotation_number);
+
         return redirect()->route('quotation.index')
-            ->with('success', 'Quotation updated successfully.');
+            ->with('success', 'Quotation updated successfully');
     }
 
     public function readyQuotation($id)
     {
-        $this->quotationService->ready($id);
+        $quotation = $this->quotationService->ready($id);
+
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number, 'status' => 'sent'])
+            ->log('Quotation marked as sent successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')->with('success', 'Quotation marked as sent successfully.');
     }
 
     public function acceptQuotation($id, Request $request)
     {
-        $this->quotationService->accept($id);
+        $quotation = $this->quotationService->accept($id);
+
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+            ->log('Quotation accepted successfully #' . $quotation->quotation_number);
 
         return redirect()->route('invoice.create', ['quotation_id' => $request['quotation_id']])->with('success', 'Quotation accepted successfully.');
     }
@@ -169,13 +189,23 @@ class QuotationController extends Controller
             $quotation->maid->refresh();
         }
 
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+            ->log('Quotation rejected successfully #' . $quotation->quotation_number);
+
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation rejected successfully.');
     }
 
     public function expireQuotation($id)
     {
-        $this->quotationService->expire($id);
+        $quotation = $this->quotationService->expire($id);
+
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+            ->log('Quotation expired successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation ended successfully.');
@@ -192,6 +222,10 @@ class QuotationController extends Controller
                     $this->maidService->revertMaidToAvailable($quotation->maid_id);
                 }
                 $this->quotationService->delete($deleteId);
+                activity()
+                    ->performedOn($quotation)
+                    ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+                    ->log('Quotation deleted successfully #' . $quotation->quotation_number);
             }
             return redirect()->route('quotation.index')
                 ->with('success', 'Selected quotations deleted successfully.');
@@ -203,6 +237,11 @@ class QuotationController extends Controller
             $quotation->maid->refresh();
         }
         $this->quotationService->delete($id);
+
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+            ->log('Quotation deleted successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation deleted successfully.');

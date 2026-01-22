@@ -131,6 +131,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Agreement - Generated from Quotation (no database table)
     Route::get('agreement', [AgreementController::class, 'index'])->name('agreement.index');
     Route::get('agreement/{quotation}/export-pdf', [AgreementController::class, 'exportPdf'])->name('agreement.export-pdf');
+
+    // User Logs
+    Route::get('user-logs', [App\Http\Controllers\UserLogsController::class, 'index'])->name('user-logs.index');
 });
 
 Route::fallback(function () {
