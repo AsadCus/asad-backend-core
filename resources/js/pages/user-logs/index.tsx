@@ -14,7 +14,7 @@ interface ActivityLog {
     subject_type: string;
     subject_id: number;
     causer_id: number | null;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     created_at: string;
     updated_at: string;
 }
