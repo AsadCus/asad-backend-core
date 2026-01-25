@@ -4,7 +4,7 @@ import { createSelectColumn } from '@/components/select-column';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
 import { index as userIndex } from '@/routes/master/user';
-import { index } from '@/routes/master/user/admin';
+import { create, index } from '@/routes/master/user/admin';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -71,7 +71,13 @@ export default function Admin({ dataUser }: AdminProps) {
                         columns={columns}
                         data={dataUser}
                         actions={actions}
+                        url={index().url}
                         onAction={(action, row) => {
+                            if (action === 'add') {
+                                router.get(create().url);
+                                return;
+                            }
+
                             const userId = row?.original.id;
 
                             if (userId !== undefined) {

@@ -18,7 +18,7 @@ import maid from '@/routes/maid';
 import master from '@/routes/master';
 import branch from '@/routes/master/branch';
 import financialYear from '@/routes/master/financial-year';
-import user from '@/routes/master/user';
+import user, { create as createUser } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
 import masterSales from '@/routes/master/user/sales';
@@ -76,28 +76,31 @@ export function AppSidebar() {
                       icon: FileText,
                       subItems: [
                           {
+                              title: 'Add New User',
+                              href: createUser().url,
+                              icon: User,
+                          },
+                          {
                               title: 'User Management',
                               href: user.index.url(),
                               icon: User,
                               subItems: [
                                   {
-                                      title: 'Admin',
+                                      title: 'Administrator',
                                       href: masterAdmin.index.url(),
                                   },
                                   {
                                       title: 'Sales',
                                       href: masterSales.index.url(),
-                                      //   href: sales.index.url(),
+                                  },
+
+                                  {
+                                      title: 'Customer',
+                                      href: masterCustomer.index.url(),
                                   },
                                   {
                                       title: 'Supplier',
                                       href: masterSupplier.index.url(),
-                                      //   href: supplier.index.url(),
-                                  },
-                                  {
-                                      title: 'Customer',
-                                      href: masterCustomer.index.url(),
-                                      //   href: customer.index.url(),
                                   },
                               ],
                           },
@@ -107,7 +110,7 @@ export function AppSidebar() {
                               icon: Map,
                           },
                           {
-                              title: 'Financial Year',
+                              title: 'Fiscal Year',
                               href: financialYear.index.url(),
                               icon: Landmark,
                           },
@@ -124,22 +127,14 @@ export function AppSidebar() {
                   {
                       title: 'Sales',
                       icon: Handshake,
-                      href: sales.index.url(),
+                      ...(permissions.includes('sales view')
+                          ? { href: sales.index.url() }
+                          : {}),
                       subItems: [
-                          //   ...(permissions.includes('sales view')
-                          //       ? [
-                          //             {
-                          //                 title: 'Sales User',
-                          //                 icon: FileUser,
-                          //                 href: sales.index.url(),
-                          //             },
-                          //         ]
-                          //       : []),
-
                           ...(permissions.includes('quotation view')
                               ? [
                                     {
-                                        title: 'Product & Service',
+                                        title: 'Products and Services',
                                         icon: ListOrdered,
                                         href: quotationItem.index.url(),
                                     },
@@ -147,12 +142,6 @@ export function AppSidebar() {
                                         title: 'Quotation',
                                         icon: ReceiptText,
                                         href: quotation.index.url(),
-                                        // subItems: [
-                                        //     {
-                                        //         title: 'Items',
-                                        //         icon: ListOrdered,
-                                        //     },
-                                        // ],
                                     },
                                 ]
                               : []),
@@ -162,12 +151,6 @@ export function AppSidebar() {
                                         title: 'Order',
                                         icon: TicketCheck,
                                         href: order.index.url(),
-                                        // subItems: [
-                                        //     {
-                                        //         title: 'Items',
-                                        //         icon: ListOrdered,
-                                        //     },
-                                        // ],
                                     },
                                 ]
                               : []),
@@ -177,12 +160,6 @@ export function AppSidebar() {
                                         title: 'Invoice',
                                         icon: Receipt,
                                         href: invoice.index.url(),
-                                        // subItems: [
-                                        //     {
-                                        //         title: 'Items',
-                                        //         icon: ListOrdered,
-                                        //     },
-                                        // ],
                                     },
                                 ]
                               : []),
@@ -192,12 +169,6 @@ export function AppSidebar() {
                                         title: 'Receipt',
                                         icon: Wallet,
                                         href: receipt.index.url(),
-                                        // subItems: [
-                                        //     {
-                                        //         title: 'Items',
-                                        //         icon: ListOrdered,
-                                        //     },
-                                        // ],
                                     },
                                 ]
                               : []),
@@ -226,7 +197,7 @@ export function AppSidebar() {
         ...(permissions.includes('maid view') && !roles.includes('customer')
             ? [
                   {
-                      title: 'Maid',
+                      title: 'Maid Profile',
                       href: maid.index.url(),
                       icon: HeartHandshake,
                   },
@@ -242,7 +213,7 @@ export function AppSidebar() {
                           ...(permissions.includes('schedule view')
                               ? [
                                     {
-                                        title: 'Schedule',
+                                        title: 'Payment Schedule',
                                         icon: Calendar,
                                         href: schedule.index.url(),
                                     },
@@ -251,7 +222,7 @@ export function AppSidebar() {
                           ...(permissions.includes('agreement view')
                               ? [
                                     {
-                                        title: 'Agreement',
+                                        title: 'Payment Agreement',
                                         icon: FileCheck,
                                         href: agreement.index.url(),
                                     },

@@ -4,7 +4,7 @@ import { createSelectColumn } from '@/components/select-column';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
 import { show, index as userIndex } from '@/routes/master/user';
-import { index } from '@/routes/master/user/sales';
+import { create, index } from '@/routes/master/user/sales';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -25,7 +25,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const actions: ActionType[] = ['view'];
+const actions: ActionType[] = ['add', 'view'];
 
 const columns: ColumnDef<UserSchema>[] = [
     createSelectColumn<UserSchema>(),
@@ -71,7 +71,13 @@ export default function Sales({ dataUser }: SalesProps) {
                         columns={columns}
                         data={dataUser}
                         actions={actions}
+                        url={index().url}
                         onAction={(action, row) => {
+                            if (action === 'add') {
+                                router.get(create().url);
+                                return;
+                            }
+
                             const userId = row?.original.id;
 
                             if (userId !== undefined) {

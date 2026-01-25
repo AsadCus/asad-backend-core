@@ -21,6 +21,7 @@ interface DataTableToolbarProps<TData> {
     onAction?: (action: ActionType, row?: Row<TData>) => void;
     url?: string;
     exportFilename?: string;
+    addButtonText?: string;
 }
 
 export function DataTableToolbar<TData>({
@@ -36,6 +37,7 @@ export function DataTableToolbar<TData>({
     onAction,
     url,
     exportFilename = 'data',
+    addButtonText = 'Add',
 }: DataTableToolbarProps<TData>) {
     const isFiltered = table.getState().columnFilters.length > 0;
     const { confirm, ConfirmDialog } = useConfirmDialog();
@@ -111,7 +113,9 @@ export function DataTableToolbar<TData>({
                         )}
 
                     {actions?.includes('add') && (
-                        <Button onClick={() => onAction?.('add')}>Add</Button>
+                        <Button onClick={() => onAction?.('add')}>
+                            {addButtonText}
+                        </Button>
                     )}
                 </div>
 

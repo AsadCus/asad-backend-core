@@ -35,16 +35,24 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
 
         if (!base) return false;
 
-        const b = base.replace(/\/$/, '');
-        const c = current.replace(/\/$/, '');
+        const normalize = (url: string) => url.replace(/\/$/, '').split('?')[0];
+
+        const b = normalize(base);
+        const c = normalize(current);
 
         if (c === b) return true;
+
+        if (b === '/master/user') {
+            if (c.startsWith('/master/user/create')) return false;
+            if (c === b) return true;
+            return c.startsWith(`${b}/`);
+        }
 
         return c.startsWith(`${b}/`);
     };
 
     const renderSubMenu = (subItems: NavItem[]) => (
-        <SidebarMenuSub className="w-full">
+        <SidebarMenuSub>
             {subItems.map((subItem) => {
                 const hasNested = (subItem.subItems?.length ?? 0) > 0;
                 const isActive = isUrlActive(subItem.href);
@@ -64,12 +72,16 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                 {subItem.href ? (
                                     <Link href={subItem.href} prefetch>
                                         {subItem.icon && <subItem.icon />}
-                                        <span>{subItem.title}</span>
+                                        <span className="truncate">
+                                            {subItem.title}
+                                        </span>
                                     </Link>
                                 ) : (
                                     <span className="flex items-center gap-2">
                                         {subItem.icon && <subItem.icon />}
-                                        <span>{subItem.title}</span>
+                                        <span className="truncate">
+                                            {subItem.title}
+                                        </span>
                                     </span>
                                 )}
                             </SidebarMenuButton>
@@ -94,13 +106,15 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                     >
                                         <Link href={subItem.href} prefetch>
                                             {subItem.icon && <subItem.icon />}
-                                            <span>{subItem.title}</span>
+                                            <span className="truncate">
+                                                {subItem.title}
+                                            </span>
                                         </Link>
                                     </SidebarMenuButton>
 
                                     <CollapsibleTrigger asChild>
                                         <SidebarMenuButton
-                                            isActive={isActive || subActive}
+                                            isActive={isActive}
                                             tooltip={{
                                                 children: `Toggle ${subItem.title}`,
                                             }}
@@ -118,7 +132,9 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                         tooltip={{ children: subItem.title }}
                                     >
                                         {subItem.icon && <subItem.icon />}
-                                        <span>{subItem.title}</span>
+                                        <span className="truncate">
+                                            {subItem.title}
+                                        </span>
                                         <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible-item:rotate-90" />
                                     </SidebarMenuButton>
                                 </CollapsibleTrigger>
@@ -151,19 +167,23 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                             <SidebarMenuItem key={item.title}>
                                 <SidebarMenuButton
                                     asChild={!!item.href}
-                                    isActive={isActive}
+                                    isActive={isActive || subActive}
                                     tooltip={{ children: item.title }}
                                     className="hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-gray-900"
                                 >
                                     {item.href ? (
                                         <Link href={item.href} prefetch>
                                             {item.icon && <item.icon />}
-                                            <span>{item.title}</span>
+                                            <span className="truncate">
+                                                {item.title}
+                                            </span>
                                         </Link>
                                     ) : (
                                         <span className="flex items-center gap-2">
                                             {item.icon && <item.icon />}
-                                            <span>{item.title}</span>
+                                            <span className="truncate">
+                                                {item.title}
+                                            </span>
                                         </span>
                                     )}
                                 </SidebarMenuButton>
@@ -191,11 +211,17 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                     >
                                         {item.href && (
                                             <DropdownMenuItem asChild>
-                                                <Link href={item.href} prefetch>
+                                                <Link
+                                                    href={item.href}
+                                                    prefetch
+                                                    className="flex items-center"
+                                                >
                                                     {item.icon && (
-                                                        <item.icon className="mr-2" />
+                                                        <item.icon className="mr-2 flex-shrink-0" />
                                                     )}
-                                                    {item.title}
+                                                    <span className="truncate">
+                                                        {item.title}
+                                                    </span>
                                                 </Link>
                                             </DropdownMenuItem>
                                         )}
@@ -209,18 +235,23 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                                         <Link
                                                             href={subItem.href}
                                                             prefetch
+                                                            className="flex items-center"
                                                         >
                                                             {subItem.icon && (
-                                                                <subItem.icon className="mr-2" />
+                                                                <subItem.icon className="mr-2 flex-shrink-0" />
                                                             )}
-                                                            {subItem.title}
+                                                            <span className="truncate">
+                                                                {subItem.title}
+                                                            </span>
                                                         </Link>
                                                     ) : (
                                                         <span className="flex items-center">
                                                             {subItem.icon && (
-                                                                <subItem.icon className="mr-2" />
+                                                                <subItem.icon className="mr-2 flex-shrink-0" />
                                                             )}
-                                                            {subItem.title}
+                                                            <span className="truncate">
+                                                                {subItem.title}
+                                                            </span>
                                                         </span>
                                                     )}
                                                 </DropdownMenuItem>
@@ -250,7 +281,9 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                         >
                                             <Link href={item.href} prefetch>
                                                 {item.icon && <item.icon />}
-                                                <span>{item.title}</span>
+                                                <span className="truncate">
+                                                    {item.title}
+                                                </span>
                                             </Link>
                                         </SidebarMenuButton>
 
@@ -289,7 +322,9 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                         className="w-full hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-gray-900"
                                     >
                                         {item.icon && <item.icon />}
-                                        <span>{item.title}</span>
+                                        <span className="truncate">
+                                            {item.title}
+                                        </span>
                                         <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                                     </SidebarMenuButton>
                                 </CollapsibleTrigger>

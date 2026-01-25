@@ -40,7 +40,7 @@ const columns: ColumnDef<ActivityLog>[] = [
         header: 'Description',
         meta: { exportable: true },
     },
-   
+
     {
         accessorKey: 'causer.name',
         header: 'User ID',
@@ -68,6 +68,7 @@ interface UserLogsProps {
 }
 
 export default function UserLogs({ activities }: UserLogsProps) {
+    console.log(activities);
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="User Logs" />

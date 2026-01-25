@@ -30,18 +30,27 @@ class UserController extends Controller
      */
     public function index()
     {
-        $dataUser = $this->userService->getForDataTable();
-        $dataRole = $this->userService->getRoleForFilter();
-        $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilter();
-        $dataSales = $this->salesService->getForFilter();
+        // $dataUser = $this->userService->getForDataTable();
+        // $dataRole = $this->userService->getRoleForFilter();
+        // $dataBranch = $this->branchService->getForFilter();
+        // $dataCountry = $this->countryService->getForFilter();
+        // $dataSales = $this->salesService->getForFilter();
+
+        // Get role statistics
+        $roleStats = [
+            'admin' => $this->userService->countByRole('admin'),
+            'sales' => $this->userService->countByRole('sales'),
+            'customer' => $this->userService->countByRole('customer'),
+            'supplier' => $this->userService->countByRole('supplier'),
+        ];
 
         return Inertia::render('masters/users/index', [
-            'data' => $dataUser,
-            'dataRole' => $dataRole,
-            'dataBranch' => $dataBranch,
-            'dataCountry' => $dataCountry,
-            'dataSales' => $dataSales,
+            // 'data' => $dataUser,
+            // 'dataRole' => $dataRole,
+            // 'dataBranch' => $dataBranch,
+            // 'dataCountry' => $dataCountry,
+            // 'dataSales' => $dataSales,
+            'roleStats' => $roleStats,
         ]);
     }
 

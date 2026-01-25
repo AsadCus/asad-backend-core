@@ -28,6 +28,7 @@ interface CreateUserProps {
     isSales: boolean;
     isSupplier: boolean;
     isCustomer: boolean;
+    submitUrl?: string;
 }
 
 export function resolveUserRoleLabel({
@@ -57,6 +58,7 @@ export default function CreateUser({
     isSales = false,
     isSupplier = false,
     isCustomer = false,
+    submitUrl,
 }: CreateUserProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -90,6 +92,7 @@ export default function CreateUser({
                         isSales={isSales}
                         isSupplier={isSupplier}
                         isCustomer={isCustomer}
+                        submitUrl={submitUrl}
                     />
                 </div>
             </div>

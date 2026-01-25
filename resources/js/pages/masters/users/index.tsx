@@ -1,15 +1,21 @@
-import { ActionType } from '@/components/action-column';
-import { ColumnFilter } from '@/components/column-filter';
-import useConfirmDialog from '@/components/confirm-popup';
-import { DataTable } from '@/components/data-table';
-import { createSelectColumn } from '@/components/select-column';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
-import { create, destroy, edit, index, show } from '@/routes/master/user';
+import { create, index } from '@/routes/master/user';
+import masterAdmin from '@/routes/master/user/admin';
+import masterCustomer from '@/routes/master/user/customer';
+import masterSales from '@/routes/master/user/sales';
+import masterSupplier from '@/routes/master/user/supplier';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { ColumnDef } from '@tanstack/react-table';
-import { UserSchema } from './schema';
+import { Plus, Shield, TrendingUp, Truck, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -22,103 +28,117 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const actions: ActionType[] = ['add', 'view', 'edit', 'delete'];
-
-const columns: ColumnDef<UserSchema>[] = [
-    createSelectColumn<UserSchema>(),
-    {
-        accessorKey: 'id',
-        header: 'Id',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'name',
-        header: 'Name',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'email',
-        header: 'Email',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'role',
-        header: 'Role',
-        meta: { exportable: true },
-        cell: ({ row }) => (
-            <span className="capitalize">{row.getValue('role')}</span>
-        ),
-        filterFn: 'includesValue',
-    },
-];
-
-interface UserProps {
-    data: UserSchema[];
-    dataRole: [];
+interface MasterUserProps {
+    // data: User[];
+    // dataRole: OptionType[];
+    roleStats: {
+        admin: number;
+        sales: number;
+        customer: number;
+        supplier: number;
+    };
 }
 
-export default function User({ data, dataRole }: UserProps) {
-    const { confirm, ConfirmDialog } = useConfirmDialog();
+export default function MasterUser({
+    // data,
+    // dataRole,
+    roleStats,
+}: MasterUserProps) {
+    const roleMenus = [
+        {
+            title: 'Administrator',
+            description: 'System administrators',
+            icon: Shield,
+            count: roleStats.admin,
+            href: masterAdmin.index.url(),
+            hasAddButton: true,
+            onAdd: () => router.get(masterAdmin.create().url),
+        },
+        {
+            title: 'Sales',
+            description: 'Sales personnel',
+            icon: TrendingUp,
+            count: roleStats.sales,
+            href: masterSales.index.url(),
+            hasAddButton: true,
+            onAdd: () => router.get(masterSales.create().url),
+        },
+        {
+            title: 'Customer',
+            description: 'Customer accounts',
+            icon: Users,
+            count: roleStats.customer,
+            href: masterCustomer.index.url(),
+            hasAddButton: true,
+            onAdd: () => router.get(masterCustomer.create().url),
+        },
+        {
+            title: 'Supplier',
+            description: 'Supplier accounts',
+            icon: Truck,
+            count: roleStats.supplier,
+            href: masterSupplier.index.url(),
+            hasAddButton: true,
+            onAdd: () => router.get(masterSupplier.create().url),
+        },
+    ];
 
     return (
-        <>
-            <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="User" />
-                <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">User</h2>
-                    </div>
-                    <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
-                        <DataTable
-                            columns={columns}
-                            data={data}
-                            actions={actions}
-                            url={index().url}
-                            onAction={(action, row) => {
-                                if (action === 'add') {
-                                    router.get(create().url);
-                                }
-
-                                const userId = row?.original.id;
-
-                                if (userId !== undefined) {
-                                    if (action === 'view') {
-                                        router.get(show(userId).url);
-                                    } else if (action === 'edit') {
-                                        router.get(edit(userId).url);
-                                    } else if (action === 'delete') {
-                                        confirm({
-                                            title: 'Delete User',
-                                            message: `Are you sure you want to delete user "${row?.original.name}"?`,
-                                            confirmText: 'Delete',
-                                            cancelText: 'Cancel',
-                                            onConfirm: () => {
-                                                router.delete(
-                                                    destroy(userId).url,
-                                                );
-                                            },
-                                        });
-                                    }
-                                }
-                            }}
-                            initialState={{
-                                columnVisibility: { id: false },
-                            }}
-                            renderFilter={(table) => (
-                                <>
-                                    <ColumnFilter
-                                        table={table}
-                                        columnId="role"
-                                        title="Role"
-                                        options={dataRole}
-                                    />
-                                </>
-                            )}
-                        />
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="User" />
+            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">User</h2>
+                    <Button onClick={() => router.get(create().url)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add New User
+                    </Button>
+                </div>
+                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 p-6 md:min-h-min dark:border-sidebar-border">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        {roleMenus.map((role) => {
+                            const IconComponent = role.icon;
+                            return (
+                                <Card
+                                    key={role.title}
+                                    className="cursor-pointer transition-shadow hover:shadow-md"
+                                    onClick={() => router.get(role.href)}
+                                >
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <div className="flex items-center space-x-2">
+                                            <IconComponent className="h-5 w-5" />
+                                            <CardTitle className="text-sm font-medium">
+                                                {role.title}
+                                            </CardTitle>
+                                        </div>
+                                        {role.hasAddButton && (
+                                            <Button
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    role.onAdd();
+                                                }}
+                                                className="h-8 px-2"
+                                            >
+                                                <Plus className="mr-1 h-4 w-4" />
+                                                Add
+                                            </Button>
+                                        )}
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">
+                                            {role.count}
+                                        </div>
+                                        <CardDescription className="text-xs text-muted-foreground">
+                                            {role.description}
+                                        </CardDescription>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
                     </div>
                 </div>
-            </AppLayout>
-            <ConfirmDialog />
-        </>
+            </div>
+        </AppLayout>
     );
 }

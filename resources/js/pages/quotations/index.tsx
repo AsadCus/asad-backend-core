@@ -320,6 +320,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                             columns={columns}
                             data={quotationsForDatatable}
                             actions={actions}
+                            addButtonText="Create New Quotation"
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 

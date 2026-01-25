@@ -84,6 +84,11 @@ class UserService
         return $data;
     }
 
+    public function countByRole(string $role)
+    {
+        return User::role($role)->count();
+    }
+
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {

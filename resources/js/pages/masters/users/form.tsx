@@ -1,4 +1,5 @@
 import { MultiSelect } from '@/components/multi-select';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +31,7 @@ interface UserFormProps {
     isSales?: boolean;
     isSupplier?: boolean;
     isCustomer?: boolean;
+    submitUrl?: string;
 }
 
 export function UserForm({
@@ -44,6 +46,7 @@ export function UserForm({
     isSales,
     isSupplier,
     isCustomer,
+    submitUrl,
 }: UserFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
@@ -75,6 +78,7 @@ export function UserForm({
         country_preferences: [],
         experience_preferences: [],
         handled_by: '',
+        registration_number: '',
     };
 
     const { auth } = usePage<SharedData>().props;
@@ -94,6 +98,9 @@ export function UserForm({
 
         if (auth?.roles?.includes('sales')) {
             defaultData.branch_id = String(auth?.user?.sales?.branch_id ?? '');
+            defaultData.registration_number = String(
+                auth?.user?.sales?.registration_number ?? '',
+            );
             defaultData.handled_by = String(auth?.user?.id ?? '');
         }
     } else {
@@ -123,6 +130,7 @@ export function UserForm({
     );
 
     const [role, setRole] = useState(data?.role ?? 'admin');
+
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -221,14 +229,16 @@ export function UserForm({
             clearErrors('password_confirmation');
         }
 
-        let url = '/master/user';
+        let url = submitUrl || '/master/user';
 
-        if (isSales) {
-            url = '/sales';
-        } else if (isSupplier) {
-            url = '/supplier';
-        } else if (isCustomer) {
-            url = '/customer';
+        if (!submitUrl) {
+            if (isSales) {
+                url = '/sales';
+            } else if (isSupplier) {
+                url = '/supplier';
+            } else if (isCustomer) {
+                url = '/customer';
+            }
         }
 
         if (isCreate) {
@@ -392,35 +402,22 @@ export function UserForm({
                                 <div className="grid w-full items-center gap-3">
                                     <Label>Branch</Label>
                                     <div className="relative">
-                                        <Select
+                                        <ProperInputSelect
                                             disabled={
                                                 isView ||
                                                 auth.roles.includes('sales')
                                             }
+                                            options={branches}
                                             value={data.branch_id}
                                             onValueChange={(value) => {
-                                                setData('branch_id', value);
+                                                setData(
+                                                    'branch_id',
+                                                    String(value),
+                                                );
                                                 setData('handled_by', '');
                                             }}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select branch" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {branches.map((r) => {
-                                                    return (
-                                                        <SelectItem
-                                                            key={r.value}
-                                                            value={String(
-                                                                r.value,
-                                                            )}
-                                                        >
-                                                            {r.label}
-                                                        </SelectItem>
-                                                    );
-                                                })}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Select branch"
+                                        />
                                         {renderError('branch_id')}
                                     </div>
                                 </div>
@@ -457,57 +454,22 @@ export function UserForm({
                                     <div className="grid w-full items-center gap-3">
                                         <Label>Sales</Label>
                                         <div className="relative">
-                                            <Select
+                                            <ProperInputSelect
                                                 disabled={
                                                     isView ||
                                                     !data.branch_id ||
                                                     auth.roles.includes('sales')
                                                 }
+                                                options={filteredSalesList}
                                                 value={data.handled_by ?? ''}
                                                 onValueChange={(value) => {
                                                     setData(
                                                         'handled_by',
-                                                        value,
+                                                        String(value),
                                                     );
                                                 }}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select sales" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {filteredSalesList &&
-                                                    filteredSalesList.length >
-                                                        0 ? (
-                                                        filteredSalesList.map(
-                                                            (r) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        r.value
-                                                                    }
-                                                                    value={String(
-                                                                        r.value,
-                                                                    )}
-                                                                >
-                                                                    {r.label}
-                                                                </SelectItem>
-                                                            ),
-                                                        )
-                                                    ) : (
-                                                        <SelectItem
-                                                            value={
-                                                                data.branch_id
-                                                                    ? '_no_sales_found'
-                                                                    : '_select_branch_first'
-                                                            }
-                                                            disabled
-                                                        >
-                                                            {data.branch_id
-                                                                ? 'No sales found for this branch'
-                                                                : 'Select a branch first'}
-                                                        </SelectItem>
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
+                                                placeholder="Select sales"
+                                            />
                                             {renderError('handled_by')}
                                         </div>
                                     </div>
@@ -542,6 +504,7 @@ export function UserForm({
                             {(role === 'supplier' || role === 'customer') && (
                                 <div className="grid w-full items-center gap-3">
                                     <Label htmlFor="address">Address</Label>
+
                                     <div className="relative">
                                         <Textarea
                                             id="address"
@@ -824,6 +787,7 @@ export function UserForm({
                                     setData('send_email', e.target.checked)
                                 }
                                 disabled={isView}
+                                aria-label="Send email access to this user"
                             />
                             <Label htmlFor="send_email">
                                 Send email access to this user (optional)

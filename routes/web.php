@@ -19,6 +19,7 @@ use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\AgreementController;
+use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\SupplierController;
 use Illuminate\Support\Facades\Route;
@@ -42,9 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Masters
     Route::prefix('master')->name('master.')->middleware(['role:admin'])->group(function () {
-        Route::get('/', function () {
-            return Inertia::render('masters/index');
-        })->name('index');
+        Route::get('/', [MasterController::class, 'index'])->name('index');
 
         // Master - Users
         Route::prefix('user')->name('user.')->group(function () {

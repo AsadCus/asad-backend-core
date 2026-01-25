@@ -70,6 +70,7 @@ interface DataTableProps<TData, TValue = unknown> {
     enableExpand?: boolean;
     renderSubComponent?: (row: Row<TData>) => React.ReactNode;
     onRowDoubleClick?: (row: TData) => void;
+    addButtonText?: string;
 }
 
 export function DataTable<TData, TValue = unknown>({
@@ -86,6 +87,7 @@ export function DataTable<TData, TValue = unknown>({
     renderSubComponent,
     renderEmptyState,
     onRowDoubleClick,
+    addButtonText,
 }: DataTableProps<TData, TValue>) {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -302,6 +304,7 @@ export function DataTable<TData, TValue = unknown>({
                         onAction={onAction}
                         url={url}
                         exportFilename={exportFilename}
+                        addButtonText={addButtonText}
                     />
                 </div>
             </div>
