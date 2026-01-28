@@ -64,6 +64,10 @@ class RolePermissionSeeder extends Seeder
             'agreement create',
             'agreement edit',
             'agreement delete',
+            'general-enquiry view',
+            'general-enquiry create',
+            'general-enquiry edit',
+            'general-enquiry delete',
         ];
 
         foreach ($permissions as $permission) {
@@ -128,6 +132,10 @@ class RolePermissionSeeder extends Seeder
             'agreement create',
             'agreement edit',
             'agreement delete',
+            'general-enquiry view',
+            'general-enquiry create',
+            'general-enquiry edit',
+            'general-enquiry delete',
         ]);
         Role::findByName('sales')->givePermissionTo([
             'dashboard view',

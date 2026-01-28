@@ -1,13 +1,15 @@
 <?php
 
+use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MaidController;
-use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearController;
 use App\Http\Controllers\Master\AdminController as MasterAdminController;
 use App\Http\Controllers\Master\BranchController as MasterBranchController;
 use App\Http\Controllers\Master\CustomerController as MasterCustomerController;
+use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearController;
+use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
 use App\Http\Controllers\Master\SupplierController as MasterSupplierController;
 use App\Http\Controllers\Master\UserController as MasterUserController;
@@ -17,10 +19,8 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ReceiptController;
-use App\Http\Controllers\ScheduleController;
-use App\Http\Controllers\AgreementController;
-use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SupplierController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -133,11 +133,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // User Logs
     Route::get('user-logs', [App\Http\Controllers\UserLogsController::class, 'index'])->name('user-logs.index');
+
+    // General Enquiries
+    Route::resource('general-enquiries', App\Http\Controllers\GeneralEnquiryController::class);
 });
 
 Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__ . '/settings.php';
-require __DIR__ . '/auth.php';
+require __DIR__.'/settings.php';
+require __DIR__.'/auth.php';
