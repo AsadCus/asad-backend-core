@@ -63,6 +63,11 @@ class GeneralEnquiryService
                 'requires_mobility_assistance' => $data['requires_mobility_assistance'] ?? null,
             ]);
 
+            activity()
+                ->performedOn($enquiry)
+                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
+                ->log('General enquiry created successfully #' . $enquiry->id);
+
             return $enquiry;
         });
     }
@@ -106,7 +111,14 @@ class GeneralEnquiryService
                 'requires_mobility_assistance' => $data['requires_mobility_assistance'] ?? $enquiry->requires_mobility_assistance,
             ]);
 
-            return $enquiry->fresh();
+            $enquiry = $enquiry->fresh();
+
+            activity()
+                ->performedOn($enquiry)
+                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
+                ->log('General enquiry updated successfully #' . $enquiry->id);
+
+            return $enquiry;
         });
     }
 
@@ -116,6 +128,11 @@ class GeneralEnquiryService
         if (!$enquiry) {
             return false;
         }
+
+        activity()
+            ->performedOn($enquiry)
+            ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
+            ->log('General enquiry deleted successfully #' . $enquiry->id);
 
         return $enquiry->delete();
     }
