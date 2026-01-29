@@ -5,9 +5,6 @@ import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import GeneralEnquiryForm from './form';
 
-interface CreateGeneralEnquiryProps {
-    // No data required for creating a new enquiry
-}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -16,7 +13,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreateGeneralEnquiry({}: CreateGeneralEnquiryProps) {
+export default function CreateGeneralEnquiry() {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);

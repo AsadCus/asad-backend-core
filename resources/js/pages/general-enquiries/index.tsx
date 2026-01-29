@@ -14,7 +14,6 @@ import {
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { useState } from 'react';
 
 interface GeneralEnquirySchema {
     id: number;
@@ -135,7 +134,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                             data={enquiriesForDatatable}
                             actions={actions}
                             addButtonText="Create New General Enquiry"
-                            getRowActions={(enquiry) => {
+                            getRowActions={() => {
                                 const rowActions: ActionType[] = [];
 
                                 if (hasEditPermission) {
