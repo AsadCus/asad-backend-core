@@ -13,6 +13,7 @@ import {
 import { dashboard } from '@/routes';
 import agreement from '@/routes/agreement';
 import customer from '@/routes/customer';
+import generalEnquiries from '@/routes/general-enquiries';
 import invoice from '@/routes/invoice';
 import maid from '@/routes/maid';
 import master from '@/routes/master';
@@ -33,6 +34,7 @@ import supplier from '@/routes/supplier';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    Box,
     Calendar,
     FileCheck,
     FileCheck2,
@@ -200,6 +202,16 @@ export function AppSidebar() {
                       title: 'Maid Profile',
                       href: maid.index.url(),
                       icon: HeartHandshake,
+                  },
+              ]
+            : []),
+        ...(permissions.includes('general-enquiry view') &&
+        !roles.includes('customer')
+            ? [
+                  {
+                      title: 'General Enquiry',
+                      href: generalEnquiries.index.url(),
+                      icon: Box,
                   },
               ]
             : []),
