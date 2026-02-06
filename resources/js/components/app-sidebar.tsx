@@ -46,6 +46,7 @@ import {
     Landmark,
     LayoutGrid,
     ListOrdered,
+    Luggage,
     Map,
     Receipt,
     ReceiptText,
@@ -54,6 +55,7 @@ import {
     Wallet,
 } from 'lucide-react';
 import AppLogo from './app-logo';
+import privateEnquiries from '@/routes/private-enquiries';
 
 export function AppSidebar() {
     const { auth } = usePage<SharedData>().props;
@@ -196,6 +198,17 @@ export function AppSidebar() {
                   },
               ]
             : []),
+
+        ...(permissions.includes('private-enquiry view')
+            ? [
+                  {
+                      title: 'Private Enquiry',
+                      href: privateEnquiries.index.url(),
+                      icon: Luggage,
+                  },
+              ]
+            : []),
+
         ...(permissions.includes('maid view') && !roles.includes('customer')
             ? [
                   {

@@ -1,0 +1,37 @@
+import z from "zod";
+
+export const privateEnquiryValidationSchema = z.object({
+    id: z.number().optional(),
+    full_name: z.string().min(1, 'Full name is required'),
+    contact_number: z.string().min(1, 'Contact number is required'),
+    email: z.string().min(1, 'Email is required').email('Invalid email address'),
+    passport_expiry_date: z.string().min(1, 'Passport expiry date is required'),
+    departure_date: z.string().min(1, 'Departure date is required'),
+    return_date: z.string().min(1, 'Return date is required'),
+    no_of_pax: z.number().min(1, 'Number of pax is required'),
+    no_of_children: z.number().min(0, 'Number of children cannot be negative'),
+    airline: z.string().min(1, 'Airline is required'),
+    class: z.string().min(1, 'Class is required'),
+    require_mutawif: z.boolean(),
+    require_umrah_course: z.boolean(),
+    require_umrah_official: z.boolean(),
+    makkah_or_madinah_first: z.string().min(1, 'This field is required'),
+    no_of_nights_makkah: z.string().min(1, 'Number of nights in Makkah is required'),
+    hotel_makkah: z.string().min(1, 'Hotel in Makkah is required'),
+    meals_makkah: z.string().min(1, 'Meals in Makkah is required'),
+    no_of_nights_madinah: z.string().min(1, 'Number of nights in Madinah is required'),
+    hotel_madinah: z.string().min(1, 'Hotel in Madinah is required'),
+    meals_madinah: z.string().min(1, 'Meals in Madinah is required'),
+    land_transfer: z.string().min(1, 'Land transfer is required'),
+    add_on_speed_train: z.boolean(),
+    require_meet_greet: z.boolean(),
+    require_mutawiffah_ustazah_rawdah: z.boolean(),
+    madinah_tour_with_mutawif: z.boolean(),
+    makkah_tour_with_mutawif: z.boolean(),
+    has_chronic_disease: z.boolean(),
+    chronic_disease_details: z.string().nullable().optional(),
+    need_wheelchair: z.string().min(1, 'This field is required'),
+    other_remarks: z.string().nullable().optional(),
+});
+
+export type PrivateEnquirySchema = z.infer<typeof privateEnquiryValidationSchema>;
