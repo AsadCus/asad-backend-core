@@ -28,18 +28,7 @@ class DatabaseSeeder extends Seeder
 
             // Users and Roles
             RolePermissionSeeder::class,
-            UserSeeder::class,
-
-            // Business Entities
-            SupplierSeeder::class,
-            SalesSeeder::class,
-            MaidSeeder::class,
-
-            // Transactions
-            QuotationSeeder::class,
-            OrderSeeder::class,
-            InvoiceSeeder::class,
-            ReceiptSeeder::class,
+            ProductionUserSeeder::class,
 
             GeneralEnquirySeeder::class,
             PrivateEnquirySeeder::class,

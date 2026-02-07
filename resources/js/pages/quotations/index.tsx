@@ -15,7 +15,7 @@ import {
     index,
     show,
 } from '@/routes/quotation';
-import { SharedData, type BreadcrumbItem } from '@/types';
+import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
@@ -36,14 +36,15 @@ import {
 interface QuotationsProps {
     data: {
         quotationsForDatatable: QuotationSchema[];
-        maids: [];
-        customers: [];
+        maids: OptionType[];
+        customers: OptionType[];
+        salespersons: OptionType[];
     };
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Quotation',
+        title: 'List of Quotations',
         href: index().url,
     },
 ];
@@ -92,6 +93,17 @@ const columns: ColumnDef<QuotationSchema>[] = [
     {
         accessorKey: 'customer_name',
         header: 'Customer Name',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'sales_id',
+        header: 'Sales ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'sales_name',
+        header: 'Salesperson',
         meta: { exportable: true },
     },
     {
@@ -232,6 +244,7 @@ const columns: ColumnDef<QuotationSchema>[] = [
 ];
 
 export default function QuotationsIndex({ data }: QuotationsProps) {
+    const { quotationsForDatatable, maids, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const actions: ActionType[] = [];
@@ -239,26 +252,26 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     if (userPermissions.includes('quotation create')) actions.push('add');
     if (userPermissions.includes('quotation view'))
         actions.push('preview', 'download');
-    if (userPermissions.includes('quotation delete')) actions.push('delete');
+    // if (userPermissions.includes('quotation delete')) actions.push('delete');
 
     const hasEditPermission = userPermissions.includes('quotation edit');
-    const { quotationsForDatatable, maids, customers } = data;
+    const hasDeletePermission = userPermissions.includes('quotation delete');
+
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [
         quotationStatusActionDialogOpen,
         setQuotationStatusActionDialogOpen,
     ] = useState(false);
+
     const [quotationStatusActionType, setQuotationStatusActionType] = useState<
-        'accept' | 'convert' | 'reject' | 'expire' | null
+        'accept' | 'convert' | 'reject' | 'expire' | 'cancel' | null
     >(null);
     const [selectedQuotationForStatus, setSelectedQuotationForStatus] =
         useState<QuotationSchema | null>(null);
-
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
     const [selectedQuotationForPreview, setSelectedQuotationForPreview] =
         useState<QuotationSchema | null>(null);
     const [previewItems, setPreviewItems] = useState<QuotationItemSchema[]>([]);
-
     const handleQuotationStatusAction = (
         action: ActionType,
         quotation: QuotationSchema,
@@ -271,10 +284,13 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
             | 'accept'
             | 'convert'
             | 'reject'
-            | 'expire' => {
+            | 'expire'
+            | 'cancel' => {
             if (action === 'quotation-status-accept') return 'accept';
             if (action === 'quotation-status-convert') return 'convert';
             if (action === 'quotation-status-reject') return 'reject';
+            if (action === 'quotation-status-expire') return 'expire';
+            if (action === 'quotation-status-cancel') return 'cancel';
             return 'expire';
         };
 
@@ -309,10 +325,12 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Quotation" />
+                <Head title="List of Quotations" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Quotation</h2>
+                        <h2 className="text-lg font-semibold">
+                            List of Quotations
+                        </h2>
                     </div>
 
                     <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
@@ -337,6 +355,15 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                                 `quotation-status-${s}` as ActionType,
                                         );
                                     rowActions.push(...statusActions);
+                                }
+
+                                if (
+                                    hasDeletePermission &&
+                                    !['converted', 'cancelled'].includes(
+                                        q.status ?? '',
+                                    )
+                                ) {
+                                    rowActions.push('delete');
                                 }
 
                                 return rowActions;
@@ -371,10 +398,8 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                                         blob,
                                                     );
 
-                                                // Open in new tab
                                                 globalThis.open(url, '_blank');
 
-                                                // Trigger download
                                                 const link =
                                                     document.createElement('a');
                                                 link.href = url;
@@ -423,9 +448,10 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     id: false,
                                     customer_id: false,
                                     customer_number: false,
+                                    sales_id: false,
                                     maid_id: false,
                                     maid_number: false,
-                                    maid_name: false,
+                                    maid_name: true,
                                     description: false,
                                     expiry_date: false,
                                     commencement_date: false,
@@ -454,6 +480,12 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                         columnId="customer_id"
                                         title="Customer"
                                         options={customers}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="sales_id"
+                                        title="Salesperson"
+                                        options={salespersons}
                                     />
                                     <ColumnFilter
                                         table={table}

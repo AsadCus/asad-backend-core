@@ -4,18 +4,20 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Models\Order;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class OrderService
 {
-    protected $invoiceService, $formatService, $quotationItemService, $quotationService;
+    protected $invoiceService, $formatService, $quotationItemService, $quotationService, $maidStatusService;
 
-    public function __construct(InvoiceService $invoiceService, FormatService $formatService, QuotationItemService $quotationItemService, QuotationService $quotationService)
+    public function __construct(InvoiceService $invoiceService, FormatService $formatService, QuotationItemService $quotationItemService, QuotationService $quotationService, MaidStatusService $maidStatusService)
     {
         $this->invoiceService = $invoiceService;
         $this->formatService = $formatService;
         $this->quotationItemService = $quotationItemService;
         $this->quotationService = $quotationService;
+        $this->maidStatusService = $maidStatusService;
     }
 
     public function get()
@@ -23,39 +25,58 @@ class OrderService
         return Order::with('quotation')->get();
     }
 
-    public function getForDataTable()
+    public function getForDataTable(array $filters = [])
     {
-        return Order::with('quotation')->orderBy('order_number', 'desc')->get()->map(function ($o) {
-            return [
-                'id' => $o->id,
-                'order_number' => $o->order_number,
-                'quotation_id' => $o->quotation_id,
-                'quotation_number' => $o->quotation->quotation_number,
-                'customer_id' => $o->quotation->customer->id,
-                'customer_number' => $o->quotation->customer->customer_number,
-                'customer_name' => $o->quotation->customer->user->name,
-                'payment_plan' => $o->payment_plan,
-                'handover_date' => $o->handover_date_formatted,
-                'invoices' => $o->invoices->map(function ($i) {
-                    return [
-                        'id' => $i->id,
-                        'invoice_number' => $i->invoice_number,
-                        'quotation_id' => $i->order->quotation->id,
-                        'quotation_number' => $i->order->quotation->quotation_number,
-                        'order_id' => $i->order_id,
-                        'order_number' => $i->order->order_number,
-                        'customer_id' => $i->order->quotation->customer->id,
-                        'customer_number' => $i->order->quotation->customer->customer_number,
-                        'type' => $i->type,
-                        'description' => $i->description,
-                        'amount' => $this->formatService->cleanDecimal($i->amount),
-                        'invoice_date' => $i->invoice_date_formatted,
-                        'due_date' => $i->due_date_formatted,
-                        'status' => $i->status,
-                    ];
-                }),
-            ];
-        });
+        return Order::with(['quotation.customer.user', 'quotation.customer.handledBy', 'invoices.receipt'])
+            ->when($filters['sales_id'] ?? null, function ($q, $value) {
+                $q->whereHas('quotation.customer', function ($cq) use ($value) {
+                    $cq->where('handled_by', $value);
+                });
+            })->orderBy('order_number', 'desc')->get()->map(function ($o) {
+                $hasReceipts = $o->invoices->some(function ($invoice) {
+                    return $invoice->receipt->isNotEmpty();
+                });
+
+                return [
+                    'id' => $o->id,
+                    'order_number' => $o->order_number ?? '-',
+                    'quotation_id' => $o->quotation_id ?? '-',
+                    'quotation_number' => $o->quotation->quotation_number ?? '-',
+                    'customer_id' => $o->quotation->customer->id ?? '-',
+                    'customer_number' => $o->quotation->customer->customer_number ?? '-',
+                    'customer_name' => $o->quotation->customer->user->name ?? '-',
+                    'sales_id' => $o->quotation->customer->handledBy->id ?? '-',
+                    'sales_name' => $o->quotation->customer->handledBy->name ?? '-',
+                    'payment_plan' => $o->payment_plan,
+                    'handover_date' => $o->handover_date_formatted,
+                    'created_at' => $o->created_at?->translatedFormat('d F Y'),
+                    'updated_at' => $o->updated_at?->translatedFormat('d F Y'),
+                    'has_receipts' => $hasReceipts,
+                    'invoices' => $o->invoices->map(function ($i) {
+                        return [
+                            'id' => $i->id,
+                            'invoice_number' => $i->invoice_number ?? '-',
+                            'quotation_id' => $i->order->quotation->id ?? '-',
+                            'quotation_number' => $i->order->quotation->quotation_number ?? '-',
+                            'order_id' => $i->order_id ?? '-',
+                            'order_number' => $i->order->order_number ?? '-',
+                            'customer_id' => $i->order->quotation->customer->id ?? '-',
+                            'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
+                            'customer_name' => $i->order->quotation->customer->user->name ?? '-',
+                            'sales_id' => $i->order->quotation->customer->handledBy->id ?? '-',
+                            'sales_name' => $i->order->quotation->customer->handledBy->name ?? '-',
+                            'type' => $i->type,
+                            'description' => $i->description,
+                            'amount' => $this->formatService->cleanDecimal($i->amount),
+                            'invoice_date' => $i->invoice_date_formatted,
+                            'due_date' => $i->due_date_formatted,
+                            'status' => $i->status,
+                            'created_at' => $i->created_at?->translatedFormat('d F Y'),
+                            'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
+                        ];
+                    }),
+                ];
+            });
     }
 
     public function getForFilter()
@@ -99,9 +120,9 @@ class OrderService
 
         return [
             'id' => $o->id,
-            'order_number' => $o->order_number,
-            'quotation_id' => $o->quotation_id,
-            'quotation_number' => $o->quotation->quotation_number,
+            'order_number' => $o->order_number ?? '-',
+            'quotation_id' => $o->quotation_id ?? '-',
+            'quotation_number' => $o->quotation->quotation_number ?? '-',
             'payment_plan' => $o->payment_plan,
             'handover_date' => $o->handover_date_formatted,
             'invoices' => $o->invoices->map(fn($invoice) => [
@@ -167,5 +188,31 @@ class OrderService
     public function delete($id)
     {
         return Order::find($id)?->delete() ?? false;
+    }
+
+    /**
+     * Get monthly order counts for dashboard (calendar month)
+     */
+    public function getMonthlyOrderCounts(): array
+    {
+        $currentMonthStart = Carbon::now()->startOfMonth();
+        $currentMonthEnd = Carbon::now()->endOfMonth();
+        $previousMonthStart = Carbon::now()->subMonth()->startOfMonth();
+        $previousMonthEnd = Carbon::now()->subMonth()->endOfMonth();
+
+        $currentMonthOrders = Order::whereHas('quotation', function ($q) {
+            $q->where('status', '!=', 'cancelled');
+        })->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])->count();
+
+        $previousMonthOrders = Order::whereHas('quotation', function ($q) {
+            $q->where('status', '!=', 'cancelled');
+        })->whereBetween('created_at', [$previousMonthStart, $previousMonthEnd])->count();
+
+        return [
+            'current' => $currentMonthOrders,
+            'previous' => $previousMonthOrders,
+            'current_month_start' => $currentMonthStart,
+            'current_month_end' => $currentMonthEnd,
+        ];
     }
 }

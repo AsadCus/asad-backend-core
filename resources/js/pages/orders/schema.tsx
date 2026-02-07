@@ -13,6 +13,7 @@ export const orderSchema = z.object({
 
     quotation_id: z.number().optional(),
     quotation_number: z.string().nullable().optional(),
+    has_receipts: z.boolean().optional(),
 });
 
 export type OrderSchema = z.infer<typeof orderSchema>;

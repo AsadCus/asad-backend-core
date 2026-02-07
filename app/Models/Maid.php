@@ -3,22 +3,23 @@
 namespace App\Models;
 
 use App\Helpers\NumberGenerator;
+use App\Services\FinancialTransactionService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Maid extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'maid_number',
         'passport_number',
+
         // profile (Section A1)
         'name',
         'date_of_birth',
@@ -63,6 +64,7 @@ class Maid extends Model
         'supplier_id',
         'remaining_loan',
         'monthly_salary',
+        'commission',
         'cost_of_maid',
 
         // status management
@@ -71,6 +73,7 @@ class Maid extends Model
         'pending_until',
         'pending_reason',
         'status_job_id',
+        'assigned_date',
 
         // skills assessment (Section D)
         'skills_assessment_singapore',
@@ -113,9 +116,11 @@ class Maid extends Model
         'interview_date' => 'datetime',
         'interview_end_date' => 'datetime',
         'pending_until' => 'datetime',
+        'assigned_date' => 'datetime',
         'singapore_experience' => 'boolean',
         'remaining_loan' => 'decimal:2',
         'monthly_salary' => 'decimal:2',
+        'commission' => 'decimal:2',
         'cost_of_maid' => 'decimal:2',
         'skills_assessment_singapore' => 'array',
         'skills_assessment_overseas' => 'array',
@@ -206,16 +211,41 @@ class Maid extends Model
 
         if ($this->interview_end_date) {
             $end = Carbon::parse($this->interview_end_date);
-            // If same day, just show end time
             if ($start->isSameDay($end)) {
                 $formatted .= ' to ' . $end->format('h:i A');
             } else {
-                // If different day, show full end date
                 $formatted .= ' to ' . $end->format('M d, Y h:i A');
             }
         }
 
         return $formatted;
+    }
+
+    public function getHeightFormattedAttribute(): ?string
+    {
+        return $this->height ? (string) intval($this->height) : null;
+    }
+
+    public function getWeightFormattedAttribute(): ?string
+    {
+        return $this->weight ? (string) intval($this->weight) : null;
+    }
+
+    public function getAssignedDateFormattedAttribute(): ?string
+    {
+        return $this->assigned_date
+            ? Carbon::parse($this->assigned_date)->translatedFormat('d F Y')
+            : null;
+    }
+
+    public function getTotalCostOfMaid(): ?float
+    {
+        $cost = (float) ($this->cost_of_maid ?? 0);
+        $maidCommission = (float) ($this->commission ?? 0);
+        $supplierCommission = (float) ($this->supplier->commission ?? 0);
+        $commission = $this->commission !== null ? $maidCommission : $supplierCommission;
+
+        return $cost - $commission;
     }
 
     protected static function boot()
@@ -228,20 +258,42 @@ class Maid extends Model
             }
         });
 
-        static::deleting(function ($maid) {
-            if ($maid->photo_url) {
-                try {
-                    Storage::disk('public')->delete($maid->photo_url);
-                } catch (\Exception $e) {
-                    Log::warning('Failed to delete maid photo', [
-                        'maid_id' => $maid->id,
-                        'photo_url' => $maid->photo_url,
-                        'error' => $e->getMessage()
-                    ]);
-                }
+        static::created(function ($maid) {
+            $cost = $maid->getTotalCostOfMaid();
+
+            if ($cost > 0) {
+                $financialTransactionService = app(FinancialTransactionService::class);
+                $financialTransactionService->recordExpense(
+                    amount: $cost,
+                    description: "Maid creation - {$maid->name} ({$maid->maid_number})",
+                    date: Carbon::now(),
+                    referenceType: 'App\Models\Maid',
+                    referenceId: $maid->id,
+                    metadata: [
+                        'maid_number' => $maid->maid_number,
+                        'name' => $maid->name,
+                        'cost_of_maid' => $maid->cost_of_maid,
+                        'commission' => $maid->commission,
+                    ]
+                );
             }
+        });
+
+        static::updated(function ($maid) {
+            if ($maid->isDirty(['cost_of_maid', 'commission'])) {
+                $financialTransactionService = app(FinancialTransactionService::class);
+                $financialTransactionService->updateMaidExpense($maid);
+            }
+        });
+
+        static::deleting(function ($maid) {
+            FinancialTransaction::where('reference_type', 'App\Models\Maid')->where('reference_id', $maid->id)->delete();
 
             $maid->attributes()->delete();
+        });
+
+        static::restored(function ($maid) {
+            FinancialTransaction::withTrashed()->where('reference_type', 'App\Models\Maid')->where('reference_id', $maid->id)->restore();
         });
     }
 }

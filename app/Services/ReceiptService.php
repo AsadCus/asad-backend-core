@@ -24,25 +24,33 @@ class ReceiptService
         return Receipt::with('invoice')->get();
     }
 
-    public function getForDataTable()
+    public function getForDataTable(array $filters = [])
     {
-        return Receipt::with('invoice')->orderBy('receipt_number', 'desc')->get()->map(function ($r) {
-            return [
-                'id' => $r->id,
-                'invoice_id' => $r->invoice_id,
-                'invoice_number' => $r->invoice?->invoice_number,
-                'invoice_description' => $r->invoice?->description,
-                'receipt_number' => $r->receipt_number,
-                'customer_id' => $r->invoice?->order->quotation->customer->id,
-                'customer_number' => $r->invoice?->order->quotation->customer->customer_number,
-                'customer_name' => $r->invoice?->order->quotation->customer->user->name,
-                'amount' => $this->formatService->cleanDecimal($r->amount),
-                'receipt_date' => $r->receipt_date_formatted,
-                'payment_method' => $r->payment_method,
-                'reference' => $r->reference,
-                'description' => $r->description,
-            ];
-        });
+        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy'])
+            ->when($filters['sales_id'] ?? null, function ($q, $value) {
+                $q->whereHas('invoice.order.quotation.customer', function ($cq) use ($value) {
+                    $cq->where('handled_by', $value);
+                });
+            })
+            ->orderBy('receipt_number', 'desc')->get()->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'invoice_id' => $r->invoice_id ?? '-',
+                    'invoice_number' => $r->invoice?->invoice_number ?? '-',
+                    'invoice_description' => $r->invoice?->description ?? '-',
+                    'receipt_number' => $r->receipt_number ?? '-',
+                    'customer_id' => $r->invoice?->order->quotation->customer->id ?? '-',
+                    'customer_number' => $r->invoice?->order->quotation->customer->customer_number ?? '-',
+                    'customer_name' => $r->invoice?->order->quotation->customer->user->name ?? '-',
+                    'sales_id' => $r->invoice?->order->quotation->customer->handledBy->id ?? '-',
+                    'sales_name' => $r->invoice?->order->quotation->customer->handledBy->name ?? '-',
+                    'amount' => $this->formatService->cleanDecimal($r->amount),
+                    'receipt_date' => $r->receipt_date_formatted,
+                    'payment_method' => $r->payment_method,
+                    'reference' => $r->reference,
+                    'description' => $r->description,
+                ];
+            });
     }
 
     public function getForFilter()
@@ -70,61 +78,50 @@ class ReceiptService
             if ($invoice->outstanding_amount <= 0) {
                 $invoice->update(['status' => 'paid']);
 
-                // Auto-assign maid if deposit invoice is fully paid
-                if ($invoice->type === 'deposit') {
-                    $this->handleDepositPaid($invoice);
-                }
+                $this->handleInvoicePaid($invoice);
             } else {
                 $invoice->update(['status' => 'partial']);
             }
+
+            return $receipt;
         });
     }
 
     /**
-     * Handle deposit invoice paid - auto assign maid to customer
+     * Handle invoice paid - auto assign maid to customer
+     * Triggers when ANY invoice is fully paid (first payment triggers assignment)
      */
-    protected function handleDepositPaid($invoice)
+    protected function handleInvoicePaid($invoice)
     {
         try {
             $order = $invoice->order;
             if (!$order) {
-                Log::warning('ReceiptService: No order found for invoice', ['invoice_id' => $invoice->id]);
                 return;
             }
 
             $quotation = $order->quotation;
             if (!$quotation) {
-                Log::warning('ReceiptService: No quotation found for order', ['order_id' => $order->id]);
                 return;
             }
 
             $maidId = $quotation->maid_id;
             if (!$maidId) {
-                Log::warning('ReceiptService: No maid assigned to quotation', ['quotation_id' => $quotation->id]);
                 return;
             }
 
-            // If maid already assigned via quotation ready, do nothing
-            if ($quotation->maid && $quotation->maid->status === 'assigned') {
-                Log::info('ReceiptService: Skipping auto-assign, maid already assigned from quotation ready', [
-                    'maid_id' => $maidId,
-                    'customer_id' => $quotation->customer_id,
-                    'invoice_id' => $invoice->id,
-                ]);
-                return;
-            }
+            $result = $this->maidStatusService->autoAssignFromInvoice(
+                $maidId,
+                $invoice->invoice_date
+            );
 
-            // Auto-assign maid to customer (legacy flow when not yet assigned)
-            $result = $this->maidStatusService->assignMaidFromPayment($maidId, $quotation->customer_id);
-
-            Log::info('ReceiptService: Maid auto-assigned after deposit payment', [
-                'maid_id' => $maidId,
-                'customer_id' => $quotation->customer_id,
+            Log::info('Maid auto-assigned after invoice payment', [
                 'invoice_id' => $invoice->id,
+                'invoice_type' => $invoice->type,
+                'maid_id' => $maidId,
                 'result' => $result
             ]);
         } catch (\Exception $e) {
-            Log::error('ReceiptService: Failed to auto-assign maid after deposit payment', [
+            Log::error('ReceiptService: Failed to auto-assign maid after invoice payment', [
                 'invoice_id' => $invoice->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -153,6 +150,7 @@ class ReceiptService
             'payment_method' => $r->payment_method,
             'reference' => $r->reference,
             'description' => $r->description,
+            'sales_registration_number' => $r->invoice?->order->quotation->sales_registration_number,
             'items' => $r->invoice?->quotationItems->map(fn($item) => [
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
@@ -181,6 +179,16 @@ class ReceiptService
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
             ]);
+
+            $invoice = $receipt->invoice()->with(['order.quotation.maid', 'order.quotation.customer'])->first();
+
+            if ($invoice->outstanding_amount <= 0) {
+                $invoice->update(['status' => 'paid']);
+
+                $this->handleInvoicePaid($invoice);
+            } else {
+                $invoice->update(['status' => 'partial']);
+            }
 
             return $receipt;
         });

@@ -10,26 +10,34 @@ use App\Services\QuotationService;
 use App\Http\Controllers\Controller;
 use App\Rules\OrderRule;
 use App\Services\CustomerService;
+use App\Services\SalesService;
 
 class OrderController extends Controller
 {
-    protected $orderService, $quotationService, $orderRule, $customerService;
+    protected $orderService, $quotationService, $orderRule, $customerService, $salesService;
 
-    public function __construct(OrderService $orderService, QuotationService $quotationService, OrderRule $orderRule, CustomerService $customerService)
+    public function __construct(OrderService $orderService, QuotationService $quotationService, OrderRule $orderRule, CustomerService $customerService, SalesService $salesService)
     {
         $this->orderService = $orderService;
         $this->quotationService = $quotationService;
         $this->orderRule = $orderRule;
         $this->customerService = $customerService;
+        $this->salesService = $salesService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $data['ordersForDatatable'] = $this->orderService->getForDataTable();
-        $data['quotationOptions'] = $this->quotationService->getForFilter();
-        $data['orderOptions'] = $this->orderService->getForFilter();
-        $data['customerOptions'] = $this->customerService->getForFilter();
-        $data['quotationCanOrderOptions'] = $this->quotationService->getCanCreateOrderForFilter();
+        $user = $request->user();
+        $filters = [];
+
+        if ($user->hasRole('sales')) {
+            $filters['sales_id'] = $user->id;
+        }
+
+        $data['ordersForDatatable'] = $this->orderService->getForDataTable($filters);
+        $data['customers'] = $this->customerService->getForFilter();
+        $data['salespersons'] = $this->salesService->getForFilter();
+        $data['convertableQuotations'] = $this->quotationService->getCanCreateOrderForFilter();
 
         return Inertia::render('orders/index', [
             'data' => $data,

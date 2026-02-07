@@ -34,8 +34,13 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                         <p>931 Yishun Central 1</p>
                         <p>#01-109, Singapore 760931</p>
                         <div className="mt-1 font-bold">
-                            {/* <p>REGISTRATION NO. R25128539</p> */}
-                            <p>LICENSE NO. 25C2708</p>
+                            {agreement.sales_registration_number && (
+                                <p>
+                                    REGISTRATION NO.{' '}
+                                    {agreement.sales_registration_number}
+                                </p>
+                            )}
+                            <p>LICENCE NO. 25C2708</p>
                         </div>
                     </div>
                 </div>

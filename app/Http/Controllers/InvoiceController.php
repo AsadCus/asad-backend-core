@@ -9,27 +9,36 @@ use App\Services\InvoiceService;
 use App\Http\Controllers\Controller;
 use App\Services\CustomerService;
 use App\Services\QuotationService;
+use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
-    protected $invoiceService, $orderService, $quotationService, $customerService;
+    protected $invoiceService, $orderService, $quotationService, $customerService, $salesService;
 
-    public function __construct(InvoiceService $invoiceService, OrderService $orderService, QuotationService $quotationService, CustomerService $customerService)
+    public function __construct(InvoiceService $invoiceService, OrderService $orderService, QuotationService $quotationService, CustomerService $customerService, SalesService $salesService)
     {
         $this->invoiceService = $invoiceService;
         $this->orderService = $orderService;
         $this->quotationService = $quotationService;
         $this->customerService = $customerService;
+        $this->salesService = $salesService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $data['invoicesForDatatable'] = $this->invoiceService->getForDataTable();
-        $data['quotationOptions'] = $this->quotationService->getForFilter();
-        $data['orderOptions'] = $this->orderService->getForFilter();
-        $data['customerOptions'] = $this->customerService->getForFilter();
+        $user = $request->user();
+        $filters = [];
+
+        if ($user->hasRole('sales')) {
+            $filters['sales_id'] = $user->id;
+        }
+
+        $data['invoicesForDatatable'] = $this->invoiceService->getForDataTable($filters);
+        $data['quotations'] = $this->quotationService->getForFilter();
+        $data['customers'] = $this->customerService->getForFilter();
+        $data['salespersons'] = $this->salesService->getForFilter();
 
         return Inertia::render('invoices/index', [
             'data' => $data,

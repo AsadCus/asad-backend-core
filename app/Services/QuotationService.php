@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\FormatService;
+use App\Models\FinancialTransaction;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\QuotationItemMaster;
@@ -22,8 +23,12 @@ class QuotationService
 
     public function getForDataTable(array $filters = [])
     {
-        $data = Quotation::with(['customer', 'maid', 'quotationItems', 'order'])
-            ->when($filters['status'] ?? null, function ($q, $value) {
+        $data = Quotation::with(['customer.user', 'customer.handledBy', 'maid', 'quotationItems', 'order'])->withTrashed()
+            ->when($filters['sales_id'] ?? null, function ($q, $value) {
+                $q->whereHas('customer', function ($cq) use ($value) {
+                    $cq->where('handled_by', $value);
+                });
+            })->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
             })->when($filters['maid_id'] ?? null, function ($q, $value) {
                 $q->where('maid_id', $value);
@@ -45,6 +50,8 @@ class QuotationService
                     'maid_id' => $q->maid_id,
                     'maid_number' => $q->maid->maid_number ?? '-',
                     'maid_name' => $q->maid->name ?? '-',
+                    'sales_id' => $q->customer->handledBy->id ?? '-',
+                    'sales_name' => $q->customer->handledBy->name ?? '-',
                     'description' => $q->description ?? '-',
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,
@@ -83,7 +90,7 @@ class QuotationService
 
     public function getCanCreateOrderForFilter()
     {
-        $data = Quotation::select('id', 'quotation_number')->where('status', 'accepted')->whereDoesntHave('order')->get()->map(function ($q) {
+        $data = Quotation::select('id', 'quotation_number')->whereIn('status', ['sent', 'accepted'])->whereDoesntHave('order')->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => $q->quotation_number,
@@ -194,6 +201,7 @@ class QuotationService
             'payment_method' => $quotation->payment_method,
             'status' => $quotation->status,
             'reason' => $quotation->reason,
+            'sales_registration_number' => $quotation->sales_registration_number,
             'model' => 'quotation',
             'notes' => $quotation->quotationNotes->sortBy('sort_order')->values()->toArray(),
             'items' => $quotation->quotationItems->sortBy('sort_order')->map(function (QuotationItem $it) {
@@ -383,12 +391,41 @@ class QuotationService
         });
     }
 
+    public function cancel($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $quotation = Quotation::findOrFail($id);
+            $quotation->maid->update(['status' => 'available']);
+
+            if ($quotation->order) {
+                $invoices = $quotation->order->invoices;
+
+                foreach ($invoices as $invoice) {
+                    $receiptIds = $invoice->receipt()->pluck('id');
+
+                    if ($receiptIds->isNotEmpty()) {
+                        FinancialTransaction::where('reference_type', 'App\Models\Receipt')->whereIn('reference_id', $receiptIds)->delete();
+                    }
+
+                    $invoice->update(['status' => 'cancelled']);
+                }
+            }
+
+            $quotation->update(['status' => 'cancelled']);
+
+            return $quotation;
+        });
+    }
+
     public function delete($id)
     {
         $quotation = Quotation::find($id);
+
         if (!$quotation) {
             return false;
         }
+
+        $quotation->update(['status' => 'expired']);
 
         return $quotation->delete();
     }

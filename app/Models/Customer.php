@@ -20,16 +20,21 @@ class Customer extends Model
         'branch_id',
         'handled_by',
         'last_login',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }
 
     public function handledBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'handled_by');
+        return $this->belongsTo(User::class, 'handled_by')->withTrashed();
     }
 
     public function branch(): BelongsTo

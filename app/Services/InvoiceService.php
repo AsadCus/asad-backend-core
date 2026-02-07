@@ -8,12 +8,13 @@ use Illuminate\Support\Facades\DB;
 
 class InvoiceService
 {
-    protected $formatService, $quotationItemService;
+    protected $formatService, $quotationItemService, $maidStatusService;
 
-    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService)
+    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService, MaidStatusService $maidStatusService)
     {
         $this->formatService = $formatService;
         $this->quotationItemService = $quotationItemService;
+        $this->maidStatusService = $maidStatusService;
     }
 
     public function get()
@@ -21,27 +22,37 @@ class InvoiceService
         return Invoice::with('order')->get();
     }
 
-    public function getForDataTable()
+    public function getForDataTable(array $filters = [])
     {
-        return Invoice::with('order')->orderBy('invoice_number', 'desc')->get()->map(function ($i) {
-            return [
-                'id' => $i->id,
-                'invoice_number' => $i->invoice_number,
-                'quotation_id' => $i->order->quotation->id,
-                'quotation_number' => $i->order->quotation->quotation_number,
-                'order_id' => $i->order_id,
-                'order_number' => $i->order->order_number,
-                'customer_id' => $i->order->quotation->customer->id,
-                'customer_number' => $i->order->quotation->customer->customer_number,
-                'customer_name' => $i->order->quotation->customer->user->name,
-                'type' => $i->type,
-                'description' => $i->description,
-                'amount' => $this->formatService->cleanDecimal($i->amount),
-                'invoice_date' => $i->invoice_date_formatted,
-                'due_date' => $i->due_date_formatted,
-                'status' => $i->status,
-            ];
-        });
+        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy'])
+            ->when($filters['sales_id'] ?? null, function ($q, $value) {
+                $q->whereHas('order.quotation.customer', function ($cq) use ($value) {
+                    $cq->where('handled_by', $value);
+                });
+            })
+            ->orderBy('invoice_number', 'desc')->get()->map(function ($i) {
+                return [
+                    'id' => $i->id,
+                    'invoice_number' => $i->invoice_number ?? '-',
+                    'quotation_id' => $i->order->quotation->id ?? '-',
+                    'quotation_number' => $i->order->quotation->quotation_number ?? '-',
+                    'order_id' => $i->order_id ?? '-',
+                    'order_number' => $i->order->order_number ?? '-',
+                    'customer_id' => $i->order->quotation->customer->id ?? '-',
+                    'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
+                    'customer_name' => $i->order->quotation->customer->user->name ?? '-',
+                    'sales_id' => $i->order->quotation->customer->handledBy->id ?? '-',
+                    'sales_name' => $i->order->quotation->customer->handledBy->name ?? '-',
+                    'type' => $i->type,
+                    'description' => $i->description,
+                    'amount' => $this->formatService->cleanDecimal($i->amount),
+                    'invoice_date' => $i->invoice_date_formatted,
+                    'due_date' => $i->due_date_formatted,
+                    'status' => $i->status,
+                    'created_at' => $i->created_at?->translatedFormat('d F Y'),
+                    'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
+                ];
+            });
     }
 
     public function getForFilter()
@@ -101,6 +112,7 @@ class InvoiceService
             'placement_fee' => $this->formatService->cleanDecimal($i->order->quotation->total_amount),
             'invoice_date' => $i->invoice_date_formatted,
             'due_date' => $i->due_date_formatted,
+            'sales_registration_number' => $i->order->quotation->sales_registration_number,
             'status' => $i->status,
             'items' => $i->quotationItems->map(fn($item) => [
                 'id' => $item->id,
@@ -120,7 +132,14 @@ class InvoiceService
     public function update(array $data, int $id): Invoice
     {
         return DB::transaction(function () use ($data, $id) {
-            $invoice = Invoice::where('order_id', $data['order_id'] ?? null)->with('order.quotation')->findOrFail($id);
+            $query = Invoice::with('order.quotation');
+
+            // If order_id is provided, scope to that order
+            if (!empty($data['order_id'])) {
+                $query->where('order_id', $data['order_id']);
+            }
+
+            $invoice = $query->findOrFail($id);
 
             $invoice->update([
                 'type' => $data['type'] ?? null,

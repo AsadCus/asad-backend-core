@@ -1,5 +1,5 @@
-import { capitalize } from '@/lib/utils';
-import { forwardRef } from 'react';
+import { capitalize, formatCurrency } from '@/lib/utils';
+import React, { forwardRef } from 'react';
 import { QuotationItemSchema } from '../items/schema';
 import { paymentPlans, QuotationSchema } from '../schema';
 
@@ -129,15 +129,6 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
             return String(item.parent_key ?? item.parent_id ?? 'root');
         }
 
-        const formatCurrency = (value?: number | null) => {
-            if (value === undefined || value === null || Number.isNaN(value))
-                return '';
-
-            const amount = Number(value);
-            const sign = amount < 0 ? '-' : '';
-            return `${sign}$${Math.abs(amount).toFixed(2)}`;
-        };
-
         const paymentPlanLabel =
             paymentPlans.find((p) => p.value === (data.payment_plan ?? ''))
                 ?.label || capitalize(data.payment_plan ?? '');
@@ -176,8 +167,13 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                         <p>931 Yishun Central 1</p>
                         <p>#01-109, Singapore 760931</p>
                         <div className="mt-1 font-bold">
-                            {/* <p>REGISTRATION NO. R25128539</p> */}
-                            <p>LICENSE NO. 25C2708</p>
+                            {data.sales_registration_number && (
+                                <p>
+                                    REGISTRATION NO.{' '}
+                                    {data.sales_registration_number}
+                                </p>
+                            )}
+                            <p>LICENCE NO. 25C2708</p>
                         </div>
                     </div>
                 </div>
@@ -196,37 +192,44 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                         <table className="col-span-3 w-full">
                             <tbody>
                                 <tr>
-                                    <td className="w-1/5">
+                                    <td>
                                         <strong>Name</strong>
                                     </td>
                                     <td>: {data.customer_name ?? '-'}</td>
                                 </tr>
                                 <tr>
-                                    <td className="w-1/5">
+                                    <td className="align-top">
                                         <strong>Address</strong>
                                     </td>
                                     <td>
-                                        :{' '}
                                         {data.customer_address ? (
                                             <span>
+                                                :{' '}
                                                 {data.customer_address
                                                     .split('<br>')
-                                                    .map((line, idx, arr) => (
-                                                        <span key={idx}>
-                                                            {line}
-                                                            {idx <
-                                                                arr.length -
-                                                                    1 && <br />}
-                                                        </span>
+                                                    .map((line, idx) => (
+                                                        <React.Fragment
+                                                            key={idx}
+                                                        >
+                                                            {idx === 0 ? (
+                                                                line
+                                                            ) : (
+                                                                <>
+                                                                    <br />
+                                                                    <span className="inline-block w-2" />
+                                                                    {line}
+                                                                </>
+                                                            )}
+                                                        </React.Fragment>
                                                     ))}
                                             </span>
                                         ) : (
-                                            '-'
+                                            <span>: -</span>
                                         )}
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td className="w-1/5">
+                                    <td>
                                         <strong>Description</strong>
                                     </td>
                                     <td>: {data.description}</td>

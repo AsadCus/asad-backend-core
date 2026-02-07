@@ -22,14 +22,16 @@ import { ReceiptSchema } from './schema';
 
 interface ReceiptsProps {
     data: {
-        data: ReceiptSchema[];
-        invoiceOptions: OptionType[];
+        receiptsForDatatable: ReceiptSchema[];
+        invoices: OptionType[];
+        customers: OptionType[];
+        salespersons: OptionType[];
     };
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Receipt',
+        title: 'List of Receipts',
         href: receiptIndex().url,
     },
 ];
@@ -42,8 +44,30 @@ const columns: ColumnDef<ReceiptSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'customer_id',
+        header: 'Customer ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'customer_number',
+        header: 'Customer Number',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'customer_name',
         header: 'Customer Name',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'sales_id',
+        header: 'Sales ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'sales_name',
+        header: 'Salesperson',
         meta: { exportable: true },
     },
     {
@@ -100,6 +124,7 @@ const columns: ColumnDef<ReceiptSchema>[] = [
 ];
 
 export default function ReceiptsIndex({ data }: ReceiptsProps) {
+    const { receiptsForDatatable, invoices, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
 
@@ -109,7 +134,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
         actions.push('preview');
         actions.push('download');
     }
-    if (userPermissions.includes('receipt delete')) actions.push('delete');
+    // if (userPermissions.includes('receipt delete')) actions.push('delete');
 
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
     const [selectedReceipt, setSelectedReceipt] =
@@ -144,16 +169,18 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Receipt" />
+                <Head title="List of Receipts" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Receipt</h2>
+                        <h2 className="text-lg font-semibold">
+                            List of Receipts
+                        </h2>
                     </div>
 
                     <DataTable
                         enableExpand={false}
                         columns={columns}
-                        data={data.data}
+                        data={receiptsForDatatable}
                         actions={actions}
                         url={receiptIndex().url}
                         exportFilename="receipts"
@@ -219,6 +246,9 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                             },
                             columnVisibility: {
                                 id: false,
+                                customer_id: false,
+                                customer_number: false,
+                                sales_id: false,
                                 invoice_id: false,
                             },
                         }}
@@ -228,7 +258,19 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                     table={table}
                                     columnId="invoice_id"
                                     title="Invoice"
-                                    options={data.invoiceOptions}
+                                    options={invoices}
+                                />
+                                <ColumnFilter
+                                    table={table}
+                                    columnId="customer_id"
+                                    title="Customer"
+                                    options={customers}
+                                />
+                                <ColumnFilter
+                                    table={table}
+                                    columnId="sales_id"
+                                    title="Salesperson"
+                                    options={salespersons}
                                 />
                                 <DateRangeFilter
                                     table={table}

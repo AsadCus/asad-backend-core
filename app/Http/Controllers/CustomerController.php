@@ -212,6 +212,32 @@ class CustomerController extends Controller
         ])->with('success', 'Redirected to create quotation for customer and maid assignment.');
     }
 
+    public function enableCustomer(string $id)
+    {
+        $user = User::with('customer')->findOrFail($id);
+
+        if (!$user->customer) {
+            return redirect()->back()->with('error', 'Customer record not found.');
+        }
+
+        $this->customerService->enableCustomer($user->customer->id);
+
+        return redirect()->intended(route('customer.index'))->with('success', 'Customer enabled successfully.');
+    }
+
+    public function disableCustomer(string $id)
+    {
+        $user = User::with('customer')->findOrFail($id);
+
+        if (!$user->customer) {
+            return redirect()->back()->with('error', 'Customer record not found.');
+        }
+
+        $this->customerService->disableCustomer($user->customer->id);
+
+        return redirect()->intended(route('customer.index'))->with('success', 'Customer disabled successfully.');
+    }
+
     public function destroy(Request $request, string $id)
     {
         $ids = $request->input('ids');

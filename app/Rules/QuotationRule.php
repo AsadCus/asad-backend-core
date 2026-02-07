@@ -21,7 +21,7 @@ class QuotationRule
                 'payment_plan' => ['nullable', 'string'],
                 'payment_method' => ['nullable', 'string'],
                 'description' => ['nullable', 'string'],
-                'status' => ['nullable', 'in:draft,sent,revised,ready,accepted,converted,rejected,expired'],
+                'status' => ['nullable', 'in:draft,sent,revised,ready,accepted,converted,rejected,expired,cancelled'],
             ],
             (new QuotationItemRule())->rules('items')
         );
@@ -44,7 +44,7 @@ class QuotationRule
                 'payment_plan' => ['required', 'string'],
                 'payment_method' => ['required', 'string'],
                 'description' => ['required', 'string'],
-                'status' => ['required', 'in:draft,sent,revised,ready,accepted,converted,rejected,expired'],
+                'status' => ['required', 'in:draft,sent,revised,ready,accepted,converted,rejected,expired,cancelled'],
             ],
             (new QuotationItemRule())->rules('items')
         );

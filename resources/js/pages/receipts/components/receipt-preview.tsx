@@ -1,7 +1,7 @@
 import { formatCurrency } from '@/lib/utils';
 import { InvoiceItemSchema } from '@/pages/invoices/schema';
 import { paymentMethods } from '@/pages/quotations/schema';
-import { forwardRef } from 'react';
+import React, { forwardRef } from 'react';
 import { ReceiptSchema } from '../schema';
 
 interface Props {
@@ -115,8 +115,13 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                         <p>931 Yishun Central 1</p>
                         <p>#01-109, Singapore 760931</p>
                         <div className="mt-1 font-bold">
-                            {/* <p>REGISTRATION NO. R25128539</p> */}
-                            <p>LICENSE NO. 25C2708</p>
+                            {data.sales_registration_number && (
+                                <p>
+                                    REGISTRATION NO.{' '}
+                                    {data.sales_registration_number}
+                                </p>
+                            )}
+                            <p>LICENCE NO. 25C2708</p>
                         </div>
                     </div>
                 </div>
@@ -138,26 +143,33 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                                     <td>: {data.customer_name}</td>
                                 </tr>
                                 <tr>
-                                    <td>
+                                    <td className="align-top">
                                         <strong>Address</strong>
                                     </td>
                                     <td>
-                                        :{' '}
                                         {data.customer_address ? (
                                             <span>
+                                                :{' '}
                                                 {data.customer_address
                                                     .split('<br>')
-                                                    .map((line, idx, arr) => (
-                                                        <span key={idx}>
-                                                            {line}
-                                                            {idx <
-                                                                arr.length -
-                                                                    1 && <br />}
-                                                        </span>
+                                                    .map((line, idx) => (
+                                                        <React.Fragment
+                                                            key={idx}
+                                                        >
+                                                            {idx === 0 ? (
+                                                                line
+                                                            ) : (
+                                                                <>
+                                                                    <br />
+                                                                    <span className="inline-block w-2" />
+                                                                    {line}
+                                                                </>
+                                                            )}
+                                                        </React.Fragment>
                                                     ))}
                                             </span>
                                         ) : (
-                                            '-'
+                                            <span>: -</span>
                                         )}
                                     </td>
                                 </tr>
@@ -313,7 +325,7 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                         </table>
 
                         <div className="mt-2 text-right font-bold">
-                            Total Amount: ${subtotal.toFixed(2)}
+                            Total Amount: {formatCurrency(subtotal)}
                         </div>
                     </div>
 

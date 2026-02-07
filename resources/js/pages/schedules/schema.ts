@@ -6,6 +6,7 @@ export const scheduleSchema = z.object({
     customer_name: z.string().nullable(),
     maid_name: z.string().nullable(),
     schedule_number: z.string(),
+    sales_registration_number: z.string().nullable().optional(),
     monthly_salary: z.coerce.number().nullable(),
     loan_amount: z.coerce.number().nullable(),
     loan_duration_months: z.coerce.number().nullable(),

@@ -10,7 +10,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { create } from '@/routes/invoice';
-import { accept, expire, reject } from '@/routes/quotation';
+import { accept, cancel, expire, reject } from '@/routes/quotation';
 import { router } from '@inertiajs/react';
 import { Info, Loader2 } from 'lucide-react';
 import { useState } from 'react';
@@ -19,7 +19,8 @@ export type QuotationStatusActionType =
     | 'accept'
     | 'convert'
     | 'reject'
-    | 'expire';
+    | 'expire'
+    | 'cancel';
 
 interface QuotationStatusActionProps {
     quotationId?: number;
@@ -34,11 +35,15 @@ export function getAvailableQuotationActions(
     if (!status) return [];
 
     if (status === 'sent' || status === 'revised') {
-        return ['accept', 'reject', 'expire'];
+        return ['accept', 'reject', 'expire', 'cancel'];
     }
 
     if (status === 'accepted') {
-        return ['convert'];
+        return ['convert', 'cancel'];
+    }
+
+    if (status === 'converted') {
+        return ['cancel'];
     }
 
     return [];
@@ -63,6 +68,8 @@ export function QuotationStatusAction({
                 return 'Reject Quotation';
             case 'expire':
                 return 'Expire Quotation';
+            case 'cancel':
+                return 'Void Quotation';
             default:
                 return '';
         }
@@ -78,6 +85,8 @@ export function QuotationStatusAction({
                 return 'Reject this quotation and provide a reason.';
             case 'expire':
                 return 'Mark this quotation as expired.';
+            case 'cancel':
+                return 'Void this quotation. All related invoices will be cancelled and financial transactions will be removed.';
             default:
                 return '';
         }
@@ -123,6 +132,10 @@ export function QuotationStatusAction({
 
         if (action === 'expire') {
             router.put(expire(quotationId).url, {}, finishHandler);
+        }
+
+        if (action === 'cancel') {
+            router.put(cancel(quotationId).url, {}, finishHandler);
         }
     };
 
@@ -196,6 +209,7 @@ export function QuotationStatusAction({
                         {action === 'convert' && 'Convert'}
                         {action === 'reject' && 'Reject'}
                         {action === 'expire' && 'Expire'}
+                        {action === 'cancel' && 'Void'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

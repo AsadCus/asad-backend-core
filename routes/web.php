@@ -3,6 +3,7 @@
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GeneralEnquiryController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MaidController;
 use App\Http\Controllers\Master\AdminController as MasterAdminController;
@@ -16,12 +17,14 @@ use App\Http\Controllers\Master\UserController as MasterUserController;
 use App\Http\Controllers\NoteController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PrivateEnquiryController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\UserLogsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -32,9 +35,15 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('dashboard/sales-period-options', [DashboardController::class, 'getSalesPeriodOptions'])->name('dashboard.sales-period-options');
+    Route::get('dashboard/quotation-converted-by-salesperson', [DashboardController::class, 'getQuotationConvertedBySalesperson'])->name('dashboard.quotation-converted-by-salesperson');
+    Route::get('dashboard/sales-dashboard-data', [DashboardController::class, 'getSalesDashboardData'])->name('dashboard.sales-dashboard-data');
+    Route::get('dashboard/fiscal-year-total-sales', [DashboardController::class, 'getFiscalYearTotalSales'])->name('dashboard.fiscal-year-total-sales');
+    Route::get('dashboard/revenue-by-month', [DashboardController::class, 'getRevenueByMonth'])->name('dashboard.revenue-by-month');
+    Route::get('dashboard/income-by-month', [DashboardController::class, 'getIncomeByMonth'])->name('dashboard.income-by-month');
 
     // Private Enquiries
-    Route::resource('private-enquiries', \App\Http\Controllers\PrivateEnquiryController::class);
+    Route::resource('private-enquiries', PrivateEnquiryController::class);
 
     // Notifications
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -80,6 +89,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('customer-get-for-show/{id}', [CustomerController::class, 'getForShow'])->name('customer.get-for-show');
     Route::get('customer/{id}/recommend-maid', [CustomerController::class, 'editRecommendMaid'])->name('customer.recommend-maid-edit');
     Route::put('customer/{id}/handle', [CustomerController::class, 'handleCustomer'])->name('customer.handle');
+    Route::put('customer/{id}/enable', [CustomerController::class, 'enableCustomer'])->name('customer.enable');
+    Route::put('customer/{id}/disable', [CustomerController::class, 'disableCustomer'])->name('customer.disable');
     Route::post('customer/{customerId}/assign-maid/{maidId}', [CustomerController::class, 'assignMaidToCustomer'])->name('customer.assign-maid');
 
     // Maid
@@ -109,6 +120,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('quotation/{id}/accept', [QuotationController::class, 'acceptQuotation'])->name('quotation.accept');
     Route::put('quotation/{id}/reject', [QuotationController::class, 'rejectQuotation'])->name('quotation.reject');
     Route::put('quotation/{id}/expire', [QuotationController::class, 'expireQuotation'])->name('quotation.expire');
+    Route::put('quotation/{id}/cancel', [QuotationController::class, 'cancelQuotation'])->name('quotation.cancel');
 
     Route::resource('quotation-items', QuotationItemController::class);
     Route::get('quotation-items-list', [QuotationItemController::class, 'getQuotationItemMastersForOptions'])->name('quotation-items-list');
@@ -135,15 +147,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('agreement/{quotation}/export-pdf', [AgreementController::class, 'exportPdf'])->name('agreement.export-pdf');
 
     // User Logs
-    Route::get('user-logs', [App\Http\Controllers\UserLogsController::class, 'index'])->name('user-logs.index');
+    Route::get('user-logs', [UserLogsController::class, 'index'])->name('user-logs.index');
 
     // General Enquiries
-    Route::resource('general-enquiries', App\Http\Controllers\GeneralEnquiryController::class);
+    Route::resource('general-enquiries', GeneralEnquiryController::class);
 });
 
 Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';

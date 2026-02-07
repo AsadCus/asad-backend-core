@@ -85,6 +85,7 @@ class AgreementController extends Controller
         return [
             'id' => $quotation->id,
             'agreement_number' => 'AGR-' . $quotation->id . '-' . $quotation->created_at->format('Ymd'),
+            'sales_registration_number' => $quotation->sales_registration_number,
             'quotation' => [
                 'id' => $quotation->id,
                 'quotation_number' => $quotation->quotation_number,

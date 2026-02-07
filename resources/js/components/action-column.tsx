@@ -19,6 +19,8 @@ export type ActionType =
     | 'select-maid'
     | 'recommend-maid'
     | 'create-quotation'
+    | 'enable-customer'
+    | 'disable-customer'
     | 'maid-status-schedule'
     | 'maid-status-complete'
     | 'maid-status-finalize'
@@ -29,7 +31,8 @@ export type ActionType =
     | 'quotation-status-accept'
     | 'quotation-status-convert'
     | 'quotation-status-reject'
-    | 'quotation-status-expire';
+    | 'quotation-status-expire'
+    | 'quotation-status-cancel';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

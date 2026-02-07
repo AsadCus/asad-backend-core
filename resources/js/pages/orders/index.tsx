@@ -4,9 +4,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
-import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrency } from '@/lib/utils';
 import {
     create as createInvoice,
     destroy as destroyInvoice,
@@ -20,7 +18,8 @@ import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
-import { InvoiceSchema, statuses, statusVariantMap } from '../invoices/schema';
+import { invoiceColumns } from '../invoices';
+import { InvoiceSchema, statuses } from '../invoices/schema';
 import { paymentPlans } from '../quotations/schema';
 import OrderCreateDialog from './components/order-create-dialog';
 import { OrderSchema } from './schema';
@@ -28,15 +27,15 @@ import { OrderSchema } from './schema';
 interface QuotationsProps {
     data: {
         ordersForDatatable: OrderSchema[];
-        quotationOptions: OptionType[];
-        customerOptions: OptionType[];
-        quotationCanOrderOptions: OptionType[];
+        customers: OptionType[];
+        salespersons: OptionType[];
+        convertableQuotations: OptionType[];
     };
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Order',
+        title: 'List of Orders',
         href: index().url,
     },
 ];
@@ -49,8 +48,30 @@ const columns: ColumnDef<OrderSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'customer_id',
+        header: 'Customer ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'customer_number',
+        header: 'Customer ID',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'customer_name',
         header: 'Customer Name',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'sales_id',
+        header: 'Sales ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'sales_name',
+        header: 'Salesperson',
         meta: { exportable: true },
     },
     {
@@ -101,120 +122,28 @@ const columns: ColumnDef<OrderSchema>[] = [
     },
 ];
 
-const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
-    createSelectColumn<InvoiceSchema>(),
-    {
-        accessorKey: 'id',
-        header: 'ID',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'invoice_number',
-        header: 'Invoice No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'order_id',
-        header: 'Order Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'order_number',
-        header: 'Order No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'quotation_id',
-        header: 'Quotation Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'quotation_number',
-        header: 'Quotation No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'customer_id',
-        header: 'Customer Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'customer_number',
-        header: 'Customer Name',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'status',
-        header: 'Status',
-        meta: { exportable: true },
-        cell: ({ row }) => {
-            const status = row.original.status ?? 'draft';
-            const label =
-                statuses.find((s) => s.value === status)?.label || status;
-
-            const variant = statusVariantMap[status] ?? 'draft';
-
-            return (
-                <Badge variant={variant} className="capitalize">
-                    {label}
-                </Badge>
-            );
-        },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'description',
-        header: 'Description',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'amount',
-        header: 'Amount',
-        meta: { exportable: true },
-        cell: ({ row }) => formatCurrency(row.original.amount),
-    },
-    {
-        accessorKey: 'invoice_date',
-        header: 'Invoice Date',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-    },
-    {
-        accessorKey: 'due_date',
-        header: 'Due Date',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-    },
-    {
-        accessorKey: 'created_at',
-        header: 'Created At',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-    },
-    {
-        accessorKey: 'updated_at',
-        header: 'Updated At',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-    },
-];
-
 export default function OrderIndex({ data }: QuotationsProps) {
-    const { ordersForDatatable, quotationOptions, quotationCanOrderOptions } =
-        data;
+    const {
+        ordersForDatatable,
+        customers,
+        salespersons,
+        convertableQuotations,
+    } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const [openCreateDialog, setOpenCreateDialog] = useState(false);
 
-    const actions: ActionType[] = [];
+    const getRowActions = (row: OrderSchema): ActionType[] => {
+        const rowActions: ActionType[] = [];
 
-    if (userPermissions.includes('order create')) actions.push('add');
-    if (userPermissions.includes('order view')) actions.push('view');
-    if (userPermissions.includes('order edit')) actions.push('edit');
-    if (userPermissions.includes('order delete')) actions.push('delete');
+        if (userPermissions.includes('order view')) rowActions.push('view');
+        if (userPermissions.includes('order edit') && !row.has_receipts) {
+            rowActions.push('edit');
+        }
+        // if (userPermissions.includes('order delete')) rowActions.push('delete');
+
+        return rowActions;
+    };
 
     const invoiceActions: ActionType[] = [];
 
@@ -228,17 +157,20 @@ export default function OrderIndex({ data }: QuotationsProps) {
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Quotation" />
+                <Head title="List of Orders" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Order</h2>
+                        <h2 className="text-lg font-semibold">
+                            List of Orders
+                        </h2>
                     </div>
 
                     <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             columns={columns}
                             data={ordersForDatatable}
-                            actions={actions}
+                            actions={[]}
+                            getRowActions={getRowActions}
                             url={index().url}
                             enableExpand={true}
                             onAction={(action, row) => {
@@ -275,6 +207,9 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
+                                    customer_id: false,
+                                    customer_number: false,
+                                    sales_id: false,
                                     quotation_id: false,
                                     created_at: false,
                                     updated_at: false,
@@ -284,9 +219,15 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                 <>
                                     <ColumnFilter
                                         table={table}
-                                        columnId="quotation_id"
-                                        title="Quotation"
-                                        options={quotationOptions}
+                                        columnId="customer_id"
+                                        title="Customer"
+                                        options={customers}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="sales_id"
+                                        title="Salesperson"
+                                        options={salespersons}
                                     />
                                     <DateRangeFilter
                                         table={table}
@@ -397,6 +338,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                         quotation_id: false,
                                                         customer_id: false,
                                                         customer_number: false,
+                                                        sales_id: false,
                                                         created_at: false,
                                                         updated_at: false,
                                                     },
@@ -408,22 +350,6 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                             columnId="status"
                                                             title="Status"
                                                             options={statuses}
-                                                        />
-                                                        <ColumnFilter
-                                                            table={table}
-                                                            columnId="quotation_id"
-                                                            title="Quotation"
-                                                            options={
-                                                                data.quotationOptions
-                                                            }
-                                                        />
-                                                        <ColumnFilter
-                                                            table={table}
-                                                            columnId="customer_id"
-                                                            title="Customer"
-                                                            options={
-                                                                data.customerOptions
-                                                            }
                                                         />
                                                         <DateRangeFilter
                                                             table={table}
@@ -460,7 +386,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
             <OrderCreateDialog
                 open={openCreateDialog}
                 onOpenChange={setOpenCreateDialog}
-                quotationOptions={quotationCanOrderOptions}
+                quotationOptions={convertableQuotations}
             />
         </>
     );

@@ -6,6 +6,7 @@ export const agreementSchema = z.object({
     quotation_id: z.number(),
     agreement_number: z.string(),
     agreement_date: z.string(),
+    sales_registration_number: z.string().nullable().optional(),
     expiry_date: z.string().nullable(),
     customer_name: z.string(),
     customer_nric: z.string().nullable(),

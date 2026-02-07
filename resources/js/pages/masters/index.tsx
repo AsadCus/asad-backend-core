@@ -95,8 +95,7 @@ export default function Master({ stats }: MasterProps) {
                                                 }}
                                                 className="h-8 px-2"
                                             >
-                                                <Plus className="mr-1 h-4 w-4" />
-                                                Add
+                                                <Plus className="h-4 w-4" />
                                             </Button>
                                         )}
                                     </CardHeader>

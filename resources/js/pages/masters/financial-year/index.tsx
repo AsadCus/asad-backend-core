@@ -51,6 +51,34 @@ const columns: ColumnDef<FinancialYearSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'start_date',
+        header: 'Start Date',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const date = row.original.start_date;
+            if (!date) return '-';
+            return new Date(date).toLocaleDateString('en-GB', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+            });
+        },
+    },
+    {
+        accessorKey: 'end_date',
+        header: 'End Date',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const date = row.original.end_date;
+            if (!date) return '-';
+            return new Date(date).toLocaleDateString('en-GB', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+            });
+        },
+    },
+    {
         accessorKey: 'default',
         header: 'Default',
         meta: { exportable: false },
@@ -60,13 +88,13 @@ const columns: ColumnDef<FinancialYearSchema>[] = [
             if (!isDefault)
                 return (
                     <Badge variant="default" className="bg-red-300">
-                        <X />
+                        <X className="h-4 w-4" />
                     </Badge>
                 );
 
             return (
                 <Badge variant="default" className="bg-green-500">
-                    <Check />
+                    <Check className="h-4 w-4" />
                 </Badge>
             );
         },

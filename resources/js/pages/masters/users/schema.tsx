@@ -17,6 +17,7 @@ export const userSchema = z
         company_name: z.string().optional(),
         nric_number: z.string().optional(),
         address: z.string().optional(),
+        commission: z.union([z.string(), z.number()]).nullable().optional(),
         age_preferences: z.array(z.string()).optional(),
         country_preferences: z.array(z.string()).optional(),
         experience_preferences: z.array(z.string()).optional(),
@@ -27,6 +28,8 @@ export const userSchema = z
             .union([z.string(), z.number()])
             .nullable()
             .optional(),
+        registration_number: z.string().optional(),
+        is_active: z.boolean().nullable().optional(),
     })
     .refine(
         (data) => {

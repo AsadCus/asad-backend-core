@@ -99,7 +99,7 @@ export function DataTable<TData, TValue = unknown>({
     );
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
     const [globalFilter, setGlobalFilter] = useState('');
-    const [density, setDensity] = useState<string>('standard');
+    const [density, setDensity] = useState<string>('flexible');
     const [expanded, setExpanded] = useState<ExpandedState>({});
 
     const includesValue: FilterFn<unknown> = (

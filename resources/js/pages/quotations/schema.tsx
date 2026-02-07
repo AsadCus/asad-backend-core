@@ -19,6 +19,8 @@ export const quotationSchema = z.object({
     customer_address: z.string().nullable().optional(),
     customer_email: z.email().nullable().optional(),
 
+    sales_registration_number: z.string().nullable().optional(),
+
     maid_id: z.number().nullable().optional(),
     maid_number: z.string().nullable().optional(),
     maid_name: z.string().nullable().optional(),
@@ -80,7 +82,8 @@ export const statuses = [
     { label: 'Accepted', value: 'accepted' },
     { label: 'Converted', value: 'converted' },
     { label: 'Rejected', value: 'rejected' },
-    { label: 'Expired', value: 'expired' },
+    { label: 'Deleted', value: 'expired' },
+    { label: 'Void', value: 'cancelled' },
 ];
 
 export const statusColors = {
@@ -90,9 +93,11 @@ export const statusColors = {
     accepted: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
     expired: 'bg-purple-100 text-purple-800',
+    cancelled: 'bg-red-100 text-red-800',
 };
 
 export const daysOfWeek = [
+    { value: 'Weekdays', label: 'Weekdays' },
     { value: 'Monday', label: 'Monday' },
     { value: 'Tuesday', label: 'Tuesday' },
     { value: 'Wednesday', label: 'Wednesday' },

@@ -200,8 +200,10 @@
                     931 Yishun Central 1<br>
                     #01-109, Singapore 760931<br>
                     <div style="margin-top: 4px;">
-                        <!-- <b>REGISTRATION NO. R25128539</b><br> -->
-                        <b>LICENSE NO. 25C2708</b>
+                        @if ($data['sales_registration_number'] ?? false)
+                            <b>REGISTRATION NO. {{ $data['sales_registration_number'] }}</b><br>
+                        @endif
+                        <b>LICENCE NO. 25C2708</b>
                     </div>
                 </div>
             </td>
@@ -227,8 +229,15 @@
                                 <td>: {{ $data['customer_name'] ?? '-' }}</td>
                             </tr>
                             <tr>
-                                <td class="label-cell">Address</td>
-                                <td>: {!! $data['customer_address'] ?? '-' !!}</td>
+                                <td class="label-cell" style="vertical-align: top;">Address</td>
+                                <td style="vertical-align: top;">
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                            <td style="width: fit-content; vertical-align: top; padding: 0;">:</td>
+                                            <td style="vertical-align: top; padding: 0;">{!! $data['customer_address'] ?? '-' !!}</td>
+                                        </tr>
+                                    </table>
+                                </td>
                             </tr>
                             <tr>
                                 <td class="label-cell">Contact</td>
@@ -272,11 +281,7 @@
             // Helper functions
             function formatCurrency($value)
             {
-                if ($value === null) {
-                    return '';
-                }
-                $sign = $value < 0 ? '-' : '';
-                return $sign . '$' . number_format(abs($value), 2);
+                return \App\Helpers\FormatService::formatCurrency($value);
             }
 
             function toAlphabet($num)

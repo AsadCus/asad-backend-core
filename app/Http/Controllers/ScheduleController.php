@@ -92,6 +92,7 @@ class ScheduleController extends Controller
             'id' => $quotation->id,
             'quotation_id' => $quotation->id,
             'schedule_number' => "SCH-{$quotation->id}-" . $quotation->created_at->format('Ymd'),
+            'sales_registration_number' => $quotation->sales_registration_number,
 
             'quotation' => [
                 'id' => $quotation->id,

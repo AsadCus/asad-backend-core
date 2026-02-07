@@ -104,6 +104,7 @@ class CustomerService
                     'handled_by' => $q->customer->handled_by ?? null,
                     'handler_name' => $q->customer->handledBy->name ?? '-',
                     'last_login' => $q->customer->last_login ?? null,
+                    'is_active' => $q->customer->is_active ?? true,
                 ];
             });
 
@@ -273,6 +274,24 @@ class CustomerService
                     'last_login' => now(),
                 ]);
             }
+        });
+    }
+
+    public function enableCustomer(int $customerId)
+    {
+        return DB::transaction(function () use ($customerId) {
+            $customer = Customer::findOrFail($customerId);
+            $customer->update(['is_active' => true]);
+            return $customer;
+        });
+    }
+
+    public function disableCustomer(int $customerId)
+    {
+        return DB::transaction(function () use ($customerId) {
+            $customer = Customer::findOrFail($customerId);
+            $customer->update(['is_active' => false]);
+            return $customer;
         });
     }
 }

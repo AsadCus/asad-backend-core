@@ -42,6 +42,8 @@ export default function StatusSection({
             return ['draft', 'sent', 'rejected'];
         } else if (initialStatus === 'expired') {
             return ['draft', 'sent', 'expired'];
+        } else if (initialStatus === 'cancelled') {
+            return ['cancelled'];
         }
         return ['draft', 'sent'];
     }, [mode, initialStatus]);

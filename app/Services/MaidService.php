@@ -8,7 +8,6 @@ use App\Models\Maid;
 use App\Models\MaidAttribute;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
 
 class MaidService
 {
@@ -21,7 +20,7 @@ class MaidService
 
     public function getActiveCount()
     {
-        return Maid::whereIn('status', ['available', 'interviewing'])->count();
+        return Maid::whereIn('status', ['available', 'interviewing', 'pending'])->count();
     }
 
     public function getDailyStats($days = 30)
@@ -29,8 +28,7 @@ class MaidService
         $stats = collect();
         for ($i = $days - 1; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i);
-            $count = Maid::whereDate('created_at', $date->format('Y-m-d'))
-                ->count();
+            $count = Maid::whereDate('created_at', $date->format('Y-m-d'))->count();
 
             $stats->push([
                 'date' => $date->format('Y-m-d'),
@@ -66,8 +64,7 @@ class MaidService
 
     public function getForDataTable(array $maidIds = [])
     {
-        $query = Maid::with('attributes', 'country')
-            ->orderBy('created_at', 'desc');
+        $query = Maid::with('attributes', 'country')->orderBy('created_at', 'desc');
 
         if (!empty($maidIds)) {
             $query->whereIn('id', $maidIds);
@@ -90,8 +87,8 @@ class MaidService
                 'name' => $maid->name,
                 'date_of_birth' => $maid->date_of_birth_formatted,
                 'place_of_birth' => $maid->place_of_birth,
-                'height' => $maid->height ? $this->formatService->cleanDecimal($maid->height) : null,
-                'weight' => $maid->weight ? $this->formatService->cleanDecimal($maid->weight) : null,
+                'height' => $maid->height_formatted,
+                'weight' => $maid->weight_formatted,
                 'nationality' => $maid->country->adjective,
                 'address' => $maid->address,
                 'repatriation_port_airport' => $maid->repatriation_port_airport,
@@ -117,7 +114,10 @@ class MaidService
                 'supplier_user_id' => $maid->supplier->user->id ?? null,
                 'supplier' => $maid->supplier->name ?? '-',
                 'remaining_loan' => $this->formatService->cleanDecimal($maid->remaining_loan),
+                'monthly_salary' => $this->formatService->cleanDecimal($maid->monthly_salary),
+                'commission' => $this->formatService->cleanDecimal($maid->commission),
                 'cost_of_maid' => $this->formatService->cleanDecimal($maid->cost_of_maid),
+                'total_cost' => $this->formatService->cleanDecimal($maid->getTotalCostOfMaid()),
 
                 // Employment
                 'singapore_experience' => $maid->singapore_experience,
@@ -142,10 +142,7 @@ class MaidService
 
     public function getForRecommendation()
     {
-        $query = Maid::with('attributes', 'country')
-            ->where('status', '!=', 'assigned')
-            ->orderBy('created_at', 'desc');
-
+        $query = Maid::with('attributes', 'country')->whereIn('status', ['available', 'interviewing', 'pending'])->orderBy('created_at', 'desc');
         $maids = $query->get();
 
         return $maids->map(function ($maid) {
@@ -163,8 +160,8 @@ class MaidService
                 'name' => $maid->name,
                 'date_of_birth' => $maid->date_of_birth_formatted,
                 'place_of_birth' => $maid->place_of_birth,
-                'height' => $maid->height ? $this->formatService->cleanDecimal($maid->height) : null,
-                'weight' => $maid->weight ? $this->formatService->cleanDecimal($maid->weight) : null,
+                'height' => $maid->height_formatted,
+                'weight' => $maid->weight_formatted,
                 'nationality' => $maid->country->adjective,
                 'address' => $maid->address,
                 'repatriation_port_airport' => $maid->repatriation_port_airport,
@@ -190,6 +187,8 @@ class MaidService
                 'supplier_user_id' => $maid->supplier->user->id ?? null,
                 'supplier' => $maid->supplier->name ?? '-',
                 'remaining_loan' => $this->formatService->cleanDecimal($maid->remaining_loan),
+                'monthly_salary' => $this->formatService->cleanDecimal($maid->monthly_salary),
+                'commission' => $this->formatService->cleanDecimal($maid->commission),
                 'cost_of_maid' => $this->formatService->cleanDecimal($maid->cost_of_maid),
 
                 // Employment
@@ -225,9 +224,9 @@ class MaidService
         return $data;
     }
 
-    public function getForFilterWithCode()
+    public function getForFilterWithCode($statuses = ['unavailable', 'available', 'interviewing', 'pending', 'assigned'])
     {
-        $data = Maid::get()->map(function ($q) {
+        $data = Maid::whereIn('status', $statuses)->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => "{$q->maid_number} - {$q->name}",
@@ -240,42 +239,20 @@ class MaidService
     public function store(array $data, $request)
     {
         return DB::transaction(function () use ($data, $request) {
-            // Log skills data for debugging
-            if (isset($data['skills_assessment_singapore'])) {
-                Log::info('Storing maid with Singapore skills', [
-                    'type' => gettype($data['skills_assessment_singapore']),
-                    'data' => $data['skills_assessment_singapore']
-                ]);
-            }
-            if (isset($data['skills_assessment_overseas'])) {
-                Log::info('Storing maid with Overseas skills', [
-                    'type' => gettype($data['skills_assessment_overseas']),
-                    'data' => $data['skills_assessment_overseas']
-                ]);
-            }
-            if (isset($data['attributes'])) {
-                Log::info('Storing maid with attributes', ['attributes' => $data['attributes']]);
-            }
-
-
             if (!empty($data['date_of_birth'])) {
                 $data['date_of_birth'] = Carbon::parse($data['date_of_birth'])->format('Y-m-d');
             }
 
-            // Handle photo_url: could be new file upload or URL string (from document scan)
-            $photoUrl = null;
-
-            if ($request->hasFile('photo_url')) {
-                // New file uploaded manually
-                $path = $request->file('photo_url')->store('maids/photos', 'public');
-                $photoUrl = Storage::url($path);
-            } elseif ($request->filled('photo_url') && is_string($request->input('photo_url'))) {
-                // Photo URL from document scan or existing URL
-                $photoUrl = $request->input('photo_url');
-            } elseif (isset($data['photo_url']) && is_string($data['photo_url'])) {
-                // Fallback: check in validated data
-                $photoUrl = $data['photo_url'];
+            // Normalize skills data before storing
+            if (!empty($data['skills_assessment_singapore'])) {
+                $data['skills_assessment_singapore'] = $this->ensureSkillsDataConsistency($data['skills_assessment_singapore']);
             }
+            if (!empty($data['skills_assessment_overseas'])) {
+                $data['skills_assessment_overseas'] = $this->ensureSkillsDataConsistency($data['skills_assessment_overseas']);
+            }
+
+            // Handle photo upload
+            $photoPath = $this->handlePhotoUpload($request, $data);
 
             $maid = Maid::create([
                 'passport_number' => $data['passport_number'] ?? null,
@@ -294,7 +271,8 @@ class MaidService
                 'number_of_siblings' => $data['number_of_siblings'] ?? null,
                 'number_of_children' => $data['number_of_children'] ?? null,
                 'children_ages' => $data['children_ages'] ?? null,
-                'photo_url' => $photoUrl,
+                'photo_url' => $photoPath,
+
                 // Section A3 - Others
                 'rest_days_per_month' => $data['rest_days_per_month'] ?? 4,
                 'other_remarks' => $data['other_remarks'] ?? null,
@@ -302,7 +280,9 @@ class MaidService
                 'supplier_id' => $data['supplier_id'] ?? null,
                 'remaining_loan' => $data['remaining_loan'] ?? null,
                 'monthly_salary' => $data['monthly_salary'] ?? null,
+                'commission' => $data['commission'] ?? null,
                 'cost_of_maid' => $data['cost_of_maid'] ?? null,
+
                 // Section B - Skills and Evaluation
                 'skills_assessment_singapore' => !empty($data['skills_assessment_singapore']) ? $data['skills_assessment_singapore'] : null,
                 'skills_assessment_overseas' => !empty($data['skills_assessment_overseas']) ? $data['skills_assessment_overseas'] : null,
@@ -383,11 +363,12 @@ class MaidService
             'supplier_id' => $maid->supplier_id,
             'remaining_loan' => $this->formatService->cleanDecimal($maid->remaining_loan),
             'monthly_salary' => $this->formatService->cleanDecimal($maid->monthly_salary),
+            'commission' => $this->formatService->cleanDecimal($maid->commission),
             'cost_of_maid' => $this->formatService->cleanDecimal($maid->cost_of_maid),
 
             // Section B - Skills and Evaluation
-            'skills_assessment_singapore' => $maid->skills_assessment_singapore ?? [],
-            'skills_assessment_overseas' => $maid->skills_assessment_overseas ?? [],
+            'skills_assessment_singapore' => $this->normalizeSkillsData($maid->skills_assessment_singapore ?? []),
+            'skills_assessment_overseas' => $this->normalizeSkillsData($maid->skills_assessment_overseas ?? []),
             'eval_declaration_no_eval' => $maid->eval_declaration_no_eval,
             'eval_sg_interview' => $maid->eval_sg_interview,
             'eval_sg_phone' => $maid->eval_sg_phone,
@@ -431,62 +412,22 @@ class MaidService
     public function update(array $data, $id, $request)
     {
         return DB::transaction(function () use ($data, $id, $request) {
-            // Log attributes data for debugging
-            if (isset($data['attributes'])) {
-                Log::info('Updating maid with attributes', ['maid_id' => $id, 'attributes' => $data['attributes']]);
-            }
-
             if (!empty($data['date_of_birth'])) {
                 $data['date_of_birth'] = Carbon::parse($data['date_of_birth'])->format('Y-m-d');
             }
 
+            // Normalize skills data before storing
+            if (!empty($data['skills_assessment_singapore'])) {
+                $data['skills_assessment_singapore'] = $this->ensureSkillsDataConsistency($data['skills_assessment_singapore']);
+            }
+            if (!empty($data['skills_assessment_overseas'])) {
+                $data['skills_assessment_overseas'] = $this->ensureSkillsDataConsistency($data['skills_assessment_overseas']);
+            }
 
             $maid = Maid::findOrFail($id);
 
-            // Handle photo_url: could be new file, existing URL string, or empty
-            $photoUrl = $maid->photo_url; // Default: keep existing photo
-
-            if ($request->hasFile('photo_url')) {
-                // Check if it's actually a new file upload (not an existing URL converted to file)
-                $file = $request->file('photo_url');
-                $originalName = $file->getClientOriginalName();
-
-                // If file has a real original name (not from URL), it's a new upload
-                if ($originalName && !filter_var($originalName, FILTER_VALIDATE_URL)) {
-                    // Delete old photo if exists
-                    if ($maid->photo_url && \Illuminate\Support\Str::startsWith($maid->photo_url, '/storage/')) {
-                        $oldPath = str_replace('/storage/', '', $maid->photo_url);
-                        Storage::disk('public')->delete($oldPath);
-                    }
-
-                    // Store new photo
-                    $path = $file->store('maids/photos', 'public');
-                    $photoUrl = Storage::url($path);
-                } else {
-                    // It's an existing photo being re-submitted, keep the existing URL
-                }
-            } elseif ($request->filled('photo_url') && is_string($request->input('photo_url'))) {
-                // String URL provided (could be new or existing)
-                $inputUrl = $request->input('photo_url');
-                if ($inputUrl !== $maid->photo_url) {
-                    $photoUrl = $inputUrl;
-                }
-            } elseif ($request->has('photo_url') && !$request->filled('photo_url')) {
-                // Explicitly clearing photo - delete the old photo file
-                if ($maid->photo_url && \Illuminate\Support\Str::startsWith($maid->photo_url, '/storage/')) {
-                    $oldPath = str_replace('/storage/', '', $maid->photo_url);
-                    try {
-                        Storage::disk('public')->delete($oldPath);
-                    } catch (\Exception $e) {
-                        Log::warning('Failed to delete old maid photo during update', [
-                            'maid_id' => $id,
-                            'photo_url' => $maid->photo_url,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
-                $photoUrl = null;
-            }
+            // Handle photo upload/update
+            $photoPath = $this->handlePhotoUpdate($request, $data, $maid);
 
             $maid->update([
                 'passport_number' => $data['passport_number'] ?? null,
@@ -505,7 +446,8 @@ class MaidService
                 'number_of_siblings' => $data['number_of_siblings'] ?? null,
                 'number_of_children' => $data['number_of_children'] ?? null,
                 'children_ages' => $data['children_ages'] ?? null,
-                'photo_url' => $photoUrl,
+                'photo_url' => $photoPath,
+
                 // Section A3 - Others
                 'rest_days_per_month' => $data['rest_days_per_month'] ?? 4,
                 'other_remarks' => $data['other_remarks'] ?? null,
@@ -513,7 +455,9 @@ class MaidService
                 'supplier_id' => $data['supplier_id'] ?? null,
                 'remaining_loan' => $data['remaining_loan'] ?? null,
                 'monthly_salary' => $data['monthly_salary'] ?? null,
+                'commission' => $data['commission'] ?? null,
                 'cost_of_maid' => $data['cost_of_maid'] ?? null,
+
                 // Section B - Skills and Evaluation
                 'skills_assessment_singapore' => !empty($data['skills_assessment_singapore']) ? $data['skills_assessment_singapore'] : null,
                 'skills_assessment_overseas' => !empty($data['skills_assessment_overseas']) ? $data['skills_assessment_overseas'] : null,
@@ -569,23 +513,12 @@ class MaidService
         return DB::transaction(function () use ($id, $status, $reason) {
             $maid = Maid::findOrFail($id);
 
-            Log::info('MaidService updateStatus called', [
-                'maid_id' => $id,
-                'current_status' => $maid->status,
-                'new_status' => $status,
-                'reason' => $reason
-            ]);
-
             // Validate status transition using enum
             $currentStatus = \App\Enums\MaidStatus::from($maid->status);
             $newStatus = \App\Enums\MaidStatus::from($status);
 
             if (!$currentStatus->canTransitionTo($newStatus)) {
-                Log::warning('Invalid status transition', [
-                    'maid_id' => $id,
-                    'from' => $currentStatus->value,
-                    'to' => $newStatus->value
-                ]);
+
                 throw new \Exception("Cannot transition from {$currentStatus->label()} to {$newStatus->label()}");
             }
 
@@ -602,10 +535,7 @@ class MaidService
 
             $maid->update($updateData);
 
-            Log::info('Maid status updated successfully', [
-                'maid_id' => $id,
-                'new_status' => $status
-            ]);
+
 
             return $maid;
         });
@@ -650,5 +580,204 @@ class MaidService
             $maid->status_job_id = null;
             $maid->save();
         }
+    }
+
+    /**
+     * Normalize skills data to consistent format
+     * Fixes discrepancy between form and report
+     */
+    private function normalizeSkillsData(?array $skills): array
+    {
+        if (!$skills || !is_array($skills)) {
+            return [];
+        }
+
+        return array_map(function ($item) {
+            if (!is_array($item)) {
+                return $item;
+            }
+
+            // Normalize field names to consistent format
+            // Priority for observation field:
+            // 1. observation (if populated with text)
+            // 2. assessment_observation (normalized merged value)
+            // 3. assessment (numeric rating 1-5)
+            $observation = $item['observation'] ?? null;
+            $assessmentObservation = $item['assessment_observation'] ?? null;
+            $assessment = $item['assessment'] ?? null;
+
+            // If observation is empty, try to use assessment_observation or assessment
+            if (empty($observation)) {
+                if (!empty($assessmentObservation)) {
+                    $observation = $assessmentObservation;
+                } elseif (!empty($assessment)) {
+                    $observation = $assessment;
+                }
+            }
+
+            return [
+                'area' => $item['area'] ?? '',
+                'willingness' => $item['willingness'] ?? '',
+                'experience' => $item['experience'] ?? ($item['experience_years'] ?? ''),
+                'experience_years' => $item['experience_years'] ?? '',
+                'assessment' => $item['assessment'] ?? '',
+                'observation' => $observation ?? '',
+                'assessment_observation' => $assessmentObservation ?? '',
+            ];
+        }, $skills);
+    }
+
+    /**
+     * Handle photo upload for new maid
+     */
+    private function handlePhotoUpload($request, array $data): ?string
+    {
+        // File upload from form
+        if ($request->hasFile('photo_url')) {
+            return $this->storePhoto($request->file('photo_url'));
+        }
+
+        // URL string from document scan or external source
+        $photoUrl = $request->input('photo_url') ?? $data['photo_url'] ?? null;
+        if (!empty($photoUrl) && is_string($photoUrl)) {
+            return $this->normalizePhotoPath($photoUrl);
+        }
+
+        return null;
+    }
+
+    /**
+     * Handle photo update for existing maid
+     */
+    private function handlePhotoUpdate($request, array $data, Maid $maid): ?string
+    {
+        // New file upload - replace existing
+        if ($request->hasFile('photo_url')) {
+            $this->deletePhoto($maid->photo_url);
+            return $this->storePhoto($request->file('photo_url'));
+        }
+
+        // Photo URL changed
+        if ($request->filled('photo_url')) {
+            $newUrl = $request->input('photo_url');
+            if ($newUrl !== $maid->photo_url) {
+                return $this->normalizePhotoPath($newUrl);
+            }
+            return $maid->photo_url;
+        }
+
+        // Photo removed
+        if ($request->has('photo_url') && !$request->filled('photo_url')) {
+            $this->deletePhoto($maid->photo_url);
+            return null;
+        }
+
+        return $maid->photo_url;
+    }
+
+    /**
+     * Store photo file and return relative path
+     * Path format: maids/photos/{hash}.{ext}
+     */
+    private function storePhoto($file): string
+    {
+        $path = $file->store('maids/photos', 'public');
+        return '/storage/' . $path;
+    }
+
+    /**
+     * Delete photo from storage
+     */
+    private function deletePhoto(?string $photoPath): void
+    {
+        if (empty($photoPath)) {
+            return;
+        }
+
+        // Extract storage path from URL
+        $storagePath = $this->extractStoragePath($photoPath);
+        if ($storagePath && Storage::disk('public')->exists($storagePath)) {
+            Storage::disk('public')->delete($storagePath);
+        }
+    }
+
+    /**
+     * Normalize photo path to consistent format: /storage/maids/photos/{hash}.{ext}
+     */
+    private function normalizePhotoPath(?string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        // Already in correct format
+        if (str_starts_with($url, '/storage/')) {
+            return $url;
+        }
+
+        // Extract from full URL
+        if (preg_match('#/storage/(.+)$#', $url, $matches)) {
+            return '/storage/' . $matches[1];
+        }
+
+        // Return as-is if can't normalize
+        return $url;
+    }
+
+    /**
+     * Extract storage path from photo URL
+     * e.g., /storage/maids/photos/abc.jpg -> maids/photos/abc.jpg
+     */
+    private function extractStoragePath(?string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        if (str_starts_with($url, '/storage/')) {
+            return substr($url, 9); // Remove '/storage/'
+        }
+
+        if (preg_match('#/storage/(.+)$#', $url, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure skills assessment data consistency
+     * Merge assessment and observation fields properly
+     * If observation is empty, use assessment value
+     *
+     * @param array $skillsData Array of skill row objects
+     * @return array Normalized skill rows
+     */
+    private function ensureSkillsDataConsistency(array $skillsData): array
+    {
+        return array_map(function ($item) {
+            if (!is_array($item)) {
+                return $item;
+            }
+
+            $observation = $item['observation'] ?? null;
+            $assessment = $item['assessment'] ?? null;
+
+            // If observation is empty but assessment has value (especially numeric ratings)
+            // use assessment as the observation for consistency
+            if (empty($observation) && !empty($assessment)) {
+                $observation = $assessment;
+            }
+
+            return [
+                'area' => $item['area'] ?? '',
+                'willingness' => $item['willingness'] ?? '',
+                'experience' => $item['experience'] ?? '',
+                'experience_years' => $item['experience_years'] ?? '',
+                'assessment' => $assessment ?? '',
+                'observation' => $observation ?? '',
+                'assessment_observation' => $item['assessment_observation'] ?? '',
+            ];
+        }, $skillsData);
     }
 }

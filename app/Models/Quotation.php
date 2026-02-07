@@ -8,17 +8,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 
 class Quotation extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'quotation_number',
         'quotation_date',
         'expiry_date',
         'commencement_date',
         'customer_id',
-        'sales_id',
         'maid_id',
         'description',
         'monthly_salary',
@@ -45,17 +46,12 @@ class Quotation extends Model
 
     public function maid(): BelongsTo
     {
-        return $this->belongsTo(Maid::class);
+        return $this->belongsTo(Maid::class)->withTrashed();
     }
 
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
-    }
-
-    public function sales(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'sales_id');
     }
 
     public function order(): HasOne
@@ -84,17 +80,12 @@ class Quotation extends Model
                             return $sum;
                         }
 
-                        $isPlacementFee = (bool) ($item->is_placement_fee ?? false);
+                        $quantity = (float) ($item->quantity ?? 0);
+                        $rate = (float) ($item->rate ?? 0);
 
-                        if ($isPlacementFee) {
-                            $placementCents = (int) round(((float) ($this->monthly_salary ?? 0) * (float) ($this->loan_duration ?? 0)) * 100);
-                            return $sum + $placementCents;
-                        }
+                        $amountCents = (int) round($quantity * $rate * 100);
 
-                        $quantity = (int) ($item->quantity ?? 0);
-                        $rateCents = (int) round(((float) ($item->rate ?? 0)) * 100);
-
-                        return $sum + ($quantity * $rateCents);
+                        return $sum + $amountCents;
                     },
                     0
                 );
@@ -206,6 +197,15 @@ class Quotation extends Model
         );
     }
 
+    public function salesRegistrationNumber(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                return auth()->user()->sales ? auth()->user()->sales->registration_number : null;
+            }
+        );
+    }
+
     // Formatting Helpers
     public function getQuotationDateFormattedAttribute(): ?string
     {
@@ -228,7 +228,6 @@ class Quotation extends Model
             : null;
     }
 
-    // Model Hooks
     protected static function boot()
     {
         parent::boot();
@@ -236,6 +235,32 @@ class Quotation extends Model
         static::creating(function ($quotation) {
             if (empty($quotation->quotation_number)) {
                 $quotation->quotation_number = NumberGenerator::generate('quotation');
+            }
+        });
+
+        static::deleting(function ($quotation) {
+            $order = $quotation->order;
+            if ($order) {
+                foreach ($order->invoices as $invoice) {
+                    foreach ($invoice->receipt as $receipt) {
+                        FinancialTransaction::where('reference_type', 'App\Models\Receipt')->where('reference_id', $receipt->id)->delete();
+                    }
+                }
+            }
+        });
+
+        static::restored(function ($quotation) {
+            if ($quotation->status === 'cancelled') {
+                return;
+            }
+
+            $order = $quotation->order;
+            if ($order) {
+                foreach ($order->invoices as $invoice) {
+                    foreach ($invoice->receipt as $receipt) {
+                        FinancialTransaction::withTrashed()->where('reference_type', 'App\Models\Receipt')->where('reference_id', $receipt->id)->restore();
+                    }
+                }
             }
         });
     }

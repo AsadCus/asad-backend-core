@@ -188,8 +188,10 @@
                     931 Yishun Central 1<br>
                     #01-109, Singapore 760931<br>
                     <div style="margin-top: 4px;">
-                        <!-- <b>REGISTRATION NO. R25128539</b><br> -->
-                        <b>LICENSE NO. 25C2708</b>
+                        @if ($agreement['sales_registration_number'] ?? false)
+                            <b>REGISTRATION NO. {{ $agreement['sales_registration_number'] }}</b><br>
+                        @endif
+                        <b>LICENCE NO. 25C2708</b>
                     </div>
                 </div>
             </td>
@@ -233,11 +235,11 @@
                     </tr>
                     <tr>
                         <td class="info-label">Total Placement Fee</td>
-                        <td>${{ number_format($agreement['loan_amount'] ?? 0, 2) }}</td>
+                        <td>{{ \App\Helpers\FormatService::formatCurrency($agreement['loan_amount'] ?? 0) }}</td>
                     </tr>
                     <tr>
                         <td class="info-label">Monthly Salary</td>
-                        <td>${{ number_format($agreement['monthly_salary'] ?? 0, 2) }}</td>
+                        <td>{{ \App\Helpers\FormatService::formatCurrency($agreement['monthly_salary'] ?? 0) }}</td>
                     </tr>
                 </table>
             </td>
@@ -275,7 +277,7 @@
             @foreach ($invoices as $i => $invoice)
                 <tr>
                     <td>{{ $i + 1 }}</td>
-                    <td>${{ number_format($invoice['amount'], 2) }}</td>
+                    <td>{{ \App\Helpers\FormatService::formatCurrency($invoice['amount']) }}</td>
                     <td>
                         {{ $invoice['due_date'] }}
                     </td>
@@ -304,7 +306,7 @@
 
     <div class="late-payment">
         <strong>Late payment interest amount:
-            ${{ number_format($agreement['late_payment_interest_amount'] ?? 0, 2) }}</strong>
+            {{ \App\Helpers\FormatService::formatCurrency($agreement['late_payment_interest_amount'] ?? 0) }}</strong>
     </div>
 
     <!-- Signature Section -->

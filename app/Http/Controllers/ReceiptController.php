@@ -8,23 +8,36 @@ use App\Models\Receipt;
 use App\Services\ReceiptService;
 use App\Services\InvoiceService;
 use App\Http\Controllers\Controller;
+use App\Services\CustomerService;
+use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 
 class ReceiptController extends Controller
 {
-    protected $receiptService, $invoiceService;
+    protected $receiptService, $invoiceService, $customerService, $salesService;
 
-    public function __construct(ReceiptService $receiptService, InvoiceService $invoiceService)
+    public function __construct(ReceiptService $receiptService, InvoiceService $invoiceService, CustomerService $customerService, SalesService $salesService)
     {
         $this->receiptService = $receiptService;
         $this->invoiceService = $invoiceService;
+        $this->customerService = $customerService;
+        $this->salesService = $salesService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $data['data'] = $this->receiptService->getForDataTable();
-        $data['invoiceOptions'] = $this->invoiceService->getForFilter();
+        $user = $request->user();
+        $filters = [];
+
+        if ($user->hasRole('sales')) {
+            $filters['sales_id'] = $user->id;
+        }
+
+        $data['receiptsForDatatable'] = $this->receiptService->getForDataTable($filters);
+        $data['invoices'] = $this->invoiceService->getForFilter();
+        $data['customers'] = $this->customerService->getForFilter();
+        $data['salespersons'] = $this->salesService->getForFilter();
 
         return Inertia::render('receipts/index', [
             'data' => $data,
@@ -58,7 +71,8 @@ class ReceiptController extends Controller
 
         $this->receiptService->store($validated);
 
-        return redirect()->route('receipt.index')
+        // return redirect()->route('receipt.index')
+        return redirect()->route('invoice.index')
             ->with('success', 'Receipt created successfully.');
     }
 

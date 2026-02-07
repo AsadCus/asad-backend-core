@@ -54,13 +54,13 @@ class MaidRule
                     if ($value === null || $value === '') {
                         return;
                     }
-                    
+
                     // Accept string URL (already uploaded photo)
                     if (is_string($value)) {
                         // Valid string URL or path, allow it
                         return;
                     }
-                    
+
                     // If it's a file upload, validate as image
                     if ($value instanceof \Illuminate\Http\UploadedFile) {
                         $validator = \Illuminate\Support\Facades\Validator::make(
@@ -72,18 +72,19 @@ class MaidRule
                         }
                         return;
                     }
-                    
+
                     // If it's neither string nor file, fail
                     $fail('The photo url field must be an image file or a valid URL.');
                 },
             ],
 
-            'status' => 'required|string|in:available,interviewing,pending,assigned',
+            'status' => 'required|string|in:unavailable,available,interviewing,pending,assigned',
             'supplier_id' => 'required|exists:suppliers,id',
             'rest_days_per_month' => 'nullable|integer|min:0|max:8',
             'other_remarks' => 'nullable|string|max:500',
             'remaining_loan' => 'nullable|numeric|min:0|regex:/^\d+(\.\d{1,2})?$/',
             'monthly_salary' => 'nullable|numeric|min:0|regex:/^\d+(\.\d{1,2})?$/',
+            'commission' => 'nullable|numeric|min:0|regex:/^\d+(\.\d{1,2})?$/',
             'cost_of_maid' => 'nullable|numeric|min:0|regex:/^\d+(\.\d{1,2})?$/',
 
             'attributes' => 'array',
@@ -121,7 +122,7 @@ class MaidRule
             'singapore_experience' => 'nullable|boolean',
             'experience_years' => 'nullable|numeric|min:0',
             'employment_feedback' => 'nullable|string|max:2000',
-            
+
             // Employer Feedback (Section C3) - JSON format
             'employer_feedback' => 'nullable|array',
             'employer_feedback.*.employer' => 'nullable|string|max:500',

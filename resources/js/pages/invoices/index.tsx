@@ -25,28 +25,28 @@ import { useState } from 'react';
 import {
     InvoiceItemSchema,
     InvoiceSchema,
+    statusColors,
     statuses,
-    statusVariantMap,
 } from '../invoices/schema';
 import InvoicePreviewModal from './components/invoice-preview-modal';
 
 interface InvoicesProps {
     data: {
         invoicesForDatatable: InvoiceSchema[];
-        quotationOptions: OptionType[];
-        orderOptions: OptionType[];
-        customerOptions: OptionType[];
+        quotations: OptionType[];
+        customers: OptionType[];
+        salespersons: OptionType[];
     };
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Invoice',
+        title: 'List of Invoices',
         href: invoiceIndex().url,
     },
 ];
 
-const columns: ColumnDef<InvoiceSchema>[] = [
+export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
     createSelectColumn<InvoiceSchema>(),
     {
         accessorKey: 'id',
@@ -54,8 +54,30 @@ const columns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'customer_id',
+        header: 'Customer Id',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'customer_number',
+        header: 'Customer Number',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'customer_name',
         header: 'Customer Name',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'sales_id',
+        header: 'Sales Id',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'sales_name',
+        header: 'Salesperson',
         meta: { exportable: true },
     },
     {
@@ -86,17 +108,6 @@ const columns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'customer_id',
-        header: 'Customer Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'customer_number',
-        header: 'Customer Name',
-        meta: { exportable: true },
-    },
-    {
         accessorKey: 'status',
         header: 'Status',
         meta: { exportable: true },
@@ -104,11 +115,10 @@ const columns: ColumnDef<InvoiceSchema>[] = [
             const status = row.original.status ?? 'draft';
             const label =
                 statuses.find((s) => s.value === status)?.label || status;
-
-            const variant = statusVariantMap[status] ?? 'draft';
+            const color = statusColors[status as keyof typeof statusColors];
 
             return (
-                <Badge variant={variant} className="capitalize">
+                <Badge className={`${color} rounded-full px-3 py-1 text-sm`}>
                     {label}
                 </Badge>
             );
@@ -179,7 +189,7 @@ const columns: ColumnDef<InvoiceSchema>[] = [
 ];
 
 export default function InvoicesIndex({ data }: InvoicesProps) {
-    const { invoicesForDatatable } = data;
+    const { invoicesForDatatable, quotations, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
 
@@ -189,7 +199,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
         actions.push('preview');
         actions.push('download');
     }
-    if (userPermissions.includes('invoice delete')) actions.push('delete');
+    // if (userPermissions.includes('invoice delete')) actions.push('delete');
 
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -224,15 +234,17 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Invoice" />
+                <Head title="List of Invoices" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Invoice</h2>
+                        <h2 className="text-lg font-semibold">
+                            List of Invoices
+                        </h2>
                     </div>
 
                     <DataTable
                         enableExpand={false}
-                        columns={columns}
+                        columns={invoiceColumns}
                         data={invoicesForDatatable}
                         actions={actions}
                         url={invoiceIndex().url}
@@ -313,6 +325,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                 quotation_id: false,
                                 customer_id: false,
                                 customer_number: false,
+                                sales_id: false,
                                 created_at: false,
                                 updated_at: false,
                             },
@@ -329,13 +342,19 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                     table={table}
                                     columnId="quotation_id"
                                     title="Quotation"
-                                    options={data.quotationOptions}
+                                    options={quotations}
                                 />
                                 <ColumnFilter
                                     table={table}
                                     columnId="customer_id"
                                     title="Customer"
-                                    options={data.customerOptions}
+                                    options={customers}
+                                />
+                                <ColumnFilter
+                                    table={table}
+                                    columnId="sales_id"
+                                    title="Salesperson"
+                                    options={salespersons}
                                 />
                                 <DateRangeFilter
                                     table={table}

@@ -10,7 +10,9 @@ import { ages, experiences } from '@/lib/utils';
 import {
     create,
     destroy,
+    disable,
     edit,
+    enable,
     handle,
     index,
     recommendMaidEdit,
@@ -24,7 +26,7 @@ import { UserSchema } from '../masters/users/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Customer',
+        title: 'List of Customers',
         href: index().url,
     },
 ];
@@ -89,6 +91,10 @@ const columns: ColumnDef<UserSchema>[] = [
                 values = ages.split(',').map((v) => v.trim());
             }
 
+            if (values.length === 0) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
             return (
                 <div className="flex flex-wrap gap-1">
                     {values.map((value: string, index: number) => (
@@ -118,6 +124,10 @@ const columns: ColumnDef<UserSchema>[] = [
                 values = countries.split(',').map((v) => v.trim());
             }
 
+            if (values.length === 0) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
             return (
                 <div className="flex flex-wrap gap-1">
                     {values.map((value, index) => (
@@ -144,6 +154,9 @@ const columns: ColumnDef<UserSchema>[] = [
 
             if (Array.isArray(experiences)) {
                 values = experiences;
+                if (values.length === 0) {
+                    return <span className="text-muted-foreground">-</span>;
+                }
             } else if (typeof experiences === 'string') {
                 values = experiences.split(',').map((v) => v.trim());
             }
@@ -203,6 +216,22 @@ const columns: ColumnDef<UserSchema>[] = [
             );
         },
     },
+    {
+        accessorKey: 'is_active',
+        header: 'Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const isActive = row.getValue('is_active');
+            return (
+                <Badge
+                    className="text-xs"
+                    variant={isActive ? 'default' : 'destructive'}
+                >
+                    {isActive ? 'Active' : 'Inactive'}
+                </Badge>
+            );
+        },
+    },
 ];
 
 interface CustomerProps {
@@ -235,16 +264,32 @@ export default function Customer({
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Customer" />
+                <Head title="List of Customers" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Customer</h2>
+                        <h2 className="text-lg font-semibold">
+                            List of Customers
+                        </h2>
                     </div>
                     <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             columns={columns}
                             data={data}
                             actions={actions}
+                            addButtonText="Add New Customer"
+                            getRowActions={(q) => {
+                                const rowActions: ActionType[] = [];
+
+                                if (userPermissions.includes('customer edit')) {
+                                    if (q.is_active === false) {
+                                        rowActions.push('enable-customer');
+                                    } else {
+                                        rowActions.push('disable-customer');
+                                    }
+                                }
+
+                                return rowActions;
+                            }}
                             url={index().url}
                             onAction={(action, row) => {
                                 if (action === 'add') {
@@ -277,6 +322,27 @@ export default function Customer({
                                         router.get(
                                             recommendMaidEdit(userId).url,
                                         );
+                                    } else if (action === 'enable-customer') {
+                                        confirm({
+                                            title: 'Enable Customer',
+                                            message: `Are you sure you want to enable "${row?.original.name}"?`,
+                                            confirmText: 'Enable',
+                                            cancelText: 'Cancel',
+                                            variant: 'primary',
+                                            onConfirm: () => {
+                                                router.put(enable(userId).url);
+                                            },
+                                        });
+                                    } else if (action === 'disable-customer') {
+                                        confirm({
+                                            title: 'Disable Customer',
+                                            message: `Are you sure you want to disable "${row?.original.name}"? They will not be able to login.`,
+                                            confirmText: 'Disable',
+                                            cancelText: 'Cancel',
+                                            onConfirm: () => {
+                                                router.put(disable(userId).url);
+                                            },
+                                        });
                                     } else if (action === 'quotation-create') {
                                         if (!customerId) {
                                             toast.error(

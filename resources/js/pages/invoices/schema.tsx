@@ -35,6 +35,7 @@ export const invoiceSchema = z.object({
     order_number: z.string().nullable().optional(),
     maid_id: z.string().nullable().optional(),
     maid_name: z.string().nullable().optional(),
+    sales_registration_number: z.string().nullable().optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),
     payment_plan: z.string().nullable().optional(),
     payment_method: z.string().nullable().optional(),
@@ -55,11 +56,20 @@ export const type = [
 
 export const statuses = [
     { label: 'Draft', value: 'draft' },
-    { label: 'Issued', value: 'issued' },
+    { label: 'Outstanding', value: 'issued' },
     { label: 'Paid', value: 'paid' },
     { label: 'Overdue', value: 'overdue' },
-    { label: 'Cancelled', value: 'cancelled' },
+    { label: 'Void', value: 'cancelled' },
 ];
+
+export const statusColors = {
+    draft: 'bg-gray-100 text-gray-800',
+    issued: 'bg-cyan-100 text-cyan-800',
+    paid: 'bg-green-100 text-green-800',
+    overdue: 'bg-yellow-100 text-yellow-800',
+    cancelled: 'bg-red-100 text-red-800',
+    expired: 'bg-purple-100 text-purple-800',
+};
 
 export const statusVariantMap: Record<string, string> = {
     draft: 'draft',

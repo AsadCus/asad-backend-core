@@ -94,6 +94,12 @@ const columns: ColumnDef<UserSchema>[] = [
         },
     },
     {
+        accessorKey: 'commission',
+        header: 'Commission',
+        meta: { exportable: true },
+        cell: ({ row }) => formatCurrency(row.original.commission),
+    },
+    {
         accessorKey: 'total_cost_of_maid',
         header: 'Total Cost of Maid',
         meta: { exportable: true },

@@ -130,8 +130,10 @@
                     931 Yishun Central 1<br>
                     #01-109, Singapore 760931<br>
                     <div style="margin-top: 4px;">
-                        <!-- <b>REGISTRATION NO. R25128539</b><br> -->
-                        <b>LICENSE NO. 25C2708</b>
+                        @if ($schedule['sales_registration_number'] ?? false)
+                            <b>REGISTRATION NO. {{ $schedule['sales_registration_number'] }}</b><br>
+                        @endif
+                        <b>LICENCE NO. 25C2708</b>
                     </div>
                 </div>
             </td>
@@ -179,7 +181,7 @@
                         </tr>
                         <tr>
                             <td class="employer-label">Total Placement Fee</td>
-                            <td>${{ number_format($schedule['loan_amount'] ?? 0, 2) }}</td>
+                            <td>{{ \App\Helpers\FormatService::formatCurrency($schedule['loan_amount'] ?? 0) }}</td>
                         </tr>
                     </table>
                 </td>
@@ -194,14 +196,11 @@
                     <table class="employer-info" style="width: 100%;">
                         <tr>
                             <td class="employer-label">Monthly Salary</td>
-                            <td>
-                                {{ '$' . number_format((float) ($schedule['monthly_salary'] ?? 0), 2) }}
-                            </td>
+                            <td>{{ \App\Helpers\FormatService::formatCurrency($schedule['monthly_salary'] ?? 0) }}</td>
                         </tr>
                         <tr>
                             <td class="employer-label">Compensation Off in Lieu</td>
-                            <td>
-                                {{ '$' . number_format((float) ($schedule['compensation_off_in_lieu'] ?? 0), 2) }}
+                            <td>{{ \App\Helpers\FormatService::formatCurrency($schedule['compensation_off_in_lieu'] ?? 0) }}
                             </td>
                         </tr>
                     </table>
@@ -250,10 +249,10 @@
                     <td>{{ $row['month'] }}</td>
                     <td>{{ $row['day'] ?? '-' }}</td>
                     <td>{{ $row['month_name'] ?? '-' }}</td>
-                    <td>${{ number_format($row['salary'] ?? 0, 2) }}</td>
-                    <td>${{ number_format($row['compensation_off'] ?? 0, 2) }}</td>
-                    <td>${{ number_format($row['loan_payment'] ?? 0, 2) }}</td>
-                    <td>${{ number_format($row['total_payment'] ?? 0, 2) }}</td>
+                    <td>{{ \App\Helpers\FormatService::formatCurrency($row['salary'] ?? 0) }}</td>
+                    <td>{{ \App\Helpers\FormatService::formatCurrency($row['compensation_off'] ?? 0) }}</td>
+                    <td>{{ \App\Helpers\FormatService::formatCurrency($row['loan_payment'] ?? 0) }}</td>
+                    <td>{{ \App\Helpers\FormatService::formatCurrency($row['total_payment'] ?? 0) }}</td>
                     <td class="signature-col"></td>
                     <td class="signature-col"></td>
                 </tr>

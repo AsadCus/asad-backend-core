@@ -21,6 +21,7 @@ class SupplierService
                 'address' => $addressFormatted,
                 'supplier_id' => $q->supplier->id ?? null,
                 'total_cost_of_maid' => $q->supplier->getTotalCostOfMaid(),
+                'commission' => $q->supplier->commission,
             ];
         });
 

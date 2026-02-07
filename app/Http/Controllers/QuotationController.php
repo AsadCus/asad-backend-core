@@ -13,6 +13,7 @@ use App\Services\CustomerService;
 use App\Services\NoteService;
 use App\Services\QuotationItemService;
 use App\Services\QuotationService;
+use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Quotation;
 use Carbon\Carbon;
@@ -21,23 +22,32 @@ use Illuminate\Support\Facades\Log;
 
 class QuotationController extends Controller
 {
-    protected $quotationService, $maidService, $customerService, $quotationRule, $quotationItemService, $noteService;
+    protected $quotationService, $maidService, $customerService, $quotationRule, $quotationItemService, $noteService, $salesService;
 
-    public function __construct(QuotationService $quotationService, MaidService $maidService, CustomerService $customerService, QuotationRule $quotationRule, QuotationItemService $quotationItemService, NoteService $noteService)
+    public function __construct(QuotationService $quotationService, MaidService $maidService, CustomerService $customerService, QuotationRule $quotationRule, QuotationItemService $quotationItemService, NoteService $noteService, SalesService $salesService)
     {
         $this->quotationService = $quotationService;
         $this->maidService = $maidService;
         $this->customerService = $customerService;
+        $this->salesService = $salesService;
         $this->quotationRule = $quotationRule;
         $this->quotationItemService = $quotationItemService;
         $this->noteService = $noteService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $data['quotationsForDatatable'] = $this->quotationService->getForDataTable();
+        $user = $request->user();
+        $filters = [];
+
+        if ($user->hasRole('sales')) {
+            $filters['sales_id'] = $user->id;
+        }
+
+        $data['quotationsForDatatable'] = $this->quotationService->getForDataTable($filters);
         $data['maids'] = $this->maidService->getForFilter();
         $data['customers'] = $this->customerService->getForFilter();
+        $data['salespersons'] = $this->salesService->getForFilter();
 
         return Inertia::render('quotations/index', [
             'data' => $data,
@@ -46,7 +56,7 @@ class QuotationController extends Controller
 
     public function create(Request $request)
     {
-        $data['maids'] = $this->maidService->getForFilterWithCode();
+        $data['maids'] = $this->maidService->getForFilterWithCode(['available', 'interviewing', 'pending']);
         $data['customers'] = $this->customerService->getForFilterWithCode();
         $data['quotationItems'] = $this->quotationItemService->getQuotationItemMasters(false);
         $data['quotationNotes'] = $this->noteService->get('master', 'quotation');
@@ -109,7 +119,7 @@ class QuotationController extends Controller
     public function show($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['maids'] = $this->maidService->getForFilterWithCode();
+        $data['maids'] = $this->maidService->getForFilterWithCode(['unavailable', 'available', 'interviewing', 'pending', 'assigned']);
         $data['customers'] = $this->customerService->getForFilterWithCode();
 
         return Inertia::render('quotations/view', [
@@ -125,7 +135,7 @@ class QuotationController extends Controller
     public function edit($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['maids'] = $this->maidService->getForFilterWithCode();
+        $data['maids'] = $this->maidService->getForFilterWithCode(['available', 'interviewing', 'pending']);
         $data['customers'] = $this->customerService->getForFilterWithCode();
 
         return Inertia::render('quotations/edit', [
@@ -211,28 +221,75 @@ class QuotationController extends Controller
             ->with('success', 'Quotation ended successfully.');
     }
 
+    public function cancelQuotation($id)
+    {
+        $quotation = $this->quotationService->cancel($id);
+
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
+            ->log('Quotation cancelled successfully #' . $quotation->quotation_number);
+
+        return redirect()->route('quotation.index')->with('success', 'Quotation voided successfully.');
+    }
+
     public function destroy(Request $request, $id)
     {
         $ids = $request->input('ids');
 
         if ($ids && is_array($ids)) {
+            $deletedCount = 0;
+            $skippedCount = 0;
+
             foreach ($ids as $deleteId) {
                 $quotation = Quotation::find($deleteId);
-                if ($quotation && $quotation->maid_id) {
+
+                if (!$quotation) {
+                    continue;
+                }
+
+                // Prevent deletion of converted or cancelled quotations
+                if (in_array($quotation->status, ['converted', 'cancelled'])) {
+                    $skippedCount++;
+                    continue;
+                }
+
+                if ($quotation->maid_id) {
                     $this->maidService->revertMaidToAvailable($quotation->maid_id);
                 }
                 $this->quotationService->delete($deleteId);
+
                 activity()
                     ->performedOn($quotation)
                     ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
                     ->log('Quotation deleted successfully #' . $quotation->quotation_number);
+
+                $deletedCount++;
             }
+
+            $message = "Deleted {$deletedCount} quotation(s).";
+            if ($skippedCount > 0) {
+                $message .= " Skipped {$skippedCount} quotation(s) (converted or cancelled cannot be deleted).";
+            }
+
             return redirect()->route('quotation.index')
-                ->with('success', 'Selected quotations deleted successfully.');
+                ->with('success', $message);
         }
 
         $quotation = Quotation::find($id);
-        if ($quotation && $quotation->maid_id) {
+
+        if (!$quotation) {
+            return redirect()->route('quotation.index')
+                ->with('error', 'Quotation not found.');
+        }
+
+        // Prevent deletion of converted or cancelled quotations
+        if (in_array($quotation->status, ['converted', 'cancelled'])) {
+            return redirect()->route('quotation.index')
+                ->with('error', 'Cannot delete quotation with status: ' . $quotation->status);
+        }
+
+        if ($quotation->maid_id) {
             $this->maidService->revertMaidToAvailable($quotation->maid_id);
             $quotation->maid->refresh();
         }

@@ -67,7 +67,8 @@ export function ActionMenuItems<TData>({
         actions.includes('quotation-status-accept') ||
         actions.includes('quotation-status-convert') ||
         actions.includes('quotation-status-reject') ||
-        actions.includes('quotation-status-expire');
+        actions.includes('quotation-status-expire') ||
+        actions.includes('quotation-status-cancel');
 
     return (
         <>
@@ -118,6 +119,18 @@ export function ActionMenuItems<TData>({
             {actions.includes('quotation-create') && (
                 <Item onClick={() => onAction?.('quotation-create', row)}>
                     Create Quotation
+                </Item>
+            )}
+
+            {actions.includes('enable-customer') && (
+                <Item onClick={() => onAction?.('enable-customer', row)}>
+                    Enable Customer
+                </Item>
+            )}
+
+            {actions.includes('disable-customer') && (
+                <Item onClick={() => onAction?.('disable-customer', row)}>
+                    Disable Customer
                 </Item>
             )}
 
@@ -178,6 +191,19 @@ export function ActionMenuItems<TData>({
                                     Expire Quotation
                                 </Item>
                             )} */}
+
+                            {actions.includes('quotation-status-cancel') && (
+                                <Item
+                                    onClick={() =>
+                                        onAction?.(
+                                            'quotation-status-cancel',
+                                            row,
+                                        )
+                                    }
+                                >
+                                    Void Quotation
+                                </Item>
+                            )}
                         </SubContent>
                     </Sub>
                 </>

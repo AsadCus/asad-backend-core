@@ -1,8 +1,10 @@
+import { DatePickerField } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useForm } from '@inertiajs/react';
+import { useEffect } from 'react';
 import { financialYearSchema, FinancialYearSchema } from './schema';
 
 interface FinancialYearFormProps {
@@ -24,7 +26,9 @@ export function FinancialYearForm({
     const initialFormState: FinancialYearSchema = {
         id: 0,
         year: '',
-        default: false,
+        start_date: '',
+        end_date: '',
+        default: true,
     };
 
     const defaultData = initialData
@@ -43,6 +47,30 @@ export function FinancialYearForm({
         setError,
         clearErrors,
     } = useForm<FinancialYearSchema>(defaultData);
+
+    useEffect(() => {
+        if (data.start_date && data.end_date) {
+            const startDate = new Date(data.start_date);
+            const endDate = new Date(data.end_date);
+
+            // Calculate which year has the most months
+            const startYear = startDate.getFullYear();
+            const endYear = endDate.getFullYear();
+
+            if (startYear === endYear) {
+                setData('year', String(startYear));
+            } else {
+                // Count months in each year
+                const monthsInStartYear = 12 - startDate.getMonth(); // months remaining in start year
+                const monthsInEndYear = endDate.getMonth() + 1; // months in end year (0-indexed, so +1)
+
+                // Determine dominant year
+                const dominantYear =
+                    monthsInStartYear >= monthsInEndYear ? startYear : endYear;
+                setData('year', String(dominantYear));
+            }
+        }
+    }, [setData, data.start_date, data.end_date]);
 
     function validateClientSide() {
         const result = financialYearSchema.safeParse(data);
@@ -100,40 +128,86 @@ export function FinancialYearForm({
             }}
         >
             <form onSubmit={submit} className="space-y-4">
-                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                    {/* Year */}
+                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                    {/* Start Date */}
                     <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="name">Year</Label>
+                        <Label htmlFor="start_date">
+                            Start Date <span className="text-red-500">*</span>
+                        </Label>
                         <div className="relative">
-                            <Input
-                                type="text"
-                                id="name"
-                                value={data.year}
-                                onChange={(e) =>
-                                    setData('year', e.target.value)
-                                }
-                                placeholder="Year"
+                            <DatePickerField
+                                id="start_date"
+                                value={data.start_date}
                                 disabled={isView}
+                                onChange={(value) =>
+                                    setData('start_date', value)
+                                }
                             />
-                            {renderError('year')}
-                        </div>
-
-                        {/* Default */}
-                        <div className="flex gap-2">
-                            <Label htmlFor="default">Set as default</Label>
-                            <div className="relative flex items-center gap-2">
-                                <Checkbox
-                                    id="default"
-                                    checked={data.default ?? false}
-                                    onCheckedChange={(checked) =>
-                                        setData('default', Boolean(checked))
-                                    }
-                                    disabled={isView}
-                                />
-                                {renderError('default')}
-                            </div>
+                            {renderError('start_date')}
                         </div>
                     </div>
+
+                    {/* End Date */}
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="end_date">
+                            End Date
+                            <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="relative">
+                            <DatePickerField
+                                id="end_date"
+                                value={data.end_date}
+                                disabled={isView}
+                                disabledDates={(date) => {
+                                    if (!data.start_date) return false;
+                                    return date <= new Date(data.start_date);
+                                }}
+                                onChange={(value) => setData('end_date', value)}
+                            />
+                            {renderError('end_date')}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Year Display */}
+                <div className="grid w-full items-center gap-3">
+                    <Label htmlFor="year">
+                        Fiscal Year Label{' '}
+                        <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                        <Input
+                            id="year"
+                            value={data.year}
+                            disabled={isView}
+                            onChange={(e) => setData('year', e.target.value)}
+                            placeholder="Select start and end dates to auto-generate"
+                        />
+                        {renderError('year')}
+                    </div>
+                </div>
+
+                {/* Default Checkbox */}
+                <div className="flex items-center space-x-2">
+                    <Checkbox
+                        id="default"
+                        checked={data.default ?? false}
+                        onCheckedChange={(checked) =>
+                            setData('default', Boolean(checked))
+                        }
+                        disabled={isView}
+                    />
+                    <Label htmlFor="default" className="cursor-pointer">
+                        Set as default fiscal year
+                    </Label>
+                </div>
+
+                {/* Info message */}
+                <div className="rounded-md bg-blue-50 p-4 dark:bg-blue-950">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Note:</strong> You can customize the dates as
+                        needed. Only one fiscal year is allowed at a time.
+                    </p>
                 </div>
 
                 {/* Buttons */}
