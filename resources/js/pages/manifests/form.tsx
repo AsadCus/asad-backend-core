@@ -287,19 +287,25 @@ export default function ManifestForm({
                         />
                     </div>
 
-                    <DatePickerField
-                        label="Departure Date *"
-                        value={data.departure_date}
-                        onChange={(v) => setData('departure_date', v)}
-                        disabled={isViewMode}
-                    />
+                    <div className="space-y-2">
+                        <Label htmlFor="departure_date">Departure Date</Label>
+                        <DatePickerField
+                            id="departure_date"
+                            value={data.departure_date}
+                            onChange={(v) => setData('departure_date', v)}
+                            disabled={isViewMode}
+                        />
+                    </div>
 
-                    <DatePickerField
-                        label="Return Date *"
-                        value={data.return_date}
-                        onChange={(v) => setData('return_date', v)}
-                        disabled={isViewMode}
-                    />
+                    <div className="space-y-2">
+                        <Label htmlFor="return_date">Return Date</Label>
+                        <DatePickerField
+                            id="return_date"
+                            value={data.return_date}
+                            onChange={(v) => setData('return_date', v)}
+                            disabled={isViewMode}
+                        />
+                    </div>
                 </CardContent>
             </Card>
 

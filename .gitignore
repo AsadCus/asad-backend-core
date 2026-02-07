@@ -26,12 +26,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-app/Helpers/Document Helpers
-app/Helpers/*.txt
-app/Helpers/*.md
 /docs
 *.md
 *.txt
-package-lock.json
-composer.lock
-package-lock.json
