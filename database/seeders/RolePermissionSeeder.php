@@ -73,6 +73,19 @@ class RolePermissionSeeder extends Seeder
             'private-enquiry create',
             'private-enquiry edit',
             'private-enquiry delete',
+
+            'package view',
+            'package create',
+            'package edit',
+            'package delete',
+            'manifest view',
+            'manifest create',
+            'manifest edit',
+            'manifest delete',
+            'ops-movement view',
+            'ops-movement create',
+            'ops-movement edit',
+            'ops-movement delete',
         ];
 
         foreach ($permissions as $permission) {
@@ -146,6 +159,19 @@ class RolePermissionSeeder extends Seeder
             'private-enquiry create',
             'private-enquiry edit',
             'private-enquiry delete',
+
+            'package view',
+            'package create',
+            'package edit',
+            'package delete',
+            'manifest view',
+            'manifest create',
+            'manifest edit',
+            'manifest delete',
+            'ops-movement view',
+            'ops-movement create',
+            'ops-movement edit',
+            'ops-movement delete',
         ]);
         Role::findByName('sales')->givePermissionTo([
             'dashboard view',

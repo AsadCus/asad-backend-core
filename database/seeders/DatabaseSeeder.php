@@ -32,6 +32,10 @@ class DatabaseSeeder extends Seeder
 
             GeneralEnquirySeeder::class,
             PrivateEnquirySeeder::class,
+
+            // Travel Management
+            PackageSeeder::class,
+            ManifestSeeder::class,
         ]);
     }
 }

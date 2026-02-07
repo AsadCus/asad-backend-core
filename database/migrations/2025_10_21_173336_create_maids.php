@@ -130,6 +130,7 @@ return new class extends Migration
             $table->index('supplier_id');
 
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

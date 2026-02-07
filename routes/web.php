@@ -14,9 +14,12 @@ use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
 use App\Http\Controllers\Master\SupplierController as MasterSupplierController;
 use App\Http\Controllers\Master\UserController as MasterUserController;
+use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\NoteController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OpsMovementController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PackageController;
 use App\Http\Controllers\PrivateEnquiryController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
@@ -151,6 +154,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // General Enquiries
     Route::resource('general-enquiries', GeneralEnquiryController::class);
+
+    // Packages
+    Route::resource('packages', PackageController::class);
+
+    // Manifests
+    Route::resource('manifests', ManifestController::class);
+
+    // Ops Movements (read-only view from packages + manifests)
+    Route::resource('ops-movements', OpsMovementController::class)->only(['index', 'show']);
 });
 
 Route::fallback(function () {

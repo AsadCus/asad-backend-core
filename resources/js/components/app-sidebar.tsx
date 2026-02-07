@@ -11,11 +11,12 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import agreement from '@/routes/agreement';
+// import agreement from '@/routes/agreement';
 import customer from '@/routes/customer';
 import generalEnquiries from '@/routes/general-enquiries';
 import invoice from '@/routes/invoice';
-import maid from '@/routes/maid';
+// import maid from '@/routes/maid';
+import manifests from '@/routes/manifests';
 import master from '@/routes/master';
 import branch from '@/routes/master/branch';
 import financialYear from '@/routes/master/financial-year';
@@ -23,39 +24,44 @@ import user, { create as createUser } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
 import masterSales from '@/routes/master/user/sales';
-import masterSupplier from '@/routes/master/user/supplier';
+// import masterSupplier from '@/routes/master/user/supplier';
+import opsMovements from '@/routes/ops-movements';
 import order from '@/routes/order';
+import packages from '@/routes/packages';
+import privateEnquiries from '@/routes/private-enquiries';
 import quotation from '@/routes/quotation';
 import quotationItem from '@/routes/quotation-items';
 import receipt from '@/routes/receipt';
 import sales from '@/routes/sales';
-import schedule from '@/routes/schedule';
-import supplier from '@/routes/supplier';
+// import schedule from '@/routes/schedule';
+// import supplier from '@/routes/supplier';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
     Box,
-    Calendar,
-    FileCheck,
-    FileCheck2,
-    FilePlus,
+    // Calendar,
+    ClipboardList,
+    // FileCheck,
+    // FileCheck2,
+    // FilePlus,
     FileText,
     FileUser,
     Handshake,
-    HeartHandshake,
+    // HeartHandshake,
     Landmark,
     LayoutGrid,
     ListOrdered,
     Luggage,
     Map,
+    Package,
     Receipt,
     ReceiptText,
+    Route,
     TicketCheck,
     User,
     Wallet,
 } from 'lucide-react';
 import AppLogo from './app-logo';
-import privateEnquiries from '@/routes/private-enquiries';
 
 export function AppSidebar() {
     const { auth } = usePage<SharedData>().props;
@@ -102,10 +108,10 @@ export function AppSidebar() {
                                       title: 'Customer',
                                       href: masterCustomer.index.url(),
                                   },
-                                  {
-                                      title: 'Supplier',
-                                      href: masterSupplier.index.url(),
-                                  },
+                                  //   {
+                                  //       title: 'Supplier',
+                                  //       href: masterSupplier.index.url(),
+                                  //   },
                               ],
                           },
                           {
@@ -180,15 +186,15 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(permissions.includes('supplier view')
-            ? [
-                  {
-                      title: 'Supplier',
-                      href: supplier.index.url(),
-                      icon: FilePlus,
-                  },
-              ]
-            : []),
+        // ...(permissions.includes('supplier view')
+        //     ? [
+        //           {
+        //               title: 'Supplier',
+        //               href: supplier.index.url(),
+        //               icon: FilePlus,
+        //           },
+        //       ]
+        //     : []),
         ...(permissions.includes('customer view')
             ? [
                   {
@@ -198,26 +204,15 @@ export function AppSidebar() {
                   },
               ]
             : []),
-
-        ...(permissions.includes('private-enquiry view')
-            ? [
-                  {
-                      title: 'Private Enquiry',
-                      href: privateEnquiries.index.url(),
-                      icon: Luggage,
-                  },
-              ]
-            : []),
-
-        ...(permissions.includes('maid view') && !roles.includes('customer')
-            ? [
-                  {
-                      title: 'Maid Profile',
-                      href: maid.index.url(),
-                      icon: HeartHandshake,
-                  },
-              ]
-            : []),
+        // ...(permissions.includes('maid view') && !roles.includes('customer')
+        //     ? [
+        //           {
+        //               title: 'Maid Profile',
+        //               href: maid.index.url(),
+        //               icon: HeartHandshake,
+        //           },
+        //       ]
+        //     : []),
         ...(permissions.includes('general-enquiry view') &&
         !roles.includes('customer')
             ? [
@@ -228,35 +223,71 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(permissions.includes('schedule view') &&
-        permissions.includes('agreement view')
+        ...(permissions.includes('private-enquiry view')
             ? [
                   {
-                      title: 'Report',
-                      icon: FileCheck2,
-                      subItems: [
-                          ...(permissions.includes('schedule view')
-                              ? [
-                                    {
-                                        title: 'Payment Schedule',
-                                        icon: Calendar,
-                                        href: schedule.index.url(),
-                                    },
-                                ]
-                              : []),
-                          ...(permissions.includes('agreement view')
-                              ? [
-                                    {
-                                        title: 'Payment Agreement',
-                                        icon: FileCheck,
-                                        href: agreement.index.url(),
-                                    },
-                                ]
-                              : []),
-                      ],
+                      title: 'Private Enquiry',
+                      href: privateEnquiries.index.url(),
+                      icon: Luggage,
                   },
               ]
             : []),
+        ...(permissions.includes('package view')
+            ? [
+                  {
+                      title: 'Package',
+                      href: packages.index.url(),
+                      icon: Package,
+                  },
+              ]
+            : []),
+        ...(permissions.includes('manifest view')
+            ? [
+                  {
+                      title: 'Manifest',
+                      href: manifests.index.url(),
+                      icon: ClipboardList,
+                  },
+              ]
+            : []),
+        ...(permissions.includes('ops-movement view')
+            ? [
+                  {
+                      title: 'Ops Movement',
+                      href: opsMovements.index.url(),
+                      icon: Route,
+                  },
+              ]
+            : []),
+        // ...(permissions.includes('schedule view') &&
+        // permissions.includes('agreement view')
+        //     ? [
+        //           {
+        //               title: 'Report',
+        //               icon: FileCheck2,
+        //               subItems: [
+        //                   ...(permissions.includes('schedule view')
+        //                       ? [
+        //                             {
+        //                                 title: 'Payment Schedule',
+        //                                 icon: Calendar,
+        //                                 href: schedule.index.url(),
+        //                             },
+        //                         ]
+        //                       : []),
+        //                   ...(permissions.includes('agreement view')
+        //                       ? [
+        //                             {
+        //                                 title: 'Payment Agreement',
+        //                                 icon: FileCheck,
+        //                                 href: agreement.index.url(),
+        //                             },
+        //                         ]
+        //                       : []),
+        //               ],
+        //           },
+        //       ]
+        //     : []),
     ];
 
     const footerNavItems: NavItem[] = [

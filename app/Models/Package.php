@@ -3,8 +3,88 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Package extends Model
 {
-    //
+    protected $fillable = [
+        'group_number',
+        'name',
+        'status',
+
+        // Pricing
+        'price_single',
+        'price_double',
+        'price_triple',
+        'price_quad',
+        'child_with_bed_price',
+        'child_no_bed_price',
+        'infant_price',
+
+        // Flight Details
+        'airline',
+        'pnr',
+        'departure_date',
+        'arrival_date',
+        'total_seats',
+        'seats_left',
+
+        // Visa
+        'visa_type',
+
+        // Vehicle
+        'vehicle_type',
+
+        // Train Ticket
+        'ticket_type',
+
+        // Package Inclusions
+        'included',
+        'not_included',
+
+        // Remarks
+        'remarks',
+    ];
+
+    protected $casts = [
+        'departure_date' => 'date',
+        'arrival_date' => 'date',
+        'price_single' => 'decimal:2',
+        'price_double' => 'decimal:2',
+        'price_triple' => 'decimal:2',
+        'price_quad' => 'decimal:2',
+        'child_with_bed_price' => 'decimal:2',
+        'child_no_bed_price' => 'decimal:2',
+        'infant_price' => 'decimal:2',
+        'total_seats' => 'integer',
+        'seats_left' => 'integer',
+    ];
+
+    /**
+     * Computed: true if status is 'open', false otherwise.
+     */
+    public function getLaunchedAttribute(): bool
+    {
+        return $this->status === 'open';
+    }
+
+    public function getDepartureDateFormattedAttribute(): ?string
+    {
+        return $this->departure_date?->format('d/m/Y');
+    }
+
+    public function getArrivalDateFormattedAttribute(): ?string
+    {
+        return $this->arrival_date?->format('d/m/Y');
+    }
+
+    public function accommodations(): HasMany
+    {
+        return $this->hasMany(PackageAccommodation::class);
+    }
+
+    public function manifests(): HasMany
+    {
+        return $this->hasMany(Manifest::class);
+    }
 }
