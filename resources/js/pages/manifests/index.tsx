@@ -5,8 +5,8 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import AppLayout from '@/layouts/app-layout';
 import { create, destroy, edit, index, show } from '@/routes/manifests';
-import { SharedData, type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
+import { type BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 
 interface ManifestDataTableSchema {
@@ -113,7 +113,6 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
 ];
 
 export default function ManifestsIndex({ data }: ManifestsProps) {
-    const { auth } = usePage<SharedData>().props;
     const actions: ActionType[] = ['add', 'view', 'edit', 'delete'];
     const { manifestsForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();

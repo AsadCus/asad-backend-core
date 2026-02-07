@@ -68,7 +68,7 @@ export default function PackageForm({
             const validationErrors = result.error.flatten().fieldErrors;
             Object.entries(validationErrors).forEach(([key, messages]) => {
                 if (messages && messages.length > 0) {
-                    errors[key as keyof PackageSchema] = messages[0] as any;
+                    errors[key as keyof PackageSchema] = messages[0] as string;
                 }
             });
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -99,7 +99,7 @@ export default function PackageForm({
     }
 
     const renderError = (fieldName: string) => {
-        const message = (errors as any)[fieldName];
+        const message = (errors as Record<string, string>)[fieldName];
         if (!message) return null;
         return <p className="mt-1 text-xs text-red-500">{message}</p>;
     };
@@ -261,7 +261,11 @@ export default function PackageForm({
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        value={(data as any)[key]}
+                                        value={
+                                            data[
+                                                key as keyof PackageSchema
+                                            ] as number
+                                        }
                                         disabled={isView || processing}
                                         onChange={(e) =>
                                             setData(
@@ -294,7 +298,11 @@ export default function PackageForm({
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        value={(data as any)[key]}
+                                        value={
+                                            data[
+                                                key as keyof PackageSchema
+                                            ] as number
+                                        }
                                         disabled={isView || processing}
                                         onChange={(e) =>
                                             setData(

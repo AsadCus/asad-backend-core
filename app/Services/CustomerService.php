@@ -277,6 +277,33 @@ class CustomerService
         });
     }
 
+    public function getSalesCustomersData(int $salesUserId)
+    {
+        $customers = User::role('customer')
+            ->with('customer.handledBy')
+            ->whereHas('customer', function ($query) use ($salesUserId) {
+                $query->whereNull('handled_by')
+                    ->orWhere('handled_by', $salesUserId);
+            })
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($customer) {
+                $salesName = $customer->customer->handledBy->name ?? null;
+                $isAssigned = $customer->customer->handled_by !== null;
+
+                return [
+                    'id' => $customer->id,
+                    'name' => $customer->name,
+                    'email' => $customer->email,
+                    'contact' => $customer->contact ?? '-',
+                    'assigned_sales' => $salesName,
+                    'status' => $isAssigned ? 'Assigned' : 'Unassigned',
+                ];
+            });
+
+        return $customers;
+    }
+
     public function enableCustomer(int $customerId)
     {
         return DB::transaction(function () use ($customerId) {
