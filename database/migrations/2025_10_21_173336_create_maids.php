@@ -108,7 +108,7 @@ return new class extends Migration
             // ========================================
             $table->enum('status', ['available', 'interviewing', 'pending', 'assigned'])->default('available');
             $table->timestamp('interview_date')->nullable();
-            // $table->dateTime('interview_end_date')->nullable()->after('interview_date');
+            $table->dateTime('interview_end_date')->nullable();
             $table->string('status_job_id')->nullable()->comment('Stores the job ID to prevent duplicate jobs and track active status jobs');
             $table->timestamp('pending_until')->nullable()->comment('Deadline for document finalization. Auto-assign to ASSIGNED after this date.');
             $table->text('pending_reason')->nullable()->comment('Reason or notes for pending status');

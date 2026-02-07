@@ -23,6 +23,7 @@ return new class extends Migration
             $table->foreignId('branch_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignId('handled_by')->nullable()->constrained('users')->cascadeOnDelete();
             $table->timestamp('last_login')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

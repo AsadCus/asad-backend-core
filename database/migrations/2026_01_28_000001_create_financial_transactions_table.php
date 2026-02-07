@@ -19,6 +19,7 @@ return new class extends Migration
             $table->date('transaction_date');
             $table->json('metadata')->nullable();
             $table->timestamps();
+            $table->softDeletes();
 
             $table->index(['financial_year_id', 'type']);
             $table->index(['reference_type', 'reference_id']);

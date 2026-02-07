@@ -39,6 +39,7 @@ return new class extends Migration {
             $table->string('reason')->nullable();
             $table->boolean('is_locked')->default(false);
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

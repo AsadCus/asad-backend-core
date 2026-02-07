@@ -14,7 +14,10 @@ return new class extends Migration
         Schema::create('financial_years', function (Blueprint $table) {
             $table->id();
             $table->string('year');
+            $table->date('start_date')->nullable();
+            $table->date('end_date')->nullable();
             $table->boolean('default')->default(false);
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }
