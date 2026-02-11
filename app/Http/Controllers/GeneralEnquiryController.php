@@ -31,6 +31,12 @@ class GeneralEnquiryController extends Controller
         ]);
     }
 
+
+    public function publicForm()
+    {
+        return Inertia::render('general-enquiries/public/form');
+    }
+
     /**
      * Show the form for creating a new resource.
      */
@@ -49,6 +55,17 @@ class GeneralEnquiryController extends Controller
 
         return redirect()->route('general-enquiries.index')
             ->with('success', 'General enquiry created successfully.');
+    }
+
+    /**
+     * Store a public general enquiry (no authentication required).
+     */
+    public function storePublic(Request $request)
+    {
+        $validated = $request->validate($this->generalEnquiryRule->rules());
+        $this->generalEnquiries->store($validated);
+
+        return back()->with('success', 'Thank you for your enquiry. We will get back to you soon.');
     }
 
     /**

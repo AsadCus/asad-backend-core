@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GeneralEnquiryController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MaidController;
+use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\Master\AdminController as MasterAdminController;
 use App\Http\Controllers\Master\BranchController as MasterBranchController;
 use App\Http\Controllers\Master\CustomerController as MasterCustomerController;
@@ -14,7 +15,6 @@ use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
 use App\Http\Controllers\Master\SupplierController as MasterSupplierController;
 use App\Http\Controllers\Master\UserController as MasterUserController;
-use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\NoteController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OpsMovementController;
@@ -35,6 +35,16 @@ Route::get('/', function () {
     // return Inertia::render('welcome');
     return redirect()->route('login');
 })->name('home');
+
+// Public General Enquiry Routes (No Authentication Required)
+Route::get('general-enquiries/public/form', [GeneralEnquiryController::class, 'publicForm'])->name('general-enquiries.public.form');
+Route::post('general-enquiries/public/store', [GeneralEnquiryController::class, 'storePublic'])->name('general-enquiries.public.store');
+
+// Public Private Enquiry Routes (No Authentication Required)
+Route::get('private-enquiries/public/form', [PrivateEnquiryController::class, 'publicForm'])->name('private-enquiries.public.form');
+Route::post('private-enquiries/public/store', [PrivateEnquiryController::class, 'storePublic'])->name('private-enquiries.public.store');
+
+
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -169,5 +179,5 @@ Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__ . '/settings.php';
-require __DIR__ . '/auth.php';
+require __DIR__.'/settings.php';
+require __DIR__.'/auth.php';

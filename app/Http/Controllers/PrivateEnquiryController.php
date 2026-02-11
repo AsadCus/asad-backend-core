@@ -41,6 +41,14 @@ class PrivateEnquiryController extends Controller
     }
 
     /**
+     * Show the public form for creating a new private enquiry.
+     */
+    public function publicForm()
+    {
+        return Inertia::render('private-enquiries/public/form');
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
@@ -50,6 +58,17 @@ class PrivateEnquiryController extends Controller
 
         return redirect()->route('private-enquiries.index')
             ->with('success', 'Private enquiry created successfully.');
+    }
+
+    /**
+     * Store a public private enquiry (no authentication required).
+     */
+    public function storePublic(Request $request)
+    {
+        $validated = $request->validate($this->privateEnquiryRule->rules());
+        $this->privateEnquiries->store($validated);
+
+        return back()->with('success', 'Thank you for your enquiry. We will get back to you soon with a detailed quotation.');
     }
 
     /**
