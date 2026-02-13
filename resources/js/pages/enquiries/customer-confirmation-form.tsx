@@ -157,10 +157,10 @@ export default function CustomerConfirmationForm({
     useEffect(() => {
         setData((prev) => ({
             ...prev,
-            members: members.map(({ _key, ...rest }) => rest),
+            members: members.map(({ ...rest }) => rest),
             enquiry_id: enquiryId ?? selectedEnquiryId,
         }));
-    }, [members, selectedEnquiryId]);
+    }, [enquiryId, setData, members, selectedEnquiryId]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -250,7 +250,7 @@ export default function CustomerConfirmationForm({
             : createCustomerGroup().url;
 
         // Sync the selected enquiry ID into form data before submit
-        const membersPayload = members.map(({ _key, ...rest }) => rest);
+        const membersPayload = members.map(({ ...rest }) => rest);
 
         post(submitUrl, {
             data: {

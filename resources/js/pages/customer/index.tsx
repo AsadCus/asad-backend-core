@@ -374,8 +374,6 @@ export default function Customer({
                                         }
 
                                         const userId = row?.original.id;
-                                        const customerId =
-                                            row?.original.customer_id;
 
                                         if (userId !== undefined) {
                                             if (action === 'view') {
