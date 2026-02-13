@@ -54,9 +54,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard/revenue-by-month', [DashboardController::class, 'getRevenueByMonth'])->name('dashboard.revenue-by-month');
     Route::get('dashboard/income-by-month', [DashboardController::class, 'getIncomeByMonth'])->name('dashboard.income-by-month');
 
-    // Private Enquiries
-    Route::resource('private-enquiries', PrivateEnquiryController::class);
-
     // Notifications
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications', [NotificationController::class, 'store'])->name('notifications.store');
@@ -163,9 +160,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // General Enquiries
     Route::resource('general-enquiries', GeneralEnquiryController::class);
+    Route::get('general-enquiries-get-for-show/{id}', [GeneralEnquiryController::class, 'getForShow'])->name('general-enquiries.get-for-show');
 
-    // All Enquiries (read-only view combining general + private)
+    // Private Enquiries
+    Route::resource('private-enquiries', PrivateEnquiryController::class);
+    Route::get('private-enquiries-get-for-show/{id}', [PrivateEnquiryController::class, 'getForShow'])->name('private-enquiries.get-for-show');
+
+    // Enquiry Dashboard (read-only view combining general + private)
     Route::get('enquiries', [EnquiryController::class, 'index'])->name('enquiries.index');
+    Route::get('enquiries-get-for-show/{id}', [EnquiryController::class, 'getForShow'])->name('enquiries.get-for-show');
+    Route::put('enquiries/{id}/status', [EnquiryController::class, 'transitionStatus'])->name('enquiries.transition-status');
+    Route::post('enquiries/{id}/confirm', [EnquiryController::class, 'confirm'])->name('enquiries.confirm');
+    Route::post('enquiries/customer-group', [EnquiryController::class, 'createCustomerGroup'])->name('enquiries.create-customer-group');
+    Route::get('enquiries/search-customers', [EnquiryController::class, 'searchCustomers'])->name('enquiries.search-customers');
+    Route::get('enquiries/available-enquiries', [EnquiryController::class, 'availableEnquiries'])->name('enquiries.available-enquiries');
+    Route::get('enquiries/list-customers', [EnquiryController::class, 'listCustomers'])->name('enquiries.list-customers');
 
     // Packages
     Route::resource('packages', PackageController::class);
@@ -181,5 +190,5 @@ Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';

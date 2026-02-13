@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\EnquiryStatus;
+use App\Models\Enquiry;
 use App\Models\GeneralEnquiry;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +13,7 @@ class GeneralEnquiryService
     public function getForDataTable(array $filters = [])
     {
         $data = GeneralEnquiry::query()
+            ->with('enquiry')
             ->when($filters['from_date'] ?? null, function ($q, $value) {
                 $q->whereDate('created_at', '>=', $value);
             })
@@ -29,6 +32,9 @@ class GeneralEnquiryService
             ->map(function ($enquiry) {
                 return [
                     'id' => $enquiry->id,
+                    'enquiry_id' => $enquiry->enquiry_id,
+                    'status' => $enquiry->enquiry?->status?->value ?? 'new_lead',
+                    'status_label' => $enquiry->enquiry?->status?->label() ?? 'New Lead',
                     'full_name' => $enquiry->full_name,
                     'mobile' => $enquiry->mobile,
                     'email' => $enquiry->email,
@@ -48,11 +54,22 @@ class GeneralEnquiryService
     public function store(array $data = []): GeneralEnquiry
     {
         return DB::transaction(function () use ($data) {
-            if (!empty($data['preferred_travelling_date'])) {
+            if (! empty($data['preferred_travelling_date'])) {
                 $data['preferred_travelling_date'] = Carbon::parse($data['preferred_travelling_date'])->format('Y-m-d');
             }
 
+            // Create parent enquiry record
+            $parentEnquiry = Enquiry::create([
+                'type' => 'general',
+                'status' => EnquiryStatus::NewLead->value,
+                'full_name' => $data['full_name'] ?? '',
+                'contact_number' => $data['mobile'] ?? '',
+                'email' => $data['email'] ?? '',
+                'created_by' => auth()->id(),
+            ]);
+
             $enquiry = GeneralEnquiry::create([
+                'enquiry_id' => $parentEnquiry->id,
                 'full_name' => $data['full_name'] ?? null,
                 'mobile' => $data['mobile'] ?? null,
                 'email' => $data['email'] ?? null,
@@ -65,8 +82,8 @@ class GeneralEnquiryService
 
             activity()
                 ->performedOn($enquiry)
-                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
-                ->log('General enquiry created successfully #' . $enquiry->id);
+                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $parentEnquiry->id])
+                ->log('General enquiry created successfully #'.$enquiry->id);
 
             return $enquiry;
         });
@@ -74,10 +91,13 @@ class GeneralEnquiryService
 
     public function getForEditShow($id): array
     {
-        $enquiry = GeneralEnquiry::findOrFail($id);
+        $enquiry = GeneralEnquiry::with('enquiry')->findOrFail($id);
 
         return [
             'id' => $enquiry->id,
+            'enquiry_id' => $enquiry->enquiry_id,
+            'status' => $enquiry->enquiry?->status?->value ?? 'new_lead',
+            'status_label' => $enquiry->enquiry?->status?->label() ?? 'New Lead',
             'full_name' => $enquiry->full_name,
             'mobile' => $enquiry->mobile,
             'email' => $enquiry->email,
@@ -94,9 +114,9 @@ class GeneralEnquiryService
     public function update(array $data, int $id): GeneralEnquiry
     {
         return DB::transaction(function () use ($data, $id) {
-            $enquiry = GeneralEnquiry::findOrFail($id);
+            $enquiry = GeneralEnquiry::with('enquiry')->findOrFail($id);
 
-            if (!empty($data['preferred_travelling_date'])) {
+            if (! empty($data['preferred_travelling_date'])) {
                 $data['preferred_travelling_date'] = Carbon::parse($data['preferred_travelling_date'])->format('Y-m-d');
             }
 
@@ -111,12 +131,21 @@ class GeneralEnquiryService
                 'requires_mobility_assistance' => $data['requires_mobility_assistance'] ?? $enquiry->requires_mobility_assistance,
             ]);
 
+            // Sync parent enquiry common fields
+            if ($enquiry->enquiry) {
+                $enquiry->enquiry->update([
+                    'full_name' => $data['full_name'] ?? $enquiry->full_name,
+                    'contact_number' => $data['mobile'] ?? $enquiry->mobile,
+                    'email' => $data['email'] ?? $enquiry->email,
+                ]);
+            }
+
             $enquiry = $enquiry->fresh();
 
             activity()
                 ->performedOn($enquiry)
-                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
-                ->log('General enquiry updated successfully #' . $enquiry->id);
+                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
+                ->log('General enquiry updated successfully #'.$enquiry->id);
 
             return $enquiry;
         });
@@ -125,14 +154,19 @@ class GeneralEnquiryService
     public function delete($id)
     {
         $enquiry = GeneralEnquiry::find($id);
-        if (!$enquiry) {
+        if (! $enquiry) {
             return false;
         }
 
         activity()
             ->performedOn($enquiry)
-            ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
-            ->log('General enquiry deleted successfully #' . $enquiry->id);
+            ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
+            ->log('General enquiry deleted successfully #'.$enquiry->id);
+
+        // Also delete parent enquiry
+        if ($enquiry->enquiry_id) {
+            Enquiry::where('id', $enquiry->enquiry_id)->delete();
+        }
 
         return $enquiry->delete();
     }

@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GeneralEnquiry extends Model
 {
     protected $fillable = [
+        'enquiry_id',
         'full_name',
         'mobile',
         'email',
@@ -23,6 +25,11 @@ class GeneralEnquiry extends Model
         'no_of_adults' => 'integer',
         'no_of_children' => 'integer',
     ];
+
+    public function enquiry(): BelongsTo
+    {
+        return $this->belongsTo(Enquiry::class, 'enquiry_id');
+    }
 
     // Formatting Helpers
     public function getPreferredTravellingDateFormattedAttribute(): ?string

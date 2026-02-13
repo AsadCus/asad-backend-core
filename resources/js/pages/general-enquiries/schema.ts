@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 export const generalEnquirySchema = z.object({
     id: z.number().optional(),
+    enquiry_id: z.number().optional(),
+    status: z.string().optional(),
+    status_label: z.string().optional(),
     full_name: z.string().optional(),
     mobile: z.string().optional(),
     email: z.string().optional(),

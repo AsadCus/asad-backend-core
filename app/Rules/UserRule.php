@@ -15,7 +15,7 @@ class UserRule
         ];
 
         if ($action === 'update') {
-            $rules['email'] = 'required|email|unique:users,email,' . $id;
+            $rules['email'] = 'required|email|unique:users,email,'.$id;
         }
 
         if ($role === 'sales') {
@@ -29,12 +29,12 @@ class UserRule
 
         if ($role === 'customer') {
             $rules['nric_number'] = 'nullable|string';
-            $rules['address'] = 'nullable|string|max:255';
-            $rules['branch_id'] = 'required';
+            $rules['address'] = 'nullable|string|max:500';
+            $rules['branch_id'] = 'nullable';
             $rules['handled_by'] = 'nullable';
-            $rules['age_preferences'] = 'required|array';
-            $rules['country_preferences'] = 'required|array';
-            $rules['experience_preferences'] = 'required|array';
+            $rules['age_preferences'] = 'nullable|array';
+            $rules['country_preferences'] = 'nullable|array';
+            $rules['experience_preferences'] = 'nullable|array';
             // $rules['maids'] = 'nullable|array';
             // $rules['maids.*'] = 'exists:maids,id';
         }

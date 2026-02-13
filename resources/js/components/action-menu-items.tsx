@@ -70,6 +70,11 @@ export function ActionMenuItems<TData>({
         actions.includes('quotation-status-expire') ||
         actions.includes('quotation-status-cancel');
 
+    const hasEnquiryStatusActions =
+        actions.includes('enquiry-status-contacted') ||
+        actions.includes('enquiry-status-negotiating') ||
+        actions.includes('enquiry-status-confirmed');
+
     return (
         <>
             {actions.includes('preview') && (
@@ -202,6 +207,55 @@ export function ActionMenuItems<TData>({
                                     }
                                 >
                                     Void Quotation
+                                </Item>
+                            )}
+                        </SubContent>
+                    </Sub>
+                </>
+            )}
+
+            {hasEnquiryStatusActions && (
+                <>
+                    <Separator />
+                    <Sub>
+                        <SubTrigger>Enquiry Status</SubTrigger>
+                        <SubContent>
+                            {actions.includes('enquiry-status-contacted') && (
+                                <Item
+                                    onClick={() =>
+                                        onAction?.(
+                                            'enquiry-status-contacted',
+                                            row,
+                                        )
+                                    }
+                                >
+                                    Mark as Contacted
+                                </Item>
+                            )}
+
+                            {actions.includes('enquiry-status-negotiating') && (
+                                <Item
+                                    onClick={() =>
+                                        onAction?.(
+                                            'enquiry-status-negotiating',
+                                            row,
+                                        )
+                                    }
+                                >
+                                    Mark as Negotiating
+                                </Item>
+                            )}
+
+                            {actions.includes('enquiry-status-confirmed') && (
+                                <Item
+                                    onClick={() =>
+                                        onAction?.(
+                                            'enquiry-status-confirmed',
+                                            row,
+                                        )
+                                    }
+                                >
+                                    Confirm Enquiry
                                 </Item>
                             )}
                         </SubContent>

@@ -2,28 +2,34 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Models\User;
-use Inertia\Inertia;
-use Inertia\Response;
+use App\Http\Controllers\Controller;
 use App\Models\AppearanceSetting;
 use App\Models\Customer;
-use Illuminate\Http\Request;
+use App\Models\User;
 use App\Services\BranchService;
 use App\Services\CountryService;
-use Spatie\Permission\Models\Role;
-use App\Http\Controllers\Controller;
 use App\Services\CustomerService;
 use App\Services\NotificationService;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Inertia\Inertia;
+use Inertia\Response;
+use Spatie\Permission\Models\Role;
 
 class RegisteredUserController extends Controller
 {
-    protected $branchService, $countryService, $notificationService, $customerService;
+    protected $branchService;
+
+    protected $countryService;
+
+    protected $notificationService;
+
+    protected $customerService;
 
     public function __construct(BranchService $branchService, CountryService $countryService, NotificationService $notificationService, CustomerService $customerService)
     {
@@ -32,6 +38,7 @@ class RegisteredUserController extends Controller
         $this->notificationService = $notificationService;
         $this->customerService = $customerService;
     }
+
     /**
      * Show the registration page.
      */
@@ -101,11 +108,10 @@ class RegisteredUserController extends Controller
             'title' => 'New Customer Registered',
             'message' => "{$user->name} has just registered as a customer. Do you want to handle it?",
             'type' => 'info',
-            'link' => "/customer",
+            'link' => '/customer',
             'exclusive' => false,
         ], [], ['admin', 'sales'], $request->branch_id);
 
-        $this->customerService->getInitialCustomerMaidIds($user->id);
         event(new Registered($user));
 
         Auth::login($user);

@@ -28,10 +28,9 @@ class DatabaseSeeder extends Seeder
 
             // Users and Roles
             RolePermissionSeeder::class,
-            ProductionUserSeeder::class,
+            UserSeeder::class,
 
-            GeneralEnquirySeeder::class,
-            PrivateEnquirySeeder::class,
+            EnquirySeeder::class,
 
             // Travel Management
             PackageSeeder::class,

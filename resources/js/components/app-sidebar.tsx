@@ -226,7 +226,7 @@ export function AppSidebar() {
                           permissions.includes('private-enquiry view')
                               ? [
                                     {
-                                        title: 'All Enquiries',
+                                        title: 'Enquiry Dashboard',
                                         href: enquiries.index.url(),
                                         icon: ClipboardList,
                                     },

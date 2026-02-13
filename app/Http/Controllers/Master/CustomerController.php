@@ -2,21 +2,31 @@
 
 namespace App\Http\Controllers\Master;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Services\UserService;
-use App\Services\CustomerService;
+use App\Mail\WelcomeMail;
+use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
+use App\Services\CustomerService;
 use App\Services\SalesService;
-use App\Rules\UserRule;
+use App\Services\UserService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\WelcomeMail;
+use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
-    protected $userService, $customerService, $branchService, $countryService, $salesService, $userRule;
+    protected $userService;
+
+    protected $customerService;
+
+    protected $branchService;
+
+    protected $countryService;
+
+    protected $salesService;
+
+    protected $userRule;
 
     public function __construct(UserService $userService, CustomerService $customerService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
     {
@@ -69,13 +79,11 @@ class CustomerController extends Controller
 
         $user = $this->userService->store($validated);
 
-        if (!empty($validated['password']) && $request->boolean('send_email')) {
+        if (! empty($validated['password']) && $request->boolean('send_email')) {
             Mail::to($user->email)->send(
                 new WelcomeMail($user->name, $validated['email'], $validated['password'])
             );
         }
-
-        $this->customerService->getInitialCustomerMaidIds($user->id);
 
         return redirect()->intended(route('master.user.customer.index'))->with('success', 'Customer created successfully.');
     }
@@ -125,7 +133,7 @@ class CustomerController extends Controller
             $customer = \App\Models\Customer::where('user_id', $id)->firstOrFail();
 
             return redirect()->route('quotation.create', [
-                'customer_id' => $customer->id
+                'customer_id' => $customer->id,
             ])->with('success', 'Redirected to create quotation for selected customer.');
         } catch (\Exception $e) {
             return back()->with('error', 'Customer not found or unable to create quotation.');

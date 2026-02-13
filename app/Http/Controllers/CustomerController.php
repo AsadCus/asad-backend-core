@@ -2,25 +2,44 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use App\Rules\UserRule;
 use App\Mail\WelcomeMail;
 use App\Models\User;
-use Illuminate\Http\Request;
-use App\Services\UserService;
-use App\Services\SalesService;
+use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
+use App\Services\CustomerGroupService;
 use App\Services\CustomerService;
 use App\Services\EducationLevelService;
 use App\Services\MaidService;
 use App\Services\ReligionService;
+use App\Services\SalesService;
+use App\Services\UserService;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Mail;
+use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
-    protected $customerService, $branchService, $salesService, $countryService, $userService, $userRule, $religionService, $educationLevelService, $maidService;
+    protected $customerService;
+
+    protected $branchService;
+
+    protected $salesService;
+
+    protected $countryService;
+
+    protected $userService;
+
+    protected $userRule;
+
+    protected $religionService;
+
+    protected $educationLevelService;
+
+    protected $maidService;
+
+    protected $customerGroupService;
 
     public function __construct(
         CustomerService $customerService,
@@ -32,6 +51,7 @@ class CustomerController extends Controller
         ReligionService $religionService,
         EducationLevelService $educationLevelService,
         MaidService $maidService,
+        CustomerGroupService $customerGroupService,
     ) {
         $this->customerService = $customerService;
         $this->branchService = $branchService;
@@ -42,6 +62,7 @@ class CustomerController extends Controller
         $this->religionService = $religionService;
         $this->educationLevelService = $educationLevelService;
         $this->maidService = $maidService;
+        $this->customerGroupService = $customerGroupService;
 
         $this->middleware('permission:customer view', ['only' => ['index', 'show']]);
         $this->middleware('permission:customer create', ['only' => ['create', 'store']]);
@@ -55,12 +76,14 @@ class CustomerController extends Controller
         $dataBranch = $this->branchService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
+        $dataGroups = $this->customerGroupService->getForGroupedIndex();
 
         return Inertia::render('customer/index', [
             'data' => $data,
             'dataBranch' => $dataBranch,
             'dataSales' => $dataSales,
             'dataCountry' => $dataCountry,
+            'dataGroups' => $dataGroups,
         ]);
     }
 
@@ -76,7 +99,7 @@ class CustomerController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isCustomer' => true
+            'isCustomer' => true,
         ]);
     }
 
@@ -86,13 +109,11 @@ class CustomerController extends Controller
 
         $user = $this->userService->store($validated);
 
-        if (!empty($validated['password']) && $request->boolean('send_email')) {
+        if (! empty($validated['password']) && $request->boolean('send_email')) {
             Mail::to($user->email)->send(
                 new WelcomeMail($user->name, $validated['email'], $validated['password'])
             );
         }
-
-        $this->customerService->getInitialCustomerMaidIds($user->id);
 
         return redirect()->intended(route('customer.index'))->with('success', 'Customer created successfully.');
     }
@@ -111,7 +132,7 @@ class CustomerController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isCustomer' => true
+            'isCustomer' => true,
         ]);
     }
 
@@ -134,7 +155,7 @@ class CustomerController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isCustomer' => true
+            'isCustomer' => true,
         ]);
     }
 
@@ -162,13 +183,11 @@ class CustomerController extends Controller
 
         $user = $this->userService->update($validated, $id);
 
-        if (!empty($validated['password']) && $request->boolean('send_email')) {
+        if (! empty($validated['password']) && $request->boolean('send_email')) {
             Mail::to($user->email)->send(
                 new WelcomeMail($user->name, $validated['email'], $validated['password'])
             );
         }
-
-        $this->customerService->getInitialCustomerMaidIds($user->id);
 
         return redirect()->intended(route('customer.index'))->with('success', 'Customer updated successfully.');
     }
@@ -202,13 +221,13 @@ class CustomerController extends Controller
                 'success' => true,
                 'customer_id' => $actualCustomerId,
                 'maid_id' => $maidId,
-                'message' => 'Redirected to create quotation for customer and maid assignment.'
+                'message' => 'Redirected to create quotation for customer and maid assignment.',
             ]);
         }
 
         return redirect()->route('quotation.create', [
             'customer_id' => $actualCustomerId,
-            'maid_id' => $maidId
+            'maid_id' => $maidId,
         ])->with('success', 'Redirected to create quotation for customer and maid assignment.');
     }
 
@@ -216,7 +235,7 @@ class CustomerController extends Controller
     {
         $user = User::with('customer')->findOrFail($id);
 
-        if (!$user->customer) {
+        if (! $user->customer) {
             return redirect()->back()->with('error', 'Customer record not found.');
         }
 
@@ -229,7 +248,7 @@ class CustomerController extends Controller
     {
         $user = User::with('customer')->findOrFail($id);
 
-        if (!$user->customer) {
+        if (! $user->customer) {
             return redirect()->back()->with('error', 'Customer record not found.');
         }
 

@@ -2,17 +2,14 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Sales;
-use App\Models\Branch;
-use App\Models\Country;
-use App\Models\Customer;
-use App\Models\Supplier;
 use App\Models\Notification;
+use App\Models\Sales;
+use App\Models\Supplier;
+use App\Models\User;
 use App\Models\UserNotification;
-use Spatie\Permission\Models\Role;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class UserSeeder extends Seeder
 {
@@ -21,199 +18,85 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $ages = ['18-25', '26-35', '36-45', '45+'];
-        $experiences = ['0-1', '2-3', '4-5', '5+'];
-        $availableRoles = ['admin', 'sales', 'supplier', 'customer'];
+        $this->createUsers();
+        $this->createNotifications();
+    }
 
-        $fixedUsersData = [
+    /**
+     * Create admin, sales, and supplier users.
+     */
+    private function createUsers(): void
+    {
+        // Admin Users
+        $adminUsers = [
             [
                 'name' => 'Admin User',
                 'email' => 'admin@example.com',
-                'password' => Hash::make('password'),
-                'role' => 'admin',
                 'contact' => '+6500000000',
-            ],
-            [
-                'name' => 'Sales User',
-                'email' => 'sales@example.com',
                 'password' => Hash::make('password'),
-                'role' => 'sales',
-                'contact' => '+6500000000',
-                'branch_id' => 'Yishun',
-            ],
-            [
-                'name' => 'Supplier User',
-                'email' => 'supplier@example.com',
-                'password' => Hash::make('password'),
-                'role' => 'supplier',
-                'contact' => '+6400000000000',
-                'supplier_name' => 'Supplier',
-                'address' => 'Address',
-            ],
-            [
-                'name' => 'Customer User',
-                'email' => 'customer@example.com',
-                'password' => Hash::make('password'),
-                'role' => 'customer',
-                'contact' => '+6500000000',
-                'address' => 'Address',
-                'age_preferences' => ['18-25', '26-35'],
-                'country_preferences' => ['Indonesia', 'Singapore'],
-                'experience_preferences' => ['0-1', '2-3'],
-                'branch_id' => 'Yishun',
-                'handled_by' => 'sales@example.com',
-                'last_login' => now()->subDays(rand(0, 7)),
             ],
             [
                 'name' => 'Asad',
                 'email' => 'asad@example.com',
-                'password' => Hash::make('NumberLock(90)'),
-                'role' => 'admin',
                 'contact' => '+6400000000000',
+                'password' => Hash::make('password'),
             ],
         ];
 
-        foreach ($fixedUsersData as $userData) {
-            $user = User::firstOrCreate(
-                ['email' => $userData['email']],
-                [
-                    'name' => $userData['name'],
-                    'contact' => $userData['contact'],
-                    'password' => $userData['password'],
-                ]
-            );
-
-            $user->assignRole(Role::findByName($userData['role']));
-
-            $branchId = null;
-            $handledBy = null;
-
-            if (!empty($userData['branch_id'])) {
-                $branchId = Branch::where('name', $userData['branch_id'])->value('id');
-            }
-
-            if (!empty($userData['handled_by'])) {
-                $handler = User::where('email', $userData['handled_by'])->first();
-                $handledBy = $handler?->id;
-            }
-
-            match ($userData['role']) {
-                'sales' => Sales::firstOrCreate([
-                    'user_id' => $user->id,
-                ], [
-                    'branch_id' => $branchId,
-                ]),
-                'supplier' => Supplier::firstOrCreate([
-                    'user_id' => $user->id,
-                ], [
-                    'name' => $userData['supplier_name'] ?? null,
-                    'address' => $userData['address'] ?? null,
-                ]),
-                'customer' => Customer::firstOrCreate([
-                    'user_id' => $user->id,
-                ], [
-                    'nric_number' => strtoupper(fake()->bothify('??######')),
-                    'address' => $userData['address'] ?? null,
-                    'age_preferences' => json_encode($userData['age_preferences'] ?? []),
-                    'country_preferences' => json_encode(
-                        collect($userData['country_preferences'] ?? [])
-                            ->map(fn($c) => Country::where('name', $c)->value('name'))
-                            ->filter()
-                            ->values()
-                            ->toArray()
-                    ),
-                    'experience_preferences' => json_encode($userData['experience_preferences'] ?? []),
-                    'branch_id' => $branchId,
-                    'handled_by' => $handledBy,
-                    'last_login' => $userData['last_login'] ?? now(),
-                ]),
-                default => null,
-            };
+        foreach ($adminUsers as $userData) {
+            $user = User::create([
+                'name' => $userData['name'],
+                'email' => $userData['email'],
+                'contact' => $userData['contact'],
+                'password' => $userData['password'],
+                'email_verified_at' => now(),
+            ]);
+            $user->assignRole(Role::findByName('admin'));
         }
 
-        $targetCount = 20;
-        $existingCount = User::count();
-        $remainingToCreate = $targetCount - $existingCount;
+        // Sales User
+        $salesUser = User::create([
+            'name' => 'Sales User',
+            'email' => 'sales@example.com',
+            'contact' => '+6400000000000',
+            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+        ]);
+        $salesUser->assignRole(Role::findByName('sales'));
 
-        if ($remainingToCreate > 0) {
-            echo "Creating {$remainingToCreate} additional random users...\n";
+        Sales::create([
+            'user_id' => $salesUser->id,
+            'branch_id' => 1,
+        ]);
 
-            $branches = Branch::all();
-            $countries = Country::all();
+        // Supplier User
+        $supplierUser = User::create([
+            'name' => 'Supplier User',
+            'email' => 'supplier@example.com',
+            'contact' => '+6400000000000',
+            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+        ]);
+        $supplierUser->assignRole(Role::findByName('supplier'));
 
-            $users = User::factory($remainingToCreate)->create();
+        Supplier::create([
+            'user_id' => $supplierUser->id,
+            'name' => 'Supplier Company',
+            'address' => 'Supplier Company Address',
+        ]);
 
-            $users->each(function ($user) use ($availableRoles) {
-                $roleName = $availableRoles[array_rand($availableRoles)];
-                $user->assignRole(Role::findByName($roleName));
-                $user->role_name = $roleName;
-            });
+        $this->command->info('Users created successfully!');
+    }
 
-            $users->each(function ($user) use ($branches) {
-                $roleName = $user->role_name ?? $user->getRoleNames()->first();
-                $branch = $branches->random();
-
-                match ($roleName) {
-                    'sales' => Sales::create([
-                        'user_id' => $user->id,
-                        'branch_id' => $branch->id,
-                    ]),
-                    'supplier' => Supplier::create([
-                        'user_id' => $user->id,
-                        'name' => fake()->company(),
-                        'address' => fake()->address(),
-                    ]),
-                    default => null,
-                };
-            });
-
-            $userThatCanHandleCustomer = User::role(['sales', 'admin'])->get();
-
-            $users->each(function ($user) use (
-                $branches,
-                $countries,
-                $ages,
-                $experiences,
-                $userThatCanHandleCustomer,
-            ) {
-                $roleName = $user->role_name ?? $user->getRoleNames()->first();
-
-                if ($roleName !== 'customer') {
-                    return;
-                }
-
-                $branch = $branches->random();
-                $handledBy = null;
-
-                if (rand(0, 1) === 1 && $userThatCanHandleCustomer->isNotEmpty()) {
-                    $handler = $userThatCanHandleCustomer->random();
-                    $handledBy = $handler->id;
-                }
-
-                Customer::create([
-                    'user_id' => $user->id,
-                    'nric_number' => strtoupper(fake()->bothify('??######')),
-                    'address' => fake()->address(),
-                    'age_preferences' => json_encode(fake()->randomElements($ages, rand(1, 2))),
-                    'country_preferences' => json_encode(
-                        $countries->random(rand(1, 2))->pluck('name')->toArray()
-                    ),
-                    'experience_preferences' => json_encode(fake()->randomElements($experiences, rand(1, 2))),
-                    'branch_id' => $branch->id,
-                    'handled_by' => $handledBy,
-                    'last_login' => now()->subDays(rand(0, 7)),
-                ]);
-            });
-
-            $this->command->info('Random users and related models created successfully!');
-        }
-
-
-        // notifications
+    /**
+     * Create notifications and assign to admin/sales users.
+     */
+    private function createNotifications(): void
+    {
         $notifications = collect([
             [
                 'title' => 'Welcome to the System',
-                'message' => 'We’re excited to have you onboard. Explore your dashboard for updates.',
+                'message' => 'We are excited to have you onboard. Explore your dashboard for updates.',
                 'link' => '/dashboard',
                 'type' => 'info',
             ],
@@ -229,13 +112,13 @@ class UserSeeder extends Seeder
                 'link' => '/settings/profile',
                 'type' => 'warning',
             ],
-        ])->map(fn($n) => Notification::firstOrCreate(['title' => $n['title']], $n));
+        ])->map(fn (array $n) => Notification::create($n));
 
-        User::all()->each(function ($user) use ($notifications) {
-            $selected = $notifications->random(2);
+        $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
 
-            foreach ($selected as $notification) {
-                UserNotification::firstOrCreate([
+        $adminAndSalesUsers->each(function (User $user) use ($notifications) {
+            foreach ($notifications as $notification) {
+                UserNotification::create([
                     'user_id' => $user->id,
                     'notification_id' => $notification->id,
                     'is_read' => false,
@@ -243,6 +126,6 @@ class UserSeeder extends Seeder
             }
         });
 
-        $this->command->info('Shared notifications created and assigned to users!');
+        $this->command->info('Notifications created and assigned to admin/sales users!');
     }
 }

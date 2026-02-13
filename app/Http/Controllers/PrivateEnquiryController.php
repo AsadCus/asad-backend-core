@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Rules\PrivateEnquiryRule;
@@ -81,6 +80,14 @@ class PrivateEnquiryController extends Controller
         return Inertia::render('private-enquiries/show', [
             'data' => $enquiry,
         ]);
+    }
+
+    /**
+     * Get private enquiry data for the show modal (JSON).
+     */
+    public function getForShow(string $id)
+    {
+        return response()->json($this->privateEnquiries->getForEditShow($id));
     }
 
     /**

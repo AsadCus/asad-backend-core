@@ -31,7 +31,6 @@ class GeneralEnquiryController extends Controller
         ]);
     }
 
-
     public function publicForm()
     {
         return Inertia::render('general-enquiries/public/form');
@@ -81,6 +80,14 @@ class GeneralEnquiryController extends Controller
     }
 
     /**
+     * Get general enquiry data for the show modal (JSON).
+     */
+    public function getForShow(string $id)
+    {
+        return response()->json($this->generalEnquiries->getForEditShow($id));
+    }
+
+    /**
      * Show the form for editing the specified resource.
      */
     public function edit(string $id)
@@ -107,7 +114,7 @@ class GeneralEnquiryController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request,string $id)
+    public function destroy(Request $request, string $id)
     {
         $ids = $request->input('ids');
         if ($ids && is_array($ids)) {

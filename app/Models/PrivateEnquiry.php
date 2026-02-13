@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PrivateEnquiry extends Model
 {
     protected $fillable = [
+        'enquiry_id',
         'full_name',
         'contact_number',
         'email',
@@ -56,6 +58,12 @@ class PrivateEnquiry extends Model
     ];
 
     // Formatting Helpers
+
+    public function enquiry(): BelongsTo
+    {
+        return $this->belongsTo(Enquiry::class, 'enquiry_id');
+    }
+
     public function getPassportExpiryDateFormattedAttribute(): ?string
     {
         return $this->passport_expiry_date

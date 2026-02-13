@@ -32,7 +32,10 @@ export type ActionType =
     | 'quotation-status-convert'
     | 'quotation-status-reject'
     | 'quotation-status-expire'
-    | 'quotation-status-cancel';
+    | 'quotation-status-cancel'
+    | 'enquiry-status-contacted'
+    | 'enquiry-status-negotiating'
+    | 'enquiry-status-confirmed';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

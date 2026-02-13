@@ -2,17 +2,19 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\Sales;
 use App\Models\Customer;
+use App\Models\Sales;
 use App\Models\Supplier;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class UserService
 {
-    protected $notificationService, $customerService;
+    protected $notificationService;
+
+    protected $customerService;
 
     public function __construct(NotificationService $notificationService, CustomerService $customerService)
     {
@@ -47,7 +49,7 @@ class UserService
             $user->role = $role;
 
             if ($role === 'sales' && $user->sales->branch) {
-                $user->branch_id = (string)$user->sales->branch_id ?? null;
+                $user->branch_id = (string) $user->sales->branch_id ?? null;
             }
 
             if ($role === 'supplier' && $user->supplier) {
@@ -56,8 +58,8 @@ class UserService
             }
 
             if ($role === 'customer' && $user->customer) {
-                $user->branch_id = (string)$user->customer->branch_id ?? null;
-                $user->handled_by = (string)$user->customer->handled_by ?? null;
+                $user->branch_id = (string) $user->customer->branch_id ?? null;
+                $user->handled_by = (string) $user->customer->handled_by ?? null;
                 $user->nric_number = $user->customer->nric_number ?? '';
                 $user->address = $user->customer->address ?? '';
                 $user->age_preferences = json_decode($user->customer->age_preferences) ?? [];
@@ -66,6 +68,7 @@ class UserService
             }
 
             $user->contact = $user->contact ?? '';
+
             return $user;
         });
 
@@ -136,11 +139,9 @@ class UserService
                         'title' => 'New Customer Created',
                         'message' => "{$user->name} has just created as a customer. Do you want to handle it?",
                         'type' => 'info',
-                        'link' => "/customer",
+                        'link' => '/customer',
                         'exclusive' => false,
                     ], [], ['admin', 'sales'], $customer->branch_id);
-
-                    $this->customerService->getInitialCustomerMaidIds($user->id);
 
                     break;
             }
@@ -273,7 +274,7 @@ class UserService
     public function delete($id)
     {
         $user = User::find($id);
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\EnquiryStatus;
+use App\Models\Enquiry;
 use App\Models\PrivateEnquiry;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +13,7 @@ class PrivateEnquiryService
     public function getForDataTable(array $filters = [])
     {
         $data = PrivateEnquiry::query()
+            ->with('enquiry')
             ->when($filters['from_date'] ?? null, function ($q, $value) {
                 $q->whereDate('created_at', '>=', $value);
             })
@@ -29,6 +32,9 @@ class PrivateEnquiryService
             ->map(function ($enquiry) {
                 return [
                     'id' => $enquiry->id,
+                    'enquiry_id' => $enquiry->enquiry_id,
+                    'status' => $enquiry->enquiry?->status?->value ?? 'new_lead',
+                    'status_label' => $enquiry->enquiry?->status?->label() ?? 'New Lead',
                     'full_name' => $enquiry->full_name,
                     'contact_number' => $enquiry->contact_number,
                     'email' => $enquiry->email,
@@ -83,7 +89,18 @@ class PrivateEnquiryService
                 }
             }
 
+            // Create parent enquiry record
+            $parentEnquiry = Enquiry::create([
+                'type' => 'private',
+                'status' => EnquiryStatus::NewLead->value,
+                'full_name' => $data['full_name'] ?? '',
+                'contact_number' => $data['contact_number'] ?? '',
+                'email' => $data['email'] ?? '',
+                'created_by' => auth()->id(),
+            ]);
+
             $enquiry = PrivateEnquiry::create([
+                'enquiry_id' => $parentEnquiry->id,
                 'full_name' => $data['full_name'] ?? null,
                 'contact_number' => $data['contact_number'] ?? null,
                 'email' => $data['email'] ?? null,
@@ -118,7 +135,7 @@ class PrivateEnquiryService
 
             activity()
                 ->performedOn($enquiry)
-                ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
+                ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $parentEnquiry->id])
                 ->log('Private enquiry created successfully #'.$enquiry->id);
 
             return $enquiry;
@@ -127,10 +144,13 @@ class PrivateEnquiryService
 
     public function getForEditShow($id): array
     {
-        $enquiry = PrivateEnquiry::findOrFail($id);
+        $enquiry = PrivateEnquiry::with('enquiry')->findOrFail($id);
 
         return [
             'id' => $enquiry->id,
+            'enquiry_id' => $enquiry->enquiry_id,
+            'status' => $enquiry->enquiry?->status?->value ?? 'new_lead',
+            'status_label' => $enquiry->enquiry?->status?->label() ?? 'New Lead',
             'full_name' => $enquiry->full_name,
             'contact_number' => $enquiry->contact_number,
             'email' => $enquiry->email,
@@ -169,7 +189,7 @@ class PrivateEnquiryService
     public function update(array $data, int $id): PrivateEnquiry
     {
         return DB::transaction(function () use ($data, $id) {
-            $enquiry = PrivateEnquiry::findOrFail($id);
+            $enquiry = PrivateEnquiry::with('enquiry')->findOrFail($id);
 
             foreach (
                 [
@@ -216,11 +236,20 @@ class PrivateEnquiryService
                 'other_remarks' => $data['other_remarks'] ?? $enquiry->other_remarks,
             ]);
 
+            // Sync parent enquiry common fields
+            if ($enquiry->enquiry) {
+                $enquiry->enquiry->update([
+                    'full_name' => $data['full_name'] ?? $enquiry->full_name,
+                    'contact_number' => $data['contact_number'] ?? $enquiry->contact_number,
+                    'email' => $data['email'] ?? $enquiry->email,
+                ]);
+            }
+
             $enquiry = $enquiry->fresh();
 
             activity()
                 ->performedOn($enquiry)
-                ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
+                ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
                 ->log('Private enquiry updated successfully #'.$enquiry->id);
 
             return $enquiry;
@@ -236,8 +265,13 @@ class PrivateEnquiryService
 
         activity()
             ->performedOn($enquiry)
-            ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
+            ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
             ->log('Private enquiry deleted successfully #'.$enquiry->id);
+
+        // Also delete parent enquiry
+        if ($enquiry->enquiry_id) {
+            Enquiry::where('id', $enquiry->enquiry_id)->delete();
+        }
 
         return $enquiry->delete();
     }

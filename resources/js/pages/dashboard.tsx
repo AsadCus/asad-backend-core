@@ -99,9 +99,12 @@ interface IncomeByMonthType {
 interface EnquiryRowType {
     id: number;
     type: 'General' | 'Private';
+    status: string;
+    status_label: string;
     full_name: string;
     contact: string;
     email: string;
+    child_id: number | null;
     created_at: string;
 }
 
@@ -109,6 +112,10 @@ interface EnquirySummaryType {
     total: number;
     general: number;
     private: number;
+    new_lead: number;
+    contacted: number;
+    negotiating: number;
+    confirmed: number;
 }
 
 interface DashboardProps {
@@ -690,13 +697,13 @@ export default function Dashboard({ data }: DashboardProps) {
                         </div>
                     )} */}
 
-                    {/* Sales: All Enquiries */}
+                    {/* Sales: Enquiry Dashboard */}
                     {isSales && data.enquiries && (
                         <div>
                             <div className="mb-3 flex items-center justify-between">
                                 <div>
                                     <h2 className="text-lg font-semibold">
-                                        All Enquiries
+                                        Enquiry Dashboard
                                     </h2>
                                     <p className="text-sm text-muted-foreground">
                                         {data.enquirySummary
@@ -730,6 +737,35 @@ export default function Dashboard({ data }: DashboardProps) {
                                             ),
                                         },
                                         {
+                                            accessorKey: 'status',
+                                            header: 'Status',
+                                            cell: ({ row }) => {
+                                                const statusColors: Record<
+                                                    string,
+                                                    string
+                                                > = {
+                                                    new_lead:
+                                                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+                                                    contacted:
+                                                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                                                    negotiating:
+                                                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                                                    confirmed:
+                                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                                                };
+                                                return (
+                                                    <span
+                                                        className={`rounded-full px-2 py-1 text-xs ${statusColors[row.original.status] ?? ''}`}
+                                                    >
+                                                        {
+                                                            row.original
+                                                                .status_label
+                                                        }
+                                                    </span>
+                                                );
+                                            },
+                                        },
+                                        {
                                             accessorKey: 'full_name',
                                             header: 'Full Name',
                                         },
@@ -753,16 +789,19 @@ export default function Dashboard({ data }: DashboardProps) {
                                         const enquiry = row?.original;
                                         if (!enquiry) return;
                                         if (action === 'view') {
-                                            if (enquiry.type === 'General') {
+                                            if (
+                                                enquiry.type === 'General' &&
+                                                enquiry.child_id
+                                            ) {
                                                 router.get(
                                                     generalEnquiryShow(
-                                                        enquiry.id,
+                                                        enquiry.child_id,
                                                     ).url,
                                                 );
-                                            } else {
+                                            } else if (enquiry.child_id) {
                                                 router.get(
                                                     privateEnquiryShow(
-                                                        enquiry.id,
+                                                        enquiry.child_id,
                                                     ).url,
                                                 );
                                             }

@@ -398,7 +398,8 @@ export function UserForm({
                         </p>
                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                             {/* branch */}
-                            {(role === 'sales' || role === 'customer') && (
+                            {(role === 'sales' ||
+                                (role === 'customer' && !isCustomer)) && (
                                 <div className="grid w-full items-center gap-3">
                                     <Label>Branch</Label>
                                     <div className="relative">
@@ -450,7 +451,8 @@ export function UserForm({
 
                             {/* sales */}
                             {auth.roles.includes('admin') &&
-                                role === 'customer' && (
+                                role === 'customer' &&
+                                !isCustomer && (
                                     <div className="grid w-full items-center gap-3">
                                         <Label>Sales</Label>
                                         <div className="relative">
@@ -598,7 +600,7 @@ export function UserForm({
                             )}
 
                             {/* preference */}
-                            {role === 'customer' && (
+                            {role === 'customer' && !isCustomer && (
                                 <>
                                     <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="age_preferences">

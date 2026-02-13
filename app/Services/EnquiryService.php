@@ -2,8 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\GeneralEnquiry;
-use App\Models\PrivateEnquiry;
+use App\Enums\EnquiryStatus;
+use App\Models\Enquiry;
+use Illuminate\Support\Facades\DB;
 
 class EnquiryService
 {
@@ -13,39 +14,16 @@ class EnquiryService
     ) {}
 
     /**
-     * Get all enquiries (general + private) for the datatable.
+     * Get all enquiries from parent table for the datatable.
      *
      * @param  array<string, mixed>  $filters
      * @return array<int, array<string, mixed>>
      */
     public function getForDataTable(array $filters = []): array
     {
-        $generalEnquiries = GeneralEnquiry::query()
-            ->when($filters['from_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
-            ->when($filters['to_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
-            ->when($filters['search'] ?? null, function ($q, $value) {
-                $q->where(function ($query) use ($value) {
-                    $query->where('full_name', 'like', "%{$value}%")
-                        ->orWhere('email', 'like', "%{$value}%")
-                        ->orWhere('mobile', 'like', "%{$value}%");
-                });
-            })
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($enquiry) {
-                return [
-                    'id' => $enquiry->id,
-                    'type' => 'General',
-                    'full_name' => $enquiry->full_name,
-                    'contact' => $enquiry->mobile,
-                    'email' => $enquiry->email,
-                    'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
-                ];
-            });
-
-        $privateEnquiries = PrivateEnquiry::query()
-            ->when($filters['from_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
-            ->when($filters['to_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
+        return Enquiry::query()
+            ->when($filters['from_date'] ?? null, fn($q, $v) => $q->whereDate('created_at', '>=', $v))
+            ->when($filters['to_date'] ?? null, fn($q, $v) => $q->whereDate('created_at', '<=', $v))
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('full_name', 'like', "%{$value}%")
@@ -53,36 +31,119 @@ class EnquiryService
                         ->orWhere('contact_number', 'like', "%{$value}%");
                 });
             })
+            ->when($filters['status'] ?? null, fn($q, $v) => $q->where('status', $v))
+            ->when($filters['type'] ?? null, fn($q, $v) => $q->where('type', $v))
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($enquiry) {
                 return [
                     'id' => $enquiry->id,
-                    'type' => 'Private',
+                    'type' => ucfirst($enquiry->type),
+                    'status' => $enquiry->status->value,
+                    'status_label' => $enquiry->status->label(),
                     'full_name' => $enquiry->full_name,
                     'contact' => $enquiry->contact_number,
                     'email' => $enquiry->email,
+                    'child_id' => $this->getChildId($enquiry),
                     'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
                 ];
-            });
-
-        return $generalEnquiries->merge($privateEnquiries)
-            ->sortByDesc('created_at')
-            ->values()
+            })
             ->all();
+    }
+
+    /**
+     * Get the child enquiry ID for routing purposes.
+     */
+    private function getChildId(Enquiry $enquiry): ?int
+    {
+        if ($enquiry->type === 'general') {
+            return $enquiry->generalEnquiry?->id;
+        }
+
+        return $enquiry->privateEnquiry?->id;
     }
 
     /**
      * Get summary counts for dashboard widgets.
      *
-     * @return array{total: int, general: int, private: int}
+     * @return array{total: int, general: int, private: int, new_lead: int, contacted: int, negotiating: int, confirmed: int}
      */
     public function getSummaryCounts(): array
     {
         return [
-            'total' => GeneralEnquiry::count() + PrivateEnquiry::count(),
-            'general' => GeneralEnquiry::count(),
-            'private' => PrivateEnquiry::count(),
+            'total' => Enquiry::count(),
+            'general' => Enquiry::where('type', 'general')->count(),
+            'private' => Enquiry::where('type', 'private')->count(),
+            'new_lead' => Enquiry::where('status', EnquiryStatus::NewLead)->count(),
+            'contacted' => Enquiry::where('status', EnquiryStatus::Contacted)->count(),
+            'negotiating' => Enquiry::where('status', EnquiryStatus::Negotiating)->count(),
+            'confirmed' => Enquiry::where('status', EnquiryStatus::Confirmed)->count(),
         ];
+    }
+
+    /**
+     * Transition an enquiry's status.
+     */
+    public function transitionStatus(int $id, string $newStatus): Enquiry
+    {
+        return DB::transaction(function () use ($id, $newStatus) {
+            $enquiry = Enquiry::findOrFail($id);
+            $targetStatus = EnquiryStatus::from($newStatus);
+
+            if (! $enquiry->status->canTransitionTo($targetStatus)) {
+                abort(422, "Cannot transition from {$enquiry->status->label()} to {$targetStatus->label()}.");
+            }
+
+            $enquiry->update(['status' => $targetStatus->value]);
+
+            activity()
+                ->performedOn($enquiry)
+                ->withProperties([
+                    'subject_type' => 'Enquiry',
+                    'subject_id' => $enquiry->id,
+                    'old_status' => $enquiry->getOriginal('status'),
+                    'new_status' => $targetStatus->value,
+                ])
+                ->log("Enquiry #{$enquiry->id} status changed to {$targetStatus->label()}");
+
+            return $enquiry->fresh();
+        });
+    }
+
+    /**
+     * Get an enquiry by ID with its child relation.
+     */
+    public function getById(int $id): Enquiry
+    {
+        return Enquiry::with(['generalEnquiry', 'privateEnquiry', 'customerGroup.members.customer.user'])->findOrFail($id);
+    }
+
+    /**
+     * Get enquiry status options for frontend.
+     *
+     * @return array<int, array{label: string, value: string}>
+     */
+    public function getStatusOptions(): array
+    {
+        return EnquiryStatus::options();
+    }
+
+    /**
+     * Get confirmed enquiries that don't have a customer group yet.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getConfirmedWithoutGroup(): array
+    {
+        return Enquiry::query()
+            ->where('status', EnquiryStatus::Confirmed)
+            ->whereDoesntHave('customerGroup')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(fn(Enquiry $enquiry) => [
+                'value' => $enquiry->id,
+                'label' => "#{$enquiry->id} - {$enquiry->full_name} ({$enquiry->email})",
+            ])
+            ->all();
     }
 }

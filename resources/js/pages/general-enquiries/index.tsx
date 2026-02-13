@@ -1,39 +1,44 @@
 import { ActionType } from '@/components/action-column';
+import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import { Badge } from '@/components/ui/badge';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import {
     create,
     destroy,
     edit,
+    getForShow,
     index,
     show,
 } from '@/routes/general-enquiries';
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-
-interface GeneralEnquirySchema {
-    id: number;
-    full_name: string;
-    mobile: string;
-    email: string;
-    preferred_destinations: string;
-    preferred_travelling_date: string;
-    no_of_adults: number;
-    no_of_children: number;
-    requires_mobility_assistance: string | null;
-    created_at: string;
-    updated_at: string;
-}
-
-interface GeneralEnquiriesProps {
-    data: {
-        enquiriesForDatatable: GeneralEnquirySchema[];
-    };
-}
+import { useState } from 'react';
+import {
+    EnquiryStatusAction,
+    EnquiryStatusActionType,
+    getAvailableEnquiryActions,
+} from '../enquiries/components/enquiry-status-action';
+import CustomerConfirmationForm from '../enquiries/customer-confirmation-form';
+import {
+    statusColors,
+    statusOptions,
+    type GeneralEnquiriesProps,
+    type GeneralEnquiryDatatableSchema,
+} from '../enquiries/schema';
+import GeneralEnquiryForm from './form';
+import { GeneralEnquirySchema } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -42,12 +47,28 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const columns: ColumnDef<GeneralEnquirySchema>[] = [
-    createSelectColumn<GeneralEnquirySchema>(),
+const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
+    createSelectColumn<GeneralEnquiryDatatableSchema>(),
     {
         accessorKey: 'id',
         header: 'ID',
         meta: { exportable: true },
+    },
+    {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const status = row.original.status;
+            const label = row.original.status_label;
+            const color = statusColors[status] ?? '';
+            return (
+                <Badge className={`${color} rounded-full px-3 py-1 text-sm`}>
+                    {label}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'full_name',
@@ -111,11 +132,53 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
 
     if (userPermissions.includes('general-enquiry create')) actions.push('add');
     if (userPermissions.includes('general-enquiry view')) actions.push('view');
-    if (userPermissions.includes('general-enquiry delete')) actions.push('delete');
+    if (userPermissions.includes('general-enquiry delete'))
+        actions.push('delete');
 
     const hasEditPermission = userPermissions.includes('general-enquiry edit');
     const { enquiriesForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
+
+    const [viewDialogOpen, setViewDialogOpen] = useState(false);
+    const [isLoadingData, setIsLoadingData] = useState(false);
+    const [selectedData, setSelectedData] =
+        useState<GeneralEnquirySchema | null>(null);
+
+    // Enquiry Status Action state
+    const [statusAction, setStatusAction] =
+        useState<EnquiryStatusActionType | null>(null);
+    const [statusActionEnquiryId, setStatusActionEnquiryId] = useState<
+        number | undefined
+    >();
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+
+    // Customer Confirmation Form state
+    const [confirmFormOpen, setConfirmFormOpen] = useState(false);
+    const [confirmFormEnquiryId, setConfirmFormEnquiryId] = useState<
+        number | undefined
+    >();
+    const [confirmFormPrefill, setConfirmFormPrefill] = useState({
+        name: '',
+        email: '',
+        contact: '',
+    });
+
+    const handleOpenViewDialog = async (enquiryId: number) => {
+        setViewDialogOpen(true);
+        setIsLoadingData(true);
+        setSelectedData(null);
+
+        try {
+            const response = await fetch(getForShow(enquiryId).url);
+            if (!response.ok) throw new Error('Failed to fetch enquiry data');
+            const enquiryData = await response.json();
+            setSelectedData(enquiryData);
+        } catch (error) {
+            console.error('Failed to fetch enquiry details:', error);
+        } finally {
+            setIsLoadingData(false);
+        }
+    };
 
     return (
         <>
@@ -134,11 +197,21 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                             data={enquiriesForDatatable}
                             actions={actions}
                             addButtonText="Create New General Enquiry"
-                            getRowActions={() => {
+                            getRowActions={(row) => {
                                 const rowActions: ActionType[] = [];
 
                                 if (hasEditPermission) {
                                     rowActions.push('edit');
+                                }
+
+                                if (row.enquiry_id) {
+                                    const available =
+                                        getAvailableEnquiryActions(row.status);
+                                    available.forEach((a) =>
+                                        rowActions.push(
+                                            `enquiry-status-${a}` as ActionType,
+                                        ),
+                                    );
                                 }
 
                                 return rowActions;
@@ -169,6 +242,29 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                             },
                                         });
                                     }
+
+                                    if (
+                                        action === 'enquiry-status-contacted' ||
+                                        action ===
+                                            'enquiry-status-negotiating' ||
+                                        action === 'enquiry-status-confirmed'
+                                    ) {
+                                        const actionType = action.replace(
+                                            'enquiry-status-',
+                                            '',
+                                        ) as EnquiryStatusActionType;
+                                        setStatusAction(actionType);
+                                        setStatusActionEnquiryId(
+                                            row?.original.enquiry_id ??
+                                                undefined,
+                                        );
+                                        setStatusDialogOpen(true);
+                                    }
+                                }
+                            }}
+                            onRowDoubleClick={(row) => {
+                                if (row.id) {
+                                    handleOpenViewDialog(row.id);
                                 }
                             }}
                             initialState={{
@@ -184,6 +280,12 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="status"
+                                        title="Status"
+                                        options={statusOptions}
+                                    />
                                     <DateRangeFilter
                                         table={table}
                                         columnId="preferred_travelling_date"
@@ -204,6 +306,106 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
             </AppLayout>
 
             <ConfirmDialog />
+
+            {/* View Dialog */}
+            <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                    <DialogHeader>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <DialogTitle>
+                                    View General Enquiry Details
+                                </DialogTitle>
+                                <DialogDescription className="sr-only">
+                                    Displays detailed information about the
+                                    selected general enquiry.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div
+                        className="h-full w-full flex-1 overflow-y-auto"
+                        style={{
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none',
+                        }}
+                    >
+                        {isLoadingData && (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                                Loading enquiry details...
+                            </div>
+                        )}
+                        {!isLoadingData && selectedData && (
+                            <GeneralEnquiryForm
+                                mode="view"
+                                initialData={selectedData}
+                                onCancel={() => setViewDialogOpen(false)}
+                            />
+                        )}
+                        {!isLoadingData && !selectedData && (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                                Failed to load enquiry details
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Enquiry Status Action Dialog */}
+            <EnquiryStatusAction
+                enquiryId={statusActionEnquiryId}
+                action={statusAction}
+                isOpen={statusDialogOpen}
+                onClose={() => {
+                    setStatusDialogOpen(false);
+                    setStatusAction(null);
+                }}
+                onConfirmed={(enquiryId) => {
+                    const enquiry = enquiriesForDatatable.find(
+                        (e) => e.enquiry_id === enquiryId,
+                    );
+                    setConfirmFormEnquiryId(enquiryId);
+                    setConfirmFormPrefill({
+                        name: enquiry?.full_name ?? '',
+                        email: enquiry?.email ?? '',
+                        contact: enquiry?.mobile ?? '',
+                    });
+                    setConfirmFormOpen(true);
+                }}
+            />
+
+            {/* Customer Confirmation Form Dialog */}
+            <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
+                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                    <DialogHeader>
+                        <DialogTitle>Customer Confirmation</DialogTitle>
+                        <DialogDescription>
+                            Fill in the customer group details for this enquiry.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div
+                        className="h-full w-full flex-1 overflow-y-auto"
+                        style={{
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none',
+                        }}
+                    >
+                        <CustomerConfirmationForm
+                            enquiryId={confirmFormEnquiryId}
+                            prefillName={confirmFormPrefill.name}
+                            prefillEmail={confirmFormPrefill.email}
+                            prefillContact={confirmFormPrefill.contact}
+                            onSuccess={() => {
+                                setConfirmFormOpen(false);
+                                router.reload();
+                            }}
+                            onCancel={() => setConfirmFormOpen(false)}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

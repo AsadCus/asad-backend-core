@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\Customer;
-use App\Models\Maid;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -27,9 +26,10 @@ class CustomerService
             $stats->push([
                 'date' => $date->format('Y-m-d'),
                 'count' => $count,
-                'label' => $date->format('M d')
+                'label' => $date->format('M d'),
             ]);
         }
+
         return $stats;
     }
 
@@ -46,9 +46,10 @@ class CustomerService
             $months->push([
                 'date' => $date->format('Y-m-d'),
                 'count' => $count,
-                'label' => $date->format('M Y')
+                'label' => $date->format('M Y'),
             ]);
         }
+
         return $months;
     }
 
@@ -96,11 +97,6 @@ class CustomerService
                     'contact' => $q->contact ?? '-',
                     'nric_number' => $q->customer->nric_number,
                     'address' => $addressFormatted,
-                    'age_preferences' => $agePrefs,
-                    'country_preferences' => $countryPrefs,
-                    'experience_preferences' => $expPrefs,
-                    'branch_id' => $q->customer->branch_id,
-                    'branch_name' => $q->customer->branch->name,
                     'handled_by' => $q->customer->handled_by ?? null,
                     'handler_name' => $q->customer->handledBy->name ?? '-',
                     'last_login' => $q->customer->last_login ?? null,
@@ -109,67 +105,6 @@ class CustomerService
             });
 
         return $data;
-    }
-
-    public function getInitialCustomerMaidIds($id)
-    {
-        $user = User::with('roles')->findOrFail($id);
-
-        return DB::transaction(function () use ($user) {
-            if (!$user->hasRole(['customer'])) {
-                throw new \Exception('User is not a customer.');
-            }
-
-            $customer = $user->customer;
-
-            $age_preferences = json_decode($customer->age_preferences ?? '[]', true);
-            $country_preferences = json_decode($customer->country_preferences ?? '[]', true);
-
-            $maids = Maid::with('country')->whereNot('status', 'assigned')->get();
-
-            $filteredMaids = $maids->filter(function ($maid) use ($age_preferences, $country_preferences) {
-                $age = $maid->date_of_birth
-                    ? Carbon::parse($maid->date_of_birth)->age
-                    : null;
-
-                $matchesAge = false;
-                if ($age !== null && count($age_preferences) > 0) {
-                    foreach ($age_preferences as $range) {
-                        if (preg_match('/^(\d+)\+$/', $range, $matches)) {
-                            $min = (int) $matches[1];
-                            if ($age >= $min) {
-                                $matchesAge = true;
-                                break;
-                            }
-                        } elseif (preg_match('/^(\d+)-(\d+)$/', $range, $matches)) {
-                            $min = (int) $matches[1];
-                            $max = (int) $matches[2];
-                            if ($age >= $min && $age <= $max) {
-                                $matchesAge = true;
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    $matchesAge = true;
-                }
-
-                $matchesCountry = false;
-                if ($maid->country && count($country_preferences) > 0) {
-                    $matchesCountry = in_array($maid->country->name, $country_preferences);
-                } else {
-                    $matchesCountry = true;
-                }
-
-                return $matchesAge && $matchesCountry;
-            });
-
-            $maidIds = $filteredMaids->pluck('id')->toArray();
-
-            $customer->maids()->sync($maidIds);
-
-            return $maidIds;
-        });
     }
 
     public function getCustomerMaidIds($id)
@@ -214,17 +149,13 @@ class CustomerService
 
         $data = [
             'role' => 'customer',
+            'customer_number' => $customer->customer_number ?? '',
             'id' => $customer->user->id,
             'name' => $customer->user->name,
             'email' => $customer->user->email,
             'contact' => $customer->user->contact ?? '',
-            'branch_id' => (string) $customer->branch_id  ?? '',
-            'customer_number' => $customer->customer_number ?? '',
             'nric_number' => $customer->nric_number ?? '',
             'address' => $customer->address ?? '',
-            'age_preferences' => json_decode($customer->age_preferences ?? '[]', true),
-            'country_preferences' => json_decode($customer->country_preferences ?? '[]', true),
-            'experience_preferences' => json_decode($customer->experience_preferences ?? '[]', true),
             'handled_by' => (string) $customer->handled_by,
         ];
 
@@ -250,7 +181,7 @@ class CustomerService
         return DB::transaction(function () use ($userId, $maidIds) {
             $user = User::findOrFail($userId);
 
-            if (!$user->hasRole(['customer'])) {
+            if (! $user->hasRole(['customer'])) {
                 throw new \Exception('User is not a customer.');
             }
 
@@ -309,6 +240,7 @@ class CustomerService
         return DB::transaction(function () use ($customerId) {
             $customer = Customer::findOrFail($customerId);
             $customer->update(['is_active' => true]);
+
             return $customer;
         });
     }
@@ -318,6 +250,7 @@ class CustomerService
         return DB::transaction(function () use ($customerId) {
             $customer = Customer::findOrFail($customerId);
             $customer->update(['is_active' => false]);
+
             return $customer;
         });
     }
