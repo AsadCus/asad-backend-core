@@ -80,6 +80,7 @@ export interface Sales {
     id: number;
     user_id: number;
     branch_id: number;
+    registration_number: string;
 }
 
 // misc types

@@ -21,7 +21,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: userIndex().url,
     },
     {
-        title: 'Sales',
+        title: 'Salesperson',
         href: index().url,
     },
 ];
@@ -64,10 +64,10 @@ export default function Sales({ dataUser }: SalesProps) {
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Sales" />
+                <Head title="Salesperson" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Sales</h2>
+                        <h2 className="text-lg font-semibold">Salesperson</h2>
                     </div>
                     <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
                         <DataTable

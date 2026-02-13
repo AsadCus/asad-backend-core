@@ -33,12 +33,15 @@ import {
     revenueByMonth,
     salesPeriodOptions,
 } from '@/routes/dashboard';
+import { index as enquiriesIndex } from '@/routes/enquiries';
+import { show as generalEnquiryShow } from '@/routes/general-enquiries';
 import {
     create as maidCreate,
     destroy as maidDestroy,
     edit as maidEdit,
     show as maidShow,
 } from '@/routes/maid';
+import { show as privateEnquiryShow } from '@/routes/private-enquiries';
 import {
     SharedData,
     ValueNumberOptionType,
@@ -91,6 +94,21 @@ interface IncomeByMonthType {
     label: string;
     date: string;
     amount: number | string;
+}
+
+interface EnquiryRowType {
+    id: number;
+    type: 'General' | 'Private';
+    full_name: string;
+    contact: string;
+    email: string;
+    created_at: string;
+}
+
+interface EnquirySummaryType {
+    total: number;
+    general: number;
+    private: number;
 }
 
 interface DashboardProps {
@@ -161,6 +179,8 @@ interface DashboardProps {
             education_levels: ValueNumberOptionType[];
             suppliers: ValueNumberOptionType[];
         };
+        enquiries?: EnquiryRowType[];
+        enquirySummary?: EnquirySummaryType;
     };
 }
 
@@ -388,40 +408,40 @@ export default function Dashboard({ data }: DashboardProps) {
             },
         ];
 
-    const salesCustomerColumns: ColumnDef<UserSchema>[] = [
-        createSelectColumn<UserSchema>(),
-        { accessorKey: 'name', header: 'Name', meta: { exportable: true } },
-        { accessorKey: 'email', header: 'Email', meta: { exportable: true } },
-        {
-            accessorKey: 'contact',
-            header: 'Contact',
-            meta: { exportable: true },
-        },
-        {
-            accessorKey: 'status',
-            header: 'Status',
-            meta: { exportable: true },
-            cell: ({ row }) => {
-                const status = row.getValue('status') as string;
-                return (
-                    <span
-                        className={`rounded-full px-2 py-1 text-xs ${
-                            status === 'Unassigned'
-                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        }`}
-                    >
-                        {status}
-                    </span>
-                );
-            },
-        },
-        {
-            accessorKey: 'assigned_sales',
-            header: 'Assigned To',
-            meta: { exportable: true },
-        },
-    ];
+    // const salesCustomerColumns: ColumnDef<UserSchema>[] = [
+    //     createSelectColumn<UserSchema>(),
+    //     { accessorKey: 'name', header: 'Name', meta: { exportable: true } },
+    //     { accessorKey: 'email', header: 'Email', meta: { exportable: true } },
+    //     {
+    //         accessorKey: 'contact',
+    //         header: 'Contact',
+    //         meta: { exportable: true },
+    //     },
+    //     {
+    //         accessorKey: 'status',
+    //         header: 'Status',
+    //         meta: { exportable: true },
+    //         cell: ({ row }) => {
+    //             const status = row.getValue('status') as string;
+    //             return (
+    //                 <span
+    //                     className={`rounded-full px-2 py-1 text-xs ${
+    //                         status === 'Unassigned'
+    //                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+    //                             : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+    //                     }`}
+    //                 >
+    //                     {status}
+    //                 </span>
+    //             );
+    //         },
+    //     },
+    //     {
+    //         accessorKey: 'assigned_sales',
+    //         header: 'Assigned To',
+    //         meta: { exportable: true },
+    //     },
+    // ];
 
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -630,7 +650,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     )}
 
                     {/* Sales: Customer List (Unassigned + Assigned to me) */}
-                    {isSales && (
+                    {/* {isSales && (
                         <div>
                             <div className="mb-3 flex items-center justify-between">
                                 <div>
@@ -664,6 +684,95 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 customerShow(userId).url,
                                             );
                                         }
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    )} */}
+
+                    {/* Sales: All Enquiries */}
+                    {isSales && data.enquiries && (
+                        <div>
+                            <div className="mb-3 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-lg font-semibold">
+                                        All Enquiries
+                                    </h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        {data.enquirySummary
+                                            ? `${data.enquirySummary.total} total — ${data.enquirySummary.general} general, ${data.enquirySummary.private} private`
+                                            : 'General and private enquiries'}
+                                    </p>
+                                </div>
+                                <Button asChild variant="outline">
+                                    <Link href={enquiriesIndex().url}>
+                                        View All
+                                    </Link>
+                                </Button>
+                            </div>
+                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                                <DataTable
+                                    columns={[
+                                        {
+                                            accessorKey: 'type',
+                                            header: 'Type',
+                                            cell: ({ row }) => (
+                                                <span
+                                                    className={`rounded-full px-2 py-1 text-xs ${
+                                                        row.original.type ===
+                                                        'General'
+                                                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                                            : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                                                    }`}
+                                                >
+                                                    {row.original.type}
+                                                </span>
+                                            ),
+                                        },
+                                        {
+                                            accessorKey: 'full_name',
+                                            header: 'Full Name',
+                                        },
+                                        {
+                                            accessorKey: 'contact',
+                                            header: 'Contact',
+                                        },
+                                        {
+                                            accessorKey: 'email',
+                                            header: 'Email',
+                                        },
+                                        {
+                                            accessorKey: 'created_at',
+                                            header: 'Created At',
+                                        },
+                                    ]}
+                                    data={data.enquiries}
+                                    actions={['view']}
+                                    url={enquiriesIndex().url}
+                                    onAction={(action, row) => {
+                                        const enquiry = row?.original;
+                                        if (!enquiry) return;
+                                        if (action === 'view') {
+                                            if (enquiry.type === 'General') {
+                                                router.get(
+                                                    generalEnquiryShow(
+                                                        enquiry.id,
+                                                    ).url,
+                                                );
+                                            } else {
+                                                router.get(
+                                                    privateEnquiryShow(
+                                                        enquiry.id,
+                                                    ).url,
+                                                );
+                                            }
+                                        }
+                                    }}
+                                    initialState={{
+                                        pagination: {
+                                            pageIndex: 0,
+                                            pageSize: 10,
+                                        },
                                     }}
                                 />
                             </div>

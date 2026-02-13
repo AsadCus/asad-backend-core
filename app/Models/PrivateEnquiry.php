@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 class PrivateEnquiry extends Model
@@ -38,7 +39,11 @@ class PrivateEnquiry extends Model
         'need_wheelchair',
         'other_remarks',
     ];
+
     protected $casts = [
+        'passport_expiry_date' => 'date',
+        'departure_date' => 'date',
+        'return_date' => 'date',
         'require_mutawif' => 'boolean',
         'require_umrah_course' => 'boolean',
         'require_umrah_official' => 'boolean',
@@ -49,4 +54,26 @@ class PrivateEnquiry extends Model
         'makkah_tour_with_mutawif' => 'boolean',
         'has_chronic_disease' => 'boolean',
     ];
+
+    // Formatting Helpers
+    public function getPassportExpiryDateFormattedAttribute(): ?string
+    {
+        return $this->passport_expiry_date
+            ? Carbon::parse($this->passport_expiry_date)->translatedFormat('d F Y')
+            : null;
+    }
+
+    public function getDepartureDateFormattedAttribute(): ?string
+    {
+        return $this->departure_date
+            ? Carbon::parse($this->departure_date)->translatedFormat('d F Y')
+            : null;
+    }
+
+    public function getReturnDateFormattedAttribute(): ?string
+    {
+        return $this->return_date
+            ? Carbon::parse($this->return_date)->translatedFormat('d F Y')
+            : null;
+    }
 }

@@ -37,15 +37,16 @@ export default function AuthSplitLayout({
                 <div className="relative hidden h-full flex-col justify-center p-10 pb-0 lg:flex">
                     <div className="flex flex-1 items-center justify-center">
                         <img
-                            // src="/logo-primary.png"
-                            src="/placeholder.svg"
+                            src="/logo-primary.png"
+                            // src="/placeholder.svg"
                             alt="Urban Care"
-                            className="block max-h-[80vh] w-auto object-contain dark:hidden"
+                            className="block max-h-[30vh] w-auto object-contain dark:hidden"
                         />
                         <img
-                            src="/logo-light.png"
+                            // src="/logo-light.png"
+                            src="/logo-primary.png"
                             alt="Urban Care Light"
-                            className="hidden max-h-[80vh] w-auto object-contain dark:block"
+                            className="hidden max-h-[30vh] w-auto object-contain dark:block"
                         />
                     </div>
                 </div>

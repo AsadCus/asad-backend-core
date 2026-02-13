@@ -32,9 +32,9 @@ class PrivateEnquiryService
                     'full_name' => $enquiry->full_name,
                     'contact_number' => $enquiry->contact_number,
                     'email' => $enquiry->email,
-                    'passport_expiry_date' => $enquiry->passport_expiry_date,
-                    'departure_date' => $enquiry->departure_date,
-                    'return_date' => $enquiry->return_date,
+                    'passport_expiry_date' => $enquiry->passport_expiry_date_formatted,
+                    'departure_date' => $enquiry->departure_date_formatted,
+                    'return_date' => $enquiry->return_date_formatted,
                     'no_of_pax' => $enquiry->no_of_pax,
                     'no_of_children' => $enquiry->no_of_children,
                     'airline' => $enquiry->airline,
@@ -71,12 +71,14 @@ class PrivateEnquiryService
     {
         return DB::transaction(function () use ($data) {
             // Format date fields if present
-            foreach ([
-                'passport_expiry_date',
-                'departure_date',
-                'return_date',
-            ] as $dateField) {
-                if (!empty($data[$dateField])) {
+            foreach (
+                [
+                    'passport_expiry_date',
+                    'departure_date',
+                    'return_date',
+                ] as $dateField
+            ) {
+                if (! empty($data[$dateField])) {
                     $data[$dateField] = Carbon::parse($data[$dateField])->format('Y-m-d');
                 }
             }
@@ -117,7 +119,7 @@ class PrivateEnquiryService
             activity()
                 ->performedOn($enquiry)
                 ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
-                ->log('Private enquiry created successfully #' . $enquiry->id);
+                ->log('Private enquiry created successfully #'.$enquiry->id);
 
             return $enquiry;
         });
@@ -132,9 +134,9 @@ class PrivateEnquiryService
             'full_name' => $enquiry->full_name,
             'contact_number' => $enquiry->contact_number,
             'email' => $enquiry->email,
-            'passport_expiry_date' => $enquiry->passport_expiry_date,
-            'departure_date' => $enquiry->departure_date,
-            'return_date' => $enquiry->return_date,
+            'passport_expiry_date' => $enquiry->passport_expiry_date_formatted,
+            'departure_date' => $enquiry->departure_date_formatted,
+            'return_date' => $enquiry->return_date_formatted,
             'no_of_pax' => $enquiry->no_of_pax,
             'no_of_children' => $enquiry->no_of_children,
             'airline' => $enquiry->airline,
@@ -169,12 +171,14 @@ class PrivateEnquiryService
         return DB::transaction(function () use ($data, $id) {
             $enquiry = PrivateEnquiry::findOrFail($id);
 
-            foreach ([
-                'passport_expiry_date',
-                'departure_date',
-                'return_date',
-            ] as $dateField) {
-                if (!empty($data[$dateField])) {
+            foreach (
+                [
+                    'passport_expiry_date',
+                    'departure_date',
+                    'return_date',
+                ] as $dateField
+            ) {
+                if (! empty($data[$dateField])) {
                     $data[$dateField] = Carbon::parse($data[$dateField])->format('Y-m-d');
                 }
             }
@@ -217,7 +221,7 @@ class PrivateEnquiryService
             activity()
                 ->performedOn($enquiry)
                 ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
-                ->log('Private enquiry updated successfully #' . $enquiry->id);
+                ->log('Private enquiry updated successfully #'.$enquiry->id);
 
             return $enquiry;
         });
@@ -226,14 +230,14 @@ class PrivateEnquiryService
     public function delete($id)
     {
         $enquiry = PrivateEnquiry::find($id);
-        if (!$enquiry) {
+        if (! $enquiry) {
             return false;
         }
 
         activity()
             ->performedOn($enquiry)
             ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->id])
-            ->log('Private enquiry deleted successfully #' . $enquiry->id);
+            ->log('Private enquiry deleted successfully #'.$enquiry->id);
 
         return $enquiry->delete();
     }

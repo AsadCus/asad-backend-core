@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -209,6 +208,15 @@ class RolePermissionSeeder extends Seeder
             'agreement view',
             'agreement create',
             'agreement edit',
+
+            'general-enquiry view',
+            'general-enquiry create',
+            'general-enquiry edit',
+            'general-enquiry delete',
+            'private-enquiry view',
+            'private-enquiry create',
+            'private-enquiry edit',
+            'private-enquiry delete',
         ]);
         Role::findByName('supplier')->givePermissionTo([
             'dashboard view',

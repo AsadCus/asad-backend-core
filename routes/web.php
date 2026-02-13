@@ -3,6 +3,7 @@
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\GeneralEnquiryController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MaidController;
@@ -43,8 +44,6 @@ Route::post('general-enquiries/public/store', [GeneralEnquiryController::class, 
 // Public Private Enquiry Routes (No Authentication Required)
 Route::get('private-enquiries/public/form', [PrivateEnquiryController::class, 'publicForm'])->name('private-enquiries.public.form');
 Route::post('private-enquiries/public/store', [PrivateEnquiryController::class, 'storePublic'])->name('private-enquiries.public.store');
-
-
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -164,6 +163,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // General Enquiries
     Route::resource('general-enquiries', GeneralEnquiryController::class);
+
+    // All Enquiries (read-only view combining general + private)
+    Route::get('enquiries', [EnquiryController::class, 'index'])->name('enquiries.index');
 
     // Packages
     Route::resource('packages', PackageController::class);

@@ -1,4 +1,7 @@
 import { DatePickerField } from '@/components/date-picker';
+import { FieldRequirements } from '@/components/field-requirements';
+import { ProperInput } from '@/components/proper-input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,13 +18,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { store, update } from '@/routes/manifests';
 import { type ValueNumberOptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
-import { ArrowLeft, Minus, Plus, RotateCcw } from 'lucide-react';
-import { FormEvent, useCallback, useState } from 'react';
-import {
-    manifestSchema,
-    type ManifestSchema,
-    type TravelerSchema,
-} from './schema';
+import { AlertCircle, ArrowLeft, Minus, Plus, RotateCcw } from 'lucide-react';
+import { FormEvent, useCallback } from 'react';
+import { type ManifestSchema, type TravelerSchema } from './schema';
+import { manifestValidationSchema } from './validation';
 
 interface ManifestFormProps {
     mode: 'create' | 'edit' | 'view';
@@ -85,15 +85,24 @@ export default function ManifestForm({
     dataPackage = [],
     onCancel,
 }: ManifestFormProps) {
-    const isViewMode = mode === 'view';
+    const isView = mode === 'view';
+    const isEdit = mode === 'edit';
+    const isCreate = mode === 'create';
+
     const defaults = getDefaultValues(initialData);
 
-    const { data, setData, post, put, processing, errors, reset } =
-        useForm<ManifestSchema>(defaults);
-
-    const [clientErrors, setClientErrors] = useState<Record<string, string>>(
-        {},
-    );
+    const form = useForm(defaults);
+    const {
+        data,
+        setData,
+        post,
+        put,
+        processing,
+        reset,
+        errors,
+        setError,
+        clearErrors,
+    } = form;
 
     const addTraveler = useCallback(() => {
         const newSn = (data.travelers?.length ?? 0) + 1;
@@ -106,10 +115,13 @@ export default function ManifestForm({
     const removeTraveler = useCallback(
         (index: number) => {
             const updated = (data.travelers ?? []).filter(
-                (_, i) => i !== index,
+                (_: TravelerSchema, i: number) => i !== index,
             );
             // Re-number
-            const reNumbered = updated.map((t, i) => ({ ...t, sn: i + 1 }));
+            const reNumbered = updated.map((t: TravelerSchema, i: number) => ({
+                ...t,
+                sn: i + 1,
+            }));
             setData('travelers', reNumbered);
         },
         [data.travelers, setData],
@@ -142,47 +154,55 @@ export default function ManifestForm({
         [data.travelers, setData],
     );
 
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        setClientErrors({});
+    const validateClientSide = (): boolean => {
+        clearErrors();
+        let valid = true;
 
-        const result = manifestSchema.safeParse(data);
+        const result = manifestValidationSchema.safeParse(data);
         if (!result.success) {
-            const fieldErrors: Record<string, string> = {};
-            result.error.issues.forEach((err) => {
-                const path = err.path.join('.');
-                fieldErrors[path] = err.message;
+            result.error.issues.forEach((issue) => {
+                const key = issue.path.join('.') as keyof ManifestSchema;
+                setError(key, issue.message);
             });
-            setClientErrors(fieldErrors);
-            return;
+            valid = false;
         }
 
-        if (mode === 'create') {
-            post(store().url);
-        } else if (mode === 'edit' && data.id) {
-            put(update(data.id).url);
+        return valid;
+    };
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+
+        if (!validateClientSide()) return;
+
+        if (isCreate) {
+            post(store().url, {
+                onError: (errors: Record<string, string>) => setError(errors),
+            });
+        } else if (isEdit && data.id) {
+            put(update(data.id).url, {
+                onError: (errors: Record<string, string>) => setError(errors),
+            });
         }
     };
 
-    const allErrors = { ...clientErrors };
-    Object.entries(errors).forEach(([key, value]) => {
-        if (value) allErrors[key] = value;
-    });
-    const hasErrors = Object.keys(allErrors).length > 0;
+    const renderError = (path: string) => {
+        const errorMap = errors as Record<string, string | undefined>;
+        const message = errorMap[path];
+        if (!message) return null;
+        return <p className="mt-1 text-xs text-red-500">{message}</p>;
+    };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {hasErrors && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                        Please fix the following errors:
-                    </h3>
-                    <ul className="mt-2 list-inside list-disc text-sm text-red-700 dark:text-red-300">
-                        {Object.entries(allErrors).map(([key, msg]) => (
-                            <li key={key}>{msg}</li>
-                        ))}
-                    </ul>
-                </div>
+            {/* Error Alert */}
+            {Object.keys(errors).length > 0 && !isView && (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                        Please fix the errors below and try again
+                    </AlertDescription>
+                </Alert>
             )}
 
             {/* Manifest Information */}
@@ -191,120 +211,174 @@ export default function ManifestForm({
                     <CardTitle>Manifest Information</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                        <Label htmlFor="package_id">Package *</Label>
-                        <Select
-                            value={String(data.package_id || '')}
-                            onValueChange={(v) =>
-                                setData('package_id', Number(v))
-                            }
-                            disabled={isViewMode}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Package" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {dataPackage.map((pkg) => (
-                                    <SelectItem
-                                        key={pkg.value}
-                                        value={String(pkg.value)}
-                                    >
-                                        {pkg.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="reference_number">
-                            Reference Number *
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="package_id">
+                            Package
+                            <FieldRequirements
+                                required
+                                hint="Select the package for this manifest"
+                            />
                         </Label>
-                        <Input
-                            id="reference_number"
-                            value={data.reference_number}
-                            onChange={(e) =>
-                                setData('reference_number', e.target.value)
-                            }
-                            disabled={isViewMode}
-                        />
+                        <div className="relative">
+                            <Select
+                                value={String(data.package_id || '')}
+                                onValueChange={(v) =>
+                                    setData('package_id', Number(v))
+                                }
+                                disabled={isView}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Package" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {dataPackage.map((pkg) => (
+                                        <SelectItem
+                                            key={pkg.value}
+                                            value={String(pkg.value)}
+                                        >
+                                            {pkg.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {renderError('package_id')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="status">Status</Label>
-                        <Select
-                            value={data.status}
-                            onValueChange={(v) => setData('status', v)}
-                            disabled={isViewMode}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_OPTIONS.map((s) => (
-                                    <SelectItem key={s} value={s}>
-                                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="reference_number">
+                            Reference Number
+                            <FieldRequirements
+                                required
+                                hint="Enter the manifest reference number"
+                            />
+                        </Label>
+                        <div className="relative">
+                            <ProperInput
+                                id="reference_number"
+                                value={data.reference_number ?? ''}
+                                disabled={isView}
+                                onCommit={(v) => setData('reference_number', v)}
+                                placeholder="Enter reference number"
+                            />
+                            {renderError('reference_number')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="company_address">Company Address</Label>
-                        <Input
-                            id="company_address"
-                            value={data.company_address}
-                            onChange={(e) =>
-                                setData('company_address', e.target.value)
-                            }
-                            disabled={isViewMode}
-                        />
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="status">
+                            Status
+                            <FieldRequirements hint="Select the manifest status" />
+                        </Label>
+                        <div className="relative">
+                            <Select
+                                value={data.status}
+                                onValueChange={(v) => setData('status', v)}
+                                disabled={isView}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {STATUS_OPTIONS.map((s) => (
+                                        <SelectItem key={s} value={s}>
+                                            {s.charAt(0).toUpperCase() +
+                                                s.slice(1)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {renderError('status')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="company_phone">Company Phone</Label>
-                        <Input
-                            id="company_phone"
-                            value={data.company_phone}
-                            onChange={(e) =>
-                                setData('company_phone', e.target.value)
-                            }
-                            disabled={isViewMode}
-                        />
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="company_address">
+                            Company Address
+                            <FieldRequirements hint="Enter company address" />
+                        </Label>
+                        <div className="relative">
+                            <ProperInput
+                                id="company_address"
+                                value={data.company_address ?? ''}
+                                disabled={isView}
+                                onCommit={(v) => setData('company_address', v)}
+                                placeholder="Enter company address"
+                            />
+                            {renderError('company_address')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="duration">Duration</Label>
-                        <Input
-                            id="duration"
-                            value={data.duration}
-                            onChange={(e) =>
-                                setData('duration', e.target.value)
-                            }
-                            disabled={isViewMode}
-                            placeholder="e.g. 14 Days / 13 Nights"
-                        />
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="company_phone">
+                            Company Phone
+                            <FieldRequirements hint="Enter company phone number" />
+                        </Label>
+                        <div className="relative">
+                            <ProperInput
+                                id="company_phone"
+                                value={data.company_phone ?? ''}
+                                disabled={isView}
+                                onCommit={(v) => setData('company_phone', v)}
+                                placeholder="Enter company phone"
+                            />
+                            {renderError('company_phone')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="departure_date">Departure Date</Label>
-                        <DatePickerField
-                            id="departure_date"
-                            value={data.departure_date}
-                            onChange={(v) => setData('departure_date', v)}
-                            disabled={isViewMode}
-                        />
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="duration">
+                            Duration
+                            <FieldRequirements hint="Enter duration (e.g. 14 Days / 13 Nights)" />
+                        </Label>
+                        <div className="relative">
+                            <ProperInput
+                                id="duration"
+                                value={data.duration ?? ''}
+                                disabled={isView}
+                                onCommit={(v) => setData('duration', v)}
+                                placeholder="e.g. 14 Days / 13 Nights"
+                            />
+                            {renderError('duration')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="return_date">Return Date</Label>
-                        <DatePickerField
-                            id="return_date"
-                            value={data.return_date}
-                            onChange={(v) => setData('return_date', v)}
-                            disabled={isViewMode}
-                        />
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="departure_date">
+                            Departure Date
+                            <FieldRequirements
+                                required
+                                hint="Select departure date"
+                            />
+                        </Label>
+                        <div className="relative">
+                            <DatePickerField
+                                id="departure_date"
+                                value={data.departure_date}
+                                onChange={(v) => setData('departure_date', v)}
+                                disabled={isView}
+                            />
+                            {renderError('departure_date')}
+                        </div>
+                    </div>
+
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="return_date">
+                            Return Date
+                            <FieldRequirements
+                                required
+                                hint="Select return date"
+                            />
+                        </Label>
+                        <div className="relative">
+                            <DatePickerField
+                                id="return_date"
+                                value={data.return_date}
+                                onChange={(v) => setData('return_date', v)}
+                                disabled={isView}
+                            />
+                            {renderError('return_date')}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -321,40 +395,59 @@ export default function ManifestForm({
                             Makkah Hotel
                         </h4>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="space-y-2">
-                                <Label htmlFor="makkah_hotel">Hotel Name</Label>
-                                <Input
-                                    id="makkah_hotel"
-                                    value={data.makkah_hotel}
-                                    onChange={(e) =>
-                                        setData('makkah_hotel', e.target.value)
-                                    }
-                                    disabled={isViewMode}
-                                />
+                            <div className="grid w-full items-center gap-3">
+                                <Label htmlFor="makkah_hotel">
+                                    Hotel Name
+                                    <FieldRequirements hint="Enter Makkah hotel name" />
+                                </Label>
+                                <div className="relative">
+                                    <ProperInput
+                                        id="makkah_hotel"
+                                        value={data.makkah_hotel ?? ''}
+                                        disabled={isView}
+                                        onCommit={(v) =>
+                                            setData('makkah_hotel', v)
+                                        }
+                                        placeholder="Enter hotel name"
+                                    />
+                                    {renderError('makkah_hotel')}
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="check_in">Check In</Label>
-                                <DatePickerField
-                                    id="check_in"
-                                    value={data.makkah_check_in}
-                                    onChange={(v) =>
-                                        setData('makkah_check_in', v)
-                                    }
-                                    disabled={isViewMode}
-                                />
+                            <div className="grid w-full items-center gap-3">
+                                <Label htmlFor="makkah_check_in">
+                                    Check In
+                                    <FieldRequirements hint="Select check-in date" />
+                                </Label>
+                                <div className="relative">
+                                    <DatePickerField
+                                        id="makkah_check_in"
+                                        value={data.makkah_check_in}
+                                        onChange={(v) =>
+                                            setData('makkah_check_in', v)
+                                        }
+                                        disabled={isView}
+                                    />
+                                    {renderError('makkah_check_in')}
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="check_out">Check Out</Label>
-                                <DatePickerField
-                                    id="check_out"
-                                    value={data.makkah_check_out}
-                                    onChange={(v) =>
-                                        setData('makkah_check_out', v)
-                                    }
-                                    disabled={isViewMode}
-                                />
+                            <div className="grid w-full items-center gap-3">
+                                <Label htmlFor="makkah_check_out">
+                                    Check Out
+                                    <FieldRequirements hint="Select check-out date" />
+                                </Label>
+                                <div className="relative">
+                                    <DatePickerField
+                                        id="makkah_check_out"
+                                        value={data.makkah_check_out}
+                                        onChange={(v) =>
+                                            setData('makkah_check_out', v)
+                                        }
+                                        disabled={isView}
+                                    />
+                                    {renderError('makkah_check_out')}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -364,42 +457,59 @@ export default function ManifestForm({
                             Madinah Hotel
                         </h4>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="space-y-2">
+                            <div className="grid w-full items-center gap-3">
                                 <Label htmlFor="madinah_hotel">
                                     Hotel Name
+                                    <FieldRequirements hint="Enter Madinah hotel name" />
                                 </Label>
-                                <Input
-                                    id="madinah_hotel"
-                                    value={data.madinah_hotel}
-                                    onChange={(e) =>
-                                        setData('madinah_hotel', e.target.value)
-                                    }
-                                    disabled={isViewMode}
-                                />
+                                <div className="relative">
+                                    <ProperInput
+                                        id="madinah_hotel"
+                                        value={data.madinah_hotel ?? ''}
+                                        disabled={isView}
+                                        onCommit={(v) =>
+                                            setData('madinah_hotel', v)
+                                        }
+                                        placeholder="Enter hotel name"
+                                    />
+                                    {renderError('madinah_hotel')}
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="check_in">Check In</Label>
-                                <DatePickerField
-                                    id="check_in"
-                                    value={data.madinah_check_in}
-                                    onChange={(v) =>
-                                        setData('madinah_check_in', v)
-                                    }
-                                    disabled={isViewMode}
-                                />
+                            <div className="grid w-full items-center gap-3">
+                                <Label htmlFor="madinah_check_in">
+                                    Check In
+                                    <FieldRequirements hint="Select check-in date" />
+                                </Label>
+                                <div className="relative">
+                                    <DatePickerField
+                                        id="madinah_check_in"
+                                        value={data.madinah_check_in}
+                                        onChange={(v) =>
+                                            setData('madinah_check_in', v)
+                                        }
+                                        disabled={isView}
+                                    />
+                                    {renderError('madinah_check_in')}
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="check_out">Check Out</Label>
-                                <DatePickerField
-                                    id="check_out"
-                                    value={data.madinah_check_out}
-                                    onChange={(v) =>
-                                        setData('madinah_check_out', v)
-                                    }
-                                    disabled={isViewMode}
-                                />
+                            <div className="grid w-full items-center gap-3">
+                                <Label htmlFor="madinah_check_out">
+                                    Check Out
+                                    <FieldRequirements hint="Select check-out date" />
+                                </Label>
+                                <div className="relative">
+                                    <DatePickerField
+                                        id="madinah_check_out"
+                                        value={data.madinah_check_out}
+                                        onChange={(v) =>
+                                            setData('madinah_check_out', v)
+                                        }
+                                        disabled={isView}
+                                    />
+                                    {renderError('madinah_check_out')}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -412,55 +522,75 @@ export default function ManifestForm({
                     <CardTitle>Meals & Notes</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                        <Label htmlFor="first_meal">First Meal</Label>
-                        <Select
-                            value={data.first_meal}
-                            onValueChange={(v) => setData('first_meal', v)}
-                            disabled={isViewMode}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Meal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {MEAL_OPTIONS.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {m}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="first_meal">
+                            First Meal
+                            <FieldRequirements hint="Select first meal" />
+                        </Label>
+                        <div className="relative">
+                            <Select
+                                value={data.first_meal}
+                                onValueChange={(v) => setData('first_meal', v)}
+                                disabled={isView}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Meal" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {MEAL_OPTIONS.map((m) => (
+                                        <SelectItem key={m} value={m}>
+                                            {m}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {renderError('first_meal')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="last_meal">Last Meal</Label>
-                        <Select
-                            value={data.last_meal}
-                            onValueChange={(v) => setData('last_meal', v)}
-                            disabled={isViewMode}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Meal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {MEAL_OPTIONS.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {m}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="grid w-full items-center gap-3">
+                        <Label htmlFor="last_meal">
+                            Last Meal
+                            <FieldRequirements hint="Select last meal" />
+                        </Label>
+                        <div className="relative">
+                            <Select
+                                value={data.last_meal}
+                                onValueChange={(v) => setData('last_meal', v)}
+                                disabled={isView}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Meal" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {MEAL_OPTIONS.map((m) => (
+                                        <SelectItem key={m} value={m}>
+                                            {m}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {renderError('last_meal')}
+                        </div>
                     </div>
 
-                    <div className="space-y-2 md:col-span-3">
-                        <Label htmlFor="notes">Notes</Label>
-                        <Textarea
-                            id="notes"
-                            value={data.notes}
-                            onChange={(e) => setData('notes', e.target.value)}
-                            disabled={isViewMode}
-                            rows={3}
-                        />
+                    <div className="grid w-full items-center gap-3 md:col-span-3">
+                        <Label htmlFor="notes">
+                            Notes
+                            <FieldRequirements hint="Add any additional notes" />
+                        </Label>
+                        <div className="relative">
+                            <Textarea
+                                id="notes"
+                                value={data.notes}
+                                onChange={(e) =>
+                                    setData('notes', e.target.value)
+                                }
+                                disabled={isView}
+                                rows={3}
+                            />
+                            {renderError('notes')}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -481,7 +611,7 @@ export default function ManifestForm({
                             value="travelers"
                             className="mt-4 space-y-4"
                         >
-                            {!isViewMode && (
+                            {!isView && (
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -540,7 +670,7 @@ export default function ManifestForm({
                                                 <th className="p-2 text-left">
                                                     Remarks
                                                 </th>
-                                                {!isViewMode && (
+                                                {!isView && (
                                                     <th className="p-2 text-left">
                                                         Actions
                                                     </th>
@@ -549,7 +679,10 @@ export default function ManifestForm({
                                         </thead>
                                         <tbody>
                                             {(data.travelers ?? []).map(
-                                                (traveler, idx) => (
+                                                (
+                                                    traveler: TravelerSchema,
+                                                    idx: number,
+                                                ) => (
                                                     <tr
                                                         key={idx}
                                                         className="border-b"
@@ -558,80 +691,108 @@ export default function ManifestForm({
                                                             {traveler.sn}
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                value={
-                                                                    traveler.name_as_per_passport
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'name_as_per_passport',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[180px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    value={
+                                                                        traveler.name_as_per_passport ??
+                                                                        ''
+                                                                    }
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'name_as_per_passport',
+                                                                            v,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[180px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.name_as_per_passport`,
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                value={
-                                                                    traveler.relationship
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'relationship',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[100px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    value={
+                                                                        traveler.relationship ??
+                                                                        ''
+                                                                    }
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'relationship',
+                                                                            v,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[100px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.relationship`,
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                value={
-                                                                    traveler.passport_no
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'passport_no',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[120px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    value={
+                                                                        traveler.passport_no ??
+                                                                        ''
+                                                                    }
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'passport_no',
+                                                                            v,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[120px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.passport_no`,
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                value={
-                                                                    traveler.room_no
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'room_no',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[80px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    value={
+                                                                        traveler.room_no ??
+                                                                        ''
+                                                                    }
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'room_no',
+                                                                            v,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[80px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.room_no`,
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-2">
                                                             <Select
@@ -648,7 +809,7 @@ export default function ManifestForm({
                                                                     )
                                                                 }
                                                                 disabled={
-                                                                    isViewMode
+                                                                    isView
                                                                 }
                                                             >
                                                                 <SelectTrigger className="min-w-[100px]">
@@ -689,7 +850,7 @@ export default function ManifestForm({
                                                                     )
                                                                 }
                                                                 disabled={
-                                                                    isViewMode
+                                                                    isView
                                                                 }
                                                             >
                                                                 <SelectTrigger className="min-w-[100px]">
@@ -730,33 +891,39 @@ export default function ManifestForm({
                                                                     )
                                                                 }
                                                                 disabled={
-                                                                    isViewMode
+                                                                    isView
                                                                 }
                                                                 className="min-w-[130px]"
                                                             />
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                type="number"
-                                                                value={
-                                                                    traveler.age
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'age',
-                                                                        Number(
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        ),
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[60px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    type="number"
+                                                                    value={String(
+                                                                        traveler.age,
+                                                                    )}
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'age',
+                                                                            Number(
+                                                                                v,
+                                                                            ) ||
+                                                                                0,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[60px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.age`,
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-2">
                                                             <Select
@@ -773,7 +940,7 @@ export default function ManifestForm({
                                                                     )
                                                                 }
                                                                 disabled={
-                                                                    isViewMode
+                                                                    isView
                                                                 }
                                                             >
                                                                 <SelectTrigger className="min-w-[100px]">
@@ -800,52 +967,62 @@ export default function ManifestForm({
                                                             </Select>
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                type="number"
-                                                                step="0.01"
-                                                                value={
-                                                                    traveler.total_cost
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'total_cost',
-                                                                        Number(
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        ),
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[100px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    type="number"
+                                                                    value={String(
+                                                                        traveler.total_cost,
+                                                                    )}
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'total_cost',
+                                                                            Number(
+                                                                                v,
+                                                                            ) ||
+                                                                                0,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[100px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.total_cost`,
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                type="number"
-                                                                step="0.01"
-                                                                value={
-                                                                    traveler.total_paid
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'total_paid',
-                                                                        Number(
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        ),
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[100px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    type="number"
+                                                                    value={String(
+                                                                        traveler.total_paid,
+                                                                    )}
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'total_paid',
+                                                                            Number(
+                                                                                v,
+                                                                            ) ||
+                                                                                0,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[100px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.total_paid`,
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-2">
                                                             <span className="font-medium">
@@ -855,25 +1032,32 @@ export default function ManifestForm({
                                                             </span>
                                                         </td>
                                                         <td className="p-2">
-                                                            <Input
-                                                                value={
-                                                                    traveler.remarks
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateTraveler(
-                                                                        idx,
-                                                                        'remarks',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    isViewMode
-                                                                }
-                                                                className="min-w-[120px]"
-                                                            />
+                                                            <div className="relative">
+                                                                <ProperInput
+                                                                    value={
+                                                                        traveler.remarks ??
+                                                                        ''
+                                                                    }
+                                                                    onCommit={(
+                                                                        v,
+                                                                    ) =>
+                                                                        updateTraveler(
+                                                                            idx,
+                                                                            'remarks',
+                                                                            v,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        isView
+                                                                    }
+                                                                    className="min-w-[120px]"
+                                                                />
+                                                                {renderError(
+                                                                    `travelers.${idx}.remarks`,
+                                                                )}
+                                                            </div>
                                                         </td>
-                                                        {!isViewMode && (
+                                                        {!isView && (
                                                             <td className="p-2">
                                                                 <Button
                                                                     type="button"
@@ -913,7 +1097,7 @@ export default function ManifestForm({
                     <ArrowLeft className="mr-1 h-4 w-4" />
                     Back
                 </Button>
-                {!isViewMode && (
+                {!isView && (
                     <>
                         <Button
                             type="button"
@@ -924,9 +1108,7 @@ export default function ManifestForm({
                             Reset
                         </Button>
                         <Button type="submit" disabled={processing}>
-                            {mode === 'create'
-                                ? 'Create Manifest'
-                                : 'Update Manifest'}
+                            {isCreate ? 'Create Manifest' : 'Update Manifest'}
                         </Button>
                     </>
                 )}

@@ -13,6 +13,7 @@ import {
 import { dashboard } from '@/routes';
 // import agreement from '@/routes/agreement';
 import customer from '@/routes/customer';
+import enquiries from '@/routes/enquiries';
 import generalEnquiries from '@/routes/general-enquiries';
 import invoice from '@/routes/invoice';
 // import maid from '@/routes/maid';
@@ -38,7 +39,6 @@ import sales from '@/routes/sales';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
-    Box,
     // Calendar,
     ClipboardList,
     // FileCheck,
@@ -46,8 +46,10 @@ import {
     // FilePlus,
     FileText,
     FileUser,
+    Globe,
     Handshake,
     // HeartHandshake,
+    Inbox,
     Landmark,
     LayoutGrid,
     ListOrdered,
@@ -100,7 +102,7 @@ export function AppSidebar() {
                                       href: masterAdmin.index.url(),
                                   },
                                   {
-                                      title: 'Sales',
+                                      title: 'Salesperson',
                                       href: masterSales.index.url(),
                                   },
 
@@ -213,22 +215,43 @@ export function AppSidebar() {
         //           },
         //       ]
         //     : []),
-        ...(permissions.includes('general-enquiry view') &&
-        !roles.includes('customer')
+        ...(permissions.includes('general-enquiry view') ||
+        permissions.includes('private-enquiry view')
             ? [
                   {
-                      title: 'General Enquiry',
-                      href: generalEnquiries.index.url(),
-                      icon: Box,
-                  },
-              ]
-            : []),
-        ...(permissions.includes('private-enquiry view')
-            ? [
-                  {
-                      title: 'Private Enquiry',
-                      href: privateEnquiries.index.url(),
-                      icon: Luggage,
+                      title: 'Enquiry',
+                      icon: Inbox,
+                      subItems: [
+                          ...(permissions.includes('general-enquiry view') &&
+                          permissions.includes('private-enquiry view')
+                              ? [
+                                    {
+                                        title: 'All Enquiries',
+                                        href: enquiries.index.url(),
+                                        icon: ClipboardList,
+                                    },
+                                ]
+                              : []),
+                          ...(permissions.includes('general-enquiry view') &&
+                          !roles.includes('customer')
+                              ? [
+                                    {
+                                        title: 'General Enquiry',
+                                        href: generalEnquiries.index.url(),
+                                        icon: Globe,
+                                    },
+                                ]
+                              : []),
+                          ...(permissions.includes('private-enquiry view')
+                              ? [
+                                    {
+                                        title: 'Private Enquiry',
+                                        href: privateEnquiries.index.url(),
+                                        icon: Luggage,
+                                    },
+                                ]
+                              : []),
+                      ],
                   },
               ]
             : []),

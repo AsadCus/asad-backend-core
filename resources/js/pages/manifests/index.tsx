@@ -8,24 +8,15 @@ import { create, destroy, edit, index, show } from '@/routes/manifests';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-
-interface ManifestDataTableSchema {
-    id: number;
-    reference_number: string;
-    package_name: string;
-    departure_date: string;
-    return_date: string;
-    duration: string | null;
-    makkah_hotel: string | null;
-    madinah_hotel: string | null;
-    travelers_count: number;
-    status: string;
-    created_at: string;
-}
+import {
+    ManifestSchema,
+    manifestStatusColors,
+    manifestStatusLabels,
+} from './schema';
 
 interface ManifestsProps {
     data: {
-        manifestsForDatatable: ManifestDataTableSchema[];
+        manifestsForDatatable: ManifestSchema[];
     };
 }
 
@@ -36,8 +27,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const columns: ColumnDef<ManifestDataTableSchema>[] = [
-    createSelectColumn<ManifestDataTableSchema>(),
+const columns: ColumnDef<ManifestSchema>[] = [
+    createSelectColumn<ManifestSchema>(),
     {
         accessorKey: 'id',
         header: 'ID',
@@ -63,6 +54,7 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
         accessorKey: 'return_date',
         header: 'Return',
         meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'duration',
@@ -89,18 +81,15 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
         header: 'Status',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const status = row.original.status;
-            const colors: Record<string, string> = {
-                draft: 'bg-gray-100 text-gray-800',
-                confirmed: 'bg-blue-100 text-blue-800',
-                completed: 'bg-green-100 text-green-800',
-                cancelled: 'bg-red-100 text-red-800',
-            };
+            const status = row.original
+                .status as keyof typeof manifestStatusColors;
+            const color = manifestStatusColors[status];
+            const label = manifestStatusLabels[status];
             return (
                 <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${colors[status] ?? 'bg-gray-100 text-gray-800'}`}
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${color}`}
                 >
-                    {status}
+                    {label}
                 </span>
             );
         },

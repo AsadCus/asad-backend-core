@@ -3,23 +3,46 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\FormatService;
+use App\Models\FinancialYear;
 use App\Services\CountryService;
-use Inertia\Inertia;
-use Illuminate\Http\Request;
 use App\Services\CustomerService;
 use App\Services\EducationLevelService;
+use App\Services\EnquiryService;
+use App\Services\FinancialTransactionService;
+use App\Services\FinancialYearService;
 use App\Services\MaidService;
 use App\Services\OrderService;
 use App\Services\ReligionService;
-use App\Services\SupplierService;
 use App\Services\SalesService;
-use App\Services\FinancialYearService;
-use App\Models\FinancialYear;
-use App\Services\FinancialTransactionService;
+use App\Services\SupplierService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    protected $customerService, $maidService, $countryService, $religionService, $educationLevelService, $supplierService, $salesService, $financialYearService, $financialTransactionService, $formatService, $orderService;
+    protected $customerService;
+
+    protected $maidService;
+
+    protected $countryService;
+
+    protected $religionService;
+
+    protected $educationLevelService;
+
+    protected $supplierService;
+
+    protected $salesService;
+
+    protected $financialYearService;
+
+    protected $financialTransactionService;
+
+    protected $formatService;
+
+    protected $orderService;
+
+    protected $enquiryService;
 
     public function __construct(
         CustomerService $customerService,
@@ -33,6 +56,7 @@ class DashboardController extends Controller
         FinancialTransactionService $financialTransactionService,
         FormatService $formatService,
         OrderService $orderService,
+        EnquiryService $enquiryService,
     ) {
         $this->customerService = $customerService;
         $this->maidService = $maidService;
@@ -45,6 +69,7 @@ class DashboardController extends Controller
         $this->financialTransactionService = $financialTransactionService;
         $this->formatService = $formatService;
         $this->orderService = $orderService;
+        $this->enquiryService = $enquiryService;
     }
 
     public function index(Request $request)
@@ -81,6 +106,9 @@ class DashboardController extends Controller
 
             $salesData = $this->salesService->getSalesDashboardData($user->id, $selectedYear);
 
+            $data['enquiries'] = $this->enquiryService->getForDataTable();
+            $data['enquirySummary'] = $this->enquiryService->getSummaryCounts();
+
             $data['widgets'] = [
                 [
                     'title' => 'My Customers',
@@ -89,7 +117,7 @@ class DashboardController extends Controller
                     'current' => $salesData['current_month_customers'],
                     'period_start' => $salesData['current_fiscal_month_start']->format('d M Y'),
                     'period_end' => $salesData['current_fiscal_month_end']->format('d M Y'),
-                    'period_type' => 'month'
+                    'period_type' => 'month',
                 ],
                 [
                     'title' => 'Unassigned Customers',
@@ -98,7 +126,7 @@ class DashboardController extends Controller
                     'current' => 0,
                     'period_start' => $salesData['current_fiscal_month_start']->format('d M Y'),
                     'period_end' => $salesData['current_fiscal_month_end']->format('d M Y'),
-                    'period_type' => 'month'
+                    'period_type' => 'month',
                 ],
                 [
                     'title' => 'Total Orders (FY)',
@@ -107,7 +135,7 @@ class DashboardController extends Controller
                     'current' => $salesData['current_month_orders'],
                     'period_start' => $salesData['current_fiscal_month_start']->format('d M Y'),
                     'period_end' => $salesData['current_fiscal_month_end']->format('d M Y'),
-                    'period_type' => 'month'
+                    'period_type' => 'month',
                 ],
                 [
                     'title' => 'Total Revenue (FY)',
@@ -116,7 +144,7 @@ class DashboardController extends Controller
                     'current' => $salesData['total_revenue'],
                     'period_start' => $salesData['fiscal_year_start']->format('d M Y'),
                     'period_end' => $salesData['now']->format('d M Y'),
-                    'period_type' => 'year'
+                    'period_type' => 'year',
                 ],
             ];
         }
@@ -124,7 +152,7 @@ class DashboardController extends Controller
         if ($user->hasRole('customer')) {
             $customerMaidIds = $this->customerService->getCustomerMaidIds($user->id);
 
-            if (!empty($customerMaidIds)) {
+            if (! empty($customerMaidIds)) {
                 $data['maids'] = $this->maidService->getForDataTable($customerMaidIds);
             } else {
                 $data['maids'] = [];
@@ -155,10 +183,10 @@ class DashboardController extends Controller
         $selectedYearId = $request->input('financial_year_id');
         $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
 
-        if (!$selectedYear) {
+        if (! $selectedYear) {
             return response()->json([
                 'options' => [],
-                'default' => 'full-year'
+                'default' => 'full-year',
             ]);
         }
 
@@ -176,7 +204,7 @@ class DashboardController extends Controller
         $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
         $period = $request->input('period', 'full-year');
 
-        if (!$selectedYear) {
+        if (! $selectedYear) {
             return response()->json([]);
         }
 
@@ -192,7 +220,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || !$user->hasRole('sales')) {
+        if (! $user || ! $user->hasRole('sales')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -212,7 +240,7 @@ class DashboardController extends Controller
         $selectedYearId = $request->input('financial_year_id');
         $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
 
-        if (!$selectedYear) {
+        if (! $selectedYear) {
             return response()->json(['count' => 0, 'amount' => 0]);
         }
 
@@ -229,7 +257,7 @@ class DashboardController extends Controller
         $selectedYearId = $request->input('financial_year_id');
         $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
 
-        if (!$selectedYear) {
+        if (! $selectedYear) {
             return response()->json([]);
         }
 
@@ -247,7 +275,7 @@ class DashboardController extends Controller
         $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
         $status = $request->input('status', null);
 
-        if (!$selectedYear) {
+        if (! $selectedYear) {
             return response()->json([]);
         }
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 class GeneralEnquiry extends Model
@@ -23,8 +24,11 @@ class GeneralEnquiry extends Model
         'no_of_children' => 'integer',
     ];
 
-    public function getPreferredTravellingDateFormattedAttribute()
+    // Formatting Helpers
+    public function getPreferredTravellingDateFormattedAttribute(): ?string
     {
-        return $this->preferred_travelling_date?->format('d/m/Y');
+        return $this->preferred_travelling_date
+            ? Carbon::parse($this->preferred_travelling_date)->translatedFormat('d F Y')
+            : null;
     }
 }

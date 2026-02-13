@@ -8,6 +8,7 @@ import { create, destroy, edit, index, show } from '@/routes/packages';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { packageStatusColors, packageStatusLabels } from './schema';
 
 interface PackageDataTableSchema {
     id: number;
@@ -59,17 +60,19 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         accessorKey: 'status',
         header: 'Status',
         meta: { exportable: true },
-        cell: ({ row }) => (
-            <span
-                className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                    row.original.status === 'open'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                }`}
-            >
-                {row.original.status === 'open' ? 'Open' : 'Closed'}
-            </span>
-        ),
+        cell: ({ row }) => {
+            const status = row.original
+                .status as keyof typeof packageStatusColors;
+            const color = packageStatusColors[status];
+            const label = packageStatusLabels[status];
+            return (
+                <span
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${color}`}
+                >
+                    {label}
+                </span>
+            );
+        },
     },
     {
         accessorKey: 'airline',
@@ -81,14 +84,15 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         accessorKey: 'departure_date',
         header: 'Departure',
         meta: { exportable: true },
+        cell: ({ row }) => row.original.departure_date,
         filterFn: 'dateRangeFilter',
-        cell: ({ row }) => row.original.departure_date || '-',
     },
     {
         accessorKey: 'arrival_date',
         header: 'Arrival',
         meta: { exportable: true },
-        cell: ({ row }) => row.original.arrival_date || '-',
+        cell: ({ row }) => row.original.arrival_date,
+        filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'total_seats',

@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 export const accommodationSchema = z.object({
     id: z.number().optional(),
-    location: z.string().min(1, 'Location is required'),
-    hotel_name: z.string().min(1, 'Hotel name is required'),
+    location: z.string().optional(),
+    hotel_name: z.string().optional(),
     type_of_meal: z.string().nullable().optional(),
     check_in: z.string().nullable().optional(),
     check_out: z.string().nullable().optional(),
@@ -12,20 +12,17 @@ export const accommodationSchema = z.object({
 export const packageSchema = z.object({
     id: z.number().optional(),
     group_number: z.string().optional(),
-    name: z
-        .string()
-        .min(1, 'Package name is required')
-        .min(2, 'Package name must be at least 2 characters'),
-    status: z.enum(['open', 'closed']),
+    name: z.string().optional(),
+    status: z.enum(['open', 'closed']).optional(),
 
     // Pricing
-    price_single: z.number().min(0, 'Price cannot be negative'),
-    price_double: z.number().min(0, 'Price cannot be negative'),
-    price_triple: z.number().min(0, 'Price cannot be negative'),
-    price_quad: z.number().min(0, 'Price cannot be negative'),
-    child_with_bed_price: z.number().min(0, 'Price cannot be negative'),
-    child_no_bed_price: z.number().min(0, 'Price cannot be negative'),
-    infant_price: z.number().min(0, 'Price cannot be negative'),
+    price_single: z.number().optional(),
+    price_double: z.number().optional(),
+    price_triple: z.number().optional(),
+    price_quad: z.number().optional(),
+    child_with_bed_price: z.number().optional(),
+    child_no_bed_price: z.number().optional(),
+    infant_price: z.number().optional(),
 
     // Flight Details
     airline: z.string().nullable().optional(),
@@ -57,3 +54,18 @@ export const packageSchema = z.object({
 
 export type PackageSchema = z.infer<typeof packageSchema>;
 export type AccommodationSchema = z.infer<typeof accommodationSchema>;
+
+export const packageStatusOptions = [
+    { label: 'Open', value: 'open' },
+    { label: 'Closed', value: 'closed' },
+];
+
+export const packageStatusColors = {
+    open: 'bg-green-100 text-green-800',
+    closed: 'bg-red-100 text-red-800',
+};
+
+export const packageStatusLabels = {
+    open: 'Open',
+    closed: 'Closed',
+};
