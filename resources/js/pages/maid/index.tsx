@@ -64,7 +64,7 @@ export const columns: ColumnDef<MaidSchema>[] = [
             }
             if (!photoUrl)
                 return (
-                    <span className="text-xs text-gray-400 italic">
+                    <span className="text-sm text-gray-400 italic">
                         No photo
                     </span>
                 );
@@ -99,7 +99,7 @@ export const columns: ColumnDef<MaidSchema>[] = [
             };
             return (
                 <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${colors[status] || ''}`}
+                    className={`rounded-full px-2 py-1 text-sm font-medium capitalize ${colors[status] || ''}`}
                 >
                     {status}
                 </span>
@@ -114,10 +114,10 @@ export const columns: ColumnDef<MaidSchema>[] = [
         cell: ({ row }) => {
             const formattedDate = row.original.interview_date_formatted;
             if (!formattedDate) {
-                return <span className="text-xs text-gray-400">-</span>;
+                return <span className="text-sm text-gray-400">-</span>;
             }
             return (
-                <span className="text-xs whitespace-nowrap">
+                <span className="text-sm whitespace-nowrap">
                     {formattedDate}
                 </span>
             );
@@ -130,15 +130,15 @@ export const columns: ColumnDef<MaidSchema>[] = [
         cell: ({ row }) => {
             const pendingUntil = row.original.pending_until;
             if (!pendingUntil || pendingUntil === null) {
-                return <span className="text-xs text-gray-400">-</span>;
+                return <span className="text-sm text-gray-400">-</span>;
             }
             try {
                 const date = new Date(pendingUntil);
                 if (isNaN(date.getTime())) {
-                    return <span className="text-xs text-gray-400">-</span>;
+                    return <span className="text-sm text-gray-400">-</span>;
                 }
                 return (
-                    <span className="text-xs font-medium whitespace-nowrap text-orange-600">
+                    <span className="text-sm font-medium whitespace-nowrap text-orange-600">
                         {date.toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'short',
@@ -147,7 +147,7 @@ export const columns: ColumnDef<MaidSchema>[] = [
                     </span>
                 );
             } catch {
-                return <span className="text-xs text-gray-400">-</span>;
+                return <span className="text-sm text-gray-400">-</span>;
             }
         },
         meta: { exportable: true },
@@ -158,11 +158,11 @@ export const columns: ColumnDef<MaidSchema>[] = [
         cell: ({ row }) => {
             const reason = row.original.pending_reason;
             if (!reason) {
-                return <span className="text-xs text-gray-400">-</span>;
+                return <span className="text-sm text-gray-400">-</span>;
             }
             return (
                 <span
-                    className="block max-w-[200px] truncate text-xs text-muted-foreground"
+                    className="block max-w-[200px] truncate text-sm text-muted-foreground"
                     title={reason}
                 >
                     {reason}

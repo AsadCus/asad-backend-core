@@ -117,7 +117,7 @@ export function DatePickerField({
                             />
                             {quickDate && (
                                 <div className="flex min-w-[160px] flex-col gap-1 border-l p-3">
-                                    <p className="mb-2 text-xs font-medium">
+                                    <p className="mb-2 text-sm font-medium">
                                         Quick Select
                                     </p>
 

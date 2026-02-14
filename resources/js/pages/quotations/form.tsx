@@ -347,7 +347,7 @@ export function QuotationForm({
         if (!message) return null;
 
         return (
-            <p className="mt-1 text-xs text-red-500">
+            <p className="mt-1 text-sm text-red-500">
                 {formatError(path, message)}
             </p>
         );
@@ -379,7 +379,7 @@ export function QuotationForm({
             {/* Quotation Number Box */}
             {data.quotation_number && (
                 <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-base text-muted-foreground">
                         Quotation No.
                     </p>
                     <p className="text-2xl font-bold text-primary">

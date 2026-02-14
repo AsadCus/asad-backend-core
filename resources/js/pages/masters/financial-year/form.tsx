@@ -114,7 +114,7 @@ export function FinancialYearForm({
 
     const renderError = (field: keyof FinancialYearSchema) =>
         errors[field] && (
-            <p className="absolute -bottom-4 left-0 text-xs text-red-500">
+            <p className="absolute -bottom-4 left-0 text-sm text-red-500">
                 {errors[field]}
             </p>
         );
@@ -204,7 +204,7 @@ export function FinancialYearForm({
 
                 {/* Info message */}
                 <div className="rounded-md bg-blue-50 p-4 dark:bg-blue-950">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="text-base text-blue-800 dark:text-blue-200">
                         <strong>Note:</strong> You can customize the dates as
                         needed. Only one fiscal year is allowed at a time.
                     </p>

@@ -65,7 +65,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     {canResetPassword && (
                                         <TextLink
                                             href={request()}
-                                            className="ml-auto text-sm"
+                                            className="ml-auto text-base"
                                             tabIndex={5}
                                         >
                                             Forgot password?
@@ -122,8 +122,10 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                 disabled={processing}
                                 data-test="login-button"
                                 style={{
-                                    background: appearance?.primary_color || undefined,
-                                    borderRadius: appearance?.border_radius || undefined,
+                                    background:
+                                        appearance?.primary_color || undefined,
+                                    borderRadius:
+                                        appearance?.border_radius || undefined,
                                 }}
                             >
                                 {processing && (
@@ -133,7 +135,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             </Button>
                         </div>
 
-                        <div className="text-center text-sm text-muted-foreground">
+                        <div className="text-center text-base text-muted-foreground">
                             Don't have an account?{' '}
                             <TextLink href={register()} tabIndex={5}>
                                 Sign up
@@ -144,7 +146,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
             </Form>
 
             {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
+                <div className="mb-4 text-center text-base font-medium text-green-600">
                     {status}
                 </div>
             )}

@@ -148,7 +148,7 @@ export default function Notification({
                     {notifList.some((n) => !n.is_read) && (
                         <button
                             onClick={handleMarkAllRead}
-                            className="text-sm font-medium text-primary hover:underline"
+                            className="text-base font-medium text-primary hover:underline"
                         >
                             Mark all as read
                         </button>
@@ -156,7 +156,7 @@ export default function Notification({
                 </div>
                 <div className="rounded-lg border bg-background p-4">
                     {notifList.length === 0 ? (
-                        <p className="py-10 text-center text-sm text-muted-foreground">
+                        <p className="py-10 text-center text-base text-muted-foreground">
                             You have no notifications.
                         </p>
                     ) : (
@@ -183,7 +183,7 @@ export default function Notification({
                                                     className={`h-4 w-4 ${color}`}
                                                 />
                                                 <h4
-                                                    className={`text-sm font-medium ${
+                                                    className={`text-base font-medium ${
                                                         notif.is_read
                                                             ? 'text-muted-foreground'
                                                             : 'text-foreground'
@@ -196,7 +196,7 @@ export default function Notification({
                                                 <span className="mt-1 ml-2 h-2 w-2 rounded-full bg-red-500"></span>
                                             )}
                                         </div>
-                                        <p className="mt-1 text-xs">
+                                        <p className="mt-1 text-sm">
                                             {notif.message}
                                         </p>
                                         <p className="mt-1 text-right text-[10px] text-muted-foreground">
@@ -236,7 +236,7 @@ export default function Notification({
                                     ).toLocaleString()}
                                 </DialogDescription>
                             </DialogHeader>
-                            <div className="py-2 text-sm">
+                            <div className="py-2 text-base">
                                 {selectedNotif.message}
                             </div>
                             <DialogFooter>

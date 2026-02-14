@@ -113,7 +113,7 @@ export function EnquiryStatusAction({
 
                 {action === 'confirmed' && (
                     <div className="space-y-4 py-4">
-                        <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                        <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-base text-muted-foreground">
                             <Info className="mt-0.5 h-4 w-4 shrink-0" />
                             <p>
                                 After confirming, you will be prompted to fill

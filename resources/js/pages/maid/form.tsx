@@ -268,7 +268,7 @@ export function MaidForm({
                     <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-base text-muted-foreground">
                                     Maid No.
                                 </p>
                                 <p className="text-2xl font-bold text-primary">

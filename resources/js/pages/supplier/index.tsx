@@ -209,7 +209,7 @@ export default function Supplier({ data }: SupplierProps) {
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-semibold">Supplier</h2>
                     </div>
-                    <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                    <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             columns={columns}
                             data={suppliers}
@@ -384,14 +384,14 @@ export default function Supplier({ data }: SupplierProps) {
                                                 )}
                                                 renderEmptyState={() => (
                                                     <div className="rounded-md border border-muted/70 bg-muted/5 p-3">
-                                                        <div className="text-center text-sm text-muted-foreground">
+                                                        <div className="text-center text-base text-muted-foreground">
                                                             No maids found.
                                                         </div>
                                                         {actionsMaid.includes(
                                                             'add',
                                                         ) && (
                                                             <button
-                                                                className="mt-2 cursor-pointer rounded-md border px-2 py-1 text-xs hover:bg-muted/10"
+                                                                className="mt-2 cursor-pointer rounded-md border px-2 py-1 text-sm hover:bg-muted/10"
                                                                 onClick={() =>
                                                                     router.get(
                                                                         createMaid()

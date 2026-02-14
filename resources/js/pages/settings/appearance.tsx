@@ -1,10 +1,6 @@
 import AppearanceTabs from '@/components/appearance-tabs';
 import ColorThemeSwitcher from '@/components/color-theme-switcher';
 import HeadingSmall from '@/components/heading-small';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -16,12 +12,16 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { edit as editAppearance } from '@/routes/appearance';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Moon, Sun, Check, RotateCcw } from 'lucide-react';
+import { Check, Moon, RotateCcw, Sun } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -110,15 +110,17 @@ function ThemePreview({
 
     return (
         <div
-            className={`space-y-4 rounded-lg border p-4 ${isDark
-                ? 'border-gray-700 bg-gray-900'
-                : 'border-gray-300 bg-gray-100'
-                }`}
+            className={`space-y-4 rounded-lg border p-4 ${
+                isDark
+                    ? 'border-gray-700 bg-gray-900'
+                    : 'border-gray-300 bg-gray-100'
+            }`}
         >
             <div className="mb-4 flex items-center justify-between">
                 <span
-                    className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white' : 'text-gray-700'
-                        }`}
+                    className={`flex items-center gap-2 text-base font-medium ${
+                        isDark ? 'text-white' : 'text-gray-700'
+                    }`}
                 >
                     {isDark ? (
                         <>
@@ -133,17 +135,19 @@ function ThemePreview({
             </div>
 
             <div
-                className={`rounded-lg border p-6 ${!settings.auth_bg
-                    ? isDark
-                        ? 'bg-gray-900 border-gray-700'
-                        : 'bg-gray-100 border-gray-300'
-                    : ''
-                    }`}
+                className={`rounded-lg border p-6 ${
+                    !settings.auth_bg
+                        ? isDark
+                            ? 'border-gray-700 bg-gray-900'
+                            : 'border-gray-300 bg-gray-100'
+                        : ''
+                }`}
                 style={{ background: settings.auth_bg || undefined }}
             >
                 <div
-                    className={`mb-4 text-sm font-medium ${isDark ? 'text-gray-100' : 'text-gray-700'
-                        }`}
+                    className={`mb-4 text-base font-medium ${
+                        isDark ? 'text-gray-100' : 'text-gray-700'
+                    }`}
                 >
                     Auth Page Background
                 </div>
@@ -158,28 +162,31 @@ function ThemePreview({
                     <CardContent className="p-4">
                         <div className="space-y-3">
                             <div
-                                className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'
-                                    }`}
+                                className={`text-base font-semibold ${
+                                    isDark ? 'text-white' : 'text-gray-900'
+                                }`}
                             >
                                 Login Card
                             </div>
                             <div className="space-y-2">
                                 <div
-                                    className={`h-8 border ${isDark
-                                        ? 'border-gray-600 bg-gray-700'
-                                        : 'border-gray-300 bg-white'
-                                        }`}
+                                    className={`h-8 border ${
+                                        isDark
+                                            ? 'border-gray-600 bg-gray-700'
+                                            : 'border-gray-300 bg-white'
+                                    }`}
                                     style={{ borderRadius: borderRadius }}
                                 />
                                 <div
-                                    className={`h-8 border ${isDark
-                                        ? 'border-gray-600 bg-gray-700'
-                                        : 'border-gray-300 bg-white'
-                                        }`}
+                                    className={`h-8 border ${
+                                        isDark
+                                            ? 'border-gray-600 bg-gray-700'
+                                            : 'border-gray-300 bg-white'
+                                    }`}
                                     style={{ borderRadius: borderRadius }}
                                 />
                                 <div
-                                    className="text-center text-sm font-medium leading-8 text-white"
+                                    className="text-center text-base leading-8 font-medium text-white"
                                     style={{
                                         background:
                                             settings.primary_color || '#3b82f6',
@@ -213,10 +220,11 @@ function ColorPresetButton({
         <button
             type="button"
             onClick={onClick}
-            className={`group relative flex h-16 w-full items-center justify-center overflow-hidden rounded-md border-2 transition-all ${isSelected
-                ? 'border-primary ring-2 ring-primary ring-offset-2'
-                : 'border-gray-300 hover:border-gray-400'
-                }`}
+            className={`group relative flex h-16 w-full items-center justify-center overflow-hidden rounded-md border-2 transition-all ${
+                isSelected
+                    ? 'border-primary ring-2 ring-primary ring-offset-2'
+                    : 'border-gray-300 hover:border-gray-400'
+            }`}
             style={{ background: color }}
         >
             {isSelected && (
@@ -224,7 +232,7 @@ function ColorPresetButton({
                     <Check className="h-6 w-6 text-white" />
                 </div>
             )}
-            <span className="absolute bottom-1 left-0 right-0 text-center text-xs font-medium text-black/60 group-hover:text-black/80">
+            <span className="absolute right-0 bottom-1 left-0 text-center text-sm font-medium text-black/60 group-hover:text-black/80">
                 {name}
             </span>
         </button>
@@ -290,7 +298,7 @@ export default function Appearance({
                         <Card className="border-green-200 bg-green-50">
                             <CardContent className="flex items-center gap-2 py-3">
                                 <Check className="h-5 w-5 text-green-600" />
-                                <span className="text-sm font-medium text-green-800">
+                                <span className="text-base font-medium text-green-800">
                                     Appearance settings saved successfully!
                                 </span>
                             </CardContent>
@@ -305,7 +313,7 @@ export default function Appearance({
                                     <h3 className="text-lg font-semibold">
                                         Theme
                                     </h3>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-base text-muted-foreground">
                                         Choose your preferred color theme (saved
                                         to your browser)
                                     </p>
@@ -329,7 +337,7 @@ export default function Appearance({
                                             <h3 className="text-lg font-semibold">
                                                 Global Appearance Settings
                                             </h3>
-                                            <p className="text-sm text-muted-foreground">
+                                            <p className="text-base text-muted-foreground">
                                                 Set default appearance for all
                                                 users (saved to database)
                                             </p>
@@ -408,7 +416,7 @@ export default function Appearance({
                                                         type="button"
                                                         variant={
                                                             form.border_radius ===
-                                                                option.value
+                                                            option.value
                                                                 ? 'default'
                                                                 : 'outline'
                                                         }
@@ -428,7 +436,7 @@ export default function Appearance({
                                                                     option.value,
                                                             }}
                                                         />
-                                                        <span className="text-xs">
+                                                        <span className="text-sm">
                                                             {option.name}
                                                         </span>
                                                     </Button>
@@ -441,7 +449,7 @@ export default function Appearance({
                                     <div className="space-y-3">
                                         <Label>Auth Card Background</Label>
                                         <div className="space-y-2">
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-sm text-muted-foreground">
                                                 Light theme presets
                                             </p>
                                             <div className="grid grid-cols-5 gap-2">
@@ -467,7 +475,7 @@ export default function Appearance({
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-sm text-muted-foreground">
                                                 Dark theme presets
                                             </p>
                                             <div className="grid grid-cols-5 gap-2">
@@ -526,7 +534,7 @@ export default function Appearance({
                                     <div className="space-y-3">
                                         <Label>Auth Page Background</Label>
                                         <div className="space-y-2">
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-sm text-muted-foreground">
                                                 Solid colors
                                             </p>
                                             <div className="grid grid-cols-4 gap-2">
@@ -552,7 +560,7 @@ export default function Appearance({
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-sm text-muted-foreground">
                                                 Gradients
                                             </p>
                                             <div className="grid grid-cols-4 gap-2">
@@ -731,7 +739,7 @@ export default function Appearance({
                                     <h3 className="text-lg font-semibold">
                                         Component Preview
                                     </h3>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-base text-muted-foreground">
                                         Preview of UI components with current
                                         theme
                                     </p>

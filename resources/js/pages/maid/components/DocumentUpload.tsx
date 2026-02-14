@@ -58,12 +58,12 @@ export function DocumentUpload({
                     <Upload className="mr-2 h-10 w-10 text-gray-600 dark:text-white" />
                 )}
                 <div className="flex flex-col text-left">
-                    <p className="text-sm text-gray-600 dark:text-white">
+                    <p className="text-base text-gray-600 dark:text-white">
                         {isLoading
                             ? 'Processing file...'
                             : 'Drag & drop file here'}
                     </p>
-                    <span className="text-xs text-gray-400 dark:text-gray-200">
+                    <span className="text-sm text-gray-400 dark:text-gray-200">
                         {isLoading
                             ? 'Please wait while we process your document'
                             : 'file format supported: docs & pdf'}
@@ -87,7 +87,7 @@ export function DocumentUpload({
                     <Label
                         htmlFor="maid-upload"
                         className={cn(
-                            'cursor-pointer rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90 dark:text-black',
+                            'cursor-pointer rounded-md bg-primary px-4 py-2 text-base text-white hover:bg-primary/90 dark:text-black',
                             isLoading && 'cursor-not-allowed opacity-50',
                         )}
                     >
@@ -96,7 +96,7 @@ export function DocumentUpload({
                 </div>
 
                 {file && !isLoading && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm text-gray-500">
                         Uploaded:{' '}
                         <span className="font-medium">{file.name}</span>
                     </p>

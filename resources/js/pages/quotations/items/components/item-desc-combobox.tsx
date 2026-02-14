@@ -182,18 +182,18 @@ export default function ItemDescriptionCombobox({
                     <CommandList>
                         <CommandEmpty>
                             {loading ? (
-                                <div className="py-6 text-center text-sm">
+                                <div className="py-6 text-center text-base">
                                     Loading items...
                                 </div>
                             ) : (
-                                <div className="py-6 text-center text-sm">
+                                <div className="py-6 text-center text-base">
                                     <p className="text-muted-foreground">
                                         {searchValue
                                             ? 'No matching items found.'
                                             : 'No items available.'}
                                     </p>
                                     {searchValue && (
-                                        <p className="mt-2 text-xs">
+                                        <p className="mt-2 text-sm">
                                             Click below to use custom text
                                         </p>
                                     )}
@@ -250,7 +250,7 @@ export default function ItemDescriptionCombobox({
 
                                                                 {(parent.quantity ||
                                                                     parent.rate) && (
-                                                                    <span className="text-xs text-muted-foreground">
+                                                                    <span className="text-sm text-muted-foreground">
                                                                         Qty:{' '}
                                                                         {parent.quantity ||
                                                                             '-'}{' '}
@@ -307,14 +307,14 @@ export default function ItemDescriptionCombobox({
                                                             <div className="flex w-full items-center gap-2">
                                                                 <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                                                                 <div className="flex flex-1 flex-col">
-                                                                    <span className="text-sm">
+                                                                    <span className="text-base">
                                                                         {
                                                                             child.description
                                                                         }
                                                                     </span>
                                                                     {(child.quantity ||
                                                                         child.rate) && (
-                                                                        <span className="text-xs text-muted-foreground">
+                                                                        <span className="text-sm text-muted-foreground">
                                                                             Qty:{' '}
                                                                             {child.quantity ||
                                                                                 '-'}{' '}
@@ -366,7 +366,7 @@ export default function ItemDescriptionCombobox({
                                                                 </span>
                                                                 {(parent.quantity ||
                                                                     parent.rate) && (
-                                                                    <span className="text-xs text-muted-foreground">
+                                                                    <span className="text-sm text-muted-foreground">
                                                                         Qty:{' '}
                                                                         {parent.quantity ||
                                                                             '-'}{' '}
@@ -408,7 +408,7 @@ export default function ItemDescriptionCombobox({
                                     >
                                         <div className="flex flex-1 items-center gap-2">
                                             <FileText className="h-4 w-4 text-primary" />
-                                            <span className="text-sm">
+                                            <span className="text-base">
                                                 Use custom:{' '}
                                                 <strong>"{searchValue}"</strong>
                                             </span>

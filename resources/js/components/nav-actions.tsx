@@ -41,7 +41,7 @@ export function NavActions() {
     };
 
     return (
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-base">
             <div className="hidden font-medium text-muted-foreground md:inline-block">
                 {new Date().toLocaleDateString('en-GB', {
                     day: '2-digit',
@@ -59,7 +59,7 @@ export function NavActions() {
                     >
                         <Bell />
                         {unreadCount > 0 && (
-                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                            <span className="absolute -top-1 -right-1 flex h-4 w-4 flex-col items-center justify-center rounded-full bg-red-500 text-sm font-bold text-white">
                                 {unreadCount}
                             </span>
                         )}
@@ -92,7 +92,7 @@ export function NavActions() {
                                             </div>
 
                                             {notifications.length === 0 ? (
-                                                <p className="text-center text-xs text-muted-foreground">
+                                                <p className="text-center text-sm text-muted-foreground">
                                                     No notifications
                                                 </p>
                                             ) : (
@@ -126,13 +126,13 @@ export function NavActions() {
                                                                         <Icon
                                                                             className={`h-4 w-4 ${color}`}
                                                                         />
-                                                                        <p className="text-sm font-medium text-foreground">
+                                                                        <p className="text-base font-medium text-foreground">
                                                                             {
                                                                                 notif.title
                                                                             }
                                                                         </p>
                                                                     </div>
-                                                                    <p className="text-xs text-muted-foreground">
+                                                                    <p className="text-sm text-muted-foreground">
                                                                         {
                                                                             notif.message
                                                                         }

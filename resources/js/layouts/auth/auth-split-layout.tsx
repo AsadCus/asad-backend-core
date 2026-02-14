@@ -28,7 +28,7 @@ export default function AuthSplitLayout({
 
     return (
         <div
-            className={`flex min-h-dvh flex-col ${!appearance?.auth_bg ? 'bg-gray-200 dark:bg-gray-600' : ''}`}
+            className={`flex min-h-dvh flex-col ${!appearance?.auth_bg ? 'bg-orange-50 dark:bg-gray-600' : ''}`}
             style={{
                 background: appearance?.auth_bg || undefined,
             }}
@@ -66,7 +66,7 @@ export default function AuthSplitLayout({
                         <CardContent className="mx-auto flex w-full flex-col justify-center space-y-6">
                             <div className="flex flex-col items-center gap-2 text-center">
                                 <h1 className="text-xl font-medium">{title}</h1>
-                                <p className="text-sm text-balance text-muted-foreground">
+                                <p className="text-base text-balance text-muted-foreground">
                                     {description}
                                 </p>
                             </div>
@@ -77,7 +77,7 @@ export default function AuthSplitLayout({
             </div>
 
             <div
-                className="flex items-center justify-center py-4 text-center text-xs text-gray-600 dark:text-gray-300"
+                className="flex items-center justify-center py-4 text-center text-sm text-gray-600 dark:text-gray-300"
                 style={{
                     color: appearance?.primary_color
                         ? adjustColorBrightness(appearance.primary_color, -40)

@@ -9,13 +9,13 @@ use Inertia\Inertia;
 
 class PrivateEnquiryController extends Controller
 {
-    protected $privateEnquiries;
+    protected $privateEnquiryService;
 
     protected $privateEnquiryRule;
 
-    public function __construct(PrivateEnquiryService $privateEnquiries, PrivateEnquiryRule $privateEnquiryRule)
+    public function __construct(PrivateEnquiryService $privateEnquiryService, PrivateEnquiryRule $privateEnquiryRule)
     {
-        $this->privateEnquiries = $privateEnquiries;
+        $this->privateEnquiryService = $privateEnquiryService;
         $this->privateEnquiryRule = $privateEnquiryRule;
     }
 
@@ -24,7 +24,7 @@ class PrivateEnquiryController extends Controller
      */
     public function index()
     {
-        $data['enquiriesForDatatable'] = $this->privateEnquiries->getForDataTable();
+        $data['enquiriesForDatatable'] = $this->privateEnquiryService->getForDataTable();
 
         return Inertia::render('private-enquiries/index', [
             'data' => $data,
@@ -53,7 +53,7 @@ class PrivateEnquiryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate($this->privateEnquiryRule->rules());
-        $this->privateEnquiries->store($validated);
+        $this->privateEnquiryService->store($validated);
 
         return redirect()->route('private-enquiries.index')
             ->with('success', 'Private enquiry created successfully.');
@@ -65,7 +65,7 @@ class PrivateEnquiryController extends Controller
     public function storePublic(Request $request)
     {
         $validated = $request->validate($this->privateEnquiryRule->rules());
-        $this->privateEnquiries->store($validated);
+        $this->privateEnquiryService->store($validated);
 
         return back()->with('success', 'Thank you for your enquiry. We will get back to you soon with a detailed quotation.');
     }
@@ -75,7 +75,7 @@ class PrivateEnquiryController extends Controller
      */
     public function show(string $id)
     {
-        $enquiry = $this->privateEnquiries->getForEditShow($id);
+        $enquiry = $this->privateEnquiryService->getForEditShow($id);
 
         return Inertia::render('private-enquiries/show', [
             'data' => $enquiry,
@@ -87,7 +87,7 @@ class PrivateEnquiryController extends Controller
      */
     public function getForShow(string $id)
     {
-        return response()->json($this->privateEnquiries->getForEditShow($id));
+        return response()->json($this->privateEnquiryService->getForEditShow($id));
     }
 
     /**
@@ -95,7 +95,7 @@ class PrivateEnquiryController extends Controller
      */
     public function edit(string $id)
     {
-        $enquiry = $this->privateEnquiries->getForEditShow($id);
+        $enquiry = $this->privateEnquiryService->getForEditShow($id);
 
         return Inertia::render('private-enquiries/edit', [
             'data' => $enquiry,
@@ -109,7 +109,7 @@ class PrivateEnquiryController extends Controller
     {
         $validated = $request->validate($this->privateEnquiryRule->rules($id));
 
-        $this->privateEnquiries->update($validated, $id);
+        $this->privateEnquiryService->update($validated, $id);
 
         return redirect()->route('private-enquiries.index')
             ->with('success', 'Private enquiry updated successfully.');
@@ -123,13 +123,13 @@ class PrivateEnquiryController extends Controller
         $ids = $request->input('ids');
         if ($ids && is_array($ids)) {
             foreach ($ids as $enquiryId) {
-                $this->privateEnquiries->delete($enquiryId);
+                $this->privateEnquiryService->delete($enquiryId);
             }
 
             return redirect()->intended(route('private-enquiries.index'))->with('success', 'Selected private enquiries deleted successfully.');
         }
 
-        $this->privateEnquiries->delete($id);
+        $this->privateEnquiryService->delete($id);
 
         return redirect()->route('private-enquiries.index')
             ->with('success', 'Private enquiry deleted successfully.');

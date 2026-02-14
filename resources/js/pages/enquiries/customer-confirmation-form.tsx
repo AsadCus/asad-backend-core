@@ -252,12 +252,13 @@ export default function CustomerConfirmationForm({
         // Sync the selected enquiry ID into form data before submit
         const membersPayload = members.map(({ ...rest }) => rest);
 
+        setData({
+            enquiry_id: effectiveEnquiryId,
+            members: membersPayload,
+            terms_accepted: isPublic ? data.terms_accepted : true,
+        });
+
         post(submitUrl, {
-            data: {
-                enquiry_id: effectiveEnquiryId,
-                members: membersPayload,
-                terms_accepted: isPublic ? data.terms_accepted : true,
-            },
             onSuccess: () => {
                 onSuccess?.();
             },
@@ -268,7 +269,7 @@ export default function CustomerConfirmationForm({
         const errorMap = errors as Record<string, string | undefined>;
         const message = errorMap[path];
         if (!message) return null;
-        return <p className="mt-1 text-xs text-red-500">{message}</p>;
+        return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
     const hasErrors = Object.keys(errors).length > 0;
@@ -323,7 +324,7 @@ export default function CustomerConfirmationForm({
                             placeholder="Select a confirmed enquiry..."
                         />
                         {renderError('enquiry_id')}
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-1 text-sm text-muted-foreground">
                             Only confirmed enquiries without a group are listed.
                         </p>
                     </CardContent>
@@ -371,7 +372,7 @@ export default function CustomerConfirmationForm({
                     {renderError('members')}
 
                     {members.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-base text-muted-foreground">
                             No members added. Click &quot;Add Member&quot; to
                             start building the group.
                         </p>
@@ -592,7 +593,7 @@ export default function CustomerConfirmationForm({
                         </div>
                     )}
 
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="mt-2 text-sm text-muted-foreground">
                         Select the radio button to designate the group leader.
                         Drag rows to reorder members.
                     </p>
@@ -614,12 +615,12 @@ export default function CustomerConfirmationForm({
                             <div>
                                 <Label
                                     htmlFor="terms_accepted"
-                                    className="cursor-pointer text-sm"
+                                    className="cursor-pointer text-base"
                                 >
                                     I agree to the Terms and Conditions{' '}
                                     <span className="text-red-500">*</span>
                                 </Label>
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     By checking this box, you confirm that all
                                     the information provided is accurate and you
                                     agree to our terms of service.

@@ -39,13 +39,13 @@ export default function ViewMaid({
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">Maid - View</h2>
                     {data.id && (
-                        <DocumentGenerator 
-                            maidId={Number(data.id)} 
+                        <DocumentGenerator
+                            maidId={Number(data.id)}
                             maidName={data.name}
                         />
                     )}
                 </div>
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <MaidForm
                         mode="view"
                         initialData={data}

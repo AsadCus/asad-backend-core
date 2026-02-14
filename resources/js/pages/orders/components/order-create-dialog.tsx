@@ -46,7 +46,9 @@ export default function OrderCreateDialog({
 
                 <div className="space-y-4">
                     <div className="grid gap-2">
-                        <label className="text-sm font-medium">Quotation</label>
+                        <label className="text-base font-medium">
+                            Quotation
+                        </label>
                         <Combobox
                             value={quotationId ? String(quotationId) : ''}
                             onChange={(v) => {

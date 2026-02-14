@@ -90,7 +90,7 @@ export default function GeneralEnquiryForm({
         const errorMap = errors as Record<string, string | undefined>;
         const message = errorMap[path];
         if (!message) return null;
-        return <p className="mt-1 text-xs text-red-500">{message}</p>;
+        return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
     const handleReset = () => {
@@ -99,7 +99,7 @@ export default function GeneralEnquiryForm({
 
     return (
         <div className="mx-auto w-full">
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={submit} className="space-y-4 py-2">
                 {/* Error Alert */}
                 {Object.keys(errors).length > 0 && !isView && (
                     <Alert variant="destructive">

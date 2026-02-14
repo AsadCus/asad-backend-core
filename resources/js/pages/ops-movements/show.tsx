@@ -80,10 +80,10 @@ function InfoRow({
 }) {
     return (
         <div className="grid gap-1">
-            <span className="text-sm font-medium text-muted-foreground">
+            <span className="text-base font-medium text-muted-foreground">
                 {label}
             </span>
-            <span className="text-sm">{value || '-'}</span>
+            <span className="text-base">{value || '-'}</span>
         </div>
     );
 }
@@ -102,7 +102,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         Ops Movement - {data.group_number}
                     </h2>
                     <span
-                        className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                        className={`inline-flex rounded-full px-3 py-1 text-base font-semibold ${
                             data.status === 'open'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
@@ -203,12 +203,12 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         </CardHeader>
                         <CardContent>
                             {data.accommodations.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-base text-muted-foreground">
                                     No accommodations.
                                 </p>
                             ) : (
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                    <table className="w-full text-base">
                                         <thead>
                                             <tr className="border-b">
                                                 <th className="px-3 py-2 text-left font-medium">
@@ -310,28 +310,28 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         <CardContent>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div>
-                                    <span className="text-sm font-medium text-muted-foreground">
+                                    <span className="text-base font-medium text-muted-foreground">
                                         Included
                                     </span>
-                                    <p className="mt-1 text-sm whitespace-pre-wrap">
+                                    <p className="mt-1 text-base whitespace-pre-wrap">
                                         {data.included || '-'}
                                     </p>
                                 </div>
                                 <div>
-                                    <span className="text-sm font-medium text-muted-foreground">
+                                    <span className="text-base font-medium text-muted-foreground">
                                         Not Included
                                     </span>
-                                    <p className="mt-1 text-sm whitespace-pre-wrap">
+                                    <p className="mt-1 text-base whitespace-pre-wrap">
                                         {data.not_included || '-'}
                                     </p>
                                 </div>
                             </div>
                             {data.remarks && (
                                 <div className="mt-4">
-                                    <span className="text-sm font-medium text-muted-foreground">
+                                    <span className="text-base font-medium text-muted-foreground">
                                         Remarks
                                     </span>
-                                    <p className="mt-1 text-sm whitespace-pre-wrap">
+                                    <p className="mt-1 text-base whitespace-pre-wrap">
                                         {data.remarks}
                                     </p>
                                 </div>
@@ -346,7 +346,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         </CardHeader>
                         <CardContent>
                             {data.manifests.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-base text-muted-foreground">
                                     No manifests linked to this package.
                                 </p>
                             ) : (
@@ -364,7 +364,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                                         }
                                                     </span>
                                                     {manifest.company_name && (
-                                                        <span className="ml-2 text-sm text-muted-foreground">
+                                                        <span className="ml-2 text-base text-muted-foreground">
                                                             —{' '}
                                                             {
                                                                 manifest.company_name
@@ -373,14 +373,14 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-sm text-muted-foreground">
+                                                    <span className="text-base text-muted-foreground">
                                                         {
                                                             manifest.travelers_count
                                                         }{' '}
                                                         traveler(s)
                                                     </span>
                                                     <span
-                                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                                        className={`inline-flex rounded-full px-2 py-0.5 text-sm font-semibold ${
                                                             manifest.status ===
                                                             'active'
                                                                 ? 'bg-green-100 text-green-800'
@@ -393,7 +393,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                             </div>
                                             {manifest.travelers.length > 0 && (
                                                 <div className="overflow-x-auto">
-                                                    <table className="w-full text-sm">
+                                                    <table className="w-full text-base">
                                                         <thead>
                                                             <tr className="border-b bg-muted/50">
                                                                 <th className="px-3 py-1.5 text-left font-medium">

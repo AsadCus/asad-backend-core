@@ -47,7 +47,7 @@ export function ProperInput({
                 disabled={disabled}
                 className={cn(
                     size === 'compact'
-                        ? 'min-h-[36px] px-2 py-1 text-sm sm:min-h-[48px]'
+                        ? 'min-h-[36px] px-2 py-1 text-base sm:min-h-[48px]'
                         : '',
                     className,
                 )}
@@ -71,7 +71,7 @@ export function ProperInput({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-                size === 'compact' ? 'h-6 px-2 py-1 text-sm sm:h-7' : '',
+                size === 'compact' ? 'h-6 px-2 py-1 text-base sm:h-7' : '',
                 className,
             )}
             inputMode={type === 'number' ? 'decimal' : undefined}

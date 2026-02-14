@@ -9,13 +9,13 @@ use Inertia\Inertia;
 
 class GeneralEnquiryController extends Controller
 {
-    protected $generalEnquiries;
+    protected $generalEnquiryService;
 
     protected $generalEnquiryRule;
 
-    public function __construct(GeneralEnquiryService $generalEnquiries, GeneralEnquiryRule $generalEnquiryRule)
+    public function __construct(GeneralEnquiryService $generalEnquiryService, GeneralEnquiryRule $generalEnquiryRule)
     {
-        $this->generalEnquiries = $generalEnquiries;
+        $this->generalEnquiryService = $generalEnquiryService;
         $this->generalEnquiryRule = $generalEnquiryRule;
     }
 
@@ -24,7 +24,7 @@ class GeneralEnquiryController extends Controller
      */
     public function index()
     {
-        $data['enquiriesForDatatable'] = $this->generalEnquiries->getForDataTable();
+        $data['enquiriesForDatatable'] = $this->generalEnquiryService->getForDataTable();
 
         return Inertia::render('general-enquiries/index', [
             'data' => $data,
@@ -50,7 +50,7 @@ class GeneralEnquiryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate($this->generalEnquiryRule->rules());
-        $this->generalEnquiries->store($validated);
+        $this->generalEnquiryService->store($validated);
 
         return redirect()->route('general-enquiries.index')
             ->with('success', 'General enquiry created successfully.');
@@ -62,7 +62,7 @@ class GeneralEnquiryController extends Controller
     public function storePublic(Request $request)
     {
         $validated = $request->validate($this->generalEnquiryRule->rules());
-        $this->generalEnquiries->store($validated);
+        $this->generalEnquiryService->store($validated);
 
         return back()->with('success', 'Thank you for your enquiry. We will get back to you soon.');
     }
@@ -72,7 +72,7 @@ class GeneralEnquiryController extends Controller
      */
     public function show(string $id)
     {
-        $enquiry = $this->generalEnquiries->getForEditShow($id);
+        $enquiry = $this->generalEnquiryService->getForEditShow($id);
 
         return Inertia::render('general-enquiries/show', [
             'data' => $enquiry,
@@ -84,7 +84,7 @@ class GeneralEnquiryController extends Controller
      */
     public function getForShow(string $id)
     {
-        return response()->json($this->generalEnquiries->getForEditShow($id));
+        return response()->json($this->generalEnquiryService->getForEditShow($id));
     }
 
     /**
@@ -92,7 +92,7 @@ class GeneralEnquiryController extends Controller
      */
     public function edit(string $id)
     {
-        $enquiry = $this->generalEnquiries->getForEditShow($id);
+        $enquiry = $this->generalEnquiryService->getForEditShow($id);
 
         return Inertia::render('general-enquiries/edit', [
             'data' => $enquiry,
@@ -105,7 +105,7 @@ class GeneralEnquiryController extends Controller
     public function update(Request $request, string $id)
     {
         $validated = $request->validate($this->generalEnquiryRule->rules($id));
-        $this->generalEnquiries->update($validated, $id);
+        $this->generalEnquiryService->update($validated, $id);
 
         return redirect()->route('general-enquiries.index')
             ->with('success', 'General enquiry updated successfully.');
@@ -119,13 +119,13 @@ class GeneralEnquiryController extends Controller
         $ids = $request->input('ids');
         if ($ids && is_array($ids)) {
             foreach ($ids as $userId) {
-                $this->generalEnquiries->delete($userId);
+                $this->generalEnquiryService->delete($userId);
             }
 
             return redirect()->intended(route('general-enquiries.index'))->with('success', 'Selected general enquiries deleted successfully.');
         }
 
-        $this->generalEnquiries->delete($id);
+        $this->generalEnquiryService->delete($id);
 
         return redirect()->route('general-enquiries.index')
             ->with('success', 'General enquiry deleted successfully.');

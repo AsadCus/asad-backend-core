@@ -273,7 +273,7 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(permissions.includes('ops-movement view')
+        ...(permissions.includes('manifest view')
             ? [
                   {
                       title: 'Ops Movement',

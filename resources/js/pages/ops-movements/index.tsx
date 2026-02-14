@@ -68,7 +68,7 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         meta: { exportable: true },
         cell: ({ row }) => (
             <span
-                className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                className={`inline-flex rounded-full px-2 py-1 text-sm font-semibold ${
                     row.original.status === 'open'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
@@ -154,7 +154,7 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                     <h2 className="text-lg font-semibold">Ops Movements</h2>
                 </div>
 
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <DataTable
                         columns={columns}
                         data={opsMovementsForDatatable}

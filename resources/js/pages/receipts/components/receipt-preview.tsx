@@ -98,7 +98,7 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
         return (
             <div
                 ref={ref}
-                className="w-[800px] bg-white p-8 text-xs text-gray-900"
+                className="w-[800px] bg-white p-8 text-sm text-gray-900"
                 style={{ fontFamily: 'Arial, sans-serif' }}
             >
                 {/* Header */}
@@ -109,7 +109,7 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                         className="h-[102px] w-80 object-contain"
                     />
                     <div className="text-right">
-                        <p className="mb-1 text-sm font-bold">
+                        <p className="mb-1 text-base font-bold">
                             Urban Care Employment Agency
                         </p>
                         <p>931 Yishun Central 1</p>
@@ -127,13 +127,13 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                 </div>
 
                 {/* Title */}
-                <div className="mb-4 bg-[#40A09DD4] py-2 text-center text-sm font-bold tracking-widest text-white">
+                <div className="mb-4 bg-[#40A09DD4] py-2 text-center text-base font-bold tracking-widest text-white">
                     OFFICIAL RECEIPT
                 </div>
 
                 <div className="px-10">
                     {/* Receipt Info */}
-                    <div className="mb-4 grid grid-cols-3 items-start gap-4 text-xs">
+                    <div className="mb-4 grid grid-cols-3 items-start gap-4 text-sm">
                         <table className="col-span-2 w-full">
                             <tbody>
                                 <tr>
@@ -214,7 +214,7 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
 
                     {/* Items */}
                     <div className="space-y-4 border-b py-4">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-gray-900 font-bold">
                                     <th className="py-1 text-left">

@@ -371,7 +371,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     return <span className="text-muted-foreground">Never</span>;
 
                 return (
-                    <span className="text-sm text-muted-foreground capitalize">
+                    <span className="text-base text-muted-foreground capitalize">
                         {formatUserTime(String(value))}
                     </span>
                 );
@@ -432,7 +432,7 @@ export default function Dashboard({ data }: DashboardProps) {
     //             const status = row.getValue('status') as string;
     //             return (
     //                 <span
-    //                     className={`rounded-full px-2 py-1 text-xs ${
+    //                     className={`rounded-full px-2 py-1 text-sm ${
     //                         status === 'Unassigned'
     //                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
     //                             : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -466,7 +466,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     <h3 className="text-2xl font-semibold">
                                         Insights for you
                                     </h3>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-base text-muted-foreground">
                                         Select a fiscal year
                                     </p>
                                 </div>
@@ -522,7 +522,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                         <p className="text-3xl font-bold">
                                             {fiscalYearTotalSalesData.count}
                                         </p>
-                                        <p className="text-xs text-muted-foreground">
+                                        <p className="text-sm text-muted-foreground">
                                             Total converted quotations
                                         </p>
                                     </CardContent>
@@ -539,7 +539,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 fiscalYearTotalSalesData.amount,
                                             )}
                                         </p>
-                                        <p className="text-xs text-muted-foreground">
+                                        <p className="text-sm text-muted-foreground">
                                             Total quotation amount
                                         </p>
                                     </CardContent>
@@ -561,10 +561,10 @@ export default function Dashboard({ data }: DashboardProps) {
                                         className="gap-0 overflow-hidden bg-gradient-to-t from-primary/5 to-card py-0"
                                     >
                                         <div className="grid grid-cols-2 border-b">
-                                            <div className="border-r p-3 text-center text-sm font-medium text-muted-foreground">
+                                            <div className="border-r p-3 text-center text-base font-medium text-muted-foreground">
                                                 Monthly (#)
                                             </div>
-                                            <div className="p-3 text-center text-sm font-medium text-muted-foreground">
+                                            <div className="p-3 text-center text-base font-medium text-muted-foreground">
                                                 Monthly ($)
                                             </div>
                                         </div>
@@ -576,7 +576,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 {formatCurrency(month.amount)}
                                             </div>
                                         </div>
-                                        <div className="p-3 text-center text-sm text-muted-foreground">
+                                        <div className="p-3 text-center text-base text-muted-foreground">
                                             {month.label}
                                         </div>
                                     </Card>
@@ -603,7 +603,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                         Monthly Sales Closed By Salesperson
                                     </h2>
                                     {data.fiscalYear && (
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-base text-muted-foreground">
                                             Fiscal Year: {data.fiscalYear}
                                         </p>
                                     )}
@@ -612,7 +612,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     <div className="flex items-center gap-2">
                                         <Label
                                             htmlFor="sales-period-select"
-                                            className="text-sm font-medium"
+                                            className="text-base font-medium"
                                         >
                                             Month:
                                         </Label>
@@ -642,7 +642,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     </div>
                                 )}
                             </div>
-                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable
                                     columns={
                                         quotationConvertedBySalespersonColumns
@@ -664,7 +664,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     <h2 className="text-lg font-semibold">
                                         Customer List
                                     </h2>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-base text-muted-foreground">
                                         Unassigned customers and customers
                                         assigned to you
                                     </p>
@@ -675,7 +675,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     </Link>
                                 </Button>
                             </div>
-                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border not-dark:bg-white">
                                 <DataTable
                                     columns={salesCustomerColumns}
                                     data={data.customers || []}
@@ -705,7 +705,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     <h2 className="text-lg font-semibold">
                                         Enquiry Dashboard
                                     </h2>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-base text-muted-foreground">
                                         {data.enquirySummary
                                             ? `${data.enquirySummary.total} total — ${data.enquirySummary.general} general, ${data.enquirySummary.private} private`
                                             : 'General and private enquiries'}
@@ -717,7 +717,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     </Link>
                                 </Button>
                             </div>
-                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable
                                     columns={[
                                         {
@@ -725,7 +725,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                             header: 'Type',
                                             cell: ({ row }) => (
                                                 <span
-                                                    className={`rounded-full px-2 py-1 text-xs ${
+                                                    className={`rounded-full px-2 py-1 text-sm ${
                                                         row.original.type ===
                                                         'General'
                                                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
@@ -755,7 +755,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 };
                                                 return (
                                                     <span
-                                                        className={`rounded-full px-2 py-1 text-xs ${statusColors[row.original.status] ?? ''}`}
+                                                        className={`rounded-full px-2 py-1 text-sm ${statusColors[row.original.status] ?? ''}`}
                                                     >
                                                         {
                                                             row.original
@@ -831,7 +831,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     </Link>
                                 </Button>
                             </div>
-                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable
                                     columns={customerColumns}
                                     data={data.customers || []}

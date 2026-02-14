@@ -851,7 +851,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             <>
                                                 <DropdownMenuItem
                                                     disabled
-                                                    className="text-xs opacity-60"
+                                                    className="text-sm opacity-60"
                                                 >
                                                     Move to invoice
                                                 </DropdownMenuItem>
@@ -994,7 +994,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         <Table
                             className={cn(
                                 'min-w-[900px]',
-                                'text-sm sm:text-sm md:text-base',
+                                'text-base sm:text-base md:text-base',
                                 '[&_td]:align-top [&_th]:align-middle',
                                 '[&_td]:p-1 [&_th]:px-1 [&_th]:py-2',
                                 '[&_tfoot_td]:p-2',

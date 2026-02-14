@@ -177,110 +177,114 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                         </h2>
                     </div>
 
-                    <DataTable
-                        enableExpand={false}
-                        columns={columns}
-                        data={receiptsForDatatable}
-                        actions={actions}
-                        url={receiptIndex().url}
-                        exportFilename="receipts"
-                        onAction={(action: ActionType, receiptRow) => {
-                            const receipt = receiptRow?.original;
-                            if (!receipt) return;
+                    <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
+                        <DataTable
+                            enableExpand={false}
+                            columns={columns}
+                            data={receiptsForDatatable}
+                            actions={actions}
+                            url={receiptIndex().url}
+                            exportFilename="receipts"
+                            onAction={(action: ActionType, receiptRow) => {
+                                const receipt = receiptRow?.original;
+                                if (!receipt) return;
 
-                            const receiptId = receipt.id;
-                            if (!receiptId) return;
+                                const receiptId = receipt.id;
+                                if (!receiptId) return;
 
-                            if (action === 'preview') {
-                                handlePreview(receipt);
-                            } else if (action === 'download') {
-                                (async () => {
-                                    try {
-                                        const response = await fetch(
-                                            `/receipt/${receiptId}/generate-pdf`,
-                                        );
-                                        if (!response.ok)
-                                            throw new Error(
-                                                'Failed to generate PDF',
+                                if (action === 'preview') {
+                                    handlePreview(receipt);
+                                } else if (action === 'download') {
+                                    (async () => {
+                                        try {
+                                            const response = await fetch(
+                                                `/receipt/${receiptId}/generate-pdf`,
                                             );
-                                        const blob = await response.blob();
-                                        const url =
-                                            window.URL.createObjectURL(blob);
+                                            if (!response.ok)
+                                                throw new Error(
+                                                    'Failed to generate PDF',
+                                                );
+                                            const blob = await response.blob();
+                                            const url =
+                                                window.URL.createObjectURL(
+                                                    blob,
+                                                );
 
-                                        // Open in new tab
-                                        window.open(url, '_blank');
+                                            // Open in new tab
+                                            window.open(url, '_blank');
 
-                                        // Trigger download
-                                        const link =
-                                            document.createElement('a');
-                                        link.href = url;
-                                        link.download = `receipt-${receipt.receipt_number}.pdf`;
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                    } catch (error) {
-                                        console.error(
-                                            'Error opening PDF:',
-                                            error,
-                                        );
-                                    }
-                                })();
-                            } else if (action === 'delete') {
-                                confirm({
-                                    title: 'Delete Receipt',
-                                    message: `Are you sure you want to delete "${receipt.receipt_number}"?`,
-                                    confirmText: 'Delete',
-                                    cancelText: 'Cancel',
-                                    onConfirm: () => {
-                                        router.delete(
-                                            destroyReceipt(receiptId).url,
-                                        );
-                                    },
-                                });
-                            }
-                        }}
-                        initialState={{
-                            pagination: {
-                                pageSize: 50,
-                                pageIndex: 0,
-                            },
-                            columnVisibility: {
-                                id: false,
-                                customer_id: false,
-                                customer_number: false,
-                                sales_id: false,
-                                invoice_id: false,
-                            },
-                        }}
-                        renderFilter={(table) => (
-                            <>
-                                <ColumnFilter
-                                    table={table}
-                                    columnId="invoice_id"
-                                    title="Invoice"
-                                    options={invoices}
-                                />
-                                <ColumnFilter
-                                    table={table}
-                                    columnId="customer_id"
-                                    title="Customer"
-                                    options={customers}
-                                />
-                                <ColumnFilter
-                                    table={table}
-                                    columnId="sales_id"
-                                    title="Salesperson"
-                                    options={salespersons}
-                                />
-                                <DateRangeFilter
-                                    table={table}
-                                    columnId="receipt_date"
-                                    title="Receipt Date"
-                                    quickDate={true}
-                                />
-                            </>
-                        )}
-                    />
+                                            // Trigger download
+                                            const link =
+                                                document.createElement('a');
+                                            link.href = url;
+                                            link.download = `receipt-${receipt.receipt_number}.pdf`;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                        } catch (error) {
+                                            console.error(
+                                                'Error opening PDF:',
+                                                error,
+                                            );
+                                        }
+                                    })();
+                                } else if (action === 'delete') {
+                                    confirm({
+                                        title: 'Delete Receipt',
+                                        message: `Are you sure you want to delete "${receipt.receipt_number}"?`,
+                                        confirmText: 'Delete',
+                                        cancelText: 'Cancel',
+                                        onConfirm: () => {
+                                            router.delete(
+                                                destroyReceipt(receiptId).url,
+                                            );
+                                        },
+                                    });
+                                }
+                            }}
+                            initialState={{
+                                pagination: {
+                                    pageSize: 50,
+                                    pageIndex: 0,
+                                },
+                                columnVisibility: {
+                                    id: false,
+                                    customer_id: false,
+                                    customer_number: false,
+                                    sales_id: false,
+                                    invoice_id: false,
+                                },
+                            }}
+                            renderFilter={(table) => (
+                                <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="invoice_id"
+                                        title="Invoice"
+                                        options={invoices}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="customer_id"
+                                        title="Customer"
+                                        options={customers}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="sales_id"
+                                        title="Salesperson"
+                                        options={salespersons}
+                                    />
+                                    <DateRangeFilter
+                                        table={table}
+                                        columnId="receipt_date"
+                                        title="Receipt Date"
+                                        quickDate={true}
+                                    />
+                                </>
+                            )}
+                        />
+                    </div>
                 </div>
             </AppLayout>
 

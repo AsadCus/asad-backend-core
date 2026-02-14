@@ -1,7 +1,7 @@
 import { Label } from '@/components/ui/label';
-import { FieldError } from './FieldError';
 import { ProperInput } from '../../../components/proper-input';
 import { MaidFormData, SetDataFn } from '../types';
+import { FieldError } from './FieldError';
 
 type OtherRemarksSectionProps = {
     data: MaidFormData;
@@ -10,7 +10,12 @@ type OtherRemarksSectionProps = {
     errors: Partial<Record<keyof MaidFormData, string>>;
 };
 
-export function OtherRemarksSection({ data, setData, isView, errors }: OtherRemarksSectionProps) {
+export function OtherRemarksSection({
+    data,
+    setData,
+    isView,
+    errors,
+}: OtherRemarksSectionProps) {
     return (
         <section className="space-y-4">
             {/* <h2 className="text-xl border-b pb-2 font-semibold">Section E: Other Remarks</h2> */}
@@ -19,14 +24,12 @@ export function OtherRemarksSection({ data, setData, isView, errors }: OtherRema
                 <ProperInput
                     id="availability_remarks"
                     value={data.availability_remarks ?? ''}
-                    onCommit={(value) =>
-                        setData('availability_remarks', value)
-                    }
+                    onCommit={(value) => setData('availability_remarks', value)}
                     placeholder="Enter any additional remarks about availability, scheduling preferences, or special conditions"
                     disabled={isView}
                     textarea={true}
                 />
-                <p className="text-right text-xs text-muted-foreground">
+                <p className="text-right text-sm text-muted-foreground">
                     {(data.availability_remarks ?? '').length}/200 characters
                 </p>
                 <FieldError message={errors.availability_remarks} />

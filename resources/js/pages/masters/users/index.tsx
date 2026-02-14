@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
-import { create, index } from '@/routes/master/user';
+import { index } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
 import masterSales from '@/routes/master/user/sales';
@@ -89,53 +89,47 @@ export default function MasterUser({
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">User</h2>
-                    <Button onClick={() => router.get(create().url)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add New User
-                    </Button>
                 </div>
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 p-6 md:min-h-min dark:border-sidebar-border">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                        {roleMenus.map((role) => {
-                            const IconComponent = role.icon;
-                            return (
-                                <Card
-                                    key={role.title}
-                                    className="cursor-pointer transition-shadow hover:shadow-md"
-                                    onClick={() => router.get(role.href)}
-                                >
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <div className="flex items-center space-x-2">
-                                            <IconComponent className="h-5 w-5" />
-                                            <CardTitle className="text-sm font-medium">
-                                                {role.title}
-                                            </CardTitle>
-                                        </div>
-                                        {role.hasAddButton && (
-                                            <Button
-                                                size="sm"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    role.onAdd();
-                                                }}
-                                                className="h-8 px-2"
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="text-2xl font-bold">
-                                            {role.count}
-                                        </div>
-                                        <CardDescription className="text-xs text-muted-foreground">
-                                            {role.description}
-                                        </CardDescription>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
-                    </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {roleMenus.map((role) => {
+                        const IconComponent = role.icon;
+                        return (
+                            <Card
+                                key={role.title}
+                                className="cursor-pointer transition-shadow hover:shadow-md"
+                                onClick={() => router.get(role.href)}
+                            >
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <div className="flex items-center space-x-2">
+                                        <IconComponent className="h-5 w-5" />
+                                        <CardTitle className="text-base font-medium">
+                                            {role.title}
+                                        </CardTitle>
+                                    </div>
+                                    {role.hasAddButton && (
+                                        <Button
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                role.onAdd();
+                                            }}
+                                            className="h-8 px-2"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">
+                                        {role.count}
+                                    </div>
+                                    <CardDescription className="text-sm text-muted-foreground">
+                                        {role.description}
+                                    </CardDescription>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
             </div>
         </AppLayout>

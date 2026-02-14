@@ -178,7 +178,7 @@ export default function MastersQuotationIndex({
         if (!message) return null;
 
         return (
-            <p className="mt-1 text-xs text-red-500">
+            <p className="mt-1 text-sm text-red-500">
                 {formatError(path, message)}
             </p>
         );
@@ -193,7 +193,7 @@ export default function MastersQuotationIndex({
                 </div>
 
                 {/* items */}
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <div className="mx-auto w-full">
                         <form onSubmit={submit} className="space-y-6 py-2">
                             <QuotationItemTableForm
@@ -235,7 +235,7 @@ export default function MastersQuotationIndex({
                 </div>
 
                 {/* notes */}
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <div className="mx-auto w-full">
                         <form onSubmit={submitNotes} className="space-y-6 py-2">
                             <NoteForm

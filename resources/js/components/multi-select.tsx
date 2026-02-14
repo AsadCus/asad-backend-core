@@ -869,7 +869,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                 'flex h-auto min-h-9 items-center justify-between rounded-md border bg-inherit px-3 py-1 hover:bg-inherit [&_svg]:pointer-events-auto',
                                 autoSize ? 'w-auto' : 'w-full',
                                 responsiveSettings.compactMode &&
-                                    'min-h-8 text-sm',
+                                    'min-h-8 text-base',
                                 screenSize === 'mobile' && 'min-h-9 text-base',
                                 disabled && 'cursor-not-allowed opacity-50',
                                 className,
@@ -938,7 +938,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                                             customStyle?.gradient &&
                                                                 'border-transparent text-white',
                                                             responsiveSettings.compactMode &&
-                                                                'px-1.5 py-0.5 text-xs',
+                                                                'px-1.5 py-0.5 text-sm',
                                                             screenSize ===
                                                                 'mobile' &&
                                                                 'max-w-[120px] truncate',
@@ -1033,7 +1033,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                                         variant,
                                                     }),
                                                     responsiveSettings.compactMode &&
-                                                        'px-1.5 py-0.5 text-xs',
+                                                        'px-1.5 py-0.5 text-sm',
                                                     singleLine &&
                                                         'flex-shrink-0 whitespace-nowrap',
                                                     '[&>svg]:pointer-events-auto',
@@ -1099,7 +1099,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                 </div>
                             ) : (
                                 <div className="mx-auto flex w-full items-center justify-between">
-                                    <span className="text-sm font-normal text-muted-foreground">
+                                    <span className="text-base font-normal text-muted-foreground">
                                         {placeholder}
                                     </span>
                                     <ChevronDown className="h-4 cursor-pointer text-muted-foreground" />

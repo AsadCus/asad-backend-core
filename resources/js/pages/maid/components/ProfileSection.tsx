@@ -416,7 +416,7 @@ export function ProfileSection({
                                 disabled={isView}
                                 type="number"
                             />
-                            <span className="absolute top-1/2 right-10 -translate-y-1/2 text-sm text-gray-500">
+                            <span className="absolute top-1/2 right-10 -translate-y-1/2 text-base text-gray-500">
                                 cm
                             </span>
                             <FieldError message={fields.height} />
@@ -445,7 +445,7 @@ export function ProfileSection({
                                 disabled={isView}
                                 type="number"
                             />
-                            <span className="absolute top-1/2 right-10 -translate-y-1/2 text-sm text-gray-500">
+                            <span className="absolute top-1/2 right-10 -translate-y-1/2 text-base text-gray-500">
                                 kg
                             </span>
                             <FieldError message={fields.weight} />
@@ -534,7 +534,7 @@ export function ProfileSection({
                                 disabled={isView}
                                 textarea={true}
                             />
-                            <p className="text-right text-xs text-muted-foreground">
+                            <p className="text-right text-sm text-muted-foreground">
                                 {(data.address ?? '').length}/200 characters
                             </p>
                             <FieldError message={fields.address} />
@@ -836,7 +836,7 @@ export function ProfileSection({
                                                     disabled={isView}
                                                     type="number"
                                                 />
-                                                <span className="absolute top-1/2 right-4 -translate-y-1/2 text-sm text-gray-500">
+                                                <span className="absolute top-1/2 right-4 -translate-y-1/2 text-base text-gray-500">
                                                     years old
                                                 </span>
                                             </div>

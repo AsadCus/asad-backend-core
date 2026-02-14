@@ -190,7 +190,7 @@ export default function ManifestForm({
         const errorMap = errors as Record<string, string | undefined>;
         const message = errorMap[path];
         if (!message) return null;
-        return <p className="mt-1 text-xs text-red-500">{message}</p>;
+        return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
     return (
@@ -391,7 +391,7 @@ export default function ManifestForm({
                 <CardContent className="space-y-6">
                     {/* Makkah */}
                     <div>
-                        <h4 className="mb-3 text-sm font-medium text-muted-foreground">
+                        <h4 className="mb-3 text-base font-medium text-muted-foreground">
                             Makkah Hotel
                         </h4>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -453,7 +453,7 @@ export default function ManifestForm({
                     </div>
                     {/* Madinah */}
                     <div>
-                        <h4 className="mb-3 text-sm font-medium text-muted-foreground">
+                        <h4 className="mb-3 text-base font-medium text-muted-foreground">
                             Madinah Hotel
                         </h4>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -625,7 +625,7 @@ export default function ManifestForm({
 
                             {(data.travelers ?? []).length > 0 && (
                                 <div className="overflow-x-auto">
-                                    <table className="w-full border text-sm">
+                                    <table className="w-full border text-base">
                                         <thead>
                                             <tr className="border-b bg-muted/50">
                                                 <th className="p-2 text-left">
@@ -1082,7 +1082,7 @@ export default function ManifestForm({
                             )}
 
                             {(data.travelers ?? []).length === 0 && (
-                                <p className="py-4 text-center text-sm text-muted-foreground">
+                                <p className="py-4 text-center text-base text-muted-foreground">
                                     No travelers added yet.
                                 </p>
                             )}

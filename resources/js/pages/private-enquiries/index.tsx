@@ -19,7 +19,6 @@ import {
     edit,
     getForShow,
     index,
-    show,
 } from '@/routes/private-enquiries';
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -61,7 +60,7 @@ const columns: ColumnDef<PrivateEnquiryDatatableSchema>[] = [
             const label = row.original.status_label;
             const color = statusColors[status] ?? '';
             return (
-                <Badge className={`${color} rounded-full px-3 py-1 text-sm`}>
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
                     {label}
                 </Badge>
             );
@@ -298,7 +297,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                         </h2>
                     </div>
 
-                    <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                    <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             columns={columns}
                             data={enquiriesForDatatable}
@@ -333,7 +332,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
 
                                 if (enquiryId !== undefined) {
                                     if (action === 'view') {
-                                        router.get(show(enquiryId).url);
+                                        handleOpenViewDialog(enquiryId);
                                     } else if (action === 'edit') {
                                         router.get(edit(enquiryId).url);
                                     } else if (action === 'delete') {
@@ -431,13 +430,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                         </div>
                     </DialogHeader>
 
-                    <div
-                        className="h-full w-full flex-1 overflow-y-auto"
-                        style={{
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                        }}
-                    >
+                    <div className="h-full w-full flex-1 overflow-y-auto">
                         {isLoadingData && (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                                 Loading enquiry details...

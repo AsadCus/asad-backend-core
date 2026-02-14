@@ -188,7 +188,7 @@ export default function Register({ nationalities, branches }: RegisterProps) {
                             </div>
 
                             <div>
-                                <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+                                <h3 className="mb-3 text-base font-semibold text-muted-foreground">
                                     Looking for maid?
                                 </h3>
 
@@ -301,7 +301,7 @@ export default function Register({ nationalities, branches }: RegisterProps) {
                             </Button>
                         </div>
 
-                        <div className="text-center text-sm text-muted-foreground">
+                        <div className="text-center text-base text-muted-foreground">
                             Already have an account?{' '}
                             <TextLink href={login()} tabIndex={6}>
                                 Log in

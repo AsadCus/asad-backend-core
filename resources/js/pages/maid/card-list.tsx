@@ -448,7 +448,7 @@ export function MaidCardList({
                                                         <CardTitle className="text-base font-semibold">
                                                             {maid.name}
                                                         </CardTitle>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        <p className="text-sm text-gray-500 dark:text-gray-400">
                                                             {maid.nationality ??
                                                                 '-'}
                                                         </p>
@@ -510,10 +510,10 @@ export function MaidCardList({
                                             </div>
                                         </CardHeader>
 
-                                        <CardContent className="space-y-1 text-xs">
+                                        <CardContent className="space-y-1 text-sm">
                                             <div className="mb-2">
                                                 <span
-                                                    className={`inline-block rounded-full px-2 py-1 text-xs font-medium capitalize ${getStatusBadgeClasses(maid.status)}`}
+                                                    className={`inline-block rounded-full px-2 py-1 text-sm font-medium capitalize ${getStatusBadgeClasses(maid.status)}`}
                                                 >
                                                     {maid.status}
                                                 </span>
@@ -567,10 +567,10 @@ export function MaidCardList({
                                             )}
                                             {maid.pending_reason && (
                                                 <div>
-                                                    <strong className="text-xs text-muted-foreground">
+                                                    <strong className="text-sm text-muted-foreground">
                                                         Reason:
                                                     </strong>{' '}
-                                                    <span className="text-xs text-muted-foreground">
+                                                    <span className="text-sm text-muted-foreground">
                                                         {maid.pending_reason}
                                                     </span>
                                                 </div>
@@ -658,7 +658,7 @@ export function MaidCardList({
                             );
                         })
                     ) : (
-                        <p className="col-span-full text-center text-sm text-muted-foreground">
+                        <p className="col-span-full text-center text-base text-muted-foreground">
                             No maids found matching your filters.
                         </p>
                     )}

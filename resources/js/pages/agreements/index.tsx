@@ -106,12 +106,12 @@ export default function Agreements({ data }: AgreementsProps) {
                     <h2 className="text-lg font-semibold">
                         Employment Agreements
                     </h2>
-                    {/* <p className="text-sm text-muted-foreground">
+                    {/* <p className="text-base text-muted-foreground">
                         Agreements are generated from Quotations
                     </p> */}
                 </div>
 
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <DataTable
                         columns={columns}
                         data={data}

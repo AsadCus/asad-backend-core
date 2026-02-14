@@ -80,7 +80,7 @@ export default function CreateUser({
                         {roleLabel} - Create
                     </h2>
                 </div>
-                <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <UserForm
                         mode="create"
                         branches={dataBranch}

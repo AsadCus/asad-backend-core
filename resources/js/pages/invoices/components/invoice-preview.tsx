@@ -126,7 +126,7 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
         return (
             <div
                 ref={ref}
-                className="w-[800px] bg-white p-8 text-xs text-gray-900"
+                className="w-[800px] bg-white p-8 text-sm text-gray-900"
                 style={{ fontFamily: 'Arial, sans-serif' }}
             >
                 {/* Header */}
@@ -138,8 +138,8 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
                             className="h-[102px] w-80 object-contain"
                         />
                     </div>
-                    <div className="flex-1 text-right text-xs leading-snug">
-                        <p className="mb-1 text-sm font-bold">
+                    <div className="flex-1 text-right text-sm leading-snug">
+                        <p className="mb-1 text-base font-bold">
                             Urban Care Employment Agency
                         </p>
                         <p>931 Yishun Central 1</p>
@@ -159,14 +159,14 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
                 {/* Invoice Title Bar */}
                 <div
                     style={{ backgroundColor: '#40A09DD4' }}
-                    className="mb-4 py-2 text-center text-sm font-bold tracking-widest text-white"
+                    className="mb-4 py-2 text-center text-base font-bold tracking-widest text-white"
                 >
                     INVOICE
                 </div>
 
                 <div className="px-10">
                     {/* Invoice Info */}
-                    <div className="mb-4 grid grid-cols-3 items-start gap-4 text-xs">
+                    <div className="mb-4 grid grid-cols-3 items-start gap-4 text-sm">
                         <table className="col-span-2 w-full">
                             <tbody>
                                 <tr>
@@ -282,7 +282,7 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
 
                     {/* Items Table */}
                     <div className="space-y-4 border-b py-4">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-gray-900 font-bold">
                                     <th className="py-1 text-left">
@@ -401,7 +401,7 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
                     </div>
 
                     {/* Footer Notes */}
-                    <div className="space-y-4 pt-4 text-xs">
+                    <div className="space-y-4 pt-4 text-sm">
                         <p className="text-center">
                             Paynow to UEN 53496387X or Bank Transfer to DBS
                             Business Multi Currency Account 072-131956-0.

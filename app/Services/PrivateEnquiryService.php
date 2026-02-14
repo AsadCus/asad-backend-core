@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Enums\EnquiryStatus;
 use App\Models\Enquiry;
+use App\Models\Notification;
 use App\Models\PrivateEnquiry;
+use App\Models\User;
+use App\Models\UserNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -136,7 +139,10 @@ class PrivateEnquiryService
             activity()
                 ->performedOn($enquiry)
                 ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $parentEnquiry->id])
-                ->log('Private enquiry created successfully #'.$enquiry->id);
+                ->log('Private enquiry created successfully #' . $enquiry->id);
+
+            // Create notification for admin/sales users
+            $this->createEnquiryNotification($enquiry, $parentEnquiry);
 
             return $enquiry;
         });
@@ -250,7 +256,7 @@ class PrivateEnquiryService
             activity()
                 ->performedOn($enquiry)
                 ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
-                ->log('Private enquiry updated successfully #'.$enquiry->id);
+                ->log('Private enquiry updated successfully #' . $enquiry->id);
 
             return $enquiry;
         });
@@ -266,7 +272,7 @@ class PrivateEnquiryService
         activity()
             ->performedOn($enquiry)
             ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
-            ->log('Private enquiry deleted successfully #'.$enquiry->id);
+            ->log('Private enquiry deleted successfully #' . $enquiry->id);
 
         // Also delete parent enquiry
         if ($enquiry->enquiry_id) {
@@ -274,5 +280,37 @@ class PrivateEnquiryService
         }
 
         return $enquiry->delete();
+    }
+
+    /**
+     * Create notification for admin/sales users about new enquiry.
+     */
+    private function createEnquiryNotification(PrivateEnquiry $enquiry, Enquiry $parentEnquiry): void
+    {
+        try {
+            $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
+
+            if ($adminAndSalesUsers->isEmpty()) {
+                return;
+            }
+
+            $notification = Notification::create([
+                'title' => "New Private Enquiry from {$enquiry->full_name}",
+                'message' => 'A new Private enquiry has been received. Please review.',
+                'link' => "/private-enquiries/{$enquiry->id}",
+                'type' => 'info',
+            ]);
+
+            foreach ($adminAndSalesUsers as $user) {
+                UserNotification::create([
+                    'user_id' => $user->id,
+                    'notification_id' => $notification->id,
+                    'is_read' => false,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Silently fail if roles don't exist (e.g., in tests)
+            // The enquiry creation itself should not fail due to notification issues
+        }
     }
 }

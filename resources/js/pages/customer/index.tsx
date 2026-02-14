@@ -91,22 +91,22 @@ const columns: ColumnDef<UserSchema>[] = [
         meta: { exportable: true },
         filterFn: 'includesValue',
     },
-    {
-        accessorKey: 'branch_name',
-        header: 'Branch',
-        meta: { exportable: true },
-    },
+    // {
+    //     accessorKey: 'branch_name',
+    //     header: 'Branch',
+    //     meta: { exportable: true },
+    // },
     {
         accessorKey: 'handled_by',
         header: 'Handled By (ID)',
         meta: { exportable: true },
         filterFn: 'includesValue',
     },
-    {
-        accessorKey: 'handler_name',
-        header: 'Handled By (Sales)',
-        meta: { exportable: true },
-    },
+    // {
+    //     accessorKey: 'handler_name',
+    //     header: 'Handled By (Sales)',
+    //     meta: { exportable: true },
+    // },
     {
         accessorKey: 'last_login',
         header: 'Last Login',
@@ -118,7 +118,7 @@ const columns: ColumnDef<UserSchema>[] = [
                 return <span className="text-muted-foreground">Never</span>;
 
             return (
-                <span className="text-sm text-muted-foreground capitalize">
+                <span className="text-base text-muted-foreground capitalize">
                     {formatUserTime(String(value))}
                 </span>
             );
@@ -132,7 +132,7 @@ const columns: ColumnDef<UserSchema>[] = [
             const isActive = row.getValue('is_active');
             return (
                 <Badge
-                    className="text-xs"
+                    className="text-sm"
                     variant={isActive ? 'default' : 'destructive'}
                 >
                     {isActive ? 'Active' : 'Inactive'}
@@ -181,7 +181,7 @@ const groupColumns: ColumnDef<CustomerGroupSchema>[] = [
         header: 'Members',
         meta: { exportable: true },
         cell: ({ row }) => (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-sm">
                 {row.original.member_count}
             </Badge>
         ),
@@ -203,7 +203,7 @@ const groupColumns: ColumnDef<CustomerGroupSchema>[] = [
 
             return (
                 <Badge
-                    className={`${typeColors[type] ?? ''} rounded-full px-3 py-1 text-sm`}
+                    className={`${typeColors[type] ?? ''} rounded-full px-3 py-1 text-base`}
                 >
                     {type}
                 </Badge>
@@ -223,7 +223,7 @@ const groupColumns: ColumnDef<CustomerGroupSchema>[] = [
             return (
                 <Badge
                     variant="outline"
-                    className="rounded-full px-3 py-1 text-sm"
+                    className="rounded-full px-3 py-1 text-base"
                 >
                     {status}
                 </Badge>
@@ -244,9 +244,9 @@ const renderGroupSubComponent = (row: Row<CustomerGroupSchema>) => {
 
     return (
         <div className="bg-muted/30 px-8 py-4">
-            <h4 className="mb-3 text-sm font-semibold">Group Members</h4>
+            <h4 className="mb-3 text-base font-semibold">Group Members</h4>
             <div className="overflow-hidden rounded-md border">
-                <table className="w-full text-sm">
+                <table className="w-full text-base">
                     <thead>
                         <tr className="border-b bg-muted/50">
                             <th className="p-2 text-left font-medium">Role</th>
@@ -276,7 +276,7 @@ const renderGroupSubComponent = (row: Row<CustomerGroupSchema>) => {
                                                 ? 'default'
                                                 : 'secondary'
                                         }
-                                        className="text-xs"
+                                        className="text-sm"
                                     >
                                         {member.is_leader ? 'Leader' : 'Member'}
                                     </Badge>
@@ -309,8 +309,7 @@ export default function Customer({
 
     if (userPermissions.includes('customer create')) actions.push('add');
     if (userPermissions.includes('customer view')) actions.push('view');
-    if (userPermissions.includes('customer edit'))
-        actions.push('edit', 'handle-customer');
+    if (userPermissions.includes('customer edit')) actions.push('edit');
     if (userPermissions.includes('customer delete')) actions.push('delete');
 
     const { confirm, ConfirmDialog } = useConfirmDialog();
@@ -340,7 +339,7 @@ export default function Customer({
                         </TabsList>
 
                         <TabsContent value="customers">
-                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable
                                     columns={columns}
                                     data={data}
@@ -461,7 +460,7 @@ export default function Customer({
                         </TabsContent>
 
                         <TabsContent value="groups">
-                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable
                                     columns={groupColumns}
                                     data={dataGroups}
@@ -516,13 +515,7 @@ export default function Customer({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div
-                        className="h-full w-full flex-1 overflow-y-auto"
-                        style={{
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                        }}
-                    >
+                    <div className="h-full w-full flex-1 overflow-y-auto">
                         <CustomerConfirmationForm
                             onSuccess={() => {
                                 setCreateGroupOpen(false);

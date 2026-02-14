@@ -185,7 +185,7 @@ function MenuBar({ editor }: { editor: Editor }) {
                         )}
                         title="Heading 1"
                     >
-                        <span className="text-xs font-bold">H1</span>
+                        <span className="text-sm font-bold">H1</span>
                     </Button>
                     <Button
                         type="button"
@@ -204,7 +204,7 @@ function MenuBar({ editor }: { editor: Editor }) {
                         )}
                         title="Heading 2"
                     >
-                        <span className="text-xs font-bold">H2</span>
+                        <span className="text-sm font-bold">H2</span>
                     </Button>
                     <Button
                         type="button"
@@ -223,7 +223,7 @@ function MenuBar({ editor }: { editor: Editor }) {
                         )}
                         title="Heading 3"
                     >
-                        <span className="text-xs font-bold">H3</span>
+                        <span className="text-sm font-bold">H3</span>
                     </Button>
                 </div>
 
@@ -480,7 +480,7 @@ export function RichTextEditor({
                 editor={editor}
                 className={cn(
                     size === 'compact'
-                        ? 'min-h-[36px] p-2 text-sm'
+                        ? 'min-h-[36px] p-2 text-base'
                         : 'min-h-[48px] p-3',
                     'focus:outline-none',
                     '[&_.tiptap.ProseMirror]:min-h-[40px]',
@@ -495,7 +495,7 @@ export function RichTextEditor({
 
             <div
                 className={cn(
-                    'flex items-center justify-between text-xs text-muted-foreground',
+                    'flex items-center justify-between text-sm text-muted-foreground',
                     size === 'compact' ? 'px-2 pb-2' : 'px-3 pb-3',
                     charactersCount >= characterLimit ? 'text-red-600' : '',
                 )}

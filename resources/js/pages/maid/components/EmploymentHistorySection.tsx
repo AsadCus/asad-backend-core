@@ -131,18 +131,18 @@ export function EmploymentHistorySection({
         <section className="space-y-4">
             {/* C1 Subheader */}
             <div className="border-b pb-2">
-                <h3 className="text-sm font-semibold">
+                <h3 className="text-base font-semibold">
                     C1. Employment History Overseas
                 </h3>
             </div>
 
             <div className="rounded-md border p-3">
-                <p className="mb-2 text-sm text-muted-foreground">
+                <p className="mb-2 text-base text-muted-foreground">
                     Date (From-To) | Country (Including FDW's home country) |
                     Employer | Work Duties | Remarks
                 </p>
                 {history.length === 0 && (
-                    <p className="mb-2 text-sm text-muted-foreground">
+                    <p className="mb-2 text-base text-muted-foreground">
                         No records added.
                     </p>
                 )}
@@ -181,7 +181,7 @@ export function EmploymentHistorySection({
                                 }
                             />
                             {hasError(index, 'country') && (
-                                <p className="mt-1 text-xs text-red-500">
+                                <p className="mt-1 text-sm text-red-500">
                                     Country is required
                                 </p>
                             )}
@@ -202,11 +202,7 @@ export function EmploymentHistorySection({
                             <ProperInput
                                 value={row.duties || ''}
                                 onCommit={(value) =>
-                                    updateRow(
-                                        index,
-                                        'duties',
-                                        value,
-                                    )
+                                    updateRow(index, 'duties', value)
                                 }
                                 placeholder="Describe main duties"
                                 disabled={isView}
@@ -251,13 +247,13 @@ export function EmploymentHistorySection({
 
             {/* C2 Subheader */}
             <div className="mt-6 border-b pb-2">
-                <h3 className="text-sm font-semibold">
+                <h3 className="text-base font-semibold">
                     C2. Employment History in Singapore
                 </h3>
             </div>
 
             <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                     Previous working experience in Singapore (The EA is required
                     to obtain the FDW's employment history from MOM and furnish
                     the employer with the employment history of the FDW. The
@@ -281,7 +277,7 @@ export function EmploymentHistorySection({
                             />
                             <Label
                                 htmlFor="singapore_experience_yes"
-                                className="cursor-pointer text-sm font-normal"
+                                className="cursor-pointer text-base font-normal"
                             >
                                 Yes
                             </Label>
@@ -300,7 +296,7 @@ export function EmploymentHistorySection({
                             />
                             <Label
                                 htmlFor="singapore_experience_no"
-                                className="cursor-pointer text-sm font-normal"
+                                className="cursor-pointer text-base font-normal"
                             >
                                 No
                             </Label>

@@ -72,7 +72,7 @@ const columns: ColumnDef<QuotationSchema>[] = [
             const color = statusColors[status as keyof typeof statusColors];
 
             return (
-                <Badge className={`${color} rounded-full px-3 py-1 text-sm`}>
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
                     {label}
                 </Badge>
             );
@@ -173,7 +173,7 @@ const columns: ColumnDef<QuotationSchema>[] = [
                         <Badge
                             key={index}
                             variant="outline"
-                            className="text-xs"
+                            className="text-sm"
                         >
                             {value}
                         </Badge>
@@ -333,7 +333,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                         </h2>
                     </div>
 
-                    <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                    <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             columns={columns}
                             data={quotationsForDatatable}

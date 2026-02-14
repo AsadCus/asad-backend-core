@@ -23,8 +23,8 @@ const SchedulePreview = forwardRef<HTMLDivElement, Props>(
                             className="h-[80px] w-64 object-contain"
                         />
                     </div>
-                    <div className="text-right text-xs leading-snug">
-                        <p className="mb-1 text-sm font-bold">
+                    <div className="text-right text-sm leading-snug">
+                        <p className="mb-1 text-base font-bold">
                             Urban Care Employment Agency
                         </p>
                         <p>931 Yishun Central 1</p>

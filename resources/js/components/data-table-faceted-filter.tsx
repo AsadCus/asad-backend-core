@@ -160,7 +160,7 @@ export function DataTableFacetedFilter<TData>({
                                         )}
                                         <span>{option.label}</span>
                                         {count > 0 && (
-                                            <span className="ml-auto flex size-4 items-center justify-center font-mono text-xs text-muted-foreground">
+                                            <span className="ml-auto flex size-4 items-center justify-center font-mono text-sm text-muted-foreground">
                                                 {count}
                                             </span>
                                         )}

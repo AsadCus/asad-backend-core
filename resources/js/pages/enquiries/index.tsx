@@ -13,14 +13,8 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { getForShow, index } from '@/routes/enquiries';
-import {
-    edit as generalEnquiryEdit,
-    show as generalEnquiryShow,
-} from '@/routes/general-enquiries';
-import {
-    edit as privateEnquiryEdit,
-    show as privateEnquiryShow,
-} from '@/routes/private-enquiries';
+import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
+import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -71,7 +65,7 @@ const columns: ColumnDef<EnquirySchema>[] = [
             const type = row.original.type;
             const color = typeColors[type] ?? '';
             return (
-                <Badge className={`${color} rounded-full px-3 py-1 text-sm`}>
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
                     {type}
                 </Badge>
             );
@@ -87,7 +81,7 @@ const columns: ColumnDef<EnquirySchema>[] = [
             const label = row.original.status_label;
             const color = statusColors[status] ?? '';
             return (
-                <Badge className={`${color} rounded-full px-3 py-1 text-sm`}>
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
                     {label}
                 </Badge>
             );
@@ -182,7 +176,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                         </h2>
                     </div>
 
-                    <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border">
+                    <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             columns={columns}
                             data={enquiriesForDatatable}
@@ -205,23 +199,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                 if (!enquiry) return;
 
                                 if (action === 'view') {
-                                    if (
-                                        enquiry.type === 'General' &&
-                                        enquiry.child_id
-                                    ) {
-                                        router.get(
-                                            generalEnquiryShow(enquiry.child_id)
-                                                .url,
-                                        );
-                                    } else if (
-                                        enquiry.type === 'Private' &&
-                                        enquiry.child_id
-                                    ) {
-                                        router.get(
-                                            privateEnquiryShow(enquiry.child_id)
-                                                .url,
-                                        );
-                                    }
+                                    handleOpenViewDialog(enquiry.id);
                                 }
 
                                 if (action === 'edit') {
@@ -314,7 +292,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                             {selectedEnquiryData && (
                                 <div className="mr-8 flex items-center gap-2">
                                     <Badge
-                                        className={`${typeColors[selectedEnquiryData.enquiry.type === 'general' ? 'General' : 'Private'] ?? ''} rounded-full px-3 py-1 text-sm`}
+                                        className={`${typeColors[selectedEnquiryData.enquiry.type === 'general' ? 'General' : 'Private'] ?? ''} rounded-full px-3 py-1 text-base`}
                                     >
                                         {selectedEnquiryData.enquiry.type ===
                                         'general'
@@ -322,7 +300,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                             : 'Private'}
                                     </Badge>
                                     <Badge
-                                        className={`${statusColors[selectedEnquiryData.enquiry.status] ?? ''} rounded-full px-3 py-1 text-sm`}
+                                        className={`${statusColors[selectedEnquiryData.enquiry.status] ?? ''} rounded-full px-3 py-1 text-base`}
                                     >
                                         {
                                             selectedEnquiryData.enquiry
@@ -334,13 +312,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                         </div>
                     </DialogHeader>
 
-                    <div
-                        className="h-full w-full flex-1 overflow-y-auto"
-                        style={{
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                        }}
-                    >
+                    <div className="h-full w-full flex-1 overflow-y-auto">
                         {isLoadingData && (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                                 Loading enquiry details...

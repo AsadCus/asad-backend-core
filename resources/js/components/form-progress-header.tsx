@@ -47,7 +47,7 @@ export function FormProgressHeader({
                 <div className="flex items-center justify-between">
                     <div className="space-y-1">
                         <h3 className="text-lg font-semibold">{title} Form</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 text-base text-muted-foreground">
                             <span>
                                 {completedCount} of {sections.length} sections
                                 completed
@@ -88,7 +88,7 @@ export function FormProgressHeader({
                             type="button"
                             onClick={() => onSectionClick?.(section.id)}
                             className={cn(
-                                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+                                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-base font-medium transition-all',
                                 'border border-border hover:bg-accent hover:shadow-sm',
                                 currentSection === section.id &&
                                     'bg-accent ring-2 ring-primary/20',

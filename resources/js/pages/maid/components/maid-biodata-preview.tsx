@@ -103,7 +103,7 @@ export function MaidBiodataPreview({
                 <div className="flex h-full items-center justify-center">
                     <div className="space-y-4 text-center">
                         <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-base text-muted-foreground">
                             Loading preview...
                         </p>
                     </div>
@@ -134,7 +134,7 @@ export function MaidBiodataPreview({
                             <p className="font-medium text-foreground">
                                 Failed to load preview
                             </p>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                            <p className="mt-1 text-base text-muted-foreground">
                                 {previewError}
                             </p>
                         </div>

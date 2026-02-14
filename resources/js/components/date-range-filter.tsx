@@ -217,7 +217,7 @@ export function DateRangeFilter<TData>({
                                         orientation="vertical"
                                         className="mx-2 h-4"
                                     />
-                                    <span className="text-xs">
+                                    <span className="text-sm">
                                         {filterValue?.from && filterValue?.to
                                             ? `${filterValue.from} - ${filterValue.to}`
                                             : filterValue?.from ||
@@ -289,7 +289,7 @@ export function DateRangeFilter<TData>({
 
                                 {quickDate && (
                                     <div className="mt-3 flex flex-col gap-1 border-t pt-3 md:hidden">
-                                        <p className="mb-2 text-xs font-medium">
+                                        <p className="mb-2 text-sm font-medium">
                                             Quick Select
                                         </p>
 
@@ -316,7 +316,7 @@ export function DateRangeFilter<TData>({
 
                             {quickDate && (
                                 <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
-                                    <p className="mb-2 text-xs font-medium">
+                                    <p className="mb-2 text-sm font-medium">
                                         Quick Select
                                     </p>
 

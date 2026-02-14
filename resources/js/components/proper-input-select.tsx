@@ -109,7 +109,7 @@ export function ProperInputSelect({
                         </div>
                     ) : (
                         <div className="mx-auto flex w-full items-center justify-between">
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-base text-muted-foreground">
                                 {placeholder}
                             </span>
                             <ChevronDown className="cursor-pointer text-muted-foreground" />

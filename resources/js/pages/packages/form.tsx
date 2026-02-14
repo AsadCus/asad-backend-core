@@ -110,7 +110,7 @@ export default function PackageForm({
     const renderError = (fieldName: string) => {
         const message = (errors as Record<string, string>)[fieldName];
         if (!message) return null;
-        return <p className="mt-1 text-xs text-red-500">{message}</p>;
+        return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
     const addAccommodation = () => {
@@ -564,7 +564,7 @@ export default function PackageForm({
                     </CardHeader>
                     <CardContent>
                         {(data.accommodations || []).length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-base text-muted-foreground">
                                 No accommodations added yet. Click "Add
                                 Accommodation" to add places like Mekkah,
                                 Madinah, Taif, etc.

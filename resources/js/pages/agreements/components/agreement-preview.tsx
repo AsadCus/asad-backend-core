@@ -15,7 +15,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
         return (
             <div
                 ref={ref}
-                className="w-[800px] bg-white p-8 text-xs text-gray-900"
+                className="w-[800px] bg-white p-8 text-sm text-gray-900"
                 style={{ fontFamily: 'Arial, sans-serif' }}
             >
                 {/* Header */}
@@ -27,8 +27,8 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                             className="h-[90px] w-64 object-contain"
                         />
                     </div>
-                    <div className="text-right text-xs leading-snug">
-                        <p className="mb-1 text-sm font-bold">
+                    <div className="text-right text-sm leading-snug">
+                        <p className="mb-1 text-base font-bold">
                             Urban Care Employment Agency
                         </p>
                         <p>931 Yishun Central 1</p>
@@ -48,7 +48,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                 {/* Title Bar */}
                 <div
                     style={{ backgroundColor: '#40A09DD4' }}
-                    className="mb-4 py-2 text-center text-xs font-bold text-white"
+                    className="mb-4 py-2 text-center text-sm font-bold text-white"
                 >
                     Agreement for Installment Payment between Employer &
                     Employment Agency
@@ -58,7 +58,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                 <div className="mb-4 grid grid-cols-2 gap-4">
                     <div>
                         <div className="mb-4">
-                            <table className="w-full border-collapse text-xs">
+                            <table className="w-full border-collapse text-sm">
                                 <tbody>
                                     <tr>
                                         <td className="border border-gray-900 bg-gray-200 p-2 font-bold">
@@ -92,7 +92,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                     {/* Info Section - Right Column */}
                     <div>
                         <div className="mb-4">
-                            <table className="w-full border-collapse text-xs">
+                            <table className="w-full border-collapse text-sm">
                                 <tbody>
                                     <tr>
                                         <td className="border border-gray-900 bg-gray-200 p-2 font-bold">
@@ -136,7 +136,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                 </div>
 
                 {/* Agreement Text */}
-                <div className="mb-3 text-justify text-xs leading-relaxed">
+                <div className="mb-3 text-justify text-sm leading-relaxed">
                     This installment payment agreement, hereinafter known as the
                     "Agreement," is entered into on the date above, by and
                     between the employer (name as above) and Urban Care
@@ -144,13 +144,13 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                     760931 (collectively referred to as the "Parties").
                 </div>
 
-                <div className="mb-3 text-justify text-xs leading-relaxed">
+                <div className="mb-3 text-justify text-sm leading-relaxed">
                     In consideration of the mutual promises in this agreement,
                     which receipts and sufficiency hereby are acknowledge, the
                     Parties further agree to the terms as follows:
                 </div>
 
-                <div className="mb-3 text-justify text-xs leading-relaxed">
+                <div className="mb-3 text-justify text-sm leading-relaxed">
                     The Employment Agency hereby agrees to accept the Employer
                     balance payment of the Total Placement Fee stated above of
                     the Migrant Domestic Worker (MDW) stated above.
@@ -158,10 +158,10 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
 
                 {/* Payment Schedule Table */}
                 <div className="mb-4">
-                    <div className="mb-2 text-xs font-bold">
+                    <div className="mb-2 text-sm font-bold">
                         Payment Schedule
                     </div>
-                    <table className="w-full border-collapse text-xs">
+                    <table className="w-full border-collapse text-sm">
                         <thead>
                             <tr className="bg-gray-200">
                                 <th className="border border-gray-900 p-2 text-center font-bold">
@@ -204,8 +204,8 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                 </div>
 
                 {/* Payment Term */}
-                <div className="mb-2 text-xs font-bold">Payment Term</div>
-                <div className="mb-3 text-justify text-xs leading-relaxed">
+                <div className="mb-2 text-sm font-bold">Payment Term</div>
+                <div className="mb-3 text-justify text-sm leading-relaxed">
                     This agreement shall commence on Agreement date stated above
                     and continue every twentieth (20th) day of each succeeding
                     month until the outstanding balance is paid in full by the
@@ -216,15 +216,15 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                 </div>
 
                 {/* Consequences */}
-                <div className="mb-2 text-xs font-bold">Consequences</div>
-                <div className="mb-3 text-justify text-xs leading-relaxed">
+                <div className="mb-2 text-sm font-bold">Consequences</div>
+                <div className="mb-3 text-justify text-sm leading-relaxed">
                     If the Employer fails to pay on the agreed due date, the
                     Employment Agency may consider an extension of three (3)
                     business days. Please ensure payments are made promptly to
                     avoid disruption of services.
                 </div>
 
-                <div className="mb-4 text-xs">
+                <div className="mb-4 text-sm">
                     <strong>Late payment interest amount:</strong>{' '}
                     {agreement.late_payment_interest_amount
                         ? `${formatCurrency(agreement.late_payment_interest_amount)}`
@@ -232,13 +232,13 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                 </div>
 
                 {/* Signature Section */}
-                <div className="mt-8 grid grid-cols-2 gap-8 text-xs">
+                <div className="mt-8 grid grid-cols-2 gap-8 text-sm">
                     <div>
                         <div className="mb-12 h-16 border-b-2 border-gray-900"></div>
                         <div className="font-bold">
                             Employer Signature / Name
                         </div>
-                        <div className="text-xs">
+                        <div className="text-sm">
                             {agreement.customer_name || ''}
                         </div>
                     </div>
@@ -247,7 +247,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                         <div className="font-bold">
                             Urban Care Employment Agency
                         </div>
-                        <div className="text-xs">Licence No. 25C2708</div>
+                        <div className="text-sm">Licence No. 25C2708</div>
                     </div>
                 </div>
             </div>

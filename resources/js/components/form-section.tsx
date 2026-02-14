@@ -65,13 +65,13 @@ export function FormSection({
                                 {title}
                             </span>
                             {required && (
-                                <span className="text-xs font-bold text-red-600 dark:text-red-400">
+                                <span className="text-sm font-bold text-red-600 dark:text-red-400">
                                     *
                                 </span>
                             )}
                         </div>
                         {description && (
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-base text-muted-foreground">
                                 {description}
                             </span>
                         )}

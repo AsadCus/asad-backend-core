@@ -357,7 +357,7 @@ export function MaidStatusActions({
                                             <div className="space-y-1">
                                                 <Label
                                                     htmlFor="interview-start-time"
-                                                    className="text-sm"
+                                                    className="text-base"
                                                 >
                                                     Start Time
                                                 </Label>
@@ -377,7 +377,7 @@ export function MaidStatusActions({
                                             <div className="space-y-1">
                                                 <Label
                                                     htmlFor="interview-end-time"
-                                                    className="text-sm"
+                                                    className="text-base"
                                                 >
                                                     End Time
                                                 </Label>
@@ -581,7 +581,7 @@ export function MaidStatusActions({
                                                 </div>
                                             </PopoverContent>
                                         </Popover>
-                                        <p className="text-xs text-muted-foreground">
+                                        <p className="text-sm text-muted-foreground">
                                             When will the maid be handed over to
                                             the customer?
                                         </p>
@@ -590,7 +590,7 @@ export function MaidStatusActions({
                                     <div className="space-y-2">
                                         <Label htmlFor="reason">
                                             Reason / Notes{' '}
-                                            <span className="text-xs font-normal text-muted-foreground">
+                                            <span className="text-sm font-normal text-muted-foreground">
                                                 (Optional)
                                             </span>
                                         </Label>
@@ -604,7 +604,7 @@ export function MaidStatusActions({
                                             className="min-h-[80px] resize-none"
                                             maxLength={1000}
                                         />
-                                        <p className="text-right text-xs text-muted-foreground">
+                                        <p className="text-right text-sm text-muted-foreground">
                                             {reason.length}/1000 characters
                                         </p>
                                     </div>
@@ -612,7 +612,7 @@ export function MaidStatusActions({
                             )}
 
                             {!completeSuccess && (
-                                <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                                <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-base text-muted-foreground">
                                     <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
                                     <p>
                                         Maid will be reverted to{' '}
@@ -625,7 +625,7 @@ export function MaidStatusActions({
                     )}
 
                     {action === 'cancel' && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-base text-muted-foreground">
                             This will cancel the scheduled interview and revert
                             the status to "Available".
                         </p>
@@ -664,11 +664,11 @@ export function MaidStatusActions({
                                 <div className="space-y-3 rounded-lg bg-blue-50 p-4 dark:bg-blue-950/30">
                                     <div className="flex items-center gap-2">
                                         <ClipboardList className="h-4 w-4 text-blue-900 dark:text-blue-100" />
-                                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                        <p className="text-base font-medium text-blue-900 dark:text-blue-100">
                                             Status Workflow:
                                         </p>
                                     </div>
-                                    <ul className="ml-6 space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                                    <ul className="ml-6 space-y-1 text-base text-blue-800 dark:text-blue-200">
                                         <li>
                                             • <strong>Assigned</strong> -
                                             Documents are ready, maid is
@@ -681,7 +681,7 @@ export function MaidStatusActions({
                                         </li>
                                     </ul>
                                     {maid.pending_until && (
-                                        <div className="mt-2 flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                                        <div className="mt-2 flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
                                             <Clock className="h-3.5 w-3.5" />
                                             <span>
                                                 Expected completion:{' '}
@@ -696,7 +696,7 @@ export function MaidStatusActions({
                                         </div>
                                     )}
                                     {maid.pending_reason && (
-                                        <div className="flex items-start gap-2 text-xs text-blue-700 dark:text-blue-300">
+                                        <div className="flex items-start gap-2 text-sm text-blue-700 dark:text-blue-300">
                                             <FileText className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                                             <span>
                                                 Reason: {maid.pending_reason}

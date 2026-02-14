@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import {
     Tooltip,
     TooltipContent,
@@ -6,6 +5,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
+import { ReactNode } from 'react';
 
 interface FieldRequirementsProps {
     required?: boolean;
@@ -24,37 +24,38 @@ export function FieldRequirements({
 }: FieldRequirementsProps) {
     if (!hint && !example && !format && !children) {
         return required ? (
-            <span className="text-red-500" title="Required field">*</span>
+            <span className="text-red-500" title="Required field">
+                *
+            </span>
         ) : null;
     }
 
     return (
         <TooltipProvider>
             <Tooltip>
-                <TooltipTrigger type="button" className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity">
+                <TooltipTrigger
+                    type="button"
+                    className="inline-flex items-center gap-1 transition-opacity hover:opacity-80"
+                >
                     {required && <span className="text-red-500">*</span>}
                     <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
                 </TooltipTrigger>
-                <TooltipContent 
-                    side="right" 
-                    className="max-w-xs bg-popover border-border shadow-lg"
+                <TooltipContent
+                    side="right"
+                    className="max-w-xs border-border bg-popover shadow-lg"
                 >
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2 text-base">
                         {required && (
                             <div className="font-semibold text-red-600 dark:text-red-400">
                                 * Required field
                             </div>
                         )}
                         {children}
-                        {hint && (
-                            <p className="text-foreground/90">
-                                {hint}
-                            </p>
-                        )}
+                        {hint && <p className="text-foreground/90">{hint}</p>}
                         {format && (
                             <div className="text-foreground">
                                 <span className="font-medium">Format: </span>
-                                <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono border border-border">
+                                <code className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-sm">
                                     {format}
                                 </code>
                             </div>
@@ -62,7 +63,9 @@ export function FieldRequirements({
                         {example && (
                             <div className="text-foreground">
                                 <span className="font-medium">Example: </span>
-                                <span className="text-foreground/80 italic">{example}</span>
+                                <span className="text-foreground/80 italic">
+                                    {example}
+                                </span>
                             </div>
                         )}
                     </div>

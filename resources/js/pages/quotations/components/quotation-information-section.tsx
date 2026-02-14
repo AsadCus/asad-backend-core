@@ -63,7 +63,7 @@ export default function QuotationInformationSection({
                                 <span className="text-base font-semibold text-gray-800">
                                     {data.customer_name}
                                 </span>
-                                <div className="text-sm text-gray-600">
+                                <div className="text-base text-gray-600">
                                     {data.customer_address
                                         ? data.customer_address
                                               .split('<br>')
@@ -77,10 +77,10 @@ export default function QuotationInformationSection({
                                               ))
                                         : '-'}
                                 </div>
-                                <span className="text-sm text-gray-600">
+                                <span className="text-base text-gray-600">
                                     {data.customer_contact ?? '-'}
                                 </span>
-                                <span className="text-sm text-gray-600">
+                                <span className="text-base text-gray-600">
                                     {data.customer_email ?? '-'}
                                 </span>
                             </div>

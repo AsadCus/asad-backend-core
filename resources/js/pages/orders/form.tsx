@@ -290,7 +290,7 @@ export default function OrderForm({
         if (!message) return null;
 
         return (
-            <p className="mt-1 text-xs text-red-500">
+            <p className="mt-1 text-sm text-red-500">
                 {formatError(path, message)}
             </p>
         );
@@ -380,7 +380,7 @@ export default function OrderForm({
                                     <h3 className="font-semibold text-red-900">
                                         Please fix the following errors:
                                     </h3>
-                                    <ul className="mt-2 space-y-1 text-sm text-red-800">
+                                    <ul className="mt-2 space-y-1 text-base text-red-800">
                                         {Object.entries(errors).map(
                                             ([key, message]) => (
                                                 <li key={key}>
@@ -398,7 +398,7 @@ export default function OrderForm({
                     {/* Order Number Box */}
                     {data.order_number && (
                         <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-base text-muted-foreground">
                                 Order No.
                             </p>
                             <p className="text-2xl font-bold text-primary">
@@ -474,7 +474,7 @@ export default function OrderForm({
                                         Invoices Breakdown
                                     </h2>
 
-                                    <div className="rounded-md bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                                    <div className="rounded-md bg-primary/10 px-3 py-1 text-base font-semibold text-primary">
                                         Total&nbsp;
                                         <span className="tabular-nums">
                                             $
@@ -534,13 +534,13 @@ export default function OrderForm({
                                                     <div className="flex items-start gap-2">
                                                         <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
                                                         <div className="flex-1">
-                                                            <p className="text-sm font-semibold text-red-900">
+                                                            <p className="text-base font-semibold text-red-900">
                                                                 Invoice #
                                                                 {idx + 1} has
                                                                 validation
                                                                 errors:
                                                             </p>
-                                                            <ul className="mt-1 space-y-0.5 text-xs text-red-800">
+                                                            <ul className="mt-1 space-y-0.5 text-sm text-red-800">
                                                                 {invoiceErrors.map(
                                                                     (err) => (
                                                                         <li
@@ -566,7 +566,7 @@ export default function OrderForm({
                                                 <div className="flex gap-4">
                                                     <div className="space-y-0.5">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-sm font-medium text-muted-foreground">
+                                                            <span className="text-base font-medium text-muted-foreground">
                                                                 {invoice.invoice_number ||
                                                                     `Invoice ${idx + 1}`}
                                                             </span>
@@ -578,7 +578,7 @@ export default function OrderForm({
                                                         </p>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <div className="rounded-md bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
+                                                        <div className="rounded-md bg-emerald-50 px-3 py-1 text-base font-semibold text-emerald-700">
                                                             <span className="tabular-nums">
                                                                 $
                                                                 {calculateTotal(
@@ -740,7 +740,7 @@ export default function OrderForm({
                             {/* Quotation Number Box */}
                             {data.quotation_number && (
                                 <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-base text-muted-foreground">
                                         Quotation No.
                                     </p>
                                     <p className="text-2xl font-bold text-primary">
@@ -905,7 +905,7 @@ export default function OrderForm({
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="mb-3 w-full text-sm text-muted-foreground">
+                        <div className="mb-3 w-full text-base text-muted-foreground">
                             <div className="grid grid-cols-1 gap-2">
                                 <div>
                                     <span className="font-medium text-foreground">

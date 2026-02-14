@@ -171,7 +171,7 @@ export function DataTable<TData, TValue = unknown>({
             return (
                 <button
                     onClick={row.getToggleExpandedHandler()}
-                    className="p-1 text-sm"
+                    className="p-1 text-base"
                 >
                     {row.getIsExpanded() ? (
                         <ChevronDown className="inline h-4 w-4" />

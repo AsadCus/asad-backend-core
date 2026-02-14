@@ -1,7 +1,7 @@
 import { Label } from '@/components/ui/label';
+import { ProperInput } from '../../../components/proper-input';
 import { MaidFormData, SetDataFn } from '../types';
 import { FieldError } from './FieldError';
-import { ProperInput } from '../../../components/proper-input';
 
 type FamilySectionProps = {
     data: MaidFormData;
@@ -10,7 +10,12 @@ type FamilySectionProps = {
     errors: Partial<Record<keyof MaidFormData, string>>;
 };
 
-export function FamilySection({ data, setData, isView, errors }: FamilySectionProps) {
+export function FamilySection({
+    data,
+    setData,
+    isView,
+    errors,
+}: FamilySectionProps) {
     const totalChildren = Number(data.number_of_children ?? 0) || 0;
 
     const renderChildAgeInput = (index: number) => {
@@ -26,7 +31,9 @@ export function FamilySection({ data, setData, isView, errors }: FamilySectionPr
 
         return (
             <div key={index} className="grid w-full items-center gap-3">
-                <Label htmlFor={`child_age_${index}`}>Child {index + 1} Age</Label>
+                <Label htmlFor={`child_age_${index}`}>
+                    Child {index + 1} Age
+                </Label>
                 <div className="relative">
                     <ProperInput
                         id={`child_age_${index}`}
@@ -42,7 +49,7 @@ export function FamilySection({ data, setData, isView, errors }: FamilySectionPr
                         disabled={isView}
                         type="number"
                     />
-                    <span className="absolute top-1/2 right-4 -translate-y-1/2 text-sm text-gray-500">
+                    <span className="absolute top-1/2 right-4 -translate-y-1/2 text-base text-gray-500">
                         years old
                     </span>
                 </div>
@@ -52,10 +59,14 @@ export function FamilySection({ data, setData, isView, errors }: FamilySectionPr
 
     return (
         <section className="space-y-4">
-            <p className="text-l border-b py-2 font-semibold">Siblings &amp; Children</p>
+            <p className="text-l border-b py-2 font-semibold">
+                Siblings &amp; Children
+            </p>
             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                 <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="number_of_siblings">Number of Siblings</Label>
+                    <Label htmlFor="number_of_siblings">
+                        Number of Siblings
+                    </Label>
                     <div className="relative">
                         <ProperInput
                             id="number_of_siblings"
@@ -72,7 +83,9 @@ export function FamilySection({ data, setData, isView, errors }: FamilySectionPr
                 </div>
 
                 <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="number_of_children">Number of Children</Label>
+                    <Label htmlFor="number_of_children">
+                        Number of Children
+                    </Label>
                     <div className="relative">
                         <ProperInput
                             id="number_of_children"
@@ -80,17 +93,18 @@ export function FamilySection({ data, setData, isView, errors }: FamilySectionPr
                             onCommit={(value) => {
                                 const newCount = Number(value) || 0;
                                 setData('number_of_children', value);
-                                
+
                                 // Auto-adjust children_ages array based on new count
                                 const currentAges = (data.children_ages ?? '')
                                     .split(',')
                                     .map((age) => age.trim())
                                     .filter(Boolean);
-                                
-                                const newAges = Array.from({ length: newCount }, (_, index) => 
-                                    currentAges[index] ?? ''
+
+                                const newAges = Array.from(
+                                    { length: newCount },
+                                    (_, index) => currentAges[index] ?? '',
                                 );
-                                
+
                                 setData('children_ages', newAges.join(', '));
                             }}
                             placeholder="Number of Children"

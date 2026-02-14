@@ -308,7 +308,7 @@ export function DataTableExport<TData>({
 
     return (
         <div className="flex items-center">
-            <div className="hidden text-sm text-muted-foreground md:block">
+            <div className="hidden text-base text-muted-foreground md:block">
                 {table.getSelectedRowModel().rows.length > 0 && (
                     <span className="mr-2">
                         {table.getSelectedRowModel().rows.length} of{' '}

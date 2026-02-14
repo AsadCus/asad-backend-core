@@ -260,7 +260,7 @@ export function UserForm({
 
     const renderError = (field: keyof UserSchema) =>
         errors[field] && (
-            <p className="absolute -bottom-4 left-0 text-xs text-red-500">
+            <p className="absolute -bottom-4 left-0 text-sm text-red-500">
                 {errors[field]}
             </p>
         );

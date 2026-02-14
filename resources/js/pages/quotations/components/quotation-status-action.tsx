@@ -173,7 +173,7 @@ export function QuotationStatusAction({
                                         className="min-h-[100px]"
                                         maxLength={1000}
                                     />
-                                    <p className="text-right text-xs text-muted-foreground">
+                                    <p className="text-right text-sm text-muted-foreground">
                                         {reason.length}/1000 characters
                                     </p>
                                 </div>
@@ -181,7 +181,7 @@ export function QuotationStatusAction({
                         )}
 
                         {action === 'expire' && (
-                            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-base text-muted-foreground">
                                 <Info className="mt-0.5 h-4 w-4" />
                                 <p>
                                     This quotation will no longer be valid and

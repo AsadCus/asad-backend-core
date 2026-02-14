@@ -11,7 +11,14 @@ export function AppContent({
     ...props
 }: AppContentProps) {
     if (variant === 'sidebar') {
-        return <SidebarInset {...props}>{children}</SidebarInset>;
+        return (
+            <SidebarInset
+                {...props}
+                className="not-dark:bg-gradient-to-b not-dark:from-white not-dark:to-orange-100"
+            >
+                {children}
+            </SidebarInset>
+        );
     }
 
     return (

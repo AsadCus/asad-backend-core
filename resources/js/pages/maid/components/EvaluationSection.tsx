@@ -8,7 +8,11 @@ type EvaluationSectionProps = {
     isView: boolean;
 };
 
-export function EvaluationSection({ data, setData, isView }: EvaluationSectionProps) {
+export function EvaluationSection({
+    data,
+    setData,
+    isView,
+}: EvaluationSectionProps) {
     return (
         <section className="space-y-4">
             <p className="text-l border-b py-2 font-semibold">
@@ -21,10 +25,15 @@ export function EvaluationSection({ data, setData, isView }: EvaluationSectionPr
                     <input
                         type="checkbox"
                         checked={data.eval_declaration_no_eval ?? false}
-                        onChange={(e) => setData('eval_declaration_no_eval', e.target.checked)}
+                        onChange={(e) =>
+                            setData(
+                                'eval_declaration_no_eval',
+                                e.target.checked,
+                            )
+                        }
                         disabled={isView}
                     />
-                    <span className="text-sm">No evaluation conducted</span>
+                    <span className="text-base">No evaluation conducted</span>
                 </label>
 
                 {/* Singapore Interview */}
@@ -33,10 +42,12 @@ export function EvaluationSection({ data, setData, isView }: EvaluationSectionPr
                         <input
                             type="checkbox"
                             checked={data.eval_sg_interview ?? false}
-                            onChange={(e) => setData('eval_sg_interview', e.target.checked)}
+                            onChange={(e) =>
+                                setData('eval_sg_interview', e.target.checked)
+                            }
                             disabled={isView}
                         />
-                        <span className="text-sm">Singapore Interview</span>
+                        <span className="text-base">Singapore Interview</span>
                     </label>
 
                     {data.eval_sg_interview && (
@@ -45,41 +56,66 @@ export function EvaluationSection({ data, setData, isView }: EvaluationSectionPr
                                 <input
                                     type="checkbox"
                                     checked={data.eval_sg_phone ?? false}
-                                    onChange={(e) => setData('eval_sg_phone', e.target.checked)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'eval_sg_phone',
+                                            e.target.checked,
+                                        )
+                                    }
                                     disabled={isView}
                                 />
-                                <span className="text-sm">Telephone</span>
+                                <span className="text-base">Telephone</span>
                             </label>
 
                             <label className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
                                     checked={data.eval_sg_video ?? false}
-                                    onChange={(e) => setData('eval_sg_video', e.target.checked)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'eval_sg_video',
+                                            e.target.checked,
+                                        )
+                                    }
                                     disabled={isView}
                                 />
-                                <span className="text-sm">Video call</span>
+                                <span className="text-base">Video call</span>
                             </label>
 
                             <label className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
                                     checked={data.eval_sg_in_person ?? false}
-                                    onChange={(e) => setData('eval_sg_in_person', e.target.checked)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'eval_sg_in_person',
+                                            e.target.checked,
+                                        )
+                                    }
                                     disabled={isView}
                                 />
-                                <span className="text-sm">In-person</span>
+                                <span className="text-base">In-person</span>
                             </label>
 
                             {data.eval_sg_in_person && (
                                 <label className="ml-6 flex items-center gap-2">
                                     <input
                                         type="checkbox"
-                                        checked={data.eval_sg_in_person_observed ?? false}
-                                        onChange={(e) => setData('eval_sg_in_person_observed', e.target.checked)}
+                                        checked={
+                                            data.eval_sg_in_person_observed ??
+                                            false
+                                        }
+                                        onChange={(e) =>
+                                            setData(
+                                                'eval_sg_in_person_observed',
+                                                e.target.checked,
+                                            )
+                                        }
                                         disabled={isView}
                                     />
-                                    <span className="text-sm">Observed performing tasks</span>
+                                    <span className="text-base">
+                                        Observed performing tasks
+                                    </span>
                                 </label>
                             )}
                         </div>
@@ -92,34 +128,53 @@ export function EvaluationSection({ data, setData, isView }: EvaluationSectionPr
                         <input
                             type="checkbox"
                             checked={data.eval_overseas_interview ?? false}
-                            onChange={(e) => setData('eval_overseas_interview', e.target.checked)}
+                            onChange={(e) =>
+                                setData(
+                                    'eval_overseas_interview',
+                                    e.target.checked,
+                                )
+                            }
                             disabled={isView}
                         />
-                        <span className="text-sm">Overseas Interview</span>
+                        <span className="text-base">Overseas Interview</span>
                     </label>
 
                     {data.eval_overseas_interview && (
                         <div className="ml-6 space-y-3">
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 <div>
-                                    <Label htmlFor="eval_overseas_name">Evaluator Name</Label>
+                                    <Label htmlFor="eval_overseas_name">
+                                        Evaluator Name
+                                    </Label>
                                     <Input
                                         id="eval_overseas_name"
                                         type="text"
                                         value={data.eval_overseas_name ?? ''}
-                                        onChange={(e) => setData('eval_overseas_name', e.target.value)}
+                                        onChange={(e) =>
+                                            setData(
+                                                'eval_overseas_name',
+                                                e.target.value,
+                                            )
+                                        }
                                         placeholder="Name of evaluator"
                                         disabled={isView}
                                     />
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="eval_overseas_cert">Certificate/Qualification</Label>
+                                    <Label htmlFor="eval_overseas_cert">
+                                        Certificate/Qualification
+                                    </Label>
                                     <Input
                                         id="eval_overseas_cert"
                                         type="text"
                                         value={data.eval_overseas_cert ?? ''}
-                                        onChange={(e) => setData('eval_overseas_cert', e.target.value)}
+                                        onChange={(e) =>
+                                            setData(
+                                                'eval_overseas_cert',
+                                                e.target.value,
+                                            )
+                                        }
                                         placeholder="Certificate or qualification"
                                         disabled={isView}
                                     />
@@ -130,41 +185,68 @@ export function EvaluationSection({ data, setData, isView }: EvaluationSectionPr
                                 <input
                                     type="checkbox"
                                     checked={data.eval_overseas_phone ?? false}
-                                    onChange={(e) => setData('eval_overseas_phone', e.target.checked)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'eval_overseas_phone',
+                                            e.target.checked,
+                                        )
+                                    }
                                     disabled={isView}
                                 />
-                                <span className="text-sm">Telephone</span>
+                                <span className="text-base">Telephone</span>
                             </label>
 
                             <label className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
                                     checked={data.eval_overseas_video ?? false}
-                                    onChange={(e) => setData('eval_overseas_video', e.target.checked)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'eval_overseas_video',
+                                            e.target.checked,
+                                        )
+                                    }
                                     disabled={isView}
                                 />
-                                <span className="text-sm">Video call</span>
+                                <span className="text-base">Video call</span>
                             </label>
 
                             <label className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
-                                    checked={data.eval_overseas_in_person ?? false}
-                                    onChange={(e) => setData('eval_overseas_in_person', e.target.checked)}
+                                    checked={
+                                        data.eval_overseas_in_person ?? false
+                                    }
+                                    onChange={(e) =>
+                                        setData(
+                                            'eval_overseas_in_person',
+                                            e.target.checked,
+                                        )
+                                    }
                                     disabled={isView}
                                 />
-                                <span className="text-sm">In-person</span>
+                                <span className="text-base">In-person</span>
                             </label>
 
                             {data.eval_overseas_in_person && (
                                 <label className="ml-6 flex items-center gap-2">
                                     <input
                                         type="checkbox"
-                                        checked={data.eval_overseas_in_person_observed ?? false}
-                                        onChange={(e) => setData('eval_overseas_in_person_observed', e.target.checked)}
+                                        checked={
+                                            data.eval_overseas_in_person_observed ??
+                                            false
+                                        }
+                                        onChange={(e) =>
+                                            setData(
+                                                'eval_overseas_in_person_observed',
+                                                e.target.checked,
+                                            )
+                                        }
                                         disabled={isView}
                                     />
-                                    <span className="text-sm">Observed performing tasks</span>
+                                    <span className="text-base">
+                                        Observed performing tasks
+                                    </span>
                                 </label>
                             )}
                         </div>

@@ -52,7 +52,7 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                         disabled={isView}
                         textarea={true}
                     />
-                    <p className="text-right text-xs text-muted-foreground">
+                    <p className="text-right text-sm text-muted-foreground">
                         {(data.allergies ?? '').length}/200 characters
                     </p>
                 </div>
@@ -75,7 +75,7 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                                         key={illness}
                                         className="flex items-center justify-between gap-3"
                                     >
-                                        <Label className="flex-1 text-sm font-normal">
+                                        <Label className="flex-1 text-base font-normal">
                                             {illness}
                                         </Label>
                                         <Select
@@ -107,7 +107,7 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                             {/* Others textarea */}
                             <div className="flex flex-col gap-1 lg:col-span-3">
                                 <div className="flex items-center gap-3">
-                                    <Label className="w-[100px] text-sm font-normal">
+                                    <Label className="w-[100px] text-base font-normal">
                                         Others
                                     </Label>
                                     <ProperInput
@@ -126,7 +126,7 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                                         textarea={true}
                                     />
                                 </div>
-                                <p className="text-right text-xs text-muted-foreground">
+                                <p className="text-right text-sm text-muted-foreground">
                                     {
                                         String(data.illness_others_value ?? '')
                                             .length
@@ -160,7 +160,7 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                         disabled={isView}
                         textarea={true}
                     />
-                    <p className="text-right text-xs text-muted-foreground">
+                    <p className="text-right text-sm text-muted-foreground">
                         {(data.physical_disabilities ?? '').length}/200
                         characters
                     </p>
@@ -188,7 +188,7 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                         disabled={isView}
                         textarea={true}
                     />
-                    <p className="text-right text-xs text-muted-foreground">
+                    <p className="text-right text-sm text-muted-foreground">
                         {(data.dietary_restrictions ?? '').length}/200
                         characters
                     </p>
@@ -206,11 +206,14 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                             {/* Left Grid: Beef and Pork */}
                             <div className="col-span-4 space-y-3 lg:col-span-1">
                                 <div className="flex items-center justify-between gap-3">
-                                    <Label className="flex-1 text-sm font-normal">
+                                    <Label className="flex-1 text-base font-normal">
                                         Beef
                                     </Label>
                                     <Select
-                                        value={String(data.food_handling_no_beef_value || '')}
+                                        value={String(
+                                            data.food_handling_no_beef_value ||
+                                                '',
+                                        )}
                                         onValueChange={(value) =>
                                             setData(
                                                 'food_handling_no_beef_value',
@@ -234,11 +237,14 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                                 </div>
 
                                 <div className="flex items-center justify-between gap-3">
-                                    <Label className="flex-1 text-sm font-normal">
+                                    <Label className="flex-1 text-base font-normal">
                                         Pork
                                     </Label>
                                     <Select
-                                        value={String(data.food_handling_no_pork_value || '')}
+                                        value={String(
+                                            data.food_handling_no_pork_value ||
+                                                '',
+                                        )}
                                         onValueChange={(value) =>
                                             setData(
                                                 'food_handling_no_pork_value',
@@ -265,13 +271,13 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                             {/* Right Grid: Others */}
                             <div className="col-span-4 flex flex-col gap-1 lg:col-span-3">
                                 <div className="flex items-start gap-3">
-                                    <Label className="w-[80px] pt-1 text-sm font-normal">
+                                    <Label className="w-[80px] pt-1 text-base font-normal">
                                         Others
                                     </Label>
                                     <ProperInput
                                         value={String(
                                             data.food_handling_others_value ??
-                                            '',
+                                                '',
                                         )}
                                         onCommit={(value) =>
                                             setData(
@@ -285,11 +291,11 @@ export function MedicalSection({ data, setData, isView }: MedicalSectionProps) {
                                         textarea={true}
                                     />
                                 </div>
-                                <p className="text-right text-xs text-muted-foreground">
+                                <p className="text-right text-sm text-muted-foreground">
                                     {
                                         String(
                                             data.food_handling_others_value ??
-                                            '',
+                                                '',
                                         ).length
                                     }
                                     /200 characters

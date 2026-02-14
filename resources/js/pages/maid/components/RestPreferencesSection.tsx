@@ -43,7 +43,7 @@ export function RestPreferencesSection({
                             disabled={isView}
                             type="number"
                         />
-                        <span className="absolute top-1/2 right-10 -translate-y-1/2 text-sm text-gray-500">
+                        <span className="absolute top-1/2 right-10 -translate-y-1/2 text-base text-gray-500">
                             days
                         </span>
                         <FieldError message={errors.rest_days_per_month} />
@@ -63,7 +63,7 @@ export function RestPreferencesSection({
                             disabled={isView}
                             textarea={true}
                         />
-                        <p className="text-right text-xs text-muted-foreground">
+                        <p className="text-right text-sm text-muted-foreground">
                             {(data.other_remarks ?? '').length}/200 characters
                         </p>
                         <FieldError message={errors.other_remarks} />

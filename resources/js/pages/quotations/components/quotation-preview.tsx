@@ -148,7 +148,7 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
         return (
             <div
                 ref={ref}
-                className="w-[800px] bg-white p-8 text-xs text-gray-900"
+                className="w-[800px] bg-white p-8 text-sm text-gray-900"
                 style={{ fontFamily: 'Arial, sans-serif' }}
             >
                 {/* Header */}
@@ -160,8 +160,8 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                             className="h-[102px] w-80 object-contain"
                         />
                     </div>
-                    <div className="flex-1 text-right text-xs leading-snug">
-                        <p className="mb-1 text-sm font-bold">
+                    <div className="flex-1 text-right text-sm leading-snug">
+                        <p className="mb-1 text-base font-bold">
                             Urban Care Employment Agency
                         </p>
                         <p>931 Yishun Central 1</p>
@@ -181,14 +181,14 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                 {/* Quotation Title Bar */}
                 <div
                     style={{ backgroundColor: '#40A09DD4' }}
-                    className="mb-4 py-2 text-center text-sm font-bold tracking-widest text-white"
+                    className="mb-4 py-2 text-center text-base font-bold tracking-widest text-white"
                 >
                     QUOTATION
                 </div>
 
                 <div className="px-10">
                     {/* Info */}
-                    <div className="mb-4 grid grid-cols-5 items-start gap-4 text-xs">
+                    <div className="mb-4 grid grid-cols-5 items-start gap-4 text-sm">
                         <table className="col-span-3 w-full">
                             <tbody>
                                 <tr>
@@ -257,7 +257,7 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                     {/* Detail */}
                     <div className="space-y-4 border-y py-4">
                         {/* Items Table */}
-                        <table className="w-full text-xs">
+                        <table className="w-full text-sm">
                             <tbody>
                                 {sortedItems.map((item) => {
                                     const isRoot =
@@ -363,7 +363,7 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                     </div>
 
                     {/* Footer Notes */}
-                    <div className="space-y-4 pt-4 text-xs">
+                    <div className="space-y-4 pt-4 text-sm">
                         {data.notes.map((note, index) => (
                             <div
                                 key={index}

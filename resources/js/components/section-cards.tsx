@@ -44,7 +44,7 @@ export function SectionCards({ widgets }: SectionCardsProps) {
                             </Badge>
                         </CardAction>
                     </CardHeader>
-                    <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <CardFooter className="flex-col items-start gap-1.5 text-base">
                         <div className="line-clamp-1 flex gap-2 font-medium">
                             Current data <IconTrendingUp className="size-4" />
                         </div>
