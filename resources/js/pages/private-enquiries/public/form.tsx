@@ -138,8 +138,8 @@ export default function PrivateEnquiryForm({
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
-            <Card className="w-full max-w-4xl border-0 shadow-md">
+        <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4">
+            <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
                 <CardHeader className="pb-6">
                     <CardTitle className="text-4xl font-light">
                         Private Umrah Enquiry Form
@@ -176,293 +176,304 @@ export default function PrivateEnquiryForm({
                         )}
 
                         {/* Form Fields */}
-                        <div className="space-y-8">
+                        <div className="space-y-6 border-t-1 pt-6">
                             {/* Personal Information Section */}
-                            <div className="space-y-5">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-gray-900">
                                     Personal Information
                                 </h3>
 
-                                {/* Full Name */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="full_name">
-                                        Full Name (As Per Passport)
-                                        <FieldRequirements
-                                            required
-                                            hint="Enter full name as per passport"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <ProperInput
-                                            id="full_name"
-                                            value={data.full_name ?? ''}
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData('full_name', v)
-                                            }
-                                            placeholder="Enter full name as per passport"
-                                        />
-                                        {renderError('full_name')}
+                                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+                                    {/* Full Name */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="full_name">
+                                            Full Name (As Per Passport)
+                                            <FieldRequirements
+                                                required
+                                                hint="Enter full name as per passport"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <ProperInput
+                                                id="full_name"
+                                                value={data.full_name ?? ''}
+                                                disabled={isView || processing}
+                                                onCommit={(v) =>
+                                                    setData('full_name', v)
+                                                }
+                                                placeholder="Enter full name as per passport"
+                                            />
+                                            {renderError('full_name')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Contact Number */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="contact_number">
-                                        Contact Number
-                                        <FieldRequirements
-                                            required
-                                            hint="Enter contact number with country code"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <ProperInput
-                                            id="contact_number"
-                                            value={data.contact_number ?? ''}
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData('contact_number', v)
-                                            }
-                                            placeholder="e.g. +60123456789"
-                                        />
-                                        {renderError('contact_number')}
+                                    {/* Contact Number */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="contact_number">
+                                            Contact Number
+                                            <FieldRequirements
+                                                required
+                                                hint="Enter contact number with country code"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <ProperInput
+                                                id="contact_number"
+                                                value={
+                                                    data.contact_number ?? ''
+                                                }
+                                                disabled={isView || processing}
+                                                onCommit={(v) =>
+                                                    setData('contact_number', v)
+                                                }
+                                                placeholder="e.g. +60123456789"
+                                            />
+                                            {renderError('contact_number')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Email */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="email">
-                                        Email Address
-                                        <FieldRequirements
-                                            required
-                                            hint="Enter email address"
-                                            format="test@example.com"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <ProperInput
-                                            id="email"
-                                            value={data.email ?? ''}
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData('email', v)
-                                            }
-                                            placeholder="Enter email address"
-                                        />
-                                        {renderError('email')}
+                                    {/* Email */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="email">
+                                            Email Address
+                                            <FieldRequirements
+                                                required
+                                                hint="Enter email address"
+                                                format="test@example.com"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <ProperInput
+                                                id="email"
+                                                value={data.email ?? ''}
+                                                disabled={isView || processing}
+                                                onCommit={(v) =>
+                                                    setData('email', v)
+                                                }
+                                                placeholder="Enter email address"
+                                            />
+                                            {renderError('email')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Passport Expiry Date */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="passport_expiry_date">
-                                        Passport Expiry Date
-                                        <FieldRequirements
-                                            required
-                                            hint="Select passport expiry date"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <DatePickerField
-                                            id="passport_expiry_date"
-                                            value={data.passport_expiry_date}
-                                            disabled={isView || processing}
-                                            disabledDates={isBeforeToday}
-                                            onChange={(v) =>
-                                                setData(
-                                                    'passport_expiry_date',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        {renderError('passport_expiry_date')}
+                                    {/* Passport Expiry Date */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="passport_expiry_date">
+                                            Passport Expiry Date
+                                            <FieldRequirements
+                                                required
+                                                hint="Select passport expiry date"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <DatePickerField
+                                                id="passport_expiry_date"
+                                                value={
+                                                    data.passport_expiry_date
+                                                }
+                                                disabled={isView || processing}
+                                                disabledDates={isBeforeToday}
+                                                onChange={(v) =>
+                                                    setData(
+                                                        'passport_expiry_date',
+                                                        v,
+                                                    )
+                                                }
+                                            />
+                                            {renderError(
+                                                'passport_expiry_date',
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Travel Details Section */}
-                            <div className="space-y-5">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-gray-900">
                                     Travel Details
                                 </h3>
 
-                                {/* Departure Date */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="departure_date">
-                                        Departure Date
-                                        <FieldRequirements
-                                            required
-                                            hint="Select departure date"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <DatePickerField
-                                            id="departure_date"
-                                            value={data.departure_date}
-                                            disabled={isView || processing}
-                                            disabledDates={isBeforeToday}
-                                            onChange={(v) =>
-                                                setData('departure_date', v)
-                                            }
-                                        />
-                                        {renderError('departure_date')}
+                                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+                                    {/* Departure Date */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="departure_date">
+                                            Departure Date
+                                            <FieldRequirements
+                                                required
+                                                hint="Select departure date"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <DatePickerField
+                                                id="departure_date"
+                                                value={data.departure_date}
+                                                disabled={isView || processing}
+                                                disabledDates={isBeforeToday}
+                                                onChange={(v) =>
+                                                    setData('departure_date', v)
+                                                }
+                                            />
+                                            {renderError('departure_date')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Return Date */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="return_date">
-                                        Return Date
-                                        <FieldRequirements
-                                            required
-                                            hint="Select return date"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <DatePickerField
-                                            id="return_date"
-                                            value={data.return_date}
-                                            disabled={isView || processing}
-                                            disabledDates={isBeforeToday}
-                                            onChange={(v) =>
-                                                setData('return_date', v)
-                                            }
-                                        />
-                                        {renderError('return_date')}
+                                    {/* Return Date */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="return_date">
+                                            Return Date
+                                            <FieldRequirements
+                                                required
+                                                hint="Select return date"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <DatePickerField
+                                                id="return_date"
+                                                value={data.return_date}
+                                                disabled={isView || processing}
+                                                disabledDates={isBeforeToday}
+                                                onChange={(v) =>
+                                                    setData('return_date', v)
+                                                }
+                                            />
+                                            {renderError('return_date')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Number of Pax */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="no_of_pax">
-                                        Number of Pax
-                                        <FieldRequirements
-                                            required
-                                            hint="Enter number of passengers"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <ProperInput
-                                            id="no_of_pax"
-                                            type="number"
-                                            inputProps={{ min: '1' }}
-                                            value={data.no_of_pax ?? 0}
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData(
-                                                    'no_of_pax',
-                                                    parseInt(v) || 1,
-                                                )
-                                            }
-                                        />
-                                        {renderError('no_of_pax')}
+                                    {/* Number of Pax */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="no_of_pax">
+                                            Number of Pax
+                                            <FieldRequirements
+                                                required
+                                                hint="Enter number of passengers"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <ProperInput
+                                                id="no_of_pax"
+                                                type="number"
+                                                inputProps={{ min: '1' }}
+                                                value={data.no_of_pax ?? 0}
+                                                disabled={isView || processing}
+                                                onCommit={(v) =>
+                                                    setData(
+                                                        'no_of_pax',
+                                                        parseInt(v) || 1,
+                                                    )
+                                                }
+                                            />
+                                            {renderError('no_of_pax')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Number of Children */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="no_of_children">
-                                        Number of Children
-                                        <FieldRequirements hint="Enter number of children" />
-                                    </Label>
-                                    <div className="relative">
-                                        <ProperInput
-                                            id="no_of_children"
-                                            type="number"
-                                            inputProps={{ min: '0' }}
-                                            value={data.no_of_children ?? 0}
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData(
-                                                    'no_of_children',
-                                                    parseInt(v) || 0,
-                                                )
-                                            }
-                                        />
-                                        {renderError('no_of_children')}
+                                    {/* Number of Children */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="no_of_children">
+                                            Number of Children
+                                            <FieldRequirements hint="Enter number of children" />
+                                        </Label>
+                                        <div className="relative">
+                                            <ProperInput
+                                                id="no_of_children"
+                                                type="number"
+                                                inputProps={{ min: '0' }}
+                                                value={data.no_of_children ?? 0}
+                                                disabled={isView || processing}
+                                                onCommit={(v) =>
+                                                    setData(
+                                                        'no_of_children',
+                                                        parseInt(v) || 0,
+                                                    )
+                                                }
+                                            />
+                                            {renderError('no_of_children')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Preferred Airline */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="airline">
-                                        Preferred Airline
-                                        <FieldRequirements
-                                            required
-                                            hint="Choose your preferred airline"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <Select
-                                            value={data.airline}
-                                            onValueChange={(value) =>
-                                                setData('airline', value)
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select airline" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Malaysia Airlines">
-                                                    Malaysia Airlines
-                                                </SelectItem>
-                                                <SelectItem value="Saudi Airlines">
-                                                    Saudi Airlines
-                                                </SelectItem>
-                                                <SelectItem value="Fly Dubai">
-                                                    Fly Dubai
-                                                </SelectItem>
-                                                <SelectItem value="other">
-                                                    Other
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {renderError('airline')}
+                                    {/* Preferred Airline */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="airline">
+                                            Preferred Airline
+                                            <FieldRequirements
+                                                required
+                                                hint="Choose your preferred airline"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <Select
+                                                value={data.airline}
+                                                onValueChange={(value) =>
+                                                    setData('airline', value)
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select airline" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Malaysia Airlines">
+                                                        Malaysia Airlines
+                                                    </SelectItem>
+                                                    <SelectItem value="Saudi Airlines">
+                                                        Saudi Airlines
+                                                    </SelectItem>
+                                                    <SelectItem value="Fly Dubai">
+                                                        Fly Dubai
+                                                    </SelectItem>
+                                                    <SelectItem value="other">
+                                                        Other
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {renderError('airline')}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Flight Class */}
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="class">
-                                        Flight Class
-                                        <FieldRequirements
-                                            required
-                                            hint="Choose flight class"
-                                        />
-                                    </Label>
-                                    <div className="relative">
-                                        <Select
-                                            value={data.class}
-                                            onValueChange={(value) =>
-                                                setData('class', value)
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select class" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Economy">
-                                                    Economy
-                                                </SelectItem>
-                                                <SelectItem value="Business">
-                                                    Business
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {renderError('class')}
+                                    {/* Flight Class */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="class">
+                                            Flight Class
+                                            <FieldRequirements
+                                                required
+                                                hint="Choose flight class"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <Select
+                                                value={data.class}
+                                                onValueChange={(value) =>
+                                                    setData('class', value)
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select class" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Economy">
+                                                        Economy
+                                                    </SelectItem>
+                                                    <SelectItem value="Business">
+                                                        Business
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {renderError('class')}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Service Requirements Section */}
-                            <div className="space-y-5">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-gray-900">
                                     Service Requirements
                                 </h3>
 
-                                <div className="space-y-3">
+                                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
+                                    {/* Require Mutawif */}
                                     <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="require_mutawif">
                                             Require Mutawif (Guide)
@@ -497,6 +508,8 @@ export default function PrivateEnquiryForm({
                                             </Select>
                                         </div>
                                     </div>
+
+                                    {/* Require Umrah Course */}
                                     <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="require_umrah_course">
                                             Require Umrah Course
@@ -531,6 +544,8 @@ export default function PrivateEnquiryForm({
                                             </Select>
                                         </div>
                                     </div>
+
+                                    {/* Require Umrah Official */}
                                     <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="require_umrah_official">
                                             Require Umrah Official
@@ -569,477 +584,607 @@ export default function PrivateEnquiryForm({
                             </div>
 
                             {/* Accommodation Section */}
-                            <div className="space-y-5">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-gray-900">
                                     Accommodation Details
                                 </h3>
 
                                 {/* Makkah or Madinah First */}
-                                <div className="space-y-2">
+                                <div className="grid w-full items-center gap-3">
                                     <Label htmlFor="makkah_or_madinah_first">
                                         Makkah or Madinah First?{' '}
-                                        <span className="text-red-500">*</span>
+                                        <FieldRequirements
+                                            required
+                                            hint="Choose which city to visit first"
+                                        />
                                     </Label>
-                                    <Select
-                                        value={data.makkah_or_madinah_first}
-                                        onValueChange={(value) =>
-                                            setData(
-                                                'makkah_or_madinah_first',
-                                                value,
-                                            )
-                                        }
-                                        disabled={isView || processing}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Choose destination order" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Makkah">
-                                                Makkah First
-                                            </SelectItem>
-                                            <SelectItem value="Madinah">
-                                                Madinah First
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {renderError('makkah_or_madinah_first')}
-                                </div>
-
-                                {/* Makkah Accommodation */}
-                                <div className="space-y-3 rounded-lg bg-gray-50 p-4">
-                                    <h4 className="font-medium text-gray-900">
-                                        Makkah
-                                    </h4>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="no_of_nights_makkah">
-                                            Number of Nights{' '}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
-                                        </Label>
-                                        <ProperInput
-                                            id="no_of_nights_makkah"
-                                            value={
-                                                data.no_of_nights_makkah ?? ''
+                                    <div className="relative">
+                                        <Select
+                                            value={data.makkah_or_madinah_first}
+                                            onValueChange={(value) =>
+                                                setData(
+                                                    'makkah_or_madinah_first',
+                                                    value,
+                                                )
                                             }
                                             disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData(
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Choose destination order" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Makkah">
+                                                    Makkah First
+                                                </SelectItem>
+                                                <SelectItem value="Madinah">
+                                                    Madinah First
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {renderError('makkah_or_madinah_first')}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+                                    {/* Makkah Accommodation */}
+                                    <div className="space-y-3 rounded-lg bg-gray-50 p-4">
+                                        <h4 className="font-medium text-gray-900">
+                                            Makkah
+                                        </h4>
+                                        <div className="grid w-full items-center gap-3">
+                                            <Label htmlFor="no_of_nights_makkah">
+                                                Number of Nights{' '}
+                                                <FieldRequirements
+                                                    required
+                                                    hint="Enter number of nights in Makkah"
+                                                />
+                                            </Label>
+                                            <div className="relative">
+                                                <ProperInput
+                                                    id="no_of_nights_makkah"
+                                                    value={
+                                                        data.no_of_nights_makkah ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    onCommit={(v) =>
+                                                        setData(
+                                                            'no_of_nights_makkah',
+                                                            v,
+                                                        )
+                                                    }
+                                                    placeholder="e.g. 5"
+                                                />
+                                                {renderError(
                                                     'no_of_nights_makkah',
-                                                    v,
-                                                )
-                                            }
-                                            placeholder="e.g. 5"
-                                        />
-                                        {renderError('no_of_nights_makkah')}
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="grid w-full items-center gap-3">
+                                            <Label htmlFor="hotel_makkah">
+                                                Hotel Preference{' '}
+                                                <FieldRequirements
+                                                    required
+                                                    hint="Select your preferred hotel star rating in Makkah"
+                                                />
+                                            </Label>
+                                            <div className="relative">
+                                                <Select
+                                                    value={data.hotel_makkah}
+                                                    onValueChange={(value) =>
+                                                        setData(
+                                                            'hotel_makkah',
+                                                            value,
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select hotel" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="5 Star">
+                                                            5 Star
+                                                        </SelectItem>
+                                                        <SelectItem value="4 Star">
+                                                            4 Star
+                                                        </SelectItem>
+                                                        <SelectItem value="3 Star">
+                                                            3 Star
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {renderError('hotel_makkah')}
+                                            </div>
+                                        </div>
+                                        <div className="grid w-full items-center gap-3">
+                                            <Label htmlFor="meals_makkah">
+                                                Meal Plan{' '}
+                                                <FieldRequirements
+                                                    required
+                                                    hint="Choose your meal preference in Makkah"
+                                                />
+                                            </Label>
+                                            <div className="relative">
+                                                <Select
+                                                    value={data.meals_makkah}
+                                                    onValueChange={(value) =>
+                                                        setData(
+                                                            'meals_makkah',
+                                                            value,
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select meal plan" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Breakfast Only">
+                                                            Breakfast Only
+                                                        </SelectItem>
+                                                        <SelectItem value="Half Board">
+                                                            Half Board
+                                                            (Breakfast & Dinner)
+                                                        </SelectItem>
+                                                        <SelectItem value="Full Board">
+                                                            Full Board (3 Meals)
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {renderError('meals_makkah')}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="hotel_makkah">
-                                            Hotel Preference{' '}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
-                                        </Label>
-                                        <Select
-                                            value={data.hotel_makkah}
-                                            onValueChange={(value) =>
-                                                setData('hotel_makkah', value)
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select hotel" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="5 Star">
-                                                    5 Star
-                                                </SelectItem>
-                                                <SelectItem value="4 Star">
-                                                    4 Star
-                                                </SelectItem>
-                                                <SelectItem value="3 Star">
-                                                    3 Star
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {renderError('hotel_makkah')}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="meals_makkah">
-                                            Meal Plan{' '}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
-                                        </Label>
-                                        <Select
-                                            value={data.meals_makkah}
-                                            onValueChange={(value) =>
-                                                setData('meals_makkah', value)
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select meal plan" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Breakfast Only">
-                                                    Breakfast Only
-                                                </SelectItem>
-                                                <SelectItem value="Half Board">
-                                                    Half Board (Breakfast &
-                                                    Dinner)
-                                                </SelectItem>
-                                                <SelectItem value="Full Board">
-                                                    Full Board (3 Meals)
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {renderError('meals_makkah')}
-                                    </div>
-                                </div>
 
-                                {/* Madinah Accommodation */}
-                                <div className="space-y-3 rounded-lg bg-gray-50 p-4">
-                                    <h4 className="font-medium text-gray-900">
-                                        Madinah
-                                    </h4>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="no_of_nights_madinah">
-                                            Number of Nights{' '}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
-                                        </Label>
-                                        <ProperInput
-                                            id="no_of_nights_madinah"
-                                            value={
-                                                data.no_of_nights_madinah ?? ''
-                                            }
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData(
+                                    {/* Madinah Accommodation */}
+                                    <div className="space-y-3 rounded-lg bg-gray-50 p-4">
+                                        <h4 className="font-medium text-gray-900">
+                                            Madinah
+                                        </h4>
+                                        <div className="grid w-full items-center gap-3">
+                                            <Label htmlFor="no_of_nights_madinah">
+                                                Number of Nights{' '}
+                                                <FieldRequirements
+                                                    required
+                                                    hint="Enter number of nights in Madinah"
+                                                />
+                                            </Label>
+                                            <div className="relative">
+                                                <ProperInput
+                                                    id="no_of_nights_madinah"
+                                                    value={
+                                                        data.no_of_nights_madinah ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    onCommit={(v) =>
+                                                        setData(
+                                                            'no_of_nights_madinah',
+                                                            v,
+                                                        )
+                                                    }
+                                                    placeholder="e.g. 5"
+                                                />
+                                                {renderError(
                                                     'no_of_nights_madinah',
-                                                    v,
-                                                )
-                                            }
-                                            placeholder="e.g. 5"
-                                        />
-                                        {renderError('no_of_nights_madinah')}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="hotel_madinah">
-                                            Hotel Preference{' '}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
-                                        </Label>
-                                        <Select
-                                            value={data.hotel_madinah}
-                                            onValueChange={(value) =>
-                                                setData('hotel_madinah', value)
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select hotel" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="5 Star">
-                                                    5 Star
-                                                </SelectItem>
-                                                <SelectItem value="4 Star">
-                                                    4 Star
-                                                </SelectItem>
-                                                <SelectItem value="3 Star">
-                                                    3 Star
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {renderError('hotel_madinah')}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="meals_madinah">
-                                            Meal Plan{' '}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
-                                        </Label>
-                                        <Select
-                                            value={data.meals_madinah}
-                                            onValueChange={(value) =>
-                                                setData('meals_madinah', value)
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select meal plan" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Breakfast Only">
-                                                    Breakfast Only
-                                                </SelectItem>
-                                                <SelectItem value="Half Board">
-                                                    Half Board (Breakfast &
-                                                    Dinner)
-                                                </SelectItem>
-                                                <SelectItem value="Full Board">
-                                                    Full Board (3 Meals)
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {renderError('meals_madinah')}
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="grid w-full items-center gap-3">
+                                            <Label htmlFor="hotel_madinah">
+                                                Hotel Preference{' '}
+                                                <FieldRequirements
+                                                    required
+                                                    hint="Select your preferred hotel star rating in Madinah"
+                                                />
+                                            </Label>
+                                            <div className="relative">
+                                                <Select
+                                                    value={data.hotel_madinah}
+                                                    onValueChange={(value) =>
+                                                        setData(
+                                                            'hotel_madinah',
+                                                            value,
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select hotel" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="5 Star">
+                                                            5 Star
+                                                        </SelectItem>
+                                                        <SelectItem value="4 Star">
+                                                            4 Star
+                                                        </SelectItem>
+                                                        <SelectItem value="3 Star">
+                                                            3 Star
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {renderError('hotel_madinah')}
+                                            </div>
+                                        </div>
+                                        <div className="grid w-full items-center gap-3">
+                                            <Label htmlFor="meals_madinah">
+                                                Meal Plan{' '}
+                                                <FieldRequirements
+                                                    required
+                                                    hint="Choose your meal preference in Madinah"
+                                                />
+                                            </Label>
+                                            <div className="relative">
+                                                <Select
+                                                    value={data.meals_madinah}
+                                                    onValueChange={(value) =>
+                                                        setData(
+                                                            'meals_madinah',
+                                                            value,
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select meal plan" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Breakfast Only">
+                                                            Breakfast Only
+                                                        </SelectItem>
+                                                        <SelectItem value="Half Board">
+                                                            Half Board
+                                                            (Breakfast & Dinner)
+                                                        </SelectItem>
+                                                        <SelectItem value="Full Board">
+                                                            Full Board (3 Meals)
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {renderError('meals_madinah')}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Transportation Section */}
-                            <div className="space-y-5">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-gray-900">
                                     Transportation
                                 </h3>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="land_transfer">
-                                        Land Transfer{' '}
-                                        <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Select
-                                        value={data.land_transfer}
-                                        onValueChange={(value) =>
-                                            setData('land_transfer', value)
-                                        }
-                                        disabled={isView || processing}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select transfer type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Private">
-                                                Private Transfer
-                                            </SelectItem>
-                                            <SelectItem value="Sharing">
-                                                Sharing Transfer
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {renderError('land_transfer')}
-                                </div>
+                                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
+                                    {/* Land Transfer */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="land_transfer">
+                                            Land Transfer{' '}
+                                            <FieldRequirements
+                                                required
+                                                hint="Select your preferred transfer type"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <Select
+                                                value={data.land_transfer}
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'land_transfer',
+                                                        value,
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select transfer type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Private">
+                                                        Private Transfer
+                                                    </SelectItem>
+                                                    <SelectItem value="Sharing">
+                                                        Sharing Transfer
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {renderError('land_transfer')}
+                                        </div>
+                                    </div>
 
-                                <div className="space-y-3">
-                                    <div className="space-y-2">
+                                    {/* Add-on: High Speed Train */}
+                                    <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="add_on_speed_train">
                                             Add-on: High Speed Train
                                             (Makkah-Madinah)
+                                            <FieldRequirements hint="Add high speed train service between Makkah and Madinah" />
                                         </Label>
-                                        <Select
-                                            value={
-                                                data.add_on_speed_train
-                                                    ? 'yes'
-                                                    : 'no'
-                                            }
-                                            onValueChange={(value) =>
-                                                setData(
-                                                    'add_on_speed_train',
-                                                    value === 'yes',
-                                                )
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select option" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="no">
-                                                    No
-                                                </SelectItem>
-                                                <SelectItem value="yes">
-                                                    Yes
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="relative">
+                                            <Select
+                                                value={
+                                                    data.add_on_speed_train
+                                                        ? 'yes'
+                                                        : 'no'
+                                                }
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'add_on_speed_train',
+                                                        value === 'yes',
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="no">
+                                                        No
+                                                    </SelectItem>
+                                                    <SelectItem value="yes">
+                                                        Yes
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
+
+                                    {/* Require Meet & Greet Service */}
+                                    <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="require_meet_greet">
                                             Require Meet & Greet Service
+                                            <FieldRequirements hint="Get airport meet and greet service" />
                                         </Label>
-                                        <Select
-                                            value={
-                                                data.require_meet_greet
-                                                    ? 'yes'
-                                                    : 'no'
-                                            }
-                                            onValueChange={(value) =>
-                                                setData(
-                                                    'require_meet_greet',
-                                                    value === 'yes',
-                                                )
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select option" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="no">
-                                                    No
-                                                </SelectItem>
-                                                <SelectItem value="yes">
-                                                    Yes
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="relative">
+                                            <Select
+                                                value={
+                                                    data.require_meet_greet
+                                                        ? 'yes'
+                                                        : 'no'
+                                                }
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'require_meet_greet',
+                                                        value === 'yes',
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="no">
+                                                        No
+                                                    </SelectItem>
+                                                    <SelectItem value="yes">
+                                                        Yes
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Additional Services Section */}
-                            <div className="space-y-5">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-gray-900">
                                     Additional Services
                                 </h3>
 
-                                <div className="space-y-3">
-                                    <div className="space-y-2">
+                                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
+                                    {/* Require Mutawiffah / Ustazah for Rawdah Visit */}
+                                    <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="require_mutawiffah_ustazah_rawdah">
                                             Require Mutawiffah / Ustazah for
                                             Rawdah Visit
+                                            <FieldRequirements hint="Request female guide for Rawdah visit in Madinah" />
                                         </Label>
-                                        <Select
-                                            value={
-                                                data.require_mutawiffah_ustazah_rawdah
-                                                    ? 'yes'
-                                                    : 'no'
-                                            }
-                                            onValueChange={(value) =>
-                                                setData(
-                                                    'require_mutawiffah_ustazah_rawdah',
-                                                    value === 'yes',
-                                                )
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select option" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="no">
-                                                    No
-                                                </SelectItem>
-                                                <SelectItem value="yes">
-                                                    Yes
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="relative">
+                                            <Select
+                                                value={
+                                                    data.require_mutawiffah_ustazah_rawdah
+                                                        ? 'yes'
+                                                        : 'no'
+                                                }
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'require_mutawiffah_ustazah_rawdah',
+                                                        value === 'yes',
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="no">
+                                                        No
+                                                    </SelectItem>
+                                                    <SelectItem value="yes">
+                                                        Yes
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
+
+                                    {/* Madinah Tour with Mutawif */}
+                                    <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="madinah_tour_with_mutawif">
                                             Madinah Tour with Mutawif
+                                            <FieldRequirements hint="Include guided tour of Madinah" />
                                         </Label>
-                                        <Select
-                                            value={
-                                                data.madinah_tour_with_mutawif
-                                                    ? 'yes'
-                                                    : 'no'
-                                            }
-                                            onValueChange={(value) =>
-                                                setData(
-                                                    'madinah_tour_with_mutawif',
-                                                    value === 'yes',
-                                                )
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select option" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="no">
-                                                    No
-                                                </SelectItem>
-                                                <SelectItem value="yes">
-                                                    Yes
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="relative">
+                                            <Select
+                                                value={
+                                                    data.madinah_tour_with_mutawif
+                                                        ? 'yes'
+                                                        : 'no'
+                                                }
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'madinah_tour_with_mutawif',
+                                                        value === 'yes',
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="no">
+                                                        No
+                                                    </SelectItem>
+                                                    <SelectItem value="yes">
+                                                        Yes
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
+
+                                    {/* Makkah Tour with Mutawif */}
+                                    <div className="grid w-full items-center gap-3">
                                         <Label htmlFor="makkah_tour_with_mutawif">
                                             Makkah Tour with Mutawif
+                                            <FieldRequirements hint="Include guided tour of Makkah" />
                                         </Label>
-                                        <Select
-                                            value={
-                                                data.makkah_tour_with_mutawif
-                                                    ? 'yes'
-                                                    : 'no'
-                                            }
-                                            onValueChange={(value) =>
-                                                setData(
-                                                    'makkah_tour_with_mutawif',
-                                                    value === 'yes',
-                                                )
-                                            }
-                                            disabled={isView || processing}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select option" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="no">
-                                                    No
-                                                </SelectItem>
-                                                <SelectItem value="yes">
-                                                    Yes
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="relative">
+                                            <Select
+                                                value={
+                                                    data.makkah_tour_with_mutawif
+                                                        ? 'yes'
+                                                        : 'no'
+                                                }
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'makkah_tour_with_mutawif',
+                                                        value === 'yes',
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="no">
+                                                        No
+                                                    </SelectItem>
+                                                    <SelectItem value="yes">
+                                                        Yes
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Health Information Section */}
-                            <div className="space-y-5">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-gray-900">
                                     Health Information
                                 </h3>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="has_chronic_disease">
-                                        Any applicant suffer from chronic
-                                        diseases or sickness?
-                                    </Label>
-                                    <Select
-                                        value={
-                                            data.has_chronic_disease
-                                                ? 'yes'
-                                                : 'no'
-                                        }
-                                        onValueChange={(value) =>
-                                            setData(
-                                                'has_chronic_disease',
-                                                value === 'yes',
-                                            )
-                                        }
-                                        disabled={isView || processing}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select option" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="no">
-                                                No
-                                            </SelectItem>
-                                            <SelectItem value="yes">
-                                                Yes
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {renderError('has_chronic_disease')}
+                                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+                                    {/* Chronic Disease */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="has_chronic_disease">
+                                            Any applicant suffer from chronic
+                                            diseases or sickness?
+                                            <FieldRequirements hint="Inform us of any chronic diseases or health conditions" />
+                                        </Label>
+                                        <div className="relative">
+                                            <Select
+                                                value={
+                                                    data.has_chronic_disease
+                                                        ? 'yes'
+                                                        : 'no'
+                                                }
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'has_chronic_disease',
+                                                        value === 'yes',
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="no">
+                                                        No
+                                                    </SelectItem>
+                                                    <SelectItem value="yes">
+                                                        Yes
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {renderError('has_chronic_disease')}
+                                        </div>
+                                    </div>
+
+                                    {/* Need Wheelchair */}
+                                    <div className="grid w-full items-center gap-3">
+                                        <Label htmlFor="need_wheelchair">
+                                            Do you need a wheelchair?{' '}
+                                            <FieldRequirements
+                                                required
+                                                hint="Let us know if wheelchair is required"
+                                            />
+                                        </Label>
+                                        <div className="relative">
+                                            <Select
+                                                value={data.need_wheelchair}
+                                                onValueChange={(value) =>
+                                                    setData(
+                                                        'need_wheelchair',
+                                                        value,
+                                                    )
+                                                }
+                                                disabled={isView || processing}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="No">
+                                                        No
+                                                    </SelectItem>
+                                                    <SelectItem value="Yes">
+                                                        Yes
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {renderError('need_wheelchair')}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {data.has_chronic_disease && (
                                     <div className="space-y-2">
                                         <Label htmlFor="chronic_disease_details">
                                             Please specify details
+                                            <FieldRequirements hint="Provide details about the health condition" />
                                         </Label>
                                         <ProperInput
                                             textarea
@@ -1060,51 +1205,27 @@ export default function PrivateEnquiryForm({
                                         {renderError('chronic_disease_details')}
                                     </div>
                                 )}
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="need_wheelchair">
-                                        Do you need a wheelchair?{' '}
-                                        <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Select
-                                        value={data.need_wheelchair}
-                                        onValueChange={(value) =>
-                                            setData('need_wheelchair', value)
-                                        }
-                                        disabled={isView || processing}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select option" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="No">
-                                                No
-                                            </SelectItem>
-                                            <SelectItem value="Yes">
-                                                Yes
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {renderError('need_wheelchair')}
-                                </div>
                             </div>
 
                             {/* Other Remarks Section */}
-                            <div className="space-y-2">
+                            <div className="grid w-full items-center gap-3">
                                 <Label htmlFor="other_remarks">
                                     Other Remarks
+                                    <FieldRequirements hint="Add any special requests or additional information" />
                                 </Label>
-                                <ProperInput
-                                    textarea
-                                    id="other_remarks"
-                                    value={data.other_remarks || ''}
-                                    disabled={isView || processing}
-                                    onCommit={(v) =>
-                                        setData('other_remarks', v)
-                                    }
-                                    placeholder="Any other special requests or information we should know? (optional)"
-                                />
-                                {renderError('other_remarks')}
+                                <div className="relative">
+                                    <ProperInput
+                                        textarea
+                                        id="other_remarks"
+                                        value={data.other_remarks || ''}
+                                        disabled={isView || processing}
+                                        onCommit={(v) =>
+                                            setData('other_remarks', v)
+                                        }
+                                        placeholder="Any other special requests or information we should know? (optional)"
+                                    />
+                                    {renderError('other_remarks')}
+                                </div>
                             </div>
                         </div>
 

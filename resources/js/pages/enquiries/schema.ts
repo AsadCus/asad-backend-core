@@ -1,8 +1,5 @@
-/**
- * Shared Enquiry types, constants, and interfaces used across all enquiry index pages.
- */
+import { OptionType } from '@/types';
 
-// Status colors used by all enquiry index pages
 export const statusColors: Record<string, string> = {
     new_lead: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
     contacted:
@@ -13,36 +10,26 @@ export const statusColors: Record<string, string> = {
         'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
 };
 
-// Status filter options
-export const statusOptions = [
+export const statusOptions: OptionType[] = [
     { label: 'New Lead', value: 'new_lead' },
     { label: 'Contacted', value: 'contacted' },
     { label: 'Negotiating', value: 'negotiating' },
     { label: 'Confirmed', value: 'confirmed' },
 ];
 
-// Type colors used by all-enquiries index
+export const typeOptions = [
+    { label: 'General', value: 'General' },
+    { label: 'Private', value: 'Private' },
+];
+
 export const typeColors: Record<string, string> = {
     General: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     Private:
         'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
 };
 
-// Type filter options
-export const typeOptions = [
-    { label: 'General', value: 'General' },
-    { label: 'Private', value: 'Private' },
-];
+// ── Datatable schemas (All Enquiries index) ─────────────────────────────────
 
-// Status option interface (from backend)
-export interface StatusOption {
-    label: string;
-    value: string;
-}
-
-// ------------------------------------------------------------------
-// Enquiry Dashboard index (parent enquiry datatable schema)
-// ------------------------------------------------------------------
 export interface EnquirySchema {
     id: number;
     type: 'General' | 'Private';
@@ -55,9 +42,15 @@ export interface EnquirySchema {
     created_at: string;
 }
 
-// ------------------------------------------------------------------
-// General Enquiries index (child datatable schema)
-// ------------------------------------------------------------------
+export interface EnquiriesProps {
+    data: {
+        enquiriesForDatatable: EnquirySchema[];
+        statusOptions: OptionType[];
+    };
+}
+
+// ── General Enquiry index datatable schema ──────────────────────────────────
+
 export interface GeneralEnquiryDatatableSchema {
     id: number;
     enquiry_id: number | null;
@@ -81,9 +74,8 @@ export interface GeneralEnquiriesProps {
     };
 }
 
-// ------------------------------------------------------------------
-// Private Enquiries index (child datatable schema)
-// ------------------------------------------------------------------
+// ── Private Enquiry index datatable schema ──────────────────────────────────
+
 export interface PrivateEnquiryDatatableSchema {
     id: number;
     enquiry_id: number | null;
@@ -129,9 +121,8 @@ export interface PrivateEnquiriesProps {
     };
 }
 
-// ------------------------------------------------------------------
-// Customer Group schemas (used by customer index)
-// ------------------------------------------------------------------
+// ── Customer Group schemas (used in customer index) ─────────────────────────
+
 export interface CustomerGroupMemberSchema {
     id: number;
     customer_id: number;

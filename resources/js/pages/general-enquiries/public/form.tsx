@@ -109,8 +109,8 @@ export default function GeneralEnquiryForm({
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
-            <Card className="w-full max-w-4xl border-0 shadow-md">
+        <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4">
+            <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
                 <CardHeader className="pb-6">
                     <CardTitle className="text-4xl font-light">
                         Enquiry Form
@@ -145,7 +145,7 @@ export default function GeneralEnquiryForm({
                         )}
 
                         {/* Form Fields */}
-                        <div className="space-y-6">
+                        <div className="grid grid-cols-1 items-start gap-6 border-t-1 pt-6 md:grid-cols-2">
                             {/* Full Name */}
                             <div className="grid w-full items-center gap-3">
                                 <Label htmlFor="full_name">
@@ -212,29 +212,55 @@ export default function GeneralEnquiryForm({
                                 </div>
                             </div>
 
-                            {/* Preferred Destinations */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="preferred_destinations">
-                                    Preferred Destinations
-                                    <FieldRequirements
-                                        required
-                                        hint="Enter your preferred travel destinations"
-                                    />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="preferred_destinations"
-                                        value={
-                                            data.preferred_destinations ?? ''
-                                        }
-                                        disabled={isView || processing}
-                                        textarea
-                                        onCommit={(v) =>
-                                            setData('preferred_destinations', v)
-                                        }
-                                        placeholder="e.g., Paris, London, Amsterdam"
-                                    />
-                                    {renderError('preferred_destinations')}
+                            <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2">
+                                {/* Number of Adults */}
+                                <div className="grid w-full items-center gap-3">
+                                    <Label htmlFor="no_of_adults">
+                                        Number of Adults
+                                        <FieldRequirements hint="Enter number of adults traveling" />
+                                    </Label>
+                                    <div className="relative">
+                                        <ProperInput
+                                            id="no_of_adults"
+                                            type="number"
+                                            value={data.no_of_adults ?? 0}
+                                            disabled={isView || processing}
+                                            onCommit={(v) =>
+                                                setData(
+                                                    'no_of_adults',
+                                                    parseInt(v) || 0,
+                                                )
+                                            }
+                                            placeholder="0"
+                                            inputProps={{ min: '0' }}
+                                        />
+                                        {renderError('no_of_adults')}
+                                    </div>
+                                </div>
+
+                                {/* Number of Children */}
+                                <div className="grid w-full items-center gap-3">
+                                    <Label htmlFor="no_of_children">
+                                        Number of Children
+                                        <FieldRequirements hint="Enter number of children traveling" />
+                                    </Label>
+                                    <div className="relative">
+                                        <ProperInput
+                                            id="no_of_children"
+                                            type="number"
+                                            value={data.no_of_children ?? 0}
+                                            disabled={isView || processing}
+                                            onCommit={(v) =>
+                                                setData(
+                                                    'no_of_children',
+                                                    parseInt(v) || 0,
+                                                )
+                                            }
+                                            placeholder="0"
+                                            inputProps={{ min: '0' }}
+                                        />
+                                        {renderError('no_of_children')}
+                                    </div>
                                 </div>
                             </div>
 
@@ -264,58 +290,34 @@ export default function GeneralEnquiryForm({
                                 </div>
                             </div>
 
-                            {/* Number of Adults */}
+                            {/* Preferred Destinations */}
                             <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="no_of_adults">
-                                    Number of Adults
-                                    <FieldRequirements hint="Enter number of adults traveling" />
+                                <Label htmlFor="preferred_destinations">
+                                    Preferred Destinations
+                                    <FieldRequirements
+                                        required
+                                        hint="Enter your preferred travel destinations"
+                                    />
                                 </Label>
                                 <div className="relative">
                                     <ProperInput
-                                        id="no_of_adults"
-                                        type="number"
-                                        value={data.no_of_adults ?? 0}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData(
-                                                'no_of_adults',
-                                                parseInt(v) || 0,
-                                            )
+                                        id="preferred_destinations"
+                                        value={
+                                            data.preferred_destinations ?? ''
                                         }
-                                        placeholder="0"
-                                        inputProps={{ min: '0' }}
-                                    />
-                                    {renderError('no_of_adults')}
-                                </div>
-                            </div>
-
-                            {/* Number of Children */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="no_of_children">
-                                    Number of Children
-                                    <FieldRequirements hint="Enter number of children traveling" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="no_of_children"
-                                        type="number"
-                                        value={data.no_of_children ?? 0}
                                         disabled={isView || processing}
+                                        textarea
                                         onCommit={(v) =>
-                                            setData(
-                                                'no_of_children',
-                                                parseInt(v) || 0,
-                                            )
+                                            setData('preferred_destinations', v)
                                         }
-                                        placeholder="0"
-                                        inputProps={{ min: '0' }}
+                                        placeholder="e.g., Makkah, Madinah, Taif"
                                     />
-                                    {renderError('no_of_children')}
+                                    {renderError('preferred_destinations')}
                                 </div>
                             </div>
 
                             {/* Mobility Assistance */}
-                            <div className="grid w-full items-center gap-3">
+                            <div className="grid w-full items-center gap-3 md:col-span-2">
                                 <Label htmlFor="requires_mobility_assistance">
                                     Mobility Assistance Requirements
                                     <FieldRequirements hint="Let us know if you have any special mobility needs (optional)" />
