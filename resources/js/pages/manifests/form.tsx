@@ -606,6 +606,9 @@ export default function ManifestForm({
                             <TabsTrigger value="travelers">
                                 Travelers ({data.travelers?.length ?? 0})
                             </TabsTrigger>
+                            <TabsTrigger value="travelers1">
+                                Travelers1
+                            </TabsTrigger>
                         </TabsList>
                         <TabsContent
                             value="travelers"
@@ -1086,6 +1089,14 @@ export default function ManifestForm({
                                     No travelers added yet.
                                 </p>
                             )}
+                        </TabsContent>
+                        <TabsContent
+                            value="travelers1"
+                            className="mt-4 space-y-4"
+                        >
+                            <p className="py-4 text-center text-base text-muted-foreground">
+                                No travelers added yet.
+                            </p>
                         </TabsContent>
                     </Tabs>
                 </CardContent>

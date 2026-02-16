@@ -353,7 +353,7 @@ export default function Customer({
                     </div>
 
                     <Tabs defaultValue="customers" className="w-full">
-                        <TabsList className="grid w-full max-w-md grid-cols-2">
+                        <TabsList>
                             <TabsTrigger value="customers">
                                 All Customers
                             </TabsTrigger>
