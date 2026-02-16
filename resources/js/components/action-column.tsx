@@ -35,7 +35,8 @@ export type ActionType =
     | 'quotation-status-cancel'
     | 'enquiry-status-contacted'
     | 'enquiry-status-negotiating'
-    | 'enquiry-status-confirmed';
+    | 'enquiry-status-confirmed'
+    | 'add-remark';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

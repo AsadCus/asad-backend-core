@@ -101,7 +101,7 @@ interface EnquiryRowType {
     type: 'General' | 'Private';
     status: string;
     status_label: string;
-    full_name: string;
+    name: string;
     contact: string;
     email: string;
     child_id: number | null;
@@ -766,7 +766,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                             },
                                         },
                                         {
-                                            accessorKey: 'full_name',
+                                            accessorKey: 'name',
                                             header: 'Full Name',
                                         },
                                         {

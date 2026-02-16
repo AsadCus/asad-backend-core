@@ -55,8 +55,8 @@ class EnquiryWorkflowTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $response = $this->post(route('general-enquiries.store'), [
-            'full_name' => 'John Doe',
-            'mobile' => '0123456789',
+            'name' => 'John Doe',
+            'contact_number' => '0123456789',
             'email' => 'john@example.com',
             'preferred_destinations' => 'Japan, Korea',
             'preferred_travelling_date' => '2026-06-01',
@@ -69,13 +69,15 @@ class EnquiryWorkflowTest extends TestCase
         $this->assertDatabaseHas('enquiries', [
             'type' => 'general',
             'status' => 'new_lead',
-            'full_name' => 'John Doe',
+            'name' => 'John Doe',
+            'contact_number' => '0123456789',
             'email' => 'john@example.com',
         ]);
 
         $this->assertDatabaseHas('general_enquiries', [
-            'full_name' => 'John Doe',
-            'mobile' => '0123456789',
+            'preferred_destinations' => 'Japan, Korea',
+            'no_of_adults' => 2,
+            'no_of_children' => 1,
         ]);
 
         $generalEnquiry = GeneralEnquiry::first();
@@ -89,7 +91,7 @@ class EnquiryWorkflowTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $response = $this->post(route('private-enquiries.store'), [
-            'full_name' => 'Jane Smith',
+            'name' => 'Jane Smith',
             'contact_number' => '0198765432',
             'email' => 'jane@example.com',
             'passport_expiry_date' => '2027-12-31',
@@ -124,7 +126,7 @@ class EnquiryWorkflowTest extends TestCase
         $this->assertDatabaseHas('enquiries', [
             'type' => 'private',
             'status' => 'new_lead',
-            'full_name' => 'Jane Smith',
+            'name' => 'Jane Smith',
             'email' => 'jane@example.com',
         ]);
 
@@ -154,11 +156,13 @@ class EnquiryWorkflowTest extends TestCase
         // Create one via the service
         $service = app(GeneralEnquiryService::class);
         $service->store([
-            'full_name' => 'Test User',
-            'mobile' => '0111111111',
+            'name' => 'Test User',
+            'contact_number' => '0111111111',
             'email' => 'test@test.com',
             'preferred_destinations' => 'Japan',
             'preferred_travelling_date' => '2026-06-01',
+            'no_of_adults' => 2,
+            'no_of_children' => 0,
         ]);
 
         $response = $this->get(route('general-enquiries.index'));
@@ -180,7 +184,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::NewLead->value,
-            'full_name' => 'Test',
+            'name' => 'Test',
             'contact_number' => '012345',
             'email' => 'test@test.com',
             'created_by' => $this->adminUser->id,
@@ -202,7 +206,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::NewLead->value,
-            'full_name' => 'Test',
+            'name' => 'Test',
             'contact_number' => '012345',
             'email' => 'test@test.com',
             'created_by' => $this->adminUser->id,
@@ -223,7 +227,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::NewLead->value,
-            'full_name' => 'Workflow Test',
+            'name' => 'Workflow Test',
             'contact_number' => '012345',
             'email' => 'flow@test.com',
             'created_by' => $this->adminUser->id,
@@ -253,7 +257,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Negotiating->value,
-            'full_name' => 'Group Leader',
+            'name' => 'Group Leader',
             'contact_number' => '012345',
             'email' => 'leader@test.com',
             'created_by' => $this->adminUser->id,
@@ -263,7 +267,7 @@ class EnquiryWorkflowTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'members' => [
                 [
-                    'full_name' => 'Group Leader',
+                    'name' => 'Group Leader',
                     'email' => 'leader@test.com',
                     'contact_number' => '012345',
                     'nric_number' => 'S1234567A',
@@ -271,7 +275,7 @@ class EnquiryWorkflowTest extends TestCase
                     'is_leader' => true,
                 ],
                 [
-                    'full_name' => 'Participant One',
+                    'name' => 'Participant One',
                     'email' => 'participant1@test.com',
                     'contact_number' => '098765',
                     'nric_number' => '',
@@ -311,7 +315,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Confirmed->value,
-            'full_name' => 'Already Confirmed',
+            'name' => 'Already Confirmed',
             'contact_number' => '012345',
             'email' => 'alreadyconfirmed@test.com',
             'created_by' => $this->adminUser->id,
@@ -321,7 +325,7 @@ class EnquiryWorkflowTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'members' => [
                 [
-                    'full_name' => 'Already Confirmed',
+                    'name' => 'Already Confirmed',
                     'email' => 'alreadyconfirmed@test.com',
                     'contact_number' => '012345',
                     'nric_number' => '',
@@ -351,7 +355,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Confirmed->value,
-            'full_name' => 'Link Test',
+            'name' => 'Link Test',
             'contact_number' => '012345',
             'email' => 'linktest@test.com',
             'created_by' => $this->adminUser->id,
@@ -361,7 +365,7 @@ class EnquiryWorkflowTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'members' => [
                 [
-                    'full_name' => 'Link Test Leader',
+                    'name' => 'Link Test Leader',
                     'email' => 'linkleader@test.com',
                     'contact_number' => '0123456789',
                     'nric_number' => '',
@@ -387,7 +391,7 @@ class EnquiryWorkflowTest extends TestCase
         $confirmedNoGroup = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Confirmed->value,
-            'full_name' => 'Available',
+            'name' => 'Available',
             'contact_number' => '012345',
             'email' => 'available@test.com',
             'created_by' => $this->adminUser->id,
@@ -397,7 +401,7 @@ class EnquiryWorkflowTest extends TestCase
         $confirmedWithGroup = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Confirmed->value,
-            'full_name' => 'Has Group',
+            'name' => 'Has Group',
             'contact_number' => '012345',
             'email' => 'hasgroup@test.com',
             'created_by' => $this->adminUser->id,
@@ -411,7 +415,7 @@ class EnquiryWorkflowTest extends TestCase
         Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::NewLead->value,
-            'full_name' => 'Not Confirmed',
+            'name' => 'Not Confirmed',
             'contact_number' => '012345',
             'email' => 'notconfirmed@test.com',
             'created_by' => $this->adminUser->id,
@@ -464,7 +468,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Negotiating->value,
-            'full_name' => 'New Customer',
+            'name' => 'New Customer',
             'contact_number' => '012345',
             'email' => 'newcust@test.com',
             'created_by' => $this->adminUser->id,
@@ -474,7 +478,7 @@ class EnquiryWorkflowTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'members' => [
                 [
-                    'full_name' => 'New Customer',
+                    'name' => 'New Customer',
                     'email' => 'newcust@test.com',
                     'contact_number' => '012345',
                     'nric_number' => '',
@@ -511,7 +515,7 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Negotiating->value,
-            'full_name' => 'Existing Customer',
+            'name' => 'Existing Customer',
             'contact_number' => '012345',
             'email' => 'existing@test.com',
             'created_by' => $this->adminUser->id,
@@ -521,7 +525,7 @@ class EnquiryWorkflowTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'members' => [
                 [
-                    'full_name' => 'Existing Customer',
+                    'name' => 'Existing Customer',
                     'email' => 'existing@test.com',
                     'contact_number' => '012345',
                     'nric_number' => '',
@@ -546,11 +550,13 @@ class EnquiryWorkflowTest extends TestCase
         // Create via service
         $service = app(GeneralEnquiryService::class);
         $service->store([
-            'full_name' => 'Show Test',
-            'mobile' => '0111111111',
+            'name' => 'Show Test',
+            'contact_number' => '0111111111',
             'email' => 'show@test.com',
             'preferred_destinations' => 'Japan',
             'preferred_travelling_date' => '2026-06-01',
+            'no_of_adults' => 2,
+            'no_of_children' => 0,
         ]);
 
         $enquiry = Enquiry::first();
@@ -571,18 +577,20 @@ class EnquiryWorkflowTest extends TestCase
 
         $service = app(GeneralEnquiryService::class);
         $service->store([
-            'full_name' => 'GE Show',
-            'mobile' => '012',
+            'name' => 'GE Show',
+            'contact_number' => '012',
             'email' => 'ge@test.com',
             'preferred_destinations' => 'Korea',
             'preferred_travelling_date' => '2026-07-01',
+            'no_of_adults' => 1,
+            'no_of_children' => 0,
         ]);
 
         $ge = GeneralEnquiry::first();
 
         $response = $this->get(route('general-enquiries.get-for-show', $ge->id));
         $response->assertOk();
-        $response->assertJsonFragment(['full_name' => 'GE Show']);
+        $response->assertJsonFragment(['name' => 'GE Show']);
     }
 
     public function test_search_customers_returns_results(): void
@@ -629,11 +637,13 @@ class EnquiryWorkflowTest extends TestCase
 
         $service = app(GeneralEnquiryService::class);
         $service->store([
-            'full_name' => 'Delete Test',
-            'mobile' => '012',
+            'name' => 'Delete Test',
+            'contact_number' => '012',
             'email' => 'del@test.com',
             'preferred_destinations' => 'Maldives',
             'preferred_travelling_date' => '2026-08-01',
+            'no_of_adults' => 2,
+            'no_of_children' => 1,
         ]);
 
         $ge = GeneralEnquiry::first();
@@ -653,7 +663,7 @@ class EnquiryWorkflowTest extends TestCase
         $response = $this->post(route('enquiries.create-customer-group'), [
             'members' => [
                 [
-                    'full_name' => 'Standalone Leader',
+                    'name' => 'Standalone Leader',
                     'email' => 'standalone@test.com',
                     'contact_number' => '0123456789',
                     'nric_number' => '901231-14-5678',
@@ -661,7 +671,7 @@ class EnquiryWorkflowTest extends TestCase
                     'is_leader' => true,
                 ],
                 [
-                    'full_name' => 'Standalone Member',
+                    'name' => 'Standalone Member',
                     'email' => 'member@test.com',
                     'contact_number' => '0198765432',
                     'nric_number' => '',
@@ -699,7 +709,7 @@ class EnquiryWorkflowTest extends TestCase
         $response = $this->post(route('enquiries.create-customer-group'), [
             'members' => [
                 [
-                    'full_name' => '',
+                    'name' => '',
                     'email' => '',
                     'contact_number' => '',
                     'is_leader' => true,
@@ -708,7 +718,7 @@ class EnquiryWorkflowTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors([
-            'members.0.full_name',
+            'members.0.name',
             'members.0.email',
             'members.0.contact_number',
         ]);
@@ -734,7 +744,7 @@ class EnquiryWorkflowTest extends TestCase
         $this->post(route('enquiries.create-customer-group'), [
             'members' => [
                 [
-                    'full_name' => 'Updated Name',
+                    'name' => 'Updated Name',
                     'email' => 'existing@test.com',
                     'contact_number' => '999999',
                     'nric_number' => '901231-14-5678',

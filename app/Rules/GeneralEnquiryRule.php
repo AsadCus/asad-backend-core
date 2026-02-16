@@ -7,8 +7,8 @@ class GeneralEnquiryRule
     public function rules(?int $id = null): array
     {
         return [
-            'full_name' => ['required', 'string', 'max:255'],
-            'mobile' => ['required', 'string', 'max:20'],
+            'name' => ['required', 'string', 'max:255'],
+            'contact_number' => ['required', 'string', 'max:20'],
             'email' => ['required', 'email', 'max:255'],
             'preferred_destinations' => ['required', 'string'],
             'preferred_travelling_date' => ['required', 'date'],

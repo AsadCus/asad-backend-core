@@ -3,32 +3,32 @@ import { generalEnquirySchema } from './schema';
 
 export const generalEnquiryValidationSchema = generalEnquirySchema.superRefine(
     (data, ctx) => {
-        // full_name
-        if (!data.full_name || data.full_name.trim().length === 0) {
+        // name
+        if (!data.name || data.name.trim().length === 0) {
             ctx.addIssue({
-                path: ['full_name'],
+                path: ['name'],
                 message: 'Full name is required',
                 code: z.ZodIssueCode.custom,
             });
-        } else if (data.full_name.trim().length < 2) {
+        } else if (data.name.trim().length < 2) {
             ctx.addIssue({
-                path: ['full_name'],
+                path: ['name'],
                 message: 'Full name must be at least 2 characters',
                 code: z.ZodIssueCode.custom,
             });
         }
 
-        // mobile
-        if (!data.mobile || data.mobile.trim().length === 0) {
+        // contact_number
+        if (!data.contact_number || data.contact_number.trim().length === 0) {
             ctx.addIssue({
-                path: ['mobile'],
-                message: 'Mobile number is required',
+                path: ['contact_number'],
+                message: 'Contact number is required',
                 code: z.ZodIssueCode.custom,
             });
-        } else if (!/^[+]?[\d\s\-()]+$/.test(data.mobile)) {
+        } else if (!/^[+]?[\d\s\-()]+$/.test(data.contact_number)) {
             ctx.addIssue({
-                path: ['mobile'],
-                message: 'Invalid mobile number format',
+                path: ['contact_number'],
+                message: 'Invalid contact number format',
                 code: z.ZodIssueCode.custom,
             });
         }

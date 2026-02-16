@@ -113,7 +113,7 @@ class OpsMovementService
                     'travelers' => $m->travelers->map(function ($t) {
                         return [
                             'id' => $t->id,
-                            'full_name' => $t->full_name,
+                            'name' => $t->name,
                             'passport_number' => $t->passport_number,
                             'nationality' => $t->nationality,
                             'traveler_type' => $t->traveler_type,

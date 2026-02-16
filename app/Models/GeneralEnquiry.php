@@ -10,9 +10,6 @@ class GeneralEnquiry extends Model
 {
     protected $fillable = [
         'enquiry_id',
-        'full_name',
-        'mobile',
-        'email',
         'preferred_destinations',
         'preferred_travelling_date',
         'no_of_adults',

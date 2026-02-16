@@ -48,7 +48,7 @@ import {
 
 interface MemberData {
     _key: string;
-    full_name: string;
+    name: string;
     email: string;
     contact_number: string;
     nric_number: string;
@@ -81,7 +81,7 @@ type SortableProps = {
 
 const emptyMember = (isLeader = false): MemberData => ({
     _key: nanoid(),
-    full_name: '',
+    name: '',
     email: '',
     contact_number: '',
     nric_number: '',
@@ -109,7 +109,7 @@ export default function CustomerConfirmationForm({
     const [members, setMembers] = useState<MemberData[]>([
         {
             _key: nanoid(),
-            full_name: prefillName,
+            name: prefillName,
             email: prefillEmail,
             contact_number: prefillContact,
             nric_number: '',
@@ -183,7 +183,7 @@ export default function CustomerConfirmationForm({
             ...prev,
             {
                 _key: nanoid(),
-                full_name: customer.name,
+                name: customer.name,
                 email: customer.email,
                 contact_number: customer.contact_number,
                 nric_number: customer.nric_number,
@@ -452,14 +452,14 @@ export default function CustomerConfirmationForm({
                                                             <TableCell>
                                                                 <ProperInput
                                                                     value={
-                                                                        member.full_name
+                                                                        member.name
                                                                     }
                                                                     onCommit={(
                                                                         v,
                                                                     ) =>
                                                                         updateMember(
                                                                             member._key,
-                                                                            'full_name',
+                                                                            'name',
                                                                             v,
                                                                         )
                                                                     }
@@ -467,7 +467,7 @@ export default function CustomerConfirmationForm({
                                                                     className="min-w-[140px]"
                                                                 />
                                                                 {renderError(
-                                                                    `members.${index}.full_name`,
+                                                                    `members.${index}.name`,
                                                                 )}
                                                             </TableCell>
 

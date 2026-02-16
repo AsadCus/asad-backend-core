@@ -263,6 +263,12 @@ export function ActionMenuItems<TData>({
                 </>
             )}
 
+            {actions.includes('add-remark') && (
+                <Item onClick={() => onAction?.('add-remark', row)}>
+                    Remark
+                </Item>
+            )}
+
             {actions.includes('delete') && (
                 <Item
                     onClick={() => onAction?.('delete', row)}

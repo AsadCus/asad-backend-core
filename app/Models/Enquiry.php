@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\EnquiryStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Enquiry extends Model
@@ -12,7 +13,7 @@ class Enquiry extends Model
     protected $fillable = [
         'type',
         'status',
-        'full_name',
+        'name',
         'contact_number',
         'email',
         'created_by',
@@ -43,6 +44,16 @@ class Enquiry extends Model
     public function customerGroup(): HasOne
     {
         return $this->hasOne(CustomerGroup::class, 'enquiry_id');
+    }
+
+    public function remarks(): HasMany
+    {
+        return $this->hasMany(EnquiryRemark::class, 'enquiry_id')->orderByDesc('created_at');
+    }
+
+    public function latestRemark(): HasOne
+    {
+        return $this->hasOne(EnquiryRemark::class, 'enquiry_id')->latestOfMany();
     }
 
     /**

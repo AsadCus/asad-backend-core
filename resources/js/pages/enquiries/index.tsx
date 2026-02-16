@@ -5,6 +5,13 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -15,25 +22,26 @@ import AppLayout from '@/layouts/app-layout';
 import { getForShow, index } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
 import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
+import CustomerConfirmationForm from '../customer/customer-confirmation-form';
 import GeneralEnquiryForm from '../general-enquiries/form';
 import PrivateEnquiryForm from '../private-enquiries/form';
+import EnquiryRemarksDialog from './components/enquiry-remarks-dialog';
+import EnquiryRemarksTimeline from './components/enquiry-remarks-timeline';
 import {
     EnquiryStatusAction,
     EnquiryStatusActionType,
     getAvailableEnquiryActions,
 } from './components/enquiry-status-action';
-import CustomerConfirmationForm from './customer-confirmation-form';
 import {
-    type EnquirySchema,
     statusColors,
-    StatusOption,
     statusOptions,
     typeColors,
     typeOptions,
+    type EnquirySchema,
 } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -46,7 +54,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export interface EnquiriesProps {
     data: {
         enquiriesForDatatable: EnquirySchema[];
-        statusOptions: StatusOption[];
+        statusOptions: OptionType[];
     };
 }
 
@@ -89,7 +97,7 @@ const columns: ColumnDef<EnquirySchema>[] = [
         filterFn: 'includesValue',
     },
     {
-        accessorKey: 'full_name',
+        accessorKey: 'name',
         header: 'Full Name',
         meta: { exportable: true },
     },
@@ -101,6 +109,11 @@ const columns: ColumnDef<EnquirySchema>[] = [
     {
         accessorKey: 'email',
         header: 'Email',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'latest_remark',
+        header: 'Latest Remark',
         meta: { exportable: true },
     },
     {
@@ -148,6 +161,13 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
         contact: '',
     });
 
+    // Enquiry Remarks state
+    const [remarksDialogOpen, setRemarksDialogOpen] = useState(false);
+    const [remarksEnquiryId, setRemarksEnquiryId] = useState<
+        number | undefined
+    >();
+    const [remarksEnquiryName, setRemarksEnquiryName] = useState('');
+
     const handleOpenViewDialog = async (enquiryId: number) => {
         setViewDialogOpen(true);
         setIsLoadingData(true);
@@ -187,11 +207,24 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                 const available = getAvailableEnquiryActions(
                                     row.status,
                                 );
+
                                 available.forEach((a) =>
                                     rowActions.push(
                                         `enquiry-status-${a}` as ActionType,
                                     ),
                                 );
+
+                                if (row.id) {
+                                    rowActions.push('add-remark');
+                                    const available =
+                                        getAvailableEnquiryActions(row.status);
+                                    available.forEach((a) =>
+                                        rowActions.push(
+                                            `enquiry-status-${a}` as ActionType,
+                                        ),
+                                    );
+                                }
+
                                 return rowActions;
                             }}
                             onAction={(action, row) => {
@@ -234,6 +267,16 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                     setStatusAction(actionType);
                                     setStatusActionEnquiryId(enquiry.id);
                                     setStatusDialogOpen(true);
+                                }
+
+                                if (action === 'add-remark') {
+                                    setRemarksEnquiryId(
+                                        row?.original.id ?? undefined,
+                                    );
+                                    setRemarksEnquiryName(
+                                        row?.original.name ?? '',
+                                    );
+                                    setRemarksDialogOpen(true);
                                 }
                             }}
                             onRowDoubleClick={(row) => {
@@ -279,7 +322,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
             {/* View Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
                         <div className="flex items-center justify-between">
                             <div>
@@ -330,9 +373,6 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                                 unknown
                                             > as import('../general-enquiries/schema').GeneralEnquirySchema
                                         }
-                                        onCancel={() =>
-                                            setViewDialogOpen(false)
-                                        }
                                     />
                                 ) : (
                                     <PrivateEnquiryForm
@@ -343,13 +383,34 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                                 unknown
                                             > as import('../private-enquiries/schema').PrivateEnquirySchema
                                         }
-                                        onCancel={() =>
-                                            setViewDialogOpen(false)
-                                        }
                                     />
                                 )}
                             </>
                         )}
+
+                        {/* Enquiry Remarks Timeline */}
+                        {!isLoadingData && selectedEnquiryData && (
+                            <Card className="mb-2">
+                                <CardHeader>
+                                    <CardTitle className="text-xl">
+                                        Enquiry Remarks Timeline
+                                    </CardTitle>
+                                    <CardDescription>
+                                        View the history of remarks for this
+                                        enquiry.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <EnquiryRemarksTimeline
+                                        isOpen={true}
+                                        enquiryId={
+                                            selectedEnquiryData.enquiry.id
+                                        }
+                                    />
+                                </CardContent>
+                            </Card>
+                        )}
+
                         {!isLoadingData && !selectedEnquiryData && (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                                 Failed to load enquiry details
@@ -374,7 +435,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                     );
                     setConfirmFormEnquiryId(enquiryId);
                     setConfirmFormPrefill({
-                        name: enquiry?.full_name ?? '',
+                        name: enquiry?.name ?? '',
                         email: enquiry?.email ?? '',
                         contact: enquiry?.contact ?? '',
                     });
@@ -384,7 +445,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
             {/* Customer Confirmation Form Dialog */}
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation</DialogTitle>
                         <DialogDescription>
@@ -413,6 +474,14 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Enquiry Remarks Dialog */}
+            <EnquiryRemarksDialog
+                isOpen={remarksDialogOpen}
+                onClose={() => setRemarksDialogOpen(false)}
+                enquiryId={remarksEnquiryId}
+                enquiryName={remarksEnquiryName}
+            />
         </>
     );
 }

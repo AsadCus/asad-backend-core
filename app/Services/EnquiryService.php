@@ -26,7 +26,7 @@ class EnquiryService
             ->when($filters['to_date'] ?? null, fn($q, $v) => $q->whereDate('created_at', '<=', $v))
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
-                    $query->where('full_name', 'like', "%{$value}%")
+                    $query->where('name', 'like', "%{$value}%")
                         ->orWhere('email', 'like', "%{$value}%")
                         ->orWhere('contact_number', 'like', "%{$value}%");
                 });
@@ -41,10 +41,11 @@ class EnquiryService
                     'type' => ucfirst($enquiry->type),
                     'status' => $enquiry->status->value,
                     'status_label' => $enquiry->status->label(),
-                    'full_name' => $enquiry->full_name,
+                    'name' => $enquiry->name,
                     'contact' => $enquiry->contact_number,
                     'email' => $enquiry->email,
                     'child_id' => $this->getChildId($enquiry),
+                    'latest_remark' => $enquiry->latestRemark?->remark ?? '-',
                     'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
                 ];
             })
@@ -142,7 +143,7 @@ class EnquiryService
             ->get()
             ->map(fn(Enquiry $enquiry) => [
                 'value' => $enquiry->id,
-                'label' => "#{$enquiry->id} - {$enquiry->full_name} ({$enquiry->email})",
+                'label' => "#{$enquiry->id} - {$enquiry->name} ({$enquiry->email})",
             ])
             ->all();
     }

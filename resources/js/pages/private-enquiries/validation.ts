@@ -3,10 +3,10 @@ import { privateEnquirySchema } from './schema';
 
 export const privateEnquiryValidationSchema = privateEnquirySchema.superRefine(
     (data, ctx) => {
-        // full_name
-        if (!data.full_name || data.full_name.trim().length === 0) {
+        // name
+        if (!data.name || data.name.trim().length === 0) {
             ctx.addIssue({
-                path: ['full_name'],
+                path: ['name'],
                 message: 'Full name is required',
                 code: z.ZodIssueCode.custom,
             });

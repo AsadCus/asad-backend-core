@@ -7,7 +7,7 @@ class PrivateEnquiryRule
     public function rules(?int $id = null): array
     {
         return [
-            'full_name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'contact_number' => ['required', 'string', 'max:30'],
             'email' => ['required', 'email', 'max:255'],
             'passport_expiry_date' => ['required', 'date'],

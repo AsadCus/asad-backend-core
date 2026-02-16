@@ -4,6 +4,7 @@ use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnquiryController;
+use App\Http\Controllers\EnquiryRemarkController;
 use App\Http\Controllers\GeneralEnquiryController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MaidController;
@@ -175,6 +176,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('enquiries/search-customers', [EnquiryController::class, 'searchCustomers'])->name('enquiries.search-customers');
     Route::get('enquiries/available-enquiries', [EnquiryController::class, 'availableEnquiries'])->name('enquiries.available-enquiries');
     Route::get('enquiries/list-customers', [EnquiryController::class, 'listCustomers'])->name('enquiries.list-customers');
+
+    // Enquiry Remarks
+    Route::get('enquiries/{enquiryId}/remarks', [EnquiryRemarkController::class, 'index'])->name('enquiry-remarks.index');
+    Route::post('enquiries/{enquiryId}/remarks', [EnquiryRemarkController::class, 'store'])->name('enquiry-remarks.store');
+    Route::put('enquiries/{enquiryId}/remarks/{remarkId}', [EnquiryRemarkController::class, 'update'])->name('enquiry-remarks.update');
+    Route::delete('enquiries/{enquiryId}/remarks/{remarkId}', [EnquiryRemarkController::class, 'destroy'])->name('enquiry-remarks.destroy');
 
     // Packages
     Route::resource('packages', PackageController::class);

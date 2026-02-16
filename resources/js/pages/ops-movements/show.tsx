@@ -16,7 +16,7 @@ interface Accommodation {
 
 interface Traveler {
     id: number;
-    full_name: string;
+    name: string;
     passport_number: string | null;
     nationality: string | null;
     traveler_type: string | null;
@@ -421,7 +421,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                                                     >
                                                                         <td className="px-3 py-1.5">
                                                                             {
-                                                                                t.full_name
+                                                                                t.name
                                                                             }
                                                                         </td>
                                                                         <td className="px-3 py-1.5">

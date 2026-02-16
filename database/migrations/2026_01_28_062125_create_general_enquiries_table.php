@@ -14,9 +14,6 @@ return new class extends Migration
         Schema::create('general_enquiries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('enquiry_id')->nullable()->constrained('enquiries')->cascadeOnDelete();
-            $table->string('full_name');
-            $table->string('mobile');
-            $table->string('email');
             $table->text('preferred_destinations');
             $table->date('preferred_travelling_date');
             $table->unsignedInteger('no_of_adults')->default(0);

@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\CustomerGroup;
 use App\Models\CustomerGroupMember;
 use App\Models\Enquiry;
+use App\Models\EnquiryRemark;
 use App\Models\GeneralEnquiry;
 use App\Models\Notification;
 use App\Models\PrivateEnquiry;
@@ -24,6 +25,7 @@ class EnquirySeeder extends Seeder
     {
         $this->seedGeneralEnquiries();
         $this->seedPrivateEnquiries();
+        $this->createRandomRemarks();
         $this->createEnquiryNotifications();
     }
 
@@ -32,10 +34,19 @@ class EnquirySeeder extends Seeder
      */
     private function seedGeneralEnquiries(): void
     {
+        // Skip if general enquiries already exist
+        if (GeneralEnquiry::count() > 0) {
+            $this->command->info('General enquiries already seeded, skipping...');
+            return;
+        }
+
+        $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
+        $defaultCreator = $adminAndSalesUsers->first()?->id;
+
         $generalEnquiries = [
             [
-                'full_name' => 'John Smith',
-                'mobile' => '+1234567890',
+                'name' => 'John Smith',
+                'contact_number' => '+1234567890',
                 'email' => 'john.smith@example.com',
                 'preferred_destinations' => 'Paris, London, Amsterdam',
                 'preferred_travelling_date' => '2026-05-15',
@@ -45,8 +56,8 @@ class EnquirySeeder extends Seeder
                 'status' => EnquiryStatus::NewLead,
             ],
             [
-                'full_name' => 'Sarah Johnson',
-                'mobile' => '+9876543210',
+                'name' => 'Sarah Johnson',
+                'contact_number' => '+9876543210',
                 'email' => 'sarah.johnson@example.com',
                 'preferred_destinations' => 'Tokyo, Bangkok, Singapore',
                 'preferred_travelling_date' => '2026-06-20',
@@ -56,8 +67,8 @@ class EnquirySeeder extends Seeder
                 'status' => EnquiryStatus::Contacted,
             ],
             [
-                'full_name' => 'Michael Brown',
-                'mobile' => '+1122334455',
+                'name' => 'Michael Brown',
+                'contact_number' => '+1122334455',
                 'email' => 'michael.brown@example.com',
                 'preferred_destinations' => 'Sydney, Melbourne, Brisbane',
                 'preferred_travelling_date' => '2026-07-10',
@@ -67,8 +78,8 @@ class EnquirySeeder extends Seeder
                 'status' => EnquiryStatus::Negotiating,
             ],
             [
-                'full_name' => 'Emily White',
-                'mobile' => '+5566778899',
+                'name' => 'Emily White',
+                'contact_number' => '+5566778899',
                 'email' => 'emily.white@example.com',
                 'preferred_destinations' => 'Barcelona, Madrid, Lisbon',
                 'preferred_travelling_date' => '2026-08-05',
@@ -78,8 +89,8 @@ class EnquirySeeder extends Seeder
                 'status' => EnquiryStatus::Confirmed,
             ],
             [
-                'full_name' => 'David Martinez',
-                'mobile' => '+4433221100',
+                'name' => 'David Martinez',
+                'contact_number' => '+4433221100',
                 'email' => 'david.martinez@example.com',
                 'preferred_destinations' => 'New York, Los Angeles, Miami',
                 'preferred_travelling_date' => '2026-09-12',
@@ -97,14 +108,20 @@ class EnquirySeeder extends Seeder
             $parentEnquiry = Enquiry::create([
                 'type' => 'general',
                 'status' => $status->value,
-                'full_name' => $data['full_name'],
-                'contact_number' => $data['mobile'],
+                'name' => $data['name'],
+                'contact_number' => $data['contact_number'],
                 'email' => $data['email'],
+                'created_by' => $adminAndSalesUsers->random()->id ?? $defaultCreator,
             ]);
 
-            GeneralEnquiry::create(array_merge($data, [
+            GeneralEnquiry::create([
                 'enquiry_id' => $parentEnquiry->id,
-            ]));
+                'preferred_destinations' => $data['preferred_destinations'],
+                'preferred_travelling_date' => $data['preferred_travelling_date'],
+                'no_of_adults' => $data['no_of_adults'],
+                'no_of_children' => $data['no_of_children'],
+                'requires_mobility_assistance' => $data['requires_mobility_assistance'],
+            ]);
 
             // Create customer group for confirmed enquiries
             if ($status === EnquiryStatus::Confirmed) {
@@ -118,9 +135,18 @@ class EnquirySeeder extends Seeder
      */
     private function seedPrivateEnquiries(): void
     {
+        // Skip if private enquiries already exist
+        if (PrivateEnquiry::count() > 0) {
+            $this->command->info('Private enquiries already seeded, skipping...');
+            return;
+        }
+
+        $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
+        $defaultCreator = $adminAndSalesUsers->first()?->id;
+
         $privateEnquiries = [
             [
-                'full_name' => 'Ahmad Bin Ali',
+                'name' => 'Ahmad Bin Ali',
                 'contact_number' => '0123456789',
                 'email' => 'ahmad.ali@example.com',
                 'passport_expiry_date' => '2027-12-31',
@@ -153,7 +179,7 @@ class EnquirySeeder extends Seeder
                 'status' => EnquiryStatus::NewLead,
             ],
             [
-                'full_name' => 'Siti Aminah',
+                'name' => 'Siti Aminah',
                 'contact_number' => '0198765432',
                 'email' => 'siti.aminah@example.com',
                 'passport_expiry_date' => '2028-05-20',
@@ -194,14 +220,42 @@ class EnquirySeeder extends Seeder
             $parentEnquiry = Enquiry::create([
                 'type' => 'private',
                 'status' => $status->value,
-                'full_name' => $data['full_name'],
+                'name' => $data['name'],
                 'contact_number' => $data['contact_number'],
                 'email' => $data['email'],
+                'created_by' => $adminAndSalesUsers->random()->id ?? $defaultCreator,
             ]);
 
-            PrivateEnquiry::create(array_merge($data, [
+            PrivateEnquiry::create([
                 'enquiry_id' => $parentEnquiry->id,
-            ]));
+                'passport_expiry_date' => $data['passport_expiry_date'],
+                'departure_date' => $data['departure_date'],
+                'return_date' => $data['return_date'],
+                'no_of_pax' => $data['no_of_pax'],
+                'no_of_children' => $data['no_of_children'],
+                'airline' => $data['airline'],
+                'class' => $data['class'],
+                'require_mutawif' => $data['require_mutawif'],
+                'require_umrah_course' => $data['require_umrah_course'],
+                'require_umrah_official' => $data['require_umrah_official'],
+                'makkah_or_madinah_first' => $data['makkah_or_madinah_first'],
+                'no_of_nights_makkah' => $data['no_of_nights_makkah'],
+                'hotel_makkah' => $data['hotel_makkah'],
+                'meals_makkah' => $data['meals_makkah'],
+                'no_of_nights_madinah' => $data['no_of_nights_madinah'],
+                'hotel_madinah' => $data['hotel_madinah'],
+                'meals_madinah' => $data['meals_madinah'],
+                'land_transfer' => $data['land_transfer'],
+                'add_on_speed_train' => $data['add_on_speed_train'],
+                'require_meet_greet' => $data['require_meet_greet'],
+                'require_mutawiffah_ustazah_rawdah' => $data['require_mutawiffah_ustazah_rawdah'],
+                'madinah_tour_with_mutawif' => $data['madinah_tour_with_mutawif'],
+                'makkah_tour_with_mutawif' => $data['makkah_tour_with_mutawif'],
+                'has_chronic_disease' => $data['has_chronic_disease'],
+                'chronic_disease_details' => $data['chronic_disease_details'],
+                'need_wheelchair' => $data['need_wheelchair'],
+                'other_remarks' => $data['other_remarks'],
+            ]);
 
             // Create customer group for confirmed enquiries
             if ($status === EnquiryStatus::Confirmed) {
@@ -215,33 +269,115 @@ class EnquirySeeder extends Seeder
      */
     private function createCustomerForConfirmedEnquiry(Enquiry $enquiry): void
     {
-        // Create the customer user
-        $user = User::create([
-            'name' => $enquiry->full_name,
-            'email' => $enquiry->email,
-            'contact' => $enquiry->contact_number,
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-        ]);
-        $user->assignRole('customer');
+        // Check if user already exists
+        $user = User::where('email', $enquiry->email)->first();
 
-        $customer = Customer::create([
-            'user_id' => $user->id,
-            'branch_id' => 1,
-            'handled_by' => User::role(['admin', 'sales'])->first()?->id,
-        ]);
+        if (! $user) {
+            // Create the customer user
+            $user = User::create([
+                'name' => $enquiry->name,
+                'email' => $enquiry->email,
+                'contact' => $enquiry->contact_number,
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+            ]);
+            $user->assignRole('customer');
+        }
 
-        // Create customer group with the customer as leader
-        $group = CustomerGroup::create([
-            'enquiry_id' => $enquiry->id,
-            'created_by' => User::role('admin')->first()?->id,
-        ]);
+        // Check if customer already exists
+        $customer = Customer::where('user_id', $user->id)->first();
 
-        CustomerGroupMember::create([
-            'customer_group_id' => $group->id,
-            'customer_id' => $customer->id,
-            'is_leader' => true,
-        ]);
+        if (! $customer) {
+            $customer = Customer::create([
+                'user_id' => $user->id,
+                'branch_id' => 1,
+                'handled_by' => User::role(['admin', 'sales'])->first()?->id,
+            ]);
+        }
+
+        // Check if customer group already exists for this enquiry
+        $existingGroup = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+
+        if (! $existingGroup) {
+            // Create customer group with the customer as leader
+            $group = CustomerGroup::create([
+                'enquiry_id' => $enquiry->id,
+                'created_by' => User::role('admin')->first()?->id,
+            ]);
+
+            CustomerGroupMember::create([
+                'customer_group_id' => $group->id,
+                'customer_id' => $customer->id,
+                'is_leader' => true,
+            ]);
+        }
+    }
+
+    /**
+     * Create random remarks for enquiries.
+     */
+    private function createRandomRemarks(): void
+    {
+        // Skip if remarks already exist
+        if (EnquiryRemark::count() > 0) {
+            $this->command->info('Enquiry remarks already exist, skipping...');
+            return;
+        }
+
+        $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
+
+        if ($adminAndSalesUsers->isEmpty()) {
+            return;
+        }
+
+        $remarkTemplates = [
+            'Called customer to discuss travel requirements.',
+            'Customer requested additional information about package details.',
+            'Sent quotation via email.',
+            'Customer is considering the offer and will get back to us.',
+            'Follow-up call scheduled for next week.',
+            'Customer wants to modify the travel dates.',
+            'Discussed payment terms and options.',
+            'Customer has some budget concerns, negotiating.',
+            'Confirmed customer interest, preparing documentation.',
+            'Customer agreed to all terms and conditions.',
+            'Waiting for customer response on revised quotation.',
+            'Customer requested discount for group booking.',
+            'Discussed special dietary requirements.',
+            'Customer needs time to consult with family members.',
+            'Clarified visa and passport requirements.',
+            'Customer satisfied with the package offered.',
+            'Resolved customer questions about cancellation policy.',
+            'Customer requested upgrade options.',
+            'Sent brochure and additional destination information.',
+            'Customer comparing with other travel agencies.',
+        ];
+
+        $enquiries = Enquiry::all();
+
+        foreach ($enquiries as $enquiry) {
+            // Create 1-4 random remarks per enquiry
+            $remarkCount = rand(1, 4);
+
+            for ($i = 0; $i < $remarkCount; $i++) {
+                $createdBy = $adminAndSalesUsers->random();
+                $remark = $remarkTemplates[array_rand($remarkTemplates)];
+
+                // Create remarks with dates after enquiry creation
+                $createdAt = $enquiry->created_at->addHours(rand(1, 48));
+
+                EnquiryRemark::create([
+                    'enquiry_id' => $enquiry->id,
+                    'created_by' => $createdBy->id,
+                    'status_at_time' => $enquiry->status->value,
+                    'remark' => $remark,
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                ]);
+            }
+        }
+
+        $this->command->info('Random remarks created for enquiries!');
     }
 
     /**
@@ -261,7 +397,7 @@ class EnquirySeeder extends Seeder
 
             $notification = Notification::create([
                 'title' => "New {$typeLabel} Enquiry",
-                'message' => "A new {$typeLabel} enquiry has been created by {$enquiry->full_name}.",
+                'message' => "A new {$typeLabel} enquiry has been created by {$enquiry->name}.",
                 'link' => $link,
                 'type' => 'info',
             ]);
@@ -281,7 +417,7 @@ class EnquirySeeder extends Seeder
             ->get();
 
         foreach ($confirmedEnquiries as $enquiry) {
-            $customerName = $enquiry->customerGroup?->members?->first()?->customer?->user?->name ?? $enquiry->full_name;
+            $customerName = $enquiry->customerGroup?->members?->first()?->customer?->user?->name ?? $enquiry->name;
 
             $notification = Notification::create([
                 'title' => 'New Customer Created',

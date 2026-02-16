@@ -33,7 +33,7 @@ class GeneralEnquiryController extends Controller
 
     public function publicForm()
     {
-        return Inertia::render('general-enquiries/public/form');
+        return Inertia::render('general-enquiries/public/index');
     }
 
     /**

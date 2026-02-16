@@ -44,7 +44,7 @@ class PrivateEnquiryController extends Controller
      */
     public function publicForm()
     {
-        return Inertia::render('private-enquiries/public/form');
+        return Inertia::render('private-enquiries/public/index');
     }
 
     /**

@@ -25,29 +25,30 @@ class GeneralEnquiryService
             })
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
-                    $query->where('full_name', 'like', "%{$value}%")
+                    $query->where('name', 'like', "%{$value}%")
                         ->orWhere('email', 'like', "%{$value}%")
-                        ->orWhere('mobile', 'like', "%{$value}%");
+                        ->orWhere('contact_number', 'like', "%{$value}%");
                 });
             })
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($enquiry) {
+            ->map(function ($generalEnquiry) {
                 return [
-                    'id' => $enquiry->id,
-                    'enquiry_id' => $enquiry->enquiry_id,
-                    'status' => $enquiry->enquiry?->status?->value ?? 'new_lead',
-                    'status_label' => $enquiry->enquiry?->status?->label() ?? 'New Lead',
-                    'full_name' => $enquiry->full_name,
-                    'mobile' => $enquiry->mobile,
-                    'email' => $enquiry->email,
-                    'preferred_destinations' => $enquiry->preferred_destinations,
-                    'preferred_travelling_date' => $enquiry->preferred_travelling_date_formatted,
-                    'no_of_adults' => $enquiry->no_of_adults,
-                    'no_of_children' => $enquiry->no_of_children,
-                    'requires_mobility_assistance' => $enquiry->requires_mobility_assistance,
-                    'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
-                    'updated_at' => $enquiry->updated_at?->translatedFormat('d F Y'),
+                    'id' => $generalEnquiry->id,
+                    'enquiry_id' => $generalEnquiry->enquiry_id,
+                    'status' => $generalEnquiry->enquiry?->status?->value ?? 'new_lead',
+                    'status_label' => $generalEnquiry->enquiry?->status?->label() ?? 'New Lead',
+                    'name' => $generalEnquiry->enquiry?->name,
+                    'contact_number' => $generalEnquiry->enquiry?->contact_number,
+                    'email' => $generalEnquiry->enquiry?->email,
+                    'preferred_destinations' => $generalEnquiry->preferred_destinations,
+                    'preferred_travelling_date' => $generalEnquiry->preferred_travelling_date_formatted,
+                    'no_of_adults' => $generalEnquiry->no_of_adults,
+                    'no_of_children' => $generalEnquiry->no_of_children,
+                    'requires_mobility_assistance' => $generalEnquiry->requires_mobility_assistance,
+                    'last_remark' => $generalEnquiry->enquiry?->latestRemark->remark ?? '-',
+                    'created_at' => $generalEnquiry->created_at?->translatedFormat('d F Y'),
+                    'updated_at' => $generalEnquiry->updated_at?->translatedFormat('d F Y'),
                 ];
             });
 
@@ -65,17 +66,14 @@ class GeneralEnquiryService
             $parentEnquiry = Enquiry::create([
                 'type' => 'general',
                 'status' => EnquiryStatus::NewLead->value,
-                'full_name' => $data['full_name'] ?? '',
-                'contact_number' => $data['mobile'] ?? '',
+                'name' => $data['name'] ?? '',
+                'contact_number' => $data['contact_number'] ?? '',
                 'email' => $data['email'] ?? '',
                 'created_by' => auth()->id(),
             ]);
 
-            $enquiry = GeneralEnquiry::create([
+            $generalEnquiry = GeneralEnquiry::create([
                 'enquiry_id' => $parentEnquiry->id,
-                'full_name' => $data['full_name'] ?? null,
-                'mobile' => $data['mobile'] ?? null,
-                'email' => $data['email'] ?? null,
                 'preferred_destinations' => $data['preferred_destinations'] ?? null,
                 'preferred_travelling_date' => $data['preferred_travelling_date'] ?? null,
                 'no_of_adults' => $data['no_of_adults'] ?? 0,
@@ -84,103 +82,100 @@ class GeneralEnquiryService
             ]);
 
             activity()
-                ->performedOn($enquiry)
-                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $parentEnquiry->id])
-                ->log('General enquiry created successfully #' . $enquiry->id);
+                ->performedOn($generalEnquiry)
+                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $generalEnquiry->id, 'enquiry_id' => $parentEnquiry->id])
+                ->log('General enquiry created successfully #' . $generalEnquiry->id);
 
             // Create notification for admin/sales users
-            $this->createEnquiryNotification($enquiry, $parentEnquiry);
+            $this->createEnquiryNotification($generalEnquiry, $parentEnquiry);
 
-            return $enquiry;
+            return $generalEnquiry;
         });
     }
 
     public function getForEditShow($id): array
     {
-        $enquiry = GeneralEnquiry::with('enquiry')->findOrFail($id);
+        $generalEnquiry = GeneralEnquiry::with('enquiry')->findOrFail($id);
 
         return [
-            'id' => $enquiry->id,
-            'enquiry_id' => $enquiry->enquiry_id,
-            'status' => $enquiry->enquiry?->status?->value ?? 'new_lead',
-            'status_label' => $enquiry->enquiry?->status?->label() ?? 'New Lead',
-            'full_name' => $enquiry->full_name,
-            'mobile' => $enquiry->mobile,
-            'email' => $enquiry->email,
-            'preferred_destinations' => $enquiry->preferred_destinations,
-            'preferred_travelling_date' => $enquiry->preferred_travelling_date_formatted,
-            'no_of_adults' => $enquiry->no_of_adults,
-            'no_of_children' => $enquiry->no_of_children,
-            'requires_mobility_assistance' => $enquiry->requires_mobility_assistance,
-            'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
-            'updated_at' => $enquiry->updated_at?->translatedFormat('d F Y'),
+            'id' => $generalEnquiry->id,
+            'enquiry_id' => $generalEnquiry->enquiry_id,
+            'status' => $generalEnquiry->enquiry?->status?->value ?? 'new_lead',
+            'status_label' => $generalEnquiry->enquiry?->status?->label() ?? 'New Lead',
+            'name' => $generalEnquiry->enquiry?->name,
+            'contact_number' => $generalEnquiry->enquiry?->contact_number,
+            'email' => $generalEnquiry->enquiry?->email,
+            'preferred_destinations' => $generalEnquiry->preferred_destinations,
+            'preferred_travelling_date' => $generalEnquiry->preferred_travelling_date_formatted,
+            'no_of_adults' => $generalEnquiry->no_of_adults,
+            'no_of_children' => $generalEnquiry->no_of_children,
+            'requires_mobility_assistance' => $generalEnquiry->requires_mobility_assistance,
+            'created_at' => $generalEnquiry->created_at?->translatedFormat('d F Y'),
+            'updated_at' => $generalEnquiry->updated_at?->translatedFormat('d F Y'),
         ];
     }
 
     public function update(array $data, int $id): GeneralEnquiry
     {
         return DB::transaction(function () use ($data, $id) {
-            $enquiry = GeneralEnquiry::with('enquiry')->findOrFail($id);
+            $generalEnquiry = GeneralEnquiry::with('enquiry')->findOrFail($id);
 
             if (! empty($data['preferred_travelling_date'])) {
                 $data['preferred_travelling_date'] = Carbon::parse($data['preferred_travelling_date'])->format('Y-m-d');
             }
 
-            $enquiry->update([
-                'full_name' => $data['full_name'] ?? $enquiry->full_name,
-                'mobile' => $data['mobile'] ?? $enquiry->mobile,
-                'email' => $data['email'] ?? $enquiry->email,
-                'preferred_destinations' => $data['preferred_destinations'] ?? $enquiry->preferred_destinations,
-                'preferred_travelling_date' => $data['preferred_travelling_date'] ?? $enquiry->preferred_travelling_date,
-                'no_of_adults' => $data['no_of_adults'] ?? $enquiry->no_of_adults,
-                'no_of_children' => $data['no_of_children'] ?? $enquiry->no_of_children,
-                'requires_mobility_assistance' => $data['requires_mobility_assistance'] ?? $enquiry->requires_mobility_assistance,
+            $generalEnquiry->update([
+                'preferred_destinations' => $data['preferred_destinations'] ?? $generalEnquiry->preferred_destinations,
+                'preferred_travelling_date' => $data['preferred_travelling_date'] ?? $generalEnquiry->preferred_travelling_date,
+                'no_of_adults' => $data['no_of_adults'] ?? $generalEnquiry->no_of_adults,
+                'no_of_children' => $data['no_of_children'] ?? $generalEnquiry->no_of_children,
+                'requires_mobility_assistance' => $data['requires_mobility_assistance'] ?? $generalEnquiry->requires_mobility_assistance,
             ]);
 
             // Sync parent enquiry common fields
-            if ($enquiry->enquiry) {
-                $enquiry->enquiry->update([
-                    'full_name' => $data['full_name'] ?? $enquiry->full_name,
-                    'contact_number' => $data['mobile'] ?? $enquiry->mobile,
-                    'email' => $data['email'] ?? $enquiry->email,
+            if ($generalEnquiry->enquiry) {
+                $generalEnquiry->enquiry->update([
+                    'name' => $data['name'] ?? $generalEnquiry->enquiry?->name,
+                    'contact_number' => $data['contact_number'] ?? $generalEnquiry->enquiry?->contact_number,
+                    'email' => $data['email'] ?? $generalEnquiry->enquiry?->email,
                 ]);
             }
 
-            $enquiry = $enquiry->fresh();
+            $generalEnquiry = $generalEnquiry->fresh();
 
             activity()
-                ->performedOn($enquiry)
-                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
-                ->log('General enquiry updated successfully #' . $enquiry->id);
+                ->performedOn($generalEnquiry)
+                ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $generalEnquiry->id, 'enquiry_id' => $generalEnquiry->enquiry_id])
+                ->log('General enquiry updated successfully #' . $generalEnquiry->id);
 
-            return $enquiry;
+            return $generalEnquiry;
         });
     }
 
     public function delete($id)
     {
-        $enquiry = GeneralEnquiry::find($id);
-        if (! $enquiry) {
+        $generalEnquiry = GeneralEnquiry::find($id);
+        if (! $generalEnquiry) {
             return false;
         }
 
         activity()
-            ->performedOn($enquiry)
-            ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $enquiry->id, 'enquiry_id' => $enquiry->enquiry_id])
-            ->log('General enquiry deleted successfully #' . $enquiry->id);
+            ->performedOn($generalEnquiry)
+            ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $generalEnquiry->id, 'enquiry_id' => $generalEnquiry->enquiry_id])
+            ->log('General enquiry deleted successfully #' . $generalEnquiry->id);
 
         // Also delete parent enquiry
-        if ($enquiry->enquiry_id) {
-            Enquiry::where('id', $enquiry->enquiry_id)->delete();
+        if ($generalEnquiry->enquiry_id) {
+            Enquiry::where('id', $generalEnquiry->enquiry_id)->delete();
         }
 
-        return $enquiry->delete();
+        return $generalEnquiry->delete();
     }
 
     /**
      * Create notification for admin/sales users about new enquiry.
      */
-    private function createEnquiryNotification(GeneralEnquiry $enquiry, Enquiry $parentEnquiry): void
+    private function createEnquiryNotification(GeneralEnquiry $generalEnquiry, Enquiry $parentEnquiry): void
     {
         try {
             $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
@@ -190,9 +185,9 @@ class GeneralEnquiryService
             }
 
             $notification = Notification::create([
-                'title' => "New General Enquiry from {$enquiry->full_name}",
+                'title' => "New General Enquiry from {$generalEnquiry->name}",
                 'message' => 'A new General enquiry has been received. Please review.',
-                'link' => "/general-enquiries/{$enquiry->id}",
+                'link' => "/general-enquiries/{$generalEnquiry->id}",
                 'type' => 'info',
             ]);
 

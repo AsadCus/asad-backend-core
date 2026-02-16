@@ -87,7 +87,7 @@ class CustomerGroupService
 
         // Create new user + customer
         $user = User::create([
-            'name' => $customerData['name'] ?? $customerData['full_name'] ?? '',
+            'name' => $customerData['name'] ?? $customerData['name'] ?? '',
             'email' => $email,
             'contact' => $customerData['contact_number'] ?? null,
             'password' => Hash::make('password'),
@@ -126,7 +126,7 @@ class CustomerGroupService
         // Update user fields if provided
         if ($customer->user) {
             $userUpdates = [];
-            $name = $data['name'] ?? $data['full_name'] ?? null;
+            $name = $data['name'] ?? $data['name'] ?? null;
             if (! empty($name)) {
                 $userUpdates['name'] = $name;
             }

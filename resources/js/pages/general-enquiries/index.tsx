@@ -6,6 +6,13 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -24,16 +31,17 @@ import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
+import CustomerConfirmationForm from '../customer/customer-confirmation-form';
+import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
+import EnquiryRemarksTimeline from '../enquiries/components/enquiry-remarks-timeline';
 import {
     EnquiryStatusAction,
     EnquiryStatusActionType,
     getAvailableEnquiryActions,
 } from '../enquiries/components/enquiry-status-action';
-import CustomerConfirmationForm from '../enquiries/customer-confirmation-form';
 import {
     statusColors,
     statusOptions,
-    type GeneralEnquiriesProps,
     type GeneralEnquiryDatatableSchema,
 } from '../enquiries/schema';
 import GeneralEnquiryForm from './form';
@@ -45,6 +53,12 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: index().url,
     },
 ];
+
+export interface GeneralEnquiriesProps {
+    data: {
+        enquiriesForDatatable: GeneralEnquiryDatatableSchema[];
+    };
+}
 
 const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
     createSelectColumn<GeneralEnquiryDatatableSchema>(),
@@ -70,13 +84,13 @@ const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
         filterFn: 'includesValue',
     },
     {
-        accessorKey: 'full_name',
+        accessorKey: 'name',
         header: 'Full Name',
         meta: { exportable: true },
     },
     {
-        accessorKey: 'mobile',
-        header: 'Mobile',
+        accessorKey: 'contact_number',
+        header: 'Contact Number',
         meta: { exportable: true },
     },
     {
@@ -108,6 +122,11 @@ const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
     {
         accessorKey: 'requires_mobility_assistance',
         header: 'Mobility Assistance',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'last_remark',
+        header: 'Last Remark',
         meta: { exportable: true },
     },
     {
@@ -162,6 +181,13 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
         contact: '',
     });
 
+    // Enquiry Remarks state
+    const [remarksDialogOpen, setRemarksDialogOpen] = useState(false);
+    const [remarksEnquiryId, setRemarksEnquiryId] = useState<
+        number | undefined
+    >();
+    const [remarksEnquiryName, setRemarksEnquiryName] = useState('');
+
     const handleOpenViewDialog = async (enquiryId: number) => {
         setViewDialogOpen(true);
         setIsLoadingData(true);
@@ -204,6 +230,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                 }
 
                                 if (row.enquiry_id) {
+                                    rowActions.push('add-remark');
                                     const available =
                                         getAvailableEnquiryActions(row.status);
                                     available.forEach((a) =>
@@ -231,7 +258,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Enquiry',
-                                            message: `Are you sure you want to delete enquiry from "${row?.original.full_name}"?`,
+                                            message: `Are you sure you want to delete enquiry from "${row?.original.name}"?`,
                                             confirmText: 'Delete',
                                             cancelText: 'Cancel',
                                             onConfirm: () => {
@@ -259,6 +286,17 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                         );
                                         setStatusDialogOpen(true);
                                     }
+
+                                    if (action === 'add-remark') {
+                                        setRemarksEnquiryId(
+                                            row?.original.enquiry_id ??
+                                                undefined,
+                                        );
+                                        setRemarksEnquiryName(
+                                            row?.original.name ?? '',
+                                        );
+                                        setRemarksDialogOpen(true);
+                                    }
                                 }
                             }}
                             onRowDoubleClick={(row) => {
@@ -273,6 +311,10 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
+                                    preferred_destinations: false,
+                                    preferred_travelling_date: false,
+                                    no_of_adults: false,
+                                    no_of_children: false,
                                     requires_mobility_assistance: false,
                                     updated_at: false,
                                 },
@@ -308,7 +350,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
 
             {/* View Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
                         <div className="flex items-center justify-between">
                             <div>
@@ -330,11 +372,36 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                             </div>
                         )}
                         {!isLoadingData && selectedData && (
-                            <GeneralEnquiryForm
-                                mode="view"
-                                initialData={selectedData}
-                                onCancel={() => setViewDialogOpen(false)}
-                            />
+                            <>
+                                {/* General Enquiry Details */}
+                                <GeneralEnquiryForm
+                                    mode="view"
+                                    initialData={selectedData}
+                                />
+
+                                {/* Enquiry Remarks Timeline */}
+                                {selectedData.enquiry_id && (
+                                    <Card className="mb-2">
+                                        <CardHeader>
+                                            <CardTitle className="text-lg">
+                                                Enquiry Remarks Timeline
+                                            </CardTitle>
+                                            <CardDescription>
+                                                View the history of remarks for
+                                                this enquiry.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <EnquiryRemarksTimeline
+                                                isOpen={true}
+                                                enquiryId={
+                                                    selectedData.enquiry_id
+                                                }
+                                            />
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </>
                         )}
                         {!isLoadingData && !selectedData && (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -360,9 +427,9 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                     );
                     setConfirmFormEnquiryId(enquiryId);
                     setConfirmFormPrefill({
-                        name: enquiry?.full_name ?? '',
+                        name: enquiry?.name ?? '',
                         email: enquiry?.email ?? '',
-                        contact: enquiry?.mobile ?? '',
+                        contact: enquiry?.contact_number ?? '',
                     });
                     setConfirmFormOpen(true);
                 }}
@@ -399,6 +466,14 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Enquiry Remarks Dialog */}
+            <EnquiryRemarksDialog
+                isOpen={remarksDialogOpen}
+                onClose={() => setRemarksDialogOpen(false)}
+                enquiryId={remarksEnquiryId}
+                enquiryName={remarksEnquiryName}
+            />
         </>
     );
 }

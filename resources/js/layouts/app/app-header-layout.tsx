@@ -11,7 +11,9 @@ export default function AppHeaderLayout({
     return (
         <AppShell>
             <AppHeader breadcrumbs={breadcrumbs} />
-            <AppContent>{children}</AppContent>
+            <AppContent className="not-dark:bg-gradient-to-b not-dark:from-white not-dark:to-orange-100">
+                {children}
+            </AppContent>
         </AppShell>
     );
 }

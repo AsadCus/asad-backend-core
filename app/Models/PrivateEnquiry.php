@@ -10,9 +10,6 @@ class PrivateEnquiry extends Model
 {
     protected $fillable = [
         'enquiry_id',
-        'full_name',
-        'contact_number',
-        'email',
         'passport_expiry_date',
         'departure_date',
         'return_date',

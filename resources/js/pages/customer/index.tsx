@@ -28,9 +28,8 @@ import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { useState } from 'react';
-import CustomerConfirmationForm from '../enquiries/customer-confirmation-form';
-import { type CustomerGroupSchema } from '../enquiries/schema';
 import { UserSchema } from '../masters/users/schema';
+import CustomerConfirmationForm from './customer-confirmation-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -38,6 +37,31 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: index().url,
     },
 ];
+
+export interface CustomerGroupMemberSchema {
+    id: number;
+    customer_id: number;
+    is_leader: boolean;
+    name: string;
+    email: string;
+    contact: string;
+    customer_number: string;
+    nric_number: string;
+}
+
+export interface CustomerGroupSchema {
+    id: number;
+    enquiry_id: number | null;
+    enquiry_type: string | null;
+    enquiry_status: string | null;
+    leader_name: string;
+    leader_email: string;
+    leader_contact: string;
+    leader_customer_number: string;
+    member_count: number;
+    created_at: string;
+    members: CustomerGroupMemberSchema[];
+}
 
 const columns: ColumnDef<UserSchema>[] = [
     createSelectColumn<UserSchema>(),

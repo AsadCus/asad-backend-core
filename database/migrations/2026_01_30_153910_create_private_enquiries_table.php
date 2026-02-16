@@ -14,9 +14,6 @@ return new class extends Migration
         Schema::create('private_enquiries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('enquiry_id')->nullable()->constrained('enquiries')->cascadeOnDelete();
-            $table->string('full_name');
-            $table->string('contact_number');
-            $table->string('email');
             $table->date('passport_expiry_date');
             $table->date('departure_date');
             $table->date('return_date');

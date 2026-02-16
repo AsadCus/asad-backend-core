@@ -2,10 +2,10 @@ import { z } from 'zod';
 
 export const privateEnquirySchema = z.object({
     id: z.number().optional(),
-    enquiry_id: z.number().optional(),
+    enquiry_id: z.number().nullable().optional(),
     status: z.string().optional(),
     status_label: z.string().optional(),
-    full_name: z.string().optional(),
+    name: z.string().optional(),
     contact_number: z.string().optional(),
     email: z.string().optional(),
     passport_expiry_date: z.string().optional(),
@@ -35,6 +35,8 @@ export const privateEnquirySchema = z.object({
     chronic_disease_details: z.string().nullable().optional(),
     need_wheelchair: z.string().optional(),
     other_remarks: z.string().nullable().optional(),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
 });
 
 export type PrivateEnquirySchema = z.infer<typeof privateEnquirySchema>;

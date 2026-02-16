@@ -6,6 +6,13 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -24,16 +31,17 @@ import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
+import CustomerConfirmationForm from '../customer/customer-confirmation-form';
+import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
+import EnquiryRemarksTimeline from '../enquiries/components/enquiry-remarks-timeline';
 import {
     EnquiryStatusAction,
     EnquiryStatusActionType,
     getAvailableEnquiryActions,
 } from '../enquiries/components/enquiry-status-action';
-import CustomerConfirmationForm from '../enquiries/customer-confirmation-form';
 import {
     statusColors,
     statusOptions,
-    type PrivateEnquiriesProps,
     type PrivateEnquiryDatatableSchema,
 } from '../enquiries/schema';
 import PrivateEnquiryForm from './form';
@@ -45,6 +53,12 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: index().url,
     },
 ];
+
+export interface PrivateEnquiriesProps {
+    data: {
+        enquiriesForDatatable: PrivateEnquiryDatatableSchema[];
+    };
+}
 
 const renderBoolean = (value: boolean) => (value ? 'Yes' : 'No');
 
@@ -68,7 +82,7 @@ const columns: ColumnDef<PrivateEnquiryDatatableSchema>[] = [
         filterFn: 'includesValue',
     },
     {
-        accessorKey: 'full_name',
+        accessorKey: 'name',
         header: 'Full Name',
         meta: { exportable: true },
     },
@@ -218,6 +232,11 @@ const columns: ColumnDef<PrivateEnquiryDatatableSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'last_remark',
+        header: 'Last Remark',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
@@ -269,6 +288,13 @@ export default function Index({ data }: PrivateEnquiriesProps) {
         contact: '',
     });
 
+    // Enquiry Remarks state
+    const [remarksDialogOpen, setRemarksDialogOpen] = useState(false);
+    const [remarksEnquiryId, setRemarksEnquiryId] = useState<
+        number | undefined
+    >();
+    const [remarksEnquiryName, setRemarksEnquiryName] = useState('');
+
     const handleOpenViewDialog = async (enquiryId: number) => {
         setViewDialogOpen(true);
         setIsLoadingData(true);
@@ -278,6 +304,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
             const response = await fetch(getForShow(enquiryId).url);
             if (!response.ok) throw new Error('Failed to fetch enquiry data');
             const enquiryData = await response.json();
+            console.log(enquiryData);
             setSelectedData(enquiryData);
         } catch (error) {
             console.error('Failed to fetch enquiry details:', error);
@@ -311,6 +338,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                                 }
 
                                 if (row.enquiry_id) {
+                                    rowActions.push('add-remark');
                                     const available =
                                         getAvailableEnquiryActions(row.status);
                                     available.forEach((a) =>
@@ -338,7 +366,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Enquiry',
-                                            message: `Are you sure you want to delete enquiry from "${row?.original.full_name}"?`,
+                                            message: `Are you sure you want to delete enquiry from "${row?.original.name}"?`,
                                             confirmText: 'Delete',
                                             cancelText: 'Cancel',
                                             onConfirm: () => {
@@ -366,6 +394,17 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                                         );
                                         setStatusDialogOpen(true);
                                     }
+
+                                    if (action === 'add-remark') {
+                                        setRemarksEnquiryId(
+                                            row?.original.enquiry_id ??
+                                                undefined,
+                                        );
+                                        setRemarksEnquiryName(
+                                            row?.original.name ?? '',
+                                        );
+                                        setRemarksDialogOpen(true);
+                                    }
                                 }
                             }}
                             onRowDoubleClick={(row) => {
@@ -380,7 +419,33 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
-                                    requires_mobility_assistance: false,
+                                    passport_expiry_date: false,
+                                    departure_date: false,
+                                    return_date: false,
+                                    no_of_pax: false,
+                                    no_of_children: false,
+                                    airline: false,
+                                    class: false,
+                                    require_mutawif: false,
+                                    require_umrah_course: false,
+                                    require_umrah_official: false,
+                                    makkah_or_madinah_first: false,
+                                    no_of_nights_makkah: false,
+                                    hotel_makkah: false,
+                                    meals_makkah: false,
+                                    no_of_nights_madinah: false,
+                                    hotel_madinah: false,
+                                    meals_madinah: false,
+                                    land_transfer: false,
+                                    add_on_speed_train: false,
+                                    require_meet_greet: false,
+                                    require_mutawiffah_ustazah_rawdah: false,
+                                    madinah_tour_with_mutawif: false,
+                                    makkah_tour_with_mutawif: false,
+                                    has_chronic_disease: false,
+                                    chronic_disease_details: false,
+                                    need_wheelchair: false,
+                                    other_remarks: false,
                                     updated_at: false,
                                 },
                             }}
@@ -415,7 +480,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
 
             {/* View Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
                         <div className="flex items-center justify-between">
                             <div>
@@ -437,11 +502,36 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                             </div>
                         )}
                         {!isLoadingData && selectedData && (
-                            <PrivateEnquiryForm
-                                mode="view"
-                                initialData={selectedData}
-                                onCancel={() => setViewDialogOpen(false)}
-                            />
+                            <>
+                                {/* Private Enquiry Details */}
+                                <PrivateEnquiryForm
+                                    mode="view"
+                                    initialData={selectedData}
+                                />
+
+                                {/* Enquiry Remarks Timeline */}
+                                {selectedData.enquiry_id && (
+                                    <Card className="mb-2">
+                                        <CardHeader>
+                                            <CardTitle className="text-lg">
+                                                Enquiry Remarks Timeline
+                                            </CardTitle>
+                                            <CardDescription>
+                                                View the history of remarks for
+                                                this enquiry.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <EnquiryRemarksTimeline
+                                                isOpen={true}
+                                                enquiryId={
+                                                    selectedData.enquiry_id
+                                                }
+                                            />
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </>
                         )}
                         {!isLoadingData && !selectedData && (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -467,7 +557,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                     );
                     setConfirmFormEnquiryId(enquiryId);
                     setConfirmFormPrefill({
-                        name: enquiry?.full_name ?? '',
+                        name: enquiry?.name ?? '',
                         email: enquiry?.email ?? '',
                         contact: enquiry?.contact_number ?? '',
                     });
@@ -506,6 +596,14 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Enquiry Remarks Dialog */}
+            <EnquiryRemarksDialog
+                isOpen={remarksDialogOpen}
+                onClose={() => setRemarksDialogOpen(false)}
+                enquiryId={remarksEnquiryId}
+                enquiryName={remarksEnquiryName}
+            />
         </>
     );
 }
