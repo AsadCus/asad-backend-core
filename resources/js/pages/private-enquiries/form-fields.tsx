@@ -1,5 +1,7 @@
+import { BooleanSelect } from '@/components/boolean-select';
 import { DatePickerField } from '@/components/date-picker';
 import { FieldRequirements } from '@/components/field-requirements';
+import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { Label } from '@/components/ui/label';
 import {
@@ -122,46 +124,6 @@ export const internalFieldOptions: PrivateEnquiryFieldOptions = {
         { value: 'Yes', label: 'Yes' },
     ],
 };
-
-function BooleanSelect({
-    id,
-    label,
-    hint,
-    value,
-    onChange,
-    disabled,
-}: {
-    id: string;
-    label: string;
-    hint: string;
-    value: boolean;
-    onChange: (v: boolean) => void;
-    disabled: boolean;
-}) {
-    return (
-        <div className="grid w-full items-center gap-3">
-            <Label htmlFor={id}>
-                {label}
-                <FieldRequirements hint={hint} />
-            </Label>
-            <div className="relative">
-                <Select
-                    value={value ? 'yes' : 'no'}
-                    onValueChange={(v) => onChange(v === 'yes')}
-                    disabled={disabled}
-                >
-                    <SelectTrigger id={id}>
-                        <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="no">No</SelectItem>
-                        <SelectItem value="yes">Yes</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-    );
-}
 
 export default function PrivateEnquiryFormFields({
     data,
@@ -447,30 +409,52 @@ export default function PrivateEnquiryFormFields({
                 <h3 className="text-xl font-semibold">Service Requirements</h3>
 
                 <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
-                    <BooleanSelect
-                        id="require_mutawif"
+                    <FormField
                         label="Require Mutawif (Guide)"
-                        hint="Select if you need a guide"
-                        value={!!data.require_mutawif}
-                        onChange={(v) => setData('require_mutawif', v)}
-                        disabled={disabled}
-                    />
-                    <BooleanSelect
-                        id="require_umrah_course"
+                        fieldRequirementsProps={{
+                            hint: 'Select if you need a guide',
+                        }}
+                        htmlFor={`require_mutawif`}
+                    >
+                        <BooleanSelect
+                            id="require_mutawif"
+                            value={!!data.require_mutawif}
+                            onChange={(v) => setData('require_mutawif', v)}
+                            disabled={disabled}
+                        />
+                    </FormField>
+
+                    <FormField
                         label="Require Umrah Course"
-                        hint="Select if you need an Umrah course"
-                        value={!!data.require_umrah_course}
-                        onChange={(v) => setData('require_umrah_course', v)}
-                        disabled={disabled}
-                    />
-                    <BooleanSelect
-                        id="require_umrah_official"
+                        fieldRequirementsProps={{
+                            hint: 'Select if you need an Umrah course',
+                        }}
+                        htmlFor={`require_umrah_course`}
+                    >
+                        <BooleanSelect
+                            id="require_umrah_course"
+                            value={!!data.require_umrah_course}
+                            onChange={(v) => setData('require_umrah_course', v)}
+                            disabled={disabled}
+                        />
+                    </FormField>
+
+                    <FormField
                         label="Require Umrah Official"
-                        hint="Select if you need an Umrah official"
-                        value={!!data.require_umrah_official}
-                        onChange={(v) => setData('require_umrah_official', v)}
-                        disabled={disabled}
-                    />
+                        fieldRequirementsProps={{
+                            hint: 'Select if you need an Umrah official',
+                        }}
+                        htmlFor={`require_umrah_official`}
+                    >
+                        <BooleanSelect
+                            id="require_umrah_official"
+                            value={!!data.require_umrah_official}
+                            onChange={(v) =>
+                                setData('require_umrah_official', v)
+                            }
+                            disabled={disabled}
+                        />
+                    </FormField>
                 </div>
             </div>
 
@@ -762,23 +746,35 @@ export default function PrivateEnquiryFormFields({
                         </div>
                     </div>
 
-                    <BooleanSelect
-                        id="add_on_speed_train"
+                    <FormField
                         label="Add-on: High Speed Train (Makkah-Madinah)"
-                        hint="Add high speed train service between Makkah and Madinah"
-                        value={!!data.add_on_speed_train}
-                        onChange={(v) => setData('add_on_speed_train', v)}
-                        disabled={disabled}
-                    />
+                        fieldRequirementsProps={{
+                            hint: 'Add high speed train service between Makkah and Madinah',
+                        }}
+                        htmlFor={`add_on_speed_train`}
+                    >
+                        <BooleanSelect
+                            id="add_on_speed_train"
+                            value={!!data.add_on_speed_train}
+                            onChange={(v) => setData('add_on_speed_train', v)}
+                            disabled={disabled}
+                        />
+                    </FormField>
 
-                    <BooleanSelect
-                        id="require_meet_greet"
+                    <FormField
                         label="Require Meet & Greet Service"
-                        hint="Get airport meet and greet service"
-                        value={!!data.require_meet_greet}
-                        onChange={(v) => setData('require_meet_greet', v)}
-                        disabled={disabled}
-                    />
+                        fieldRequirementsProps={{
+                            hint: 'Get airport meet and greet service',
+                        }}
+                        htmlFor={`require_meet_greet`}
+                    >
+                        <BooleanSelect
+                            id="require_meet_greet"
+                            value={!!data.require_meet_greet}
+                            onChange={(v) => setData('require_meet_greet', v)}
+                            disabled={disabled}
+                        />
+                    </FormField>
                 </div>
             </div>
 
@@ -787,36 +783,56 @@ export default function PrivateEnquiryFormFields({
                 <h3 className="text-xl font-semibold">Additional Services</h3>
 
                 <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
-                    <BooleanSelect
-                        id="require_mutawiffah_ustazah_rawdah"
+                    <FormField
                         label="Require Mutawiffah / Ustazah for Rawdah Visit"
-                        hint="Request female guide for Rawdah visit in Madinah"
-                        value={!!data.require_mutawiffah_ustazah_rawdah}
-                        onChange={(v) =>
-                            setData('require_mutawiffah_ustazah_rawdah', v)
-                        }
-                        disabled={disabled}
-                    />
+                        fieldRequirementsProps={{
+                            hint: 'Request female guide for Rawdah visit in Madinah',
+                        }}
+                        htmlFor={`require_mutawiffah_ustazah_rawdah`}
+                    >
+                        <BooleanSelect
+                            id="require_mutawiffah_ustazah_rawdah"
+                            value={!!data.require_mutawiffah_ustazah_rawdah}
+                            onChange={(v) =>
+                                setData('require_mutawiffah_ustazah_rawdah', v)
+                            }
+                            disabled={disabled}
+                        />
+                    </FormField>
 
-                    <BooleanSelect
-                        id="madinah_tour_with_mutawif"
+                    <FormField
                         label="Madinah Tour with Mutawif"
-                        hint="Include guided tour of Madinah"
-                        value={!!data.madinah_tour_with_mutawif}
-                        onChange={(v) =>
-                            setData('madinah_tour_with_mutawif', v)
-                        }
-                        disabled={disabled}
-                    />
+                        fieldRequirementsProps={{
+                            hint: 'Include guided tour of Madinah',
+                        }}
+                        htmlFor={`madinah_tour_with_mutawif`}
+                    >
+                        <BooleanSelect
+                            id="madinah_tour_with_mutawif"
+                            value={!!data.madinah_tour_with_mutawif}
+                            onChange={(v) =>
+                                setData('madinah_tour_with_mutawif', v)
+                            }
+                            disabled={disabled}
+                        />
+                    </FormField>
 
-                    <BooleanSelect
-                        id="makkah_tour_with_mutawif"
+                    <FormField
                         label="Makkah Tour with Mutawif"
-                        hint="Include guided tour of Makkah"
-                        value={!!data.makkah_tour_with_mutawif}
-                        onChange={(v) => setData('makkah_tour_with_mutawif', v)}
-                        disabled={disabled}
-                    />
+                        fieldRequirementsProps={{
+                            hint: 'Include guided tour of Makkah',
+                        }}
+                        htmlFor={`makkah_tour_with_mutawif`}
+                    >
+                        <BooleanSelect
+                            id="makkah_tour_with_mutawif"
+                            value={!!data.makkah_tour_with_mutawif}
+                            onChange={(v) =>
+                                setData('makkah_tour_with_mutawif', v)
+                            }
+                            disabled={disabled}
+                        />
+                    </FormField>
                 </div>
             </div>
 

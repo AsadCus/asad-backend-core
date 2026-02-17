@@ -36,7 +36,8 @@ export type ActionType =
     | 'enquiry-status-contacted'
     | 'enquiry-status-negotiating'
     | 'enquiry-status-confirmed'
-    | 'add-remark';
+    | 'add-remark'
+    | 'copy-public-edit-link';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

@@ -17,6 +17,7 @@ class Enquiry extends Model
         'contact_number',
         'email',
         'created_by',
+        'package_id',
     ];
 
     protected function casts(): array
@@ -54,6 +55,11 @@ class Enquiry extends Model
     public function latestRemark(): HasOne
     {
         return $this->hasOne(EnquiryRemark::class, 'enquiry_id')->latestOfMany();
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'package_id');
     }
 
     /**

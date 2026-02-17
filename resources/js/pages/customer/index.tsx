@@ -24,12 +24,14 @@ import {
     index,
     show,
 } from '@/routes/customer';
-import { SharedData, type BreadcrumbItem } from '@/types';
+import { generateEditLink, show as showGroup } from '@/routes/customer-groups';
+import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { useState } from 'react';
 import { UserSchema } from '../masters/users/schema';
-import CustomerConfirmationForm from './customer-confirmation-form';
+import CustomerConfirmationForm from './form';
+import type { CustomerGroupFormSchema } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -168,9 +170,10 @@ const columns: ColumnDef<UserSchema>[] = [
 
 interface CustomerProps {
     data: UserSchema[];
-    dataBranch: [];
-    dataSales: [];
+    dataBranch: OptionType[];
+    dataSales: OptionType[];
     dataGroups: CustomerGroupSchema[];
+    packageOptions?: OptionType[];
 }
 
 const groupColumns: ColumnDef<CustomerGroupSchema>[] = [
@@ -326,6 +329,7 @@ export default function Customer({
     dataBranch,
     dataSales,
     dataGroups,
+    packageOptions = [],
 }: CustomerProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
@@ -340,6 +344,36 @@ export default function Customer({
 
     // Standalone Customer Group creation dialog
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
+
+    // Group view/edit dialog
+    const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+    const [groupDialogMode, setGroupDialogMode] = useState<
+        'view' | 'edit' | 'create'
+    >('view');
+    const [groupDialogData, setGroupDialogData] =
+        useState<CustomerGroupFormSchema | null>(null);
+    const [isLoadingGroup, setIsLoadingGroup] = useState(false);
+
+    const handleOpenGroupDialog = async (
+        groupId: number,
+        mode: 'view' | 'edit',
+    ) => {
+        setGroupDialogMode(mode);
+        setGroupDialogOpen(true);
+        setIsLoadingGroup(true);
+        setGroupDialogData(null);
+
+        try {
+            const response = await fetch(showGroup(groupId).url);
+            if (!response.ok) throw new Error('Failed to fetch group data');
+            const data = await response.json();
+            setGroupDialogData(data);
+        } catch (error) {
+            console.error('Failed to fetch group details:', error);
+        } finally {
+            setIsLoadingGroup(false);
+        }
+    };
 
     return (
         <>
@@ -491,11 +525,63 @@ export default function Customer({
                                     actions={actions}
                                     addButtonText="Create Customer Group"
                                     enableExpand
+                                    getRowActions={() => [
+                                        'copy-public-edit-link',
+                                    ]}
                                     renderSubComponent={renderGroupSubComponent}
                                     url={index().url}
-                                    onAction={(action) => {
+                                    onAction={(action, row) => {
                                         if (action === 'add') {
                                             setCreateGroupOpen(true);
+                                        }
+
+                                        const groupId = row?.original.id;
+                                        if (groupId !== undefined) {
+                                            if (action === 'view') {
+                                                handleOpenGroupDialog(
+                                                    groupId,
+                                                    'view',
+                                                );
+                                            } else if (action === 'edit') {
+                                                handleOpenGroupDialog(
+                                                    groupId,
+                                                    'edit',
+                                                );
+                                            } else if (
+                                                action ===
+                                                'copy-public-edit-link'
+                                            ) {
+                                                fetch(
+                                                    generateEditLink(groupId)
+                                                        .url,
+                                                )
+                                                    .then((res) => res.json())
+                                                    .then(
+                                                        (data: {
+                                                            url: string;
+                                                        }) => {
+                                                            navigator.clipboard.writeText(
+                                                                data.url,
+                                                            );
+                                                            alert(
+                                                                'Public edit link copied to clipboard!',
+                                                            );
+                                                        },
+                                                    )
+                                                    .catch(() => {
+                                                        alert(
+                                                            'Failed to generate public link.',
+                                                        );
+                                                    });
+                                            }
+                                        }
+                                    }}
+                                    onRowDoubleClick={(row) => {
+                                        if (row.id) {
+                                            handleOpenGroupDialog(
+                                                row.id,
+                                                'view',
+                                            );
                                         }
                                     }}
                                     initialState={{
@@ -530,10 +616,10 @@ export default function Customer({
 
             {/* Standalone Customer Group Creation Dialog */}
             <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
-                        <DialogTitle>Create Customer Group</DialogTitle>
-                        <DialogDescription>
+                        <DialogTitle>Customer Confirmation Form</DialogTitle>
+                        <DialogDescription className="hidden">
                             Create a new customer group with a leader and
                             participants.
                         </DialogDescription>
@@ -541,12 +627,56 @@ export default function Customer({
 
                     <div className="h-full w-full flex-1 overflow-y-auto">
                         <CustomerConfirmationForm
+                            packageOptions={packageOptions}
                             onSuccess={() => {
                                 setCreateGroupOpen(false);
                                 router.reload();
                             }}
                             onCancel={() => setCreateGroupOpen(false)}
                         />
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Customer Group View/Edit Dialog */}
+            <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {groupDialogMode === 'view'
+                                ? 'View Customer Group'
+                                : 'Edit Customer Group'}
+                        </DialogTitle>
+                        <DialogDescription className="hidden">
+                            {groupDialogMode === 'view'
+                                ? 'View customer group details.'
+                                : 'Edit customer group details.'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="h-full w-full flex-1 overflow-y-auto">
+                        {isLoadingGroup && (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                                Loading group details...
+                            </div>
+                        )}
+                        {!isLoadingGroup && groupDialogData && (
+                            <CustomerConfirmationForm
+                                mode={groupDialogMode}
+                                packageOptions={packageOptions}
+                                initialData={groupDialogData}
+                                onSuccess={() => {
+                                    setGroupDialogOpen(false);
+                                    router.reload();
+                                }}
+                                onCancel={() => setGroupDialogOpen(false)}
+                            />
+                        )}
+                        {!isLoadingGroup && !groupDialogData && (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                                Failed to load group details.
+                            </div>
+                        )}
                     </div>
                 </DialogContent>
             </Dialog>

@@ -11,6 +11,7 @@ use App\Services\CustomerGroupService;
 use App\Services\CustomerService;
 use App\Services\EducationLevelService;
 use App\Services\MaidService;
+use App\Services\PackageService;
 use App\Services\ReligionService;
 use App\Services\SalesService;
 use App\Services\UserService;
@@ -22,24 +23,16 @@ use Inertia\Inertia;
 class CustomerController extends Controller
 {
     protected $customerService;
-
     protected $branchService;
-
     protected $salesService;
-
     protected $countryService;
-
     protected $userService;
-
     protected $userRule;
-
     protected $religionService;
-
     protected $educationLevelService;
-
     protected $maidService;
-
     protected $customerGroupService;
+    protected $packageService;
 
     public function __construct(
         CustomerService $customerService,
@@ -52,6 +45,7 @@ class CustomerController extends Controller
         EducationLevelService $educationLevelService,
         MaidService $maidService,
         CustomerGroupService $customerGroupService,
+        PackageService $packageService,
     ) {
         $this->customerService = $customerService;
         $this->branchService = $branchService;
@@ -63,6 +57,7 @@ class CustomerController extends Controller
         $this->educationLevelService = $educationLevelService;
         $this->maidService = $maidService;
         $this->customerGroupService = $customerGroupService;
+        $this->packageService = $packageService;
 
         $this->middleware('permission:customer view', ['only' => ['index', 'show']]);
         $this->middleware('permission:customer create', ['only' => ['create', 'store']]);
@@ -77,6 +72,7 @@ class CustomerController extends Controller
         $dataSales = $this->salesService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
         $dataGroups = $this->customerGroupService->getForGroupedIndex();
+        $packageOptions = $this->packageService->getForFilter();
 
         return Inertia::render('customer/index', [
             'data' => $data,
@@ -84,6 +80,7 @@ class CustomerController extends Controller
             'dataSales' => $dataSales,
             'dataCountry' => $dataCountry,
             'dataGroups' => $dataGroups,
+            'packageOptions' => $packageOptions,
         ]);
     }
 

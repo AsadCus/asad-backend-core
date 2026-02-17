@@ -31,7 +31,7 @@ import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
-import CustomerConfirmationForm from '../customer/customer-confirmation-form';
+import CustomerConfirmationForm from '../customer/form';
 import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
 import EnquiryRemarksTimeline from '../enquiries/components/enquiry-remarks-timeline';
 import {
@@ -304,7 +304,6 @@ export default function Index({ data }: PrivateEnquiriesProps) {
             const response = await fetch(getForShow(enquiryId).url);
             if (!response.ok) throw new Error('Failed to fetch enquiry data');
             const enquiryData = await response.json();
-            console.log(enquiryData);
             setSelectedData(enquiryData);
         } catch (error) {
             console.error('Failed to fetch enquiry details:', error);

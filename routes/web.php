@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\EnquiryRemarkController;
@@ -39,12 +40,24 @@ Route::get('/', function () {
 })->name('home');
 
 // Public General Enquiry Routes (No Authentication Required)
-Route::get('general-enquiries/public/form', [GeneralEnquiryController::class, 'publicForm'])->name('general-enquiries.public.form');
+Route::get('general-enquiries/public-create', [GeneralEnquiryController::class, 'publicForm'])->name('general-enquiries.public.form');
 Route::post('general-enquiries/public/store', [GeneralEnquiryController::class, 'storePublic'])->name('general-enquiries.public.store');
 
 // Public Private Enquiry Routes (No Authentication Required)
-Route::get('private-enquiries/public/form', [PrivateEnquiryController::class, 'publicForm'])->name('private-enquiries.public.form');
+Route::get('private-enquiries/public-create', [PrivateEnquiryController::class, 'publicForm'])->name('private-enquiries.public.form');
 Route::post('private-enquiries/public/store', [PrivateEnquiryController::class, 'storePublic'])->name('private-enquiries.public.store');
+
+// Public Customer Group Form (Signed URL - No Authentication Required)
+Route::get('customer-groups/public/{enquiryId}', [CustomerGroupController::class, 'publicForm'])->name('customer-groups.public.form');
+Route::post('customer-groups/public/{enquiryId}', [CustomerGroupController::class, 'publicStore'])->name('customer-groups.public.store');
+
+// Public Customer Group Create (Standalone - No Enquiry)
+Route::get('customer-groups/public-create', [CustomerGroupController::class, 'publicCreateForm'])->name('customer-groups.public.create.form');
+Route::post('customer-groups/public-create', [CustomerGroupController::class, 'publicCreateStore'])->name('customer-groups.public.create.store');
+
+// Public Customer Group Edit (Encrypted Group ID)
+Route::get('customer-groups/public-edit/{encryptedId}', [CustomerGroupController::class, 'publicEditForm'])->name('customer-groups.public.edit.form');
+Route::post('customer-groups/public-edit/{encryptedId}', [CustomerGroupController::class, 'publicEditStore'])->name('customer-groups.public.edit.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -176,6 +189,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('enquiries/search-customers', [EnquiryController::class, 'searchCustomers'])->name('enquiries.search-customers');
     Route::get('enquiries/available-enquiries', [EnquiryController::class, 'availableEnquiries'])->name('enquiries.available-enquiries');
     Route::get('enquiries/list-customers', [EnquiryController::class, 'listCustomers'])->name('enquiries.list-customers');
+    Route::put('enquiries/{id}/package', [EnquiryController::class, 'updatePackage'])->name('enquiries.update-package');
+
+    // Customer Groups
+    Route::get('customer-groups/{id}', [CustomerGroupController::class, 'show'])->name('customer-groups.show');
+    Route::put('customer-groups/{id}', [CustomerGroupController::class, 'update'])->name('customer-groups.update');
+    Route::get('customer-groups/{enquiryId}/generate-link', [CustomerGroupController::class, 'generatePublicLink'])->name('customer-groups.generate-link');
+    Route::get('customer-groups/{groupId}/generate-edit-link', [CustomerGroupController::class, 'generatePublicEditLink'])->name('customer-groups.generate-edit-link');
 
     // Enquiry Remarks
     Route::get('enquiries/{enquiryId}/remarks', [EnquiryRemarkController::class, 'index'])->name('enquiry-remarks.index');

@@ -7,7 +7,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PrivateEnquiryFormFields from '../form-fields';
@@ -28,6 +28,9 @@ export default function PrivateEnquiryForm({
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
     // const isCreate = mode === 'create';
+
+    const title = 'Private Enquiry Form';
+
     const [isSubmitted, setIsSubmitted] = useState(false);
 
     // Force light mode for public enquiry form
@@ -146,6 +149,8 @@ export default function PrivateEnquiryForm({
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
+            <Head title={title} />
+
             <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
                 <CardHeader className="pb-6">
                     <CardTitle className="text-4xl font-light">

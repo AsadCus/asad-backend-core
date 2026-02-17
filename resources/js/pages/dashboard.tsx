@@ -3,6 +3,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { IncomeByMonthChart } from '@/components/income-by-month-chart';
 import { createSelectColumn } from '@/components/select-column';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -34,14 +35,14 @@ import {
     salesPeriodOptions,
 } from '@/routes/dashboard';
 import { index as enquiriesIndex } from '@/routes/enquiries';
-import { show as generalEnquiryShow } from '@/routes/general-enquiries';
+import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
 import {
     create as maidCreate,
     destroy as maidDestroy,
     edit as maidEdit,
     show as maidShow,
 } from '@/routes/maid';
-import { show as privateEnquiryShow } from '@/routes/private-enquiries';
+import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
 import {
     SharedData,
     ValueNumberOptionType,
@@ -105,6 +106,9 @@ interface EnquiryRowType {
     contact: string;
     email: string;
     child_id: number | null;
+    package_id?: number | null;
+    package_name?: string | null;
+    latest_remark?: string;
     created_at: string;
 }
 
@@ -720,87 +724,132 @@ export default function Dashboard({ data }: DashboardProps) {
                             <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable
                                     columns={[
+                                        createSelectColumn<EnquiryRowType>(),
+                                        {
+                                            accessorKey: 'id',
+                                            header: 'ID',
+                                            meta: { exportable: true },
+                                        },
                                         {
                                             accessorKey: 'type',
                                             header: 'Type',
-                                            cell: ({ row }) => (
-                                                <span
-                                                    className={`rounded-full px-2 py-1 text-sm ${
-                                                        row.original.type ===
-                                                        'General'
-                                                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                                            : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                                    }`}
-                                                >
-                                                    {row.original.type}
-                                                </span>
-                                            ),
+                                            meta: { exportable: true },
+                                            cell: ({ row }) => {
+                                                const type = row.original.type;
+                                                const color =
+                                                    type === 'General'
+                                                        ? 'bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400'
+                                                        : 'bg-purple-500/10 text-purple-700 hover:bg-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400';
+                                                return (
+                                                    <Badge
+                                                        className={`${color} rounded-full px-3 py-1 text-base`}
+                                                    >
+                                                        {type}
+                                                    </Badge>
+                                                );
+                                            },
                                         },
                                         {
                                             accessorKey: 'status',
                                             header: 'Status',
+                                            meta: { exportable: true },
                                             cell: ({ row }) => {
+                                                const status =
+                                                    row.original.status;
+                                                const label =
+                                                    row.original.status_label;
                                                 const statusColors: Record<
                                                     string,
                                                     string
                                                 > = {
                                                     new_lead:
-                                                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+                                                        'bg-gray-500/10 text-gray-700 hover:bg-gray-500/20 dark:bg-gray-500/20 dark:text-gray-400',
                                                     contacted:
-                                                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                                                        'bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 dark:bg-yellow-500/20 dark:text-yellow-400',
                                                     negotiating:
-                                                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                                                        'bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400',
                                                     confirmed:
-                                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                                                        'bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:bg-green-500/20 dark:text-green-400',
                                                 };
                                                 return (
-                                                    <span
-                                                        className={`rounded-full px-2 py-1 text-sm ${statusColors[row.original.status] ?? ''}`}
+                                                    <Badge
+                                                        className={`${statusColors[status] ?? ''} rounded-full px-3 py-1 text-base`}
                                                     >
-                                                        {
-                                                            row.original
-                                                                .status_label
-                                                        }
-                                                    </span>
+                                                        {label}
+                                                    </Badge>
                                                 );
                                             },
                                         },
                                         {
                                             accessorKey: 'name',
                                             header: 'Full Name',
+                                            meta: { exportable: true },
                                         },
                                         {
                                             accessorKey: 'contact',
                                             header: 'Contact',
+                                            meta: { exportable: true },
                                         },
                                         {
                                             accessorKey: 'email',
                                             header: 'Email',
+                                            meta: { exportable: true },
+                                        },
+                                        {
+                                            accessorKey: 'package_name',
+                                            header: 'Package',
+                                            meta: { exportable: true },
+                                            cell: ({ row }) => {
+                                                const name =
+                                                    row.original.package_name;
+                                                if (!name)
+                                                    return (
+                                                        <span className="text-muted-foreground">
+                                                            -
+                                                        </span>
+                                                    );
+                                                return (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="rounded-full px-3 py-1 text-base"
+                                                    >
+                                                        {name}
+                                                    </Badge>
+                                                );
+                                            },
+                                        },
+                                        {
+                                            accessorKey: 'latest_remark',
+                                            header: 'Latest Remark',
+                                            meta: { exportable: true },
                                         },
                                         {
                                             accessorKey: 'created_at',
                                             header: 'Created At',
+                                            meta: { exportable: true },
                                         },
                                     ]}
                                     data={data.enquiries}
-                                    actions={['view']}
+                                    actions={['view', 'edit']}
                                     url={enquiriesIndex().url}
                                     onAction={(action, row) => {
                                         const enquiry = row?.original;
                                         if (!enquiry) return;
                                         if (action === 'view') {
+                                            router.get(enquiriesIndex().url);
+                                        } else if (action === 'edit') {
                                             if (
                                                 enquiry.type === 'General' &&
                                                 enquiry.child_id
                                             ) {
                                                 router.get(
-                                                    generalEnquiryShow(
+                                                    generalEnquiryEdit(
                                                         enquiry.child_id,
                                                     ).url,
                                                 );
                                             } else if (enquiry.child_id) {
                                                 router.get(
-                                                    privateEnquiryShow(
+                                                    privateEnquiryEdit(
                                                         enquiry.child_id,
                                                     ).url,
                                                 );
@@ -808,6 +857,10 @@ export default function Dashboard({ data }: DashboardProps) {
                                         }
                                     }}
                                     initialState={{
+                                        columnVisibility: {
+                                            id: false,
+                                            package_name: false,
+                                        },
                                         pagination: {
                                             pageIndex: 0,
                                             pageSize: 10,

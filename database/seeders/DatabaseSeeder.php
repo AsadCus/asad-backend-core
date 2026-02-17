@@ -30,10 +30,11 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             UserSeeder::class,
 
-            EnquirySeeder::class,
-
             // Travel Management
             PackageSeeder::class,
+
+            EnquirySeeder::class,
+
             ManifestSeeder::class,
         ]);
     }

@@ -31,7 +31,7 @@ import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
-import CustomerConfirmationForm from '../customer/customer-confirmation-form';
+import CustomerConfirmationForm from '../customer/form';
 import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
 import EnquiryRemarksTimeline from '../enquiries/components/enquiry-remarks-timeline';
 import {

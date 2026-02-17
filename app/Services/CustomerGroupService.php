@@ -29,6 +29,10 @@ class CustomerGroupService
             $group = CustomerGroup::create([
                 'enquiry_id' => $enquiryId,
                 'created_by' => auth()->id(),
+                'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
+                'package_room_type' => $data['package_room_type'] ?? null,
+                'package_category' => $data['package_category'] ?? null,
+                'date_of_application' => $data['date_of_application'] ?? null,
             ]);
 
             // Process members (unified list with is_leader flag)
@@ -62,6 +66,7 @@ class CustomerGroupService
     private function findOrCreateCustomer(array $customerData): Customer
     {
         $email = $customerData['email'] ?? null;
+        $biodata = $this->extractBiodata($customerData);
 
         // Try to find existing user by email
         if ($email) {
@@ -75,11 +80,11 @@ class CustomerGroupService
 
             if ($existingUser) {
                 // User exists but no customer record, create one
-                $customer = Customer::create([
+                $customer = Customer::create(array_merge([
                     'user_id' => $existingUser->id,
                     'nric_number' => $customerData['nric_number'] ?? null,
                     'address' => $customerData['address'] ?? null,
-                ]);
+                ], $biodata));
 
                 return $customer;
             }
@@ -87,7 +92,7 @@ class CustomerGroupService
 
         // Create new user + customer
         $user = User::create([
-            'name' => $customerData['name'] ?? $customerData['name'] ?? '',
+            'name' => $customerData['name'] ?? '',
             'email' => $email,
             'contact' => $customerData['contact_number'] ?? null,
             'password' => Hash::make('password'),
@@ -95,13 +100,46 @@ class CustomerGroupService
 
         $user->assignRole('customer');
 
-        $customer = Customer::create([
+        $customer = Customer::create(array_merge([
             'user_id' => $user->id,
             'nric_number' => $customerData['nric_number'] ?? null,
             'address' => $customerData['address'] ?? null,
-        ]);
+        ], $biodata));
 
         return $customer;
+    }
+
+    /**
+     * Extract biodata fields from customer data array.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function extractBiodata(array $data): array
+    {
+        $fields = [
+            'nationality',
+            'passport_number',
+            'passport_issue_date',
+            'passport_expiry_date',
+            'passport_place_of_issue',
+            'gender',
+            'marital_status',
+            'date_of_birth',
+            'place_of_birth',
+            'first_time_umrah',
+            'has_chronic_disease',
+            'chronic_disease_details',
+        ];
+
+        $biodata = [];
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $data)) {
+                $biodata[$field] = $data[$field];
+            }
+        }
+
+        return $biodata;
     }
 
     /**
@@ -112,11 +150,27 @@ class CustomerGroupService
     private function updateCustomerIfNeeded(Customer $customer, array $data): void
     {
         $customerUpdates = [];
-        if (! empty($data['nric_number'])) {
-            $customerUpdates['nric_number'] = $data['nric_number'];
-        }
-        if (! empty($data['address'])) {
-            $customerUpdates['address'] = $data['address'];
+        $customerFields = [
+            'nric_number',
+            'address',
+            'nationality',
+            'passport_number',
+            'passport_issue_date',
+            'passport_expiry_date',
+            'passport_place_of_issue',
+            'gender',
+            'marital_status',
+            'date_of_birth',
+            'place_of_birth',
+            'first_time_umrah',
+            'has_chronic_disease',
+            'chronic_disease_details',
+        ];
+
+        foreach ($customerFields as $field) {
+            if (array_key_exists($field, $data) && $data[$field] !== null && $data[$field] !== '') {
+                $customerUpdates[$field] = $data[$field];
+            }
         }
 
         if (! empty($customerUpdates)) {
@@ -126,9 +180,8 @@ class CustomerGroupService
         // Update user fields if provided
         if ($customer->user) {
             $userUpdates = [];
-            $name = $data['name'] ?? $data['name'] ?? null;
-            if (! empty($name)) {
-                $userUpdates['name'] = $name;
+            if (! empty($data['name'])) {
+                $userUpdates['name'] = $data['name'];
             }
             if (! empty($data['contact_number'])) {
                 $userUpdates['contact'] = $data['contact_number'];
@@ -247,5 +300,94 @@ class CustomerGroupService
                 ];
             })
             ->all();
+    }
+
+    /**
+     * Get a customer group with full member details for edit/show form.
+     *
+     * @return array<string, mixed>
+     */
+    public function getForEditShow(int $id): array
+    {
+        $group = CustomerGroup::with(['members.customer.user', 'enquiry.package', 'package'])
+            ->findOrFail($id);
+
+        return [
+            'id' => $group->id,
+            'enquiry_id' => $group->enquiry_id,
+            'package_id' => $group->package_id,
+            'package_room_type' => $group->package_room_type,
+            'package_category' => $group->package_category,
+            'date_of_application' => $group->date_of_application_formatted,
+            'members' => $group->members->map(function (CustomerGroupMember $member) {
+                $customer = $member->customer;
+                $user = $customer?->user;
+
+                return [
+                    'member_id' => $member->id,
+                    'customer_id' => $customer?->id,
+                    'is_leader' => $member->is_leader,
+                    'name' => $user?->name ?? '',
+                    'email' => $user?->email ?? '',
+                    'contact_number' => $user?->contact ?? '',
+                    'nric_number' => $customer?->nric_number ?? '',
+                    'address' => $customer?->address ?? '',
+                    'nationality' => $customer?->nationality ?? '',
+                    'passport_number' => $customer?->passport_number ?? '',
+                    'passport_issue_date' => $customer?->passport_issue_date_formatted ?? '',
+                    'passport_expiry_date' => $customer?->passport_expiry_date_formatted ?? '',
+                    'passport_place_of_issue' => $customer?->passport_place_of_issue ?? '',
+                    'gender' => $customer?->gender ?? '',
+                    'marital_status' => $customer?->marital_status ?? '',
+                    'date_of_birth' => $customer?->date_of_birth_formatted ?? '',
+                    'place_of_birth' => $customer?->place_of_birth ?? '',
+                    'first_time_umrah' => $customer?->first_time_umrah ?? false,
+                    'has_chronic_disease' => $customer?->has_chronic_disease ?? false,
+                    'chronic_disease_details' => $customer?->chronic_disease_details ?? '',
+                ];
+            })->all(),
+        ];
+    }
+
+    /**
+     * Update a customer group and its members.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function updateGroup(int $id, array $data): CustomerGroup
+    {
+        return DB::transaction(function () use ($id, $data) {
+            $group = CustomerGroup::findOrFail($id);
+
+            $group->update([
+                'package_id' => $data['package_id'] ?? $group->package_id,
+                'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
+                'package_category' => $data['package_category'] ?? $group->package_category,
+                'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
+            ]);
+
+            // Remove existing members
+            $group->members()->delete();
+
+            // Re-create members
+            foreach ($data['members'] as $memberData) {
+                $customer = $this->findOrCreateCustomer($memberData);
+                CustomerGroupMember::create([
+                    'customer_group_id' => $group->id,
+                    'customer_id' => $customer->id,
+                    'is_leader' => (bool) ($memberData['is_leader'] ?? false),
+                ]);
+            }
+
+            activity()
+                ->performedOn($group)
+                ->withProperties([
+                    'subject_type' => 'CustomerGroup',
+                    'subject_id' => $group->id,
+                ])
+                ->log('Customer group #' . $group->id . ' updated');
+
+            return $group->load('members.customer.user');
+        });
     }
 }

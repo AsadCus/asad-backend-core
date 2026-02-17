@@ -56,7 +56,8 @@ class PackageService
         return Package::get()->map(function ($q) {
             return [
                 'value' => $q->id,
-                'label' => $q->group_number . ' - ' . $q->name,
+                // 'label' => $q->group_number . ' - ' . $q->name,
+                'label' => $q->name,
             ];
         });
     }

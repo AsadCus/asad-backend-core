@@ -109,6 +109,12 @@ export function ActionMenuItems<TData>({
                 <Item onClick={() => onAction?.('edit', row)}>Edit</Item>
             )}
 
+            {actions.includes('copy-public-edit-link') && (
+                <Item onClick={() => onAction?.('copy-public-edit-link', row)}>
+                    Copy Public Edit Link
+                </Item>
+            )}
+
             {actions.includes('download') && (
                 <Item onClick={() => onAction?.('download', row)}>
                     Download PDF

@@ -22,8 +22,9 @@ class EnquiryService
     public function getForDataTable(array $filters = []): array
     {
         return Enquiry::query()
-            ->when($filters['from_date'] ?? null, fn($q, $v) => $q->whereDate('created_at', '>=', $v))
-            ->when($filters['to_date'] ?? null, fn($q, $v) => $q->whereDate('created_at', '<=', $v))
+            ->with('package')
+            ->when($filters['from_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
+            ->when($filters['to_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('name', 'like', "%{$value}%")
@@ -31,8 +32,8 @@ class EnquiryService
                         ->orWhere('contact_number', 'like', "%{$value}%");
                 });
             })
-            ->when($filters['status'] ?? null, fn($q, $v) => $q->where('status', $v))
-            ->when($filters['type'] ?? null, fn($q, $v) => $q->where('type', $v))
+            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('type', $v))
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($enquiry) {
@@ -45,6 +46,8 @@ class EnquiryService
                     'contact' => $enquiry->contact_number,
                     'email' => $enquiry->email,
                     'child_id' => $this->getChildId($enquiry),
+                    'package_id' => $enquiry->package_id,
+                    'package_name' => $enquiry->package?->name ?? null,
                     'latest_remark' => $enquiry->latestRemark?->remark ?? '-',
                     'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
                 ];
@@ -130,6 +133,26 @@ class EnquiryService
     }
 
     /**
+     * Update the package_id on an enquiry.
+     */
+    public function updatePackage(int $id, ?int $packageId): Enquiry
+    {
+        $enquiry = Enquiry::findOrFail($id);
+        $enquiry->update(['package_id' => $packageId]);
+
+        activity()
+            ->performedOn($enquiry)
+            ->withProperties([
+                'subject_type' => 'Enquiry',
+                'subject_id' => $enquiry->id,
+                'package_id' => $packageId,
+            ])
+            ->log("Enquiry #{$enquiry->id} package updated");
+
+        return $enquiry->fresh();
+    }
+
+    /**
      * Get confirmed enquiries that don't have a customer group yet.
      *
      * @return array<int, array<string, mixed>>
@@ -141,7 +164,7 @@ class EnquiryService
             ->whereDoesntHave('customerGroup')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(fn(Enquiry $enquiry) => [
+            ->map(fn (Enquiry $enquiry) => [
                 'value' => $enquiry->id,
                 'label' => "#{$enquiry->id} - {$enquiry->name} ({$enquiry->email})",
             ])

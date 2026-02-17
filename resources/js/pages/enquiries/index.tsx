@@ -26,7 +26,7 @@ import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
-import CustomerConfirmationForm from '../customer/customer-confirmation-form';
+import CustomerConfirmationForm from '../customer/form';
 import GeneralEnquiryForm from '../general-enquiries/form';
 import PrivateEnquiryForm from '../private-enquiries/form';
 import EnquiryRemarksDialog from './components/enquiry-remarks-dialog';
@@ -55,6 +55,7 @@ export interface EnquiriesProps {
     data: {
         enquiriesForDatatable: EnquirySchema[];
         statusOptions: OptionType[];
+        packageOptions: OptionType[];
     };
 }
 
@@ -112,6 +113,23 @@ const columns: ColumnDef<EnquirySchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'package_name',
+        header: 'Package',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const name = row.original.package_name;
+            if (!name) return <span className="text-muted-foreground">-</span>;
+            return (
+                <Badge
+                    variant="outline"
+                    className="rounded-full px-3 py-1 text-base"
+                >
+                    {name}
+                </Badge>
+            );
+        },
+    },
+    {
         accessorKey: 'latest_remark',
         header: 'Latest Remark',
         meta: { exportable: true },
@@ -125,7 +143,7 @@ const columns: ColumnDef<EnquirySchema>[] = [
 ];
 
 export default function EnquiriesIndex({ data }: EnquiriesProps) {
-    const { enquiriesForDatatable } = data;
+    const { enquiriesForDatatable, packageOptions } = data;
 
     const actions: ActionType[] = ['view', 'edit'];
 
@@ -216,6 +234,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
                                 if (row.id) {
                                     rowActions.push('add-remark');
+
                                     const available =
                                         getAvailableEnquiryActions(row.status);
                                     available.forEach((a) =>
@@ -291,6 +310,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
+                                    package_name: false,
                                 },
                             }}
                             renderFilter={(table) => (
@@ -465,6 +485,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                             prefillName={confirmFormPrefill.name}
                             prefillEmail={confirmFormPrefill.email}
                             prefillContact={confirmFormPrefill.contact}
+                            packageOptions={packageOptions}
                             onSuccess={() => {
                                 setConfirmFormOpen(false);
                                 router.reload();

@@ -54,20 +54,35 @@ class UserSeeder extends Seeder
             $user->assignRole(Role::findByName('admin'));
         }
 
-        // Sales User
-        $salesUser = User::create([
-            'name' => 'Sales User',
-            'email' => 'sales@example.com',
-            'contact' => '+6400000000000',
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-        ]);
-        $salesUser->assignRole(Role::findByName('sales'));
+        // Sales Users
+        $salesUsers = [
+            [
+                'name' => 'Sales User',
+                'email' => 'sales@example.com',
+                'contact' => '+6400000000000',
+            ],
+            [
+                'name' => 'Sales TMS',
+                'email' => 'sales@tms.com',
+                'contact' => '+6512345678',
+            ],
+        ];
 
-        Sales::create([
-            'user_id' => $salesUser->id,
-            'branch_id' => 1,
-        ]);
+        foreach ($salesUsers as $salesData) {
+            $salesUser = User::create([
+                'name' => $salesData['name'],
+                'email' => $salesData['email'],
+                'contact' => $salesData['contact'],
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+            ]);
+            $salesUser->assignRole(Role::findByName('sales'));
+
+            Sales::create([
+                'user_id' => $salesUser->id,
+                'branch_id' => 1,
+            ]);
+        }
 
         // Supplier User
         $supplierUser = User::create([
@@ -112,7 +127,7 @@ class UserSeeder extends Seeder
                 'link' => '/settings/profile',
                 'type' => 'warning',
             ],
-        ])->map(fn (array $n) => Notification::create($n));
+        ])->map(fn(array $n) => Notification::create($n));
 
         $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
 

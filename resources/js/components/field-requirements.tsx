@@ -7,7 +7,7 @@ import {
 import { Info } from 'lucide-react';
 import { ReactNode } from 'react';
 
-interface FieldRequirementsProps {
+export interface FieldRequirementsProps {
     required?: boolean;
     hint?: string;
     example?: string;

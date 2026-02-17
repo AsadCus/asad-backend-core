@@ -37,6 +37,7 @@ class EnquirySeeder extends Seeder
         // Skip if general enquiries already exist
         if (GeneralEnquiry::count() > 0) {
             $this->command->info('General enquiries already seeded, skipping...');
+
             return;
         }
 
@@ -138,6 +139,7 @@ class EnquirySeeder extends Seeder
         // Skip if private enquiries already exist
         if (PrivateEnquiry::count() > 0) {
             $this->command->info('Private enquiries already seeded, skipping...');
+
             return;
         }
 
@@ -154,19 +156,19 @@ class EnquirySeeder extends Seeder
                 'return_date' => '2026-03-15',
                 'no_of_pax' => 4,
                 'no_of_children' => 2,
-                'airline' => 'Saudi Airlines',
+                'airline' => 'Saudia Airlines',
                 'class' => 'Economy',
                 'require_mutawif' => true,
                 'require_umrah_course' => false,
                 'require_umrah_official' => true,
                 'makkah_or_madinah_first' => 'Makkah',
                 'no_of_nights_makkah' => '5',
-                'hotel_makkah' => 'Hilton Suites',
-                'meals_makkah' => 'Breakfast',
+                'hotel_makkah' => 'Hilton Suites Makkah',
+                'meals_makkah' => 'Breakfast Only',
                 'no_of_nights_madinah' => '4',
-                'hotel_madinah' => 'Anwar Al Madinah',
+                'hotel_madinah' => 'The Oberoi',
                 'meals_madinah' => 'Half Board',
-                'land_transfer' => 'Bus',
+                'land_transfer' => 'Hi-Ace (8 Pax)',
                 'add_on_speed_train' => true,
                 'require_meet_greet' => false,
                 'require_mutawiffah_ustazah_rawdah' => false,
@@ -193,13 +195,13 @@ class EnquirySeeder extends Seeder
                 'require_umrah_course' => true,
                 'require_umrah_official' => false,
                 'makkah_or_madinah_first' => 'Madinah',
-                'no_of_nights_makkah' => '3',
-                'hotel_makkah' => 'Swissotel',
+                'no_of_nights_makkah' => '4',
+                'hotel_makkah' => 'Swissotel Makkah',
                 'meals_makkah' => 'Full Board',
                 'no_of_nights_madinah' => '5',
-                'hotel_madinah' => 'Pullman Zamzam',
-                'meals_madinah' => 'Breakfast',
-                'land_transfer' => 'Private Car',
+                'hotel_madinah' => 'Intercontinental Dar Al Iman',
+                'meals_madinah' => 'Breakfast Only',
+                'land_transfer' => 'Sedan (2 Pax)',
                 'add_on_speed_train' => false,
                 'require_meet_greet' => true,
                 'require_mutawiffah_ustazah_rawdah' => true,
@@ -210,6 +212,39 @@ class EnquirySeeder extends Seeder
                 'need_wheelchair' => 'Yes',
                 'other_remarks' => null,
                 'status' => EnquiryStatus::Contacted,
+            ],
+            [
+                'name' => 'Fatimah Binti Hassan',
+                'contact_number' => '0171234567',
+                'email' => 'fatimah.hassan@example.com',
+                'passport_expiry_date' => '2029-08-15',
+                'departure_date' => '2026-05-01',
+                'return_date' => '2026-05-14',
+                'no_of_pax' => 3,
+                'no_of_children' => 1,
+                'airline' => 'Qatar Airways',
+                'class' => 'Economy',
+                'require_mutawif' => true,
+                'require_umrah_course' => true,
+                'require_umrah_official' => true,
+                'makkah_or_madinah_first' => 'Makkah',
+                'no_of_nights_makkah' => '5',
+                'hotel_makkah' => 'Fairmont Makkah Clock Royal Tower Hotel',
+                'meals_makkah' => 'Half Board',
+                'no_of_nights_madinah' => '4',
+                'hotel_madinah' => 'Sofitel Shahd Al Madinah',
+                'meals_madinah' => 'Full Board',
+                'land_transfer' => 'GMC (4 Pax)',
+                'add_on_speed_train' => true,
+                'require_meet_greet' => true,
+                'require_mutawiffah_ustazah_rawdah' => false,
+                'madinah_tour_with_mutawif' => true,
+                'makkah_tour_with_mutawif' => true,
+                'has_chronic_disease' => false,
+                'chronic_disease_details' => null,
+                'need_wheelchair' => 'No',
+                'other_remarks' => 'Family trip, need adjoining rooms.',
+                'status' => EnquiryStatus::Confirmed,
             ],
         ];
 
@@ -284,15 +319,19 @@ class EnquirySeeder extends Seeder
             $user->assignRole('customer');
         }
 
+        // Get biodata from pre-defined customer profiles
+        $biodata = $this->getCustomerBiodata($enquiry->email);
+
         // Check if customer already exists
         $customer = Customer::where('user_id', $user->id)->first();
 
         if (! $customer) {
-            $customer = Customer::create([
+            $customer = Customer::create(array_merge([
                 'user_id' => $user->id,
                 'branch_id' => 1,
                 'handled_by' => User::role(['admin', 'sales'])->first()?->id,
-            ]);
+                'is_active' => true,
+            ], $biodata));
         }
 
         // Check if customer group already exists for this enquiry
@@ -303,6 +342,10 @@ class EnquirySeeder extends Seeder
             $group = CustomerGroup::create([
                 'enquiry_id' => $enquiry->id,
                 'created_by' => User::role('admin')->first()?->id,
+                'package_id' => 1,
+                'package_room_type' => 'double',
+                'package_category' => 'classic_umrah',
+                'date_of_application' => now()->subDays(rand(1, 14)),
             ]);
 
             CustomerGroupMember::create([
@@ -310,7 +353,155 @@ class EnquirySeeder extends Seeder
                 'customer_id' => $customer->id,
                 'is_leader' => true,
             ]);
+
+            // Add additional members for multi-member groups
+            $additionalMembers = $this->getAdditionalGroupMembers($enquiry->email);
+            foreach ($additionalMembers as $memberData) {
+                $memberUser = User::where('email', $memberData['email'])->first();
+                if (! $memberUser) {
+                    $memberUser = User::create([
+                        'name' => $memberData['name'],
+                        'email' => $memberData['email'],
+                        'contact' => $memberData['contact'],
+                        'password' => Hash::make('password'),
+                        'email_verified_at' => now(),
+                    ]);
+                    $memberUser->assignRole('customer');
+                }
+
+                $memberCustomer = Customer::where('user_id', $memberUser->id)->first();
+                if (! $memberCustomer) {
+                    $memberBiodata = $this->getCustomerBiodata($memberData['email']);
+                    $memberCustomer = Customer::create(array_merge([
+                        'user_id' => $memberUser->id,
+                        'branch_id' => 1,
+                        'handled_by' => User::role(['admin', 'sales'])->first()?->id,
+                        'is_active' => true,
+                    ], $memberBiodata));
+                }
+
+                CustomerGroupMember::create([
+                    'customer_group_id' => $group->id,
+                    'customer_id' => $memberCustomer->id,
+                    'is_leader' => false,
+                ]);
+            }
         }
+    }
+
+    /**
+     * Get pre-defined customer biodata by email.
+     *
+     * @return array<string, mixed>
+     */
+    private function getCustomerBiodata(string $email): array
+    {
+        $profiles = [
+            'emily.white@example.com' => [
+                'nric_number' => 'S9012345A',
+                'address' => '12 Orchard Road, Singapore 238828',
+                'nationality' => 'Singaporean',
+                'passport_number' => 'E1234567A',
+                'passport_issue_date' => '2023-01-15',
+                'passport_expiry_date' => '2033-01-14',
+                'passport_place_of_issue' => 'Singapore',
+                'gender' => 'female',
+                'marital_status' => 'single',
+                'date_of_birth' => '1990-03-22',
+                'place_of_birth' => 'Singapore',
+                'first_time_umrah' => true,
+                'has_chronic_disease' => false,
+                'chronic_disease_details' => null,
+            ],
+            'fatimah.hassan@example.com' => [
+                'nric_number' => 'S8501234B',
+                'address' => '88 Jalan Sultan, Singapore 199489',
+                'nationality' => 'Malaysian',
+                'passport_number' => 'A12345678',
+                'passport_issue_date' => '2022-06-10',
+                'passport_expiry_date' => '2032-06-09',
+                'passport_place_of_issue' => 'Kuala Lumpur',
+                'gender' => 'female',
+                'marital_status' => 'married',
+                'date_of_birth' => '1985-07-14',
+                'place_of_birth' => 'Kuala Lumpur',
+                'first_time_umrah' => false,
+                'has_chronic_disease' => false,
+                'chronic_disease_details' => null,
+            ],
+            'ibrahim.hassan@example.com' => [
+                'nric_number' => 'S8401567C',
+                'address' => '88 Jalan Sultan, Singapore 199489',
+                'nationality' => 'Malaysian',
+                'passport_number' => 'A98765432',
+                'passport_issue_date' => '2021-11-20',
+                'passport_expiry_date' => '2031-11-19',
+                'passport_place_of_issue' => 'Kuala Lumpur',
+                'gender' => 'male',
+                'marital_status' => 'married',
+                'date_of_birth' => '1984-02-28',
+                'place_of_birth' => 'Kuala Lumpur',
+                'first_time_umrah' => false,
+                'has_chronic_disease' => true,
+                'chronic_disease_details' => 'Asthma',
+            ],
+            'nur.hassan@example.com' => [
+                'nric_number' => 'S1201234D',
+                'address' => '88 Jalan Sultan, Singapore 199489',
+                'nationality' => 'Malaysian',
+                'passport_number' => 'A55566677',
+                'passport_issue_date' => '2023-03-05',
+                'passport_expiry_date' => '2033-03-04',
+                'passport_place_of_issue' => 'Kuala Lumpur',
+                'gender' => 'female',
+                'marital_status' => 'single',
+                'date_of_birth' => '2012-09-18',
+                'place_of_birth' => 'Singapore',
+                'first_time_umrah' => true,
+                'has_chronic_disease' => false,
+                'chronic_disease_details' => null,
+            ],
+            'james.white@example.com' => [
+                'nric_number' => 'S8812345E',
+                'address' => '12 Orchard Road, Singapore 238828',
+                'nationality' => 'Singaporean',
+                'passport_number' => 'E7654321B',
+                'passport_issue_date' => '2022-08-01',
+                'passport_expiry_date' => '2032-07-31',
+                'passport_place_of_issue' => 'Singapore',
+                'gender' => 'male',
+                'marital_status' => 'married',
+                'date_of_birth' => '1988-11-05',
+                'place_of_birth' => 'Singapore',
+                'first_time_umrah' => true,
+                'has_chronic_disease' => false,
+                'chronic_disease_details' => null,
+            ],
+        ];
+
+        return $profiles[$email] ?? [];
+    }
+
+    /**
+     * Get additional group members for a confirmed enquiry leader.
+     *
+     * @return array<int, array{name: string, email: string, contact: string}>
+     */
+    private function getAdditionalGroupMembers(string $leaderEmail): array
+    {
+        $members = [
+            // Emily White's group - add her husband
+            'emily.white@example.com' => [
+                ['name' => 'James White', 'email' => 'james.white@example.com', 'contact' => '+5566778800'],
+            ],
+            // Fatimah's group - add her husband and daughter
+            'fatimah.hassan@example.com' => [
+                ['name' => 'Ibrahim Hassan', 'email' => 'ibrahim.hassan@example.com', 'contact' => '0171234568'],
+                ['name' => 'Nur Hassan', 'email' => 'nur.hassan@example.com', 'contact' => '0171234569'],
+            ],
+        ];
+
+        return $members[$leaderEmail] ?? [];
     }
 
     /**
@@ -321,6 +512,7 @@ class EnquirySeeder extends Seeder
         // Skip if remarks already exist
         if (EnquiryRemark::count() > 0) {
             $this->command->info('Enquiry remarks already exist, skipping...');
+
             return;
         }
 

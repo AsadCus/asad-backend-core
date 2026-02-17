@@ -42,6 +42,8 @@ export interface EnquirySchema {
     contact: string;
     email: string;
     child_id: number | null;
+    package_id: number | null;
+    package_name: string | null;
     created_at: string;
 }
 

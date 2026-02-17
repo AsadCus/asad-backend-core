@@ -7,13 +7,34 @@ class CustomerGroupRule
     public function rules(?bool $requireEnquiry = true): array
     {
         $rules = [
+            // Group-level fields
+            'package_id' => ['nullable', 'integer', 'exists:packages,id'],
+            'package_room_type' => ['nullable', 'string', 'in:single,double,triple,quad'],
+            'package_category' => ['nullable', 'string', 'in:classic_umrah,deluxe_umrah'],
+            'date_of_application' => ['required', 'date'],
+
+            // Members
             'members' => ['required', 'array', 'min:1'],
             'members.*.name' => ['required', 'string', 'max:255'],
             'members.*.email' => ['required', 'email', 'max:255'],
             'members.*.contact_number' => ['required', 'string', 'max:30'],
-            'members.*.nric_number' => ['nullable', 'string', 'max:50'],
-            'members.*.address' => ['nullable', 'string', 'max:500'],
+            'members.*.nric_number' => ['required', 'string', 'max:50'],
+            'members.*.address' => ['required', 'string', 'max:500'],
             'members.*.is_leader' => ['required', 'boolean'],
+
+            // Biodata per member
+            'members.*.first_time_umrah' => ['nullable', 'boolean'],
+            'members.*.nationality' => ['required', 'string', 'max:100'],
+            'members.*.passport_number' => ['required', 'string', 'max:50'],
+            'members.*.passport_issue_date' => ['required', 'date'],
+            'members.*.passport_expiry_date' => ['required', 'date'],
+            'members.*.passport_place_of_issue' => ['required', 'string', 'max:255'],
+            'members.*.gender' => ['required', 'string', 'in:male,female'],
+            'members.*.marital_status' => ['required', 'string', 'in:single,married,divorced,widowed'],
+            'members.*.date_of_birth' => ['required', 'date'],
+            'members.*.place_of_birth' => ['required', 'string', 'max:255'],
+            'members.*.has_chronic_disease' => ['nullable', 'boolean'],
+            'members.*.chronic_disease_details' => ['nullable', 'string', 'max:1000'],
         ];
 
         if ($requireEnquiry) {
@@ -33,6 +54,7 @@ class CustomerGroupRule
         return [
             'members.required' => 'At least one member is required.',
             'members.min' => 'At least one member is required.',
+            'date_of_application.required' => 'The date of application is required.',
         ];
     }
 }

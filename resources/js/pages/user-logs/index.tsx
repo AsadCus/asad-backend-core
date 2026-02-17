@@ -68,7 +68,6 @@ interface UserLogsProps {
 }
 
 export default function UserLogs({ activities }: UserLogsProps) {
-    console.log(activities);
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="User Logs" />

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Rules\CustomerGroupRule;
 use App\Services\CustomerGroupService;
 use App\Services\EnquiryService;
+use App\Services\PackageService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -14,6 +15,7 @@ class EnquiryController extends Controller
         protected EnquiryService $enquiryService,
         protected CustomerGroupService $customerGroupService,
         protected CustomerGroupRule $customerGroupRule,
+        protected PackageService $packageService,
     ) {}
 
     /**
@@ -23,6 +25,7 @@ class EnquiryController extends Controller
     {
         $data['enquiriesForDatatable'] = $this->enquiryService->getForDataTable();
         $data['statusOptions'] = $this->enquiryService->getStatusOptions();
+        $data['packageOptions'] = $this->packageService->getForFilter();
 
         return Inertia::render('enquiries/index', [
             'data' => $data,
@@ -107,6 +110,20 @@ class EnquiryController extends Controller
         $this->customerGroupService->createGroup($validated);
 
         return back()->with('success', 'Customer group created successfully.');
+    }
+
+    /**
+     * Update the package assigned to an enquiry.
+     */
+    public function updatePackage(Request $request, string $id)
+    {
+        $validated = $request->validate([
+            'package_id' => ['nullable', 'integer', 'exists:packages,id'],
+        ]);
+
+        $this->enquiryService->updatePackage((int) $id, $validated['package_id'] ?? null);
+
+        return back()->with('success', 'Enquiry package updated successfully.');
     }
 
     /**
