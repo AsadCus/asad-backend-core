@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
 // import agreement from '@/routes/agreement';
+import confirmedCustomer from '@/routes/confirmed-customer';
 import customer from '@/routes/customer';
 import enquiries from '@/routes/enquiries';
 import generalEnquiries from '@/routes/general-enquiries';
@@ -61,6 +62,7 @@ import {
     Route,
     TicketCheck,
     User,
+    UserCheck,
     Wallet,
 } from 'lucide-react';
 import AppLogo from './app-logo';
@@ -207,6 +209,7 @@ export function AppSidebar() {
                   },
               ]
             : []),
+
         // ...(permissions.includes('maid view') && !roles.includes('customer')
         //     ? [
         //           {
@@ -253,6 +256,15 @@ export function AppSidebar() {
                                 ]
                               : []),
                       ],
+                  },
+              ]
+            : []),
+        ...(permissions.includes('customer view')
+            ? [
+                  {
+                      title: 'Confirmed Customer',
+                      href: confirmedCustomer.index.url(),
+                      icon: UserCheck,
                   },
               ]
             : []),

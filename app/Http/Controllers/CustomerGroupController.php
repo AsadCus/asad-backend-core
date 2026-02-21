@@ -45,53 +45,11 @@ class CustomerGroupController extends Controller
     }
 
     /**
-     * Show the public customer form via signed URL.
-     */
-    public function publicForm(Request $request, string $enquiryId)
-    {
-        if (! $request->hasValidSignature()) {
-            abort(403, 'Invalid or expired link.');
-        }
-
-        $enquiry = \App\Models\Enquiry::with('package')->findOrFail($enquiryId);
-
-        return inertia('customer/public/index', [
-            'enquiryId' => (int) $enquiryId,
-            'prefillName' => $enquiry->name,
-            'prefillEmail' => $enquiry->email,
-            'prefillContact' => $enquiry->contact_number,
-            'packageId' => $enquiry->package_id,
-            'packageName' => $enquiry->package?->name,
-        ]);
-    }
-
-    /**
-     * Store a customer group from the public form (signed URL).
-     */
-    public function publicStore(Request $request, string $enquiryId)
-    {
-        if (! $request->hasValidSignature()) {
-            abort(403, 'Invalid or expired link.');
-        }
-
-        $validated = $request->validate(array_merge(
-            $this->customerGroupRule->rules(requireEnquiry: false),
-            ['terms_accepted' => ['required', 'accepted']],
-        ));
-
-        $validated['enquiry_id'] = (int) $enquiryId;
-
-        $this->customerGroupService->createGroup($validated);
-
-        return back()->with('success', 'Your application has been submitted successfully.');
-    }
-
-    /**
      * Generate a signed URL for the public customer form.
      */
     public function generatePublicLink(string $enquiryId)
     {
-        $url = URL::signedRoute('customer-groups.public.form', ['enquiryId' => $enquiryId]);
+        $url = URL::signedRoute('customer-confirmation.public.create', ['enquiryId' => $enquiryId]);
 
         return response()->json(['url' => $url]);
     }
@@ -106,6 +64,7 @@ class CustomerGroupController extends Controller
         return inertia('customer/public/index', [
             'mode' => 'create',
             'packageOptions' => $packageOptions,
+            'publicSubmitUrl' => route('customer-confirmation.public.store'),
         ]);
     }
 
@@ -147,6 +106,7 @@ class CustomerGroupController extends Controller
             'groupId' => $groupId,
             'initialData' => $groupData,
             'packageOptions' => $packageOptions,
+            'publicSubmitUrl' => URL::signedRoute('customer-confirmation.public.update', ['encryptedId' => $encryptedId]),
         ]);
     }
 
@@ -181,7 +141,7 @@ class CustomerGroupController extends Controller
     public function generatePublicEditLink(string $groupId)
     {
         $encryptedId = Crypt::encrypt($groupId);
-        $url = URL::signedRoute('customer-groups.public.edit.form', ['encryptedId' => $encryptedId]);
+        $url = URL::signedRoute('customer-confirmation.public.edit', ['encryptedId' => $encryptedId]);
 
         return response()->json(['url' => $url]);
     }

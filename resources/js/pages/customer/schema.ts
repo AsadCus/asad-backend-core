@@ -68,6 +68,33 @@ export const maritalStatusOptions = [
     { label: 'Widowed', value: 'widowed' },
 ];
 
+// ── Datatable schemas (Customer Groups index) ──
+
+export interface CustomerGroupMemberDatatableSchema {
+    id: number;
+    customer_id: number;
+    is_leader: boolean;
+    name: string;
+    email: string;
+    contact: string;
+    customer_number: string;
+    nric_number: string;
+}
+
+export interface CustomerGroupDatatableSchema {
+    id: number;
+    enquiry_id: number | null;
+    enquiry_type: string | null;
+    enquiry_status: string | null;
+    leader_name: string;
+    leader_email: string;
+    leader_contact: string;
+    leader_customer_number: string;
+    member_count: number;
+    created_at: string;
+    members: CustomerGroupMemberDatatableSchema[];
+}
+
 // ── Default empty member ──
 
 export const emptyMember = (isLeader = false): CustomerMemberSchema => ({

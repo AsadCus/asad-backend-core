@@ -41,6 +41,7 @@ class GeneralEnquiryService
                     'name' => $generalEnquiry->enquiry?->name,
                     'contact_number' => $generalEnquiry->enquiry?->contact_number,
                     'email' => $generalEnquiry->enquiry?->email,
+                    'package_id' => $generalEnquiry->enquiry?->package_id,
                     'preferred_destinations' => $generalEnquiry->preferred_destinations,
                     'preferred_travelling_date' => $generalEnquiry->preferred_travelling_date_formatted,
                     'no_of_adults' => $generalEnquiry->no_of_adults,
@@ -84,7 +85,7 @@ class GeneralEnquiryService
             activity()
                 ->performedOn($generalEnquiry)
                 ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $generalEnquiry->id, 'enquiry_id' => $parentEnquiry->id])
-                ->log('General enquiry created successfully #' . $generalEnquiry->id);
+                ->log('General enquiry created successfully #'.$generalEnquiry->id);
 
             // Create notification for admin/sales users
             $this->createEnquiryNotification($generalEnquiry, $parentEnquiry);
@@ -110,6 +111,7 @@ class GeneralEnquiryService
             'no_of_adults' => $generalEnquiry->no_of_adults,
             'no_of_children' => $generalEnquiry->no_of_children,
             'requires_mobility_assistance' => $generalEnquiry->requires_mobility_assistance,
+            'package_id' => $generalEnquiry->enquiry?->package_id,
             'created_at' => $generalEnquiry->created_at?->translatedFormat('d F Y'),
             'updated_at' => $generalEnquiry->updated_at?->translatedFormat('d F Y'),
         ];
@@ -146,7 +148,7 @@ class GeneralEnquiryService
             activity()
                 ->performedOn($generalEnquiry)
                 ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $generalEnquiry->id, 'enquiry_id' => $generalEnquiry->enquiry_id])
-                ->log('General enquiry updated successfully #' . $generalEnquiry->id);
+                ->log('General enquiry updated successfully #'.$generalEnquiry->id);
 
             return $generalEnquiry;
         });
@@ -162,7 +164,7 @@ class GeneralEnquiryService
         activity()
             ->performedOn($generalEnquiry)
             ->withProperties(['subject_type' => 'GeneralEnquiry', 'subject_id' => $generalEnquiry->id, 'enquiry_id' => $generalEnquiry->enquiry_id])
-            ->log('General enquiry deleted successfully #' . $generalEnquiry->id);
+            ->log('General enquiry deleted successfully #'.$generalEnquiry->id);
 
         // Also delete parent enquiry
         if ($generalEnquiry->enquiry_id) {

@@ -87,12 +87,18 @@ class EnquiryService
 
     /**
      * Transition an enquiry's status.
+     * Note: Transition to 'confirmed' is blocked here — use the confirm endpoint instead.
      */
     public function transitionStatus(int $id, string $newStatus): Enquiry
     {
         return DB::transaction(function () use ($id, $newStatus) {
             $enquiry = Enquiry::findOrFail($id);
             $targetStatus = EnquiryStatus::from($newStatus);
+
+            // Block direct transition to confirmed — must go through confirm endpoint
+            if ($targetStatus === EnquiryStatus::Confirmed) {
+                abort(422, 'Cannot transition to confirmed directly. Use the confirm endpoint to submit a customer confirmation form.');
+            }
 
             if (! $enquiry->status->canTransitionTo($targetStatus)) {
                 abort(422, "Cannot transition from {$enquiry->status->label()} to {$targetStatus->label()}.");
@@ -109,6 +115,38 @@ class EnquiryService
                     'new_status' => $targetStatus->value,
                 ])
                 ->log("Enquiry #{$enquiry->id} status changed to {$targetStatus->label()}");
+
+            return $enquiry->fresh();
+        });
+    }
+
+    /**
+     * Confirm an enquiry atomically (transition to confirmed + create customer group).
+     */
+    public function confirmEnquiry(int $id): Enquiry
+    {
+        return DB::transaction(function () use ($id) {
+            $enquiry = Enquiry::findOrFail($id);
+
+            if ($enquiry->status === EnquiryStatus::Confirmed) {
+                return $enquiry;
+            }
+
+            if (! $enquiry->status->canTransitionTo(EnquiryStatus::Confirmed)) {
+                abort(422, "Cannot confirm enquiry from status {$enquiry->status->label()}. It must be in Negotiating status.");
+            }
+
+            $enquiry->update(['status' => EnquiryStatus::Confirmed->value]);
+
+            activity()
+                ->performedOn($enquiry)
+                ->withProperties([
+                    'subject_type' => 'Enquiry',
+                    'subject_id' => $enquiry->id,
+                    'old_status' => $enquiry->getOriginal('status'),
+                    'new_status' => EnquiryStatus::Confirmed->value,
+                ])
+                ->log("Enquiry #{$enquiry->id} confirmed");
 
             return $enquiry->fresh();
         });

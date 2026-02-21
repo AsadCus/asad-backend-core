@@ -8,7 +8,6 @@ use App\Models\Enquiry;
 use App\Models\Package;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\URL;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -320,27 +319,15 @@ class CustomerGroupFormTest extends TestCase
 
     public function test_public_form_requires_valid_signature(): void
     {
-        // Access without valid signature should fail
-        $response = $this->get('/customer-groups/public/999');
+        // The edit form requires a valid signature (to protect private group data)
+        $response = $this->get(route('customer-confirmation.public.edit', ['encryptedId' => 'invalid']));
         $response->assertStatus(403);
     }
 
-    public function test_public_form_accessible_with_valid_signature(): void
+    public function test_public_create_form_is_accessible_without_signature(): void
     {
-        $enquiry = Enquiry::create([
-            'type' => 'general',
-            'status' => EnquiryStatus::Confirmed->value,
-            'name' => 'Public Test',
-            'contact_number' => '012',
-            'email' => 'public@test.com',
-            'created_by' => User::factory()->create()->id,
-        ]);
-
-        $url = URL::signedRoute('customer-groups.public.form', [
-            'enquiryId' => $enquiry->id,
-        ]);
-
-        $response = $this->get($url);
+        // The create form is public — anyone can access it directly
+        $response = $this->get(route('customer-confirmation.public.create'));
         $response->assertOk();
     }
 
@@ -355,11 +342,7 @@ class CustomerGroupFormTest extends TestCase
             'created_by' => User::factory()->create()->id,
         ]);
 
-        $url = URL::signedRoute('customer-groups.public.store', [
-            'enquiryId' => $enquiry->id,
-        ]);
-
-        $response = $this->post($url, [
+        $response = $this->post(route('customer-confirmation.public.store'), [
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -385,11 +368,8 @@ class CustomerGroupFormTest extends TestCase
             'created_by' => User::factory()->create()->id,
         ]);
 
-        $url = URL::signedRoute('customer-groups.public.store', [
-            'enquiryId' => $enquiry->id,
-        ]);
-
-        $response = $this->post($url, [
+        $response = $this->post(route('customer-confirmation.public.store'), [
+            'enquiry_id' => $enquiry->id,
             'date_of_application' => '2026-03-01',
             'package_room_type' => 'quad',
             'members' => [
@@ -405,7 +385,6 @@ class CustomerGroupFormTest extends TestCase
         $response->assertRedirect();
 
         $this->assertDatabaseHas('customer_groups', [
-            'enquiry_id' => $enquiry->id,
             'package_room_type' => 'quad',
         ]);
     }

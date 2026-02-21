@@ -5,6 +5,7 @@ export const generalEnquirySchema = z.object({
     enquiry_id: z.number().nullable().optional(),
     status: z.string().optional(),
     status_label: z.string().optional(),
+    package_id: z.number().nullable().optional(),
     name: z.string().optional(),
     contact_number: z.string().optional(),
     email: z.string().optional(),

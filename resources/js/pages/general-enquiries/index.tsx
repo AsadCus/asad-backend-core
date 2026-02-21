@@ -27,7 +27,7 @@ import {
     getForShow,
     index,
 } from '@/routes/general-enquiries';
-import { SharedData, type BreadcrumbItem } from '@/types';
+import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
@@ -57,6 +57,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export interface GeneralEnquiriesProps {
     data: {
         enquiriesForDatatable: GeneralEnquiryDatatableSchema[];
+        packageOptions: OptionType[];
     };
 }
 
@@ -154,7 +155,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
         actions.push('delete');
 
     const hasEditPermission = userPermissions.includes('general-enquiry edit');
-    const { enquiriesForDatatable } = data;
+    const { enquiriesForDatatable, packageOptions } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -180,6 +181,9 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
         email: '',
         contact: '',
     });
+    const [prefillPackageId, setPrefillPackageId] = useState<number | null>(
+        null,
+    );
 
     // Enquiry Remarks state
     const [remarksDialogOpen, setRemarksDialogOpen] = useState(false);
@@ -377,6 +381,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                 <GeneralEnquiryForm
                                     mode="view"
                                     initialData={selectedData}
+                                    packageOptions={packageOptions}
                                 />
 
                                 {/* Enquiry Remarks Timeline */}
@@ -431,6 +436,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                         email: enquiry?.email ?? '',
                         contact: enquiry?.contact_number ?? '',
                     });
+                    setPrefillPackageId(enquiry?.package_id ?? null);
                     setConfirmFormOpen(true);
                 }}
             />
@@ -439,9 +445,10 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
                 <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
-                        <DialogTitle>Customer Confirmation</DialogTitle>
+                        <DialogTitle>Customer Confirmation Form</DialogTitle>
                         <DialogDescription>
-                            Fill in the customer group details for this enquiry.
+                            Fill in the details of the customer group and its
+                            members.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -457,6 +464,8 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                             prefillName={confirmFormPrefill.name}
                             prefillEmail={confirmFormPrefill.email}
                             prefillContact={confirmFormPrefill.contact}
+                            prefillPackageId={prefillPackageId}
+                            packageOptions={packageOptions}
                             onSuccess={() => {
                                 setConfirmFormOpen(false);
                                 router.reload();

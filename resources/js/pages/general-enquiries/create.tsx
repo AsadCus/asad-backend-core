@@ -1,9 +1,13 @@
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/general-enquiries';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import GeneralEnquiryForm from './form';
+
+interface CreateGeneralEnquiryProps {
+    packageOptions: OptionType[];
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -12,7 +16,9 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreateGeneralEnquiry() {
+export default function CreateGeneralEnquiry({
+    packageOptions = [],
+}: CreateGeneralEnquiryProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -28,7 +34,11 @@ export default function CreateGeneralEnquiry() {
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
-                    <GeneralEnquiryForm mode="create" onCancel={handleCancel} />
+                    <GeneralEnquiryForm
+                        mode="create"
+                        packageOptions={packageOptions}
+                        onCancel={handleCancel}
+                    />
                 </div>
             </div>
         </AppLayout>

@@ -2,6 +2,13 @@ import { DatePickerField } from '@/components/date-picker';
 import { FieldRequirements } from '@/components/field-requirements';
 import { ProperInput } from '@/components/proper-input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { isBeforeToday } from '@/lib/utils';
 import { GeneralEnquirySchema } from './schema';
 
@@ -92,20 +99,32 @@ export default function GeneralEnquiryFormFields({
                 <div className="grid w-full items-center gap-3">
                     <Label htmlFor="no_of_adults">
                         Number of Adults
-                        <FieldRequirements hint="Enter number of adults traveling" />
+                        <FieldRequirements
+                            required
+                            hint="Select number of adults traveling"
+                        />
                     </Label>
                     <div className="relative">
-                        <ProperInput
-                            id="no_of_adults"
-                            type="number"
-                            value={data.no_of_adults ?? 0}
-                            disabled={isView || processing}
-                            onCommit={(v) =>
+                        <Select
+                            value={String(data.no_of_adults ?? '')}
+                            onValueChange={(v) =>
                                 setData('no_of_adults', parseInt(v) || 0)
                             }
-                            placeholder="0"
-                            inputProps={{ min: '0' }}
-                        />
+                            disabled={isView || processing}
+                        >
+                            <SelectTrigger id="no_of_adults">
+                                <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Array.from({ length: 16 }, (_, i) => i).map(
+                                    (n) => (
+                                        <SelectItem key={n} value={String(n)}>
+                                            {n === 0 ? '0' : n}
+                                        </SelectItem>
+                                    ),
+                                )}
+                            </SelectContent>
+                        </Select>
                         {renderError('no_of_adults')}
                     </div>
                 </div>
@@ -114,20 +133,29 @@ export default function GeneralEnquiryFormFields({
                 <div className="grid w-full items-center gap-3">
                     <Label htmlFor="no_of_children">
                         Number of Children
-                        <FieldRequirements hint="Enter number of children traveling" />
+                        <FieldRequirements hint="Select number of children" />
                     </Label>
                     <div className="relative">
-                        <ProperInput
-                            id="no_of_children"
-                            type="number"
-                            value={data.no_of_children ?? 0}
-                            disabled={isView || processing}
-                            onCommit={(v) =>
+                        <Select
+                            value={String(data.no_of_children ?? '')}
+                            onValueChange={(v) =>
                                 setData('no_of_children', parseInt(v) || 0)
                             }
-                            placeholder="0"
-                            inputProps={{ min: '0' }}
-                        />
+                            disabled={isView || processing}
+                        >
+                            <SelectTrigger id="no_of_children">
+                                <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Array.from({ length: 16 }, (_, i) => i).map(
+                                    (n) => (
+                                        <SelectItem key={n} value={String(n)}>
+                                            {n === 0 ? '0' : n}
+                                        </SelectItem>
+                                    ),
+                                )}
+                            </SelectContent>
+                        </Select>
                         {renderError('no_of_children')}
                     </div>
                 </div>

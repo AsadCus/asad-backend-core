@@ -114,7 +114,7 @@ export const internalFieldOptions: PrivateEnquiryFieldOptions = {
     ],
     landTransfer: [
         { value: 'Sedan (2 Pax)', label: 'Sedan (2 Pax)' },
-        { value: 'Stare (4 Pax)', label: 'Stare (4 Pax)' },
+        { value: 'Starex (4 Pax)', label: 'Starex (4 Pax)' },
         { value: 'GMC (4 Pax)', label: 'GMC (4 Pax)' },
         { value: 'Hi-Ace (8 Pax)', label: 'Hi-Ace (8 Pax)' },
         { value: 'Coaster (12 Pax)', label: 'Coaster (12 Pax)' },
@@ -293,20 +293,31 @@ export default function PrivateEnquiryFormFields({
                             Number of Pax
                             <FieldRequirements
                                 required
-                                hint="Enter number of passengers"
+                                hint="Select number of passengers"
                             />
                         </Label>
                         <div className="relative">
-                            <ProperInput
-                                id="no_of_pax"
-                                type="number"
-                                inputProps={{ min: '1' }}
-                                value={data.no_of_pax ?? 0}
-                                disabled={disabled}
-                                onCommit={(v) =>
-                                    setData('no_of_pax', parseInt(v) || 1)
+                            <Select
+                                value={String(data.no_of_pax ?? '')}
+                                onValueChange={(v) =>
+                                    setData('no_of_pax', parseInt(v) || 0)
                                 }
-                            />
+                                disabled={disabled}
+                            >
+                                <SelectTrigger id="no_of_pax">
+                                    <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Array.from(
+                                        { length: 16 },
+                                        (_, i) => i,
+                                    ).map((n) => (
+                                        <SelectItem key={n} value={String(n)}>
+                                            {n === 0 ? '0' : n}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             {renderError('no_of_pax')}
                         </div>
                     </div>
@@ -315,19 +326,30 @@ export default function PrivateEnquiryFormFields({
                     <div className="grid w-full items-center gap-3">
                         <Label htmlFor="no_of_children">
                             Number of Children
-                            <FieldRequirements hint="Enter number of children" />
+                            <FieldRequirements hint="Select number of children" />
                         </Label>
                         <div className="relative">
-                            <ProperInput
-                                id="no_of_children"
-                                type="number"
-                                inputProps={{ min: '0' }}
-                                value={data.no_of_children ?? 0}
-                                disabled={disabled}
-                                onCommit={(v) =>
+                            <Select
+                                value={String(data.no_of_children ?? '')}
+                                onValueChange={(v) =>
                                     setData('no_of_children', parseInt(v) || 0)
                                 }
-                            />
+                                disabled={disabled}
+                            >
+                                <SelectTrigger id="no_of_children">
+                                    <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Array.from(
+                                        { length: 16 },
+                                        (_, i) => i,
+                                    ).map((n) => (
+                                        <SelectItem key={n} value={String(n)}>
+                                            {n === 0 ? '0' : n}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             {renderError('no_of_children')}
                         </div>
                     </div>

@@ -74,18 +74,12 @@ export function EnquiryStatusAction({
         setIsSubmitting(true);
 
         if (action === 'confirmed') {
-            // For confirmed: transition status, then trigger the confirmation form
-            router.put(
-                transitionStatus(enquiryId).url,
-                { status: 'confirmed' },
-                {
-                    onSuccess: () => {
-                        onClose();
-                        onConfirmed?.(enquiryId);
-                    },
-                    onFinish: () => setIsSubmitting(false),
-                },
-            );
+            // For confirmed: skip status transition — it's done atomically in
+            // the confirm endpoint when the customer confirmation form is submitted.
+            // Just open the Customer Confirmation Form dialog.
+            onClose();
+            onConfirmed?.(enquiryId);
+            setIsSubmitting(false);
 
             return;
         }

@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('customer_groups', function (Blueprint $table) {
-            //
+        Schema::table('packages', function (Blueprint $table) {
+            $table->text('offer')->nullable()->after('not_included');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('customer_groups', function (Blueprint $table) {
-            //
+        Schema::table('packages', function (Blueprint $table) {
+            $table->dropColumn('offer');
         });
     }
 };

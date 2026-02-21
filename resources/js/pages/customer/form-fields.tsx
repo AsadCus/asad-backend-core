@@ -37,7 +37,7 @@ export default function MemberFormFields({
             {/* Personal Information */}
             <div className="space-y-4">
                 <h3 className="text-xl font-semibold">Personal Information</h3>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                     <FormField
                         label="Full Name"
                         fieldRequirementsProps={{
@@ -235,7 +235,7 @@ export default function MemberFormFields({
             {/* Passport Information */}
             <div className="space-y-4">
                 <h3 className="text-xl font-semibold">Passport Information</h3>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                     <FormField
                         label="Passport Number"
                         fieldRequirementsProps={{

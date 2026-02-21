@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AgreementController;
+use App\Http\Controllers\ConfirmedCustomerController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\DashboardController;
@@ -40,24 +41,20 @@ Route::get('/', function () {
 })->name('home');
 
 // Public General Enquiry Routes (No Authentication Required)
-Route::get('general-enquiries/public-create', [GeneralEnquiryController::class, 'publicForm'])->name('general-enquiries.public.form');
+Route::get('general-enquiries/public/create', [GeneralEnquiryController::class, 'publicForm'])->name('general-enquiries.public.create');
 Route::post('general-enquiries/public/store', [GeneralEnquiryController::class, 'storePublic'])->name('general-enquiries.public.store');
 
 // Public Private Enquiry Routes (No Authentication Required)
-Route::get('private-enquiries/public-create', [PrivateEnquiryController::class, 'publicForm'])->name('private-enquiries.public.form');
+Route::get('private-enquiries/public/create', [PrivateEnquiryController::class, 'publicForm'])->name('private-enquiries.public.create');
 Route::post('private-enquiries/public/store', [PrivateEnquiryController::class, 'storePublic'])->name('private-enquiries.public.store');
 
-// Public Customer Group Form (Signed URL - No Authentication Required)
-Route::get('customer-groups/public/{enquiryId}', [CustomerGroupController::class, 'publicForm'])->name('customer-groups.public.form');
-Route::post('customer-groups/public/{enquiryId}', [CustomerGroupController::class, 'publicStore'])->name('customer-groups.public.store');
+// Public Customer Confirmation Create
+Route::get('customer-confirmation/public/create', [CustomerGroupController::class, 'publicCreateForm'])->name('customer-confirmation.public.create');
+Route::post('customer-confirmation/public/create', [CustomerGroupController::class, 'publicCreateStore'])->name('customer-confirmation.public.store');
 
-// Public Customer Group Create (Standalone - No Enquiry)
-Route::get('customer-groups/public-create', [CustomerGroupController::class, 'publicCreateForm'])->name('customer-groups.public.create.form');
-Route::post('customer-groups/public-create', [CustomerGroupController::class, 'publicCreateStore'])->name('customer-groups.public.create.store');
-
-// Public Customer Group Edit (Encrypted Group ID)
-Route::get('customer-groups/public-edit/{encryptedId}', [CustomerGroupController::class, 'publicEditForm'])->name('customer-groups.public.edit.form');
-Route::post('customer-groups/public-edit/{encryptedId}', [CustomerGroupController::class, 'publicEditStore'])->name('customer-groups.public.edit.store');
+// Public Customer Confirmation Edit (Encrypted ID)
+Route::get('customer-confirmation/public/edit/{encryptedId}', [CustomerGroupController::class, 'publicEditForm'])->name('customer-confirmation.public.edit');
+Route::post('customer-confirmation/public/update/{encryptedId}', [CustomerGroupController::class, 'publicEditStore'])->name('customer-confirmation.public.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -115,6 +112,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('customer/{id}/enable', [CustomerController::class, 'enableCustomer'])->name('customer.enable');
     Route::put('customer/{id}/disable', [CustomerController::class, 'disableCustomer'])->name('customer.disable');
     Route::post('customer/{customerId}/assign-maid/{maidId}', [CustomerController::class, 'assignMaidToCustomer'])->name('customer.assign-maid');
+
+    // Confirmed Customer (Customer Groups)
+    Route::get('confirmed-customer', [ConfirmedCustomerController::class, 'index'])->middleware('permission:customer view')->name('confirmed-customer.index');
 
     // Maid
     Route::get('maid-get-for-show/{id}', [MaidController::class, 'getForShow'])->name('maid.get-for-show');
@@ -185,6 +185,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('enquiries-get-for-show/{id}', [EnquiryController::class, 'getForShow'])->name('enquiries.get-for-show');
     Route::put('enquiries/{id}/status', [EnquiryController::class, 'transitionStatus'])->name('enquiries.transition-status');
     Route::post('enquiries/{id}/confirm', [EnquiryController::class, 'confirm'])->name('enquiries.confirm');
+    Route::get('enquiries/{id}/package-prefill', [EnquiryController::class, 'packagePrefill'])->name('enquiries.package-prefill');
     Route::post('enquiries/customer-group', [EnquiryController::class, 'createCustomerGroup'])->name('enquiries.create-customer-group');
     Route::get('enquiries/search-customers', [EnquiryController::class, 'searchCustomers'])->name('enquiries.search-customers');
     Route::get('enquiries/available-enquiries', [EnquiryController::class, 'availableEnquiries'])->name('enquiries.available-enquiries');
@@ -217,5 +218,5 @@ Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__ . '/settings.php';
-require __DIR__ . '/auth.php';
+require __DIR__.'/settings.php';
+require __DIR__.'/auth.php';

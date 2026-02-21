@@ -1,3 +1,5 @@
+import { FormField } from '@/components/form-field';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,6 +9,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
 import GeneralEnquiryFormFields from './form-fields';
@@ -18,12 +21,14 @@ export type GeneralEnquiryFormSchema = GeneralEnquirySchema;
 interface GeneralEnquiryFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: GeneralEnquirySchema;
+    packageOptions?: OptionType[];
     onCancel?: () => void;
 }
 
 export default function GeneralEnquiryForm({
     mode,
     initialData,
+    packageOptions = [],
     onCancel,
 }: GeneralEnquiryFormProps) {
     const isView = mode === 'view';
@@ -132,6 +137,41 @@ export default function GeneralEnquiryForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {/* Package Select (internal only, not for public forms) */}
+                        {packageOptions.length > 0 && (
+                            <div className="mb-6">
+                                <FormField
+                                    label="Package"
+                                    fieldRequirementsProps={{
+                                        hint: 'Link a travel package to this enquiry (optional)',
+                                    }}
+                                    htmlFor="package_id"
+                                    error={
+                                        renderError('package_id')?.props
+                                            ?.children
+                                    }
+                                >
+                                    <ProperInputSelect
+                                        options={packageOptions}
+                                        value={
+                                            data.package_id
+                                                ? String(data.package_id)
+                                                : ''
+                                        }
+                                        onValueChange={(v) =>
+                                            setData(
+                                                'package_id',
+                                                v ? Number(v) : null,
+                                            )
+                                        }
+                                        placeholder="Select package..."
+                                        disabled={isView || processing}
+                                        truncate={30}
+                                    />
+                                </FormField>
+                            </div>
+                        )}
+
                         <GeneralEnquiryFormFields
                             data={data}
                             setData={setData}

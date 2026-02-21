@@ -15,14 +15,16 @@ export const packageSchema = z.object({
     name: z.string().optional(),
     status: z.enum(['open', 'closed']).optional(),
 
-    // Pricing
-    price_single: z.number().optional(),
-    price_double: z.number().optional(),
-    price_triple: z.number().optional(),
-    price_quad: z.number().optional(),
-    child_with_bed_price: z.number().optional(),
-    child_no_bed_price: z.number().optional(),
-    infant_price: z.number().optional(),
+    price_single: z.union([z.string(), z.number()]).nullable().optional(),
+    price_double: z.union([z.string(), z.number()]).nullable().optional(),
+    price_triple: z.union([z.string(), z.number()]).nullable().optional(),
+    price_quad: z.union([z.string(), z.number()]).nullable().optional(),
+    child_with_bed_price: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    child_no_bed_price: z.union([z.string(), z.number()]).nullable().optional(),
+    infant_price: z.union([z.string(), z.number()]).nullable().optional(),
 
     // Flight Details
     airline: z.string().nullable().optional(),
@@ -44,6 +46,7 @@ export const packageSchema = z.object({
     // Inclusions
     included: z.string().nullable().optional(),
     not_included: z.string().nullable().optional(),
+    offer: z.string().nullable().optional(),
 
     // Remarks
     remarks: z.string().nullable().optional(),

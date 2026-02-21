@@ -14,6 +14,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { store, update } from '@/routes/packages';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { type AccommodationSchema, type PackageSchema } from './schema';
@@ -22,13 +23,18 @@ import { packageValidationSchema } from './validation';
 interface PackageFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: PackageSchema;
+    prefillData?: Partial<PackageSchema>;
     onCancel?: () => void;
+    /** When provided, form collects data without submitting to server (dialog mode). */
+    onSuccess?: (data: PackageSchema) => void;
 }
 
 export default function PackageForm({
     mode,
     initialData,
+    prefillData,
     onCancel,
+    onSuccess,
 }: PackageFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
@@ -55,8 +61,10 @@ export default function PackageForm({
         ticket_type: '',
         included: '',
         not_included: '',
+        offer: '',
         remarks: '',
         accommodations: [],
+        ...prefillData,
     };
 
     const {
@@ -94,14 +102,18 @@ export default function PackageForm({
         e.preventDefault();
         if (!validateClientSide()) return;
 
-        const url = '/packages';
+        // Dialog mode: pass data back without submitting to server
+        if (onSuccess) {
+            onSuccess(data);
+            return;
+        }
 
         if (isCreate) {
-            post(url, {
+            post(store().url, {
                 onError: (errors) => setError(errors),
             });
         } else if (isEdit) {
-            put(`${url}/${data.id}`, {
+            put(update(data.id!).url, {
                 onError: (errors) => setError(errors),
             });
         }
@@ -739,7 +751,7 @@ export default function PackageForm({
                         <CardTitle>Package Inclusions</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div className="grid w-full items-center gap-3">
                                 <Label htmlFor="included">
                                     Included
@@ -782,6 +794,28 @@ export default function PackageForm({
                                         rows={10}
                                     />
                                     {renderError('not_included')}
+                                </div>
+                            </div>
+                            <div className="grid w-full items-start gap-3">
+                                <Label htmlFor="offer">
+                                    Offer
+                                    <FieldRequirements hint="Describe any special offers" />
+                                </Label>
+                                <div className="relative">
+                                    <Textarea
+                                        id="offer"
+                                        value={data.offer || ''}
+                                        disabled={isView || processing}
+                                        onChange={(e) =>
+                                            setData(
+                                                'offer',
+                                                e.target.value || null,
+                                            )
+                                        }
+                                        placeholder="Describe any special offers or promotions..."
+                                        rows={10}
+                                    />
+                                    {renderError('offer')}
                                 </div>
                             </div>
                         </div>
@@ -828,7 +862,7 @@ export default function PackageForm({
                             onClick={onCancel}
                             disabled={processing}
                         >
-                            Back
+                            {onSuccess ? 'Cancel' : 'Back'}
                         </Button>
                     )}
                     {!isView && (
@@ -846,7 +880,11 @@ export default function PackageForm({
                                 className="min-w-[140px]"
                                 disabled={processing}
                             >
-                                {isEdit ? 'Update' : 'Create'}
+                                {isEdit
+                                    ? 'Update'
+                                    : onSuccess
+                                      ? 'Create & Continue'
+                                      : 'Create'}
                             </Button>
                         </>
                     )}

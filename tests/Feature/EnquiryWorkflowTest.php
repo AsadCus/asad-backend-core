@@ -50,6 +50,33 @@ class EnquiryWorkflowTest extends TestCase
         $this->adminUser->assignRole('admin');
     }
 
+    /**
+     * Helper to build a valid member payload with all required biodata fields.
+     */
+    private function memberPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'name' => 'Test Member',
+            'email' => 'member@example.com',
+            'contact_number' => '0123456789',
+            'nric_number' => 'S1234567A',
+            'address' => '123 Test Street, 12345',
+            'is_leader' => true,
+            'nationality' => 'Malaysian',
+            'passport_number' => 'A12345678',
+            'passport_issue_date' => '2023-01-01',
+            'passport_expiry_date' => '2033-01-01',
+            'passport_place_of_issue' => 'Kuala Lumpur',
+            'gender' => 'male',
+            'marital_status' => 'single',
+            'date_of_birth' => '1990-05-15',
+            'place_of_birth' => 'Kuala Lumpur',
+            'first_time_umrah' => true,
+            'has_chronic_disease' => false,
+            'chronic_disease_details' => null,
+        ], $overrides);
+    }
+
     public function test_creating_general_enquiry_creates_parent_enquiry(): void
     {
         $this->actingAs($this->adminUser);
@@ -142,7 +169,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(
-            fn($page) => $page
+            fn ($page) => $page
                 ->component('enquiries/index')
                 ->has('data.enquiriesForDatatable')
                 ->has('data.statusOptions')
@@ -169,7 +196,7 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertOk();
 
         $response->assertInertia(
-            fn($page) => $page
+            fn ($page) => $page
                 ->component('general-enquiries/index')
                 ->has('data.enquiriesForDatatable', 1)
                 ->where('data.enquiriesForDatatable.0.status', 'new_lead')
@@ -241,9 +268,18 @@ class EnquiryWorkflowTest extends TestCase
         $this->put(route('enquiries.transition-status', $enquiry->id), ['status' => 'negotiating'])
             ->assertRedirect();
 
-        // negotiating -> confirmed
-        $this->put(route('enquiries.transition-status', $enquiry->id), ['status' => 'confirmed'])
-            ->assertRedirect();
+        // negotiating -> confirmed (must use the confirm endpoint with member data)
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Workflow Test',
+                    'email' => 'flow@test.com',
+                    'contact_number' => '012345',
+                ]),
+            ],
+        ])->assertRedirect();
 
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
@@ -265,23 +301,22 @@ class EnquiryWorkflowTest extends TestCase
 
         $response = $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
             'members' => [
-                [
+                $this->memberPayload([
                     'name' => 'Group Leader',
                     'email' => 'leader@test.com',
                     'contact_number' => '012345',
-                    'nric_number' => 'S1234567A',
-                    'address' => '123 Test Street',
                     'is_leader' => true,
-                ],
-                [
+                ]),
+                $this->memberPayload([
                     'name' => 'Participant One',
                     'email' => 'participant1@test.com',
                     'contact_number' => '098765',
-                    'nric_number' => '',
-                    'address' => '',
+                    'nric_number' => 'S9876543B',
+                    'passport_number' => 'B87654321',
                     'is_leader' => false,
-                ],
+                ]),
             ],
         ]);
 
@@ -323,15 +358,14 @@ class EnquiryWorkflowTest extends TestCase
 
         $response = $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
             'members' => [
-                [
+                $this->memberPayload([
                     'name' => 'Already Confirmed',
                     'email' => 'alreadyconfirmed@test.com',
                     'contact_number' => '012345',
-                    'nric_number' => '',
-                    'address' => '',
                     'is_leader' => true,
-                ],
+                ]),
             ],
         ]);
 
@@ -363,15 +397,14 @@ class EnquiryWorkflowTest extends TestCase
 
         $response = $this->post(route('enquiries.create-customer-group'), [
             'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
             'members' => [
-                [
+                $this->memberPayload([
                     'name' => 'Link Test Leader',
                     'email' => 'linkleader@test.com',
                     'contact_number' => '0123456789',
-                    'nric_number' => '',
-                    'address' => '',
                     'is_leader' => true,
-                ],
+                ]),
             ],
         ]);
 
@@ -455,7 +488,7 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertOk();
 
         $data = $response->json();
-        $emails = array_map(fn($item) => $item['email'] ?? '', $data);
+        $emails = array_map(fn ($item) => $item['email'] ?? '', $data);
 
         $this->assertContains('hascustomer@test.com', $emails);
         $this->assertNotContains('nocustomer@test.com', $emails);
@@ -476,15 +509,14 @@ class EnquiryWorkflowTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
             'members' => [
-                [
+                $this->memberPayload([
                     'name' => 'New Customer',
                     'email' => 'newcust@test.com',
                     'contact_number' => '012345',
-                    'nric_number' => '',
-                    'address' => '',
                     'is_leader' => true,
-                ],
+                ]),
             ],
         ]);
 
@@ -523,15 +555,14 @@ class EnquiryWorkflowTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
             'members' => [
-                [
+                $this->memberPayload([
                     'name' => 'Existing Customer',
                     'email' => 'existing@test.com',
                     'contact_number' => '012345',
-                    'nric_number' => '',
-                    'address' => '',
                     'is_leader' => true,
-                ],
+                ]),
             ],
         ]);
 
@@ -661,23 +692,23 @@ class EnquiryWorkflowTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $response = $this->post(route('enquiries.create-customer-group'), [
+            'date_of_application' => '2026-01-01',
             'members' => [
-                [
+                $this->memberPayload([
                     'name' => 'Standalone Leader',
                     'email' => 'standalone@test.com',
                     'contact_number' => '0123456789',
                     'nric_number' => '901231-14-5678',
-                    'address' => '123 Test St',
                     'is_leader' => true,
-                ],
-                [
+                ]),
+                $this->memberPayload([
                     'name' => 'Standalone Member',
                     'email' => 'member@test.com',
                     'contact_number' => '0198765432',
-                    'nric_number' => '',
-                    'address' => '',
+                    'nric_number' => 'S9876543C',
+                    'passport_number' => 'C11111111',
                     'is_leader' => false,
-                ],
+                ]),
             ],
         ]);
 
@@ -742,15 +773,15 @@ class EnquiryWorkflowTest extends TestCase
 
         // Create a standalone group with same email - should update, not duplicate
         $this->post(route('enquiries.create-customer-group'), [
+            'date_of_application' => '2026-01-01',
             'members' => [
-                [
+                $this->memberPayload([
                     'name' => 'Updated Name',
                     'email' => 'existing@test.com',
                     'contact_number' => '999999',
                     'nric_number' => '901231-14-5678',
-                    'address' => 'New Address',
                     'is_leader' => true,
-                ],
+                ]),
             ],
         ]);
 
@@ -770,7 +801,7 @@ class EnquiryWorkflowTest extends TestCase
         $this->assertEquals('901231-14-5678', $customer->nric_number);
     }
 
-    public function test_customer_index_includes_data_groups(): void
+    public function test_customer_index_loads_without_data_groups(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -784,9 +815,29 @@ class EnquiryWorkflowTest extends TestCase
         $response = $this->get(route('customer.index'));
         $response->assertStatus(200);
         $response->assertInertia(
-            fn($page) => $page
+            fn ($page) => $page
                 ->component('customer/index')
+                ->missing('dataGroups')
+        );
+    }
+
+    public function test_confirmed_customer_index_includes_data_groups(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        // Create required roles and permissions
+        foreach (['customer view'] as $perm) {
+            Permission::findOrCreate($perm, 'web');
+        }
+        $this->adminUser->givePermissionTo(['customer view']);
+
+        $response = $this->get(route('confirmed-customer.index'));
+        $response->assertStatus(200);
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('confirmed-customer/index')
                 ->has('dataGroups')
+                ->has('packageOptions')
         );
     }
 }

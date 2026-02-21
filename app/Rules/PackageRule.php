@@ -39,6 +39,7 @@ class PackageRule
             // Package Inclusions
             'included' => ['nullable', 'string'],
             'not_included' => ['nullable', 'string'],
+            'offer' => ['nullable', 'string'],
 
             // Remarks
             'remarks' => ['nullable', 'string'],

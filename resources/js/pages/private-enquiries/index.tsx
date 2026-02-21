@@ -27,7 +27,7 @@ import {
     getForShow,
     index,
 } from '@/routes/private-enquiries';
-import { SharedData, type BreadcrumbItem } from '@/types';
+import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
@@ -57,6 +57,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export interface PrivateEnquiriesProps {
     data: {
         enquiriesForDatatable: PrivateEnquiryDatatableSchema[];
+        packageOptions: OptionType[];
     };
 }
 
@@ -261,7 +262,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
         actions.push('delete');
 
     const hasEditPermission = userPermissions.includes('private-enquiry edit');
-    const { enquiriesForDatatable } = data;
+    const { enquiriesForDatatable, packageOptions } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -287,6 +288,9 @@ export default function Index({ data }: PrivateEnquiriesProps) {
         email: '',
         contact: '',
     });
+    const [prefillPackageId, setPrefillPackageId] = useState<number | null>(
+        null,
+    );
 
     // Enquiry Remarks state
     const [remarksDialogOpen, setRemarksDialogOpen] = useState(false);
@@ -560,6 +564,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                         email: enquiry?.email ?? '',
                         contact: enquiry?.contact_number ?? '',
                     });
+                    setPrefillPackageId(null);
                     setConfirmFormOpen(true);
                 }}
             />
@@ -586,6 +591,8 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                             prefillName={confirmFormPrefill.name}
                             prefillEmail={confirmFormPrefill.email}
                             prefillContact={confirmFormPrefill.contact}
+                            prefillPackageId={prefillPackageId}
+                            packageOptions={packageOptions}
                             onSuccess={() => {
                                 setConfirmFormOpen(false);
                                 router.reload();

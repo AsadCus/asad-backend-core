@@ -3,21 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Rules\PrivateEnquiryRule;
+use App\Services\PackageService;
 use App\Services\PrivateEnquiryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class PrivateEnquiryController extends Controller
 {
-    protected $privateEnquiryService;
-
-    protected $privateEnquiryRule;
-
-    public function __construct(PrivateEnquiryService $privateEnquiryService, PrivateEnquiryRule $privateEnquiryRule)
-    {
-        $this->privateEnquiryService = $privateEnquiryService;
-        $this->privateEnquiryRule = $privateEnquiryRule;
-    }
+    public function __construct(
+        protected PrivateEnquiryService $privateEnquiryService,
+        protected PrivateEnquiryRule $privateEnquiryRule,
+        protected PackageService $packageService,
+    ) {}
 
     /**
      * Display a listing of the resource.
@@ -25,6 +22,7 @@ class PrivateEnquiryController extends Controller
     public function index()
     {
         $data['enquiriesForDatatable'] = $this->privateEnquiryService->getForDataTable();
+        $data['packageOptions'] = $this->packageService->getForFilter();
 
         return Inertia::render('private-enquiries/index', [
             'data' => $data,

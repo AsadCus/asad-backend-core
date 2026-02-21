@@ -35,6 +35,7 @@ class PackageSeeder extends Seeder
             'ticket_type' => 'Economy',
             'included' => "Flight Tickets\nHotel Accommodation\nVisa Processing\nGround Transport\nMeals (Breakfast & Dinner)\nZiyarah Tours\nTravel Insurance",
             'not_included' => "Personal Expenses\nLaundry\nTips & Gratuities",
+            'offer' => "Early bird discount 10% off for bookings before Dec 2025\nFree airport transfer",
             'remarks' => 'Economy package with comfortable 4-star hotels near Haram.',
         ]);
 
@@ -65,6 +66,7 @@ class PackageSeeder extends Seeder
             'ticket_type' => 'Business',
             'included' => "Flight Tickets (Business Class)\n5-Star Hotel\nVisa Processing\nVIP Transport\nAll Meals\nPrivate Ziyarah Tours\nTravel Insurance\nLaundry Service\nSim Card",
             'not_included' => "Personal Expenses\nTips & Gratuities",
+            'offer' => "Complimentary spa session at hotel\nFree upgrade to suite (subject to availability)",
             'remarks' => 'Premium package with 5-star hotels walking distance to Haram. VIP transport and dedicated guide.',
         ]);
 
@@ -95,6 +97,7 @@ class PackageSeeder extends Seeder
             'ticket_type' => 'Economy',
             'included' => "Flight Tickets\nHotel Accommodation\nHajj Visa\nGround Transport\nAll Meals\nZiyarah Tours\nTravel Insurance\nHajj Kit\nPre-Hajj Training",
             'not_included' => "Personal Expenses\nLaundry\nTips & Gratuities\nQurbani (Optional)",
+            'offer' => "Group discount: 5% off for groups of 10 or more\nFree Hajj training workshop",
             'remarks' => 'Standard Hajj package with comfortable accommodation in Aziziyah and Mina tents.',
         ]);
 
@@ -126,6 +129,7 @@ class PackageSeeder extends Seeder
             'ticket_type' => 'Economy',
             'included' => "Flight Tickets\nHotel near Haram\nVisa Processing\nGround Transport\nIftar & Suhoor\nZiyarah Tours\nTravel Insurance",
             'not_included' => "Personal Expenses\nLaundry\nTips & Gratuities",
+            'offer' => 'Special Ramadan gift pack for all travellers',
             'remarks' => 'Special Ramadan package with premium hotel facing Haram. Extended stay for last 10 nights of Ramadan.',
         ]);
 
@@ -156,6 +160,7 @@ class PackageSeeder extends Seeder
             'ticket_type' => 'Economy',
             'included' => "Flight Tickets\nHotel Accommodation\nVisa Processing\nGround Transport",
             'not_included' => "Meals\nPersonal Expenses\nLaundry\nTravel Insurance",
+            'offer' => null,
             'remarks' => 'Budget-friendly short Umrah package. This package is now closed.',
         ]);
 

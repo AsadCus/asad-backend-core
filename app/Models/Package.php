@@ -41,6 +41,7 @@ class Package extends Model
         // Package Inclusions
         'included',
         'not_included',
+        'offer',
 
         // Remarks
         'remarks',

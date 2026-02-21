@@ -1,12 +1,13 @@
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/general-enquiries';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import GeneralEnquiryForm, { GeneralEnquiryFormSchema } from './form';
 
 interface EditGeneralEnquiryProps {
     data: GeneralEnquiryFormSchema;
+    packageOptions: OptionType[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -16,7 +17,10 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function EditGeneralEnquiry({ data }: EditGeneralEnquiryProps) {
+export default function EditGeneralEnquiry({
+    data,
+    packageOptions = [],
+}: EditGeneralEnquiryProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -35,6 +39,7 @@ export default function EditGeneralEnquiry({ data }: EditGeneralEnquiryProps) {
                     <GeneralEnquiryForm
                         mode="edit"
                         initialData={data}
+                        packageOptions={packageOptions}
                         onCancel={handleCancel}
                     />
                 </div>

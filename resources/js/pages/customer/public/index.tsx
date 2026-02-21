@@ -21,6 +21,7 @@ interface PublicCustomerFormProps {
     packageId?: number | null;
     packageName?: string | null;
     packageOptions?: OptionType[];
+    publicSubmitUrl?: string;
     initialData?: CustomerGroupFormSchema;
 }
 
@@ -34,6 +35,7 @@ export default function PublicCustomerForm({
     packageId = null,
     packageName = null,
     packageOptions = [],
+    publicSubmitUrl,
     initialData,
 }: PublicCustomerFormProps) {
     const isEdit = mode === 'edit';
@@ -77,6 +79,7 @@ export default function PublicCustomerForm({
                         mode={mode}
                         enquiryId={enquiryId}
                         isPublic={true}
+                        publicSubmitUrl={publicSubmitUrl}
                         packageOptions={packageOptions}
                         initialData={
                             initialData

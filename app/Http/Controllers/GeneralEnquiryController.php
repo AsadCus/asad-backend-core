@@ -4,20 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Rules\GeneralEnquiryRule;
 use App\Services\GeneralEnquiryService;
+use App\Services\PackageService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class GeneralEnquiryController extends Controller
 {
-    protected $generalEnquiryService;
-
-    protected $generalEnquiryRule;
-
-    public function __construct(GeneralEnquiryService $generalEnquiryService, GeneralEnquiryRule $generalEnquiryRule)
-    {
-        $this->generalEnquiryService = $generalEnquiryService;
-        $this->generalEnquiryRule = $generalEnquiryRule;
-    }
+    public function __construct(
+        protected GeneralEnquiryService $generalEnquiryService,
+        protected GeneralEnquiryRule $generalEnquiryRule,
+        protected PackageService $packageService,
+    ) {}
 
     /**
      * Display a listing of the resource.
@@ -25,6 +22,7 @@ class GeneralEnquiryController extends Controller
     public function index()
     {
         $data['enquiriesForDatatable'] = $this->generalEnquiryService->getForDataTable();
+        $data['packageOptions'] = $this->packageService->getForFilter();
 
         return Inertia::render('general-enquiries/index', [
             'data' => $data,
@@ -41,7 +39,9 @@ class GeneralEnquiryController extends Controller
      */
     public function create()
     {
-        return Inertia::render('general-enquiries/create');
+        return Inertia::render('general-enquiries/create', [
+            'packageOptions' => $this->packageService->getForFilter(),
+        ]);
     }
 
     /**
@@ -50,7 +50,12 @@ class GeneralEnquiryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate($this->generalEnquiryRule->rules());
-        $this->generalEnquiryService->store($validated);
+        $generalEnquiry = $this->generalEnquiryService->store($validated);
+
+        // Update package on the parent enquiry if provided
+        if ($request->has('package_id')) {
+            $generalEnquiry->enquiry?->update(['package_id' => $request->input('package_id')]);
+        }
 
         return redirect()->route('general-enquiries.index')
             ->with('success', 'General enquiry created successfully.');
@@ -96,6 +101,7 @@ class GeneralEnquiryController extends Controller
 
         return Inertia::render('general-enquiries/edit', [
             'data' => $enquiry,
+            'packageOptions' => $this->packageService->getForFilter(),
         ]);
     }
 
@@ -106,6 +112,12 @@ class GeneralEnquiryController extends Controller
     {
         $validated = $request->validate($this->generalEnquiryRule->rules($id));
         $this->generalEnquiryService->update($validated, $id);
+
+        // Update package on the parent enquiry if provided
+        $generalEnquiry = \App\Models\GeneralEnquiry::findOrFail($id);
+        if ($request->has('package_id')) {
+            $generalEnquiry->enquiry?->update(['package_id' => $request->input('package_id')]);
+        }
 
         return redirect()->route('general-enquiries.index')
             ->with('success', 'General enquiry updated successfully.');

@@ -23,15 +23,25 @@ use Inertia\Inertia;
 class CustomerController extends Controller
 {
     protected $customerService;
+
     protected $branchService;
+
     protected $salesService;
+
     protected $countryService;
+
     protected $userService;
+
     protected $userRule;
+
     protected $religionService;
+
     protected $educationLevelService;
+
     protected $maidService;
+
     protected $customerGroupService;
+
     protected $packageService;
 
     public function __construct(
@@ -71,16 +81,12 @@ class CustomerController extends Controller
         $dataBranch = $this->branchService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
-        $dataGroups = $this->customerGroupService->getForGroupedIndex();
-        $packageOptions = $this->packageService->getForFilter();
 
         return Inertia::render('customer/index', [
             'data' => $data,
             'dataBranch' => $dataBranch,
             'dataSales' => $dataSales,
             'dataCountry' => $dataCountry,
-            'dataGroups' => $dataGroups,
-            'packageOptions' => $packageOptions,
         ]);
     }
 

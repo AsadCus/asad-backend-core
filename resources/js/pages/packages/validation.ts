@@ -49,95 +49,26 @@ export const packageValidationSchema = packageSchema.superRefine(
             });
         }
 
-        // price_single
-        if (
-            data.price_single !== undefined &&
-            data.price_single !== null &&
-            data.price_single < 0
-        ) {
-            ctx.addIssue({
-                path: ['price_single'],
-                message: 'Price cannot be negative',
-                code: z.ZodIssueCode.custom,
-            });
-        }
+        // Price fields — coerce to number before comparison
+        const priceFields = [
+            'price_single',
+            'price_double',
+            'price_triple',
+            'price_quad',
+            'child_with_bed_price',
+            'child_no_bed_price',
+            'infant_price',
+        ] as const;
 
-        // price_double
-        if (
-            data.price_double !== undefined &&
-            data.price_double !== null &&
-            data.price_double < 0
-        ) {
-            ctx.addIssue({
-                path: ['price_double'],
-                message: 'Price cannot be negative',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // price_triple
-        if (
-            data.price_triple !== undefined &&
-            data.price_triple !== null &&
-            data.price_triple < 0
-        ) {
-            ctx.addIssue({
-                path: ['price_triple'],
-                message: 'Price cannot be negative',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // price_quad
-        if (
-            data.price_quad !== undefined &&
-            data.price_quad !== null &&
-            data.price_quad < 0
-        ) {
-            ctx.addIssue({
-                path: ['price_quad'],
-                message: 'Price cannot be negative',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // child_with_bed_price
-        if (
-            data.child_with_bed_price !== undefined &&
-            data.child_with_bed_price !== null &&
-            data.child_with_bed_price < 0
-        ) {
-            ctx.addIssue({
-                path: ['child_with_bed_price'],
-                message: 'Price cannot be negative',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // child_no_bed_price
-        if (
-            data.child_no_bed_price !== undefined &&
-            data.child_no_bed_price !== null &&
-            data.child_no_bed_price < 0
-        ) {
-            ctx.addIssue({
-                path: ['child_no_bed_price'],
-                message: 'Price cannot be negative',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // infant_price
-        if (
-            data.infant_price !== undefined &&
-            data.infant_price !== null &&
-            data.infant_price < 0
-        ) {
-            ctx.addIssue({
-                path: ['infant_price'],
-                message: 'Price cannot be negative',
-                code: z.ZodIssueCode.custom,
-            });
+        for (const field of priceFields) {
+            const val = data[field];
+            if (val !== undefined && val !== null && Number(val) < 0) {
+                ctx.addIssue({
+                    path: [field],
+                    message: 'Price cannot be negative',
+                    code: z.ZodIssueCode.custom,
+                });
+            }
         }
 
         // Accommodations validation
