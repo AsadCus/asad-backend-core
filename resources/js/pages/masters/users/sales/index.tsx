@@ -4,12 +4,14 @@ import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
-import { destroy, edit, show, index as userIndex } from '@/routes/master/user';
-import { create, index } from '@/routes/master/user/sales';
-import { type BreadcrumbItem } from '@/types';
+import { index as userIndex } from '@/routes/master/user';
+import { destroy, index } from '@/routes/master/user/sales';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
 import { UserSchema } from '../schema';
+import SalesViewDialog from './view-dialog';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -57,10 +59,33 @@ const columns: ColumnDef<UserSchema>[] = [
 
 interface SalesProps {
     dataUser: UserSchema[];
+    dataRole: OptionType[];
+    dataBranch: OptionType[];
+    dataSales: OptionType[];
 }
 
-export default function Sales({ dataUser }: SalesProps) {
+export default function Sales({
+    dataUser,
+    dataRole,
+    dataBranch,
+    dataSales,
+}: SalesProps) {
     const { confirm, ConfirmDialog } = useConfirmDialog();
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>(
+        'view',
+    );
+    const [selectedUser, setSelectedUser] = useState<UserSchema | undefined>();
+
+    const openDialog = (
+        mode: 'create' | 'edit' | 'view',
+        user?: UserSchema,
+    ) => {
+        setDialogMode(mode);
+        setSelectedUser(user);
+        setDialogOpen(true);
+    };
+
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -77,7 +102,7 @@ export default function Sales({ dataUser }: SalesProps) {
                             url={index().url}
                             onAction={(action, row) => {
                                 if (action === 'add') {
-                                    router.get(create().url);
+                                    openDialog('create');
                                     return;
                                 }
 
@@ -85,9 +110,9 @@ export default function Sales({ dataUser }: SalesProps) {
 
                                 if (userId !== undefined) {
                                     if (action === 'view') {
-                                        router.get(show(userId).url);
+                                        openDialog('view', row?.original);
                                     } else if (action === 'edit') {
-                                        router.get(edit(userId).url);
+                                        openDialog('edit', row?.original);
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Sales',
@@ -103,6 +128,9 @@ export default function Sales({ dataUser }: SalesProps) {
                                     }
                                 }
                             }}
+                            onRowDoubleClick={(row) => {
+                                openDialog('view', row as UserSchema);
+                            }}
                             initialState={{
                                 columnVisibility: { id: false },
                             }}
@@ -110,6 +138,15 @@ export default function Sales({ dataUser }: SalesProps) {
                     </div>
                 </div>
             </AppLayout>
+            <SalesViewDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                mode={dialogMode}
+                initialData={selectedUser}
+                roles={dataRole}
+                branches={dataBranch}
+                salesList={dataSales}
+            />
             <ConfirmDialog />
         </>
     );

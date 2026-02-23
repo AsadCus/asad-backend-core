@@ -2,22 +2,34 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
 use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\SalesService;
+use App\Services\UserRoles\SalesUserService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Inertia\Inertia;
 
 class SalesController extends Controller
 {
-    protected $salesService, $branchService, $userService, $countryService, $userRule;
+    protected $salesService;
 
-    public function __construct(SalesService $salesService, BranchService $branchService, UserService $userService, CountryService $countryService, UserRule $userRule)
+    protected $salesUserService;
+
+    protected $branchService;
+
+    protected $userService;
+
+    protected $countryService;
+
+    protected $userRule;
+
+    public function __construct(SalesService $salesService, SalesUserService $salesUserService, BranchService $branchService, UserService $userService, CountryService $countryService, UserRule $userRule)
     {
         $this->salesService = $salesService;
+        $this->salesUserService = $salesUserService;
         $this->branchService = $branchService;
         $this->userService = $userService;
         $this->countryService = $countryService;
@@ -58,7 +70,7 @@ class SalesController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isSales' => true
+            'isSales' => true,
         ]);
     }
 
@@ -69,7 +81,9 @@ class SalesController extends Controller
     {
         $validated = $request->validate($this->userRule->rules($request->role));
 
-        $this->userService->store($validated);
+        $validated['role'] = 'sales';
+
+        $this->salesUserService->store($validated);
 
         return redirect()->intended(route('sales.index'))->with('success', 'Sales created successfully.');
     }
@@ -79,7 +93,7 @@ class SalesController extends Controller
      */
     public function show(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->salesUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
@@ -91,7 +105,7 @@ class SalesController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isSales' => true
+            'isSales' => true,
         ]);
     }
 
@@ -100,7 +114,7 @@ class SalesController extends Controller
      */
     public function edit(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->salesUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
@@ -112,7 +126,7 @@ class SalesController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isSales' => true
+            'isSales' => true,
         ]);
     }
 
@@ -123,7 +137,9 @@ class SalesController extends Controller
     {
         $validated = $request->validate($this->userRule->rules($request->role, 'update', $id));
 
-        $this->userService->update($validated, $id);
+        $validated['role'] = 'sales';
+
+        $this->salesUserService->update($validated, $id);
 
         return redirect()->intended(route('sales.index'))->with('success', 'Sales updated successfully.');
     }

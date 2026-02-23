@@ -10,8 +10,6 @@ export const receiptSchema = z.object({
     customer_id: z.number().optional(),
     customer_name: z.string().nullable().optional(),
     customer_address: z.string().nullable().optional(),
-    maid_id: z.number().optional(),
-    maid_name: z.string().nullable().optional(),
     sales_registration_number: z.string().nullable().optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),
     receipt_date: z.string().nullable().optional(),

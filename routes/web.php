@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AgreementController;
-use App\Http\Controllers\ConfirmedCustomerController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\DashboardController;
@@ -9,7 +8,6 @@ use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\EnquiryRemarkController;
 use App\Http\Controllers\GeneralEnquiryController;
 use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\MaidController;
 use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\Master\AdminController as MasterAdminController;
 use App\Http\Controllers\Master\BranchController as MasterBranchController;
@@ -105,35 +103,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Customer
     Route::resource('customer', CustomerController::class);
-    Route::post('customer/{id}/recommend-maid', [CustomerController::class, 'submitRecommendMaid'])->name('customer.recommend-maid-submit');
     Route::get('customer-get-for-show/{id}', [CustomerController::class, 'getForShow'])->name('customer.get-for-show');
-    Route::get('customer/{id}/recommend-maid', [CustomerController::class, 'editRecommendMaid'])->name('customer.recommend-maid-edit');
     Route::put('customer/{id}/handle', [CustomerController::class, 'handleCustomer'])->name('customer.handle');
     Route::put('customer/{id}/enable', [CustomerController::class, 'enableCustomer'])->name('customer.enable');
     Route::put('customer/{id}/disable', [CustomerController::class, 'disableCustomer'])->name('customer.disable');
-    Route::post('customer/{customerId}/assign-maid/{maidId}', [CustomerController::class, 'assignMaidToCustomer'])->name('customer.assign-maid');
-
-    // Confirmed Customer (Customer Groups)
-    Route::get('confirmed-customer', [ConfirmedCustomerController::class, 'index'])->middleware('permission:customer view')->name('confirmed-customer.index');
-
-    // Maid
-    Route::get('maid-get-for-show/{id}', [MaidController::class, 'getForShow'])->name('maid.get-for-show');
-    Route::post('maid/upload-document', [MaidController::class, 'uploadDocument'])->name('maid.upload.document');
-    Route::post('maid/save-scan-result', [MaidController::class, 'saveScanResult'])->name('maid.save.scan');
-
-    // Maid Document Generation
-    Route::get('maid/{id}/generate-pdf', [MaidController::class, 'generatePdf'])->name('maid.generate.pdf');
-    Route::get('maid/{id}/preview-biodata', [MaidController::class, 'previewBiodata'])->name('maid.preview.biodata');
-
-    // Maid Status Management
-    Route::post('maid/{id}/schedule-interview', [MaidController::class, 'scheduleInterview'])->name('maid.schedule.interview');
-    Route::post('maid/{id}/complete-interview', [MaidController::class, 'completeInterview'])->name('maid.complete.interview');
-    Route::post('maid/{id}/finalize-documents', [MaidController::class, 'finalizeDocuments'])->name('maid.finalize.documents');
-    Route::put('maid/{id}/update-status', [MaidController::class, 'updateStatus'])->name('maid.update.status');
-    Route::put('maid/{id}/update-maid-status', [MaidController::class, 'updateMaidStatus'])->name('maid.update.maid.status');
-    Route::delete('maid/{id}/cancel-interview', [MaidController::class, 'cancelInterview'])->name('maid.cancel.interview');
-
-    Route::resource('maid', MaidController::class);
 
     // Quotation
     Route::resource('quotation', QuotationController::class);
@@ -195,8 +168,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Customer Groups
     Route::get('customer-groups/{id}', [CustomerGroupController::class, 'show'])->name('customer-groups.show');
     Route::put('customer-groups/{id}', [CustomerGroupController::class, 'update'])->name('customer-groups.update');
+    Route::delete('customer-groups/{id}', [CustomerGroupController::class, 'destroy'])->name('customer-groups.destroy');
     Route::get('customer-groups/{enquiryId}/generate-link', [CustomerGroupController::class, 'generatePublicLink'])->name('customer-groups.generate-link');
     Route::get('customer-groups/{groupId}/generate-edit-link', [CustomerGroupController::class, 'generatePublicEditLink'])->name('customer-groups.generate-edit-link');
+
+    // Confirmed Customer (Customer Groups)
+    Route::get('confirmed-customer', [CustomerGroupController::class, 'index'])->middleware('permission:customer view')->name('confirmed-customer.index');
+    Route::delete('confirmed-customer/{id}', [CustomerGroupController::class, 'destroy'])->middleware('permission:customer edit')->name('confirmed-customer.destroy');
 
     // Enquiry Remarks
     Route::get('enquiries/{enquiryId}/remarks', [EnquiryRemarkController::class, 'index'])->name('enquiry-remarks.index');

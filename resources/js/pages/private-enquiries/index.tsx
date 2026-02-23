@@ -25,7 +25,7 @@ import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useState } from 'react';
-import CustomerConfirmationForm from '../customer/form';
+import CustomerConfirmationForm from '../confirmed-customer/form';
 import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
 import {
     EnquiryStatusAction,
@@ -575,7 +575,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
 
             {/* Private Enquiry Step-by-Step Confirmation Flow */}
             <Dialog open={privateFlowOpen} onOpenChange={cancelPrivateFlow}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col">
                     <DialogHeader>
                         <DialogTitle>
                             {privateFlowStep === 'package'
@@ -589,13 +589,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div
-                        className="h-full w-full flex-1 overflow-y-auto"
-                        style={{
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                        }}
-                    >
+                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
                         {privateFlowStep === 'package' && (
                             <PackageForm
                                 mode="create"

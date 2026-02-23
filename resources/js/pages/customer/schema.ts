@@ -3,7 +3,8 @@ import { z } from 'zod';
 import type { PackageSchema } from '../packages/schema';
 
 // ── Member schema (per-person fields stored in users + customers) ──
-export const customerMemberSchema = z.object({
+export const customerSchema = z.object({
+    customer_number: z.string().optional(),
     member_id: z.number().optional(),
     customer_id: z.number().optional(),
     is_leader: z.boolean(),
@@ -31,7 +32,7 @@ export const customerMemberSchema = z.object({
     photo_path: z.string().nullable().optional(),
 });
 
-export type CustomerMemberSchema = z.infer<typeof customerMemberSchema>;
+export type CustomerSchema = z.infer<typeof customerSchema>;
 
 // ── Customer Group form schema (group-level + members) ──
 export const customerGroupFormSchema = z.object({
@@ -41,14 +42,14 @@ export const customerGroupFormSchema = z.object({
     package_room_type: z.string().nullable().optional(),
     package_category: z.string().nullable().optional(),
     date_of_application: z.string(),
-    members: z.array(customerMemberSchema),
+    members: z.array(customerSchema),
     terms_accepted: z.boolean().optional(),
 });
 
 export type CustomerGroupFormSchema = z.infer<typeof customerGroupFormSchema>;
 
 export type CustomerMemberFormData = Omit<
-    CustomerMemberSchema,
+    CustomerSchema,
     'passport_file' | 'photo_file' | 'passport_path' | 'photo_path'
 > & {
     passport_file?: File | null;
@@ -137,7 +138,7 @@ export interface CustomerGroupDatatableSchema {
 
 // ── Default empty member ──
 
-export const emptyMember = (isLeader = false): CustomerMemberSchema => ({
+export const emptyMember = (isLeader = false): CustomerSchema => ({
     is_leader: isLeader,
     name: '',
     email: '',

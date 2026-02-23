@@ -10,8 +10,6 @@ export const agreementSchema = z.object({
     expiry_date: z.string().nullable(),
     customer_name: z.string(),
     customer_nric: z.string().nullable(),
-    maid_name: z.string(),
-    maid_passport: z.string().nullable(),
     job_description: z.string().nullable(),
     monthly_salary: z.coerce.number(),
     loan_amount: z.coerce.number().nullable(),

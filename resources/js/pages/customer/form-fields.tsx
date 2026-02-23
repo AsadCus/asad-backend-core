@@ -7,17 +7,18 @@ import { ProperInputSelect } from '@/components/proper-input-select';
 import {
     genderOptions,
     maritalStatusOptions,
-    type CustomerMemberSchema,
+    type CustomerSchema,
 } from './schema';
 
-interface MemberFormFieldsProps {
-    member: CustomerMemberSchema;
-    index: number;
+interface CustomerFormFieldsProps {
+    customer: CustomerSchema;
+    index?: number;
+    fieldPrefix?: string;
     isView: boolean;
     processing: boolean;
     getError: (path: string) => string | undefined;
-    onUpdate: (
-        field: keyof CustomerMemberSchema,
+    onUpdateCustomer: (
+        field: keyof CustomerSchema,
         value: string | boolean | File | null,
     ) => void;
 }
@@ -39,38 +40,57 @@ const DOCUMENT_FIELDS = [
     },
 ] as const;
 
-export default function MemberFormFields({
-    member,
+export default function CustomerFormFields({
+    customer,
     index,
+    fieldPrefix,
     isView,
     processing,
     getError,
-    onUpdate,
-}: MemberFormFieldsProps) {
+    onUpdateCustomer,
+}: CustomerFormFieldsProps) {
     const disabled = isView || processing;
-    const prefix = `members.${index}`;
+    const prefix =
+        fieldPrefix ?? (typeof index === 'number' ? `members.${index}` : '');
+    const fieldPath = (field: keyof CustomerSchema): string => {
+        return prefix ? `${prefix}.${field}` : String(field);
+    };
 
     return (
         <div className="space-y-6">
             {/* Personal Information */}
             <div className="space-y-4">
-                <h3 className="text-xl font-semibold">Personal Information</h3>
+                <h3 className="text-xl font-semibold">
+                    Personal Information
+                    {customer.customer_number && (
+                        <>
+                            {' '}
+                            <span className="text-muted-foreground">
+                                (Customer No.{' '}
+                                <span className="text-primary">
+                                    {customer.customer_number}
+                                </span>
+                                )
+                            </span>
+                        </>
+                    )}
+                </h3>
                 <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                     <FormField
                         label="Full Name"
                         fieldRequirementsProps={{
                             required: true,
-                            hint: "Member's full name as per passport or IC",
+                            hint: "Customer's full name as per passport or IC",
                             example: 'Ahmad bin Abdullah',
                         }}
-                        htmlFor={`${prefix}.name`}
-                        error={getError(`${prefix}.name`)}
+                        htmlFor={fieldPath('name')}
+                        error={getError(fieldPath('name'))}
                     >
                         <ProperInput
-                            id={`${prefix}.name`}
-                            value={member.name}
+                            id={fieldPath('name')}
+                            value={customer.name}
                             disabled={disabled}
-                            onCommit={(v) => onUpdate('name', v)}
+                            onCommit={(v) => onUpdateCustomer('name', v)}
                             placeholder="Enter full name"
                         />
                     </FormField>
@@ -82,14 +102,14 @@ export default function MemberFormFields({
                             hint: 'Valid email address for communication',
                             format: 'example@domain.com',
                         }}
-                        htmlFor={`${prefix}.email`}
-                        error={getError(`${prefix}.email`)}
+                        htmlFor={fieldPath('email')}
+                        error={getError(fieldPath('email'))}
                     >
                         <ProperInput
-                            id={`${prefix}.email`}
-                            value={member.email}
+                            id={fieldPath('email')}
+                            value={customer.email}
                             disabled={disabled}
-                            onCommit={(v) => onUpdate('email', v)}
+                            onCommit={(v) => onUpdateCustomer('email', v)}
                             placeholder="email@example.com"
                         />
                     </FormField>
@@ -101,14 +121,16 @@ export default function MemberFormFields({
                             hint: 'Phone number with country code',
                             format: '+60 12-345 6789',
                         }}
-                        htmlFor={`${prefix}.contact_number`}
-                        error={getError(`${prefix}.contact_number`)}
+                        htmlFor={fieldPath('contact_number')}
+                        error={getError(fieldPath('contact_number'))}
                     >
                         <ProperInput
-                            id={`${prefix}.contact_number`}
-                            value={member.contact_number}
+                            id={fieldPath('contact_number')}
+                            value={customer.contact_number}
                             disabled={disabled}
-                            onCommit={(v) => onUpdate('contact_number', v)}
+                            onCommit={(v) =>
+                                onUpdateCustomer('contact_number', v)
+                            }
                             placeholder="+60 12 345 6789"
                         />
                     </FormField>
@@ -120,14 +142,14 @@ export default function MemberFormFields({
                             hint: 'National Registration Identity Card number',
                             format: '123456-12-1234',
                         }}
-                        htmlFor={`${prefix}.nric_number`}
-                        error={getError(`${prefix}.nric_number`)}
+                        htmlFor={fieldPath('nric_number')}
+                        error={getError(fieldPath('nric_number'))}
                     >
                         <ProperInput
-                            id={`${prefix}.nric_number`}
-                            value={member.nric_number}
+                            id={fieldPath('nric_number')}
+                            value={customer.nric_number}
                             disabled={disabled}
-                            onCommit={(v) => onUpdate('nric_number', v)}
+                            onCommit={(v) => onUpdateCustomer('nric_number', v)}
                             placeholder="NRIC number"
                         />
                     </FormField>
@@ -138,13 +160,15 @@ export default function MemberFormFields({
                             required: true,
                             hint: 'Select gender as per official documents',
                         }}
-                        htmlFor={`${prefix}.gender`}
-                        error={getError(`${prefix}.gender`)}
+                        htmlFor={fieldPath('gender')}
+                        error={getError(fieldPath('gender'))}
                     >
                         <ProperInputSelect
                             options={genderOptions}
-                            value={member.gender}
-                            onValueChange={(v) => onUpdate('gender', String(v))}
+                            value={customer.gender}
+                            onValueChange={(v) =>
+                                onUpdateCustomer('gender', String(v))
+                            }
                             placeholder="Select gender"
                             disabled={disabled}
                         />
@@ -156,14 +180,14 @@ export default function MemberFormFields({
                             required: true,
                             hint: 'Current marital status',
                         }}
-                        htmlFor={`${prefix}.marital_status`}
-                        error={getError(`${prefix}.marital_status`)}
+                        htmlFor={fieldPath('marital_status')}
+                        error={getError(fieldPath('marital_status'))}
                     >
                         <ProperInputSelect
                             options={maritalStatusOptions}
-                            value={member.marital_status}
+                            value={customer.marital_status}
                             onValueChange={(v) =>
-                                onUpdate('marital_status', String(v))
+                                onUpdateCustomer('marital_status', String(v))
                             }
                             placeholder="Select marital status"
                             disabled={disabled}
@@ -176,16 +200,18 @@ export default function MemberFormFields({
                             required: true,
                             hint: 'Birth date as per passport or IC',
                         }}
-                        htmlFor={`${prefix}.date_of_birth`}
-                        error={getError(`${prefix}.date_of_birth`)}
+                        htmlFor={fieldPath('date_of_birth')}
+                        error={getError(fieldPath('date_of_birth'))}
                     >
                         <DatePickerField
-                            id={`${prefix}.date_of_birth`}
-                            value={member.date_of_birth}
+                            id={fieldPath('date_of_birth')}
+                            value={customer.date_of_birth}
                             disabled={disabled}
                             fromYear={1930}
                             toYear={new Date().getFullYear()}
-                            onChange={(v) => onUpdate('date_of_birth', v)}
+                            onChange={(v) =>
+                                onUpdateCustomer('date_of_birth', v)
+                            }
                         />
                     </FormField>
 
@@ -196,14 +222,16 @@ export default function MemberFormFields({
                             hint: 'City or country where you were born',
                             example: 'Kuala Lumpur, Malaysia',
                         }}
-                        htmlFor={`${prefix}.place_of_birth`}
-                        error={getError(`${prefix}.place_of_birth`)}
+                        htmlFor={fieldPath('place_of_birth')}
+                        error={getError(fieldPath('place_of_birth'))}
                     >
                         <ProperInput
-                            id={`${prefix}.place_of_birth`}
-                            value={member.place_of_birth}
+                            id={fieldPath('place_of_birth')}
+                            value={customer.place_of_birth}
                             disabled={disabled}
-                            onCommit={(v) => onUpdate('place_of_birth', v)}
+                            onCommit={(v) =>
+                                onUpdateCustomer('place_of_birth', v)
+                            }
                             placeholder="Enter place of birth"
                         />
                     </FormField>
@@ -215,14 +243,14 @@ export default function MemberFormFields({
                             hint: 'Citizenship as per passport',
                             example: 'Malaysian',
                         }}
-                        htmlFor={`${prefix}.nationality`}
-                        error={getError(`${prefix}.nationality`)}
+                        htmlFor={fieldPath('nationality')}
+                        error={getError(fieldPath('nationality'))}
                     >
                         <ProperInput
-                            id={`${prefix}.nationality`}
-                            value={member.nationality}
+                            id={fieldPath('nationality')}
+                            value={customer.nationality}
                             disabled={disabled}
-                            onCommit={(v) => onUpdate('nationality', v)}
+                            onCommit={(v) => onUpdateCustomer('nationality', v)}
                             placeholder="e.g. Malaysian"
                         />
                     </FormField>
@@ -234,16 +262,16 @@ export default function MemberFormFields({
                             hint: 'Full address including street, city, and postal code',
                             example: '123, Jalan Sultan, 50000 Kuala Lumpur',
                         }}
-                        htmlFor={`${prefix}.address`}
-                        error={getError(`${prefix}.address`)}
+                        htmlFor={fieldPath('address')}
+                        error={getError(fieldPath('address'))}
                         className="md:col-span-2"
                     >
                         <ProperInput
-                            id={`${prefix}.address`}
-                            value={member.address}
+                            id={fieldPath('address')}
+                            value={customer.address}
                             disabled={disabled}
                             textarea
-                            onCommit={(v) => onUpdate('address', v)}
+                            onCommit={(v) => onUpdateCustomer('address', v)}
                             placeholder="Full address including postal code"
                         />
                     </FormField>
@@ -261,14 +289,16 @@ export default function MemberFormFields({
                             hint: 'Passport number exactly as shown on passport',
                             format: 'A12345678',
                         }}
-                        htmlFor={`${prefix}.passport_number`}
-                        error={getError(`${prefix}.passport_number`)}
+                        htmlFor={fieldPath('passport_number')}
+                        error={getError(fieldPath('passport_number'))}
                     >
                         <ProperInput
-                            id={`${prefix}.passport_number`}
-                            value={member.passport_number}
+                            id={fieldPath('passport_number')}
+                            value={customer.passport_number}
                             disabled={disabled}
-                            onCommit={(v) => onUpdate('passport_number', v)}
+                            onCommit={(v) =>
+                                onUpdateCustomer('passport_number', v)
+                            }
                             placeholder="Passport number"
                         />
                     </FormField>
@@ -280,15 +310,15 @@ export default function MemberFormFields({
                             hint: 'City or country where passport was issued',
                             example: 'Kuala Lumpur / Malaysia',
                         }}
-                        htmlFor={`${prefix}.passport_place_of_issue`}
-                        error={getError(`${prefix}.passport_place_of_issue`)}
+                        htmlFor={fieldPath('passport_place_of_issue')}
+                        error={getError(fieldPath('passport_place_of_issue'))}
                     >
                         <ProperInput
-                            id={`${prefix}.passport_place_of_issue`}
-                            value={member.passport_place_of_issue}
+                            id={fieldPath('passport_place_of_issue')}
+                            value={customer.passport_place_of_issue}
                             disabled={disabled}
                             onCommit={(v) =>
-                                onUpdate('passport_place_of_issue', v)
+                                onUpdateCustomer('passport_place_of_issue', v)
                             }
                             placeholder="e.g. Kuala Lumpur"
                         />
@@ -300,16 +330,18 @@ export default function MemberFormFields({
                             required: true,
                             hint: 'Date when passport was issued',
                         }}
-                        htmlFor={`${prefix}.passport_issue_date`}
-                        error={getError(`${prefix}.passport_issue_date`)}
+                        htmlFor={fieldPath('passport_issue_date')}
+                        error={getError(fieldPath('passport_issue_date'))}
                     >
                         <DatePickerField
-                            id={`${prefix}.passport_issue_date`}
-                            value={member.passport_issue_date}
+                            id={fieldPath('passport_issue_date')}
+                            value={customer.passport_issue_date}
                             disabled={disabled}
                             fromYear={2000}
                             toYear={new Date().getFullYear()}
-                            onChange={(v) => onUpdate('passport_issue_date', v)}
+                            onChange={(v) =>
+                                onUpdateCustomer('passport_issue_date', v)
+                            }
                         />
                     </FormField>
 
@@ -319,17 +351,17 @@ export default function MemberFormFields({
                             required: true,
                             hint: 'Passport must be valid for at least 6 months from travel date',
                         }}
-                        htmlFor={`${prefix}.passport_expiry_date`}
-                        error={getError(`${prefix}.passport_expiry_date`)}
+                        htmlFor={fieldPath('passport_expiry_date')}
+                        error={getError(fieldPath('passport_expiry_date'))}
                     >
                         <DatePickerField
-                            id={`${prefix}.passport_expiry_date`}
-                            value={member.passport_expiry_date}
+                            id={fieldPath('passport_expiry_date')}
+                            value={customer.passport_expiry_date}
                             disabled={disabled}
                             fromYear={new Date().getFullYear()}
                             toYear={new Date().getFullYear() + 15}
                             onChange={(v) =>
-                                onUpdate('passport_expiry_date', v)
+                                onUpdateCustomer('passport_expiry_date', v)
                             }
                         />
                     </FormField>
@@ -345,12 +377,14 @@ export default function MemberFormFields({
                         fieldRequirementsProps={{
                             hint: 'Indicate if this is your first Umrah pilgrimage',
                         }}
-                        htmlFor={`${prefix}.first_time_umrah`}
+                        htmlFor={fieldPath('first_time_umrah')}
                     >
                         <BooleanSelect
-                            id={`${prefix}.first_time_umrah`}
-                            value={!!member.first_time_umrah}
-                            onChange={(v) => onUpdate('first_time_umrah', v)}
+                            id={fieldPath('first_time_umrah')}
+                            value={!!customer.first_time_umrah}
+                            onChange={(v) =>
+                                onUpdateCustomer('first_time_umrah', v)
+                            }
                             disabled={disabled}
                         />
                     </FormField>
@@ -360,38 +394,41 @@ export default function MemberFormFields({
                         fieldRequirementsProps={{
                             hint: 'Indicate if you have any chronic health conditions',
                         }}
-                        htmlFor={`${prefix}.has_chronic_disease`}
+                        htmlFor={fieldPath('has_chronic_disease')}
                     >
                         <BooleanSelect
-                            id={`${prefix}.has_chronic_disease`}
-                            value={!!member.has_chronic_disease}
+                            id={fieldPath('has_chronic_disease')}
+                            value={!!customer.has_chronic_disease}
                             onChange={(v) => {
-                                onUpdate('has_chronic_disease', v);
+                                onUpdateCustomer('has_chronic_disease', v);
                             }}
                             disabled={disabled}
                         />
                     </FormField>
 
-                    {member.has_chronic_disease === true && (
+                    {customer.has_chronic_disease === true && (
                         <FormField
                             label="Disease Details"
                             fieldRequirementsProps={{
                                 hint: 'Provide details about the chronic disease or health condition',
                                 example: 'Diabetes, Hypertension, Asthma, etc.',
                             }}
-                            htmlFor={`${prefix}.chronic_disease_details`}
+                            htmlFor={fieldPath('chronic_disease_details')}
                             error={getError(
-                                `${prefix}.chronic_disease_details`,
+                                fieldPath('chronic_disease_details'),
                             )}
                             className="md:col-span-2"
                         >
                             <ProperInput
-                                id={`${prefix}.chronic_disease_details`}
-                                value={member.chronic_disease_details ?? ''}
+                                id={fieldPath('chronic_disease_details')}
+                                value={customer.chronic_disease_details ?? ''}
                                 disabled={disabled}
                                 textarea
                                 onCommit={(v) =>
-                                    onUpdate('chronic_disease_details', v)
+                                    onUpdateCustomer(
+                                        'chronic_disease_details',
+                                        v,
+                                    )
                                 }
                                 placeholder="Describe the chronic disease or health condition"
                             />
@@ -412,18 +449,22 @@ export default function MemberFormFields({
                             label={doc.label}
                             hint={doc.hint}
                             accept={doc.accept}
-                            fileValue={member[doc.fileKey] as File | undefined}
+                            fileValue={
+                                customer[doc.fileKey] as File | undefined
+                            }
                             existingPath={
-                                (member[doc.pathKey] as string | null) ??
+                                (customer[doc.pathKey] as string | null) ??
                                 undefined
                             }
                             isView={isView}
                             disabled={disabled}
-                            error={getError(`${prefix}.${doc.fileKey}`)}
-                            onSelect={(file) => onUpdate(doc.fileKey, file)}
+                            error={getError(fieldPath(doc.fileKey))}
+                            onSelect={(file) =>
+                                onUpdateCustomer(doc.fileKey, file)
+                            }
                             onClear={() => {
-                                onUpdate(doc.fileKey, null);
-                                onUpdate(doc.pathKey, null);
+                                onUpdateCustomer(doc.fileKey, null);
+                                onUpdateCustomer(doc.pathKey, null);
                             }}
                         />
                     ))}

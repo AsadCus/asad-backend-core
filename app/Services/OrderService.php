@@ -9,15 +9,20 @@ use Illuminate\Support\Facades\DB;
 
 class OrderService
 {
-    protected $invoiceService, $formatService, $quotationItemService, $quotationService, $maidStatusService;
+    protected $invoiceService;
 
-    public function __construct(InvoiceService $invoiceService, FormatService $formatService, QuotationItemService $quotationItemService, QuotationService $quotationService, MaidStatusService $maidStatusService)
+    protected $formatService;
+
+    protected $quotationItemService;
+
+    protected $quotationService;
+
+    public function __construct(InvoiceService $invoiceService, FormatService $formatService, QuotationItemService $quotationItemService, QuotationService $quotationService)
     {
         $this->invoiceService = $invoiceService;
         $this->formatService = $formatService;
         $this->quotationItemService = $quotationItemService;
         $this->quotationService = $quotationService;
-        $this->maidStatusService = $maidStatusService;
     }
 
     public function get()
@@ -81,7 +86,7 @@ class OrderService
 
     public function getForFilter()
     {
-        return Order::get()->map(fn($o) => [
+        return Order::get()->map(fn ($o) => [
             'value' => $o->id,
             'label' => $o->order_number,
         ]);
@@ -125,7 +130,7 @@ class OrderService
             'quotation_number' => $o->quotation->quotation_number ?? '-',
             'payment_plan' => $o->payment_plan,
             'handover_date' => $o->handover_date_formatted,
-            'invoices' => $o->invoices->map(fn($invoice) => [
+            'invoices' => $o->invoices->map(fn ($invoice) => [
                 'id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'order_id' => $invoice->order_id,
@@ -135,7 +140,7 @@ class OrderService
                 'invoice_date' => $invoice->invoice_date_formatted,
                 'due_date' => $invoice->due_date_formatted,
                 'status' => $invoice->status,
-                'items' => $invoice->quotationItems->map(fn($item) => [
+                'items' => $invoice->quotationItems->map(fn ($item) => [
                     'id' => $item->id,
                     'quotation_id' => $item->quotation_id,
                     'parent_id' => $item->parent_id,
@@ -164,7 +169,7 @@ class OrderService
             $incomingInvoiceIds = [];
 
             foreach ($data['invoices'] ?? [] as $invoiceData) {
-                if (!empty($invoiceData['id'])) {
+                if (! empty($invoiceData['id'])) {
                     $invoice = $this->invoiceService->update(
                         $invoiceData,
                         $invoiceData['id']

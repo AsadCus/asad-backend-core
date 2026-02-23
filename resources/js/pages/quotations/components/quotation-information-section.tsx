@@ -17,8 +17,6 @@ interface Props {
     renderError: (field: keyof QuotationSchema) => React.ReactNode;
     customers?: OptionType[];
     getCustomerDetail?: (id: number) => void;
-    maids?: OptionType[];
-    getMaidDetail?: (id: number) => void;
     status: 'incomplete' | 'complete' | 'error';
 }
 
@@ -29,8 +27,6 @@ export default function QuotationInformationSection({
     renderError,
     customers = [],
     getCustomerDetail,
-    maids = [],
-    getMaidDetail,
     status,
 }: Props) {
     const [open, setOpen] = useState(false);
@@ -39,7 +35,7 @@ export default function QuotationInformationSection({
         <FormSection
             value="customer_and_quotation_information"
             title="Customer"
-            description="Customer/Employer Information, Quotation Dates & Maid"
+            description="Customer/Employer Information and Quotation Dates"
             status={status}
             required
         >
@@ -168,32 +164,6 @@ export default function QuotationInformationSection({
                                 onChange={(val) => setData('expiry_date', val)}
                             />
                             {renderError('expiry_date')}
-                        </div>
-                    </div>
-
-                    {/* Maid */}
-                    <div className="grid w-full items-center gap-3 md:flex md:justify-end">
-                        <Label className="text-nowrap">
-                            Maid{' '}
-                            <FieldRequirements
-                                required
-                                hint="Select the maid to be assigned"
-                            />
-                        </Label>
-                        <div className="relative w-full md:w-72">
-                            <Combobox
-                                disabled={isView}
-                                value={data.maid_id ?? ''}
-                                onChange={(v) => {
-                                    const id = Number(v);
-                                    getMaidDetail?.(id);
-                                    setData('maid_id', id);
-                                }}
-                                options={maids}
-                                placeholder="Select maid"
-                                truncate={30}
-                            />
-                            {renderError('maid_id')}
                         </div>
                     </div>
 

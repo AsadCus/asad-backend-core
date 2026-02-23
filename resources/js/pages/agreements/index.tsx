@@ -33,11 +33,6 @@ const columns: ColumnDef<AgreementSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'maid_name',
-        header: 'Maid Name',
-        meta: { exportable: true },
-    },
-    {
         accessorKey: 'agreement_number',
         header: 'Agreement No.',
         meta: { exportable: true },

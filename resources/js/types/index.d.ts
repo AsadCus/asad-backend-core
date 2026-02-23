@@ -24,6 +24,7 @@ export interface NavItem {
     href?: InertiaLinkProps['href'] | null;
     icon?: LucideIcon | null;
     isActive?: boolean;
+    matchExact?: boolean;
     subItems?: NavItem[];
 }
 
@@ -87,7 +88,6 @@ export interface Sales {
 export interface OptionType {
     value: string;
     label: string;
-    branch_id?: number;
 }
 
 export interface ValueNumberOptionType {

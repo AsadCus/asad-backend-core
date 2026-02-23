@@ -24,7 +24,7 @@ import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
-import CustomerConfirmationForm from '../customer/form';
+import CustomerConfirmationForm from '../confirmed-customer/form';
 import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
 import {
     EnquiryStatusAction,
@@ -397,7 +397,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
 
             {/* Customer Confirmation Form Dialog */}
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col">
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation Form</DialogTitle>
                         <DialogDescription>

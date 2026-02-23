@@ -6,7 +6,6 @@ use App\Helpers\NumberGenerator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Customer extends Model
 {
@@ -29,9 +28,6 @@ class Customer extends Model
         'chronic_disease_details',
         'passport_path',
         'photo_path',
-        'age_preferences',
-        'country_preferences',
-        'experience_preferences',
         'branch_id',
         'handled_by',
         'last_login',
@@ -63,11 +59,6 @@ class Customer extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'branch_id');
-    }
-
-    public function maids(): BelongsToMany
-    {
-        return $this->belongsToMany(Maid::class, 'customer_maid_recommendations');
     }
 
     // Formatting Helpers

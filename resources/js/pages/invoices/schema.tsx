@@ -33,8 +33,6 @@ export const invoiceSchema = z.object({
     customer_address: z.string().nullable().optional(),
     order_id: z.number().optional(),
     order_number: z.string().nullable().optional(),
-    maid_id: z.string().nullable().optional(),
-    maid_name: z.string().nullable().optional(),
     sales_registration_number: z.string().nullable().optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),
     payment_plan: z.string().nullable().optional(),

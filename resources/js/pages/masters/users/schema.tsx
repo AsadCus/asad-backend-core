@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const userSchema = z
+const baseUserSchema = z
     .object({
         id: z.number().optional(),
         customer_id: z.number().nullable().optional(),
@@ -17,10 +17,23 @@ export const userSchema = z
         company_name: z.string().optional(),
         nric_number: z.string().optional(),
         address: z.string().optional(),
+        nationality: z.string().optional(),
+        passport_number: z.string().optional(),
+        passport_issue_date: z.string().optional(),
+        passport_expiry_date: z.string().optional(),
+        passport_place_of_issue: z.string().optional(),
+        gender: z.string().optional(),
+        marital_status: z.string().optional(),
+        date_of_birth: z.string().optional(),
+        place_of_birth: z.string().optional(),
+        first_time_umrah: z.boolean().nullable().optional(),
+        has_chronic_disease: z.boolean().nullable().optional(),
+        chronic_disease_details: z.string().nullable().optional(),
+        passport_file: z.file().optional(),
+        photo_file: z.file().optional(),
+        passport_path: z.string().nullable().optional(),
+        photo_path: z.string().nullable().optional(),
         commission: z.union([z.string(), z.number()]).nullable().optional(),
-        age_preferences: z.array(z.string()).optional(),
-        country_preferences: z.array(z.string()).optional(),
-        experience_preferences: z.array(z.string()).optional(),
         handled_by: z.string().nullable().optional(),
         handler_name: z.string().optional(),
         supplier_id: z.number().nullable().optional(),
@@ -31,14 +44,60 @@ export const userSchema = z
         registration_number: z.string().optional(),
         is_active: z.boolean().nullable().optional(),
     })
-    .refine(
-        (data) => {
-            if (data.password || data.password_confirmation) {
-                return data.password === data.password_confirmation;
+    .superRefine((data, ctx) => {
+        if (data.password || data.password_confirmation) {
+            if (data.password !== data.password_confirmation) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['password_confirmation'],
+                    message: 'Passwords do not match.',
+                });
             }
-            return true;
-        },
-        { message: 'Passwords do not match', path: ['password_confirmation'] },
-    );
+        }
+
+        if (data.role === 'sales' && !data.branch_id?.trim()) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['branch_id'],
+                message: 'The branch field is required for sales.',
+            });
+        }
+
+        if (data.role === 'supplier') {
+            if (!data.company_name?.trim()) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['company_name'],
+                    message: 'The company name field is required.',
+                });
+            }
+
+            if (!data.address?.trim()) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['address'],
+                    message: 'The address field is required.',
+                });
+            }
+        }
+    });
+
+export const userSchema = baseUserSchema;
 
 export type UserSchema = z.infer<typeof userSchema>;
+
+export type UserFormMode = 'create' | 'edit' | 'view';
+
+export function validateUserData(data: UserSchema, mode: UserFormMode) {
+    return userSchema
+        .superRefine((currentData, ctx) => {
+            if (mode === 'create' && !currentData.password?.trim()) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['password'],
+                    message: 'The password field is required.',
+                });
+            }
+        })
+        .safeParse(data);
+}

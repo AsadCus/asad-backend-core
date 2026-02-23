@@ -8,6 +8,7 @@ use App\Services\PackageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\URL;
+use Inertia\Inertia;
 
 class CustomerGroupController extends Controller
 {
@@ -16,6 +17,20 @@ class CustomerGroupController extends Controller
         protected CustomerGroupRule $customerGroupRule,
         protected PackageService $packageService,
     ) {}
+
+    /**
+     * Display a listing of confirmed customer groups.
+     */
+    public function index()
+    {
+        $dataGroups = $this->customerGroupService->getForGroupedIndex();
+        $packageOptions = $this->packageService->getForFilter();
+
+        return Inertia::render('confirmed-customer/index', [
+            'dataGroups' => $dataGroups,
+            'packageOptions' => $packageOptions,
+        ]);
+    }
 
     /**
      * Get customer group data for view/edit (JSON).
@@ -42,6 +57,26 @@ class CustomerGroupController extends Controller
         $this->customerGroupService->updateGroup((int) $id, $validated);
 
         return back()->with('success', 'Customer group updated successfully.');
+    }
+
+    /**
+     * Delete a customer group and its members.
+     */
+    public function destroy(Request $request, string $id)
+    {
+        $ids = $request->input('ids');
+
+        if ($ids && is_array($ids)) {
+            foreach ($ids as $groupId) {
+                $this->customerGroupService->deleteGroup((int) $groupId);
+            }
+
+            return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Selected customer groups deleted successfully.');
+        }
+
+        $this->customerGroupService->deleteGroup((int) $id);
+
+        return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Customer group deleted successfully.');
     }
 
     /**

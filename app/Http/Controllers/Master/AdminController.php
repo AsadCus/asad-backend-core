@@ -2,23 +2,35 @@
 
 namespace App\Http\Controllers\Master;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Services\UserService;
+use App\Mail\WelcomeMail;
+use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\SalesService;
-use App\Rules\UserRule;
+use App\Services\UserRoles\AdminUserService;
+use App\Services\UserService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\WelcomeMail;
+use Inertia\Inertia;
 
 class AdminController extends Controller
 {
-    protected $userService, $branchService, $countryService, $salesService, $userRule;
+    protected $adminUserService;
 
-    public function __construct(UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
+    protected $userService;
+
+    protected $branchService;
+
+    protected $countryService;
+
+    protected $salesService;
+
+    protected $userRule;
+
+    public function __construct(AdminUserService $adminUserService, UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
     {
+        $this->adminUserService = $adminUserService;
         $this->userService = $userService;
         $this->branchService = $branchService;
         $this->countryService = $countryService;
@@ -31,10 +43,16 @@ class AdminController extends Controller
      */
     public function index()
     {
-        $dataUser = $this->userService->getForDataTable('admin');
+        $dataUser = $this->adminUserService->getForDataTable();
+        $dataRole = $this->userService->getRoleForFilter();
+        $dataBranch = $this->branchService->getForFilter();
+        $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/admin/index', [
             'dataUser' => $dataUser,
+            'dataRole' => $dataRole,
+            'dataBranch' => $dataBranch,
+            'dataSales' => $dataSales,
         ]);
     }
 
@@ -65,9 +83,9 @@ class AdminController extends Controller
     {
         $validated = $request->validate($this->userRule->rules('admin'));
 
-        $user = $this->userService->store($validated);
+        $user = $this->adminUserService->store($validated);
 
-        if (!empty($validated['password']) && $request->boolean('send_email')) {
+        if (! empty($validated['password']) && $request->boolean('send_email')) {
             Mail::to($user->email)->send(
                 new WelcomeMail($user->name, $validated['email'], $validated['password'])
             );
@@ -81,7 +99,20 @@ class AdminController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $data = $this->adminUserService->getForEditShow($id);
+        $dataRole = $this->userService->getRoleForFilter();
+        $dataBranch = $this->branchService->getForFilter();
+        $dataCountry = $this->countryService->getForFilterByName();
+        $dataSales = $this->salesService->getForFilter();
+
+        return Inertia::render('masters/users/view', [
+            'data' => $data,
+            'dataRole' => $dataRole,
+            'dataBranch' => $dataBranch,
+            'dataCountry' => $dataCountry,
+            'dataSales' => $dataSales,
+            'isAdmin' => true,
+        ]);
     }
 
     /**
@@ -89,7 +120,20 @@ class AdminController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $data = $this->adminUserService->getForEditShow($id);
+        $dataRole = $this->userService->getRoleForFilter();
+        $dataBranch = $this->branchService->getForFilter();
+        $dataCountry = $this->countryService->getForFilterByName();
+        $dataSales = $this->salesService->getForFilter();
+
+        return Inertia::render('masters/users/edit', [
+            'data' => $data,
+            'dataRole' => $dataRole,
+            'dataBranch' => $dataBranch,
+            'dataCountry' => $dataCountry,
+            'dataSales' => $dataSales,
+            'isAdmin' => true,
+        ]);
     }
 
     /**
@@ -97,14 +141,30 @@ class AdminController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $validated = $request->validate($this->userRule->rules('admin', 'update', $id));
+
+        $this->adminUserService->update($validated, $id);
+
+        return redirect()->intended(route('master.user.admin.index'))->with('success', 'Administrator updated successfully.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        //
+        $ids = $request->input('ids');
+
+        if ($ids && is_array($ids)) {
+            foreach ($ids as $userId) {
+                $this->userService->delete($userId);
+            }
+
+            return redirect()->intended(route('master.user.admin.index'))->with('success', 'Selected administrators deleted successfully.');
+        }
+
+        $this->userService->delete($id);
+
+        return redirect()->intended(route('master.user.admin.index'))->with('success', 'Administrator deleted successfully.');
     }
 }

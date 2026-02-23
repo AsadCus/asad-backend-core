@@ -3,33 +3,41 @@
 namespace App\Http\Controllers;
 
 use App\Rules\UserRule;
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;
-use App\Services\UserService;
-use App\Services\SalesService;
 use App\Services\BranchService;
 use App\Services\CountryService;
-use App\Services\EducationLevelService;
-use App\Services\MaidService;
-use App\Services\ReligionService;
+use App\Services\SalesService;
 use App\Services\SupplierService;
+use App\Services\UserRoles\SupplierUserService;
+use App\Services\UserService;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Inertia\Inertia;
 
 class SupplierController extends Controller
 {
-    protected $supplierService, $userService, $branchService, $countryService, $salesService, $userRule, $maidService, $religionService, $educationLevelService;
+    protected $supplierService;
 
-    public function __construct(SupplierService $supplierService, UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule, MaidService $maidService, ReligionService $religionService, EducationLevelService $educationLevelService)
+    protected $supplierUserService;
+
+    protected $userService;
+
+    protected $branchService;
+
+    protected $countryService;
+
+    protected $salesService;
+
+    protected $userRule;
+
+    public function __construct(SupplierService $supplierService, SupplierUserService $supplierUserService, UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
     {
         $this->supplierService = $supplierService;
+        $this->supplierUserService = $supplierUserService;
         $this->userService = $userService;
         $this->branchService = $branchService;
         $this->countryService = $countryService;
         $this->salesService = $salesService;
         $this->userRule = $userRule;
-        $this->maidService = $maidService;
-        $this->religionService = $religionService;
-        $this->educationLevelService = $educationLevelService;
 
         $this->middleware('permission:supplier view', ['only' => ['index', 'show']]);
         $this->middleware('permission:supplier create', ['only' => ['create', 'store']]);
@@ -42,16 +50,7 @@ class SupplierController extends Controller
      */
     public function index()
     {
-        $maids = $this->maidService->getForDataTable();
-
         $data['suppliers'] = $this->supplierService->getForDataTable();
-        $data['maidsBySupplier'] = $maids->groupBy('supplier_id');
-        $data['misc'] = [
-            'nationalities' => $this->countryService->getForFilter(),
-            'religions' => $this->religionService->getForFilter(),
-            'education_levels' => $this->educationLevelService->getForFilter(),
-            'suppliers' => $this->supplierService->getForFilter(),
-        ];
 
         return Inertia::render('supplier/index', [
             'data' => $data,
@@ -73,7 +72,7 @@ class SupplierController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isSupplier' => true
+            'isSupplier' => true,
         ]);
     }
 
@@ -84,7 +83,9 @@ class SupplierController extends Controller
     {
         $validated = $request->validate($this->userRule->rules($request->role));
 
-        $this->userService->store($validated);
+        $validated['role'] = 'supplier';
+
+        $this->supplierUserService->store($validated);
 
         return redirect()->intended(route('supplier.index'))->with('success', 'Supplier created successfully.');
     }
@@ -94,7 +95,7 @@ class SupplierController extends Controller
      */
     public function show(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->supplierUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
@@ -106,7 +107,7 @@ class SupplierController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isSupplier' => true
+            'isSupplier' => true,
         ]);
     }
 
@@ -115,7 +116,7 @@ class SupplierController extends Controller
      */
     public function edit(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->supplierUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
@@ -127,7 +128,7 @@ class SupplierController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isSupplier' => true
+            'isSupplier' => true,
         ]);
     }
 
@@ -138,7 +139,9 @@ class SupplierController extends Controller
     {
         $validated = $request->validate($this->userRule->rules($request->role, 'update', $id));
 
-        $this->userService->update($validated, $id);
+        $validated['role'] = 'supplier';
+
+        $this->supplierUserService->update($validated, $id);
 
         return redirect()->intended(route('supplier.index'))->with('success', 'Supplier updated successfully.');
     }

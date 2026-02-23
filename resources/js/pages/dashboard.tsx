@@ -25,7 +25,6 @@ import {
     handle as customerHandle,
     index as customerIndex,
     show as customerShow,
-    recommendMaidEdit,
 } from '@/routes/customer';
 import {
     fiscalYearTotalSales,
@@ -36,12 +35,6 @@ import {
 } from '@/routes/dashboard';
 import { index as enquiriesIndex } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
-import {
-    create as maidCreate,
-    destroy as maidDestroy,
-    edit as maidEdit,
-    show as maidShow,
-} from '@/routes/maid';
 import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
 import {
     SharedData,
@@ -51,8 +44,6 @@ import {
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useEffect, useState } from 'react';
-import { MaidCardList } from './maid/card-list';
-import { MaidSchema } from './maid/schema';
 import { UserSchema } from './masters/users/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -137,7 +128,7 @@ interface DashboardProps {
         selectedYearId?: number;
         fiscalYearStartDate?: string;
         availableYears?: Array<{ value: number; label: string }>;
-        maids?: MaidSchema[];
+        maids?: unknown[];
         nationality: [];
         religion: [];
         educationLevel: [];
@@ -202,7 +193,6 @@ export default function Dashboard({ data }: DashboardProps) {
     // roles
     const isAdmin = auth.roles.includes('admin');
     const isSales = auth.roles.includes('sales');
-    const isCustomer = auth.roles.includes('customer');
 
     // State for API fetched data
     const [isLoadingData, setIsLoadingData] = useState(false);
@@ -339,19 +329,11 @@ export default function Dashboard({ data }: DashboardProps) {
     };
 
     // actions
-    const actions: ActionType[] = ['handle-customer', 'recommend-maid'];
+    const actions: ActionType[] = ['handle-customer'];
     if (userPermissions.includes('customer create')) actions.push('add');
     if (userPermissions.includes('customer view')) actions.push('view');
     if (userPermissions.includes('customer edit')) actions.push('edit');
     if (userPermissions.includes('customer delete')) actions.push('delete');
-
-    const actionsForCustomer: ActionType[] = [];
-    if (userPermissions.includes('maid create')) actionsForCustomer.push('add');
-    if (userPermissions.includes('maid view'))
-        actionsForCustomer.push('preview');
-    if (userPermissions.includes('maid edit')) actionsForCustomer.push('edit');
-    if (userPermissions.includes('maid delete'))
-        actionsForCustomer.push('delete');
 
     // columns
     const customerColumns: ColumnDef<UserSchema>[] = [
@@ -926,13 +908,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 router.put(
                                                     customerHandle(userId).url,
                                                 );
-                                            } else if (
-                                                action == 'recommend-maid'
-                                            ) {
-                                                router.get(
-                                                    recommendMaidEdit(userId)
-                                                        .url,
-                                                );
                                             }
                                         }
                                     }}
@@ -944,54 +919,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                     }}
                                 />
                             </div>
-                        </div>
-                    )}
-
-                    {/* Maid Card List */}
-                    {isCustomer && (
-                        <div
-                            className={`relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-1 py-3 md:min-h-min dark:border-sidebar-border`}
-                        >
-                            <div className="flex items-center justify-between px-2 pb-2">
-                                <h2 className="text-lg font-semibold">
-                                    Maid Profile
-                                </h2>
-                            </div>
-                            <MaidCardList
-                                data={data.maids || []}
-                                dataNationality={data.nationality || []}
-                                dataReligion={data.religion || []}
-                                dataEducationLevel={data.educationLevel || []}
-                                misc={data.misc}
-                                actions={actionsForCustomer}
-                                onAction={(action, row) => {
-                                    if (action === 'add') {
-                                        router.get(maidCreate().url);
-                                    }
-
-                                    const maidId = row?.id;
-
-                                    if (maidId !== undefined) {
-                                        if (action === 'view') {
-                                            router.get(maidShow(maidId).url);
-                                        } else if (action === 'edit') {
-                                            router.get(maidEdit(maidId).url);
-                                        } else if (action === 'delete') {
-                                            confirm({
-                                                title: 'Delete User',
-                                                message: `Are you sure you want to delete maid "${row?.name}"?`,
-                                                confirmText: 'Delete',
-                                                cancelText: 'Cancel',
-                                                onConfirm: () => {
-                                                    router.delete(
-                                                        maidDestroy(maidId).url,
-                                                    );
-                                                },
-                                            });
-                                        }
-                                    }
-                                }}
-                            />
                         </div>
                     )}
                 </div>

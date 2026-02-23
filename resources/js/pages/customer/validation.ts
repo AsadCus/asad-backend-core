@@ -1,6 +1,6 @@
-import { customerGroupFormSchema, customerMemberSchema } from './schema';
+import { customerGroupFormSchema, customerSchema } from './schema';
 
-export const customerMemberValidationSchema = customerMemberSchema.superRefine(
+export const customerMemberValidationSchema = customerSchema.superRefine(
     (data, ctx) => {
         if (!data.name || data.name.trim().length === 0) {
             ctx.addIssue({

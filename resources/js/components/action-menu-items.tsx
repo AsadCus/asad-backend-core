@@ -53,9 +53,6 @@ export function ActionMenuItems<TData>({
         ? (row.original as WithHandledBy)?.handled_by
         : (row as TData & WithHandledBy).handled_by;
 
-    const canRecommendForCustomer =
-        handledBy?.toString() === userId?.toString();
-
     const hasMaidStatusActions =
         actions.includes('maid-status-schedule') ||
         actions.includes('maid-status-complete') ||
@@ -90,14 +87,6 @@ export function ActionMenuItems<TData>({
                     Handle
                 </Item>
             )}
-
-            {actions.includes('recommend-maid') &&
-                handledBy &&
-                canRecommendForCustomer && (
-                    <Item onClick={() => onAction?.('recommend-maid', row)}>
-                        Recommend
-                    </Item>
-                )}
 
             {actions.includes('create-quotation') && (
                 <Item onClick={() => onAction?.('create-quotation', row)}>

@@ -2,11 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use App\Services\MaidService;
-use App\Http\Controllers\Controller;
-use App\Models\Maid;
+use App\Models\Quotation;
 use App\Rules\NoteRule;
 use App\Rules\QuotationRule;
 use App\Services\CustomerService;
@@ -15,19 +11,28 @@ use App\Services\QuotationItemService;
 use App\Services\QuotationService;
 use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\Quotation;
-use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class QuotationController extends Controller
 {
-    protected $quotationService, $maidService, $customerService, $quotationRule, $quotationItemService, $noteService, $salesService;
+    protected $quotationService;
 
-    public function __construct(QuotationService $quotationService, MaidService $maidService, CustomerService $customerService, QuotationRule $quotationRule, QuotationItemService $quotationItemService, NoteService $noteService, SalesService $salesService)
+    protected $customerService;
+
+    protected $quotationRule;
+
+    protected $quotationItemService;
+
+    protected $noteService;
+
+    protected $salesService;
+
+    public function __construct(QuotationService $quotationService, CustomerService $customerService, QuotationRule $quotationRule, QuotationItemService $quotationItemService, NoteService $noteService, SalesService $salesService)
     {
         $this->quotationService = $quotationService;
-        $this->maidService = $maidService;
         $this->customerService = $customerService;
         $this->salesService = $salesService;
         $this->quotationRule = $quotationRule;
@@ -45,7 +50,6 @@ class QuotationController extends Controller
         }
 
         $data['quotationsForDatatable'] = $this->quotationService->getForDataTable($filters);
-        $data['maids'] = $this->maidService->getForFilter();
         $data['customers'] = $this->customerService->getForFilter();
         $data['salespersons'] = $this->salesService->getForFilter();
 
@@ -56,24 +60,12 @@ class QuotationController extends Controller
 
     public function create(Request $request)
     {
-        $data['maids'] = $this->maidService->getForFilterWithCode(['available', 'interviewing', 'pending']);
         $data['customers'] = $this->customerService->getForFilterWithCode();
         $data['quotationItems'] = $this->quotationItemService->getQuotationItemMasters(false);
         $data['quotationNotes'] = $this->noteService->get('master', 'quotation');
 
-        $prefilledMaidId = $request->input('maid_id');
         $prefilledCustomerId = $request->input('customer_id');
-        $handoverDate = $request->input('handover_date');
-        $prefilledMaidData = null;
         $prefilledCustomerData = null;
-
-        if ($prefilledMaidId) {
-            try {
-                $prefilledMaidData = $this->maidService->getForEditShow($prefilledMaidId);
-            } catch (Exception) {
-                $prefilledMaidData = null;
-            }
-        }
 
         if ($prefilledCustomerId) {
             try {
@@ -85,11 +77,8 @@ class QuotationController extends Controller
 
         return Inertia::render('quotations/create', [
             'data' => $data,
-            'prefilledMaidId' => $prefilledMaidId,
-            'prefilledMaidData' => $prefilledMaidData,
             'prefilledCustomerId' => $prefilledCustomerId,
             'prefilledCustomerData' => $prefilledCustomerData,
-            'handoverDate' => $handoverDate,
         ]);
     }
 
@@ -110,7 +99,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation created successfully #' . $quotation->quotation_number);
+            ->log('Quotation created successfully #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation created successfully.');
@@ -119,7 +108,6 @@ class QuotationController extends Controller
     public function show($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['maids'] = $this->maidService->getForFilterWithCode(['unavailable', 'available', 'interviewing', 'pending', 'assigned']);
         $data['customers'] = $this->customerService->getForFilterWithCode();
 
         return Inertia::render('quotations/view', [
@@ -135,7 +123,6 @@ class QuotationController extends Controller
     public function edit($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['maids'] = $this->maidService->getForFilterWithCode(['available', 'interviewing', 'pending']);
         $data['customers'] = $this->customerService->getForFilterWithCode();
 
         return Inertia::render('quotations/edit', [
@@ -160,7 +147,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation updated successfully #' . $quotation->quotation_number);
+            ->log('Quotation updated successfully #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation updated successfully');
@@ -173,7 +160,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number, 'status' => 'sent'])
-            ->log('Quotation marked as sent successfully #' . $quotation->quotation_number);
+            ->log('Quotation marked as sent successfully #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')->with('success', 'Quotation marked as sent successfully.');
     }
@@ -185,7 +172,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation accepted successfully #' . $quotation->quotation_number);
+            ->log('Quotation accepted successfully #'.$quotation->quotation_number);
 
         return redirect()->route('invoice.create', ['quotation_id' => $request['quotation_id']])->with('success', 'Quotation accepted successfully.');
     }
@@ -194,15 +181,10 @@ class QuotationController extends Controller
     {
         $quotation = $this->quotationService->reject($request, $id);
 
-        if ($quotation->maid_id) {
-            $this->maidService->revertMaidToAvailable($quotation->maid_id);
-            $quotation->maid->refresh();
-        }
-
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation rejected successfully #' . $quotation->quotation_number);
+            ->log('Quotation rejected successfully #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation rejected successfully.');
@@ -215,7 +197,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation expired successfully #' . $quotation->quotation_number);
+            ->log('Quotation expired successfully #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation ended successfully.');
@@ -228,7 +210,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation cancelled successfully #' . $quotation->quotation_number);
+            ->log('Quotation cancelled successfully #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')->with('success', 'Quotation voided successfully.');
     }
@@ -244,25 +226,23 @@ class QuotationController extends Controller
             foreach ($ids as $deleteId) {
                 $quotation = Quotation::find($deleteId);
 
-                if (!$quotation) {
+                if (! $quotation) {
                     continue;
                 }
 
                 // Prevent deletion of converted or cancelled quotations
                 if (in_array($quotation->status, ['converted', 'cancelled'])) {
                     $skippedCount++;
+
                     continue;
                 }
 
-                if ($quotation->maid_id) {
-                    $this->maidService->revertMaidToAvailable($quotation->maid_id);
-                }
                 $this->quotationService->delete($deleteId);
 
                 activity()
                     ->performedOn($quotation)
                     ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-                    ->log('Quotation deleted successfully #' . $quotation->quotation_number);
+                    ->log('Quotation deleted successfully #'.$quotation->quotation_number);
 
                 $deletedCount++;
             }
@@ -278,7 +258,7 @@ class QuotationController extends Controller
 
         $quotation = Quotation::find($id);
 
-        if (!$quotation) {
+        if (! $quotation) {
             return redirect()->route('quotation.index')
                 ->with('error', 'Quotation not found.');
         }
@@ -286,19 +266,15 @@ class QuotationController extends Controller
         // Prevent deletion of converted or cancelled quotations
         if (in_array($quotation->status, ['converted', 'cancelled'])) {
             return redirect()->route('quotation.index')
-                ->with('error', 'Cannot delete quotation with status: ' . $quotation->status);
+                ->with('error', 'Cannot delete quotation with status: '.$quotation->status);
         }
 
-        if ($quotation->maid_id) {
-            $this->maidService->revertMaidToAvailable($quotation->maid_id);
-            $quotation->maid->refresh();
-        }
         $this->quotationService->delete($id);
 
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation deleted successfully #' . $quotation->quotation_number);
+            ->log('Quotation deleted successfully #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation deleted successfully.');
@@ -338,10 +314,11 @@ class QuotationController extends Controller
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96)
-                ->stream($data['quotation_number'] . '.pdf');
+                ->stream($data['quotation_number'].'.pdf');
         } catch (\Throwable $e) {
             Log::error('PDF Generation Error', ['error' => $e]);
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 
@@ -350,19 +327,18 @@ class QuotationController extends Controller
         $items = collect($items)->sortBy('sort_order')->values();
 
         $placement = $items->filter(
-            fn($i) =>
-            !empty($i['is_placement_fee'])
+            fn ($i) => ! empty($i['is_placement_fee'])
         );
 
         if ($placement->isEmpty()) {
             return $items->all();
         }
 
-        $totalQty = $placement->sum(fn($i) => (float) $i['quantity']);
+        $totalQty = $placement->sum(fn ($i) => (float) $i['quantity']);
         $rate = (float) ($data['monthly_salary'] ?? 0);
         $baseSort = $placement->first()['sort_order'];
 
-        $filtered = $items->reject(fn($i) => !empty($i['is_placement_fee']));
+        $filtered = $items->reject(fn ($i) => ! empty($i['is_placement_fee']));
 
         $mergedPlacement = [
             ...$placement->first(),
@@ -383,8 +359,8 @@ class QuotationController extends Controller
     {
         $collection = collect($items)->sortBy('sort_order')->values();
 
-        $roots = $collection->filter(fn($i) => empty($i['parent_id']) && empty($i['parent_key']));
-        $children = $collection->filter(fn($i) => !empty($i['parent_id']) || !empty($i['parent_key']));
+        $roots = $collection->filter(fn ($i) => empty($i['parent_id']) && empty($i['parent_key']));
+        $children = $collection->filter(fn ($i) => ! empty($i['parent_id']) || ! empty($i['parent_key']));
 
         $result = [];
 
@@ -396,7 +372,7 @@ class QuotationController extends Controller
             if ($pid !== null) {
                 $subs = $children
                     ->filter(
-                        fn($c) => ($c['parent_id'] ?? null) == $pid ||
+                        fn ($c) => ($c['parent_id'] ?? null) == $pid ||
                             ($c['parent_key'] ?? null) == $pid
                     )
                     ->sortBy('sort_order')

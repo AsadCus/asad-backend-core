@@ -27,7 +27,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
     const page = usePage();
     const { state, isMobile } = useSidebar();
 
-    const isUrlActive = (href?: NavItem['href']) => {
+    const isUrlActive = (href?: NavItem['href'], matchExact = false) => {
         if (!href) return false;
 
         const base = typeof href === 'string' ? href : href.url;
@@ -40,14 +40,11 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
         const b = normalize(base);
         const c = normalize(current);
 
-        if (c === b) return true;
-
-        if (b === '/master/user') {
-            if (c.startsWith('/master/user/create')) return false;
-            if (c === b) return true;
-            return c.startsWith(`${b}/`);
+        if (matchExact) {
+            return c === b;
         }
 
+        if (c === b) return true;
         return c.startsWith(`${b}/`);
     };
 
@@ -55,9 +52,9 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
         <SidebarMenuSub>
             {subItems.map((subItem) => {
                 const hasNested = (subItem.subItems?.length ?? 0) > 0;
-                const isActive = isUrlActive(subItem.href);
+                const isActive = isUrlActive(subItem.href, subItem.matchExact);
                 const subActive = subItem.subItems?.some((c) =>
-                    isUrlActive(c.href),
+                    isUrlActive(c.href, c.matchExact),
                 );
 
                 if (!hasNested) {
@@ -157,9 +154,9 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                 {items.map((item) => {
                     const hasSubItems = (item.subItems?.length ?? 0) > 0;
 
-                    const isActive = isUrlActive(item.href);
+                    const isActive = isUrlActive(item.href, item.matchExact);
                     const subActive = item.subItems?.some((sub) =>
-                        isUrlActive(sub.href),
+                        isUrlActive(sub.href, sub.matchExact),
                     );
 
                     if (!hasSubItems) {

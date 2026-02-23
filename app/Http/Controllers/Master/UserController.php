@@ -2,19 +2,26 @@
 
 namespace App\Http\Controllers\Master;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use App\Services\UserService;
-use App\Services\SalesService;
-use App\Services\BranchService;
-use App\Services\CountryService;
 use App\Http\Controllers\Controller;
 use App\Rules\UserRule;
+use App\Services\BranchService;
+use App\Services\CountryService;
+use App\Services\SalesService;
+use App\Services\UserService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class UserController extends Controller
 {
-    protected $userService, $branchService, $countryService, $salesService, $userRule;
+    protected $userService;
+
+    protected $branchService;
+
+    protected $countryService;
+
+    protected $salesService;
+
+    protected $userRule;
 
     public function __construct(UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
     {
@@ -79,6 +86,8 @@ class UserController extends Controller
     {
         $validated = $request->validate($this->userRule->rules($request->role));
 
+        $validated['role'] = $request->role;
+
         $this->userService->store($validated);
 
         return redirect()->intended(route('master.user.index'))->with('success', 'User created successfully.');
@@ -130,6 +139,8 @@ class UserController extends Controller
     public function update(Request $request, string $id)
     {
         $validated = $request->validate($this->userRule->rules($request->role, 'update', $id));
+
+        $validated['role'] = $request->role;
 
         $this->userService->update($validated, $id);
 

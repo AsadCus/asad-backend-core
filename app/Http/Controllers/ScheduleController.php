@@ -6,8 +6,8 @@ use App\Helpers\FormatService;
 use App\Models\Quotation;
 use App\Services\PaymentScheduleService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class ScheduleController extends Controller
 {
@@ -20,13 +20,12 @@ class ScheduleController extends Controller
 
     public function index()
     {
-        $quotations = Quotation::with(['customer.user', 'maid', 'order'])
+        $quotations = Quotation::with(['customer.user', 'order'])
             ->whereIn('status', ['accepted', 'converted'])
             ->whereNotNull('customer_id')
-            ->whereNotNull('maid_id')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn($q) => $this->mapQuotationToSchedule($q))
+            ->map(fn ($q) => $this->mapQuotationToSchedule($q))
             ->filter()
             ->values();
 
@@ -41,12 +40,12 @@ class ScheduleController extends Controller
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
-            $quotation = Quotation::with(['customer.user', 'maid', 'order'])
+            $quotation = Quotation::with(['customer.user', 'order'])
                 ->findOrFail($quotationId);
 
             $schedule = $this->mapQuotationToSchedule($quotation);
 
-            if (!$schedule) {
+            if (! $schedule) {
                 abort(404, 'Invalid schedule data');
             }
 
@@ -62,19 +61,19 @@ class ScheduleController extends Controller
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96)
-                ->stream(($schedule['schedule_number'] ?? 'schedule') . '.pdf');
+                ->stream(($schedule['schedule_number'] ?? 'schedule').'.pdf');
         } catch (\Throwable $e) {
             Log::error('Schedule PDF error', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Failed to generate schedule PDF: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'Failed to generate schedule PDF: '.$e->getMessage()], 500);
         }
     }
 
     private function mapQuotationToSchedule(Quotation $quotation): ?array
     {
         if (
-            !$quotation->customer ||
-            !$quotation->customer->user ||
-            !$quotation->maid
+            ! $quotation->customer ||
+            ! $quotation->customer->user
         ) {
             return null;
         }
@@ -91,7 +90,7 @@ class ScheduleController extends Controller
         return [
             'id' => $quotation->id,
             'quotation_id' => $quotation->id,
-            'schedule_number' => "SCH-{$quotation->id}-" . $quotation->created_at->format('Ymd'),
+            'schedule_number' => "SCH-{$quotation->id}-".$quotation->created_at->format('Ymd'),
             'sales_registration_number' => $quotation->sales_registration_number,
 
             'quotation' => [
@@ -107,11 +106,6 @@ class ScheduleController extends Controller
                         'email' => $quotation->customer->user->email,
                     ],
                 ],
-                'maid' => [
-                    'id' => $quotation->maid->id,
-                    'name' => $quotation->maid->name,
-                    'passport_number' => $quotation->maid->passport_number,
-                ],
                 'order' => $quotation->order
                     ? [
                         'id' => $quotation->order->id,
@@ -122,7 +116,6 @@ class ScheduleController extends Controller
             ],
 
             'customer_name' => $quotation->customer->user->name,
-            'maid_name' => $quotation->maid->name,
 
             'monthly_salary' => $this->formatService->cleanDecimal($quotation->monthly_salary),
             'loan_amount' => $this->formatService->cleanDecimal($quotation->total_placement_fee),

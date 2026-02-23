@@ -6,14 +6,14 @@ use App\Helpers\FormatService;
 use App\Models\FinancialTransaction;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
-use App\Models\QuotationItemMaster;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class QuotationService
 {
-    protected $formatService, $quotationItemService;
+    protected $formatService;
+
+    protected $quotationItemService;
 
     public function __construct(FormatService $formatService, QuotationItemService $quotationItemService)
     {
@@ -23,15 +23,13 @@ class QuotationService
 
     public function getForDataTable(array $filters = [])
     {
-        $data = Quotation::with(['customer.user', 'customer.handledBy', 'maid', 'quotationItems', 'order'])->withTrashed()
+        $data = Quotation::with(['customer.user', 'customer.handledBy', 'quotationItems', 'order'])->withTrashed()
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('customer', function ($cq) use ($value) {
                     $cq->where('handled_by', $value);
                 });
             })->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
-            })->when($filters['maid_id'] ?? null, function ($q, $value) {
-                $q->where('maid_id', $value);
             })->when($filters['customer_id'] ?? null, function ($q, $value) {
                 $q->where('customer_id', $value);
             })->when($filters['from_date'] ?? null, function ($q, $value) {
@@ -47,9 +45,6 @@ class QuotationService
                     'customer_id' => $q->customer_id,
                     'customer_number' => $q->customer->customer_number ?? '-',
                     'customer_name' => $q->customer->user->name ?? '-',
-                    'maid_id' => $q->maid_id,
-                    'maid_number' => $q->maid->maid_number ?? '-',
-                    'maid_name' => $q->maid->name ?? '-',
                     'sales_id' => $q->customer->handledBy->id ?? '-',
                     'sales_name' => $q->customer->handledBy->name ?? '-',
                     'description' => $q->description ?? '-',
@@ -103,19 +98,18 @@ class QuotationService
     public function store(array $data = []): Quotation
     {
         return DB::transaction(function () use ($data) {
-            if (!empty($data['quotation_date'])) {
+            if (! empty($data['quotation_date'])) {
                 $data['quotation_date'] = Carbon::parse($data['quotation_date'])->format('Y-m-d');
             }
-            if (!empty($data['expiry_date'])) {
+            if (! empty($data['expiry_date'])) {
                 $data['expiry_date'] = Carbon::parse($data['expiry_date'])->format('Y-m-d');
             }
-            if (!empty($data['commencement_date'])) {
+            if (! empty($data['commencement_date'])) {
                 $data['commencement_date'] = Carbon::parse($data['commencement_date'])->format('Y-m-d');
             }
 
             $quotation = Quotation::create([
                 'customer_id' => $data['customer_id'] ?? null,
-                'maid_id' => $data['maid_id'] ?? null,
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'commencement_date' => $data['commencement_date'] ?? null,
@@ -131,37 +125,7 @@ class QuotationService
                 'reason' => $data['reason'] ?? null,
             ]);
 
-            // Update maid status when quotation is created with sent status
-            if (isset($data['maid_id']) && ($data['status'] ?? 'draft') === 'sent') {
-                $maid = \App\Models\Maid::find($data['maid_id']);
-                Log::info('Quotation store - checking maid status', [
-                    'maid_id' => $data['maid_id'],
-                    'quotation_status' => $data['status'] ?? 'draft',
-                    'maid_current_status' => $maid?->status,
-                ]);
-                if ($maid && in_array($maid->status, ['available', 'interviewing', 'pending'])) {
-                    $maid->update(['status' => 'assigned']);
-                    $maid->refresh();
-                    if ($maid->status !== 'assigned') {
-                        DB::table('maids')->where('id', $maid->id)->update([
-                            'status' => 'assigned',
-                            'updated_at' => now(),
-                        ]);
-                        $maid = $maid->fresh();
-                        Log::warning('Eloquent update blocked; forced DB update to assigned', [
-                            'maid_id' => $maid->id,
-                            'final_status' => $maid->status,
-                        ]);
-                    } else {
-                        Log::info('Maid status updated to assigned', [
-                            'maid_id' => $maid->id,
-                            'new_status' => 'assigned'
-                        ]);
-                    }
-                }
-            }
-
-            if (!empty($data['items']) && is_array($data['items'])) {
+            if (! empty($data['items']) && is_array($data['items'])) {
                 $this->quotationItemService->storeQuotationItems($quotation->id, $data['items']);
             }
 
@@ -171,7 +135,7 @@ class QuotationService
 
     public function getForEditShow($id): array
     {
-        $quotation = Quotation::with(['customer.user', 'maid', 'quotationItems'])->findOrFail($id);
+        $quotation = Quotation::with(['customer.user', 'quotationItems'])->findOrFail($id);
 
         return [
             'id' => $quotation->id,
@@ -183,10 +147,6 @@ class QuotationService
             'customer_contact' => $quotation->customer->user->contact ?? '',
             'customer_address' => $quotation->customer->address ?? '',
             'customer_email' => $quotation->customer->user->email ?? '',
-            'maid_id' => $quotation->maid_id,
-            'maid_number' => $quotation->maid->maid_number ?? '',
-            'maid_name' => $quotation->maid->name ?? '',
-            'passport_number' => $quotation->maid->passport_number ?? '',
             'description' => $quotation->description ?? '',
             'quotation_date' => $quotation->quotation_date_formatted,
             'expiry_date' => $quotation->expiry_date_formatted,
@@ -223,22 +183,20 @@ class QuotationService
     public function update(array $data, int $id): Quotation
     {
         return DB::transaction(function () use ($data, $id) {
-            $quotation = Quotation::with('maid')->findOrFail($id);
-            $oldStatus = $quotation->status;
+            $quotation = Quotation::findOrFail($id);
 
-            if (!empty($data['quotation_date'])) {
+            if (! empty($data['quotation_date'])) {
                 $data['quotation_date'] = Carbon::parse($data['quotation_date'])->format('Y-m-d');
             }
-            if (!empty($data['expiry_date'])) {
+            if (! empty($data['expiry_date'])) {
                 $data['expiry_date'] = Carbon::parse($data['expiry_date'])->format('Y-m-d');
             }
-            if (!empty($data['commencement_date'])) {
+            if (! empty($data['commencement_date'])) {
                 $data['commencement_date'] = Carbon::parse($data['commencement_date'])->format('Y-m-d');
             }
 
             $quotation->update([
                 'customer_id' => $data['customer_id'] ?? null,
-                'maid_id' => $data['maid_id'] ?? null,
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'commencement_date' => $data['commencement_date'] ?? null,
@@ -254,46 +212,11 @@ class QuotationService
                 'reason' => $data['reason'] ?? $quotation->reason,
             ]);
 
-            if (!isset($data['status']) || $data['status'] !== 'sent') {
-                if (!$quotation->maid) {
-                    Log::warning('Quotation update set to sent but no maid linked', [
-                        'quotation_id' => $id,
-                    ]);
-                }
-            }
-            if ($oldStatus !== 'sent' && ($data['status'] ?? null) === 'sent' && $quotation->maid) {
-                Log::info('Quotation update - status changing to sent', [
-                    'quotation_id' => $id,
-                    'old_status' => $oldStatus,
-                    'new_status' => $data['status'] ?? null,
-                    'maid_id' => $quotation->maid->id,
-                    'maid_current_status' => $quotation->maid->status,
-                ]);
-                if (in_array($quotation->maid->status, ['available', 'interviewing', 'pending'])) {
-                    $quotation->maid->update(['status' => 'assigned']);
-                    $quotation->maid->refresh();
-                    if ($quotation->maid->status !== 'assigned') {
-                        DB::table('maids')->where('id', $quotation->maid->id)->update([
-                            'status' => 'assigned',
-                            'updated_at' => now(),
-                        ]);
-                        Log::warning('Eloquent update blocked; forced DB update to assigned (update path)', [
-                            'maid_id' => $quotation->maid->id,
-                        ]);
-                    } else {
-                        Log::info('Maid status updated to assigned via update', [
-                            'maid_id' => $quotation->maid->id,
-                            'new_status' => 'assigned'
-                        ]);
-                    }
-                }
-            }
-
             if (array_key_exists('items', $data) && is_array($data['items'])) {
                 $this->quotationItemService->replaceQuotationItems($quotation->id, $data['items']);
             }
 
-            return $quotation->fresh('maid');
+            return $quotation->fresh();
         });
     }
 
@@ -317,19 +240,15 @@ class QuotationService
         });
     }
 
-    public function reject($data = [], $id)
+    public function reject($data, $id)
     {
         return DB::transaction(function () use ($data, $id) {
-            $quotation = Quotation::with('maid')->findOrFail($id);
+            $quotation = Quotation::findOrFail($id);
 
             $quotation->update([
                 'status' => 'rejected',
                 'reason' => $data['reason'] ?? null,
             ]);
-
-            if ($quotation->maid && $quotation->maid->status === 'assigned') {
-                $quotation->maid->update(['status' => 'available']);
-            }
 
             return $quotation;
         });
@@ -338,43 +257,12 @@ class QuotationService
     public function ready($id)
     {
         return DB::transaction(function () use ($id) {
-            $quotation = Quotation::with('maid')->findOrFail($id);
+            $quotation = Quotation::findOrFail($id);
             $quotation->update([
-                'status' => 'sent'
+                'status' => 'sent',
             ]);
 
-            if (!$quotation->maid) {
-                Log::warning('Quotation sent called but no maid linked', [
-                    'quotation_id' => $id,
-                ]);
-            }
-            if ($quotation->maid) {
-                Log::info('Quotation sent - updating maid status', [
-                    'quotation_id' => $id,
-                    'maid_id' => $quotation->maid->id,
-                    'maid_current_status' => $quotation->maid->status,
-                ]);
-                if (in_array($quotation->maid->status, ['available', 'interviewing', 'pending'])) {
-                    $quotation->maid->update(['status' => 'assigned']);
-                    $quotation->maid->refresh();
-                    if ($quotation->maid->status !== 'assigned') {
-                        DB::table('maids')->where('id', $quotation->maid->id)->update([
-                            'status' => 'assigned',
-                            'updated_at' => now(),
-                        ]);
-                        Log::warning('Eloquent update blocked; forced DB update to assigned (sent path)', [
-                            'maid_id' => $quotation->maid->id,
-                        ]);
-                    } else {
-                        Log::info('Maid status updated to assigned via sent', [
-                            'maid_id' => $quotation->maid->id,
-                            'new_status' => 'assigned'
-                        ]);
-                    }
-                }
-            }
-
-            return $quotation->fresh('maid');
+            return $quotation->fresh();
         });
     }
 
@@ -384,7 +272,7 @@ class QuotationService
             $quotation = Quotation::findOrFail($id);
 
             $quotation->update([
-                'status' => 'expired'
+                'status' => 'expired',
             ]);
 
             return $quotation;
@@ -395,7 +283,6 @@ class QuotationService
     {
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
-            $quotation->maid->update(['status' => 'available']);
 
             if ($quotation->order) {
                 $invoices = $quotation->order->invoices;
@@ -421,7 +308,7 @@ class QuotationService
     {
         $quotation = Quotation::find($id);
 
-        if (!$quotation) {
+        if (! $quotation) {
             return false;
         }
 

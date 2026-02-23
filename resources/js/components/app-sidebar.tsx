@@ -35,6 +35,7 @@ import quotation from '@/routes/quotation';
 import quotationItem from '@/routes/quotation-items';
 import receipt from '@/routes/receipt';
 import sales from '@/routes/sales';
+import userLogs from '@/routes/user-logs';
 // import schedule from '@/routes/schedule';
 // import supplier from '@/routes/supplier';
 import { type NavItem, type SharedData } from '@/types';
@@ -98,6 +99,7 @@ export function AppSidebar() {
                               title: 'User Management',
                               href: user.index.url(),
                               icon: User,
+                              matchExact: true,
                               subItems: [
                                   {
                                       title: 'Administrator',
@@ -295,6 +297,11 @@ export function AppSidebar() {
                   },
               ]
             : []),
+        {
+            title: 'User Logs',
+            href: userLogs.index.url(),
+            icon: FileText,
+        },
         // ...(permissions.includes('schedule view') &&
         // permissions.includes('agreement view')
         //     ? [

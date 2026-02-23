@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\EnquiryStatus;
 use App\Models\Customer;
 use App\Models\CustomerGroup;
 use App\Models\CustomerGroupMember;
@@ -370,6 +371,44 @@ class CustomerGroupService
                 ->log('Customer group #'.$group->id.' updated');
 
             return $group->load('members.customer.user');
+        });
+    }
+
+    /** Delete a customer group and its members only. */
+    public function deleteGroup(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $group = CustomerGroup::with(['members', 'enquiry'])->findOrFail($id);
+
+            foreach ($group->members as $member) {
+                $member->delete();
+            }
+
+            $enquiry = $group->enquiry;
+            $group->delete();
+
+            if ($enquiry && $enquiry->status === EnquiryStatus::Confirmed) {
+                $enquiry->update(['status' => EnquiryStatus::Negotiating->value]);
+
+                activity()
+                    ->performedOn($enquiry)
+                    ->withProperties([
+                        'subject_type' => 'Enquiry',
+                        'subject_id' => $enquiry->id,
+                        'old_status' => EnquiryStatus::Confirmed->value,
+                        'new_status' => EnquiryStatus::Negotiating->value,
+                    ])
+                    ->log("Enquiry #{$enquiry->id} moved to Negotiating after customer group deletion");
+            }
+
+            activity()
+                ->performedOn($group)
+                ->withProperties([
+                    'subject_type' => 'CustomerGroup',
+                    'subject_id' => $id,
+                    'enquiry_id' => $group->enquiry_id,
+                ])
+                ->log('Customer group #'.$id.' deleted');
         });
     }
 

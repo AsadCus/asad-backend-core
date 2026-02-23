@@ -67,14 +67,6 @@ const SchedulePreview = forwardRef<HTMLDivElement, Props>(
                             </tr>
                             <tr>
                                 <td className="w-2/5 border border-gray-900 bg-gray-100 p-1 font-bold">
-                                    Name of MDW
-                                </td>
-                                <td className="border border-gray-900 p-1">
-                                    {schedule.quotation?.maid?.name || '-'}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="w-2/5 border border-gray-900 bg-gray-100 p-1 font-bold">
                                     Commencement Date
                                 </td>
                                 <td className="border border-gray-900 p-1">
@@ -104,15 +96,6 @@ const SchedulePreview = forwardRef<HTMLDivElement, Props>(
                                 <td className="border border-gray-900 p-1">
                                     {schedule.quotation?.order?.order_number ||
                                         '-'}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="w-2/5 border border-gray-900 bg-gray-100 p-1 font-bold">
-                                    Passport No
-                                </td>
-                                <td className="border border-gray-900 p-1">
-                                    {schedule.quotation?.maid
-                                        ?.passport_number || '-'}
                                 </td>
                             </tr>
                             <tr>

@@ -83,8 +83,8 @@ export default function QuotationDetailSection({
     return (
         <FormSection
             value="maid_and_quotation_details"
-            title="Maid & Quotation Details"
-            description="Selected Maid & Quotation Details"
+            title="Quotation Details"
+            description="Quotation and payment details"
             status={status}
             required
         >
@@ -100,7 +100,7 @@ export default function QuotationDetailSection({
                                 Description{' '}
                                 <FieldRequirements
                                     required
-                                    hint="Enter maid description"
+                                    hint="Enter quotation description"
                                 />
                             </Label>
                             <div className="relative">
@@ -122,7 +122,7 @@ export default function QuotationDetailSection({
                                     Monthly Salary{' '}
                                     <FieldRequirements
                                         required
-                                        hint="Monthly salary amount for the maid"
+                                        hint="Monthly salary amount"
                                         format="Numeric amount"
                                         example="600, 800, 1500.5"
                                     />
@@ -149,7 +149,7 @@ export default function QuotationDetailSection({
                                     Loan Duration (Months){' '}
                                     <FieldRequirements
                                         required
-                                        hint="Number of months remaining to pay off the maid's loan"
+                                        hint="Number of months for the placement loan"
                                         format="Decimal number"
                                         example="6, 12.5, 18"
                                     />
@@ -206,7 +206,7 @@ export default function QuotationDetailSection({
                                     Compensation Off in Lieu
                                     <FieldRequirements
                                         required
-                                        hint="Amount paid to the maid for each off day worked (e.g. Sunday or public holiday). Auto-calculated as Monthly Salary ÷ 20"
+                                        hint="Amount paid for each off day worked (e.g. Sunday or public holiday). Auto-calculated as Monthly Salary ÷ 20"
                                         format="Numeric amount"
                                         example="20, 36.5"
                                     />

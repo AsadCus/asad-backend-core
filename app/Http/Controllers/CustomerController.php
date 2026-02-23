@@ -9,11 +9,9 @@ use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\CustomerGroupService;
 use App\Services\CustomerService;
-use App\Services\EducationLevelService;
-use App\Services\MaidService;
 use App\Services\PackageService;
-use App\Services\ReligionService;
 use App\Services\SalesService;
+use App\Services\UserRoles\CustomerUserService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -22,6 +20,8 @@ use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
+    protected $customerUserService;
+
     protected $customerService;
 
     protected $branchService;
@@ -34,38 +34,28 @@ class CustomerController extends Controller
 
     protected $userRule;
 
-    protected $religionService;
-
-    protected $educationLevelService;
-
-    protected $maidService;
-
     protected $customerGroupService;
 
     protected $packageService;
 
     public function __construct(
         CustomerService $customerService,
+        CustomerUserService $customerUserService,
         BranchService $branchService,
         SalesService $salesService,
         CountryService $countryService,
         UserService $userService,
         UserRule $userRule,
-        ReligionService $religionService,
-        EducationLevelService $educationLevelService,
-        MaidService $maidService,
         CustomerGroupService $customerGroupService,
         PackageService $packageService,
     ) {
         $this->customerService = $customerService;
+        $this->customerUserService = $customerUserService;
         $this->branchService = $branchService;
         $this->salesService = $salesService;
         $this->countryService = $countryService;
         $this->userService = $userService;
         $this->userRule = $userRule;
-        $this->religionService = $religionService;
-        $this->educationLevelService = $educationLevelService;
-        $this->maidService = $maidService;
         $this->customerGroupService = $customerGroupService;
         $this->packageService = $packageService;
 
@@ -110,7 +100,9 @@ class CustomerController extends Controller
     {
         $validated = $request->validate($this->userRule->rules($request->role));
 
-        $user = $this->userService->store($validated);
+        $validated['role'] = 'customer';
+
+        $user = $this->customerUserService->store($validated);
 
         if (! empty($validated['password']) && $request->boolean('send_email')) {
             Mail::to($user->email)->send(
@@ -123,7 +115,7 @@ class CustomerController extends Controller
 
     public function show(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->customerUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
@@ -146,7 +138,7 @@ class CustomerController extends Controller
 
     public function edit(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->customerUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
@@ -162,29 +154,13 @@ class CustomerController extends Controller
         ]);
     }
 
-    public function editRecommendMaid(string $id)
-    {
-        $data['user'] = $this->userService->getForEditShow($id);
-        $data['maids'] = $this->maidService->getForRecommendation();
-        $data['selectedMaidIds'] = $this->customerService->getCustomerMaidIds($id);
-        $data['nationality'] = $this->countryService->getForFilterByAdjective();
-        $data['religion'] = $this->religionService->getForFilterByName();
-        $data['educationLevel'] = $this->educationLevelService->getForFilterByName();
-        $data['roles'] = $this->userService->getRoleForFilter();
-        $data['branches'] = $this->branchService->getForFilter();
-        $data['countries'] = $this->countryService->getForFilterByName();
-        $data['sales'] = $this->salesService->getForFilter();
-
-        return Inertia::render('customer/recommend-maid-form', [
-            'data' => $data,
-        ]);
-    }
-
     public function update(Request $request, string $id)
     {
         $validated = $request->validate($this->userRule->rules($request->role, 'update', $id));
 
-        $user = $this->userService->update($validated, $id);
+        $validated['role'] = 'customer';
+
+        $user = $this->customerUserService->update($validated, $id);
 
         if (! empty($validated['password']) && $request->boolean('send_email')) {
             Mail::to($user->email)->send(
@@ -200,38 +176,6 @@ class CustomerController extends Controller
         $data = $this->customerService->handleCustomer($request, $id);
 
         return back()->with('success', "{$data->name} has been successfully assigned to you.");
-    }
-
-    public function submitRecommendMaid(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'maids' => 'required|array',
-            'maids.*' => 'exists:maids,id',
-        ]);
-
-        $result = $this->customerService->storeRecommendMaid($id, $validated['maids']);
-
-        return redirect()->intended(route('customer.index'))->with('success', $result['message']);
-    }
-
-    public function assignMaidToCustomer(Request $request, $customerId, $maidId)
-    {
-        $user = User::with('customer')->findOrFail($customerId);
-        $actualCustomerId = $user->customer->id;
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'customer_id' => $actualCustomerId,
-                'maid_id' => $maidId,
-                'message' => 'Redirected to create quotation for customer and maid assignment.',
-            ]);
-        }
-
-        return redirect()->route('quotation.create', [
-            'customer_id' => $actualCustomerId,
-            'maid_id' => $maidId,
-        ])->with('success', 'Redirected to create quotation for customer and maid assignment.');
     }
 
     public function enableCustomer(string $id)

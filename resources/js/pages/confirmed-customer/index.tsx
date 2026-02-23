@@ -1,5 +1,6 @@
 import { ActionType } from '@/components/action-column';
 import { ColumnFilter } from '@/components/column-filter';
+import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
@@ -11,18 +12,21 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
-import { index as confirmedCustomerIndex } from '@/routes/confirmed-customer';
+import {
+    index as confirmedCustomerIndex,
+    destroy as destroyConfirmedCustomer,
+} from '@/routes/confirmed-customer';
 import { generateEditLink, show as showGroup } from '@/routes/customer-groups';
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { useState } from 'react';
-import CustomerConfirmationForm from '../customer/form';
 import type {
     CustomerGroupDatatableSchema,
     CustomerGroupFormSchema,
 } from '../customer/schema';
 import { statusColors, typeColors } from '../enquiries/schema';
+import CustomerConfirmationForm from './form';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -182,11 +186,13 @@ export default function ConfirmedCustomerIndex({
 }: ConfirmedCustomerProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
+    const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const actions: ActionType[] = [];
     if (userPermissions.includes('customer create')) actions.push('add');
     if (userPermissions.includes('customer view')) actions.push('view');
     if (userPermissions.includes('customer edit')) actions.push('edit');
+    if (userPermissions.includes('customer edit')) actions.push('delete');
 
     // Standalone Customer Group creation dialog
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
@@ -271,6 +277,20 @@ export default function ConfirmedCustomerIndex({
                                                     'Failed to generate public link.',
                                                 );
                                             });
+                                    } else if (action === 'delete') {
+                                        confirm({
+                                            title: 'Delete Customer Group',
+                                            message: `Delete customer group #${groupId}? This removes the group and its members only.`,
+                                            confirmText: 'Delete',
+                                            cancelText: 'Cancel',
+                                            onConfirm: () => {
+                                                router.delete(
+                                                    destroyConfirmedCustomer(
+                                                        groupId,
+                                                    ).url,
+                                                );
+                                            },
+                                        });
                                     }
                                 }
                             }}
@@ -308,7 +328,7 @@ export default function ConfirmedCustomerIndex({
 
             {/* Standalone Customer Group Creation Dialog */}
             <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation Form</DialogTitle>
                         <DialogDescription className="hidden">
@@ -317,7 +337,7 @@ export default function ConfirmedCustomerIndex({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="h-full w-full flex-1 overflow-y-auto">
+                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
                         <CustomerConfirmationForm
                             packageOptions={packageOptions}
                             onSuccess={() => {
@@ -332,7 +352,7 @@ export default function ConfirmedCustomerIndex({
 
             {/* Confirmed Customer View/Edit Dialog */}
             <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
                     <DialogHeader>
                         <DialogTitle>
                             {groupDialogMode === 'view'
@@ -346,7 +366,7 @@ export default function ConfirmedCustomerIndex({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="h-full w-full flex-1 overflow-y-auto">
+                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
                         {isLoadingGroup && (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                                 Loading confirmed customer details...
@@ -372,6 +392,8 @@ export default function ConfirmedCustomerIndex({
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog />
         </>
     );
 }

@@ -2,19 +2,20 @@
 
 namespace App\Services;
 
-use App\Models\Invoice;
 use App\Helpers\FormatService;
+use App\Models\Invoice;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceService
 {
-    protected $formatService, $quotationItemService, $maidStatusService;
+    protected $formatService;
 
-    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService, MaidStatusService $maidStatusService)
+    protected $quotationItemService;
+
+    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService)
     {
         $this->formatService = $formatService;
         $this->quotationItemService = $quotationItemService;
-        $this->maidStatusService = $maidStatusService;
     }
 
     public function get()
@@ -57,7 +58,7 @@ class InvoiceService
 
     public function getForFilter()
     {
-        return Invoice::get()->map(fn($i) => [
+        return Invoice::get()->map(fn ($i) => [
             'value' => $i->id,
             'label' => $i->invoice_number,
         ]);
@@ -76,9 +77,9 @@ class InvoiceService
                 'status' => $data['status'] ?? 'issued',
             ]);
 
-            if (!empty($data['items'])) {
+            if (! empty($data['items'])) {
                 $quotationItemIds = $this->quotationItemService->replaceQuotationItems($invoice->order->quotation->id, $data['items']);
-                if (!empty($quotationItemIds)) {
+                if (! empty($quotationItemIds)) {
                     $invoice->quotationItems()->sync($quotationItemIds);
                 }
             }
@@ -103,7 +104,7 @@ class InvoiceService
             'order_id' => $i->order_id,
             'order_number' => $i->order->order_number,
             'maid_id' => $i->order->quotation->maid_id,
-            'maid_name' => $i->order->quotation->maid->name,
+            'maid_name' => null,
             'type' => $i->type,
             'description' => $i->description,
             'amount' => $this->formatService->cleanDecimal($i->amount),
@@ -114,7 +115,7 @@ class InvoiceService
             'due_date' => $i->due_date_formatted,
             'sales_registration_number' => $i->order->quotation->sales_registration_number,
             'status' => $i->status,
-            'items' => $i->quotationItems->map(fn($item) => [
+            'items' => $i->quotationItems->map(fn ($item) => [
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
                 'parent_id' => $item->parent_id,
@@ -135,7 +136,7 @@ class InvoiceService
             $query = Invoice::with('order.quotation');
 
             // If order_id is provided, scope to that order
-            if (!empty($data['order_id'])) {
+            if (! empty($data['order_id'])) {
                 $query->where('order_id', $data['order_id']);
             }
 
@@ -152,7 +153,7 @@ class InvoiceService
 
             if (array_key_exists('items', $data)) {
                 $quotationItemIds = $this->quotationItemService->replaceQuotationItems($invoice->order->quotation->id, $data['items']);
-                if (!empty($quotationItemIds)) {
+                if (! empty($quotationItemIds)) {
                     $invoice->quotationItems()->sync($quotationItemIds);
                 }
             }

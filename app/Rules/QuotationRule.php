@@ -9,7 +9,6 @@ class QuotationRule
         return array_merge(
             [
                 'customer_id' => ['nullable', 'exists:customers,id'],
-                'maid_id' => ['nullable', 'exists:maids,id', 'required_if:status,sent'],
                 'quotation_date' => ['nullable', 'string'],
                 'expiry_date' => ['nullable', 'string'],
                 'commencement_date' => ['nullable', 'string'],
@@ -23,7 +22,7 @@ class QuotationRule
                 'description' => ['nullable', 'string'],
                 'status' => ['nullable', 'in:draft,sent,revised,ready,accepted,converted,rejected,expired,cancelled'],
             ],
-            (new QuotationItemRule())->rules('items')
+            (new QuotationItemRule)->rules('items')
         );
     }
 
@@ -32,7 +31,6 @@ class QuotationRule
         return array_merge(
             [
                 'customer_id' => ['required', 'exists:customers,id'],
-                'maid_id' => ['required', 'exists:maids,id'],
                 'quotation_date' => ['required', 'string'],
                 'expiry_date' => ['required', 'string'],
                 'commencement_date' => ['required', 'string'],
@@ -46,7 +44,7 @@ class QuotationRule
                 'description' => ['required', 'string'],
                 'status' => ['required', 'in:draft,sent,revised,ready,accepted,converted,rejected,expired,cancelled'],
             ],
-            (new QuotationItemRule())->rules('items')
+            (new QuotationItemRule)->rules('items')
         );
     }
 }

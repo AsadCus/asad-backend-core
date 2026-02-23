@@ -4,7 +4,6 @@ export const scheduleSchema = z.object({
     id: z.number().optional(),
     quotation_id: z.number(),
     customer_name: z.string().nullable(),
-    maid_name: z.string().nullable(),
     schedule_number: z.string(),
     sales_registration_number: z.string().nullable().optional(),
     monthly_salary: z.coerce.number().nullable(),
@@ -46,11 +45,6 @@ export const scheduleSchema = z.object({
                     name: z.string(),
                     email: z.string(),
                 }),
-            }),
-            maid: z.object({
-                id: z.number(),
-                name: z.string(),
-                passport_number: z.string().nullable(),
             }),
             order: z
                 .object({

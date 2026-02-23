@@ -17,7 +17,6 @@ export type ActionType =
     | 'download'
     | 'handle-customer'
     | 'select-maid'
-    | 'recommend-maid'
     | 'create-quotation'
     | 'enable-customer'
     | 'disable-customer'

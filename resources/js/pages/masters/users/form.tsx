@@ -1,8 +1,6 @@
-import { MultiSelect } from '@/components/multi-select';
-import { ProperInputSelect } from '@/components/proper-input-select';
+import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Select,
     SelectContent,
@@ -10,13 +8,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { ages, experiences } from '@/lib/utils';
+import CustomerFormFields from '@/pages/customer/form-fields';
 import { OptionType, SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
-import { Eye, EyeOff, RefreshCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { userSchema, UserSchema } from './schema';
+import { AdminFormFields } from './components/admin-form-fields';
+import { UserPasswordFields } from './components/password-fields';
+import { SalesFormFields } from './components/sales-form-fields';
+import { SupplierFormFields } from './components/supplier-form-fields';
+import { UserSchema, validateUserData } from './schema';
+
+type UserFormData = UserSchema & {
+    _method?: 'put';
+};
 
 interface UserFormProps {
     mode: 'create' | 'edit' | 'view';
@@ -24,7 +28,6 @@ interface UserFormProps {
     onSubmit?: (values: UserSchema) => void;
     onCancel?: () => void;
     branches?: OptionType[];
-    countries?: OptionType[];
     roles?: OptionType[];
     salesList?: OptionType[];
     isAdmin?: boolean;
@@ -39,7 +42,6 @@ export function UserForm({
     initialData,
     onCancel,
     branches = [],
-    countries = [],
     roles = [],
     salesList = [],
     isAdmin,
@@ -74,9 +76,22 @@ export function UserForm({
         company_name: '',
         nric_number: '',
         address: '',
-        age_preferences: [],
-        country_preferences: [],
-        experience_preferences: [],
+        nationality: '',
+        passport_number: '',
+        passport_issue_date: '',
+        passport_expiry_date: '',
+        passport_place_of_issue: '',
+        gender: '',
+        marital_status: '',
+        date_of_birth: '',
+        place_of_birth: '',
+        first_time_umrah: null,
+        has_chronic_disease: false,
+        chronic_disease_details: '',
+        passport_file: undefined,
+        photo_file: undefined,
+        passport_path: null,
+        photo_path: null,
         handled_by: '',
         registration_number: '',
     };
@@ -107,17 +122,17 @@ export function UserForm({
         defaultData = initialFormState;
     }
 
+    const form = useForm<UserFormData>(defaultData as UserFormData);
     const {
         data,
         setData,
         post,
-        put,
         processing,
         errors,
         setError,
         clearErrors,
-    } = useForm<UserSchema>(defaultData);
-
+        transform,
+    } = form;
     const selectedBranchId = data.branch_id;
     const filteredSalesList = salesList.filter(
         (sale: OptionType & { branch_id?: string | number | null }) => {
@@ -130,9 +145,6 @@ export function UserForm({
     );
 
     const [role, setRole] = useState(data?.role ?? 'admin');
-
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         if (
@@ -189,7 +201,7 @@ export function UserForm({
     };
 
     function validateClientSide() {
-        const result = userSchema.safeParse(data);
+        const result = validateUserData(data, mode);
 
         clearErrors();
 
@@ -243,560 +255,247 @@ export function UserForm({
 
         if (isCreate) {
             post(url, {
-                onError: (errors) => {
-                    setError(errors);
-                    console.error(errors);
+                forceFormData: true,
+                onError: (validationErrors: Record<string, string>) => {
+                    setError(validationErrors);
+                    console.error(validationErrors);
                 },
             });
         } else if (isEdit) {
-            put(`${url}/${data.id}`, {
-                onError: (errors) => {
-                    setError(errors);
-                    console.error(errors);
+            const editUrl = `${url}/${data.id}`;
+            transform((currentData: UserFormData) => ({
+                ...currentData,
+                _method: 'put',
+            }));
+            post(editUrl, {
+                forceFormData: true,
+                onError: (validationErrors: Record<string, string>) => {
+                    setError(validationErrors);
+                    console.error(validationErrors);
+                },
+                onFinish: () => {
+                    transform((currentData: UserFormData) => currentData);
                 },
             });
         }
     }
 
-    const renderError = (field: keyof UserSchema) =>
-        errors[field] && (
-            <p className="absolute -bottom-4 left-0 text-sm text-red-500">
-                {errors[field]}
-            </p>
+    const getCustomerFieldError = (path: string): string | undefined => {
+        return errors[path as keyof UserSchema] as string | undefined;
+    };
+
+    const customerData = {
+        customer_number: data.customer_number ?? '',
+        is_leader: true,
+        name: data.name ?? '',
+        email: data.email ?? '',
+        contact_number: data.contact ?? '',
+        nric_number: data.nric_number ?? '',
+        address: data.address ?? '',
+        nationality: data.nationality ?? '',
+        passport_number: data.passport_number ?? '',
+        passport_issue_date: data.passport_issue_date ?? '',
+        passport_expiry_date: data.passport_expiry_date ?? '',
+        passport_place_of_issue: data.passport_place_of_issue ?? '',
+        gender: data.gender ?? '',
+        marital_status: data.marital_status ?? '',
+        date_of_birth: data.date_of_birth ?? '',
+        place_of_birth: data.place_of_birth ?? '',
+        first_time_umrah: data.first_time_umrah ?? null,
+        has_chronic_disease: data.has_chronic_disease ?? false,
+        chronic_disease_details: data.chronic_disease_details ?? '',
+        passport_file: data.passport_file,
+        photo_file: data.photo_file,
+        passport_path: data.passport_path ?? null,
+        photo_path: data.photo_path ?? null,
+    };
+
+    const updateCustomerField = (
+        field: string,
+        value: string | boolean | File | null,
+    ) => {
+        if (field === 'contact_number') {
+            setData('contact', String(value ?? ''));
+
+            return;
+        }
+
+        if (field === 'is_leader') {
+            return;
+        }
+
+        const normalizedField = field as keyof UserFormData;
+        setData(
+            normalizedField,
+            value as unknown as UserFormData[typeof normalizedField],
         );
+    };
 
     return (
-        <div
-            className="mx-auto max-h-[90vh] w-full overflow-y-auto p-2"
-            style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-            }}
-        >
+        <div className="mx-auto w-full">
             <form onSubmit={submit} className="space-y-4">
-                {/* Profile */}
-                <p className="text-l border-b pb-2 font-semibold">Profile</p>
-                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                    {/* Name */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="name">Name</Label>
-                        <div className="relative">
-                            <Input
-                                type="text"
-                                id="name"
-                                value={data.name}
-                                onChange={(e) =>
-                                    setData('name', e.target.value)
-                                }
-                                placeholder="Name"
-                                disabled={isView}
-                            />
-                            {renderError('name')}
-                        </div>
-                    </div>
-
-                    {/* Email */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="email">Email</Label>
-                        <div className="relative">
-                            <Input
-                                type="email"
-                                id="email"
-                                value={data.email}
-                                onChange={(e) =>
-                                    setData('email', e.target.value)
-                                }
-                                placeholder="Email"
-                                disabled={isView}
-                            />
-                            {renderError('email')}
-                        </div>
-                    </div>
-
-                    {/* Contact */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="contact">Contact</Label>
-                        <div className="relative">
-                            <Input
-                                type="text"
-                                id="contact"
-                                value={data.contact}
-                                onChange={(e) =>
-                                    setData('contact', e.target.value)
-                                }
-                                placeholder="Contact"
-                                disabled={isView}
-                            />
-                            {renderError('contact')}
-                        </div>
-                    </div>
-
-                    {/* Role */}
-                    {isAdmin === false &&
-                        isSales === false &&
-                        isSupplier === false &&
-                        isCustomer === false && (
-                            <div className="grid w-full items-center gap-3">
-                                <Label>Role</Label>
-                                <div className="relative">
-                                    <Select
-                                        disabled={
-                                            isView ||
-                                            isEdit ||
-                                            isAdmin ||
-                                            isSales ||
-                                            isSupplier ||
-                                            isCustomer
-                                        }
-                                        value={data.role}
-                                        onValueChange={(value) => {
-                                            setData('role', value);
-                                            setRole(value);
-                                        }}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select role" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {roles.map((r) => {
-                                                return (
-                                                    <SelectItem
-                                                        key={r.value}
-                                                        value={String(r.value)}
-                                                    >
-                                                        {r.label}
-                                                    </SelectItem>
-                                                );
-                                            })}
-                                        </SelectContent>
-                                    </Select>
-                                    {renderError('role')}
-                                </div>
-                            </div>
-                        )}
-                </div>
-
-                {/* Conditional Fields */}
-                {(role === 'sales' ||
-                    role === 'supplier' ||
-                    role === 'customer') && (
-                    <>
-                        <p className="text-l border-b py-2 font-semibold capitalize">
-                            {role}
-                            {role === 'customer' && data.customer_number && (
-                                <>
-                                    {' '}
-                                    <span className="text-muted-foreground">
-                                        (Customer No.{' '}
-                                        <span className="text-primary">
-                                            {data.customer_number}
-                                        </span>
-                                        )
-                                    </span>
-                                </>
-                            )}
-                        </p>
-                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                            {/* branch */}
-                            {(role === 'sales' ||
-                                (role === 'customer' && !isCustomer)) && (
-                                <div className="grid w-full items-center gap-3">
-                                    <Label>Branch</Label>
-                                    <div className="relative">
-                                        <ProperInputSelect
-                                            disabled={
-                                                isView ||
-                                                auth.roles.includes('sales')
-                                            }
-                                            options={branches}
-                                            value={data.branch_id}
-                                            onValueChange={(value) => {
-                                                setData(
-                                                    'branch_id',
-                                                    String(value),
-                                                );
-                                                setData('handled_by', '');
-                                            }}
-                                            placeholder="Select branch"
-                                        />
-                                        {renderError('branch_id')}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* company name */}
-                            {role === 'supplier' && (
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="company_name">
-                                        Company Name
-                                    </Label>
-                                    <div className="relative">
-                                        <Input
-                                            type="text"
-                                            id="company_name"
-                                            value={data.company_name}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'company_name',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="Enter company name"
-                                            disabled={isView}
-                                        />
-                                        {renderError('company_name')}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* sales */}
-                            {auth.roles.includes('admin') &&
-                                role === 'customer' &&
-                                !isCustomer && (
-                                    <div className="grid w-full items-center gap-3">
-                                        <Label>Sales</Label>
-                                        <div className="relative">
-                                            <ProperInputSelect
+                <Card>
+                    <CardContent className="space-y-6">
+                        {isAdmin === false &&
+                            isSales === false &&
+                            isSupplier === false &&
+                            isCustomer === false && (
+                                <div className="space-y-4">
+                                    <h3 className="text-xl font-semibold">
+                                        User Role
+                                    </h3>
+                                    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                        <FormField
+                                            label="Role"
+                                            error={errors.role}
+                                        >
+                                            <Select
                                                 disabled={
                                                     isView ||
-                                                    !data.branch_id ||
-                                                    auth.roles.includes('sales')
+                                                    isEdit ||
+                                                    isAdmin ||
+                                                    isSales ||
+                                                    isSupplier ||
+                                                    isCustomer
                                                 }
-                                                options={filteredSalesList}
-                                                value={data.handled_by ?? ''}
+                                                value={data.role}
                                                 onValueChange={(value) => {
-                                                    setData(
-                                                        'handled_by',
-                                                        String(value),
-                                                    );
+                                                    const nextRole =
+                                                        value as UserSchema['role'];
+                                                    setData('role', nextRole);
+                                                    setRole(nextRole);
                                                 }}
-                                                placeholder="Select sales"
-                                            />
-                                            {renderError('handled_by')}
-                                        </div>
-                                    </div>
-                                )}
-
-                            {/* nric_number */}
-                            {role === 'customer' && (
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="nric_number">
-                                        NRIC No.
-                                    </Label>
-                                    <div className="relative">
-                                        <Input
-                                            type="text"
-                                            id="nric_number"
-                                            value={data.nric_number}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'nric_number',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="Enter NRIC No."
-                                            disabled={isView}
-                                        />
-                                        {renderError('nric_number')}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* address */}
-                            {(role === 'supplier' || role === 'customer') && (
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="address">Address</Label>
-
-                                    <div className="relative">
-                                        <Textarea
-                                            id="address"
-                                            value={
-                                                data.address
-                                                    ? data.address.replace(
-                                                          /<br>/g,
-                                                          '\n',
-                                                      )
-                                                    : ''
-                                            }
-                                            onChange={(e) =>
-                                                setData(
-                                                    'address',
-                                                    e.target.value.replace(
-                                                        /\n/g,
-                                                        '<br>',
-                                                    ),
-                                                )
-                                            }
-                                            onKeyDown={(e) => {
-                                                if (
-                                                    e.key === 'Enter' &&
-                                                    !e.shiftKey
-                                                ) {
-                                                    e.preventDefault();
-                                                    const textarea =
-                                                        e.currentTarget;
-                                                    const start =
-                                                        textarea.selectionStart;
-                                                    const currentValue =
-                                                        textarea.value;
-                                                    const newValue =
-                                                        currentValue.substring(
-                                                            0,
-                                                            start,
-                                                        ) +
-                                                        '\n' +
-                                                        currentValue.substring(
-                                                            start,
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select role" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {roles.map((r) => {
+                                                        return (
+                                                            <SelectItem
+                                                                key={r.value}
+                                                                value={String(
+                                                                    r.value,
+                                                                )}
+                                                            >
+                                                                {r.label}
+                                                            </SelectItem>
                                                         );
-                                                    setData(
-                                                        'address',
-                                                        newValue.replace(
-                                                            /\n/g,
-                                                            '<br>',
-                                                        ),
-                                                    );
-                                                    setTimeout(() => {
-                                                        textarea.selectionStart =
-                                                            textarea.selectionEnd =
-                                                                start + 1;
-                                                    }, 0);
-                                                } else if (
-                                                    e.key === 'Enter' &&
-                                                    e.shiftKey
-                                                ) {
-                                                    e.preventDefault();
-                                                    const textarea =
-                                                        e.currentTarget;
-                                                    const start =
-                                                        textarea.selectionStart;
-                                                    const currentValue =
-                                                        textarea.value;
-                                                    const newValue =
-                                                        currentValue.substring(
-                                                            0,
-                                                            start,
-                                                        ) +
-                                                        '<br>' +
-                                                        currentValue.substring(
-                                                            start,
-                                                        );
-                                                    setData(
-                                                        'address',
-                                                        newValue,
-                                                    );
-                                                    setTimeout(() => {
-                                                        textarea.selectionStart =
-                                                            textarea.selectionEnd =
-                                                                start + 4;
-                                                    }, 0);
-                                                }
-                                            }}
-                                            placeholder="Enter address (Enter for line break, Shift+Enter for &lt;br&gt; tag)"
-                                            disabled={isView}
-                                        />
-                                        {renderError('address')}
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        </FormField>
                                     </div>
                                 </div>
                             )}
 
-                            {/* preference */}
-                            {role === 'customer' && !isCustomer && (
-                                <>
-                                    <div className="grid w-full items-center gap-3">
-                                        <Label htmlFor="age_preferences">
-                                            Age Preferences
-                                        </Label>
-                                        <div className="relative">
-                                            <MultiSelect
-                                                disabled={isView}
-                                                options={ages}
-                                                placeholder="Select ages"
-                                                defaultValue={
-                                                    data.age_preferences
-                                                }
-                                                onValueChange={(e) => {
-                                                    return setData(
-                                                        'age_preferences',
-                                                        e,
-                                                    );
-                                                }}
-                                                responsive={true}
-                                                minWidth="0px"
-                                            />
-                                            {renderError('age_preferences')}
-                                        </div>
-                                    </div>
-                                    <div className="grid w-full items-center gap-3">
-                                        <Label htmlFor="country_preferences">
-                                            Country Preferences
-                                        </Label>
-                                        <div className="relative">
-                                            <MultiSelect
-                                                disabled={isView}
-                                                options={countries}
-                                                placeholder="Select countries"
-                                                defaultValue={
-                                                    data.country_preferences
-                                                }
-                                                onValueChange={(e) => {
-                                                    return setData(
-                                                        'country_preferences',
-                                                        e,
-                                                    );
-                                                }}
-                                                responsive={true}
-                                                minWidth="0px"
-                                            />
-                                            {renderError('country_preferences')}
-                                        </div>
-                                    </div>
-                                    <div className="grid w-full items-center gap-3">
-                                        <Label htmlFor="experience_preferences">
-                                            Experience Preferences
-                                        </Label>
-                                        <div className="relative">
-                                            <MultiSelect
-                                                disabled={isView}
-                                                options={experiences}
-                                                placeholder="Select experiences"
-                                                defaultValue={
-                                                    data.experience_preferences
-                                                }
-                                                onValueChange={(e) => {
-                                                    return setData(
-                                                        'experience_preferences',
-                                                        e,
-                                                    );
-                                                }}
-                                                responsive={true}
-                                                minWidth="0px"
-                                            />
-                                            {renderError(
-                                                'experience_preferences',
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </>
-                )}
-
-                {/* Password & Confirm Password */}
-                {!isView && role !== 'supplier' && (
-                    <>
-                        <div className="flex flex-row items-center justify-between border-b py-2">
-                            <p className="text-l font-semibold">Password</p>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={generatePassword}
-                                className="flex w-fit items-center gap-1"
-                            >
-                                <RefreshCcw size={14} />
-                                Generate Random
-                            </Button>
-                        </div>
-                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                            {/* Password */}
-                            <div className="relative grid w-full items-center gap-2">
-                                <Label htmlFor="password">Password</Label>
-                                <div className="relative">
-                                    <Input
-                                        type={
-                                            showPassword ? 'text' : 'password'
-                                        }
-                                        id="password"
-                                        value={data.password}
-                                        onChange={(e) => {
-                                            clearErrors('password');
-                                            setData('password', e.target.value);
-                                        }}
-                                        placeholder="Password"
-                                        disabled={isView}
-                                        className="pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setShowPassword(!showPassword)
-                                        }
-                                        className="absolute top-2.5 right-2 text-gray-500 hover:text-gray-700"
+                        {role === 'admin' && (
+                            <AdminFormFields
+                                data={{
+                                    name: data.name,
+                                    email: data.email,
+                                    contact: data.contact,
+                                }}
+                                errors={
+                                    errors as Partial<
+                                        Record<keyof UserSchema, string>
                                     >
-                                        {showPassword ? (
-                                            <EyeOff size={18} />
-                                        ) : (
-                                            <Eye size={18} />
-                                        )}
-                                    </button>
-                                </div>
-                                {renderError('password')}
-                            </div>
-
-                            {/* Confirm Password */}
-                            <div className="relative grid w-full items-center gap-2">
-                                <Label htmlFor="password_confirmation">
-                                    Confirm Password
-                                </Label>
-                                <div className="relative">
-                                    <Input
-                                        type={
-                                            showConfirmPassword
-                                                ? 'text'
-                                                : 'password'
-                                        }
-                                        id="password_confirmation"
-                                        value={data.password_confirmation}
-                                        onChange={(e) => {
-                                            clearErrors(
-                                                'password_confirmation',
-                                            );
-                                            setData(
-                                                'password_confirmation',
-                                                e.target.value,
-                                            );
-                                        }}
-                                        placeholder="Confirm Password"
-                                        disabled={isView}
-                                        className="pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setShowConfirmPassword(
-                                                !showConfirmPassword,
-                                            )
-                                        }
-                                        className="absolute top-2.5 right-2 text-gray-500 hover:text-gray-700"
-                                    >
-                                        {showConfirmPassword ? (
-                                            <EyeOff size={18} />
-                                        ) : (
-                                            <Eye size={18} />
-                                        )}
-                                    </button>
-                                </div>
-                                {renderError('password_confirmation')}
-                            </div>
-                        </div>
-                        <div className="col-span-3 flex items-center space-x-2">
-                            <input
-                                id="send_email"
-                                type="checkbox"
-                                checked={data.send_email ?? false}
-                                onChange={(e) =>
-                                    setData('send_email', e.target.checked)
                                 }
-                                disabled={isView}
-                                aria-label="Send email access to this user"
+                                isView={isView}
+                                onChange={(field, value) =>
+                                    setData(field, value)
+                                }
                             />
-                            <Label htmlFor="send_email">
-                                Send email access to this user (optional)
-                            </Label>
-                        </div>
-                    </>
-                )}
+                        )}
+
+                        {role === 'sales' && (
+                            <SalesFormFields
+                                data={{
+                                    name: data.name,
+                                    email: data.email,
+                                    contact: data.contact,
+                                    branch_id: data.branch_id,
+                                }}
+                                errors={
+                                    errors as Partial<
+                                        Record<keyof UserSchema, string>
+                                    >
+                                }
+                                branches={branches}
+                                isView={isView}
+                                isSalesUser={auth.roles.includes('sales')}
+                                onChange={(field, value) => {
+                                    setData(field, value);
+
+                                    if (field === 'branch_id') {
+                                        setData('handled_by', '');
+                                    }
+                                }}
+                            />
+                        )}
+
+                        {role === 'supplier' && (
+                            <SupplierFormFields
+                                data={{
+                                    name: data.name,
+                                    email: data.email,
+                                    contact: data.contact,
+                                    company_name: data.company_name,
+                                    address: data.address,
+                                }}
+                                errors={
+                                    errors as Partial<
+                                        Record<keyof UserSchema, string>
+                                    >
+                                }
+                                isView={isView}
+                                onChange={(field, value) =>
+                                    setData(field, value)
+                                }
+                            />
+                        )}
+
+                        {role === 'customer' && (
+                            <CustomerFormFields
+                                customer={customerData}
+                                isView={isView}
+                                processing={processing}
+                                getError={getCustomerFieldError}
+                                onUpdateCustomer={(field, value) =>
+                                    updateCustomerField(String(field), value)
+                                }
+                            />
+                        )}
+
+                        {/* Password & Confirm Password */}
+                        {!isView && role !== 'supplier' && (
+                            <UserPasswordFields
+                                password={data.password ?? ''}
+                                passwordConfirmation={
+                                    data.password_confirmation ?? ''
+                                }
+                                sendEmail={data.send_email ?? false}
+                                isView={isView}
+                                onGenerateRandom={generatePassword}
+                                onPasswordChange={(value) => {
+                                    clearErrors('password');
+                                    setData('password', value);
+                                }}
+                                onPasswordConfirmationChange={(value) => {
+                                    clearErrors('password_confirmation');
+                                    setData('password_confirmation', value);
+                                }}
+                                onSendEmailChange={(checked) =>
+                                    setData('send_email', checked)
+                                }
+                                passwordError={errors.password}
+                                passwordConfirmationError={
+                                    errors.password_confirmation
+                                }
+                            />
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Buttons */}
                 <div className="flex justify-end gap-4">

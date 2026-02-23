@@ -4,12 +4,14 @@ import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
-import { destroy, edit, show, index as userIndex } from '@/routes/master/user';
-import { create, createQuotation, index } from '@/routes/master/user/customer';
-import { type BreadcrumbItem } from '@/types';
+import { index as userIndex } from '@/routes/master/user';
+import { createQuotation, destroy, index } from '@/routes/master/user/customer';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
 import { UserSchema } from '../schema';
+import CustomerViewDialog from './view-dialog';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -63,10 +65,33 @@ const columns: ColumnDef<UserSchema>[] = [
 
 interface CustomerProps {
     dataUser: UserSchema[];
+    dataRole: OptionType[];
+    dataBranch: OptionType[];
+    dataSales: OptionType[];
 }
 
-export default function Customer({ dataUser }: CustomerProps) {
+export default function Customer({
+    dataUser,
+    dataRole,
+    dataBranch,
+    dataSales,
+}: CustomerProps) {
     const { confirm, ConfirmDialog } = useConfirmDialog();
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>(
+        'view',
+    );
+    const [selectedUser, setSelectedUser] = useState<UserSchema | undefined>();
+
+    const openDialog = (
+        mode: 'create' | 'edit' | 'view',
+        user?: UserSchema,
+    ) => {
+        setDialogMode(mode);
+        setSelectedUser(user);
+        setDialogOpen(true);
+    };
+
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -83,7 +108,7 @@ export default function Customer({ dataUser }: CustomerProps) {
                             url={index().url}
                             onAction={(action, row) => {
                                 if (action === 'add') {
-                                    router.get(create().url);
+                                    openDialog('create');
                                     return;
                                 }
 
@@ -91,13 +116,13 @@ export default function Customer({ dataUser }: CustomerProps) {
 
                                 if (userId !== undefined) {
                                     if (action === 'view') {
-                                        router.get(show(userId).url);
+                                        openDialog('view', row?.original);
                                     } else if (action === 'create-quotation') {
                                         router.post(
                                             createQuotation(userId).url,
                                         );
                                     } else if (action === 'edit') {
-                                        router.get(edit(userId).url);
+                                        openDialog('edit', row?.original);
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Customer',
@@ -113,6 +138,9 @@ export default function Customer({ dataUser }: CustomerProps) {
                                     }
                                 }
                             }}
+                            onRowDoubleClick={(row) => {
+                                openDialog('view', row as UserSchema);
+                            }}
                             initialState={{
                                 columnVisibility: { id: false },
                             }}
@@ -120,6 +148,15 @@ export default function Customer({ dataUser }: CustomerProps) {
                     </div>
                 </div>
             </AppLayout>
+            <CustomerViewDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                mode={dialogMode}
+                initialData={selectedUser}
+                roles={dataRole}
+                branches={dataBranch}
+                salesList={dataSales}
+            />
             <ConfirmDialog />
         </>
     );

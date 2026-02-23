@@ -63,28 +63,6 @@ class CustomerService
             })
             ->orderBy('created_at', 'desc')
             ->get()->map(function ($q) {
-                $agePrefs = null;
-                if ($q->customer->age_preferences) {
-                    $decoded = json_decode($q->customer->age_preferences);
-                    $agePrefs = is_array($decoded) ? implode(', ', $decoded) : $q->customer->age_preferences;
-                }
-
-                $countryPrefs = null;
-                if ($q->customer->country_preferences) {
-                    $decoded = json_decode($q->customer->country_preferences);
-                    $countryPrefs = is_array($decoded)
-                        ? collect($decoded)->filter()->implode(', ')
-                        : $q->customer->country_preferences;
-                }
-
-                $expPrefs = null;
-                if ($q->customer->experience_preferences) {
-                    $decoded = json_decode($q->customer->experience_preferences);
-                    $expPrefs = is_array($decoded)
-                        ? collect($decoded)->implode(', ')
-                        : $q->customer->experience_preferences;
-                }
-
                 $address = $q->customer->address ?? '';
                 $addressFormatted = nl2br($address);
 
@@ -103,14 +81,6 @@ class CustomerService
                     'is_active' => $q->customer->is_active ?? true,
                 ];
             });
-
-        return $data;
-    }
-
-    public function getCustomerMaidIds($id)
-    {
-        $user = User::with('roles')->findOrFail($id);
-        $data = $user->customer->maids()->pluck('maids.id')->toArray();
 
         return $data;
     }
@@ -173,25 +143,6 @@ class CustomerService
             ]);
 
             return $user;
-        });
-    }
-
-    public function storeRecommendMaid(int $userId, array $maidIds)
-    {
-        return DB::transaction(function () use ($userId, $maidIds) {
-            $user = User::findOrFail($userId);
-
-            if (! $user->hasRole(['customer'])) {
-                throw new \Exception('User is not a customer.');
-            }
-
-            $user->customer->maids()->sync($maidIds);
-
-            return [
-                'success' => true,
-                'message' => 'Recommended maids updated successfully.',
-                'data' => $user->customer->maids()->get(),
-            ];
         });
     }
 

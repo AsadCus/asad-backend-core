@@ -4,7 +4,7 @@ namespace App\Rules;
 
 class UserRule
 {
-    public function rules($role, $action = null, $id = null)
+    public function rules(string $role, ?string $action = null, ?string $id = null): array
     {
         $rules = [
             'name' => 'required|string|max:255',
@@ -28,15 +28,26 @@ class UserRule
         }
 
         if ($role === 'customer') {
-            $rules['nric_number'] = 'nullable|string';
-            $rules['address'] = 'nullable|string|max:500';
-            $rules['branch_id'] = 'nullable';
-            $rules['handled_by'] = 'nullable';
-            $rules['age_preferences'] = 'nullable|array';
-            $rules['country_preferences'] = 'nullable|array';
-            $rules['experience_preferences'] = 'nullable|array';
-            // $rules['maids'] = 'nullable|array';
-            // $rules['maids.*'] = 'exists:maids,id';
+            $rules['nric_number'] = 'required|string';
+            $rules['address'] = 'required|string|max:500';
+            $rules['nationality'] = 'required|string|max:100';
+            $rules['passport_number'] = 'required|string|max:50';
+            $rules['passport_issue_date'] = 'required|date';
+            $rules['passport_expiry_date'] = 'required|date';
+            $rules['passport_place_of_issue'] = 'required|string|max:255';
+            $rules['gender'] = 'required|string|in:male,female';
+            $rules['marital_status'] = 'required|string|in:single,married,divorced,widowed';
+            $rules['date_of_birth'] = 'required|date';
+            $rules['place_of_birth'] = 'required|string|max:255';
+            $rules['first_time_umrah'] = 'nullable|boolean';
+            $rules['has_chronic_disease'] = 'nullable|boolean';
+            $rules['chronic_disease_details'] = 'nullable|string|max:1000';
+            $rules['passport_file'] = 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120';
+            $rules['photo_file'] = 'nullable|file|mimes:jpg,jpeg,png|max:5120';
+            $rules['passport_path'] = 'nullable|string';
+            $rules['photo_path'] = 'nullable|string';
+            $rules['branch_id'] = 'required';
+            $rules['handled_by'] = 'required';
         }
 
         return $rules;

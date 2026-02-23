@@ -41,10 +41,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
-import EnquiryViewDialog from '../enquiries/components/enquiry-view-dialog';
-import { EnquiryDetails } from '../enquiries/schema';
-import type { PackageSchema } from '../packages/schema';
-import MemberFormFields from './form-fields';
+import CustomerFormFields from '../customer/form-fields';
 import {
     emptyMember,
     packageCategoryOptions,
@@ -53,8 +50,11 @@ import {
     type CustomerGroupFormSchema,
     type CustomerMemberFormData,
     type CustomerOption,
-} from './schema';
-import { customerGroupFormValidationSchema } from './validation';
+} from '../customer/schema';
+import { customerGroupFormValidationSchema } from '../customer/validation';
+import EnquiryViewDialog from '../enquiries/components/enquiry-view-dialog';
+import { EnquiryDetails } from '../enquiries/schema';
+import type { PackageSchema } from '../packages/schema';
 
 type ClientValidationErrors = Record<string, string>;
 
@@ -110,7 +110,7 @@ export default function CustomerConfirmationForm({
         unknown
     > | null>(null);
     const [isLoadingEnquiryChild, setIsLoadingEnquiryChild] = useState(false);
-    const [activeTab, setActiveTab] = useState('member-0');
+    const [activeTab, setActiveTab] = useState('customer-0');
     const [isSubmitted, setIsSubmitted] = useState(false);
 
     // Bootstrap data
@@ -195,12 +195,12 @@ export default function CustomerConfirmationForm({
 
     const hasErrors = Object.keys(errors).length > 0;
 
-    // Member actions
+    // Customer actions
 
-    const addMember = () => {
+    const addCustomer = () => {
         const next = [...(data.members ?? []), emptyMember(false)];
         setData('members', next);
-        setActiveTab(`member-${next.length - 1}`);
+        setActiveTab(`customer-${next.length - 1}`);
     };
 
     // Customer selection
@@ -209,7 +209,7 @@ export default function CustomerConfirmationForm({
         .map((c) => String(c.value));
 
     const handleMultiSelectChange = (newValues: string[]) => {
-        const currentMembers = data.members ?? [];
+        const currentCustomers = data.members ?? [];
 
         const newSelectedEmails = new Set(
             customerOptions
@@ -217,19 +217,26 @@ export default function CustomerConfirmationForm({
                 .map((c) => c.email),
         );
 
-        const nextMembers = currentMembers.filter((m) => {
-            if (m.is_leader) return true;
-            const isCustomerMember = customerOptions.some(
-                (c) => c.email === m.email,
+        const nextCustomers = currentCustomers.filter((customer) => {
+            if (customer.is_leader) return true;
+            const isFromExistingCustomer = customerOptions.some(
+                (option) => option.email === customer.email,
             );
-            return !isCustomerMember || newSelectedEmails.has(m.email);
+            return (
+                !isFromExistingCustomer || newSelectedEmails.has(customer.email)
+            );
         });
 
         for (const v of newValues) {
             const customer = customerOptions.find((c) => String(c.value) === v);
             if (!customer) continue;
-            if (nextMembers.some((m) => m.email === customer.email)) continue;
-            nextMembers.push({
+            if (
+                nextCustomers.some(
+                    (existing) => existing.email === customer.email,
+                )
+            )
+                continue;
+            nextCustomers.push({
                 ...emptyMember(false),
                 name: customer.name,
                 email: customer.email,
@@ -253,25 +260,28 @@ export default function CustomerConfirmationForm({
             });
         }
 
-        if (nextMembers.length > 0 && !nextMembers.some((m) => m.is_leader)) {
-            nextMembers[0] = { ...nextMembers[0], is_leader: true };
+        if (
+            nextCustomers.length > 0 &&
+            !nextCustomers.some((customer) => customer.is_leader)
+        ) {
+            nextCustomers[0] = { ...nextCustomers[0], is_leader: true };
         }
 
-        setData('members', nextMembers);
-        setActiveTab(`member-${Math.max(0, nextMembers.length - 1)}`);
+        setData('members', nextCustomers);
+        setActiveTab(`customer-${Math.max(0, nextCustomers.length - 1)}`);
     };
 
-    const removeMember = (index: number) => {
+    const removeCustomer = (index: number) => {
         const next = (data.members ?? []).filter((_, i) => i !== index);
-        if (next.length > 0 && !next.some((m) => m.is_leader)) {
+        if (next.length > 0 && !next.some((customer) => customer.is_leader)) {
             next[0] = { ...next[0], is_leader: true };
         }
         setData('members', next);
         const newIdx = Math.min(index, next.length - 1);
-        setActiveTab(`member-${Math.max(0, newIdx)}`);
+        setActiveTab(`customer-${Math.max(0, newIdx)}`);
     };
 
-    const updateMember = (
+    const updateCustomer = (
         index: number,
         field: keyof CustomerMemberFormData,
         value: string | boolean | File | null,
@@ -295,7 +305,6 @@ export default function CustomerConfirmationForm({
     };
 
     // Submit
-
     function validateClientSide(): boolean {
         clearErrors();
         const result = customerGroupFormValidationSchema.safeParse(data);
@@ -395,7 +404,7 @@ export default function CustomerConfirmationForm({
 
     return (
         <div className="mx-auto w-full">
-            <form onSubmit={submit} className="space-y-4 py-2">
+            <form onSubmit={submit} className="space-y-4">
                 {/* Success */}
                 {isSubmitted && isPublic && (
                     <Alert className="border-green-600 bg-green-50 shadow-sm">
@@ -650,14 +659,14 @@ export default function CustomerConfirmationForm({
                     <CardHeader className="grid grid-cols-1 md:grid-cols-2">
                         <div className="grid grid-cols-1 gap-0">
                             <CardTitle className="text-xl">
-                                Group Members ({data.members?.length ?? 0})
+                                Group Customers ({data.members?.length ?? 0})
                             </CardTitle>
                             <CardDescription>
                                 {isView
-                                    ? 'View the details of the group members.'
+                                    ? 'View the details of the group customers.'
                                     : isEdit
-                                      ? 'Update the details of the group members.'
-                                      : 'Fill in the details of the group members.'}
+                                      ? 'Update the details of the group customers.'
+                                      : 'Fill in the details of the group customers.'}
                             </CardDescription>
                         </div>
                         {!isView && (
@@ -681,10 +690,10 @@ export default function CustomerConfirmationForm({
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={addMember}
+                                    onClick={addCustomer}
                                 >
                                     <Plus className="mr-1 h-4 w-4" />
-                                    Add Member
+                                    Add Customer
                                 </Button>
                             </div>
                         )}
@@ -698,8 +707,8 @@ export default function CustomerConfirmationForm({
 
                         {(data.members?.length ?? 0) === 0 ? (
                             <p className="text-base text-muted-foreground">
-                                No members added. Click &quot;Add Member&quot;
-                                to start building the group.
+                                No customers added. Click &quot;Add
+                                Customer&quot; to start building the group.
                             </p>
                         ) : (
                             <Tabs
@@ -708,17 +717,17 @@ export default function CustomerConfirmationForm({
                             >
                                 <ScrollArea className="w-full whitespace-nowrap">
                                     <TabsList>
-                                        {data.members?.map((member, idx) => (
+                                        {data.members?.map((customer, idx) => (
                                             <TabsTrigger
                                                 key={idx}
-                                                value={`member-${idx}`}
+                                                value={`customer-${idx}`}
                                                 className="relative"
                                             >
                                                 <span className="mr-1">
-                                                    {member.name ||
-                                                        `Member ${idx + 1}`}
+                                                    {customer.name ||
+                                                        `Customer ${idx + 1}`}
                                                 </span>
-                                                {member.is_leader && (
+                                                {customer.is_leader && (
                                                     <Badge
                                                         variant="default"
                                                         className="ml-1 text-xs"
@@ -732,10 +741,10 @@ export default function CustomerConfirmationForm({
                                     <ScrollBar orientation="horizontal" />
                                 </ScrollArea>
 
-                                {data.members?.map((member, idx) => (
+                                {data.members?.map((customer, idx) => (
                                     <TabsContent
                                         key={idx}
-                                        value={`member-${idx}`}
+                                        value={`customer-${idx}`}
                                         className="space-y-2"
                                     >
                                         <div className="flex items-center justify-between">
@@ -745,13 +754,13 @@ export default function CustomerConfirmationForm({
                                                         type="radio"
                                                         name="leader"
                                                         checked={
-                                                            member.is_leader
+                                                            customer.is_leader
                                                         }
                                                         disabled={
                                                             isView || processing
                                                         }
                                                         onChange={() =>
-                                                            updateMember(
+                                                            updateCustomer(
                                                                 idx,
                                                                 'is_leader',
                                                                 true,
@@ -772,7 +781,7 @@ export default function CustomerConfirmationForm({
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() =>
-                                                            removeMember(idx)
+                                                            removeCustomer(idx)
                                                         }
                                                         className="text-red-500 hover:text-red-700"
                                                     >
@@ -782,14 +791,18 @@ export default function CustomerConfirmationForm({
                                                 )}
                                         </div>
 
-                                        <MemberFormFields
-                                            member={member}
+                                        <CustomerFormFields
+                                            customer={customer}
                                             index={idx}
                                             isView={isView}
                                             processing={processing}
                                             getError={getError}
-                                            onUpdate={(field, value) =>
-                                                updateMember(idx, field, value)
+                                            onUpdateCustomer={(field, value) =>
+                                                updateCustomer(
+                                                    idx,
+                                                    field,
+                                                    value,
+                                                )
                                             }
                                         />
                                     </TabsContent>

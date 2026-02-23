@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/card';
 import type { OptionType } from '@/types';
 import { Head } from '@inertiajs/react';
-import CustomerConfirmationForm from '../form';
+import CustomerConfirmationForm from '../../confirmed-customer/form';
 import { CustomerGroupFormSchema } from '../schema';
 
 interface PublicCustomerFormProps {

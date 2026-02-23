@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Helpers\FormatService;
 use App\Models\Quotation;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class AgreementController extends Controller
 {
@@ -21,15 +21,13 @@ class AgreementController extends Controller
     {
         $quotations = Quotation::with([
             'customer.user',
-            'maid',
             'order',
         ])
             ->whereIn('status', ['accepted', 'converted'])
             ->whereNotNull('customer_id')
-            ->whereNotNull('maid_id')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn($q) => $this->mapQuotationToAgreement($q))
+            ->map(fn ($q) => $this->mapQuotationToAgreement($q))
             ->filter()
             ->values();
 
@@ -46,14 +44,13 @@ class AgreementController extends Controller
 
             $quotation = Quotation::with([
                 'customer.user',
-                'maid',
                 'order',
                 'quotationItems',
             ])->findOrFail($quotationId);
 
             $agreement = $this->mapQuotationToAgreement($quotation);
 
-            if (!$agreement) {
+            if (! $agreement) {
                 abort(404, 'Invalid agreement data');
             }
 
@@ -65,26 +62,26 @@ class AgreementController extends Controller
                 ->setPaper('a4')
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
-                ->stream($agreement['agreement_number'] . '.pdf');
+                ->stream($agreement['agreement_number'].'.pdf');
         } catch (\Throwable $e) {
             Log::error('Agreement PDF error', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 
     private function mapQuotationToAgreement(Quotation $quotation): ?array
     {
         if (
-            !$quotation->customer ||
-            !$quotation->customer->user ||
-            !$quotation->maid
+            ! $quotation->customer ||
+            ! $quotation->customer->user
         ) {
             return null;
         }
 
         return [
             'id' => $quotation->id,
-            'agreement_number' => 'AGR-' . $quotation->id . '-' . $quotation->created_at->format('Ymd'),
+            'agreement_number' => 'AGR-'.$quotation->id.'-'.$quotation->created_at->format('Ymd'),
             'sales_registration_number' => $quotation->sales_registration_number,
             'quotation' => [
                 'id' => $quotation->id,
@@ -99,8 +96,8 @@ class AgreementController extends Controller
             'agreement_date' => $quotation->quotation_date_formatted,
             'customer_name' => $quotation->customer->user->name,
             'customer_nric' => $quotation->customer->nric_number,
-            'maid_name' => $quotation->maid->name,
-            'maid_passport' => $quotation->maid->passport_number,
+            'maid_name' => '-',
+            'maid_passport' => '-',
             'monthly_salary' => $this->formatService->cleanDecimal($quotation->monthly_salary),
             'loan_amount' => $this->formatService->cleanDecimal($quotation->total_placement_fee),
             'loan_duration_months' => $this->formatService->cleanDecimal($quotation->total_placement_quantity),

@@ -2,21 +2,17 @@
 
 namespace App\Services;
 
-use App\Models\Receipt;
 use App\Helpers\FormatService;
-use Carbon\Carbon;
+use App\Models\Receipt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class ReceiptService
 {
     protected $formatService;
-    protected $maidStatusService;
 
-    public function __construct(FormatService $formatService, MaidStatusService $maidStatusService)
+    public function __construct(FormatService $formatService)
     {
         $this->formatService = $formatService;
-        $this->maidStatusService = $maidStatusService;
     }
 
     public function get()
@@ -55,7 +51,7 @@ class ReceiptService
 
     public function getForFilter()
     {
-        return Receipt::get()->map(fn($r) => [
+        return Receipt::get()->map(fn ($r) => [
             'value' => $r->id,
             'label' => $r->receipt_number,
         ]);
@@ -73,60 +69,16 @@ class ReceiptService
                 'description' => $data['description'] ?? null,
             ]);
 
-            $invoice = $receipt->invoice()->with(['order.quotation.maid', 'order.quotation.customer'])->first();
+            $invoice = $receipt->invoice()->with(['order.quotation.customer'])->first();
 
             if ($invoice->outstanding_amount <= 0) {
                 $invoice->update(['status' => 'paid']);
-
-                $this->handleInvoicePaid($invoice);
             } else {
                 $invoice->update(['status' => 'partial']);
             }
 
             return $receipt;
         });
-    }
-
-    /**
-     * Handle invoice paid - auto assign maid to customer
-     * Triggers when ANY invoice is fully paid (first payment triggers assignment)
-     */
-    protected function handleInvoicePaid($invoice)
-    {
-        try {
-            $order = $invoice->order;
-            if (!$order) {
-                return;
-            }
-
-            $quotation = $order->quotation;
-            if (!$quotation) {
-                return;
-            }
-
-            $maidId = $quotation->maid_id;
-            if (!$maidId) {
-                return;
-            }
-
-            $result = $this->maidStatusService->autoAssignFromInvoice(
-                $maidId,
-                $invoice->invoice_date
-            );
-
-            Log::info('Maid auto-assigned after invoice payment', [
-                'invoice_id' => $invoice->id,
-                'invoice_type' => $invoice->type,
-                'maid_id' => $maidId,
-                'result' => $result
-            ]);
-        } catch (\Exception $e) {
-            Log::error('ReceiptService: Failed to auto-assign maid after invoice payment', [
-                'invoice_id' => $invoice->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-        }
     }
 
     public function getForEditShow($id)
@@ -145,13 +97,13 @@ class ReceiptService
             'customer_name' => $r->invoice?->order->quotation->customer->user->name,
             'customer_address' => $r->invoice?->order->quotation->customer->address,
             'maid_id' => $r->invoice?->order->quotation->maid_id,
-            'maid_name' => $r->invoice?->order->quotation->maid->name,
+            'maid_name' => null,
             'amount' => $this->formatService->cleanDecimal($r->amount),
             'payment_method' => $r->payment_method,
             'reference' => $r->reference,
             'description' => $r->description,
             'sales_registration_number' => $r->invoice?->order->quotation->sales_registration_number,
-            'items' => $r->invoice?->quotationItems->map(fn($item) => [
+            'items' => $r->invoice?->quotationItems->map(fn ($item) => [
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
                 'parent_id' => $item->parent_id,
@@ -180,12 +132,10 @@ class ReceiptService
                 'description' => $data['description'] ?? null,
             ]);
 
-            $invoice = $receipt->invoice()->with(['order.quotation.maid', 'order.quotation.customer'])->first();
+            $invoice = $receipt->invoice()->with(['order.quotation.customer'])->first();
 
             if ($invoice->outstanding_amount <= 0) {
                 $invoice->update(['status' => 'paid']);
-
-                $this->handleInvoicePaid($invoice);
             } else {
                 $invoice->update(['status' => 'partial']);
             }

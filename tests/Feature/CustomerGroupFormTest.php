@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\EnquiryStatus;
+use App\Models\Customer;
 use App\Models\CustomerGroup;
 use App\Models\Enquiry;
 use App\Models\Package;
@@ -447,6 +448,120 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals('classic_umrah', $group->package_category);
         $this->assertEquals('2026-08-12', $group->date_of_application->format('Y-m-d'));
         $this->assertEquals(2, $group->members()->count());
+    }
+
+    public function test_customer_group_destroy_deletes_group_and_members_only_and_reverts_enquiry_status(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Delete Group Test',
+            'contact_number' => '01234',
+            'email' => 'delete-group@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-09-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Leader Delete',
+                    'email' => 'leader-delete@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Member Delete',
+                    'email' => 'member-delete@test.com',
+                    'nric_number' => 'S4444444D',
+                    'is_leader' => false,
+                ]),
+            ],
+        ]);
+
+        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $memberCustomerIds = $group->members()->pluck('customer_id')->all();
+        $memberUserIds = Customer::whereIn('id', $memberCustomerIds)->pluck('user_id')->all();
+
+        $this->assertCount(2, $memberCustomerIds);
+
+        $response = $this->delete(route('customer-groups.destroy', $group->id));
+        $response->assertRedirect();
+
+        $this->assertDatabaseMissing('customer_groups', ['id' => $group->id]);
+        $this->assertDatabaseMissing('customer_group_members', ['customer_group_id' => $group->id]);
+
+        foreach ($memberCustomerIds as $customerId) {
+            $this->assertDatabaseHas('customers', ['id' => $customerId]);
+        }
+
+        foreach ($memberUserIds as $userId) {
+            $this->assertDatabaseHas('users', ['id' => $userId]);
+        }
+
+        $enquiry->refresh();
+        $this->assertEquals(EnquiryStatus::Negotiating, $enquiry->status);
+    }
+
+    public function test_confirmed_customer_bulk_destroy_deletes_selected_groups(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $firstEnquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Bulk Delete One',
+            'contact_number' => '01111',
+            'email' => 'bulk-one@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $secondEnquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Bulk Delete Two',
+            'contact_number' => '02222',
+            'email' => 'bulk-two@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $firstEnquiry->id), [
+            'enquiry_id' => $firstEnquiry->id,
+            'date_of_application' => '2026-10-01',
+            'members' => [$this->memberPayload([
+                'name' => 'Bulk Leader One',
+                'email' => 'bulk-leader-one@test.com',
+                'is_leader' => true,
+            ])],
+        ]);
+
+        $this->post(route('enquiries.confirm', $secondEnquiry->id), [
+            'enquiry_id' => $secondEnquiry->id,
+            'date_of_application' => '2026-10-02',
+            'members' => [$this->memberPayload([
+                'name' => 'Bulk Leader Two',
+                'email' => 'bulk-leader-two@test.com',
+                'is_leader' => true,
+            ])],
+        ]);
+
+        $firstGroup = CustomerGroup::where('enquiry_id', $firstEnquiry->id)->firstOrFail();
+        $secondGroup = CustomerGroup::where('enquiry_id', $secondEnquiry->id)->firstOrFail();
+
+        $response = $this->delete(route('confirmed-customer.destroy', 0), [
+            'ids' => [$firstGroup->id, $secondGroup->id],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('customer_groups', ['id' => $firstGroup->id]);
+        $this->assertDatabaseMissing('customer_groups', ['id' => $secondGroup->id]);
+
+        $firstEnquiry->refresh();
+        $secondEnquiry->refresh();
+        $this->assertEquals(EnquiryStatus::Negotiating, $firstEnquiry->status);
+        $this->assertEquals(EnquiryStatus::Negotiating, $secondEnquiry->status);
     }
 
     public function test_public_form_requires_valid_signature(): void

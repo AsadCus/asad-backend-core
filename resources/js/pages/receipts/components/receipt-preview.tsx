@@ -206,12 +206,6 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                         </table>
                     </div>
 
-                    {/* Helper Name */}
-                    <div className="font-bold">
-                        Name of Helper Deployed :{' '}
-                        {data.maid_name?.toUpperCase() || '-'}
-                    </div>
-
                     {/* Items */}
                     <div className="space-y-4 border-b py-4">
                         <table className="w-full text-sm">

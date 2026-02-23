@@ -10,7 +10,6 @@ use App\Services\EducationLevelService;
 use App\Services\EnquiryService;
 use App\Services\FinancialTransactionService;
 use App\Services\FinancialYearService;
-use App\Services\MaidService;
 use App\Services\OrderService;
 use App\Services\ReligionService;
 use App\Services\SalesService;
@@ -21,8 +20,6 @@ use Inertia\Inertia;
 class DashboardController extends Controller
 {
     protected $customerService;
-
-    protected $maidService;
 
     protected $countryService;
 
@@ -46,7 +43,6 @@ class DashboardController extends Controller
 
     public function __construct(
         CustomerService $customerService,
-        MaidService $maidService,
         CountryService $countryService,
         ReligionService $religionService,
         EducationLevelService $educationLevelService,
@@ -59,7 +55,6 @@ class DashboardController extends Controller
         EnquiryService $enquiryService,
     ) {
         $this->customerService = $customerService;
-        $this->maidService = $maidService;
         $this->countryService = $countryService;
         $this->religionService = $religionService;
         $this->educationLevelService = $educationLevelService;
@@ -150,13 +145,7 @@ class DashboardController extends Controller
         }
 
         if ($user->hasRole('customer')) {
-            $customerMaidIds = $this->customerService->getCustomerMaidIds($user->id);
-
-            if (! empty($customerMaidIds)) {
-                $data['maids'] = $this->maidService->getForDataTable($customerMaidIds);
-            } else {
-                $data['maids'] = [];
-            }
+            $data['maids'] = [];
 
             $data['nationality'] = $this->countryService->getForFilterByAdjective();
             $data['religion'] = $this->religionService->getForFilterByName();

@@ -19,7 +19,7 @@ import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useState } from 'react';
-import CustomerConfirmationForm from '../customer/form';
+import CustomerConfirmationForm from '../confirmed-customer/form';
 import PackageForm from '../packages/form';
 import type { PackageSchema } from '../packages/schema';
 import EnquiryRemarksDialog from './components/enquiry-remarks-dialog';
@@ -514,7 +514,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
             {/* Customer Confirmation Form Dialog */}
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation</DialogTitle>
                         <DialogDescription>
@@ -523,7 +523,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                     </DialogHeader>
 
                     <div
-                        className="h-full w-full flex-1 overflow-y-auto"
+                        className="h-full w-full flex-1 overflow-y-auto pb-2"
                         style={{
                             scrollbarWidth: 'none',
                             msOverflowStyle: 'none',
@@ -549,7 +549,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
             {/* Private Enquiry Step-by-Step Confirmation Flow */}
             <Dialog open={privateFlowOpen} onOpenChange={cancelPrivateFlow}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
                     <DialogHeader>
                         <DialogTitle>
                             {privateFlowStep === 'package'
@@ -563,13 +563,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div
-                        className="h-full w-full flex-1 overflow-y-auto"
-                        style={{
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                        }}
-                    >
+                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
                         {privateFlowStep === 'package' && (
                             <PackageForm
                                 mode="create"

@@ -94,9 +94,6 @@ class RegisteredUserController extends Controller
 
         Customer::updateOrCreate([
             'user_id' => $user->id,
-            'age_preferences' => $request->age_preferences,
-            'country_preferences' => $request->country_preferences,
-            'experience_preferences' => $request->experience_preferences,
             'branch_id' => $request->branch_id,
             'handled_by' => null,
             'last_login' => null,

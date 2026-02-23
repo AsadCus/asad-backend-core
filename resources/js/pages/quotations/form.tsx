@@ -4,12 +4,10 @@ import { Button } from '@/components/ui/button';
 import { navigateToSection } from '@/lib/navigation-helper';
 import { formatDateForDisplay } from '@/lib/utils';
 import { getForShow as getCustomerForShow } from '@/routes/customer';
-import { getForShow as getMaidForShow } from '@/routes/maid';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MaidSchema } from '../maid/schema';
 import { UserSchema } from '../masters/users/schema';
 import { NoteSchema } from '../notes/schema';
 import QuotationDetailSection from './components/quotation-detail-section';
@@ -26,15 +24,11 @@ interface QuotationFormProps {
     paymentPlans?: OptionType[];
     paymentMethods?: OptionType[];
     statuses?: OptionType[];
-    maids?: OptionType[];
     customers?: OptionType[];
     quotationItems?: QuotationItemSchema[];
     quotationNotes?: NoteSchema[];
-    prefilledMaidId?: string;
-    prefilledMaidData?: MaidSchema;
     prefilledCustomerId?: string;
     prefilledCustomerData?: UserSchema;
-    handoverDate?: string;
     onCancel?: () => void;
 }
 
@@ -44,15 +38,11 @@ export function QuotationForm({
     paymentPlans = [],
     paymentMethods = [],
     statuses = [],
-    maids = [],
     customers = [],
     quotationItems = [],
     quotationNotes = [],
-    prefilledMaidId,
-    prefilledMaidData,
     prefilledCustomerId,
     prefilledCustomerData,
-    handoverDate,
     onCancel,
 }: QuotationFormProps) {
     const isView = mode === 'view';
@@ -80,9 +70,7 @@ export function QuotationForm({
         customer_contact: '',
         customer_address: '',
         customer_email: null,
-        maid_id: undefined,
         description: '',
-        passport_number: '',
         commencement_date: '',
         monthly_salary: '',
         loan_duration: '',
@@ -102,26 +90,6 @@ export function QuotationForm({
     const defaultData: QuotationSchema = {
         ...(initialData ?? initialFormState),
         notes: initialNotes,
-        ...(prefilledMaidId && prefilledMaidData
-            ? {
-                  maid_id: Number.parseInt(prefilledMaidId, 10),
-                  passport_number: prefilledMaidData.passport_number || '',
-                  monthly_salary: prefilledMaidData.monthly_salary || '',
-                  loan_duration: prefilledMaidData.remaining_loan || '',
-                  compensation_off_in_lieu:
-                      prefilledMaidData.monthly_salary &&
-                      Number.parseFloat(prefilledMaidData.monthly_salary) > 0
-                          ? Number.parseFloat(
-                                prefilledMaidData.monthly_salary,
-                            ) / 20
-                          : '',
-                  rest_days_per_month:
-                      prefilledMaidData.rest_days_per_month || '',
-                  commencement_date: handoverDate
-                      ? formatDateForDisplay(handoverDate)
-                      : '',
-              }
-            : {}),
         ...(prefilledCustomerId && prefilledCustomerData
             ? {
                   customer_id: Number.parseInt(prefilledCustomerId, 10),
@@ -157,9 +125,6 @@ export function QuotationForm({
     });
     const [selectedCustomerData, setSelectedCustomerData] =
         useState<UserSchema | null>(null);
-    const [selectedMaidData, setSelectedMaidData] = useState<MaidSchema | null>(
-        null,
-    );
 
     // customer
     const getCustomerDetail = async (id: number) => {
@@ -188,49 +153,10 @@ export function QuotationForm({
 
     // Initialize prefilled data
     useEffect(() => {
-        if (prefilledMaidData && prefilledMaidId && isCreate) {
-            setSelectedMaidData(prefilledMaidData);
-        }
         if (prefilledCustomerData && prefilledCustomerId && isCreate) {
             setSelectedCustomerData(prefilledCustomerData);
         }
-    }, [
-        prefilledMaidData,
-        prefilledMaidId,
-        prefilledCustomerData,
-        prefilledCustomerId,
-        isCreate,
-    ]);
-    const getMaidDetail = async (id: number) => {
-        try {
-            const response = await fetch(getMaidForShow(id).url);
-            if (!response) throw new Error('Network error');
-            const maid = await response.json();
-            setSelectedMaidData(maid);
-
-            if (maid.monthly_salary) {
-                const salary = Number.parseFloat(maid.monthly_salary);
-                if (!Number.isNaN(salary) && salary > 0) {
-                    const compensation = salary / 20;
-                    setData('compensation_off_in_lieu', compensation);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to fetch maid details:', err);
-        }
-    };
-
-    useEffect(() => {
-        if (selectedMaidData) {
-            setData((prev) => ({
-                ...prev,
-                passport_number: selectedMaidData.passport_number,
-                monthly_salary: selectedMaidData.monthly_salary,
-                loan_duration: selectedMaidData.remaining_loan,
-                rest_days_per_month: selectedMaidData.rest_days_per_month,
-            }));
-        }
-    }, [selectedMaidData, setData]);
+    }, [prefilledCustomerData, prefilledCustomerId, isCreate]);
 
     useEffect(() => {
         if (!data.monthly_salary || !data.loan_duration) return;
@@ -402,8 +328,6 @@ export function QuotationForm({
                         renderError={renderError}
                         customers={customers}
                         getCustomerDetail={getCustomerDetail}
-                        maids={maids}
-                        getMaidDetail={getMaidDetail}
                         status={getQuotationSectionStatus(
                             'customer_and_quotation_information',
                         )}

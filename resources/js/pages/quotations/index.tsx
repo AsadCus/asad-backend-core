@@ -36,7 +36,6 @@ import {
 interface QuotationsProps {
     data: {
         quotationsForDatatable: QuotationSchema[];
-        maids: OptionType[];
         customers: OptionType[];
         salespersons: OptionType[];
     };
@@ -104,22 +103,6 @@ const columns: ColumnDef<QuotationSchema>[] = [
     {
         accessorKey: 'sales_name',
         header: 'Salesperson',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'maid_id',
-        header: 'Maid ID',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'maid_number',
-        header: 'Maid No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'maid_name',
-        header: 'Maid Name',
         meta: { exportable: true },
     },
     {
@@ -244,7 +227,7 @@ const columns: ColumnDef<QuotationSchema>[] = [
 ];
 
 export default function QuotationsIndex({ data }: QuotationsProps) {
-    const { quotationsForDatatable, maids, customers, salespersons } = data;
+    const { quotationsForDatatable, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const actions: ActionType[] = [];
@@ -449,9 +432,6 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     customer_id: false,
                                     customer_number: false,
                                     sales_id: false,
-                                    maid_id: false,
-                                    maid_number: false,
-                                    maid_name: true,
                                     description: false,
                                     expiry_date: false,
                                     commencement_date: false,
@@ -486,12 +466,6 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                         columnId="sales_id"
                                         title="Salesperson"
                                         options={salespersons}
-                                    />
-                                    <ColumnFilter
-                                        table={table}
-                                        columnId="maid_id"
-                                        title="Maid"
-                                        options={maids}
                                     />
                                     <DateRangeFilter
                                         table={table}

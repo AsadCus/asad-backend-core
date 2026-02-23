@@ -23,7 +23,6 @@ interface EditUserProps {
     data: UserSchema;
     dataRole: [];
     dataBranch: [];
-    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
@@ -35,7 +34,6 @@ export default function EditUser({
     data,
     dataRole,
     dataBranch,
-    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,
@@ -67,7 +65,6 @@ export default function EditUser({
                         mode="edit"
                         initialData={data}
                         branches={dataBranch}
-                        countries={dataCountry}
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}

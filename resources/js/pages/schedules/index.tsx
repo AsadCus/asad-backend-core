@@ -33,11 +33,6 @@ const columns: ColumnDef<ScheduleSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'maid_name',
-        header: 'Maid Name',
-        meta: { exportable: true },
-    },
-    {
         accessorKey: 'schedule_number',
         header: 'Schedule No.',
         meta: { exportable: true },

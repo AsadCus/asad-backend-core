@@ -21,11 +21,7 @@ export const quotationSchema = z.object({
 
     sales_registration_number: z.string().nullable().optional(),
 
-    maid_id: z.number().nullable().optional(),
-    maid_number: z.string().nullable().optional(),
-    maid_name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
-    passport_number: z.string().nullable().optional(),
     commencement_date: z.string().nullable().optional(),
     monthly_salary: z.union([z.string(), z.number()]).nullable().optional(),
     loan_duration: z.union([z.string(), z.number()]).nullable().optional(),

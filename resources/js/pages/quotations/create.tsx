@@ -4,23 +4,18 @@ import { index as quotationIndex } from '@/routes/quotation';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
-import { MaidSchema } from '../maid/schema';
 import { UserSchema } from '../masters/users/schema';
 import { QuotationForm } from './form';
 import { paymentMethods, paymentPlans, statuses } from './schema';
 
 interface CreateQuotationProps {
     data: {
-        maids: [];
         customers: [];
         quotationItems: [];
         quotationNotes: [];
     };
-    prefilledMaidId?: string;
-    prefilledMaidData?: MaidSchema;
     prefilledCustomerId?: string;
     prefilledCustomerData?: UserSchema;
-    handoverDate?: string;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -36,11 +31,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function CreateQuotation({
     data,
-    prefilledMaidId,
-    prefilledMaidData,
     prefilledCustomerId,
     prefilledCustomerData,
-    handoverDate,
 }: CreateQuotationProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -62,15 +54,11 @@ export default function CreateQuotation({
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
                         statuses={statuses}
-                        maids={data.maids}
                         customers={data.customers}
                         quotationItems={data.quotationItems}
                         quotationNotes={data.quotationNotes}
-                        prefilledMaidId={prefilledMaidId}
-                        prefilledMaidData={prefilledMaidData}
                         prefilledCustomerId={prefilledCustomerId}
                         prefilledCustomerData={prefilledCustomerData}
-                        handoverDate={handoverDate}
                         onCancel={handleCancel}
                     />
                 </div>

@@ -1,7 +1,5 @@
-import {
-    SCROLL_DELAY,
-    SCROLL_OFFSET,
-} from '../pages/maid/constants/formConfig';
+const SCROLL_OFFSET = 200;
+const SCROLL_DELAY = 100;
 
 function scrollToSection(sectionId: string): void {
     const element = document.getElementById(`section-${sectionId}`);

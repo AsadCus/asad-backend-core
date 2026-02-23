@@ -3,24 +3,24 @@
 namespace App\Models;
 
 use App\Helpers\NumberGenerator;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Carbon\Carbon;
 
 class Quotation extends Model
 {
     use SoftDeletes;
+
     protected $fillable = [
         'quotation_number',
         'quotation_date',
         'expiry_date',
         'commencement_date',
         'customer_id',
-        'maid_id',
         'description',
         'monthly_salary',
         'loan_duration',
@@ -43,11 +43,6 @@ class Quotation extends Model
         'compensation_off_in_lieu' => 'decimal:2',
         'is_locked' => 'boolean',
     ];
-
-    public function maid(): BelongsTo
-    {
-        return $this->belongsTo(Maid::class)->withTrashed();
-    }
 
     public function customer(): BelongsTo
     {
@@ -147,7 +142,7 @@ class Quotation extends Model
 
     public function getCanGenerateOrderAttribute(): bool
     {
-        return $this->status === 'accepted' && !$this->is_locked;
+        return $this->status === 'accepted' && ! $this->is_locked;
     }
 
     public function placementFeeInvoices(): Attribute
@@ -158,7 +153,7 @@ class Quotation extends Model
                     ?->load('quotationItems')
                     ->filter(function ($invoice) {
                         return $invoice->quotationItems->contains(
-                            fn($item) => (bool) $item->is_placement_fee
+                            fn ($item) => (bool) $item->is_placement_fee
                         );
                     }) ?? collect();
 
@@ -180,16 +175,16 @@ class Quotation extends Model
                         );
 
                         return [
-                            'invoice_id'     => $invoice->id,
+                            'invoice_id' => $invoice->id,
                             'invoice_number' => $invoice->invoice_number,
-                            'due_date'       => $invoice->due_date_formatted,
-                            'amount'         => round(
+                            'due_date' => $invoice->due_date_formatted,
+                            'amount' => round(
                                 $placementAmount > 0
                                     ? $placementAmount
                                     : (float) ($invoice->amount ?? 0),
                                 2
                             ),
-                            'description'    => $invoice->description ?? '',
+                            'description' => $invoice->description ?? '',
                         ];
                     })
                     ->all();

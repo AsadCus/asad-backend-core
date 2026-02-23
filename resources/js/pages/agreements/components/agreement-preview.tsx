@@ -70,18 +70,10 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                                     </tr>
                                     <tr>
                                         <td className="border border-gray-900 bg-gray-200 p-2 font-bold">
-                                            Name of MDW
+                                            NRIC/Passport No.
                                         </td>
                                         <td className="border border-gray-900 p-2">
-                                            {agreement.maid_name || '-'}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="border border-gray-900 bg-gray-200 p-2 font-bold">
-                                            Passport No.
-                                        </td>
-                                        <td className="border border-gray-900 p-2">
-                                            {agreement.maid_passport || '-'}
+                                            {agreement.customer_nric || '-'}
                                         </td>
                                     </tr>
                                 </tbody>

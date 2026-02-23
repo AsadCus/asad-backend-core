@@ -15,7 +15,6 @@ import {
 interface ViewQuotationProps {
     data: {
         data: QuotationSchema;
-        maids: [];
         customers: [];
     };
 }
@@ -51,7 +50,6 @@ export default function ViewQuotation({ data }: ViewQuotationProps) {
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
                         statuses={statuses}
-                        maids={data.maids}
                         customers={data.customers}
                         onCancel={handleCancel}
                     />

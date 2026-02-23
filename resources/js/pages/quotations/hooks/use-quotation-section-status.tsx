@@ -19,12 +19,10 @@ const SECTION_FIELDS: Record<string, string[]> = {
         'customer_contact',
         'customer_address',
         'customer_email',
-        'maid_id',
         'commencement_date',
     ],
 
     maid_and_quotation_details: [
-        'passport_number',
         'description',
         'monthly_salary',
         'loan_duration',
@@ -43,7 +41,6 @@ const REQUIRED_FIELDS = new Set<string>([
     'quotation_date',
     'expiry_date',
     'customer_id',
-    'maid_id',
     'description',
     'monthly_salary',
     'loan_duration',
@@ -127,7 +124,7 @@ export function useQuotationSectionStatus({
             },
             {
                 id: 'maid_and_quotation_details',
-                title: 'Maid & Quotation Details',
+                title: 'Quotation Details',
                 status: getQuotationSectionStatus('maid_and_quotation_details'),
             },
             {
