@@ -63,22 +63,16 @@ class PrivateEnquiry extends Model
 
     public function getPassportExpiryDateFormattedAttribute(): ?string
     {
-        return $this->passport_expiry_date
-            ? Carbon::parse($this->passport_expiry_date)->translatedFormat('d F Y')
-            : null;
+        return $this->passport_expiry_date ? Carbon::parse($this->passport_expiry_date)->translatedFormat('d F Y') : null;
     }
 
     public function getDepartureDateFormattedAttribute(): ?string
     {
-        return $this->departure_date
-            ? Carbon::parse($this->departure_date)->translatedFormat('d F Y')
-            : null;
+        return $this->departure_date ? Carbon::parse($this->departure_date)->translatedFormat('d F Y') : null;
     }
 
     public function getReturnDateFormattedAttribute(): ?string
     {
-        return $this->return_date
-            ? Carbon::parse($this->return_date)->translatedFormat('d F Y')
-            : null;
+        return $this->return_date ? Carbon::parse($this->return_date)->translatedFormat('d F Y') : null;
     }
 }

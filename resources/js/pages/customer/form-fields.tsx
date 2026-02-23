@@ -100,7 +100,7 @@ export default function CustomerFormFields({
                         fieldRequirementsProps={{
                             required: true,
                             hint: 'Valid email address for communication',
-                            format: 'example@domain.com',
+                            format: 'email@example.com',
                         }}
                         htmlFor={fieldPath('email')}
                         error={getError(fieldPath('email'))}
@@ -119,7 +119,7 @@ export default function CustomerFormFields({
                         fieldRequirementsProps={{
                             required: true,
                             hint: 'Phone number with country code',
-                            format: '+60 12-345 6789',
+                            format: '+65 8765 4321',
                         }}
                         htmlFor={fieldPath('contact_number')}
                         error={getError(fieldPath('contact_number'))}
@@ -131,7 +131,7 @@ export default function CustomerFormFields({
                             onCommit={(v) =>
                                 onUpdateCustomer('contact_number', v)
                             }
-                            placeholder="+60 12 345 6789"
+                            placeholder="+65 8765 4321"
                         />
                     </FormField>
 
@@ -220,7 +220,7 @@ export default function CustomerFormFields({
                         fieldRequirementsProps={{
                             required: true,
                             hint: 'City or country where you were born',
-                            example: 'Kuala Lumpur, Malaysia',
+                            example: 'Singapore',
                         }}
                         htmlFor={fieldPath('place_of_birth')}
                         error={getError(fieldPath('place_of_birth'))}
@@ -241,7 +241,7 @@ export default function CustomerFormFields({
                         fieldRequirementsProps={{
                             required: true,
                             hint: 'Citizenship as per passport',
-                            example: 'Malaysian',
+                            example: 'Singaporean, Malaysian, etc.',
                         }}
                         htmlFor={fieldPath('nationality')}
                         error={getError(fieldPath('nationality'))}
@@ -251,7 +251,7 @@ export default function CustomerFormFields({
                             value={customer.nationality}
                             disabled={disabled}
                             onCommit={(v) => onUpdateCustomer('nationality', v)}
-                            placeholder="e.g. Malaysian"
+                            placeholder="e.g. Singaporean, Malaysian, etc."
                         />
                     </FormField>
 
@@ -260,7 +260,8 @@ export default function CustomerFormFields({
                         fieldRequirementsProps={{
                             required: true,
                             hint: 'Full address including street, city, and postal code',
-                            example: '123, Jalan Sultan, 50000 Kuala Lumpur',
+                            example:
+                                '111 Orchard Road #10-05, Orchard Towers, Singapore 238858',
                         }}
                         htmlFor={fieldPath('address')}
                         error={getError(fieldPath('address'))}
@@ -287,7 +288,6 @@ export default function CustomerFormFields({
                         fieldRequirementsProps={{
                             required: true,
                             hint: 'Passport number exactly as shown on passport',
-                            format: 'A12345678',
                         }}
                         htmlFor={fieldPath('passport_number')}
                         error={getError(fieldPath('passport_number'))}
@@ -299,7 +299,7 @@ export default function CustomerFormFields({
                             onCommit={(v) =>
                                 onUpdateCustomer('passport_number', v)
                             }
-                            placeholder="Passport number"
+                            placeholder="Enter passport number"
                         />
                     </FormField>
 
@@ -308,7 +308,7 @@ export default function CustomerFormFields({
                         fieldRequirementsProps={{
                             required: true,
                             hint: 'City or country where passport was issued',
-                            example: 'Kuala Lumpur / Malaysia',
+                            example: 'Singapore',
                         }}
                         htmlFor={fieldPath('passport_place_of_issue')}
                         error={getError(fieldPath('passport_place_of_issue'))}
@@ -320,7 +320,7 @@ export default function CustomerFormFields({
                             onCommit={(v) =>
                                 onUpdateCustomer('passport_place_of_issue', v)
                             }
-                            placeholder="e.g. Kuala Lumpur"
+                            placeholder="e.g. Singapore"
                         />
                     </FormField>
 

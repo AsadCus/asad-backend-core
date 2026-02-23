@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Helpers\NumberGenerator;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PackageService
@@ -91,8 +90,8 @@ class PackageService
                 'infant_price' => $data['infant_price'] ?? 0,
                 'airline' => $data['airline'] ?? null,
                 'pnr' => $data['pnr'] ?? null,
-                'departure_date' => ! empty($data['departure_date']) ? Carbon::parse($data['departure_date'])->format('Y-m-d') : null,
-                'arrival_date' => ! empty($data['arrival_date']) ? Carbon::parse($data['arrival_date'])->format('Y-m-d') : null,
+                'departure_date' => $data['departure_date'] ?? null,
+                'arrival_date' => $data['arrival_date'] ?? null,
                 'total_seats' => $data['total_seats'] ?? null,
                 'seats_left' => $data['seats_left'] ?? null,
                 'visa_type' => $data['visa_type'] ?? null,
@@ -110,8 +109,8 @@ class PackageService
                         'location' => $accommodation['location'],
                         'hotel_name' => $accommodation['hotel_name'],
                         'type_of_meal' => $accommodation['type_of_meal'] ?? null,
-                        'check_in' => ! empty($accommodation['check_in']) ? Carbon::parse($accommodation['check_in'])->format('Y-m-d') : null,
-                        'check_out' => ! empty($accommodation['check_out']) ? Carbon::parse($accommodation['check_out'])->format('Y-m-d') : null,
+                        'check_in' => $accommodation['check_in'] ?? null,
+                        'check_out' => $accommodation['check_out'] ?? null,
                     ]);
                 }
             }
@@ -185,8 +184,8 @@ class PackageService
                 'infant_price' => $data['infant_price'] ?? $package->infant_price,
                 'airline' => $data['airline'] ?? $package->airline,
                 'pnr' => $data['pnr'] ?? $package->pnr,
-                'departure_date' => ! empty($data['departure_date']) ? Carbon::parse($data['departure_date'])->format('Y-m-d') : $package->departure_date,
-                'arrival_date' => ! empty($data['arrival_date']) ? Carbon::parse($data['arrival_date'])->format('Y-m-d') : $package->arrival_date,
+                'departure_date' => $data['departure_date'] ?? $package->departure_date,
+                'arrival_date' => $data['arrival_date'] ?? $package->arrival_date,
                 'total_seats' => $data['total_seats'] ?? $package->total_seats,
                 'seats_left' => $data['seats_left'] ?? $package->seats_left,
                 'visa_type' => $data['visa_type'] ?? $package->visa_type,
@@ -205,8 +204,8 @@ class PackageService
                         'location' => $accommodation['location'],
                         'hotel_name' => $accommodation['hotel_name'],
                         'type_of_meal' => $accommodation['type_of_meal'] ?? null,
-                        'check_in' => ! empty($accommodation['check_in']) ? Carbon::parse($accommodation['check_in'])->format('Y-m-d') : null,
-                        'check_out' => ! empty($accommodation['check_out']) ? Carbon::parse($accommodation['check_out'])->format('Y-m-d') : null,
+                        'check_in' => $accommodation['check_in'] ?? null,
+                        'check_out' => $accommodation['check_out'] ?? null,
                     ]);
                 }
             }
@@ -238,6 +237,56 @@ class PackageService
     }
 
     /**
+     * Build package payload from private enquiry data.
+     *
+     * Only non-empty source values are mapped.
+     *
+     * @return array<string, mixed>
+     */
+    public function privateEnquiryToPackagePayload(PrivateEnquiry $privateEnquiry): array
+    {
+        $enquiry = $privateEnquiry->enquiry;
+        $totalSeats = ($privateEnquiry->no_of_pax ?? 0) + ($privateEnquiry->no_of_children ?? 0);
+
+        $payload = [
+            'name' => 'Private - '.($enquiry?->name ?? 'Unnamed'),
+            'status' => 'open',
+            'total_seats' => $totalSeats,
+            'seats_left' => $totalSeats,
+            'accommodations' => [],
+        ];
+
+        $this->setIfNotEmpty($payload, 'airline', $privateEnquiry->airline);
+        $this->setIfNotEmpty($payload, 'departure_date', $privateEnquiry->departure_date?->format('d F Y'));
+        $this->setIfNotEmpty($payload, 'arrival_date', $privateEnquiry->return_date?->format('d F Y'));
+        $this->setIfNotEmpty($payload, 'vehicle_type', $privateEnquiry->land_transfer);
+        $this->setIfNotEmpty($payload, 'ticket_type', $privateEnquiry->add_on_speed_train ? 'speed_train' : null);
+        $this->setIfNotEmpty($payload, 'remarks', $privateEnquiry->other_remarks);
+
+        if (! empty($privateEnquiry->hotel_makkah)) {
+            $payload['accommodations'][] = [
+                'location' => 'Makkah',
+                'hotel_name' => $privateEnquiry->hotel_makkah,
+                'type_of_meal' => $privateEnquiry->meals_makkah,
+                'check_in' => null,
+                'check_out' => null,
+            ];
+        }
+
+        if (! empty($privateEnquiry->hotel_madinah)) {
+            $payload['accommodations'][] = [
+                'location' => 'Madinah',
+                'hotel_name' => $privateEnquiry->hotel_madinah,
+                'type_of_meal' => $privateEnquiry->meals_madinah,
+                'check_in' => null,
+                'check_out' => null,
+            ];
+        }
+
+        return $payload;
+    }
+
+    /**
      * Create a package from a private enquiry's details.
      *
      * Maps private enquiry fields (airline, dates, hotels, meals, etc.)
@@ -249,21 +298,15 @@ class PackageService
             $enquiry = $privateEnquiry->enquiry;
             $groupNumber = NumberGenerator::generate('package');
 
-            $totalSeats = ($privateEnquiry->no_of_pax ?? 0) + ($privateEnquiry->no_of_children ?? 0);
+            $payload = $this->privateEnquiryToPackagePayload($privateEnquiry);
+            unset($payload['accommodations']);
 
-            $package = Package::create([
-                'group_number' => $groupNumber,
-                'name' => 'Private - '.($enquiry?->name ?? 'Unnamed'),
-                'status' => 'open',
-                'airline' => $privateEnquiry->airline,
-                'departure_date' => $privateEnquiry->departure_date?->format('Y-m-d'),
-                'arrival_date' => $privateEnquiry->return_date?->format('Y-m-d'),
-                'total_seats' => $totalSeats,
-                'seats_left' => $totalSeats,
-                'vehicle_type' => $privateEnquiry->land_transfer,
-                'ticket_type' => $privateEnquiry->add_on_speed_train ? 'speed_train' : null,
-                'remarks' => $privateEnquiry->other_remarks,
-            ]);
+            $package = Package::create(array_merge(
+                [
+                    'group_number' => $groupNumber,
+                ],
+                $payload,
+            ));
 
             // Makkah accommodation
             if ($privateEnquiry->hotel_makkah) {
@@ -281,8 +324,8 @@ class PackageService
                     'location' => 'Makkah',
                     'hotel_name' => $privateEnquiry->hotel_makkah,
                     'type_of_meal' => $privateEnquiry->meals_makkah,
-                    'check_in' => $makkahCheckIn?->format('Y-m-d'),
-                    'check_out' => $makkahCheckOut?->format('Y-m-d'),
+                    'check_in' => $makkahCheckIn?->format('d F Y'),
+                    'check_out' => $makkahCheckOut?->format('d F Y'),
                 ]);
             }
 
@@ -302,8 +345,8 @@ class PackageService
                     'location' => 'Madinah',
                     'hotel_name' => $privateEnquiry->hotel_madinah,
                     'type_of_meal' => $privateEnquiry->meals_madinah,
-                    'check_in' => $madinahCheckIn?->format('Y-m-d'),
-                    'check_out' => $madinahCheckOut?->format('Y-m-d'),
+                    'check_in' => $madinahCheckIn?->format('d F Y'),
+                    'check_out' => $madinahCheckOut?->format('d F Y'),
                 ]);
             }
 
@@ -324,5 +367,15 @@ class PackageService
 
             return $package;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function setIfNotEmpty(array &$payload, string $key, mixed $value): void
+    {
+        if ($value !== null && $value !== '') {
+            $payload[$key] = $value;
+        }
     }
 }

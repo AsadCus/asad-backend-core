@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/card';
 import type { OptionType } from '@/types';
 import { Head } from '@inertiajs/react';
+import { CheckCircle } from 'lucide-react';
 import CustomerConfirmationForm from '../../confirmed-customer/form';
 import { CustomerGroupFormSchema } from '../schema';
 
@@ -23,6 +24,10 @@ interface PublicCustomerFormProps {
     packageOptions?: OptionType[];
     publicSubmitUrl?: string;
     initialData?: CustomerGroupFormSchema;
+    linkType?: 'continuous' | 'one_time';
+    oneTimeCompleted?: boolean;
+    successTitle?: string;
+    successDescription?: string;
 }
 
 export default function PublicCustomerForm({
@@ -37,6 +42,10 @@ export default function PublicCustomerForm({
     packageOptions = [],
     publicSubmitUrl,
     initialData,
+    linkType = 'continuous',
+    oneTimeCompleted = false,
+    successTitle = 'Update complete',
+    successDescription = 'Your update has been submitted successfully. This one-time link is no longer accessible.',
 }: PublicCustomerFormProps) {
     const isEdit = mode === 'edit';
     const title = isEdit
@@ -74,55 +83,67 @@ export default function PublicCustomerForm({
                 </CardHeader>
 
                 <CardContent>
-                    {/* Form */}
-                    <CustomerConfirmationForm
-                        mode={mode}
-                        enquiryId={enquiryId}
-                        isPublic={true}
-                        publicSubmitUrl={publicSubmitUrl}
-                        packageOptions={packageOptions}
-                        initialData={
-                            initialData
-                                ? isEdit
-                                    ? { ...initialData, terms_accepted: true }
-                                    : initialData
-                                : enquiryId
-                                  ? {
-                                        enquiry_id: enquiryId,
-                                        package_id: packageId,
-                                        package_room_type: '',
-                                        package_category: '',
-                                        date_of_application: '',
-                                        members: [
-                                            {
-                                                is_leader: true,
-                                                name: prefillName,
-                                                email: prefillEmail,
-                                                contact_number: prefillContact,
-                                                nric_number: '',
-                                                address: '',
-                                                nationality: '',
-                                                passport_number: '',
-                                                passport_issue_date: '',
-                                                passport_expiry_date: '',
-                                                passport_place_of_issue: '',
-                                                gender: '',
-                                                marital_status: '',
-                                                date_of_birth: '',
-                                                place_of_birth: '',
-                                                first_time_umrah: false,
-                                                has_chronic_disease: false,
-                                                chronic_disease_details: '',
-                                            },
-                                        ],
-                                        terms_accepted: false,
-                                    }
-                                  : undefined
-                        }
-                        onSuccess={() => {
-                            // Show success state - handled by Laravel flash message
-                        }}
-                    />
+                    {linkType === 'one_time' && oneTimeCompleted ? (
+                        <Card className="border-green-600 bg-green-50 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-green-900">
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                    {successTitle}
+                                </CardTitle>
+                                <CardDescription className="text-green-900">
+                                    {successDescription}
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    ) : (
+                        <CustomerConfirmationForm
+                            mode={mode}
+                            enquiryId={enquiryId}
+                            isPublic={true}
+                            publicSubmitUrl={publicSubmitUrl}
+                            packageOptions={packageOptions}
+                            initialData={
+                                initialData
+                                    ? { ...initialData, terms_accepted: false }
+                                    : enquiryId
+                                      ? {
+                                            enquiry_id: enquiryId,
+                                            package_id: packageId,
+                                            package_room_type: '',
+                                            package_category: '',
+                                            date_of_application: '',
+                                            members: [
+                                                {
+                                                    is_leader: true,
+                                                    name: prefillName,
+                                                    email: prefillEmail,
+                                                    contact_number:
+                                                        prefillContact,
+                                                    nric_number: '',
+                                                    address: '',
+                                                    nationality: '',
+                                                    passport_number: '',
+                                                    passport_issue_date: '',
+                                                    passport_expiry_date: '',
+                                                    passport_place_of_issue: '',
+                                                    gender: '',
+                                                    marital_status: '',
+                                                    date_of_birth: '',
+                                                    place_of_birth: '',
+                                                    first_time_umrah: false,
+                                                    has_chronic_disease: false,
+                                                    chronic_disease_details: '',
+                                                },
+                                            ],
+                                            terms_accepted: false,
+                                        }
+                                      : undefined
+                            }
+                            onSuccess={() => {
+                                // Show success state - handled by Laravel flash message
+                            }}
+                        />
+                    )}
                 </CardContent>
             </Card>
         </div>

@@ -9,9 +9,20 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import PackageForm from '../packages/form';
+import PackageInformationSection from '../packages/package-information-section';
+import { type PackageSchema } from '../packages/schema';
 import GeneralEnquiryFormFields from './form-fields';
 import { GeneralEnquirySchema } from './schema';
 import { generalEnquiryValidationSchema } from './validation';
@@ -57,6 +68,72 @@ export default function GeneralEnquiryForm({
         setError,
         clearErrors,
     } = useForm<GeneralEnquirySchema>(defaultData);
+
+    const [linkedPackageInfo, setLinkedPackageInfo] = useState<{
+        id: number;
+        name: string;
+        status?: string;
+        airline?: string | null;
+        departure_date?: string | null;
+        arrival_date?: string | null;
+    } | null>(null);
+    const [linkedPackageData, setLinkedPackageData] =
+        useState<PackageSchema | null>(null);
+    const [packageDialogOpen, setPackageDialogOpen] = useState(false);
+    const [isLoadingLinkedPackage, setIsLoadingLinkedPackage] = useState(false);
+
+    const loadPackageInfo = useCallback(async (packageId: number) => {
+        setIsLoadingLinkedPackage(true);
+
+        try {
+            const response = await fetch(`/packages-get-for-show/${packageId}`);
+
+            if (!response.ok) {
+                return;
+            }
+
+            const pkg = await response.json();
+
+            setLinkedPackageInfo({
+                id: pkg.id,
+                name: pkg.name,
+                status: pkg.status,
+                airline: pkg.airline,
+                departure_date: pkg.departure_date,
+                arrival_date: pkg.arrival_date,
+            });
+            setLinkedPackageData(pkg);
+        } catch {
+        } finally {
+            setIsLoadingLinkedPackage(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        const packageId = data.package_id;
+
+        if (!packageId) {
+            setLinkedPackageInfo(null);
+            setLinkedPackageData(null);
+
+            return;
+        }
+
+        const selected = packageOptions.find(
+            (option) => Number(option.value) === Number(packageId),
+        );
+
+        setLinkedPackageInfo((current) => ({
+            id: Number(packageId),
+            name: selected?.label ?? current?.name ?? '-',
+            status: current?.status,
+            airline: current?.airline,
+            departure_date: current?.departure_date,
+            arrival_date: current?.arrival_date,
+        }));
+
+        loadPackageInfo(Number(packageId));
+    }, [data.package_id, packageOptions, loadPackageInfo]);
 
     function validateClientSide(): boolean {
         clearErrors();
@@ -106,9 +183,21 @@ export default function GeneralEnquiryForm({
         reset();
     };
 
+    const handleOpenPackageDialog = async () => {
+        if (!data.package_id) {
+            return;
+        }
+
+        if (!linkedPackageData || linkedPackageData.id !== data.package_id) {
+            await loadPackageInfo(Number(data.package_id));
+        }
+
+        setPackageDialogOpen(true);
+    };
+
     return (
         <div className="mx-auto w-full">
-            <form onSubmit={submit} className="space-y-4 py-2">
+            <form onSubmit={submit} className="space-y-4">
                 {/* Error Alert */}
                 {Object.keys(errors).length > 0 && !isView && (
                     <Alert variant="destructive">
@@ -117,6 +206,49 @@ export default function GeneralEnquiryForm({
                             Please fix the errors below and try again
                         </AlertDescription>
                     </Alert>
+                )}
+
+                {packageOptions.length > 0 && (
+                    <PackageInformationSection
+                        description="Select a package for this enquiry and review key package details."
+                        packageInfo={linkedPackageInfo}
+                        isLoading={isLoadingLinkedPackage}
+                        onViewDetails={
+                            linkedPackageInfo
+                                ? handleOpenPackageDialog
+                                : undefined
+                        }
+                        renderPackageSelector={
+                            <FormField
+                                label="Package"
+                                fieldRequirementsProps={{
+                                    hint: 'Link a travel package to this enquiry (optional)',
+                                }}
+                                htmlFor="package_id"
+                                error={
+                                    renderError('package_id')?.props?.children
+                                }
+                            >
+                                <ProperInputSelect
+                                    options={packageOptions}
+                                    value={
+                                        data.package_id
+                                            ? String(data.package_id)
+                                            : ''
+                                    }
+                                    onValueChange={(v) =>
+                                        setData(
+                                            'package_id',
+                                            v ? Number(v) : null,
+                                        )
+                                    }
+                                    placeholder="Select package..."
+                                    disabled={isView || processing}
+                                    truncate={30}
+                                />
+                            </FormField>
+                        }
+                    />
                 )}
 
                 <Card>
@@ -137,41 +269,6 @@ export default function GeneralEnquiryForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {/* Package Select (internal only, not for public forms) */}
-                        {packageOptions.length > 0 && (
-                            <div className="mb-6">
-                                <FormField
-                                    label="Package"
-                                    fieldRequirementsProps={{
-                                        hint: 'Link a travel package to this enquiry (optional)',
-                                    }}
-                                    htmlFor="package_id"
-                                    error={
-                                        renderError('package_id')?.props
-                                            ?.children
-                                    }
-                                >
-                                    <ProperInputSelect
-                                        options={packageOptions}
-                                        value={
-                                            data.package_id
-                                                ? String(data.package_id)
-                                                : ''
-                                        }
-                                        onValueChange={(v) =>
-                                            setData(
-                                                'package_id',
-                                                v ? Number(v) : null,
-                                            )
-                                        }
-                                        placeholder="Select package..."
-                                        disabled={isView || processing}
-                                        truncate={30}
-                                    />
-                                </FormField>
-                            </div>
-                        )}
-
                         <GeneralEnquiryFormFields
                             data={data}
                             setData={setData}
@@ -214,6 +311,34 @@ export default function GeneralEnquiryForm({
                         </>
                     )}
                 </div>
+
+                <Dialog
+                    open={packageDialogOpen}
+                    onOpenChange={setPackageDialogOpen}
+                >
+                    <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                        <DialogHeader>
+                            <DialogTitle>Package Details</DialogTitle>
+                            <DialogDescription className="sr-only">
+                                View package details
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                            {linkedPackageData ? (
+                                <PackageForm
+                                    mode="view"
+                                    initialData={linkedPackageData}
+                                    onCancel={() => setPackageDialogOpen(false)}
+                                />
+                            ) : (
+                                <div className="text-sm text-muted-foreground">
+                                    Loading package details...
+                                </div>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </form>
         </div>
     );

@@ -73,7 +73,7 @@ export default function EnquiryViewDialog({
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center gap-2">
                             <div>
                                 <DialogTitle>Enquiry Details</DialogTitle>
                                 <DialogDescription className="sr-only">
@@ -81,7 +81,7 @@ export default function EnquiryViewDialog({
                                     selected enquiry.
                                 </DialogDescription>
                             </div>
-                            <div className="mr-8 flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {enquiryType && (
                                     <Badge
                                         className={`${typeColors[typeKey] ?? ''} rounded-full px-3 py-1 text-base`}
@@ -118,7 +118,7 @@ export default function EnquiryViewDialog({
                         </div>
                     </DialogHeader>
 
-                    <div className="h-full w-full flex-1 overflow-y-auto">
+                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
                         {isLoadingChild && (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                                 Loading enquiry details...
@@ -144,7 +144,7 @@ export default function EnquiryViewDialog({
                                 )}
 
                                 {enquiryId && (
-                                    <Card className="mb-2">
+                                    <Card>
                                         <CardHeader>
                                             <CardTitle className="text-xl">
                                                 Enquiry Remarks Timeline
@@ -176,6 +176,7 @@ export default function EnquiryViewDialog({
             {showStatusActions && enquiryId && (
                 <EnquiryStatusAction
                     enquiryId={statusActionEnquiryId}
+                    enquiryType={enquiryType}
                     action={statusAction}
                     isOpen={statusDialogOpen}
                     onClose={() => {

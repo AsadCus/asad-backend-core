@@ -160,6 +160,9 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
     const [statusActionEnquiryId, setStatusActionEnquiryId] = useState<
         number | undefined
     >();
+    const [statusActionEnquiryType, setStatusActionEnquiryType] = useState<
+        string | undefined
+    >();
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
     // Customer Confirmation Form state
@@ -232,6 +235,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                           contact: enquiry.contact,
                           status: enquiry.status_label,
                           package_name: enquiry.package_name,
+                          created_at: enquiry.created_at,
                       }
                     : undefined,
             );
@@ -366,6 +370,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                     ) as EnquiryStatusActionType;
                                     setStatusAction(actionType);
                                     setStatusActionEnquiryId(enquiry.id);
+                                    setStatusActionEnquiryType(enquiry.type);
                                     setStatusDialogOpen(true);
                                 }
 
@@ -460,6 +465,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                       contact: enquiry.contact,
                                       status: enquiry.status_label,
                                       package_name: enquiry.package_name,
+                                      created_at: enquiry.created_at,
                                   }
                                 : undefined,
                         );
@@ -471,11 +477,13 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
             {/* Enquiry Status Action Dialog */}
             <EnquiryStatusAction
                 enquiryId={statusActionEnquiryId}
+                enquiryType={statusActionEnquiryType}
                 action={statusAction}
                 isOpen={statusDialogOpen}
                 onClose={() => {
                     setStatusDialogOpen(false);
                     setStatusAction(null);
+                    setStatusActionEnquiryType(undefined);
                 }}
                 onConfirmed={(enquiryId) => {
                     const enquiry = enquiriesForDatatable.find(
@@ -504,6 +512,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                       contact: enquiry.contact,
                                       status: enquiry.status_label,
                                       package_name: enquiry.package_name,
+                                      created_at: enquiry.created_at,
                                   }
                                 : undefined,
                         );

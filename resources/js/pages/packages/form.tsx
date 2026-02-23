@@ -3,7 +3,13 @@ import { FieldRequirements } from '@/components/field-requirements';
 import { ProperInput } from '@/components/proper-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { store, update } from '@/routes/packages';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { type AccommodationSchema, type PackageSchema } from './schema';
 import { packageValidationSchema } from './validation';
 
@@ -78,6 +85,26 @@ export default function PackageForm({
         setError,
         clearErrors,
     } = useForm<PackageSchema>(defaultData);
+
+    const lastAppliedPrefillRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (!isCreate || !prefillData) {
+            return;
+        }
+
+        const prefillSignature = JSON.stringify(prefillData);
+
+        if (lastAppliedPrefillRef.current === prefillSignature) {
+            return;
+        }
+
+        setData((currentData) => ({
+            ...currentData,
+            ...prefillData,
+        }));
+        lastAppliedPrefillRef.current = prefillSignature;
+    }, [isCreate, prefillData, setData]);
 
     function validateClientSide(): boolean {
         clearErrors();
@@ -174,6 +201,9 @@ export default function PackageForm({
                 <Card>
                     <CardHeader>
                         <CardTitle>Package Information</CardTitle>
+                        <CardDescription>
+                            Define the package identity and status.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -260,6 +290,9 @@ export default function PackageForm({
                 <Card>
                     <CardHeader>
                         <CardTitle>Pricing</CardTitle>
+                        <CardDescription>
+                            Set occupancy and child/infant pricing.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -366,6 +399,10 @@ export default function PackageForm({
                 <Card>
                     <CardHeader>
                         <CardTitle>Flight Details</CardTitle>
+                        <CardDescription>
+                            Add flight information, travel dates, and seat
+                            allocation.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -496,6 +533,9 @@ export default function PackageForm({
                 <Card>
                     <CardHeader>
                         <CardTitle>Visa, Vehicle & Train</CardTitle>
+                        <CardDescription>
+                            Capture travel support and transport setup.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -560,7 +600,12 @@ export default function PackageForm({
                 {/* Accommodations */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Accommodations</CardTitle>
+                        <div className="space-y-1">
+                            <CardTitle>Accommodations</CardTitle>
+                            <CardDescription>
+                                Add accommodation entries for each location.
+                            </CardDescription>
+                        </div>
                         {!isView && (
                             <Button
                                 type="button"
@@ -749,6 +794,10 @@ export default function PackageForm({
                 <Card>
                     <CardHeader>
                         <CardTitle>Package Inclusions</CardTitle>
+                        <CardDescription>
+                            Describe included, excluded, and special offer
+                            details.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -758,18 +807,15 @@ export default function PackageForm({
                                     <FieldRequirements hint="List what's included in the package" />
                                 </Label>
                                 <div className="relative">
-                                    <Textarea
+                                    <ProperInput
                                         id="included"
                                         value={data.included || ''}
                                         disabled={isView || processing}
-                                        onChange={(e) =>
-                                            setData(
-                                                'included',
-                                                e.target.value || null,
-                                            )
+                                        textarea
+                                        onCommit={(e) =>
+                                            setData('included', e || null)
                                         }
                                         placeholder="List included items (e.g., flights, hotels, meals, visa, transport...)"
-                                        rows={10}
                                     />
                                     {renderError('included')}
                                 </div>
@@ -791,7 +837,6 @@ export default function PackageForm({
                                             )
                                         }
                                         placeholder="List excluded items (e.g., personal expenses, tips...)"
-                                        rows={10}
                                     />
                                     {renderError('not_included')}
                                 </div>
@@ -813,7 +858,6 @@ export default function PackageForm({
                                             )
                                         }
                                         placeholder="Describe any special offers or promotions..."
-                                        rows={10}
                                     />
                                     {renderError('offer')}
                                 </div>
@@ -826,6 +870,9 @@ export default function PackageForm({
                 <Card>
                     <CardHeader>
                         <CardTitle>Remarks</CardTitle>
+                        <CardDescription>
+                            Add any additional internal or operational notes.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid w-full items-center gap-3">

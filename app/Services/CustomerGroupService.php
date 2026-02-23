@@ -46,16 +46,28 @@ class CustomerGroupService
                 ]);
             }
 
+            $group->load('members.customer.user', 'enquiry', 'package');
+
+            $newSnapshot = $this->sanitizeSnapshot(
+                $this->buildGroupSnapshot($group),
+            );
+
             activity()
                 ->performedOn($group)
                 ->withProperties([
                     'subject_type' => 'CustomerGroup',
                     'subject_id' => $group->id,
-                    'enquiry_id' => $enquiryId,
+                    'old' => [],
+                    'attributes' => $newSnapshot,
+                    'context' => $this->buildLogContext(
+                        operation: 'create',
+                        enquiryId: $enquiryId,
+                        packageId: $group->package_id,
+                    ),
                 ])
                 ->log('Customer group created'.($enquiryId ? ' for enquiry #'.$enquiryId : ''));
 
-            return $group->load('members.customer.user');
+            return $group;
         });
     }
 
@@ -340,7 +352,22 @@ class CustomerGroupService
     public function updateGroup(int $id, array $data): CustomerGroup
     {
         return DB::transaction(function () use ($id, $data) {
-            $group = CustomerGroup::findOrFail($id);
+            $group = CustomerGroup::with('enquiry')->findOrFail($id);
+            $oldSnapshot = $this->sanitizeSnapshot(
+                $this->buildGroupSnapshot($group),
+            );
+
+            $isPrivateEnquiry = strtolower((string) ($group->enquiry?->type ?? '')) === 'private';
+            $hasExistingPackage = ! empty($group->package_id);
+            $requestedPackageId = $data['package_id'] ?? $group->package_id;
+
+            if (
+                $isPrivateEnquiry
+                && $hasExistingPackage
+                && (int) $requestedPackageId !== (int) $group->package_id
+            ) {
+                abort(422, 'Private enquiry package is exclusive and cannot be changed once linked.');
+            }
 
             $group->update([
                 'package_id' => $data['package_id'] ?? $group->package_id,
@@ -362,15 +389,27 @@ class CustomerGroupService
                 ]);
             }
 
+            $group->load('members.customer.user', 'enquiry', 'package');
+            $newSnapshot = $this->sanitizeSnapshot(
+                $this->buildGroupSnapshot($group),
+            );
+
             activity()
                 ->performedOn($group)
                 ->withProperties([
                     'subject_type' => 'CustomerGroup',
                     'subject_id' => $group->id,
+                    'old' => $oldSnapshot,
+                    'attributes' => $newSnapshot,
+                    'context' => $this->buildLogContext(
+                        operation: 'update',
+                        enquiryId: $group->enquiry_id,
+                        packageId: $group->package_id,
+                    ),
                 ])
                 ->log('Customer group #'.$group->id.' updated');
 
-            return $group->load('members.customer.user');
+            return $group;
         });
     }
 
@@ -379,6 +418,9 @@ class CustomerGroupService
     {
         DB::transaction(function () use ($id) {
             $group = CustomerGroup::with(['members', 'enquiry'])->findOrFail($id);
+            $oldSnapshot = $this->sanitizeSnapshot(
+                $this->buildGroupSnapshot($group),
+            );
 
             foreach ($group->members as $member) {
                 $member->delete();
@@ -406,10 +448,147 @@ class CustomerGroupService
                 ->withProperties([
                     'subject_type' => 'CustomerGroup',
                     'subject_id' => $id,
-                    'enquiry_id' => $group->enquiry_id,
+                    'old' => $oldSnapshot,
+                    'attributes' => [
+                        'deleted' => true,
+                        'group_id' => $id,
+                    ],
+                    'context' => $this->buildLogContext(
+                        operation: 'delete',
+                        enquiryId: $group->enquiry_id,
+                        packageId: $group->package_id,
+                    ),
                 ])
                 ->log('Customer group #'.$id.' deleted');
         });
+    }
+
+    private function buildGroupSnapshot(CustomerGroup $group): array
+    {
+        $group->loadMissing(['members.customer.user', 'enquiry', 'package']);
+
+        return [
+            'group' => [
+                'id' => $group->id,
+                'enquiry_id' => $group->enquiry_id,
+                'package_id' => $group->package_id,
+                'package_room_type' => $group->package_room_type,
+                'package_category' => $group->package_category,
+                'date_of_application' => optional($group->date_of_application)?->format('Y-m-d'),
+                'member_count' => $group->members->count(),
+            ],
+            'members' => $group->members
+                ->map(function (CustomerGroupMember $member) {
+                    $customer = $member->customer;
+                    $user = $customer?->user;
+
+                    return [
+                        'member_id' => $member->id,
+                        'customer_id' => $customer?->id,
+                        'is_leader' => (bool) $member->is_leader,
+                        'name' => $user?->name,
+                        'email' => $user?->email,
+                        'contact_number' => $user?->contact,
+                        'nric_number' => $customer?->nric_number,
+                        'address' => $customer?->address,
+                        'nationality' => $customer?->nationality,
+                        'passport_number' => $customer?->passport_number,
+                        'passport_issue_date' => optional($customer?->passport_issue_date)?->format('Y-m-d'),
+                        'passport_expiry_date' => optional($customer?->passport_expiry_date)?->format('Y-m-d'),
+                        'passport_place_of_issue' => $customer?->passport_place_of_issue,
+                        'gender' => $customer?->gender,
+                        'marital_status' => $customer?->marital_status,
+                        'date_of_birth' => optional($customer?->date_of_birth)?->format('Y-m-d'),
+                        'place_of_birth' => $customer?->place_of_birth,
+                        'first_time_umrah' => $customer?->first_time_umrah,
+                        'has_chronic_disease' => $customer?->has_chronic_disease,
+                        'chronic_disease_details' => $customer?->chronic_disease_details,
+                    ];
+                })
+                ->values()
+                ->all(),
+        ];
+    }
+
+    private function sanitizeSnapshot(array $snapshot): array
+    {
+        $sensitiveFields = [
+            'nric_number',
+            'passport_number',
+            'address',
+            'contact_number',
+            'email',
+        ];
+
+        return $this->maskSensitiveValues($snapshot, $sensitiveFields);
+    }
+
+    /**
+     * @param  array<int, string>  $sensitiveFields
+     */
+    private function maskSensitiveValues(array $payload, array $sensitiveFields): array
+    {
+        $masked = [];
+
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $masked[$key] = $this->maskSensitiveValues($value, $sensitiveFields);
+
+                continue;
+            }
+
+            if (in_array((string) $key, $sensitiveFields, true)) {
+                $masked[$key] = $this->maskValue(is_scalar($value) ? (string) $value : null);
+
+                continue;
+            }
+
+            $masked[$key] = $value;
+        }
+
+        return $masked;
+    }
+
+    private function maskValue(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        $trimmedValue = trim($value);
+        $length = mb_strlen($trimmedValue);
+
+        if ($length <= 4) {
+            return str_repeat('*', $length);
+        }
+
+        return str_repeat('*', $length - 4).mb_substr($trimmedValue, -4);
+    }
+
+    private function buildLogContext(
+        string $operation,
+        ?int $enquiryId,
+        ?int $packageId,
+    ): array {
+        $request = request();
+        $actor = auth()->user();
+
+        return [
+            'operation' => $operation,
+            'actor' => [
+                'id' => $actor?->id,
+                'email' => $actor?->email,
+            ],
+            'related' => [
+                'enquiry_id' => $enquiryId,
+                'package_id' => $packageId,
+            ],
+            'request' => [
+                'ip' => $request?->ip(),
+                'user_agent' => $request?->userAgent(),
+            ],
+            'logged_at' => now()->toIso8601String(),
+        ];
     }
 
     /** Store one uploaded file and return its path. */

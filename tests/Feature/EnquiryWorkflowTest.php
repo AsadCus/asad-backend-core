@@ -624,6 +624,64 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertJsonFragment(['name' => 'GE Show']);
     }
 
+    public function test_private_enquiry_package_prefill_maps_only_non_empty_fields(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'private',
+            'status' => EnquiryStatus::Negotiating->value,
+            'name' => 'Private Prefill',
+            'contact_number' => '0170001111',
+            'email' => 'private-prefill@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        PrivateEnquiry::create([
+            'enquiry_id' => $enquiry->id,
+            'passport_expiry_date' => '2030-12-31',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-10',
+            'no_of_pax' => 3,
+            'no_of_children' => 1,
+            'airline' => '',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Makkah Grand',
+            'meals_makkah' => 'Full Board',
+            'no_of_nights_madinah' => '3',
+            'hotel_madinah' => '',
+            'meals_madinah' => '',
+            'land_transfer' => '',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => 'No',
+            'other_remarks' => '',
+        ]);
+
+        $response = $this->get(route('enquiries.package-prefill', $enquiry->id));
+
+        $response->assertOk();
+        $response->assertJsonFragment([
+            'name' => 'Private - Private Prefill',
+            'status' => 'open',
+            'total_seats' => 4,
+            'seats_left' => 4,
+        ]);
+        $response->assertJsonMissingPath('airline');
+        $response->assertJsonMissingPath('vehicle_type');
+        $response->assertJsonMissingPath('remarks');
+        $response->assertJsonPath('accommodations.0.location', 'Makkah');
+    }
+
     public function test_search_customers_returns_results(): void
     {
         $this->actingAs($this->adminUser);

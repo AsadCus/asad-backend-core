@@ -13,7 +13,13 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
@@ -24,6 +30,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import { update as updateGroup } from '@/routes/customer-groups';
 import {
     confirm as confirmEnquiry,
@@ -40,7 +47,14 @@ import {
     Plus,
     Trash2,
 } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import {
+    FormEvent,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import CustomerFormFields from '../customer/form-fields';
 import {
     emptyMember,
@@ -53,10 +67,31 @@ import {
 } from '../customer/schema';
 import { customerGroupFormValidationSchema } from '../customer/validation';
 import EnquiryViewDialog from '../enquiries/components/enquiry-view-dialog';
-import { EnquiryDetails } from '../enquiries/schema';
-import type { PackageSchema } from '../packages/schema';
+import {
+    EnquiryDetails,
+    enquiryStatusLabels,
+    enquiryTypeLabels,
+} from '../enquiries/schema';
+import PackageForm from '../packages/form';
+import PackageInformationSection from '../packages/package-information-section';
+import { type PackageSchema } from '../packages/schema';
 
 type ClientValidationErrors = Record<string, string>;
+
+interface LinkedPackageInfo {
+    id: number;
+    name: string;
+    status?: string;
+    airline?: string | null;
+    departure_date?: string | null;
+    arrival_date?: string | null;
+    total_seats?: number | null;
+    seats_left?: number | null;
+    visa_type?: string | null;
+    vehicle_type?: string | null;
+    ticket_type?: string | null;
+    remarks?: string | null;
+}
 
 export interface CustomerConfirmationFormProps {
     mode?: 'create' | 'edit' | 'view';
@@ -109,9 +144,49 @@ export default function CustomerConfirmationForm({
         string,
         unknown
     > | null>(null);
+    const [linkedPackageInfo, setLinkedPackageInfo] =
+        useState<LinkedPackageInfo | null>(null);
+    const [linkedPackageData, setLinkedPackageData] =
+        useState<PackageSchema | null>(null);
+    const [packageDialogOpen, setPackageDialogOpen] = useState(false);
     const [isLoadingEnquiryChild, setIsLoadingEnquiryChild] = useState(false);
+    const [isLoadingLinkedPackage, setIsLoadingLinkedPackage] = useState(false);
     const [activeTab, setActiveTab] = useState('customer-0');
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const errorAlertRef = useRef<HTMLDivElement | null>(null);
+
+    const loadPackageInfo = useCallback(async (packageId: number) => {
+        setIsLoadingLinkedPackage(true);
+
+        try {
+            const response = await fetch(`/packages-get-for-show/${packageId}`);
+
+            if (!response.ok) {
+                return;
+            }
+
+            const pkg = await response.json();
+
+            setLinkedPackageInfo({
+                id: pkg.id,
+                name: pkg.name,
+                status: pkg.status,
+                airline: pkg.airline,
+                departure_date: pkg.departure_date,
+                arrival_date: pkg.arrival_date,
+                total_seats: pkg.total_seats,
+                seats_left: pkg.seats_left,
+                visa_type: pkg.visa_type,
+                vehicle_type: pkg.vehicle_type,
+                ticket_type: pkg.ticket_type,
+                remarks: pkg.remarks,
+            });
+            setLinkedPackageData(pkg);
+        } catch {
+        } finally {
+            setIsLoadingLinkedPackage(false);
+        }
+    }, []);
 
     // Bootstrap data
     useEffect(() => {
@@ -124,8 +199,8 @@ export default function CustomerConfirmationForm({
                 .catch(() => {});
         }
 
-        const linkedId = initialData?.enquiry_id;
-        if ((isView || isEdit) && linkedId && !enquiryDetails) {
+        const linkedId = initialData?.enquiry_id ?? enquiryId;
+        if (linkedId && (!enquiryDetails || !enquiryDetails.created_at)) {
             fetch(getForShow(linkedId).url)
                 .then((res) => res.json())
                 .then((json) => {
@@ -139,11 +214,12 @@ export default function CustomerConfirmationForm({
                         contact: eq.contact_number ?? eq.contact,
                         status: eq.status_label ?? eq.status,
                         package_name: eq.package_name ?? null,
+                        created_at: eq.created_at ?? null,
                     });
                 })
                 .catch(() => {});
         }
-    }, [isPublic, isView, isEdit, enquiryDetails, initialData?.enquiry_id]);
+    }, [isPublic, isView, enquiryDetails, initialData?.enquiry_id, enquiryId]);
 
     useEffect(() => {
         if (!enquiryDialogOpen) return;
@@ -186,6 +262,83 @@ export default function CustomerConfirmationForm({
     const form = useForm<CustomerGroupFormData>(defaultData);
     const { data, setData, post, processing, clearErrors, setError } = form;
     const errors: Record<string, string | undefined> = form.errors;
+    const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
+    const isPrivateWithLinkedPackage =
+        isEdit &&
+        (effectiveLinkedEnquiry?.type ?? enquiryType ?? '').toLowerCase() ===
+            'private' &&
+        !!initialData?.package_id;
+
+    useEffect(() => {
+        const enquiryCreatedAt = effectiveLinkedEnquiry?.created_at;
+
+        if (!enquiryCreatedAt) {
+            return;
+        }
+
+        if ((data.date_of_application ?? '').trim().length > 0) {
+            return;
+        }
+
+        const normalizedDate = formatDateForDisplay(enquiryCreatedAt);
+        if (!normalizedDate) {
+            return;
+        }
+
+        setData('date_of_application', normalizedDate);
+    }, [effectiveLinkedEnquiry?.created_at, data.date_of_application, setData]);
+
+    useEffect(() => {
+        if (packageData?.id) {
+            setLinkedPackageInfo({
+                id: packageData.id,
+                name: packageData.name ?? '-',
+                status: packageData.status,
+                airline: packageData.airline,
+                departure_date: packageData.departure_date,
+                arrival_date: packageData.arrival_date,
+                total_seats: packageData.total_seats,
+                seats_left: packageData.seats_left,
+                visa_type: packageData.visa_type,
+                vehicle_type: packageData.vehicle_type,
+                ticket_type: packageData.ticket_type,
+                remarks: packageData.remarks,
+            });
+
+            return;
+        }
+
+        const packageId = data.package_id;
+
+        if (!packageId) {
+            setLinkedPackageInfo(null);
+
+            return;
+        }
+
+        const selectedOption = packageOptions.find(
+            (option) => Number(option.value) === Number(packageId),
+        );
+
+        if (selectedOption) {
+            setLinkedPackageInfo((current) => ({
+                id: Number(packageId),
+                name: selectedOption.label,
+                status: current?.status,
+                airline: current?.airline,
+                departure_date: current?.departure_date,
+                arrival_date: current?.arrival_date,
+                total_seats: current?.total_seats,
+                seats_left: current?.seats_left,
+                visa_type: current?.visa_type,
+                vehicle_type: current?.vehicle_type,
+                ticket_type: current?.ticket_type,
+                remarks: current?.remarks,
+            }));
+        }
+
+        loadPackageInfo(Number(packageId));
+    }, [data.package_id, packageData, packageOptions, loadPackageInfo]);
 
     // Helpers
 
@@ -194,6 +347,136 @@ export default function CustomerConfirmationForm({
     };
 
     const hasErrors = Object.keys(errors).length > 0;
+
+    const toFieldLabel = (path: string): string => {
+        const fieldName = path.split('.').pop() ?? path;
+
+        return fieldName
+            .replace(/[_-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/\b\w/g, (character) => character.toUpperCase());
+    };
+
+    const getMemberIndexFromPath = (path: string): number | null => {
+        const match = path.match(/^members\.(\d+)\./);
+        if (!match) {
+            return null;
+        }
+
+        return Number(match[1]);
+    };
+
+    const scrollToErrorBanner = useCallback(() => {
+        setTimeout(() => {
+            errorAlertRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }, 0);
+    }, []);
+
+    const focusErrorField = useCallback(
+        (path: string) => {
+            const memberIndex = getMemberIndexFromPath(path);
+
+            if (memberIndex !== null) {
+                setActiveTab(`customer-${memberIndex}`);
+            }
+
+            setTimeout(
+                () => {
+                    const target = document.getElementById(path);
+
+                    if (!target) {
+                        return;
+                    }
+
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                    });
+
+                    if (target instanceof HTMLElement) {
+                        target.focus();
+                    }
+                },
+                memberIndex !== null ? 180 : 60,
+            );
+        },
+        [setActiveTab],
+    );
+
+    const groupedErrorSummary = useMemo(() => {
+        const globalErrors: Array<{ path: string; message: string }> = [];
+        const memberErrors = new Map<
+            number,
+            Array<{ path: string; message: string; fieldLabel: string }>
+        >();
+
+        Object.entries(errors).forEach(([path, message]) => {
+            if (!message) {
+                return;
+            }
+
+            const memberIndex = getMemberIndexFromPath(path);
+
+            if (memberIndex === null) {
+                globalErrors.push({ path, message });
+
+                return;
+            }
+
+            if (!memberErrors.has(memberIndex)) {
+                memberErrors.set(memberIndex, []);
+            }
+
+            memberErrors.get(memberIndex)?.push({
+                path,
+                message,
+                fieldLabel: toFieldLabel(path),
+            });
+        });
+
+        const sortedMemberErrors = [...memberErrors.entries()]
+            .sort((a, b) => a[0] - b[0])
+            .map(([memberIndex, list]) => {
+                const memberName =
+                    data.members?.[memberIndex]?.name?.trim() ||
+                    `Member ${memberIndex + 1}`;
+
+                return {
+                    memberIndex,
+                    memberName,
+                    errors: list,
+                };
+            });
+
+        return {
+            globalErrors,
+            memberGroups: sortedMemberErrors,
+        };
+    }, [errors, data.members]);
+
+    const enquiryTypeKey = (effectiveLinkedEnquiry?.type ?? '').toLowerCase();
+    const enquiryTypeLabel = enquiryTypeLabels[enquiryTypeKey] ?? '-';
+
+    const enquiryStatusKey = (effectiveLinkedEnquiry?.status ?? '')
+        .toLowerCase()
+        .replace(/\s+/g, '_');
+    const enquiryStatusLabel = enquiryStatusLabels[enquiryStatusKey] ?? '-';
+
+    const handleOpenPackageDialog = async () => {
+        if (!data.package_id) {
+            return;
+        }
+
+        if (!linkedPackageData || linkedPackageData.id !== data.package_id) {
+            await loadPackageInfo(Number(data.package_id));
+        }
+
+        setPackageDialogOpen(true);
+    };
 
     // Customer actions
 
@@ -307,18 +590,48 @@ export default function CustomerConfirmationForm({
     // Submit
     function validateClientSide(): boolean {
         clearErrors();
+        const clientErrors: ClientValidationErrors = {};
         const result = customerGroupFormValidationSchema.safeParse(data);
 
         if (!result.success) {
-            const clientErrors: ClientValidationErrors = {};
-
             result.error.issues.forEach((issue) => {
                 const key = issue.path.join('.');
                 if (!clientErrors[key]) {
                     clientErrors[key] = issue.message;
                 }
             });
+        }
 
+        const departureDateValue =
+            linkedPackageInfo?.departure_date ?? packageData?.departure_date;
+        const departureDate = parseDisplayDate(departureDateValue);
+
+        if (data.package_id && departureDate) {
+            (data.members ?? []).forEach((member, index) => {
+                const passportExpiryDate = parseDisplayDate(
+                    member.passport_expiry_date,
+                );
+
+                if (!passportExpiryDate) {
+                    return;
+                }
+
+                const minimumPassportValidityDate = new Date(departureDate);
+                minimumPassportValidityDate.setMonth(
+                    minimumPassportValidityDate.getMonth() + 6,
+                );
+
+                if (passportExpiryDate <= minimumPassportValidityDate) {
+                    const key = `members.${index}.passport_expiry_date`;
+                    if (!clientErrors[key]) {
+                        clientErrors[key] =
+                            'Passport must be valid at least 6 months from departure/travel date.';
+                    }
+                }
+            });
+        }
+
+        if (Object.keys(clientErrors).length > 0) {
             setError(clientErrors);
 
             return false;
@@ -330,7 +643,11 @@ export default function CustomerConfirmationForm({
     function submit(e: FormEvent) {
         e.preventDefault();
         if (isView) return;
-        if (!validateClientSide()) return;
+        if (!validateClientSide()) {
+            scrollToErrorBanner();
+
+            return;
+        }
 
         const handleSuccess = () => {
             if (isPublic) {
@@ -343,6 +660,7 @@ export default function CustomerConfirmationForm({
 
         const handleError = (errs: Record<string, string>) => {
             setError(errs);
+            scrollToErrorBanner();
             if (isPublic) {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
@@ -399,9 +717,6 @@ export default function CustomerConfirmationForm({
         }
     }
 
-    // Derived data
-    const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
-
     return (
         <div className="mx-auto w-full">
             <form onSubmit={submit} className="space-y-4">
@@ -419,10 +734,68 @@ export default function CustomerConfirmationForm({
 
                 {/* Error */}
                 {hasErrors && !isView && (
-                    <Alert variant="destructive">
+                    <Alert variant="destructive" ref={errorAlertRef}>
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
-                            Please fix the errors below and try again.
+                            <div className="space-y-3">
+                                <p>
+                                    Please fix the errors below and try again.
+                                </p>
+
+                                {groupedErrorSummary.globalErrors.length >
+                                    0 && (
+                                    <div className="space-y-1">
+                                        {groupedErrorSummary.globalErrors.map(
+                                            ({ path, message }) => (
+                                                <button
+                                                    key={path}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        focusErrorField(path)
+                                                    }
+                                                    className="block w-full rounded-sm text-left text-base underline-offset-2 hover:underline"
+                                                >
+                                                    {toFieldLabel(path)}:{' '}
+                                                    {message}
+                                                </button>
+                                            ),
+                                        )}
+                                    </div>
+                                )}
+
+                                {groupedErrorSummary.memberGroups.map(
+                                    ({ memberIndex, memberName, errors }) => (
+                                        <div
+                                            key={memberIndex}
+                                            className="space-y-1"
+                                        >
+                                            <p className="font-medium">
+                                                {memberName}
+                                            </p>
+                                            {errors.map(
+                                                ({
+                                                    path,
+                                                    message,
+                                                    fieldLabel,
+                                                }) => (
+                                                    <button
+                                                        key={path}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            focusErrorField(
+                                                                path,
+                                                            )
+                                                        }
+                                                        className="block w-full rounded-sm text-left text-base underline-offset-2 hover:underline"
+                                                    >
+                                                        {fieldLabel}: {message}
+                                                    </button>
+                                                ),
+                                            )}
+                                        </div>
+                                    ),
+                                )}
+                            </div>
                         </AlertDescription>
                     </Alert>
                 )}
@@ -454,63 +827,71 @@ export default function CustomerConfirmationForm({
                         <CardContent>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                 <FormField label="Enquiry ID">
-                                    <Input
-                                        value={`#${effectiveLinkedEnquiry.id}`}
-                                        disabled
-                                    />
+                                    <div className="rounded-md border bg-muted/30 px-3 py-1.25 select-text">
+                                        #{effectiveLinkedEnquiry.id}
+                                    </div>
                                 </FormField>
                                 <FormField label="Type">
-                                    <Input
-                                        value={effectiveLinkedEnquiry.type}
-                                        disabled
-                                    />
+                                    <div className="rounded-md border bg-muted/30 px-3 py-1">
+                                        <Badge variant="secondary">
+                                            {enquiryTypeLabel}
+                                        </Badge>
+                                    </div>
                                 </FormField>
                                 <FormField label="Status">
-                                    <Input
-                                        value={effectiveLinkedEnquiry.status}
-                                        disabled
-                                    />
+                                    <div className="rounded-md border bg-muted/30 px-3 py-1.25 select-text">
+                                        {enquiryStatusLabel}
+                                    </div>
                                 </FormField>
                                 <FormField label="Name">
-                                    <Input
-                                        value={
-                                            effectiveLinkedEnquiry.name || ''
-                                        }
-                                        disabled
-                                    />
+                                    <div className="rounded-md border bg-muted/30 px-3 py-1.25 select-text">
+                                        {effectiveLinkedEnquiry.name || '-'}
+                                    </div>
                                 </FormField>
                                 <FormField label="Email">
-                                    <Input
-                                        value={
-                                            effectiveLinkedEnquiry.email || ''
-                                        }
-                                        disabled
-                                    />
+                                    <div className="rounded-md border bg-muted/30 px-3 py-1.25 select-text">
+                                        {effectiveLinkedEnquiry.email || '-'}
+                                    </div>
                                 </FormField>
                                 <FormField label="Contact">
-                                    <Input
-                                        value={
-                                            effectiveLinkedEnquiry.contact || ''
-                                        }
-                                        disabled
-                                    />
+                                    <div className="rounded-md border bg-muted/30 px-3 py-1.25 select-text">
+                                        {effectiveLinkedEnquiry.contact || '-'}
+                                    </div>
                                 </FormField>
                                 {effectiveLinkedEnquiry.package_name && (
                                     <FormField
                                         label="Package"
                                         className="md:col-span-2 lg:col-span-3"
                                     >
-                                        <Input
-                                            value={
+                                        <div className="rounded-md border bg-muted/30 px-3 py-1.25 select-text">
+                                            {
                                                 effectiveLinkedEnquiry.package_name
                                             }
-                                            disabled
-                                        />
+                                        </div>
                                     </FormField>
                                 )}
                             </div>
                         </CardContent>
                     </Card>
+                )}
+
+                {/* Linked package */}
+                {!isPublic && data.package_id && (
+                    <PackageInformationSection
+                        description="Details of the currently selected package."
+                        packageInfo={
+                            linkedPackageInfo
+                                ? linkedPackageInfo
+                                : data.package_id
+                                  ? {
+                                        id: Number(data.package_id),
+                                        name: '-',
+                                    }
+                                  : null
+                        }
+                        isLoading={isLoadingLinkedPackage}
+                        onViewDetails={handleOpenPackageDialog}
+                    />
                 )}
 
                 {/* Group details */}
@@ -539,7 +920,7 @@ export default function CustomerConfirmationForm({
                                 error={getError('package_id')}
                             >
                                 {enquiryType === 'private' && packageData ? (
-                                    <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm">
+                                    <div className="flex h-9 items-center rounded-md border bg-muted px-3">
                                         {packageData.name ||
                                             'Package (from step 1)'}
                                     </div>
@@ -558,7 +939,11 @@ export default function CustomerConfirmationForm({
                                             )
                                         }
                                         placeholder="Select package..."
-                                        disabled={isView || processing}
+                                        disabled={
+                                            isView ||
+                                            processing ||
+                                            isPrivateWithLinkedPackage
+                                        }
                                         truncate={30}
                                     />
                                 )}
@@ -813,7 +1198,7 @@ export default function CustomerConfirmationForm({
                 </Card>
 
                 {/* Terms */}
-                {isPublic && isCreate && (
+                {isPublic && (
                     <Card>
                         <CardContent>
                             <div className="flex items-start gap-3 pt-4">
@@ -867,8 +1252,7 @@ export default function CustomerConfirmationForm({
                             type="submit"
                             className="min-w-[140px]"
                             disabled={
-                                processing ||
-                                (isPublic && isCreate && !data.terms_accepted)
+                                processing || (isPublic && !data.terms_accepted)
                             }
                         >
                             {processing
@@ -894,6 +1278,35 @@ export default function CustomerConfirmationForm({
                     isLoadingChild={isLoadingEnquiryChild}
                     showStatusActions={false}
                 />
+
+                {/* Package dialog */}
+                <Dialog
+                    open={packageDialogOpen}
+                    onOpenChange={setPackageDialogOpen}
+                >
+                    <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                        <DialogHeader>
+                            <DialogTitle>Package Details</DialogTitle>
+                            <DialogDescription className="sr-only">
+                                View package details
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                            {linkedPackageData ? (
+                                <PackageForm
+                                    mode="view"
+                                    initialData={linkedPackageData}
+                                    onCancel={() => setPackageDialogOpen(false)}
+                                />
+                            ) : (
+                                <div className="text-sm text-muted-foreground">
+                                    Loading package details...
+                                </div>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </form>
         </div>
     );

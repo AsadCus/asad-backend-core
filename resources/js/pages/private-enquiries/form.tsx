@@ -124,7 +124,7 @@ export default function PrivateEnquiryForm({
 
     return (
         <div className="mx-auto w-full">
-            <form onSubmit={submit} className="space-y-4 py-2">
+            <form onSubmit={submit} className="space-y-4">
                 {/* Error Summary Banner */}
                 {/* Error Alert */}
                 {Object.keys(errors).length > 0 && !isView && (

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -61,24 +62,6 @@ class Package extends Model
         'seats_left' => 'integer',
     ];
 
-    /**
-     * Computed: true if status is 'open', false otherwise.
-     */
-    public function getLaunchedAttribute(): bool
-    {
-        return $this->status === 'open';
-    }
-
-    public function getDepartureDateFormattedAttribute(): ?string
-    {
-        return $this->departure_date?->format('d/m/Y');
-    }
-
-    public function getArrivalDateFormattedAttribute(): ?string
-    {
-        return $this->arrival_date?->format('d/m/Y');
-    }
-
     public function accommodations(): HasMany
     {
         return $this->hasMany(PackageAccommodation::class);
@@ -87,5 +70,36 @@ class Package extends Model
     public function manifests(): HasMany
     {
         return $this->hasMany(Manifest::class);
+    }
+
+    // Formatting Helpers
+
+    public function getLaunchedAttribute(): bool
+    {
+        return $this->status === 'open';
+    }
+
+    public function getDepartureDateFormattedAttribute(): ?string
+    {
+        return $this->departure_date ? Carbon::parse($this->departure_date)->translatedFormat('d F Y') : null;
+    }
+
+    public function getArrivalDateFormattedAttribute(): ?string
+    {
+        return $this->arrival_date ? Carbon::parse($this->arrival_date)->translatedFormat('d F Y') : null;
+    }
+
+    public function setDepartureDateAttribute(mixed $value): void
+    {
+        $this->attributes['departure_date'] = ! empty($value)
+            ? Carbon::parse($value)->format('Y-m-d')
+            : null;
+    }
+
+    public function setArrivalDateAttribute(mixed $value): void
+    {
+        $this->attributes['arrival_date'] = ! empty($value)
+            ? Carbon::parse($value)->format('Y-m-d')
+            : null;
     }
 }

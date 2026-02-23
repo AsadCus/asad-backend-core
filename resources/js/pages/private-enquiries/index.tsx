@@ -272,6 +272,9 @@ export default function Index({ data }: PrivateEnquiriesProps) {
     const [statusActionEnquiryId, setStatusActionEnquiryId] = useState<
         number | undefined
     >();
+    const [statusActionEnquiryType, setStatusActionEnquiryType] = useState<
+        string | undefined
+    >();
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
     // Private enquiry step-by-step confirmation flow
@@ -326,6 +329,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                           email: enquiry.email ?? '',
                           contact: enquiry.contact_number ?? '',
                           status: enquiry.status_label ?? '',
+                          created_at: enquiry.created_at ?? null,
                       }
                     : undefined,
             );
@@ -457,6 +461,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                                             row?.original.enquiry_id ??
                                                 undefined,
                                         );
+                                        setStatusActionEnquiryType('private');
                                         setStatusDialogOpen(true);
                                     }
 
@@ -562,11 +567,13 @@ export default function Index({ data }: PrivateEnquiriesProps) {
             {/* Enquiry Status Action Dialog */}
             <EnquiryStatusAction
                 enquiryId={statusActionEnquiryId}
+                enquiryType={statusActionEnquiryType}
                 action={statusAction}
                 isOpen={statusDialogOpen}
                 onClose={() => {
                     setStatusDialogOpen(false);
                     setStatusAction(null);
+                    setStatusActionEnquiryType(undefined);
                 }}
                 onConfirmed={(enquiryId) => {
                     startPrivateFlow(enquiryId);

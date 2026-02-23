@@ -4,6 +4,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -21,6 +22,7 @@ import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import type {
     CustomerGroupDatatableSchema,
     CustomerGroupFormSchema,
@@ -205,6 +207,10 @@ export default function ConfirmedCustomerIndex({
     const [groupDialogData, setGroupDialogData] =
         useState<CustomerGroupFormSchema | null>(null);
     const [isLoadingGroup, setIsLoadingGroup] = useState(false);
+    const [publicLinkDialogOpen, setPublicLinkDialogOpen] = useState(false);
+    const [selectedPublicLinkGroupId, setSelectedPublicLinkGroupId] = useState<
+        number | null
+    >(null);
 
     const handleOpenGroupDialog = async (
         groupId: number,
@@ -224,6 +230,40 @@ export default function ConfirmedCustomerIndex({
             console.error('Failed to fetch group details:', error);
         } finally {
             setIsLoadingGroup(false);
+        }
+    };
+
+    const handleCopyPublicEditLink = async (
+        linkType: 'one_time' | 'continuous',
+    ) => {
+        if (!selectedPublicLinkGroupId) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                generateEditLink(selectedPublicLinkGroupId, {
+                    query: { link_type: linkType },
+                }).url,
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to generate public link.');
+            }
+
+            const data = (await response.json()) as { url: string };
+
+            await navigator.clipboard.writeText(data.url);
+            toast.success('Link copied', {
+                description:
+                    linkType === 'one_time'
+                        ? 'One-time public edit link copied to clipboard.'
+                        : 'Continuous public edit link copied to clipboard.',
+            });
+            setPublicLinkDialogOpen(false);
+            setSelectedPublicLinkGroupId(null);
+        } catch {
+            toast.error('Failed to generate public link.');
         }
     };
 
@@ -262,21 +302,8 @@ export default function ConfirmedCustomerIndex({
                                     } else if (
                                         action === 'copy-public-edit-link'
                                     ) {
-                                        fetch(generateEditLink(groupId).url)
-                                            .then((res) => res.json())
-                                            .then((data: { url: string }) => {
-                                                navigator.clipboard.writeText(
-                                                    data.url,
-                                                );
-                                                alert(
-                                                    'Public edit link copied to clipboard!',
-                                                );
-                                            })
-                                            .catch(() => {
-                                                alert(
-                                                    'Failed to generate public link.',
-                                                );
-                                            });
+                                        setSelectedPublicLinkGroupId(groupId);
+                                        setPublicLinkDialogOpen(true);
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Customer Group',
@@ -389,6 +416,40 @@ export default function ConfirmedCustomerIndex({
                                 Failed to load confirmed customer details.
                             </div>
                         )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={publicLinkDialogOpen}
+                onOpenChange={setPublicLinkDialogOpen}
+            >
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Copy Public Edit Link</DialogTitle>
+                        <DialogDescription>
+                            Choose which link type you want to copy for this
+                            customer group.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid gap-3">
+                        <Button
+                            type="button"
+                            variant="default"
+                            onClick={() =>
+                                handleCopyPublicEditLink('continuous')
+                            }
+                        >
+                            Copy Continuous Link
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleCopyPublicEditLink('one_time')}
+                        >
+                            Copy One-Time Link
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

@@ -31,6 +31,18 @@ export const typeColors: Record<string, string> = {
         'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
 };
 
+export const enquiryTypeLabels: Record<string, string> = {
+    general: 'General',
+    private: 'Private',
+};
+
+export const enquiryStatusLabels: Record<string, string> = {
+    new_lead: 'New Lead',
+    contacted: 'Contacted',
+    negotiating: 'Negotiating',
+    confirmed: 'Confirmed',
+};
+
 // ── Datatable schemas (All Enquiries index) ─────────────────────────────────
 
 export interface EnquirySchema {
@@ -56,6 +68,7 @@ export interface EnquiryDetails {
     contact: string;
     status: string;
     package_name?: string | null;
+    created_at?: string | null;
 }
 
 export const generalEnquiryDatatableSchema = generalEnquirySchema.required();

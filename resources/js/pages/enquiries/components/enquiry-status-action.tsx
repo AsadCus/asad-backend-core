@@ -16,6 +16,7 @@ export type EnquiryStatusActionType = 'contacted' | 'negotiating' | 'confirmed';
 
 interface EnquiryStatusActionProps {
     enquiryId?: number;
+    enquiryType?: string;
     action: EnquiryStatusActionType | null;
     isOpen: boolean;
     onClose: () => void;
@@ -36,6 +37,7 @@ export function getAvailableEnquiryActions(
 
 export function EnquiryStatusAction({
     enquiryId,
+    enquiryType,
     action,
     isOpen,
     onClose,
@@ -57,13 +59,17 @@ export function EnquiryStatusAction({
     };
 
     const getDescription = () => {
+        const isPrivate = (enquiryType ?? '').toLowerCase() === 'private';
+
         switch (action) {
             case 'contacted':
                 return 'Mark this enquiry as contacted. The customer has been reached out to.';
             case 'negotiating':
                 return 'Move this enquiry to negotiating stage. Terms are being discussed with the customer.';
             case 'confirmed':
-                return 'Confirm this enquiry. This will open the Customer Confirmation Form to create a customer group.';
+                return isPrivate
+                    ? 'Confirm this private enquiry. You will continue through a 2-step flow: package setup first, then customer confirmation.'
+                    : 'Confirm this enquiry. This will open the Customer Confirmation Form to create a customer group.';
             default:
                 return '';
         }
@@ -110,9 +116,9 @@ export function EnquiryStatusAction({
                         <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-base text-muted-foreground">
                             <Info className="mt-0.5 h-4 w-4 shrink-0" />
                             <p>
-                                After confirming, you will be prompted to fill
-                                in the Customer Confirmation Form to create a
-                                customer group with leader and participants.
+                                {(enquiryType ?? '').toLowerCase() === 'private'
+                                    ? 'Private enquiry workflow: Step 1 creates an exclusive package for this enquiry. Step 2 confirms customers and links them to that package.'
+                                    : 'General enquiry workflow: after confirming, you will be prompted to complete the Customer Confirmation Form to create a customer group.'}
                             </p>
                         </div>
                     </div>

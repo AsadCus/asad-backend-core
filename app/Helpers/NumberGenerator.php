@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 class NumberGenerator
 {
     private static $formats = [
-        'customer' => ['prefix' => 'UC', 'padding' => 4],
+        'customer' => ['prefix' => 'CUST', 'padding' => 4],
         'maid' => ['prefix' => 'MBC', 'padding' => 4],
         'quotation' => ['prefix' => 'QTN', 'padding' => 3],
         'order' => ['prefix' => 'OR', 'padding' => 3],

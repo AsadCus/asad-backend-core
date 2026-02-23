@@ -10,6 +10,7 @@ use Inertia\Inertia;
 class PackageController extends Controller
 {
     protected $packageService;
+
     protected $packageRule;
 
     public function __construct(PackageService $packageService, PackageRule $packageRule)
@@ -60,6 +61,14 @@ class PackageController extends Controller
         return Inertia::render('packages/show', [
             'data' => $package,
         ]);
+    }
+
+    /**
+     * Get package data for linked-info panels (JSON).
+     */
+    public function getForShow(string $id)
+    {
+        return response()->json($this->packageService->getForEditShow($id));
     }
 
     /**

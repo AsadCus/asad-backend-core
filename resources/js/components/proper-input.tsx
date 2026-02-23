@@ -25,6 +25,7 @@ export function ProperInput({
     size?: 'compact' | 'default';
     className?: string;
     inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+    rows?: number;
 }) {
     const [local, setLocal] = useState(String(value ?? ''));
 
@@ -53,12 +54,6 @@ export function ProperInput({
                 )}
                 onChange={(e) => setLocal(e.target.value)}
                 onBlur={commit}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        commit();
-                    }
-                }}
             />
         );
     }

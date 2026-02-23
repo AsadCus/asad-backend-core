@@ -68,7 +68,11 @@ export const packageStatusColors = {
     closed: 'bg-red-100 text-red-800',
 };
 
-export const packageStatusLabels = {
+export const packageStatusLabels: Record<string, string> = {
     open: 'Open',
     closed: 'Closed',
+};
+
+export const packageTicketTypeLabels: Record<string, string> = {
+    speed_train: 'Speed Train',
 };

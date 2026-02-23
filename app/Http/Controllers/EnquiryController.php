@@ -55,6 +55,7 @@ class EnquiryController extends Controller
                 'email' => $enquiry->email,
                 'contact_number' => $enquiry->contact_number,
                 'package_name' => $enquiry->package?->name,
+                'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
             ],
             'child' => $child,
             'customerGroup' => $enquiry->customerGroup
@@ -183,37 +184,9 @@ class EnquiryController extends Controller
             return response()->json([], 200);
         }
 
-        $pe = $enquiry->privateEnquiry;
-        $totalSeats = ($pe->no_of_pax ?? 0) + ($pe->no_of_children ?? 0);
-
-        return response()->json([
-            'name' => 'Private - '.($enquiry->name ?? 'Unnamed'),
-            'status' => 'open',
-            'airline' => $pe->airline,
-            'departure_date' => $pe->departure_date?->format('d/m/Y'),
-            'arrival_date' => $pe->return_date?->format('d/m/Y'),
-            'total_seats' => $totalSeats,
-            'seats_left' => $totalSeats,
-            'vehicle_type' => $pe->land_transfer,
-            'ticket_type' => $pe->add_on_speed_train ? 'speed_train' : null,
-            'remarks' => $pe->other_remarks,
-            'accommodations' => array_values(array_filter([
-                $pe->hotel_makkah ? [
-                    'location' => 'Makkah',
-                    'hotel_name' => $pe->hotel_makkah,
-                    'type_of_meal' => $pe->meals_makkah,
-                    'check_in' => null,
-                    'check_out' => null,
-                ] : null,
-                $pe->hotel_madinah ? [
-                    'location' => 'Madinah',
-                    'hotel_name' => $pe->hotel_madinah,
-                    'type_of_meal' => $pe->meals_madinah,
-                    'check_in' => null,
-                    'check_out' => null,
-                ] : null,
-            ])),
-        ]);
+        return response()->json(
+            $this->packageService->privateEnquiryToPackagePayload($enquiry->privateEnquiry)
+        );
     }
 
     /**

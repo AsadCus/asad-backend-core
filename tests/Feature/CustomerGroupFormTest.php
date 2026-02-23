@@ -5,10 +5,15 @@ namespace Tests\Feature;
 use App\Enums\EnquiryStatus;
 use App\Models\Customer;
 use App\Models\CustomerGroup;
+use App\Models\CustomerGroupMember;
 use App\Models\Enquiry;
 use App\Models\Package;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\URL;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -450,6 +455,74 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals(2, $group->members()->count());
     }
 
+    public function test_private_group_update_rejects_replacing_linked_package(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $originalPackage = Package::create([
+            'group_number' => 'PKG-PRIVATE-ORIG',
+            'name' => 'Private Original',
+            'status' => 'open',
+        ]);
+
+        $replacementPackage = Package::create([
+            'group_number' => 'PKG-PRIVATE-NEW',
+            'name' => 'Private Replacement',
+            'status' => 'open',
+        ]);
+
+        $enquiry = Enquiry::create([
+            'type' => 'private',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Private Group',
+            'contact_number' => '01234',
+            'email' => 'private-group@test.com',
+            'created_by' => $this->adminUser->id,
+            'package_id' => $originalPackage->id,
+        ]);
+
+        $group = CustomerGroup::create([
+            'enquiry_id' => $enquiry->id,
+            'created_by' => $this->adminUser->id,
+            'package_id' => $originalPackage->id,
+            'date_of_application' => '2026-10-15',
+        ]);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Private Leader',
+            'email' => 'private-leader@test.com',
+        ]);
+        $customerUser->assignRole('customer');
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'C-PRIVATE-001',
+        ]);
+
+        CustomerGroupMember::create([
+            'customer_group_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+        ]);
+
+        $response = $this->put(route('customer-groups.update', $group->id), [
+            'date_of_application' => '2026-10-20',
+            'package_id' => $replacementPackage->id,
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Private Leader',
+                    'email' => 'private-leader@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ]);
+
+        $response->assertStatus(422);
+
+        $group->refresh();
+        $this->assertEquals($originalPackage->id, $group->package_id);
+    }
+
     public function test_customer_group_destroy_deletes_group_and_members_only_and_reverts_enquiry_status(): void
     {
         $this->actingAs($this->adminUser);
@@ -656,5 +729,229 @@ class CustomerGroupFormTest extends TestCase
         // The URL should contain a signature parameter
         $url = $response->json('url');
         $this->assertStringContainsString('signature=', $url);
+    }
+
+    public function test_public_one_time_edit_link_can_only_be_used_once(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'One Time Link',
+            'contact_number' => '012',
+            'email' => 'one-time@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-04-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'One Time Link',
+                    'email' => 'one-time@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ]);
+
+        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+
+        $response = $this->getJson(route('customer-groups.generate-edit-link', [
+            'groupId' => $group->id,
+            'link_type' => 'one_time',
+        ]));
+
+        $response->assertOk();
+
+        $url = $response->json('url');
+        $query = [];
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $encryptedId = basename((string) parse_url($url, PHP_URL_PATH));
+
+        $this->assertSame('one_time', Arr::get($query, 'link_type'));
+        $this->assertNotEmpty(Arr::get($query, 'link_token'));
+        $this->assertNotEmpty(Arr::get($query, 'expires'));
+        $this->assertNotEmpty(Arr::get($query, 'signature'));
+
+        $this->get($url)->assertOk();
+
+        $updateUrl = URL::temporarySignedRoute(
+            'customer-confirmation.public.update',
+            now()->setTimestamp((int) Arr::get($query, 'expires')),
+            [
+                'encryptedId' => $encryptedId,
+                'link_type' => Arr::get($query, 'link_type'),
+                'link_token' => Arr::get($query, 'link_token'),
+            ],
+        );
+
+        $this->post($updateUrl, [
+            'date_of_application' => '2026-05-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'One Time Link Updated',
+                    'email' => 'one-time@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+            'terms_accepted' => true,
+        ])->assertOk();
+
+        $this->get($url)->assertStatus(403);
+    }
+
+    public function test_public_edit_store_requires_terms_accepted(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Public Edit Terms',
+            'contact_number' => '012',
+            'email' => 'public-edit-terms@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-06-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Public Edit Terms',
+                    'email' => 'public-edit-terms@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ]);
+
+        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $encryptedId = Crypt::encrypt($group->id);
+
+        $updateUrl = URL::signedRoute('customer-confirmation.public.update', [
+            'encryptedId' => $encryptedId,
+            'link_type' => 'continuous',
+        ]);
+
+        $this->post($updateUrl, [
+            'date_of_application' => '2026-06-05',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Public Edit Terms Updated',
+                    'email' => 'public-edit-terms@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+            'terms_accepted' => false,
+        ])->assertSessionHasErrors('terms_accepted');
+    }
+
+    public function test_customer_group_activity_logs_store_detailed_old_and_new_snapshots(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Detailed Log Test',
+            'contact_number' => '012',
+            'email' => 'detailed-log@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-09-01',
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Detailed Leader',
+                    'email' => 'detailed-leader@test.com',
+                    'contact_number' => '0191234567',
+                    'nric_number' => 'S1234567A',
+                    'passport_number' => 'A12345678',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+
+        $createActivity = Activity::query()
+            ->where('subject_type', CustomerGroup::class)
+            ->where('subject_id', $group->id)
+            ->where('description', 'like', 'Customer group created%')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($createActivity);
+
+        $createProperties = $createActivity->properties->toArray();
+        $this->assertSame([], $createProperties['old'] ?? null);
+        $this->assertSame($group->id, data_get($createProperties, 'attributes.group.id'));
+        $this->assertSame('create', data_get($createProperties, 'context.operation'));
+        $this->assertSame($this->adminUser->id, data_get($createProperties, 'context.actor.id'));
+
+        $maskedCreateEmail = data_get($createProperties, 'attributes.members.0.email');
+        $this->assertIsString($maskedCreateEmail);
+        $this->assertNotSame('detailed-leader@test.com', $maskedCreateEmail);
+        $this->assertTrue(str_contains((string) $maskedCreateEmail, '*'));
+
+        $this->put(route('customer-groups.update', $group->id), [
+            'date_of_application' => '2026-09-02',
+            'package_room_type' => 'triple',
+            'package_category' => 'deluxe_umrah',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Detailed Leader Updated',
+                    'email' => 'detailed-leader@test.com',
+                    'contact_number' => '0190000000',
+                    'nric_number' => 'S1234567A',
+                    'passport_number' => 'A12345678',
+                    'nationality' => 'Singaporean',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $updateActivity = Activity::query()
+            ->where('subject_type', CustomerGroup::class)
+            ->where('subject_id', $group->id)
+            ->where('description', 'Customer group #'.$group->id.' updated')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($updateActivity);
+
+        $updateProperties = $updateActivity->properties->toArray();
+        $this->assertSame('update', data_get($updateProperties, 'context.operation'));
+        $this->assertSame('double', data_get($updateProperties, 'old.group.package_room_type'));
+        $this->assertSame('triple', data_get($updateProperties, 'attributes.group.package_room_type'));
+        $this->assertSame('classic_umrah', data_get($updateProperties, 'old.group.package_category'));
+        $this->assertSame('deluxe_umrah', data_get($updateProperties, 'attributes.group.package_category'));
+
+        $maskedUpdateContact = data_get($updateProperties, 'attributes.members.0.contact_number');
+        $this->assertIsString($maskedUpdateContact);
+        $this->assertNotSame('0190000000', $maskedUpdateContact);
+        $this->assertTrue(str_contains((string) $maskedUpdateContact, '*'));
+
+        $this->delete(route('customer-groups.destroy', $group->id))->assertRedirect();
+
+        $deleteActivity = Activity::query()
+            ->where('subject_type', CustomerGroup::class)
+            ->where('subject_id', $group->id)
+            ->where('description', 'Customer group #'.$group->id.' deleted')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($deleteActivity);
+
+        $deleteProperties = $deleteActivity->properties->toArray();
+        $this->assertSame('delete', data_get($deleteProperties, 'context.operation'));
+        $this->assertSame(true, data_get($deleteProperties, 'attributes.deleted'));
+        $this->assertSame($group->id, data_get($deleteProperties, 'old.group.id'));
     }
 }

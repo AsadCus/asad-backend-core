@@ -161,6 +161,9 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
     const [statusActionEnquiryId, setStatusActionEnquiryId] = useState<
         number | undefined
     >();
+    const [statusActionEnquiryType, setStatusActionEnquiryType] = useState<
+        string | undefined
+    >();
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
     // Customer Confirmation Form state
@@ -280,6 +283,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                             row?.original.enquiry_id ??
                                                 undefined,
                                         );
+                                        setStatusActionEnquiryType('general');
                                         setStatusDialogOpen(true);
                                     }
 
@@ -374,11 +378,13 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
             {/* Enquiry Status Action Dialog */}
             <EnquiryStatusAction
                 enquiryId={statusActionEnquiryId}
+                enquiryType={statusActionEnquiryType}
                 action={statusAction}
                 isOpen={statusDialogOpen}
                 onClose={() => {
                     setStatusDialogOpen(false);
                     setStatusAction(null);
+                    setStatusActionEnquiryType(undefined);
                 }}
                 onConfirmed={(enquiryId) => {
                     const enquiry = enquiriesForDatatable.find(

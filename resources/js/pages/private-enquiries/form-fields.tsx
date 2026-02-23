@@ -179,6 +179,7 @@ export default function PrivateEnquiryFormFields({
                             <FieldRequirements
                                 required
                                 hint="Enter contact number with country code"
+                                format="+65 8765 4321"
                             />
                         </Label>
                         <div className="relative">
@@ -187,7 +188,7 @@ export default function PrivateEnquiryFormFields({
                                 value={data.contact_number ?? ''}
                                 disabled={disabled}
                                 onCommit={(v) => setData('contact_number', v)}
-                                placeholder="e.g. +60123456789"
+                                placeholder="+65 8765 4321"
                             />
                             {renderError('contact_number')}
                         </div>
@@ -200,7 +201,7 @@ export default function PrivateEnquiryFormFields({
                             <FieldRequirements
                                 required
                                 hint="Enter email address"
-                                format="test@example.com"
+                                format="email@example.com"
                             />
                         </Label>
                         <div className="relative">
@@ -209,7 +210,7 @@ export default function PrivateEnquiryFormFields({
                                 value={data.email ?? ''}
                                 disabled={disabled}
                                 onCommit={(v) => setData('email', v)}
-                                placeholder="Enter email address"
+                                placeholder="email@example.com"
                             />
                             {renderError('email')}
                         </div>

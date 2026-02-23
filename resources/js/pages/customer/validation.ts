@@ -1,6 +1,6 @@
 import { customerGroupFormSchema, customerSchema } from './schema';
 
-export const customerMemberValidationSchema = customerSchema.superRefine(
+export const customerValidationSchema = customerSchema.superRefine(
     (data, ctx) => {
         if (!data.name || data.name.trim().length === 0) {
             ctx.addIssue({
@@ -154,7 +154,7 @@ export const customerGroupFormValidationSchema =
 
         // Validate each member
         data.members?.forEach((member, index) => {
-            const result = customerMemberValidationSchema.safeParse(member);
+            const result = customerValidationSchema.safeParse(member);
             if (!result.success) {
                 result.error.issues.forEach((issue) => {
                     ctx.addIssue({
