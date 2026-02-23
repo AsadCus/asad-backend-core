@@ -14,6 +14,10 @@ return new class extends Migration
         Schema::create('customer_groups', function (Blueprint $table) {
             $table->id();
             $table->foreignId('enquiry_id')->nullable()->constrained('enquiries')->cascadeOnDelete();
+            $table->foreignId('package_id')->nullable()->constrained('packages')->nullOnDelete();
+            $table->string('package_room_type')->nullable();
+            $table->string('package_category')->nullable();
+            $table->date('date_of_application')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

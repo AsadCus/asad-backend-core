@@ -1,5 +1,6 @@
 import { BooleanSelect } from '@/components/boolean-select';
 import { DatePickerField } from '@/components/date-picker';
+import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
@@ -17,9 +18,26 @@ interface MemberFormFieldsProps {
     getError: (path: string) => string | undefined;
     onUpdate: (
         field: keyof CustomerMemberSchema,
-        value: string | boolean | null,
+        value: string | boolean | File | null,
     ) => void;
 }
+
+const DOCUMENT_FIELDS = [
+    {
+        fileKey: 'passport_file' as const,
+        pathKey: 'passport_path' as const,
+        label: 'Passport Copy',
+        accept: '.jpg,.jpeg,.png,.pdf',
+        hint: 'Upload a scan or photo of the passport bio-data page',
+    },
+    {
+        fileKey: 'photo_file' as const,
+        pathKey: 'photo_path' as const,
+        label: 'Photo',
+        accept: '.jpg,.jpeg,.png',
+        hint: 'Upload a photo',
+    },
+] as const;
 
 export default function MemberFormFields({
     member,
@@ -379,6 +397,36 @@ export default function MemberFormFields({
                             />
                         </FormField>
                     )}
+                </div>
+            </div>
+
+            {/* Documents & Photos */}
+            <div className="space-y-4">
+                <h3 className="text-xl font-semibold">
+                    Documents &amp; Photos
+                </h3>
+                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+                    {DOCUMENT_FIELDS.map((doc) => (
+                        <DocumentField
+                            key={doc.fileKey}
+                            label={doc.label}
+                            hint={doc.hint}
+                            accept={doc.accept}
+                            fileValue={member[doc.fileKey] as File | undefined}
+                            existingPath={
+                                (member[doc.pathKey] as string | null) ??
+                                undefined
+                            }
+                            isView={isView}
+                            disabled={disabled}
+                            error={getError(`${prefix}.${doc.fileKey}`)}
+                            onSelect={(file) => onUpdate(doc.fileKey, file)}
+                            onClear={() => {
+                                onUpdate(doc.fileKey, null);
+                                onUpdate(doc.pathKey, null);
+                            }}
+                        />
+                    ))}
                 </div>
             </div>
         </div>

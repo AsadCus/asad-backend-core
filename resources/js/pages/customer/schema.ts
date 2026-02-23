@@ -1,7 +1,8 @@
+import type { OptionType } from '@/types';
 import { z } from 'zod';
+import type { PackageSchema } from '../packages/schema';
 
 // ── Member schema (per-person fields stored in users + customers) ──
-
 export const customerMemberSchema = z.object({
     member_id: z.number().optional(),
     customer_id: z.number().optional(),
@@ -23,12 +24,16 @@ export const customerMemberSchema = z.object({
     first_time_umrah: z.boolean().nullable().optional(),
     has_chronic_disease: z.boolean().nullable().optional(),
     chronic_disease_details: z.string().nullable().optional(),
+    // Image uploads (File on submit, string path from server)
+    passport_file: z.any().optional(),
+    photo_file: z.any().optional(),
+    passport_path: z.string().nullable().optional(),
+    photo_path: z.string().nullable().optional(),
 });
 
 export type CustomerMemberSchema = z.infer<typeof customerMemberSchema>;
 
 // ── Customer Group form schema (group-level + members) ──
-
 export const customerGroupFormSchema = z.object({
     id: z.number().optional(),
     enquiry_id: z.number().nullable().optional(),
@@ -42,8 +47,44 @@ export const customerGroupFormSchema = z.object({
 
 export type CustomerGroupFormSchema = z.infer<typeof customerGroupFormSchema>;
 
-// ── Options ──
+export type CustomerMemberFormData = Omit<
+    CustomerMemberSchema,
+    'passport_file' | 'photo_file' | 'passport_path' | 'photo_path'
+> & {
+    passport_file?: File | null;
+    photo_file?: File | null;
+    passport_path?: string | null;
+    photo_path?: string | null;
+};
 
+export type CustomerGroupFormData = Omit<CustomerGroupFormSchema, 'members'> & {
+    members: CustomerMemberFormData[];
+    package_data?: PackageSchema;
+};
+
+export interface CustomerOption extends OptionType {
+    name: string;
+    email: string;
+    contact_number: string;
+    nric_number: string;
+    address: string;
+    nationality?: string;
+    passport_number?: string;
+    passport_issue_date?: string;
+    passport_expiry_date?: string;
+    passport_place_of_issue?: string;
+    gender?: string;
+    marital_status?: string;
+    date_of_birth?: string;
+    place_of_birth?: string;
+    first_time_umrah?: boolean;
+    has_chronic_disease?: boolean;
+    chronic_disease_details?: string;
+    passport_path?: string;
+    photo_path?: string;
+}
+
+// ── Options ──
 export const packageRoomTypeOptions = [
     { label: 'Single', value: 'single' },
     { label: 'Double Sharing', value: 'double' },
@@ -69,7 +110,6 @@ export const maritalStatusOptions = [
 ];
 
 // ── Datatable schemas (Customer Groups index) ──
-
 export interface CustomerGroupMemberDatatableSchema {
     id: number;
     customer_id: number;
@@ -116,4 +156,8 @@ export const emptyMember = (isLeader = false): CustomerMemberSchema => ({
     first_time_umrah: null,
     has_chronic_disease: false,
     chronic_disease_details: '',
+    passport_file: undefined,
+    photo_file: undefined,
+    passport_path: null,
+    photo_path: null,
 });

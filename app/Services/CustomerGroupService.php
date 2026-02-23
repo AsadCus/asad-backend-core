@@ -7,16 +7,15 @@ use App\Models\CustomerGroup;
 use App\Models\CustomerGroupMember;
 use App\Models\Enquiry;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CustomerGroupService
 {
-    /**
-     * Create a customer group from a confirmed enquiry.
-     *
-     * @param  array<string, mixed>  $data
-     */
+    /** Create a customer group from request data. */
     public function createGroup(array $data): CustomerGroup
     {
         return DB::transaction(function () use ($data) {
@@ -35,9 +34,10 @@ class CustomerGroupService
                 'date_of_application' => $data['date_of_application'] ?? null,
             ]);
 
-            // Process members (unified list with is_leader flag)
             foreach ($data['members'] as $member) {
                 $customer = $this->findOrCreateCustomer($member);
+                $this->processFileUploads($customer, $member);
+
                 CustomerGroupMember::create([
                     'customer_group_id' => $group->id,
                     'customer_id' => $customer->id,
@@ -52,34 +52,27 @@ class CustomerGroupService
                     'subject_id' => $group->id,
                     'enquiry_id' => $enquiryId,
                 ])
-                ->log('Customer group created' . ($enquiryId ? ' for enquiry #' . $enquiryId : ''));
+                ->log('Customer group created'.($enquiryId ? ' for enquiry #'.$enquiryId : ''));
 
             return $group->load('members.customer.user');
         });
     }
 
-    /**
-     * Find an existing customer by email or create a new one.
-     *
-     * @param  array<string, mixed>  $customerData
-     */
+    /** Find an existing customer by email or create one. */
     private function findOrCreateCustomer(array $customerData): Customer
     {
         $email = $customerData['email'] ?? null;
         $biodata = $this->extractBiodata($customerData);
 
-        // Try to find existing user by email
         if ($email) {
             $existingUser = User::where('email', $email)->first();
             if ($existingUser && $existingUser->customer) {
-                // Update customer fields if provided
                 $this->updateCustomerIfNeeded($existingUser->customer, $customerData);
 
                 return $existingUser->customer;
             }
 
             if ($existingUser) {
-                // User exists but no customer record, create one
                 $customer = Customer::create(array_merge([
                     'user_id' => $existingUser->id,
                     'nric_number' => $customerData['nric_number'] ?? null,
@@ -90,7 +83,6 @@ class CustomerGroupService
             }
         }
 
-        // Create new user + customer
         $user = User::create([
             'name' => $customerData['name'] ?? '',
             'email' => $email,
@@ -109,12 +101,7 @@ class CustomerGroupService
         return $customer;
     }
 
-    /**
-     * Extract biodata fields from customer data array.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
+    /** Extract biodata fields from input data. */
     private function extractBiodata(array $data): array
     {
         $fields = [
@@ -130,6 +117,8 @@ class CustomerGroupService
             'first_time_umrah',
             'has_chronic_disease',
             'chronic_disease_details',
+            'passport_path',
+            'photo_path',
         ];
 
         $biodata = [];
@@ -142,11 +131,7 @@ class CustomerGroupService
         return $biodata;
     }
 
-    /**
-     * Update customer fields if additional data is provided.
-     *
-     * @param  array<string, mixed>  $data
-     */
+    /** Update customer and user fields when provided. */
     private function updateCustomerIfNeeded(Customer $customer, array $data): void
     {
         $customerUpdates = [];
@@ -165,6 +150,8 @@ class CustomerGroupService
             'first_time_umrah',
             'has_chronic_disease',
             'chronic_disease_details',
+            'passport_path',
+            'photo_path',
         ];
 
         foreach ($customerFields as $field) {
@@ -177,7 +164,6 @@ class CustomerGroupService
             $customer->update($customerUpdates);
         }
 
-        // Update user fields if provided
         if ($customer->user) {
             $userUpdates = [];
             if (! empty($data['name'])) {
@@ -192,11 +178,7 @@ class CustomerGroupService
         }
     }
 
-    /**
-     * Search customers by email for autocomplete.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    /** Search customers for autocomplete options. */
     public function searchCustomers(string $query): array
     {
         return User::query()
@@ -224,9 +206,7 @@ class CustomerGroupService
             ->all();
     }
 
-    /**
-     * Get group details by enquiry ID.
-     */
+    /** Get group details by enquiry ID. */
     public function getByEnquiryId(int $enquiryId): ?CustomerGroup
     {
         return CustomerGroup::with('members.customer.user')
@@ -234,11 +214,7 @@ class CustomerGroupService
             ->first();
     }
 
-    /**
-     * Get all customer groups for the grouped index page.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    /** Get grouped customer data for index listing. */
     public function getForGroupedIndex(): array
     {
         return CustomerGroup::with(['members.customer.user', 'enquiry'])
@@ -276,11 +252,7 @@ class CustomerGroupService
             ->all();
     }
 
-    /**
-     * List all active customers for selection.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    /** List active customers for selection. */
     public function listActiveCustomers(): array
     {
         return User::query()
@@ -289,24 +261,36 @@ class CustomerGroupService
             ->orderBy('name')
             ->get()
             ->map(function ($user) {
+                $customer = $user->customer;
+
                 return [
                     'value' => $user->id,
                     'label' => $user->email,
                     'name' => $user->name,
                     'email' => $user->email,
                     'contact_number' => $user->contact ?? '',
-                    'nric_number' => $user->customer->nric_number ?? '',
-                    'address' => $user->customer->address ?? '',
+                    'nric_number' => $customer->nric_number ?? '',
+                    'address' => $customer->address ?? '',
+                    'nationality' => $customer->nationality ?? '',
+                    'passport_number' => $customer->passport_number ?? '',
+                    'passport_issue_date' => $customer->passport_issue_date_formatted ?? '',
+                    'passport_expiry_date' => $customer->passport_expiry_date_formatted ?? '',
+                    'passport_place_of_issue' => $customer->passport_place_of_issue ?? '',
+                    'gender' => $customer->gender ?? '',
+                    'marital_status' => $customer->marital_status ?? '',
+                    'date_of_birth' => $customer->date_of_birth_formatted ?? '',
+                    'place_of_birth' => $customer->place_of_birth ?? '',
+                    'first_time_umrah' => $customer->first_time_umrah ?? false,
+                    'has_chronic_disease' => $customer->has_chronic_disease ?? false,
+                    'chronic_disease_details' => $customer->chronic_disease_details ?? '',
+                    'passport_path' => $customer->passport_path ? Storage::disk('public')->url($customer->passport_path) : null,
+                    'photo_path' => $customer->photo_path ? Storage::disk('public')->url($customer->photo_path) : null,
                 ];
             })
             ->all();
     }
 
-    /**
-     * Get a customer group with full member details for edit/show form.
-     *
-     * @return array<string, mixed>
-     */
+    /** Get full customer group details for edit or show. */
     public function getForEditShow(int $id): array
     {
         $group = CustomerGroup::with(['members.customer.user', 'enquiry.package', 'package'])
@@ -344,16 +328,14 @@ class CustomerGroupService
                     'first_time_umrah' => $customer?->first_time_umrah ?? false,
                     'has_chronic_disease' => $customer?->has_chronic_disease ?? false,
                     'chronic_disease_details' => $customer?->chronic_disease_details ?? '',
+                    'passport_path' => $customer?->passport_path ? Storage::disk('public')->url($customer->passport_path) : null,
+                    'photo_path' => $customer?->photo_path ? Storage::disk('public')->url($customer->photo_path) : null,
                 ];
             })->all(),
         ];
     }
 
-    /**
-     * Update a customer group and its members.
-     *
-     * @param  array<string, mixed>  $data
-     */
+    /** Update a customer group and its members. */
     public function updateGroup(int $id, array $data): CustomerGroup
     {
         return DB::transaction(function () use ($id, $data) {
@@ -366,12 +348,12 @@ class CustomerGroupService
                 'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
             ]);
 
-            // Remove existing members
             $group->members()->delete();
 
-            // Re-create members
             foreach ($data['members'] as $memberData) {
                 $customer = $this->findOrCreateCustomer($memberData);
+                $this->processFileUploads($customer, $memberData);
+
                 CustomerGroupMember::create([
                     'customer_group_id' => $group->id,
                     'customer_id' => $customer->id,
@@ -385,9 +367,65 @@ class CustomerGroupService
                     'subject_type' => 'CustomerGroup',
                     'subject_id' => $group->id,
                 ])
-                ->log('Customer group #' . $group->id . ' updated');
+                ->log('Customer group #'.$group->id.' updated');
 
             return $group->load('members.customer.user');
         });
+    }
+
+    /** Store one uploaded file and return its path. */
+    private function handleFileUpload(mixed $file, string $field, string $customerName): ?string
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        $directory = "customers/{$field}";
+        $slugName = Str::slug($customerName);
+        $fieldName = str_replace('_path', '', $field);
+        $timestamp = now()->format('Ymd-His');
+        $extension = $file->getClientOriginalExtension();
+        $filename = "{$slugName}-{$fieldName}-{$timestamp}.{$extension}";
+
+        return $file->storeAs($directory, $filename, 'public');
+    }
+
+    /** Process member file uploads and update stored paths. */
+    private function processFileUploads(Customer $customer, array $memberData): void
+    {
+        $updates = [];
+        $fileKeyMap = [
+            'passport_file' => 'passport_path',
+            'photo_file' => 'photo_path',
+        ];
+
+        $customerName = $customer->user?->name ?? 'customer';
+
+        foreach ($fileKeyMap as $fileKey => $pathField) {
+            $path = $this->handleFileUpload($memberData[$fileKey] ?? null, $pathField, $customerName);
+            if ($path) {
+                if ($customer->{$pathField}) {
+                    Storage::disk('public')->delete($customer->{$pathField});
+                }
+                $updates[$pathField] = $path;
+
+                continue;
+            }
+
+            $isPathCleared = array_key_exists($pathField, $memberData)
+                && ($memberData[$pathField] === null || $memberData[$pathField] === '');
+
+            $isFileCleared = array_key_exists($fileKey, $memberData)
+                && ($memberData[$fileKey] === null || $memberData[$fileKey] === '');
+
+            if (($isPathCleared || $isFileCleared) && $customer->{$pathField}) {
+                Storage::disk('public')->delete($customer->{$pathField});
+                $updates[$pathField] = null;
+            }
+        }
+
+        if (! empty($updates)) {
+            $customer->update($updates);
+        }
     }
 }

@@ -51,6 +51,10 @@ class EnquiryController extends Controller
                 'type' => $enquiry->type,
                 'status' => $enquiry->status->value,
                 'status_label' => $enquiry->status->label(),
+                'name' => $enquiry->name,
+                'email' => $enquiry->email,
+                'contact_number' => $enquiry->contact_number,
+                'package_name' => $enquiry->package?->name,
             ],
             'child' => $child,
             'customerGroup' => $enquiry->customerGroup

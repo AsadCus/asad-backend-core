@@ -27,6 +27,8 @@ class Customer extends Model
         'first_time_umrah',
         'has_chronic_disease',
         'chronic_disease_details',
+        'passport_path',
+        'photo_path',
         'age_preferences',
         'country_preferences',
         'experience_preferences',

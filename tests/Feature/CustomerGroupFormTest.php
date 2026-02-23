@@ -317,6 +317,138 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals('2026-06-15', $group->date_of_application->format('Y-m-d'));
     }
 
+    public function test_customer_group_update_with_multiple_members(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Multi Update Test',
+            'contact_number' => '012',
+            'email' => 'multi@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        // Create with 2 members
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Leader',
+                    'email' => 'leader@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Member One',
+                    'email' => 'member1@test.com',
+                    'nric_number' => 'S1111111A',
+                    'is_leader' => false,
+                ]),
+            ],
+        ]);
+
+        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $this->assertEquals(2, $group->members()->count());
+
+        // Update with 3 members
+        $response = $this->put(route('customer-groups.update', $group->id), [
+            'date_of_application' => '2026-07-01',
+            'package_room_type' => 'quad',
+            'package_category' => 'deluxe_umrah',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Leader',
+                    'email' => 'leader@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Member One',
+                    'email' => 'member1@test.com',
+                    'nric_number' => 'S1111111A',
+                    'is_leader' => false,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Member Two',
+                    'email' => 'member2@test.com',
+                    'nric_number' => 'S2222222B',
+                    'is_leader' => false,
+                ]),
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $group->refresh();
+        $this->assertEquals(3, $group->members()->count());
+        $this->assertEquals('quad', $group->package_room_type);
+        $this->assertEquals('deluxe_umrah', $group->package_category);
+        $this->assertEquals('2026-07-01', $group->date_of_application->format('Y-m-d'));
+    }
+
+    public function test_customer_group_update_accepts_method_spoofed_post_payload(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Spoof Update Test',
+            'contact_number' => '012',
+            'email' => 'spoof@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-10',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Leader',
+                    'email' => 'leader-spoof@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Member One',
+                    'email' => 'member-spoof@test.com',
+                    'nric_number' => 'S3333333C',
+                    'is_leader' => false,
+                ]),
+            ],
+        ]);
+
+        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+
+        $response = $this->post(route('customer-groups.update', $group->id), [
+            '_method' => 'put',
+            'date_of_application' => '2026-08-12',
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Leader',
+                    'email' => 'leader-spoof@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Member One',
+                    'email' => 'member-spoof@test.com',
+                    'nric_number' => 'S3333333C',
+                    'is_leader' => false,
+                ]),
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $group->refresh();
+        $this->assertEquals('double', $group->package_room_type);
+        $this->assertEquals('classic_umrah', $group->package_category);
+        $this->assertEquals('2026-08-12', $group->date_of_application->format('Y-m-d'));
+        $this->assertEquals(2, $group->members()->count());
+    }
+
     public function test_public_form_requires_valid_signature(): void
     {
         // The edit form requires a valid signature (to protect private group data)

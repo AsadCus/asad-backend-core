@@ -46,6 +46,7 @@ return new class extends Migration
             // Package Inclusions
             $table->text('included')->nullable();
             $table->text('not_included')->nullable();
+            $table->text('offer')->nullable();
 
             // Remarks
             $table->text('remarks')->nullable();

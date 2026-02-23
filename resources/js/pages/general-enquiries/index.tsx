@@ -6,13 +6,6 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -33,18 +26,17 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import CustomerConfirmationForm from '../customer/form';
 import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
-import EnquiryRemarksTimeline from '../enquiries/components/enquiry-remarks-timeline';
 import {
     EnquiryStatusAction,
     EnquiryStatusActionType,
     getAvailableEnquiryActions,
 } from '../enquiries/components/enquiry-status-action';
+import EnquiryViewDialog from '../enquiries/components/enquiry-view-dialog';
 import {
     statusColors,
     statusOptions,
     type GeneralEnquiryDatatableSchema,
 } from '../enquiries/schema';
-import GeneralEnquiryForm from './form';
 import { GeneralEnquirySchema } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -353,69 +345,31 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
             <ConfirmDialog />
 
             {/* View Dialog */}
-            <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
-                    <DialogHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <DialogTitle>
-                                    View General Enquiry Details
-                                </DialogTitle>
-                                <DialogDescription className="sr-only">
-                                    Displays detailed information about the
-                                    selected general enquiry.
-                                </DialogDescription>
-                            </div>
-                        </div>
-                    </DialogHeader>
-
-                    <div className="h-full w-full flex-1 overflow-y-auto">
-                        {isLoadingData && (
-                            <div className="flex h-full items-center justify-center text-muted-foreground">
-                                Loading enquiry details...
-                            </div>
-                        )}
-                        {!isLoadingData && selectedData && (
-                            <>
-                                {/* General Enquiry Details */}
-                                <GeneralEnquiryForm
-                                    mode="view"
-                                    initialData={selectedData}
-                                    packageOptions={packageOptions}
-                                />
-
-                                {/* Enquiry Remarks Timeline */}
-                                {selectedData.enquiry_id && (
-                                    <Card className="mb-2">
-                                        <CardHeader>
-                                            <CardTitle className="text-lg">
-                                                Enquiry Remarks Timeline
-                                            </CardTitle>
-                                            <CardDescription>
-                                                View the history of remarks for
-                                                this enquiry.
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <EnquiryRemarksTimeline
-                                                isOpen={true}
-                                                enquiryId={
-                                                    selectedData.enquiry_id
-                                                }
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </>
-                        )}
-                        {!isLoadingData && !selectedData && (
-                            <div className="flex h-full items-center justify-center text-muted-foreground">
-                                Failed to load enquiry details
-                            </div>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <EnquiryViewDialog
+                open={viewDialogOpen}
+                onOpenChange={setViewDialogOpen}
+                enquiryId={selectedData?.enquiry_id ?? undefined}
+                enquiryType="general"
+                statusLabel={selectedData?.status_label}
+                statusValue={selectedData?.status}
+                childData={selectedData as Record<string, unknown> | null}
+                isLoadingChild={isLoadingData}
+                packageOptions={packageOptions}
+                showStatusActions={true}
+                onStatusActionConfirmed={(enquiryId) => {
+                    const enquiry = enquiriesForDatatable.find(
+                        (e) => e.enquiry_id === enquiryId,
+                    );
+                    setConfirmFormEnquiryId(enquiryId);
+                    setConfirmFormPrefill({
+                        name: enquiry?.name ?? '',
+                        email: enquiry?.email ?? '',
+                        contact: enquiry?.contact_number ?? '',
+                    });
+                    setPrefillPackageId(enquiry?.package_id ?? null);
+                    setConfirmFormOpen(true);
+                }}
+            />
 
             {/* Enquiry Status Action Dialog */}
             <EnquiryStatusAction

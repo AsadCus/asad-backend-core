@@ -6,13 +6,6 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -20,6 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
+import { packagePrefill } from '@/routes/enquiries';
 import {
     create,
     destroy,
@@ -30,21 +24,23 @@ import {
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import CustomerConfirmationForm from '../customer/form';
 import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
-import EnquiryRemarksTimeline from '../enquiries/components/enquiry-remarks-timeline';
 import {
     EnquiryStatusAction,
     EnquiryStatusActionType,
     getAvailableEnquiryActions,
 } from '../enquiries/components/enquiry-status-action';
+import EnquiryViewDialog from '../enquiries/components/enquiry-view-dialog';
 import {
+    EnquiryDetails,
     statusColors,
     statusOptions,
     type PrivateEnquiryDatatableSchema,
 } from '../enquiries/schema';
-import PrivateEnquiryForm from './form';
+import PackageForm from '../packages/form';
+import type { PackageSchema } from '../packages/schema';
 import { PrivateEnquirySchema } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -278,19 +274,27 @@ export default function Index({ data }: PrivateEnquiriesProps) {
     >();
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
-    // Customer Confirmation Form state
-    const [confirmFormOpen, setConfirmFormOpen] = useState(false);
-    const [confirmFormEnquiryId, setConfirmFormEnquiryId] = useState<
+    // Private enquiry step-by-step confirmation flow
+    const [privateFlowOpen, setPrivateFlowOpen] = useState(false);
+    const [privateFlowEnquiryId, setPrivateFlowEnquiryId] = useState<
         number | undefined
     >();
-    const [confirmFormPrefill, setConfirmFormPrefill] = useState({
+    const [privateFlowStep, setPrivateFlowStep] = useState<
+        'package' | 'customer'
+    >('package');
+    const [privateFlowPackageData, setPrivateFlowPackageData] =
+        useState<PackageSchema | null>(null);
+    const [privateFlowPrefill, setPrivateFlowPrefill] = useState({
         name: '',
         email: '',
         contact: '',
     });
-    const [prefillPackageId, setPrefillPackageId] = useState<number | null>(
-        null,
-    );
+    const [privateFlowPkgPrefill, setPrivateFlowPkgPrefill] = useState<
+        Partial<PackageSchema> | undefined
+    >(undefined);
+    const [privateFlowEnquiryDetails, setPrivateFlowEnquiryDetails] = useState<
+        EnquiryDetails | undefined
+    >(undefined);
 
     // Enquiry Remarks state
     const [remarksDialogOpen, setRemarksDialogOpen] = useState(false);
@@ -298,6 +302,64 @@ export default function Index({ data }: PrivateEnquiriesProps) {
         number | undefined
     >();
     const [remarksEnquiryName, setRemarksEnquiryName] = useState('');
+
+    /** Start the private enquiry step-by-step confirmation flow. */
+    const startPrivateFlow = useCallback(
+        async (enquiryId: number) => {
+            const enquiry = enquiriesForDatatable.find(
+                (e) => e.enquiry_id === enquiryId,
+            );
+            setPrivateFlowEnquiryId(enquiryId);
+            setPrivateFlowStep('package');
+            setPrivateFlowPackageData(null);
+            setPrivateFlowPrefill({
+                name: enquiry?.name ?? '',
+                email: enquiry?.email ?? '',
+                contact: enquiry?.contact_number ?? '',
+            });
+            setPrivateFlowEnquiryDetails(
+                enquiry
+                    ? {
+                          id: enquiry.enquiry_id ?? 0,
+                          type: 'Private',
+                          name: enquiry.name ?? '',
+                          email: enquiry.email ?? '',
+                          contact: enquiry.contact_number ?? '',
+                          status: enquiry.status_label ?? '',
+                      }
+                    : undefined,
+            );
+            setPrivateFlowOpen(true);
+
+            // Fetch prefill data for the package form from the private enquiry
+            try {
+                const res = await fetch(packagePrefill(enquiryId).url);
+                if (res.ok) {
+                    const json = await res.json();
+                    setPrivateFlowPkgPrefill(json);
+                }
+            } catch {
+                // Ignore — user can fill manually
+            }
+        },
+        [enquiriesForDatatable],
+    );
+
+    /** Called when the package form is completed (step 1 → step 2). */
+    const handlePrivatePackageComplete = useCallback(
+        (pkgData: PackageSchema) => {
+            setPrivateFlowPackageData(pkgData);
+            setPrivateFlowStep('customer');
+        },
+        [],
+    );
+
+    /** Cancel the entire private flow. */
+    const cancelPrivateFlow = useCallback(() => {
+        setPrivateFlowOpen(false);
+        setPrivateFlowPackageData(null);
+        setPrivateFlowPkgPrefill(undefined);
+    }, []);
 
     const handleOpenViewDialog = async (enquiryId: number) => {
         setViewDialogOpen(true);
@@ -482,68 +544,20 @@ export default function Index({ data }: PrivateEnquiriesProps) {
             <ConfirmDialog />
 
             {/* View Dialog */}
-            <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
-                    <DialogHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <DialogTitle>
-                                    View Private Enquiry Details
-                                </DialogTitle>
-                                <DialogDescription className="sr-only">
-                                    Displays detailed information about the
-                                    selected private enquiry.
-                                </DialogDescription>
-                            </div>
-                        </div>
-                    </DialogHeader>
-
-                    <div className="h-full w-full flex-1 overflow-y-auto">
-                        {isLoadingData && (
-                            <div className="flex h-full items-center justify-center text-muted-foreground">
-                                Loading enquiry details...
-                            </div>
-                        )}
-                        {!isLoadingData && selectedData && (
-                            <>
-                                {/* Private Enquiry Details */}
-                                <PrivateEnquiryForm
-                                    mode="view"
-                                    initialData={selectedData}
-                                />
-
-                                {/* Enquiry Remarks Timeline */}
-                                {selectedData.enquiry_id && (
-                                    <Card className="mb-2">
-                                        <CardHeader>
-                                            <CardTitle className="text-lg">
-                                                Enquiry Remarks Timeline
-                                            </CardTitle>
-                                            <CardDescription>
-                                                View the history of remarks for
-                                                this enquiry.
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <EnquiryRemarksTimeline
-                                                isOpen={true}
-                                                enquiryId={
-                                                    selectedData.enquiry_id
-                                                }
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </>
-                        )}
-                        {!isLoadingData && !selectedData && (
-                            <div className="flex h-full items-center justify-center text-muted-foreground">
-                                Failed to load enquiry details
-                            </div>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <EnquiryViewDialog
+                open={viewDialogOpen}
+                onOpenChange={setViewDialogOpen}
+                enquiryId={selectedData?.enquiry_id ?? undefined}
+                enquiryType="private"
+                statusLabel={selectedData?.status_label}
+                statusValue={selectedData?.status}
+                childData={selectedData as Record<string, unknown> | null}
+                isLoadingChild={isLoadingData}
+                showStatusActions={true}
+                onStatusActionConfirmed={(enquiryId) => {
+                    startPrivateFlow(enquiryId);
+                }}
+            />
 
             {/* Enquiry Status Action Dialog */}
             <EnquiryStatusAction
@@ -555,27 +569,23 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                     setStatusAction(null);
                 }}
                 onConfirmed={(enquiryId) => {
-                    const enquiry = enquiriesForDatatable.find(
-                        (e) => e.enquiry_id === enquiryId,
-                    );
-                    setConfirmFormEnquiryId(enquiryId);
-                    setConfirmFormPrefill({
-                        name: enquiry?.name ?? '',
-                        email: enquiry?.email ?? '',
-                        contact: enquiry?.contact_number ?? '',
-                    });
-                    setPrefillPackageId(null);
-                    setConfirmFormOpen(true);
+                    startPrivateFlow(enquiryId);
                 }}
             />
 
-            {/* Customer Confirmation Form Dialog */}
-            <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
+            {/* Private Enquiry Step-by-Step Confirmation Flow */}
+            <Dialog open={privateFlowOpen} onOpenChange={cancelPrivateFlow}>
                 <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
                     <DialogHeader>
-                        <DialogTitle>Customer Confirmation</DialogTitle>
+                        <DialogTitle>
+                            {privateFlowStep === 'package'
+                                ? 'Step 1: Create Package'
+                                : 'Step 2: Customer Confirmation'}
+                        </DialogTitle>
                         <DialogDescription>
-                            Fill in the customer group details for this enquiry.
+                            {privateFlowStep === 'package'
+                                ? 'Fill in the package details for this private enquiry. This data is pre-filled from the enquiry.'
+                                : 'Fill in the customer group details. The package created in step 1 will be linked automatically.'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -586,19 +596,36 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                             msOverflowStyle: 'none',
                         }}
                     >
-                        <CustomerConfirmationForm
-                            enquiryId={confirmFormEnquiryId}
-                            prefillName={confirmFormPrefill.name}
-                            prefillEmail={confirmFormPrefill.email}
-                            prefillContact={confirmFormPrefill.contact}
-                            prefillPackageId={prefillPackageId}
-                            packageOptions={packageOptions}
-                            onSuccess={() => {
-                                setConfirmFormOpen(false);
-                                router.reload();
-                            }}
-                            onCancel={() => setConfirmFormOpen(false)}
-                        />
+                        {privateFlowStep === 'package' && (
+                            <PackageForm
+                                mode="create"
+                                prefillData={privateFlowPkgPrefill}
+                                onCancel={cancelPrivateFlow}
+                                onSuccess={handlePrivatePackageComplete}
+                            />
+                        )}
+                        {privateFlowStep === 'customer' && (
+                            <CustomerConfirmationForm
+                                enquiryId={privateFlowEnquiryId}
+                                enquiryType="private"
+                                enquiryDetails={privateFlowEnquiryDetails}
+                                prefillName={privateFlowPrefill.name}
+                                prefillEmail={privateFlowPrefill.email}
+                                prefillContact={privateFlowPrefill.contact}
+                                packageData={
+                                    privateFlowPackageData ?? undefined
+                                }
+                                packageOptions={packageOptions}
+                                onSuccess={() => {
+                                    cancelPrivateFlow();
+                                    router.reload();
+                                }}
+                                onCancel={() => {
+                                    // Go back to package step instead of closing
+                                    setPrivateFlowStep('package');
+                                }}
+                            />
+                        )}
                     </div>
                 </DialogContent>
             </Dialog>

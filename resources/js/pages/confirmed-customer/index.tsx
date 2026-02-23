@@ -22,6 +22,7 @@ import type {
     CustomerGroupDatatableSchema,
     CustomerGroupFormSchema,
 } from '../customer/schema';
+import { statusColors, typeColors } from '../enquiries/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -75,13 +76,6 @@ const groupColumns: ColumnDef<CustomerGroupDatatableSchema>[] = [
             const type = row.original.enquiry_type;
             if (!type) return <span className="text-muted-foreground">-</span>;
 
-            const typeColors: Record<string, string> = {
-                General:
-                    'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-                Private:
-                    'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-            };
-
             return (
                 <Badge
                     className={`${typeColors[type] ?? ''} rounded-full px-3 py-1 text-base`}
@@ -101,11 +95,10 @@ const groupColumns: ColumnDef<CustomerGroupDatatableSchema>[] = [
             if (!status)
                 return <span className="text-muted-foreground">-</span>;
 
+            const color = statusColors[status] ?? '';
+
             return (
-                <Badge
-                    variant="outline"
-                    className="rounded-full px-3 py-1 text-base"
-                >
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
                     {status}
                 </Badge>
             );

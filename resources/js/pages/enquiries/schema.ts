@@ -35,7 +35,7 @@ export const typeColors: Record<string, string> = {
 
 export interface EnquirySchema {
     id: number;
-    type: 'General' | 'Private';
+    type: string;
     status: string;
     status_label: string;
     name: string;
@@ -48,11 +48,16 @@ export interface EnquirySchema {
     created_at: string;
 }
 
-/**
- * Datatable schemas derived from the canonical Zod schemas.
- * These replace the previous manually-defined interfaces so that
- * form schemas and datatable schemas always stay in sync.
- */
+export interface EnquiryDetails {
+    id: number;
+    type: string;
+    name: string;
+    email: string;
+    contact: string;
+    status: string;
+    package_name?: string | null;
+}
+
 export const generalEnquiryDatatableSchema = generalEnquirySchema.required();
 export type GeneralEnquiryDatatableSchema = z.infer<
     typeof generalEnquiryDatatableSchema

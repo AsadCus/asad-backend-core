@@ -35,6 +35,10 @@ class CustomerGroupRule
             'members.*.place_of_birth' => ['required', 'string', 'max:255'],
             'members.*.has_chronic_disease' => ['nullable', 'boolean'],
             'members.*.chronic_disease_details' => ['nullable', 'string', 'max:1000'],
+
+            // Image uploads per member
+            'members.*.passport_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'members.*.photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
         ];
 
         if ($requireEnquiry) {

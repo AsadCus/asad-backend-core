@@ -13,13 +13,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
@@ -47,44 +41,27 @@ import {
     Trash2,
 } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
-import GeneralEnquiryForm from '../general-enquiries/form';
-import type { GeneralEnquirySchema } from '../general-enquiries/schema';
+import EnquiryViewDialog from '../enquiries/components/enquiry-view-dialog';
+import { EnquiryDetails } from '../enquiries/schema';
 import type { PackageSchema } from '../packages/schema';
-import PrivateEnquiryForm from '../private-enquiries/form';
-import type { PrivateEnquirySchema } from '../private-enquiries/schema';
 import MemberFormFields from './form-fields';
 import {
     emptyMember,
     packageCategoryOptions,
     packageRoomTypeOptions,
+    type CustomerGroupFormData,
     type CustomerGroupFormSchema,
-    type CustomerMemberSchema,
+    type CustomerMemberFormData,
+    type CustomerOption,
 } from './schema';
 import { customerGroupFormValidationSchema } from './validation';
 
-interface CustomerOption extends OptionType {
-    name: string;
-    email: string;
-    contact_number: string;
-    nric_number: string;
-    address: string;
-}
-
-export interface EnquiryDetails {
-    id: number;
-    type: string;
-    name: string;
-    email: string;
-    contact: string;
-    status: string;
-    package_name?: string | null;
-}
+type ClientValidationErrors = Record<string, string>;
 
 export interface CustomerConfirmationFormProps {
     mode?: 'create' | 'edit' | 'view';
     enquiryId?: number;
-    enquiryType?: 'general' | 'private';
-    /** Summary of the linked enquiry – displayed in a read-only info card. */
+    enquiryType?: string;
     enquiryDetails?: EnquiryDetails;
     prefillName?: string;
     prefillEmail?: string;
@@ -94,7 +71,6 @@ export interface CustomerConfirmationFormProps {
     publicSubmitUrl?: string;
     initialData?: CustomerGroupFormSchema;
     packageOptions?: OptionType[];
-    /** Package data collected in step 1 (private flow). Sent to server alongside customer data. */
     packageData?: PackageSchema;
     onSuccess?: () => void;
     onCancel?: () => void;
@@ -121,28 +97,23 @@ export default function CustomerConfirmationForm({
     const isEdit = mode === 'edit';
     const isCreate = mode === 'create';
 
-    // Customer search state (internal only)
+    // State
     const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>(
         [],
     );
 
-    // Linked enquiry info (fetched in view/edit mode when not passed as prop)
     const [linkedEnquiryInfo, setLinkedEnquiryInfo] =
         useState<EnquiryDetails | null>(null);
     const [enquiryDialogOpen, setEnquiryDialogOpen] = useState(false);
-    // Full child enquiry data (GeneralEnquiry / PrivateEnquiry) – loaded lazily when dialog opens
-    const [linkedEnquiryChild, setLinkedEnquiryChild] = useState<
-        GeneralEnquirySchema | PrivateEnquirySchema | null
-    >(null);
+    const [linkedEnquiryChild, setLinkedEnquiryChild] = useState<Record<
+        string,
+        unknown
+    > | null>(null);
     const [isLoadingEnquiryChild, setIsLoadingEnquiryChild] = useState(false);
-
-    // Active member tab
     const [activeTab, setActiveTab] = useState('member-0');
-
-    // Success state for public forms
     const [isSubmitted, setIsSubmitted] = useState(false);
 
-    // Load customers and (in view/edit) linked enquiry details on mount
+    // Bootstrap data
     useEffect(() => {
         if (isPublic) return;
 
@@ -165,7 +136,7 @@ export default function CustomerConfirmationForm({
                         type: eq.type,
                         name: eq.name,
                         email: eq.email,
-                        contact: eq.contact,
+                        contact: eq.contact_number ?? eq.contact,
                         status: eq.status_label ?? eq.status,
                         package_name: eq.package_name ?? null,
                     });
@@ -174,7 +145,6 @@ export default function CustomerConfirmationForm({
         }
     }, [isPublic, isView, isEdit, enquiryDetails, initialData?.enquiry_id]);
 
-    // Fetch full child enquiry data (general/private form fields) when dialog opens
     useEffect(() => {
         if (!enquiryDialogOpen) return;
         if (linkedEnquiryChild) return;
@@ -195,8 +165,8 @@ export default function CustomerConfirmationForm({
         linkedEnquiryChild,
     ]);
 
-    // Build default form data
-    const defaultData: CustomerGroupFormSchema = initialData ?? {
+    // Form
+    const defaultData: CustomerGroupFormData = (initialData ?? {
         enquiry_id: enquiryId ?? null,
         package_id: prefillPackageId ?? null,
         package_room_type: '',
@@ -211,29 +181,21 @@ export default function CustomerConfirmationForm({
             },
         ],
         terms_accepted: isPublic && isEdit ? true : !isPublic,
-    };
+    }) as CustomerGroupFormData;
 
-    const {
-        data,
-        setData,
-        post,
-        put,
-        processing,
-        errors,
-        clearErrors,
-        setError,
-    } = useForm<CustomerGroupFormSchema>(defaultData);
+    const form = useForm<CustomerGroupFormData>(defaultData);
+    const { data, setData, post, processing, clearErrors, setError } = form;
+    const errors: Record<string, string | undefined> = form.errors;
 
-    // ── Helpers ──
+    // Helpers
 
     const getError = (path: string): string | undefined => {
-        const errorMap = errors as Record<string, string | undefined>;
-        return errorMap[path];
+        return errors[path];
     };
 
     const hasErrors = Object.keys(errors).length > 0;
 
-    // ── Member management ──
+    // Member actions
 
     const addMember = () => {
         const next = [...(data.members ?? []), emptyMember(false)];
@@ -241,54 +203,21 @@ export default function CustomerConfirmationForm({
         setActiveTab(`member-${next.length - 1}`);
     };
 
-    const addCustomerAsMember = (customerValue: string | number) => {
-        const customer = customerOptions.find(
-            (c) => String(c.value) === String(customerValue),
-        );
-        if (!customer) return;
-
-        // Prevent duplicates by email
-        if (data.members?.some((m) => m.email === customer.email)) return;
-
-        const next = [
-            ...(data.members ?? []),
-            {
-                ...emptyMember(false),
-                name: customer.name,
-                email: customer.email,
-                contact_number: customer.contact_number,
-                nric_number: customer.nric_number,
-                address: customer.address,
-            },
-        ];
-        setData('members', next);
-        setActiveTab(`member-${next.length - 1}`);
-    };
-
-    // ── MultiSelect sync ──
-
-    /** Current member emails that match a customer record. */
+    // Customer selection
     const selectedCustomerValues = customerOptions
         .filter((c) => data.members?.some((m) => m.email === c.email))
         .map((c) => String(c.value));
 
-    /**
-     * Called when the MultiSelect value changes.
-     * Adds newly selected customers and removes deselected ones in one batched update.
-     */
     const handleMultiSelectChange = (newValues: string[]) => {
         const currentMembers = data.members ?? [];
 
-        // Emails of the new selection
         const newSelectedEmails = new Set(
             customerOptions
                 .filter((c) => newValues.includes(String(c.value)))
                 .map((c) => c.email),
         );
 
-        // Remove members that came from customerOptions but are now deselected.
-        // Always keep the group leader regardless of selection.
-        let nextMembers = currentMembers.filter((m) => {
+        const nextMembers = currentMembers.filter((m) => {
             if (m.is_leader) return true;
             const isCustomerMember = customerOptions.some(
                 (c) => c.email === m.email,
@@ -296,7 +225,6 @@ export default function CustomerConfirmationForm({
             return !isCustomerMember || newSelectedEmails.has(m.email);
         });
 
-        // Add newly selected customers
         for (const v of newValues) {
             const customer = customerOptions.find((c) => String(c.value) === v);
             if (!customer) continue;
@@ -308,10 +236,23 @@ export default function CustomerConfirmationForm({
                 contact_number: customer.contact_number,
                 nric_number: customer.nric_number,
                 address: customer.address,
+                nationality: customer.nationality ?? '',
+                passport_number: customer.passport_number ?? '',
+                passport_issue_date: customer.passport_issue_date ?? '',
+                passport_expiry_date: customer.passport_expiry_date ?? '',
+                passport_place_of_issue: customer.passport_place_of_issue ?? '',
+                gender: customer.gender ?? '',
+                marital_status: customer.marital_status ?? '',
+                date_of_birth: customer.date_of_birth ?? '',
+                place_of_birth: customer.place_of_birth ?? '',
+                first_time_umrah: customer.first_time_umrah ?? null,
+                has_chronic_disease: customer.has_chronic_disease ?? false,
+                chronic_disease_details: customer.chronic_disease_details ?? '',
+                passport_path: customer.passport_path ?? null,
+                photo_path: customer.photo_path ?? null,
             });
         }
 
-        // Ensure a leader is assigned
         if (nextMembers.length > 0 && !nextMembers.some((m) => m.is_leader)) {
             nextMembers[0] = { ...nextMembers[0], is_leader: true };
         }
@@ -322,46 +263,55 @@ export default function CustomerConfirmationForm({
 
     const removeMember = (index: number) => {
         const next = (data.members ?? []).filter((_, i) => i !== index);
-        // If removed member was leader, assign first as leader
         if (next.length > 0 && !next.some((m) => m.is_leader)) {
             next[0] = { ...next[0], is_leader: true };
         }
         setData('members', next);
-        // Switch to the first tab if we removed the active one
         const newIdx = Math.min(index, next.length - 1);
         setActiveTab(`member-${Math.max(0, newIdx)}`);
     };
 
     const updateMember = (
         index: number,
-        field: keyof CustomerMemberSchema,
-        value: string | boolean | null,
+        field: keyof CustomerMemberFormData,
+        value: string | boolean | File | null,
     ) => {
-        const next = [...(data.members ?? [])];
+        setData((currentData) => {
+            const next = [...(currentData.members ?? [])];
 
-        if (field === 'is_leader' && value === true) {
-            // Unset all others
-            for (let i = 0; i < next.length; i++) {
-                next[i] = { ...next[i], is_leader: i === index };
+            if (field === 'is_leader' && value === true) {
+                for (let i = 0; i < next.length; i++) {
+                    next[i] = { ...next[i], is_leader: i === index };
+                }
+            } else {
+                next[index] = { ...next[index], [field]: value };
             }
-        } else {
-            next[index] = { ...next[index], [field]: value };
-        }
 
-        setData('members', next);
+            return {
+                ...currentData,
+                members: next,
+            };
+        });
     };
 
-    // ── Validation + Submit ──
+    // Submit
 
     function validateClientSide(): boolean {
         clearErrors();
         const result = customerGroupFormValidationSchema.safeParse(data);
 
         if (!result.success) {
+            const clientErrors: ClientValidationErrors = {};
+
             result.error.issues.forEach((issue) => {
                 const key = issue.path.join('.');
-                setError(key as keyof CustomerGroupFormSchema, issue.message);
+                if (!clientErrors[key]) {
+                    clientErrors[key] = issue.message;
+                }
             });
+
+            setError(clientErrors);
+
             return false;
         }
 
@@ -391,13 +341,28 @@ export default function CustomerConfirmationForm({
 
         if (isEdit && initialData?.id) {
             const editUrl = publicSubmitUrl ?? updateGroup(initialData.id).url;
-            const method = publicSubmitUrl ? post : put;
-            method(editUrl, {
+            const isPublicEdit = !!publicSubmitUrl;
+
+            form.transform((currentData) => {
+                if (isPublicEdit) {
+                    return currentData;
+                }
+
+                return {
+                    ...currentData,
+                    _method: 'put',
+                };
+            });
+
+            post(editUrl, {
+                forceFormData: true,
                 onSuccess: handleSuccess,
                 onError: handleError,
+                onFinish: () => {
+                    form.transform((currentData) => currentData);
+                },
             });
         } else {
-            // Determine URL: public → publicSubmitUrl, enquiry confirm → confirmEnquiry, standalone → createCustomerGroup
             const effectiveEnquiryId =
                 enquiryId ?? initialData?.enquiry_id ?? null;
             const submitUrl = publicSubmitUrl
@@ -406,32 +371,32 @@ export default function CustomerConfirmationForm({
                   ? confirmEnquiry(enquiryId).url
                   : createCustomerGroup().url;
 
-            // Sync enquiry_id before posting, and include package_data for private flow
-            const payload: Record<string, unknown> = {
-                ...data,
+            form.transform((currentData) => ({
+                ...currentData,
                 enquiry_id: effectiveEnquiryId,
-            };
-
-            if (packageData && enquiryType === 'private') {
-                payload.package_data = packageData;
-            }
-
-            setData(payload as CustomerGroupFormSchema);
+                ...(packageData && enquiryType === 'private'
+                    ? { package_data: packageData }
+                    : {}),
+            }));
 
             post(submitUrl, {
+                forceFormData: true,
                 onSuccess: handleSuccess,
                 onError: handleError,
+                onFinish: () => {
+                    form.transform((currentData) => currentData);
+                },
             });
         }
     }
 
-    // Effective linked enquiry details (prop takes priority, else fetched)
+    // Derived data
     const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
 
     return (
         <div className="mx-auto w-full">
             <form onSubmit={submit} className="space-y-4 py-2">
-                {/* Success Alert (public forms) */}
+                {/* Success */}
                 {isSubmitted && isPublic && (
                     <Alert className="border-green-600 bg-green-50 shadow-sm">
                         <CheckCircle className="h-5 w-5 text-green-600" />
@@ -443,7 +408,7 @@ export default function CustomerConfirmationForm({
                     </Alert>
                 )}
 
-                {/* Error Alert */}
+                {/* Error */}
                 {hasErrors && !isView && (
                     <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
@@ -453,7 +418,7 @@ export default function CustomerConfirmationForm({
                     </Alert>
                 )}
 
-                {/* ── Linked Enquiry Details ── */}
+                {/* Linked enquiry */}
                 {(isView || isEdit) && !isPublic && effectiveLinkedEnquiry && (
                     <Card>
                         <CardHeader className="gap-0 pb-3">
@@ -478,69 +443,68 @@ export default function CustomerConfirmationForm({
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                                <div>
-                                    <span className="text-muted-foreground">Enquiry ID:</span>{' '}
-                                    <span className="font-medium">
-                                        #{effectiveLinkedEnquiry.id}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Type:</span>{' '}
-                                    <Badge variant="outline" className="ml-1">
-                                        {effectiveLinkedEnquiry.type}
-                                    </Badge>
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">
-                                        Status:
-                                    </span>{' '}
-                                    <Badge variant="secondary" className="ml-1">
-                                        {effectiveLinkedEnquiry.status}
-                                    </Badge>
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">
-                                        Name:
-                                    </span>{' '}
-                                    <span className="font-medium">
-                                        {effectiveLinkedEnquiry.name}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">
-                                        Email:
-                                    </span>{' '}
-                                    <span className="font-medium">
-                                        {effectiveLinkedEnquiry.email}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">
-                                        Contact:
-                                    </span>{' '}
-                                    <span className="font-medium">
-                                        {effectiveLinkedEnquiry.contact}
-                                    </span>
-                                </div>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                <FormField label="Enquiry ID">
+                                    <Input
+                                        value={`#${effectiveLinkedEnquiry.id}`}
+                                        disabled
+                                    />
+                                </FormField>
+                                <FormField label="Type">
+                                    <Input
+                                        value={effectiveLinkedEnquiry.type}
+                                        disabled
+                                    />
+                                </FormField>
+                                <FormField label="Status">
+                                    <Input
+                                        value={effectiveLinkedEnquiry.status}
+                                        disabled
+                                    />
+                                </FormField>
+                                <FormField label="Name">
+                                    <Input
+                                        value={
+                                            effectiveLinkedEnquiry.name || ''
+                                        }
+                                        disabled
+                                    />
+                                </FormField>
+                                <FormField label="Email">
+                                    <Input
+                                        value={
+                                            effectiveLinkedEnquiry.email || ''
+                                        }
+                                        disabled
+                                    />
+                                </FormField>
+                                <FormField label="Contact">
+                                    <Input
+                                        value={
+                                            effectiveLinkedEnquiry.contact || ''
+                                        }
+                                        disabled
+                                    />
+                                </FormField>
                                 {effectiveLinkedEnquiry.package_name && (
-                                    <div className="col-span-full">
-                                        <span className="text-muted-foreground">
-                                            Package:
-                                        </span>{' '}
-                                        <span className="font-medium">
-                                            {
+                                    <FormField
+                                        label="Package"
+                                        className="md:col-span-2 lg:col-span-3"
+                                    >
+                                        <Input
+                                            value={
                                                 effectiveLinkedEnquiry.package_name
                                             }
-                                        </span>
-                                    </div>
+                                            disabled
+                                        />
+                                    </FormField>
                                 )}
                             </div>
                         </CardContent>
                     </Card>
                 )}
 
-                {/* ── Group-level fields ── */}
+                {/* Group details */}
                 <Card>
                     <CardHeader className="gap-0">
                         <CardTitle className="text-xl">Group Details</CardTitle>
@@ -554,7 +518,6 @@ export default function CustomerConfirmationForm({
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
-                            {/* Package */}
                             <FormField
                                 label="Package"
                                 fieldRequirementsProps={{
@@ -592,7 +555,6 @@ export default function CustomerConfirmationForm({
                                 )}
                             </FormField>
 
-                            {/* Package Room Type */}
                             <FormField
                                 label="Room Type"
                                 fieldRequirementsProps={{
@@ -627,7 +589,6 @@ export default function CustomerConfirmationForm({
                                 </Select>
                             </FormField>
 
-                            {/* Package Category */}
                             <FormField
                                 label="Category"
                                 fieldRequirementsProps={{
@@ -662,7 +623,6 @@ export default function CustomerConfirmationForm({
                                 </Select>
                             </FormField>
 
-                            {/* Date of Application */}
                             <FormField
                                 label="Date of Application"
                                 fieldRequirementsProps={{
@@ -685,7 +645,7 @@ export default function CustomerConfirmationForm({
                     </CardContent>
                 </Card>
 
-                {/* ── Members (tab-based) ── */}
+                {/* Members */}
                 <Card>
                     <CardHeader className="grid grid-cols-1 md:grid-cols-2">
                         <div className="grid grid-cols-1 gap-0">
@@ -778,7 +738,6 @@ export default function CustomerConfirmationForm({
                                         value={`member-${idx}`}
                                         className="space-y-2"
                                     >
-                                        {/* Member header with leader toggle & delete */}
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex items-center gap-2">
@@ -840,7 +799,7 @@ export default function CustomerConfirmationForm({
                     </CardContent>
                 </Card>
 
-                {/* Terms & Conditions (public create only) */}
+                {/* Terms */}
                 {isPublic && isCreate && (
                     <Card>
                         <CardContent>
@@ -849,12 +808,10 @@ export default function CustomerConfirmationForm({
                                     id="terms_accepted"
                                     checked={data.terms_accepted}
                                     disabled={processing}
-                                    onCheckedChange={(checked) =>
-                                        setData(
-                                            'terms_accepted',
-                                            checked === true,
-                                        )
-                                    }
+                                    onCheckedChange={(checked) => {
+                                        const accepted = checked === true;
+                                        setData('terms_accepted', accepted);
+                                    }}
                                 />
                                 <div>
                                     <Label
@@ -880,7 +837,7 @@ export default function CustomerConfirmationForm({
                     </Card>
                 )}
 
-                {/* Action Buttons */}
+                {/* Actions */}
                 <div className="flex items-center justify-end gap-3">
                     {onCancel && (
                         <Button
@@ -911,64 +868,19 @@ export default function CustomerConfirmationForm({
                         </Button>
                     )}
                 </div>
-                {/* ── Enquiry Details Dialog ── */}
-                <Dialog
+                {/* Enquiry dialog */}
+                <EnquiryViewDialog
                     open={enquiryDialogOpen}
                     onOpenChange={setEnquiryDialogOpen}
-                >
-                    <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
-                        <DialogHeader>
-                            <div className="flex items-center gap-3">
-                                <div>
-                                    <DialogTitle>Enquiry Details</DialogTitle>
-                                    <DialogDescription className="sr-only">
-                                        Full enquiry information
-                                    </DialogDescription>
-                                </div>
-                                {effectiveLinkedEnquiry && (
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline">
-                                            {effectiveLinkedEnquiry.type}
-                                        </Badge>
-                                        <Badge variant="secondary">
-                                            {effectiveLinkedEnquiry.status}
-                                        </Badge>
-                                    </div>
-                                )}
-                            </div>
-                        </DialogHeader>
-                        <div className="h-full w-full flex-1 overflow-y-auto">
-                            {isLoadingEnquiryChild && (
-                                <div className="flex h-full items-center justify-center text-muted-foreground">
-                                    Loading enquiry details...
-                                </div>
-                            )}
-                            {!isLoadingEnquiryChild &&
-                                linkedEnquiryChild &&
-                                effectiveLinkedEnquiry &&
-                                (effectiveLinkedEnquiry.type === 'general' ? (
-                                    <GeneralEnquiryForm
-                                        mode="view"
-                                        initialData={
-                                            linkedEnquiryChild as GeneralEnquirySchema
-                                        }
-                                    />
-                                ) : (
-                                    <PrivateEnquiryForm
-                                        mode="view"
-                                        initialData={
-                                            linkedEnquiryChild as PrivateEnquirySchema
-                                        }
-                                    />
-                                ))}
-                            {!isLoadingEnquiryChild && !linkedEnquiryChild && (
-                                <div className="flex h-full items-center justify-center text-muted-foreground">
-                                    Failed to load enquiry details.
-                                </div>
-                            )}
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                    enquiryId={effectiveLinkedEnquiry?.id}
+                    enquiryType={effectiveLinkedEnquiry?.type}
+                    statusLabel={effectiveLinkedEnquiry?.status}
+                    childData={
+                        linkedEnquiryChild as Record<string, unknown> | null
+                    }
+                    isLoadingChild={isLoadingEnquiryChild}
+                    showStatusActions={false}
+                />
             </form>
         </div>
     );

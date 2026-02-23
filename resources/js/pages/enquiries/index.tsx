@@ -5,13 +5,6 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -26,21 +19,18 @@ import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useState } from 'react';
-import CustomerConfirmationForm, {
-    type EnquiryDetails,
-} from '../customer/form';
-import GeneralEnquiryForm from '../general-enquiries/form';
+import CustomerConfirmationForm from '../customer/form';
 import PackageForm from '../packages/form';
 import type { PackageSchema } from '../packages/schema';
-import PrivateEnquiryForm from '../private-enquiries/form';
 import EnquiryRemarksDialog from './components/enquiry-remarks-dialog';
-import EnquiryRemarksTimeline from './components/enquiry-remarks-timeline';
 import {
     EnquiryStatusAction,
     EnquiryStatusActionType,
     getAvailableEnquiryActions,
 } from './components/enquiry-status-action';
+import EnquiryViewDialog from './components/enquiry-view-dialog';
 import {
+    EnquiryDetails,
     statusColors,
     statusOptions,
     typeColors,
@@ -432,105 +422,51 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
             </AppLayout>
 
             {/* View Dialog */}
-            <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col overflow-y-hidden">
-                    <DialogHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <DialogTitle>View Enquiry Details</DialogTitle>
-                                <DialogDescription className="sr-only">
-                                    Displays detailed information about the
-                                    selected enquiry.
-                                </DialogDescription>
-                            </div>
-                            {selectedEnquiryData && (
-                                <div className="mr-8 flex items-center gap-2">
-                                    <Badge
-                                        className={`${typeColors[selectedEnquiryData.enquiry.type === 'general' ? 'General' : 'Private'] ?? ''} rounded-full px-3 py-1 text-base`}
-                                    >
-                                        {selectedEnquiryData.enquiry.type ===
-                                        'general'
-                                            ? 'General'
-                                            : 'Private'}
-                                    </Badge>
-                                    <Badge
-                                        className={`${statusColors[selectedEnquiryData.enquiry.status] ?? ''} rounded-full px-3 py-1 text-base`}
-                                    >
-                                        {
-                                            selectedEnquiryData.enquiry
-                                                .status_label
-                                        }
-                                    </Badge>
-                                </div>
-                            )}
-                        </div>
-                    </DialogHeader>
+            <EnquiryViewDialog
+                open={viewDialogOpen}
+                onOpenChange={setViewDialogOpen}
+                enquiryId={selectedEnquiryData?.enquiry.id}
+                enquiryType={selectedEnquiryData?.enquiry.type}
+                statusLabel={selectedEnquiryData?.enquiry.status_label}
+                statusValue={selectedEnquiryData?.enquiry.status}
+                childData={
+                    selectedEnquiryData?.child as Record<string, unknown> | null
+                }
+                isLoadingChild={isLoadingData}
+                packageOptions={packageOptions}
+                showStatusActions={true}
+                onStatusActionConfirmed={(enquiryId) => {
+                    const enquiry = enquiriesForDatatable.find(
+                        (e) => e.id === enquiryId,
+                    );
 
-                    <div className="h-full w-full flex-1 overflow-y-auto">
-                        {isLoadingData && (
-                            <div className="flex h-full items-center justify-center text-muted-foreground">
-                                Loading enquiry details...
-                            </div>
-                        )}
-                        {!isLoadingData && selectedEnquiryData && (
-                            <>
-                                {selectedEnquiryData.enquiry.type ===
-                                'general' ? (
-                                    <GeneralEnquiryForm
-                                        mode="view"
-                                        initialData={
-                                            selectedEnquiryData.child as Record<
-                                                string,
-                                                unknown
-                                            > as import('../general-enquiries/schema').GeneralEnquirySchema
-                                        }
-                                        packageOptions={packageOptions}
-                                    />
-                                ) : (
-                                    <PrivateEnquiryForm
-                                        mode="view"
-                                        initialData={
-                                            selectedEnquiryData.child as Record<
-                                                string,
-                                                unknown
-                                            > as import('../private-enquiries/schema').PrivateEnquirySchema
-                                        }
-                                    />
-                                )}
-                            </>
-                        )}
-
-                        {/* Enquiry Remarks Timeline */}
-                        {!isLoadingData && selectedEnquiryData && (
-                            <Card className="mb-2">
-                                <CardHeader>
-                                    <CardTitle className="text-xl">
-                                        Enquiry Remarks Timeline
-                                    </CardTitle>
-                                    <CardDescription>
-                                        View the history of remarks for this
-                                        enquiry.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <EnquiryRemarksTimeline
-                                        isOpen={true}
-                                        enquiryId={
-                                            selectedEnquiryData.enquiry.id
-                                        }
-                                    />
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {!isLoadingData && !selectedEnquiryData && (
-                            <div className="flex h-full items-center justify-center text-muted-foreground">
-                                Failed to load enquiry details
-                            </div>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+                    if (enquiry?.type === 'Private') {
+                        startPrivateFlow(enquiryId);
+                    } else {
+                        setConfirmFormEnquiryId(enquiryId);
+                        setConfirmFormPrefill({
+                            name: enquiry?.name ?? '',
+                            email: enquiry?.email ?? '',
+                            contact: enquiry?.contact ?? '',
+                        });
+                        setPrefillPackageId(enquiry?.package_id ?? null);
+                        setConfirmFormEnquiryDetails(
+                            enquiry
+                                ? {
+                                      id: enquiry.id,
+                                      type: enquiry.type,
+                                      name: enquiry.name,
+                                      email: enquiry.email,
+                                      contact: enquiry.contact,
+                                      status: enquiry.status_label,
+                                      package_name: enquiry.package_name,
+                                  }
+                                : undefined,
+                        );
+                        setConfirmFormOpen(true);
+                    }
+                }}
+            />
 
             {/* Enquiry Status Action Dialog */}
             <EnquiryStatusAction
