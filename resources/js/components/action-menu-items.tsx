@@ -12,8 +12,6 @@ import {
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SharedData } from '@/types';
-import { usePage } from '@inertiajs/react';
 import { Row } from '@tanstack/react-table';
 import { ActionType } from './action-column';
 
@@ -45,9 +43,6 @@ export function ActionMenuItems<TData>({
         mode === 'dropdown' ? DropdownMenuSubTrigger : ContextMenuSubTrigger;
     const SubContent =
         mode === 'dropdown' ? DropdownMenuSubContent : ContextMenuSubContent;
-
-    const { auth } = usePage<SharedData>().props;
-    const userId = auth?.user.id;
 
     const handledBy = isTableRow<TData>(row)
         ? (row.original as WithHandledBy)?.handled_by

@@ -275,7 +275,10 @@ export default function UserLogs({ activities }: UserLogsProps) {
     const [selectedActivity, setSelectedActivity] =
         useState<ActivityLog | null>(null);
 
-    const activityProperties = selectedActivity?.properties ?? {};
+    const activityProperties = useMemo(
+        () => selectedActivity?.properties ?? {},
+        [selectedActivity?.properties],
+    );
 
     const attributeChanges = useMemo(() => {
         const attributes = toObjectRecord(activityProperties.attributes);

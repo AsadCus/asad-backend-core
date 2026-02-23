@@ -130,7 +130,7 @@ export default function CustomerConfirmationForm({
 }: CustomerConfirmationFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
-    const isCreate = mode === 'create';
+    // const isCreate = mode === 'create';
 
     // State
     const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>(
@@ -182,7 +182,6 @@ export default function CustomerConfirmationForm({
                 remarks: pkg.remarks,
             });
             setLinkedPackageData(pkg);
-        } catch {
         } finally {
             setIsLoadingLinkedPackage(false);
         }

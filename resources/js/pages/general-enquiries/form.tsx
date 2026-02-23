@@ -103,7 +103,6 @@ export default function GeneralEnquiryForm({
                 arrival_date: pkg.arrival_date,
             });
             setLinkedPackageData(pkg);
-        } catch {
         } finally {
             setIsLoadingLinkedPackage(false);
         }
