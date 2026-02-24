@@ -16,7 +16,7 @@ class PrivateEnquiryService
     public function getForDataTable(array $filters = [])
     {
         $data = PrivateEnquiry::query()
-            ->with('enquiry')
+            ->with(['enquiry.latestRemark', 'enquiry.handledBy:id,name'])
             ->when($filters['from_date'] ?? null, function ($q, $value) {
                 $q->whereDate('created_at', '>=', $value);
             })
@@ -69,6 +69,7 @@ class PrivateEnquiryService
                     'need_wheelchair' => $privateEnquiry->need_wheelchair,
                     'other_remarks' => $privateEnquiry->other_remarks,
                     'last_remark' => $privateEnquiry->enquiry?->latestRemark->remark ?? '-',
+                    'handled_by_name' => $privateEnquiry->enquiry?->handledBy?->name ?? '-',
                     'created_at' => $privateEnquiry->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $privateEnquiry->updated_at?->translatedFormat('d F Y'),
                 ];
@@ -137,7 +138,7 @@ class PrivateEnquiryService
             activity()
                 ->performedOn($privateEnquiry)
                 ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $privateEnquiry->id, 'enquiry_id' => $parentEnquiry->id])
-                ->log('Private enquiry created successfully #' . $privateEnquiry->id);
+                ->log('Private enquiry created successfully #'.$privateEnquiry->id);
 
             // Create notification for admin/sales users
             $this->createEnquiryNotification($privateEnquiry, $parentEnquiry);
@@ -251,7 +252,7 @@ class PrivateEnquiryService
             activity()
                 ->performedOn($privateEnquiry)
                 ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $privateEnquiry->id, 'enquiry_id' => $privateEnquiry->enquiry_id])
-                ->log('Private enquiry updated successfully #' . $privateEnquiry->id);
+                ->log('Private enquiry updated successfully #'.$privateEnquiry->id);
 
             return $privateEnquiry;
         });
@@ -267,7 +268,7 @@ class PrivateEnquiryService
         activity()
             ->performedOn($privateEnquiry)
             ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $privateEnquiry->id, 'enquiry_id' => $privateEnquiry->enquiry_id])
-            ->log('Private enquiry deleted successfully #' . $privateEnquiry->id);
+            ->log('Private enquiry deleted successfully #'.$privateEnquiry->id);
 
         // Also delete parent enquiry
         if ($privateEnquiry->enquiry_id) {

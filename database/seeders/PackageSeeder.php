@@ -14,7 +14,7 @@ class PackageSeeder extends Seeder
     public function run(): void
     {
         $package1 = Package::create([
-            'group_number' => NumberGenerator::generate('package'),
+            'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Economy 14 Days',
             'status' => 'open',
             'price_single' => 4000.00,
@@ -45,7 +45,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package2 = Package::create([
-            'group_number' => NumberGenerator::generate('package'),
+            'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Premium 10 Days',
             'status' => 'open',
             'price_single' => 6000.00,
@@ -76,7 +76,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package3 = Package::create([
-            'group_number' => NumberGenerator::generate('package'),
+            'package_number' => NumberGenerator::generate('package'),
             'name' => 'Hajj Standard 2026',
             'status' => 'open',
             'price_single' => 13000.00,
@@ -108,7 +108,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package4 = Package::create([
-            'group_number' => NumberGenerator::generate('package'),
+            'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Ramadan Special',
             'status' => 'open',
             'price_single' => 7500.00,
@@ -139,7 +139,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package5 = Package::create([
-            'group_number' => NumberGenerator::generate('package'),
+            'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Budget 7 Days',
             'status' => 'closed',
             'price_single' => 3000.00,

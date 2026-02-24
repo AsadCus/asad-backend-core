@@ -11,9 +11,9 @@ export const accommodationSchema = z.object({
 
 export const packageSchema = z.object({
     id: z.number().optional(),
-    group_number: z.string().optional(),
+    package_number: z.string().optional(),
     name: z.string().optional(),
-    status: z.enum(['open', 'closed']).optional(),
+    status: z.string().optional(),
 
     price_single: z.union([z.string(), z.number()]).nullable().optional(),
     price_double: z.union([z.string(), z.number()]).nullable().optional(),

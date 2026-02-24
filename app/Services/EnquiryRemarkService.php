@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\EnquiryStatus;
 use App\Models\Enquiry;
 use App\Models\EnquiryRemark;
 use Illuminate\Support\Collection;
@@ -20,7 +21,7 @@ class EnquiryRemarkService
             ->with('creator:id,name')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn(EnquiryRemark $remark) => [
+            ->map(fn (EnquiryRemark $remark) => [
                 'id' => $remark->id,
                 'enquiry_id' => $remark->enquiry_id,
                 'created_by' => $remark->created_by,
@@ -38,6 +39,12 @@ class EnquiryRemarkService
     public function store(int $enquiryId, array $data): EnquiryRemark
     {
         $enquiry = Enquiry::findOrFail($enquiryId);
+
+        if ($enquiry->status !== EnquiryStatus::Confirmed) {
+            $enquiry->update([
+                'handled_by' => auth()->id(),
+            ]);
+        }
 
         return EnquiryRemark::create([
             'enquiry_id' => $enquiryId,

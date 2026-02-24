@@ -16,7 +16,7 @@ class GeneralEnquiryService
     public function getForDataTable(array $filters = [])
     {
         $data = GeneralEnquiry::query()
-            ->with('enquiry')
+            ->with(['enquiry.latestRemark', 'enquiry.handledBy:id,name'])
             ->when($filters['from_date'] ?? null, function ($q, $value) {
                 $q->whereDate('created_at', '>=', $value);
             })
@@ -48,6 +48,7 @@ class GeneralEnquiryService
                     'no_of_children' => $generalEnquiry->no_of_children,
                     'requires_mobility_assistance' => $generalEnquiry->requires_mobility_assistance,
                     'last_remark' => $generalEnquiry->enquiry?->latestRemark->remark ?? '-',
+                    'handled_by_name' => $generalEnquiry->enquiry?->handledBy?->name ?? '-',
                     'created_at' => $generalEnquiry->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $generalEnquiry->updated_at?->translatedFormat('d F Y'),
                 ];

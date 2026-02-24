@@ -57,6 +57,7 @@ export interface EnquirySchema {
     package_id: number | null;
     package_name: string | null;
     latest_remark: string | null;
+    handled_by_name: string | null;
     created_at: string;
 }
 

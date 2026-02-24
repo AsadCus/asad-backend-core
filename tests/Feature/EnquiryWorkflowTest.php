@@ -6,6 +6,7 @@ use App\Enums\EnquiryStatus;
 use App\Models\Customer;
 use App\Models\CustomerGroup;
 use App\Models\Enquiry;
+use App\Models\EnquiryRemark;
 use App\Models\GeneralEnquiry;
 use App\Models\PrivateEnquiry;
 use App\Models\User;
@@ -224,6 +225,14 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertRedirect();
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Contacted, $enquiry->status);
+        $this->assertSame($this->adminUser->id, $enquiry->handled_by);
+
+        $this->assertDatabaseHas('enquiry_remarks', [
+            'enquiry_id' => $enquiry->id,
+            'created_by' => $this->adminUser->id,
+            'status_at_time' => EnquiryStatus::Contacted->value,
+            'remark' => 'Status updated from New Lead to Contacted.',
+        ]);
     }
 
     public function test_enquiry_status_cannot_skip_steps(): void
@@ -283,6 +292,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
+        $this->assertEquals(3, EnquiryRemark::where('enquiry_id', $enquiry->id)->count());
     }
 
     public function test_confirm_endpoint_creates_customer_group(): void
@@ -340,6 +350,48 @@ class EnquiryWorkflowTest extends TestCase
         // Check enquiry status moved to confirmed
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
+    }
+
+    public function test_confirm_endpoint_overwrites_handled_by_with_confirming_user(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $previousHandler = User::factory()->create();
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Negotiating->value,
+            'name' => 'Handled By Confirm Test',
+            'contact_number' => '012345',
+            'email' => 'handled-confirm@test.com',
+            'created_by' => $this->adminUser->id,
+            'handled_by' => $previousHandler->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Handled By Confirm Test',
+                    'email' => 'handled-confirm@test.com',
+                    'contact_number' => '012345',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $enquiry->refresh();
+
+        $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
+        $this->assertSame($this->adminUser->id, $enquiry->handled_by);
+
+        $this->assertDatabaseHas('enquiry_remarks', [
+            'enquiry_id' => $enquiry->id,
+            'created_by' => $this->adminUser->id,
+            'status_at_time' => EnquiryStatus::Confirmed->value,
+            'remark' => 'Status updated from Negotiating to Confirmed.',
+        ]);
     }
 
     public function test_confirm_endpoint_does_not_fail_when_already_confirmed(): void
@@ -678,7 +730,8 @@ class EnquiryWorkflowTest extends TestCase
         ]);
         $response->assertJsonMissingPath('airline');
         $response->assertJsonMissingPath('vehicle_type');
-        $response->assertJsonMissingPath('remarks');
+        $response->assertJsonPath('not_included', "Mutawif service not requested\nUmrah course not requested\nUmrah official not requested\nMeet & greet not requested\nMutawiffah/Ustazah Rawdah not requested");
+        $response->assertJsonPath('remarks', "Private enquiry details:\nClass: Economy\nMakkah/Madinah first: makkah\nNights in Makkah: 4\nNights in Madinah: 3\nWheelchair support: No");
         $response->assertJsonPath('accommodations.0.location', 'Makkah');
     }
 

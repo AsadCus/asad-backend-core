@@ -81,7 +81,7 @@ class CustomerGroupFormTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $package = Package::create([
-            'group_number' => 'PKG-001',
+            'package_number' => 'PKG-001',
             'name' => 'Umrah Gold',
             'status' => 'active',
         ]);
@@ -110,7 +110,7 @@ class CustomerGroupFormTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $package = Package::create([
-            'group_number' => 'PKG-002',
+            'package_number' => 'PKG-002',
             'name' => 'Umrah Silver',
             'status' => 'active',
         ]);
@@ -199,7 +199,7 @@ class CustomerGroupFormTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $package = Package::create([
-            'group_number' => 'PKG-003',
+            'package_number' => 'PKG-003',
             'name' => 'Umrah Package',
             'status' => 'active',
         ]);
@@ -460,13 +460,13 @@ class CustomerGroupFormTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $originalPackage = Package::create([
-            'group_number' => 'PKG-PRIVATE-ORIG',
+            'package_number' => 'PKG-PRIVATE-ORIG',
             'name' => 'Private Original',
             'status' => 'open',
         ]);
 
         $replacementPackage = Package::create([
-            'group_number' => 'PKG-PRIVATE-NEW',
+            'package_number' => 'PKG-PRIVATE-NEW',
             'name' => 'Private Replacement',
             'status' => 'open',
         ]);

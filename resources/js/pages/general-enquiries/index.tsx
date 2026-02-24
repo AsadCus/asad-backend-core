@@ -123,6 +123,11 @@ const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'handled_by_name',
+        header: 'Handled By',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },

@@ -548,6 +548,29 @@ class EnquirySeeder extends Seeder
         $enquiries = Enquiry::all();
 
         foreach ($enquiries as $enquiry) {
+            $currentTimestamp = $enquiry->created_at->copy();
+
+            $statusTransitions = $this->getStatusTransitionsForSeeder($enquiry->status);
+            foreach ($statusTransitions as [$fromStatus, $toStatus]) {
+                $createdBy = $adminAndSalesUsers->random();
+                $currentTimestamp = $currentTimestamp->copy()->addHours(rand(1, 12));
+
+                EnquiryRemark::create([
+                    'enquiry_id' => $enquiry->id,
+                    'created_by' => $createdBy->id,
+                    'status_at_time' => $toStatus->value,
+                    'remark' => "Status updated from {$fromStatus->label()} to {$toStatus->label()}.",
+                    'created_at' => $currentTimestamp,
+                    'updated_at' => $currentTimestamp,
+                ]);
+
+                if ($toStatus !== EnquiryStatus::Confirmed) {
+                    $enquiry->update([
+                        'handled_by' => $createdBy->id,
+                    ]);
+                }
+            }
+
             // Create 1-4 random remarks per enquiry
             $remarkCount = rand(1, 4);
 
@@ -556,7 +579,8 @@ class EnquirySeeder extends Seeder
                 $remark = $remarkTemplates[array_rand($remarkTemplates)];
 
                 // Create remarks with dates after enquiry creation
-                $createdAt = $enquiry->created_at->addHours(rand(1, 48));
+                $currentTimestamp = $currentTimestamp->copy()->addHours(rand(1, 12));
+                $createdAt = $currentTimestamp;
 
                 EnquiryRemark::create([
                     'enquiry_id' => $enquiry->id,
@@ -566,10 +590,44 @@ class EnquirySeeder extends Seeder
                     'created_at' => $createdAt,
                     'updated_at' => $createdAt,
                 ]);
+
+                if ($enquiry->status !== EnquiryStatus::Confirmed) {
+                    $enquiry->update([
+                        'handled_by' => $createdBy->id,
+                    ]);
+                }
             }
         }
 
         $this->command->info('Random remarks created for enquiries!');
+    }
+
+    /**
+     * Build status transition pairs up to the enquiry's current status.
+     *
+     * @return array<int, array{0: EnquiryStatus, 1: EnquiryStatus}>
+     */
+    private function getStatusTransitionsForSeeder(EnquiryStatus $targetStatus): array
+    {
+        $workflow = [
+            EnquiryStatus::NewLead,
+            EnquiryStatus::Contacted,
+            EnquiryStatus::Negotiating,
+            EnquiryStatus::Confirmed,
+        ];
+
+        $targetIndex = array_search($targetStatus, $workflow, true);
+        if (! is_int($targetIndex) || $targetIndex === 0) {
+            return [];
+        }
+
+        $transitions = [];
+
+        for ($index = 1; $index <= $targetIndex; $index++) {
+            $transitions[] = [$workflow[$index - 1], $workflow[$index]];
+        }
+
+        return $transitions;
     }
 
     /**

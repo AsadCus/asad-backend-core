@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\FormatService;
 use App\Helpers\NumberGenerator;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
@@ -9,6 +10,13 @@ use Illuminate\Support\Facades\DB;
 
 class PackageService
 {
+    protected $formatService;
+
+    public function __construct(FormatService $formatService)
+    {
+        $this->formatService = $formatService;
+    }
+
     public function get()
     {
         return Package::get();
@@ -21,7 +29,7 @@ class PackageService
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('name', 'like', "%{$value}%")
-                        ->orWhere('group_number', 'like', "%{$value}%")
+                        ->orWhere('package_number', 'like', "%{$value}%")
                         ->orWhere('airline', 'like', "%{$value}%");
                 });
             })
@@ -33,7 +41,7 @@ class PackageService
             ->map(function ($q) {
                 return [
                     'id' => $q->id,
-                    'group_number' => $q->group_number,
+                    'package_number' => $q->package_number,
                     'name' => $q->name,
                     'status' => $q->status,
                     'launched' => $q->launched,
@@ -42,7 +50,7 @@ class PackageService
                     'arrival_date' => $q->arrival_date_formatted,
                     'total_seats' => $q->total_seats,
                     'seats_left' => $q->seats_left,
-                    'price_quad' => $q->price_quad,
+                    'price_quad' => $this->formatService->formatCurrency($q->price_quad),
                     'manifests_count' => $q->manifests_count,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),
                 ];
@@ -56,17 +64,6 @@ class PackageService
         return Package::get()->map(function ($q) {
             return [
                 'value' => $q->id,
-                // 'label' => $q->group_number . ' - ' . $q->name,
-                'label' => $q->name,
-            ];
-        });
-    }
-
-    public function getForFilterByName()
-    {
-        return Package::get()->map(function ($q) {
-            return [
-                'value' => $q->name,
                 'label' => $q->name,
             ];
         });
@@ -75,10 +72,10 @@ class PackageService
     public function store(array $data): Package
     {
         return DB::transaction(function () use ($data) {
-            $groupNumber = NumberGenerator::generate('package');
+            $packageNumber = NumberGenerator::generate('package');
 
             $package = Package::create([
-                'group_number' => $groupNumber,
+                'package_number' => $packageNumber,
                 'name' => $data['name'],
                 'status' => $data['status'] ?? 'open',
                 'price_single' => $data['price_single'] ?? 0,
@@ -118,7 +115,7 @@ class PackageService
             activity()
                 ->performedOn($package)
                 ->withProperties(['subject_type' => 'Package', 'subject_id' => $package->id])
-                ->log('Package created successfully #'.$package->group_number);
+                ->log('Package created successfully #'.$package->package_number);
 
             return $package;
         });
@@ -130,17 +127,17 @@ class PackageService
 
         return [
             'id' => $package->id,
-            'group_number' => $package->group_number,
+            'package_number' => $package->package_number,
             'name' => $package->name,
             'status' => $package->status,
             'launched' => $package->launched,
-            'price_single' => $package->price_single,
-            'price_double' => $package->price_double,
-            'price_triple' => $package->price_triple,
-            'price_quad' => $package->price_quad,
-            'child_with_bed_price' => $package->child_with_bed_price,
-            'child_no_bed_price' => $package->child_no_bed_price,
-            'infant_price' => $package->infant_price,
+            'price_single' => $this->formatService->cleanDecimal($package->price_single),
+            'price_double' => $this->formatService->cleanDecimal($package->price_double),
+            'price_triple' => $this->formatService->cleanDecimal($package->price_triple),
+            'price_quad' => $this->formatService->cleanDecimal($package->price_quad),
+            'child_with_bed_price' => $this->formatService->cleanDecimal($package->child_with_bed_price),
+            'child_no_bed_price' => $this->formatService->cleanDecimal($package->child_no_bed_price),
+            'infant_price' => $this->formatService->cleanDecimal($package->infant_price),
             'airline' => $package->airline,
             'pnr' => $package->pnr,
             'departure_date' => $package->departure_date_formatted,
@@ -215,7 +212,7 @@ class PackageService
             activity()
                 ->performedOn($package)
                 ->withProperties(['subject_type' => 'Package', 'subject_id' => $package->id])
-                ->log('Package updated successfully #'.$package->group_number);
+                ->log('Package updated successfully #'.$package->package_number);
 
             return $package;
         });
@@ -231,7 +228,7 @@ class PackageService
         activity()
             ->performedOn($package)
             ->withProperties(['subject_type' => 'Package', 'subject_id' => $package->id])
-            ->log('Package deleted successfully #'.$package->group_number);
+            ->log('Package deleted successfully #'.$package->package_number);
 
         return $package->delete();
     }
@@ -257,11 +254,86 @@ class PackageService
         ];
 
         $this->setIfNotEmpty($payload, 'airline', $privateEnquiry->airline);
-        $this->setIfNotEmpty($payload, 'departure_date', $privateEnquiry->departure_date?->format('d F Y'));
-        $this->setIfNotEmpty($payload, 'arrival_date', $privateEnquiry->return_date?->format('d F Y'));
+        $this->setIfNotEmpty($payload, 'departure_date', $privateEnquiry->departure_date_formatted);
+        $this->setIfNotEmpty($payload, 'arrival_date', $privateEnquiry->return_date_formatted);
         $this->setIfNotEmpty($payload, 'vehicle_type', $privateEnquiry->land_transfer);
         $this->setIfNotEmpty($payload, 'ticket_type', $privateEnquiry->add_on_speed_train ? 'speed_train' : null);
-        $this->setIfNotEmpty($payload, 'remarks', $privateEnquiry->other_remarks);
+
+        $included = [];
+        $notIncluded = [];
+        $offer = [];
+        $remarks = [];
+
+        if ($privateEnquiry->require_mutawif) {
+            $included[] = 'Mutawif service requested';
+        } else {
+            $notIncluded[] = 'Mutawif service not requested';
+        }
+
+        if ($privateEnquiry->require_umrah_course) {
+            $included[] = 'Umrah course requested';
+        } else {
+            $notIncluded[] = 'Umrah course not requested';
+        }
+
+        if ($privateEnquiry->require_umrah_official) {
+            $included[] = 'Umrah official requested';
+        } else {
+            $notIncluded[] = 'Umrah official not requested';
+        }
+
+        if ($privateEnquiry->require_meet_greet) {
+            $included[] = 'Meet & greet requested';
+        } else {
+            $notIncluded[] = 'Meet & greet not requested';
+        }
+
+        if ($privateEnquiry->require_mutawiffah_ustazah_rawdah) {
+            $included[] = 'Mutawiffah/Ustazah Rawdah requested';
+        } else {
+            $notIncluded[] = 'Mutawiffah/Ustazah Rawdah not requested';
+        }
+
+        if ($privateEnquiry->madinah_tour_with_mutawif) {
+            $included[] = 'Madinah tour with mutawif requested';
+        }
+
+        if ($privateEnquiry->makkah_tour_with_mutawif) {
+            $included[] = 'Makkah tour with mutawif requested';
+        }
+
+        if ($privateEnquiry->add_on_speed_train) {
+            $offer[] = 'Add-on speed train requested';
+        }
+
+        $this->setIfNotEmpty($payload, 'included', implode("\n", $included));
+        $this->setIfNotEmpty($payload, 'not_included', implode("\n", $notIncluded));
+        $this->setIfNotEmpty($payload, 'offer', implode("\n", $offer));
+
+        $remarks[] = 'Private enquiry details:';
+        if (! empty($privateEnquiry->class)) {
+            $remarks[] = 'Class: '.$privateEnquiry->class;
+        }
+        if (! empty($privateEnquiry->makkah_or_madinah_first)) {
+            $remarks[] = 'Makkah/Madinah first: '.$privateEnquiry->makkah_or_madinah_first;
+        }
+        if (! empty($privateEnquiry->no_of_nights_makkah)) {
+            $remarks[] = 'Nights in Makkah: '.$privateEnquiry->no_of_nights_makkah;
+        }
+        if (! empty($privateEnquiry->no_of_nights_madinah)) {
+            $remarks[] = 'Nights in Madinah: '.$privateEnquiry->no_of_nights_madinah;
+        }
+        if (! empty($privateEnquiry->need_wheelchair)) {
+            $remarks[] = 'Wheelchair support: '.$privateEnquiry->need_wheelchair;
+        }
+        if ($privateEnquiry->has_chronic_disease) {
+            $remarks[] = 'Chronic disease: '.($privateEnquiry->chronic_disease_details ?: 'Yes');
+        }
+        if (! empty($privateEnquiry->other_remarks)) {
+            $remarks[] = 'Other remarks: '.$privateEnquiry->other_remarks;
+        }
+
+        $this->setIfNotEmpty($payload, 'remarks', implode("\n", $remarks));
 
         if (! empty($privateEnquiry->hotel_makkah)) {
             $payload['accommodations'][] = [
@@ -296,14 +368,14 @@ class PackageService
     {
         return DB::transaction(function () use ($privateEnquiry) {
             $enquiry = $privateEnquiry->enquiry;
-            $groupNumber = NumberGenerator::generate('package');
+            $packageNumber = NumberGenerator::generate('package');
 
             $payload = $this->privateEnquiryToPackagePayload($privateEnquiry);
             unset($payload['accommodations']);
 
             $package = Package::create(array_merge(
                 [
-                    'group_number' => $groupNumber,
+                    'package_number' => $packageNumber,
                 ],
                 $payload,
             ));

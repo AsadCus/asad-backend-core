@@ -33,7 +33,7 @@ interface ManifestInfo {
 
 interface OpsMovementData {
     id: number;
-    group_number: string;
+    package_number: string;
     name: string;
     status: string;
     launched: boolean;
@@ -95,11 +95,11 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Ops Movement - ${data.group_number}`} />
+            <Head title={`Ops Movement - ${data.package_number}`} />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">
-                        Ops Movement - {data.group_number}
+                        Ops Movement - {data.package_number}
                     </h2>
                     <span
                         className={`inline-flex rounded-full px-3 py-1 text-base font-semibold ${
@@ -121,8 +121,8 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         <CardContent>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                                 <InfoRow
-                                    label="Group Number"
-                                    value={data.group_number}
+                                    label="Package Number"
+                                    value={data.package_number}
                                 />
                                 <InfoRow
                                     label="Package Name"

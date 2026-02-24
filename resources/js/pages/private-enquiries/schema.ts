@@ -35,6 +35,7 @@ export const privateEnquirySchema = z.object({
     chronic_disease_details: z.string().nullable().optional(),
     need_wheelchair: z.string().optional(),
     other_remarks: z.string().nullable().optional(),
+    handled_by_name: z.string().optional(),
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
 });

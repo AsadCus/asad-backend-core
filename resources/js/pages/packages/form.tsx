@@ -1,5 +1,5 @@
 import { DatePickerField } from '@/components/date-picker';
-import { FieldRequirements } from '@/components/field-requirements';
+import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -20,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { isBeforeToday, parseDisplayDate } from '@/lib/utils';
 import { store, update } from '@/routes/packages';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
@@ -146,10 +146,8 @@ export default function PackageForm({
         }
     }
 
-    const renderError = (fieldName: string) => {
-        const message = (errors as Record<string, string>)[fieldName];
-        if (!message) return null;
-        return <p className="mt-1 text-sm text-red-500">{message}</p>;
+    const getError = (fieldName: string): string | undefined => {
+        return (errors as Record<string, string>)[fieldName];
     };
 
     const addAccommodation = () => {
@@ -184,9 +182,38 @@ export default function PackageForm({
         setData('accommodations', current);
     };
 
+    const toStartOfDay = (value?: string | null): Date | null => {
+        const parsed = parseDisplayDate(value);
+
+        if (!parsed) {
+            return null;
+        }
+
+        const normalized = new Date(parsed);
+        normalized.setHours(0, 0, 0, 0);
+
+        return normalized;
+    };
+
+    const disabledArrivalDates = (date: Date): boolean => {
+        if (isBeforeToday(date)) {
+            return true;
+        }
+
+        const departureDate = toStartOfDay(data.departure_date);
+        if (!departureDate) {
+            return false;
+        }
+
+        const candidateDate = new Date(date);
+        candidateDate.setHours(0, 0, 0, 0);
+
+        return candidateDate < departureDate;
+    };
+
     return (
         <div className="mx-auto w-full">
-            <form onSubmit={submit} className="space-y-6">
+            <form onSubmit={submit} className="space-y-4">
                 {/* Error Alert */}
                 {Object.keys(errors).length > 0 && !isView && (
                     <Alert variant="destructive">
@@ -199,8 +226,10 @@ export default function PackageForm({
 
                 {/* Package Information */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Package Information</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">
+                            Package Information
+                        </CardTitle>
                         <CardDescription>
                             Define the package identity and status.
                         </CardDescription>
@@ -208,88 +237,83 @@ export default function PackageForm({
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             {/* Group Number (auto-generated, read-only) */}
-                            {(isEdit || isView) && data.group_number && (
-                                <div className="grid w-full items-center gap-3">
-                                    <Label htmlFor="group_number">
-                                        Group Number
-                                        <FieldRequirements hint="Auto-generated group identifier" />
-                                    </Label>
-                                    <div className="relative">
-                                        <Input
-                                            id="group_number"
-                                            type="text"
-                                            value={data.group_number}
-                                            disabled={true}
-                                            className="bg-muted"
-                                        />
-                                    </div>
-                                </div>
+                            {(isEdit || isView) && data.package_number && (
+                                <FormField
+                                    label="Package Number"
+                                    htmlFor="package_number"
+                                    fieldRequirementsProps={{
+                                        hint: 'Auto-generated package identifier',
+                                    }}
+                                >
+                                    <Input
+                                        id="package_number"
+                                        type="text"
+                                        value={data.package_number}
+                                        disabled={true}
+                                        className="bg-muted"
+                                    />
+                                </FormField>
                             )}
 
                             {/* Package Name */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="name">
-                                    Package Name
-                                    <FieldRequirements
-                                        required
-                                        hint="Enter the name of the package"
-                                    />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="name"
-                                        value={data.name ?? ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) => setData('name', v)}
-                                        placeholder="Enter package name"
-                                    />
-                                    {renderError('name')}
-                                </div>
-                            </div>
+                            <FormField
+                                label="Package Name"
+                                htmlFor="name"
+                                fieldRequirementsProps={{
+                                    required: true,
+                                    hint: 'Enter the name of the package',
+                                }}
+                                error={getError('name')}
+                            >
+                                <ProperInput
+                                    id="name"
+                                    value={data.name ?? ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) => setData('name', v)}
+                                    placeholder="Enter package name"
+                                />
+                            </FormField>
 
                             {/* Status */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label>
-                                    Status
-                                    <FieldRequirements
-                                        required
-                                        hint="Select package status"
-                                    />
-                                </Label>
-                                <div className="relative">
-                                    <Select
-                                        disabled={isView || processing}
-                                        value={data.status}
-                                        onValueChange={(value) =>
-                                            setData(
-                                                'status',
-                                                value as 'open' | 'closed',
-                                            )
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="open">
-                                                Open
-                                            </SelectItem>
-                                            <SelectItem value="closed">
-                                                Closed
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {renderError('status')}
-                                </div>
-                            </div>
+                            <FormField
+                                label="Status"
+                                fieldRequirementsProps={{
+                                    required: true,
+                                    hint: 'Select package status',
+                                }}
+                                error={getError('status')}
+                            >
+                                <Select
+                                    disabled={isView || processing}
+                                    value={data.status}
+                                    onValueChange={(value) =>
+                                        setData(
+                                            'status',
+                                            value as 'open' | 'closed',
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="open">
+                                            Open
+                                        </SelectItem>
+                                        <SelectItem value="closed">
+                                            Closed
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Pricing */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Pricing</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">Pricing</CardTitle>
                         <CardDescription>
                             Set occupancy and child/infant pricing.
                         </CardDescription>
@@ -311,38 +335,36 @@ export default function PackageForm({
                                 },
                                 { key: 'price_quad', label: 'Quad Occupancy' },
                             ].map(({ key, label }) => (
-                                <div
+                                <FormField
                                     key={key}
-                                    className="grid w-full items-center gap-3"
+                                    label={label}
+                                    htmlFor={key}
+                                    fieldRequirementsProps={{
+                                        hint: 'Enter price amount',
+                                    }}
+                                    error={getError(key)}
                                 >
-                                    <Label htmlFor={key}>
-                                        {label}
-                                        <FieldRequirements hint="Enter price amount" />
-                                    </Label>
-                                    <div className="relative">
-                                        <ProperInput
-                                            id={key}
-                                            type="number"
-                                            value={
-                                                data[
-                                                    key as keyof PackageSchema
-                                                ] as number
-                                            }
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData(
-                                                    key as keyof PackageSchema,
-                                                    parseFloat(v) || 0,
-                                                )
-                                            }
-                                            inputProps={{
-                                                min: '0',
-                                                step: '0.01',
-                                            }}
-                                        />
-                                        {renderError(key)}
-                                    </div>
-                                </div>
+                                    <ProperInput
+                                        id={key}
+                                        type="number"
+                                        value={
+                                            data[
+                                                key as keyof PackageSchema
+                                            ] as number
+                                        }
+                                        disabled={isView || processing}
+                                        onCommit={(v) =>
+                                            setData(
+                                                key as keyof PackageSchema,
+                                                parseFloat(v) || 0,
+                                            )
+                                        }
+                                        inputProps={{
+                                            min: '0',
+                                            step: '0.01',
+                                        }}
+                                    />
+                                </FormField>
                             ))}
                         </div>
 
@@ -358,38 +380,36 @@ export default function PackageForm({
                                 },
                                 { key: 'infant_price', label: 'Infant' },
                             ].map(({ key, label }) => (
-                                <div
+                                <FormField
                                     key={key}
-                                    className="grid w-full items-center gap-3"
+                                    label={label}
+                                    htmlFor={key}
+                                    fieldRequirementsProps={{
+                                        hint: 'Enter price amount',
+                                    }}
+                                    error={getError(key)}
                                 >
-                                    <Label htmlFor={key}>
-                                        {label}
-                                        <FieldRequirements hint="Enter price amount" />
-                                    </Label>
-                                    <div className="relative">
-                                        <ProperInput
-                                            id={key}
-                                            type="number"
-                                            value={
-                                                data[
-                                                    key as keyof PackageSchema
-                                                ] as number
-                                            }
-                                            disabled={isView || processing}
-                                            onCommit={(v) =>
-                                                setData(
-                                                    key as keyof PackageSchema,
-                                                    parseFloat(v) || 0,
-                                                )
-                                            }
-                                            inputProps={{
-                                                min: '0',
-                                                step: '0.01',
-                                            }}
-                                        />
-                                        {renderError(key)}
-                                    </div>
-                                </div>
+                                    <ProperInput
+                                        id={key}
+                                        type="number"
+                                        value={
+                                            data[
+                                                key as keyof PackageSchema
+                                            ] as number
+                                        }
+                                        disabled={isView || processing}
+                                        onCommit={(v) =>
+                                            setData(
+                                                key as keyof PackageSchema,
+                                                parseFloat(v) || 0,
+                                            )
+                                        }
+                                        inputProps={{
+                                            min: '0',
+                                            step: '0.01',
+                                        }}
+                                    />
+                                </FormField>
                             ))}
                         </div>
                     </CardContent>
@@ -397,202 +417,206 @@ export default function PackageForm({
 
                 {/* Flight Details */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Flight Details</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">
+                            Flight Details
+                        </CardTitle>
                         <CardDescription>
                             Add flight information, travel dates, and seat
                             allocation.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="airline">
-                                    Airline
-                                    <FieldRequirements hint="Enter airline name" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="airline"
-                                        value={data.airline || ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData('airline', v || null)
-                                        }
-                                        placeholder="e.g., Saudi Airlines"
-                                    />
-                                    {renderError('airline')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="pnr">
-                                    PNR
-                                    <FieldRequirements hint="Enter Passenger Name Record" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="pnr"
-                                        value={data.pnr || ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData('pnr', v || null)
-                                        }
-                                        placeholder="Enter PNR"
-                                    />
-                                    {renderError('pnr')}
-                                </div>
-                            </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <FormField
+                                label="Airline"
+                                htmlFor="airline"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter airline name',
+                                }}
+                                error={getError('airline')}
+                            >
+                                <ProperInput
+                                    id="airline"
+                                    value={data.airline || ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData('airline', v || null)
+                                    }
+                                    placeholder="e.g., Saudi Airlines"
+                                />
+                            </FormField>
+                            <FormField
+                                label="PNR"
+                                htmlFor="pnr"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter Passenger Name Record',
+                                }}
+                                error={getError('pnr')}
+                            >
+                                <ProperInput
+                                    id="pnr"
+                                    value={data.pnr || ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) => setData('pnr', v || null)}
+                                    placeholder="Enter PNR"
+                                />
+                            </FormField>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                            <div className="grid w-full items-center gap-3">
-                                <Label>
-                                    Departure Date
-                                    <FieldRequirements hint="Select departure date" />
-                                </Label>
-                                <div className="relative">
-                                    <DatePickerField
-                                        id="departure_date"
-                                        value={data.departure_date || ''}
-                                        disabled={isView || processing}
-                                        onChange={(v) =>
-                                            setData('departure_date', v)
-                                        }
-                                    />
-                                    {renderError('departure_date')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-center gap-3">
-                                <Label>
-                                    Arrival Date
-                                    <FieldRequirements hint="Select arrival date" />
-                                </Label>
-                                <div className="relative">
-                                    <DatePickerField
-                                        id="arrival_date"
-                                        value={data.arrival_date || ''}
-                                        disabled={isView || processing}
-                                        onChange={(v) =>
-                                            setData('arrival_date', v)
-                                        }
-                                    />
-                                    {renderError('arrival_date')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="total_seats">
-                                    Total Seats
-                                    <FieldRequirements hint="Enter total number of seats" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="total_seats"
-                                        type="number"
-                                        value={data.total_seats ?? ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData(
-                                                'total_seats',
-                                                v ? parseInt(v) : null,
-                                            )
-                                        }
-                                        inputProps={{ min: '0' }}
-                                        placeholder="0"
-                                    />
-                                    {renderError('total_seats')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="seats_left">
-                                    Seats Left
-                                    <FieldRequirements hint="Enter remaining seats" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="seats_left"
-                                        type="number"
-                                        value={data.seats_left ?? ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData(
-                                                'seats_left',
-                                                v ? parseInt(v) : null,
-                                            )
-                                        }
-                                        inputProps={{ min: '0' }}
-                                        placeholder="0"
-                                    />
-                                    {renderError('seats_left')}
-                                </div>
-                            </div>
+                            <FormField
+                                label="Departure Date"
+                                fieldRequirementsProps={{
+                                    hint: 'Select departure date',
+                                }}
+                                error={getError('departure_date')}
+                            >
+                                <DatePickerField
+                                    id="departure_date"
+                                    value={data.departure_date || ''}
+                                    fromYear={new Date().getFullYear()}
+                                    toYear={new Date().getFullYear() + 5}
+                                    disabled={isView || processing}
+                                    // disabledDates={isBeforeToday}
+                                    onChange={(v) =>
+                                        setData('departure_date', v)
+                                    }
+                                />
+                            </FormField>
+                            <FormField
+                                label="Arrival Date"
+                                fieldRequirementsProps={{
+                                    hint: 'Select arrival date',
+                                }}
+                                error={getError('arrival_date')}
+                            >
+                                <DatePickerField
+                                    id="arrival_date"
+                                    value={data.arrival_date || ''}
+                                    fromYear={new Date().getFullYear()}
+                                    toYear={new Date().getFullYear() + 5}
+                                    disabled={isView || processing}
+                                    disabledDates={disabledArrivalDates}
+                                    onChange={(v) => setData('arrival_date', v)}
+                                />
+                            </FormField>
+                            <FormField
+                                label="Total Seats"
+                                htmlFor="total_seats"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter total number of seats',
+                                }}
+                                error={getError('total_seats')}
+                            >
+                                <ProperInput
+                                    id="total_seats"
+                                    type="number"
+                                    value={data.total_seats ?? ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData(
+                                            'total_seats',
+                                            v ? parseInt(v) : null,
+                                        )
+                                    }
+                                    inputProps={{ min: '0' }}
+                                    placeholder="0"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Seats Left"
+                                htmlFor="seats_left"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter remaining seats',
+                                }}
+                                error={getError('seats_left')}
+                            >
+                                <ProperInput
+                                    id="seats_left"
+                                    type="number"
+                                    value={data.seats_left ?? ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData(
+                                            'seats_left',
+                                            v ? parseInt(v) : null,
+                                        )
+                                    }
+                                    inputProps={{ min: '0' }}
+                                    placeholder="0"
+                                />
+                            </FormField>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Visa, Vehicle & Train */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Visa, Vehicle & Train</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">
+                            Visa, Vehicle & Train
+                        </CardTitle>
                         <CardDescription>
                             Capture travel support and transport setup.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="visa_type">
-                                    Visa Type
-                                    <FieldRequirements hint="Enter visa type" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="visa_type"
-                                        value={data.visa_type || ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData('visa_type', v || null)
-                                        }
-                                        placeholder="e.g., Umrah Visa"
-                                    />
-                                    {renderError('visa_type')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="vehicle_type">
-                                    Vehicle Type
-                                    <FieldRequirements hint="Enter vehicle type" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="vehicle_type"
-                                        value={data.vehicle_type || ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData('vehicle_type', v || null)
-                                        }
-                                        placeholder="e.g., Bus 45 Seater"
-                                    />
-                                    {renderError('vehicle_type')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="ticket_type">
-                                    Train Ticket Type
-                                    <FieldRequirements hint="Enter train ticket type" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="ticket_type"
-                                        value={data.ticket_type || ''}
-                                        disabled={isView || processing}
-                                        onCommit={(v) =>
-                                            setData('ticket_type', v || null)
-                                        }
-                                        placeholder="e.g., Economy, Business"
-                                    />
-                                    {renderError('ticket_type')}
-                                </div>
-                            </div>
+                            <FormField
+                                label="Visa Type"
+                                htmlFor="visa_type"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter visa type',
+                                }}
+                                error={getError('visa_type')}
+                            >
+                                <ProperInput
+                                    id="visa_type"
+                                    value={data.visa_type || ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData('visa_type', v || null)
+                                    }
+                                    placeholder="e.g., Umrah Visa"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Vehicle Type"
+                                htmlFor="vehicle_type"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter vehicle type',
+                                }}
+                                error={getError('vehicle_type')}
+                            >
+                                <ProperInput
+                                    id="vehicle_type"
+                                    value={data.vehicle_type || ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData('vehicle_type', v || null)
+                                    }
+                                    placeholder="e.g., Bus 45 Seater"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Train Ticket Type"
+                                htmlFor="ticket_type"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter train ticket type',
+                                }}
+                                error={getError('ticket_type')}
+                            >
+                                <ProperInput
+                                    id="ticket_type"
+                                    value={data.ticket_type || ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData('ticket_type', v || null)
+                                    }
+                                    placeholder="e.g., Economy, Business"
+                                />
+                            </FormField>
                         </div>
                     </CardContent>
                 </Card>
@@ -600,8 +624,10 @@ export default function PackageForm({
                 {/* Accommodations */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <div className="space-y-1">
-                            <CardTitle>Accommodations</CardTitle>
+                        <div>
+                            <CardTitle className="text-xl">
+                                Accommodations
+                            </CardTitle>
                             <CardDescription>
                                 Add accommodation entries for each location.
                             </CardDescription>
@@ -632,141 +658,190 @@ export default function PackageForm({
                                     (accommodation, index) => (
                                         <div
                                             key={index}
-                                            className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                            className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-[1fr_1.5fr_1fr_1fr_1fr_auto]"
                                         >
-                                            <div className="grid w-full items-center gap-3">
-                                                <Label>
-                                                    Location
-                                                    <FieldRequirements
-                                                        required
-                                                        hint="Enter location"
-                                                    />
-                                                </Label>
-                                                <div className="relative">
-                                                    <ProperInput
-                                                        value={
-                                                            accommodation.location ??
-                                                            ''
+                                            <FormField
+                                                label="Location"
+                                                fieldRequirementsProps={{
+                                                    required: true,
+                                                    hint: 'Enter location',
+                                                }}
+                                                error={getError(
+                                                    `accommodations.${index}.location`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        accommodation.location ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    onCommit={(v) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'location',
+                                                            v,
+                                                        )
+                                                    }
+                                                    placeholder="e.g., Mekkah"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Hotel Name"
+                                                fieldRequirementsProps={{
+                                                    required: true,
+                                                    hint: 'Enter hotel name',
+                                                }}
+                                                error={getError(
+                                                    `accommodations.${index}.hotel_name`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        accommodation.hotel_name ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    onCommit={(v) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'hotel_name',
+                                                            v,
+                                                        )
+                                                    }
+                                                    placeholder="Hotel name"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Meal Type"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Enter meal type',
+                                                }}
+                                                error={getError(
+                                                    `accommodations.${index}.type_of_meal`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        accommodation.type_of_meal ||
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    onCommit={(v) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'type_of_meal',
+                                                            v || '',
+                                                        )
+                                                    }
+                                                    placeholder="e.g., Full Board"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Check In"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Select check-in date',
+                                                }}
+                                                error={getError(
+                                                    `accommodations.${index}.check_in`,
+                                                )}
+                                            >
+                                                <DatePickerField
+                                                    id={`acc_check_in_${index}`}
+                                                    value={
+                                                        accommodation.check_in ||
+                                                        ''
+                                                    }
+                                                    fromYear={new Date().getFullYear()}
+                                                    toYear={
+                                                        new Date().getFullYear() +
+                                                        5
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    disabledDates={
+                                                        isBeforeToday
+                                                    }
+                                                    onChange={(v) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'check_in',
+                                                            v,
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Check Out"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Select check-out date',
+                                                }}
+                                                error={getError(
+                                                    `accommodations.${index}.check_out`,
+                                                )}
+                                            >
+                                                <DatePickerField
+                                                    id={`acc_check_out_${index}`}
+                                                    value={
+                                                        accommodation.check_out ||
+                                                        ''
+                                                    }
+                                                    fromYear={new Date().getFullYear()}
+                                                    toYear={
+                                                        new Date().getFullYear() +
+                                                        5
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    disabledDates={(date) => {
+                                                        if (
+                                                            isBeforeToday(date)
+                                                        ) {
+                                                            return true;
                                                         }
-                                                        disabled={
-                                                            isView || processing
+
+                                                        const checkInDate =
+                                                            toStartOfDay(
+                                                                accommodation.check_in,
+                                                            );
+
+                                                        if (!checkInDate) {
+                                                            return false;
                                                         }
-                                                        onCommit={(v) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'location',
-                                                                v,
-                                                            )
-                                                        }
-                                                        placeholder="e.g., Mekkah"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="grid w-full items-center gap-3">
-                                                <Label>
-                                                    Hotel Name
-                                                    <FieldRequirements
-                                                        required
-                                                        hint="Enter hotel name"
-                                                    />
-                                                </Label>
-                                                <div className="relative">
-                                                    <ProperInput
-                                                        value={
-                                                            accommodation.hotel_name ??
-                                                            ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onCommit={(v) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'hotel_name',
-                                                                v,
-                                                            )
-                                                        }
-                                                        placeholder="Hotel name"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="grid w-full items-center gap-3">
-                                                <Label>
-                                                    Meal Type
-                                                    <FieldRequirements hint="Enter meal type" />
-                                                </Label>
-                                                <div className="relative">
-                                                    <ProperInput
-                                                        value={
-                                                            accommodation.type_of_meal ||
-                                                            ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onCommit={(v) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'type_of_meal',
-                                                                v || '',
-                                                            )
-                                                        }
-                                                        placeholder="e.g., Full Board"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="grid w-full items-center gap-3">
-                                                <Label>
-                                                    Check In
-                                                    <FieldRequirements hint="Select check-in date" />
-                                                </Label>
-                                                <div className="relative">
-                                                    <DatePickerField
-                                                        id={`acc_check_in_${index}`}
-                                                        value={
-                                                            accommodation.check_in ||
-                                                            ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onChange={(v) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'check_in',
-                                                                v,
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="grid w-full items-center gap-3">
-                                                <Label>
-                                                    Check Out
-                                                    <FieldRequirements hint="Select check-out date" />
-                                                </Label>
-                                                <div className="relative">
-                                                    <DatePickerField
-                                                        id={`acc_check_out_${index}`}
-                                                        value={
-                                                            accommodation.check_out ||
-                                                            ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onChange={(v) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'check_out',
-                                                                v,
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-                                            </div>
+
+                                                        const candidateDate =
+                                                            new Date(date);
+                                                        candidateDate.setHours(
+                                                            0,
+                                                            0,
+                                                            0,
+                                                            0,
+                                                        );
+
+                                                        return (
+                                                            candidateDate <=
+                                                            checkInDate
+                                                        );
+                                                    }}
+                                                    onChange={(v) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'check_out',
+                                                            v,
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
                                             {!isView && (
-                                                <div className="flex items-end">
+                                                <div className="flex w-10 items-end justify-end">
                                                     <Button
                                                         type="button"
                                                         variant="destructive"
@@ -792,116 +867,112 @@ export default function PackageForm({
 
                 {/* Package Inclusions */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Package Inclusions</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">
+                            Package Inclusions
+                        </CardTitle>
                         <CardDescription>
                             Describe included, excluded, and special offer
                             details.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="included">
-                                    Included
-                                    <FieldRequirements hint="List what's included in the package" />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="included"
-                                        value={data.included || ''}
-                                        disabled={isView || processing}
-                                        textarea
-                                        onCommit={(e) =>
-                                            setData('included', e || null)
-                                        }
-                                        placeholder="List included items (e.g., flights, hotels, meals, visa, transport...)"
-                                    />
-                                    {renderError('included')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-start gap-3">
-                                <Label htmlFor="not_included">
-                                    Not Included
-                                    <FieldRequirements hint="List what's not included" />
-                                </Label>
-                                <div className="relative">
-                                    <Textarea
-                                        id="not_included"
-                                        value={data.not_included || ''}
-                                        disabled={isView || processing}
-                                        onChange={(e) =>
-                                            setData(
-                                                'not_included',
-                                                e.target.value || null,
-                                            )
-                                        }
-                                        placeholder="List excluded items (e.g., personal expenses, tips...)"
-                                    />
-                                    {renderError('not_included')}
-                                </div>
-                            </div>
-                            <div className="grid w-full items-start gap-3">
-                                <Label htmlFor="offer">
-                                    Offer
-                                    <FieldRequirements hint="Describe any special offers" />
-                                </Label>
-                                <div className="relative">
-                                    <Textarea
-                                        id="offer"
-                                        value={data.offer || ''}
-                                        disabled={isView || processing}
-                                        onChange={(e) =>
-                                            setData(
-                                                'offer',
-                                                e.target.value || null,
-                                            )
-                                        }
-                                        placeholder="Describe any special offers or promotions..."
-                                    />
-                                    {renderError('offer')}
-                                </div>
-                            </div>
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                            <FormField
+                                label="Included"
+                                htmlFor="included"
+                                fieldRequirementsProps={{
+                                    hint: "List what's included in the package",
+                                }}
+                                error={getError('included')}
+                            >
+                                <ProperInput
+                                    id="included"
+                                    value={data.included || ''}
+                                    disabled={isView || processing}
+                                    textarea
+                                    onCommit={(e) =>
+                                        setData('included', e || null)
+                                    }
+                                    placeholder="List included items (e.g., flights, hotels, meals, visa, transport...)"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Not Included"
+                                htmlFor="not_included"
+                                fieldRequirementsProps={{
+                                    hint: "List what's not included",
+                                }}
+                                error={getError('not_included')}
+                            >
+                                <Textarea
+                                    id="not_included"
+                                    value={data.not_included || ''}
+                                    disabled={isView || processing}
+                                    onChange={(e) =>
+                                        setData(
+                                            'not_included',
+                                            e.target.value || null,
+                                        )
+                                    }
+                                    placeholder="List excluded items (e.g., personal expenses, tips...)"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Offer"
+                                htmlFor="offer"
+                                fieldRequirementsProps={{
+                                    hint: 'Describe any special offers',
+                                }}
+                                error={getError('offer')}
+                            >
+                                <Textarea
+                                    id="offer"
+                                    value={data.offer || ''}
+                                    disabled={isView || processing}
+                                    onChange={(e) =>
+                                        setData('offer', e.target.value || null)
+                                    }
+                                    placeholder="Describe any special offers or promotions..."
+                                />
+                            </FormField>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Remarks */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Remarks</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">Remarks</CardTitle>
                         <CardDescription>
                             Add any additional internal or operational notes.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="remarks">
-                                Remarks
-                                <FieldRequirements hint="Enter any additional remarks or notes" />
-                            </Label>
-                            <div className="relative">
-                                <Textarea
-                                    id="remarks"
-                                    value={data.remarks || ''}
-                                    disabled={isView || processing}
-                                    onChange={(e) =>
-                                        setData(
-                                            'remarks',
-                                            e.target.value || null,
-                                        )
-                                    }
-                                    placeholder="Additional remarks or notes"
-                                    rows={4}
-                                />
-                                {renderError('remarks')}
-                            </div>
-                        </div>
+                        <FormField
+                            label="Remarks"
+                            htmlFor="remarks"
+                            fieldRequirementsProps={{
+                                hint: 'Enter any additional remarks or notes',
+                            }}
+                            error={getError('remarks')}
+                        >
+                            <Textarea
+                                id="remarks"
+                                value={data.remarks || ''}
+                                disabled={isView || processing}
+                                onChange={(e) =>
+                                    setData('remarks', e.target.value || null)
+                                }
+                                placeholder="Additional remarks or notes"
+                                rows={4}
+                            />
+                        </FormField>
                     </CardContent>
                 </Card>
 
                 {/* Action Buttons */}
-                <div className="flex justify-end gap-4">
+                <div className="flex justify-end gap-3">
                     {onCancel && (
                         <Button
                             type="button"

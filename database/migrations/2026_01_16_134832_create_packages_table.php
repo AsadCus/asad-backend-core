@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('packages', function (Blueprint $table) {
             $table->id();
-            $table->string('group_number')->unique();
+            $table->string('package_number')->unique();
             $table->string('name');
             $table->string('status')->default('open'); // open / closed
 

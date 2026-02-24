@@ -15,7 +15,7 @@ class OpsMovementService
         $data = Package::with(['accommodations', 'manifests.travelers'])
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
-                    $query->where('group_number', 'like', "%{$value}%")
+                    $query->where('package_number', 'like', "%{$value}%")
                         ->orWhere('name', 'like', "%{$value}%")
                         ->orWhere('airline', 'like', "%{$value}%");
                 });
@@ -32,7 +32,7 @@ class OpsMovementService
 
                 return [
                     'id' => $package->id,
-                    'group_number' => $package->group_number,
+                    'package_number' => $package->package_number,
                     'name' => $package->name,
                     'status' => $package->status,
                     'launched' => $package->launched,
@@ -71,7 +71,7 @@ class OpsMovementService
 
         return [
             'id' => $package->id,
-            'group_number' => $package->group_number,
+            'package_number' => $package->package_number,
             'name' => $package->name,
             'status' => $package->status,
             'launched' => $package->launched,

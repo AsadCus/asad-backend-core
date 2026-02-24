@@ -9,7 +9,7 @@ import { ColumnDef } from '@tanstack/react-table';
 
 interface OpsMovementDataTableSchema {
     id: number;
-    group_number: string;
+    package_number: string;
     name: string;
     status: string;
     launched: boolean;
@@ -53,8 +53,8 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'group_number',
-        header: 'Group No.',
+        accessorKey: 'package_number',
+        header: 'Package No.',
         meta: { exportable: true },
     },
     {

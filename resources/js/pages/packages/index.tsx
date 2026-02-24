@@ -12,7 +12,7 @@ import { packageStatusColors, packageStatusLabels } from './schema';
 
 interface PackageDataTableSchema {
     id: number;
-    group_number: string;
+    package_number: string;
     name: string;
     status: string;
     launched: boolean;
@@ -47,8 +47,8 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'group_number',
-        header: 'Group No.',
+        accessorKey: 'package_number',
+        header: 'Package No.',
         meta: { exportable: true },
     },
     {
@@ -61,10 +61,13 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         header: 'Status',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const status = row.original
-                .status as keyof typeof packageStatusColors;
-            const color = packageStatusColors[status];
-            const label = packageStatusLabels[status];
+            const status = row.original.status ?? 'open';
+            const label = packageStatusLabels[status] ?? status;
+            const color =
+                packageStatusColors[
+                    status as keyof typeof packageStatusColors
+                ] ?? '';
+
             return (
                 <span
                     className={`inline-flex rounded-full px-2 py-1 text-sm font-semibold ${color}`}
@@ -109,7 +112,6 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         accessorKey: 'price_quad',
         header: 'Quad Price',
         meta: { exportable: true },
-        cell: ({ row }) => `$${Number(row.original.price_quad).toFixed(2)}`,
     },
     {
         accessorKey: 'manifests_count',
@@ -179,7 +181,10 @@ export default function PackagesIndex({ data }: PackagesProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
+                                    airline: false,
                                     arrival_date: false,
+                                    price_quad: false,
+                                    manifests_count: false,
                                     created_at: false,
                                 },
                             }}

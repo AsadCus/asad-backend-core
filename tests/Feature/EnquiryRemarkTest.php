@@ -173,6 +173,38 @@ class EnquiryRemarkTest extends TestCase
         ]);
     }
 
+    public function test_store_remark_updates_enquiry_handled_by_before_confirmed(): void
+    {
+        $this->actingAs($this->user);
+
+        $this->post(route('enquiry-remarks.store', $this->enquiry->id), [
+            'remark' => 'Assigned by remark',
+        ])->assertRedirect();
+
+        $this->enquiry->refresh();
+        $this->assertSame($this->user->id, $this->enquiry->handled_by);
+    }
+
+    public function test_store_remark_does_not_change_handled_by_after_confirmed(): void
+    {
+        $otherUser = User::factory()->create();
+        $otherUser->assignRole('admin');
+
+        $this->enquiry->update([
+            'status' => EnquiryStatus::Confirmed->value,
+            'handled_by' => $otherUser->id,
+        ]);
+
+        $this->actingAs($this->user);
+
+        $this->post(route('enquiry-remarks.store', $this->enquiry->id), [
+            'remark' => 'Remark after confirmed',
+        ])->assertRedirect();
+
+        $this->enquiry->refresh();
+        $this->assertSame($otherUser->id, $this->enquiry->handled_by);
+    }
+
     public function test_remarks_include_creator_name(): void
     {
         $this->actingAs($this->user);

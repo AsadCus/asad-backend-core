@@ -9,7 +9,6 @@ class NumberGenerator
 {
     private static $formats = [
         'customer' => ['prefix' => 'CUST', 'padding' => 4],
-        'maid' => ['prefix' => 'MBC', 'padding' => 4],
         'quotation' => ['prefix' => 'QTN', 'padding' => 3],
         'order' => ['prefix' => 'OR', 'padding' => 3],
         'invoice' => ['prefix' => 'INV', 'padding' => 4],
@@ -21,7 +20,7 @@ class NumberGenerator
 
     public static function generate(string $type): string
     {
-        if (!isset(self::$formats[$type])) {
+        if (! isset(self::$formats[$type])) {
             throw new \InvalidArgumentException("Invalid type: {$type}");
         }
 

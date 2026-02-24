@@ -11,6 +11,7 @@ class EnquiryService
     public function __construct(
         public GeneralEnquiryService $generalEnquiryService,
         public PrivateEnquiryService $privateEnquiryService,
+        public EnquiryRemarkService $enquiryRemarkService,
     ) {}
 
     /**
@@ -22,7 +23,7 @@ class EnquiryService
     public function getForDataTable(array $filters = []): array
     {
         return Enquiry::query()
-            ->with('package')
+            ->with(['package', 'latestRemark', 'handledBy:id,name'])
             ->when($filters['from_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filters['to_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
             ->when($filters['search'] ?? null, function ($q, $value) {
@@ -49,6 +50,7 @@ class EnquiryService
                     'package_id' => $enquiry->package_id,
                     'package_name' => $enquiry->package?->name ?? null,
                     'latest_remark' => $enquiry->latestRemark?->remark ?? '-',
+                    'handled_by_name' => $enquiry->handledBy?->name ?? '-',
                     'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
                 ];
             })
@@ -93,6 +95,7 @@ class EnquiryService
     {
         return DB::transaction(function () use ($id, $newStatus) {
             $enquiry = Enquiry::findOrFail($id);
+            $previousStatus = $enquiry->status;
             $targetStatus = EnquiryStatus::from($newStatus);
 
             // Block direct transition to confirmed — must go through confirm endpoint
@@ -105,6 +108,8 @@ class EnquiryService
             }
 
             $enquiry->update(['status' => $targetStatus->value]);
+
+            $this->createStatusUpdatedRemark($enquiry->id, $previousStatus, $targetStatus);
 
             activity()
                 ->performedOn($enquiry)
@@ -136,7 +141,14 @@ class EnquiryService
                 abort(422, "Cannot confirm enquiry from status {$enquiry->status->label()}. It must be in Negotiating status.");
             }
 
-            $enquiry->update(['status' => EnquiryStatus::Confirmed->value]);
+            $previousStatus = $enquiry->status;
+
+            $enquiry->update([
+                'status' => EnquiryStatus::Confirmed->value,
+                'handled_by' => auth()->id(),
+            ]);
+
+            $this->createStatusUpdatedRemark($enquiry->id, $previousStatus, EnquiryStatus::Confirmed);
 
             activity()
                 ->performedOn($enquiry)
@@ -150,6 +162,13 @@ class EnquiryService
 
             return $enquiry->fresh();
         });
+    }
+
+    private function createStatusUpdatedRemark(int $enquiryId, EnquiryStatus $fromStatus, EnquiryStatus $toStatus): void
+    {
+        $this->enquiryRemarkService->store($enquiryId, [
+            'remark' => "Status updated from {$fromStatus->label()} to {$toStatus->label()}.",
+        ]);
     }
 
     /**

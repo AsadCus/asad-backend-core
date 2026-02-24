@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Package extends Model
 {
     protected $fillable = [
-        'group_number',
+        'package_number',
         'name',
         'status',
 

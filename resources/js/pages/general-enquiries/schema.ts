@@ -14,6 +14,7 @@ export const generalEnquirySchema = z.object({
     no_of_adults: z.number().optional(),
     no_of_children: z.number().optional(),
     requires_mobility_assistance: z.string().nullable().optional(),
+    handled_by_name: z.string().optional(),
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
 });

@@ -18,6 +18,7 @@ class Enquiry extends Model
         'email',
         'created_by',
         'package_id',
+        'handled_by',
     ];
 
     protected function casts(): array
@@ -40,6 +41,11 @@ class Enquiry extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function handledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'handled_by');
     }
 
     public function customerGroup(): HasOne
