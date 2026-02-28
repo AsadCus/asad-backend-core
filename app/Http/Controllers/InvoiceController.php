@@ -9,21 +9,23 @@ use App\Services\InvoiceService;
 use App\Http\Controllers\Controller;
 use App\Services\CustomerService;
 use App\Services\QuotationService;
+use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
-    protected $invoiceService, $orderService, $quotationService, $customerService, $salesService;
+    protected $invoiceService, $orderService, $quotationService, $customerService, $salesService, $reportTemplateService;
 
-    public function __construct(InvoiceService $invoiceService, OrderService $orderService, QuotationService $quotationService, CustomerService $customerService, SalesService $salesService)
+    public function __construct(InvoiceService $invoiceService, OrderService $orderService, QuotationService $quotationService, CustomerService $customerService, SalesService $salesService, ReportTemplateService $reportTemplateService)
     {
         $this->invoiceService = $invoiceService;
         $this->orderService = $orderService;
         $this->quotationService = $quotationService;
         $this->customerService = $customerService;
         $this->salesService = $salesService;
+        $this->reportTemplateService = $reportTemplateService;
     }
 
     public function index(Request $request)
@@ -136,10 +138,12 @@ class InvoiceController extends Controller
             set_time_limit(60);
 
             $invoice = $this->invoiceService->getForEditShow($id);
+            $reportData = $this->reportTemplateService->build('invoice', $invoice);
 
             $html = view('invoices.pdf', [
                 'data' => $invoice,
                 'items' => $invoice['items'],
+                'branding' => $reportData['branding'],
             ])->render();
 
             $pdf = Pdf::loadHTML($html)

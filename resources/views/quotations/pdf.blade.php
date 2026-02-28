@@ -189,13 +189,12 @@
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                <img src="{{ public_path('logo_agency.png') }}" alt="Urban Care Logo">
+                <img src="{{ $branding['logo_url'] ?? public_path('logo_agency.png') }}" alt="Company Logo">
             </td>
             <td class="info-cell">
                 <div>
-                    <b style="margin-bottom: 4px; font-size: 13px; color: #333;">Urban Care Employment Agency</b><br>
-                    931 Yishun Central 1<br>
-                    #01-109, Singapore 760931<br>
+                    <b style="margin-bottom: 4px; font-size: 13px; color: #333;">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</b><br>
+                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}<br>
                     <div style="margin-top: 4px;">
                         @if ($data['sales_registration_number'])
                             <b>REGISTRATION NO. {{ $data['sales_registration_number'] }}</b><br>

@@ -9,20 +9,22 @@ use App\Services\ReceiptService;
 use App\Services\InvoiceService;
 use App\Http\Controllers\Controller;
 use App\Services\CustomerService;
+use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 
 class ReceiptController extends Controller
 {
-    protected $receiptService, $invoiceService, $customerService, $salesService;
+    protected $receiptService, $invoiceService, $customerService, $salesService, $reportTemplateService;
 
-    public function __construct(ReceiptService $receiptService, InvoiceService $invoiceService, CustomerService $customerService, SalesService $salesService)
+    public function __construct(ReceiptService $receiptService, InvoiceService $invoiceService, CustomerService $customerService, SalesService $salesService, ReportTemplateService $reportTemplateService)
     {
         $this->receiptService = $receiptService;
         $this->invoiceService = $invoiceService;
         $this->customerService = $customerService;
         $this->salesService = $salesService;
+        $this->reportTemplateService = $reportTemplateService;
     }
 
     public function index(Request $request)
@@ -139,6 +141,7 @@ class ReceiptController extends Controller
             set_time_limit(60);
 
             $data = $this->receiptService->getForEditShow($id);
+            $reportData = $this->reportTemplateService->build('receipt', $data);
 
             $paymentMethod = $data['payment_method'] ?? 'full';
             $paymentMethodLabel = match ($paymentMethod) {
@@ -153,6 +156,7 @@ class ReceiptController extends Controller
             $html = view('receipts.pdf', [
                 'data' => $data,
                 'items' => $data['items'],
+                'branding' => $reportData['branding'],
             ])->render();
 
             $pdf = Pdf::loadHTML($html)

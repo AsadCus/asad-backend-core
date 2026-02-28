@@ -9,6 +9,7 @@ use App\Services\CustomerService;
 use App\Services\NoteService;
 use App\Services\QuotationItemService;
 use App\Services\QuotationService;
+use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
@@ -30,7 +31,9 @@ class QuotationController extends Controller
 
     protected $salesService;
 
-    public function __construct(QuotationService $quotationService, CustomerService $customerService, QuotationRule $quotationRule, QuotationItemService $quotationItemService, NoteService $noteService, SalesService $salesService)
+    protected $reportTemplateService;
+
+    public function __construct(QuotationService $quotationService, CustomerService $customerService, QuotationRule $quotationRule, QuotationItemService $quotationItemService, NoteService $noteService, SalesService $salesService, ReportTemplateService $reportTemplateService)
     {
         $this->quotationService = $quotationService;
         $this->customerService = $customerService;
@@ -38,6 +41,7 @@ class QuotationController extends Controller
         $this->quotationRule = $quotationRule;
         $this->quotationItemService = $quotationItemService;
         $this->noteService = $noteService;
+        $this->reportTemplateService = $reportTemplateService;
     }
 
     public function index(Request $request)
@@ -288,6 +292,7 @@ class QuotationController extends Controller
             set_time_limit(60);
 
             $data = $this->quotationService->getForEditShow($id);
+            $reportData = $this->reportTemplateService->build('quotation', $data);
 
             $paymentPlan = $data['payment_plan'] ?? 'full';
             $paymentPlanLabel = match ($paymentPlan) {
@@ -307,6 +312,7 @@ class QuotationController extends Controller
             $html = view('quotations.pdf', [
                 'data' => $data,
                 'items' => $this->sortForPdf($items),
+                'branding' => $reportData['branding'],
             ])->render();
 
             return Pdf::loadHTML($html)

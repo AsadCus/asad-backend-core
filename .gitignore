@@ -27,3 +27,6 @@ yarn-error.log
 /.vscode
 /.zed
 /docs
+
+# Ignore the contents of app\Docs-DevBadar files
+/app/Docs-DevBadar/*
