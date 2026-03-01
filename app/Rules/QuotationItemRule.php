@@ -15,7 +15,6 @@ class QuotationItemRule
             "$prefix.*.description" => ['required', 'string'],
             "$prefix.*.is_header" => ['nullable', 'boolean'],
             "$prefix.*.is_optional" => ['nullable', 'boolean'],
-            "$prefix.*.is_placement_fee" => ['nullable', 'boolean'],
             "$prefix.*.quantity" => ['nullable', "required_if:$prefix.*.is_header,false", 'numeric'],
             "$prefix.*.rate" => ['nullable', "required_if:$prefix.*.is_header,false", 'numeric'],
             "$prefix.*.sort_order" => ['nullable', 'numeric'],

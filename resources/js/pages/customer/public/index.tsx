@@ -10,7 +10,7 @@ import type { OptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { CheckCircle } from 'lucide-react';
 import CustomerConfirmationForm from '../../confirmed-customer/form';
-import { CustomerGroupFormSchema } from '../schema';
+import { CustomerConfirmationFormSchema } from '../schema';
 
 interface PublicCustomerFormProps {
     mode?: 'create' | 'edit';
@@ -23,7 +23,7 @@ interface PublicCustomerFormProps {
     packageName?: string | null;
     packageOptions?: OptionType[];
     publicSubmitUrl?: string;
-    initialData?: CustomerGroupFormSchema;
+    initialData?: CustomerConfirmationFormSchema;
     linkType?: 'continuous' | 'one_time';
     oneTimeCompleted?: boolean;
     successTitle?: string;

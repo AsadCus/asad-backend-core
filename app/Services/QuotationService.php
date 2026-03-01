@@ -50,12 +50,6 @@ class QuotationService
                     'description' => $q->description ?? '-',
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,
-                    'commencement_date' => $q->commencement_date_formatted,
-                    'monthly_salary' => $this->formatService->cleanDecimal($q->monthly_salary),
-                    'loan_duration' => $this->formatService->cleanDecimal($q->loan_duration),
-                    'rest_day_of_the_week' => json_decode($q->rest_day_of_the_week) ?? [],
-                    'rest_days_per_month' => $q->rest_days_per_month ?? 0,
-                    'compensation_off_in_lieu' => $this->formatService->cleanDecimal($q->compensation_off_in_lieu),
                     'items_count' => $q->quotationItems->count(),
                     'total_amount' => $this->formatService->cleanDecimal($q->total_amount),
                     'payment_plan' => $q->payment_plan_label,
@@ -104,21 +98,14 @@ class QuotationService
             if (! empty($data['expiry_date'])) {
                 $data['expiry_date'] = Carbon::parse($data['expiry_date'])->format('Y-m-d');
             }
-            if (! empty($data['commencement_date'])) {
-                $data['commencement_date'] = Carbon::parse($data['commencement_date'])->format('Y-m-d');
-            }
 
             $quotation = Quotation::create([
                 'customer_id' => $data['customer_id'] ?? null,
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
-                'commencement_date' => $data['commencement_date'] ?? null,
-                'monthly_salary' => $data['monthly_salary'] ?? null,
-                'loan_duration' => $data['loan_duration'] ?? null,
-                'rest_day_of_the_week' => json_encode($data['rest_day_of_the_week'] ?? []),
-                'rest_days_per_month' => $data['rest_days_per_month'] ?? null,
-                'compensation_off_in_lieu' => $data['compensation_off_in_lieu'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
+                'deposit_type' => $data['deposit_type'] ?? null,
+                'deposit_value' => $data['deposit_value'] ?? null,
                 'payment_method' => $data['payment_method'] ?? null,
                 'description' => $data['description'] ?? null,
                 'status' => $data['status'] ?? 'draft',
@@ -150,14 +137,10 @@ class QuotationService
             'description' => $quotation->description ?? '',
             'quotation_date' => $quotation->quotation_date_formatted,
             'expiry_date' => $quotation->expiry_date_formatted,
-            'commencement_date' => $quotation->commencement_date_formatted,
-            'monthly_salary' => $this->formatService->cleanDecimal($quotation->monthly_salary),
-            'loan_duration' => $this->formatService->cleanDecimal($quotation->loan_duration),
-            'rest_day_of_the_week' => json_decode($quotation->rest_day_of_the_week ?? '[]', true),
-            'rest_days_per_month' => $quotation->rest_days_per_month,
-            'compensation_off_in_lieu' => $this->formatService->cleanDecimal($quotation->compensation_off_in_lieu),
             'total_amount' => $this->formatService->cleanDecimal($quotation->total_amount),
             'payment_plan' => $quotation->payment_plan,
+            'deposit_type' => $quotation->deposit_type,
+            'deposit_value' => $this->formatService->cleanDecimal($quotation->deposit_value),
             'payment_method' => $quotation->payment_method,
             'status' => $quotation->status,
             'reason' => $quotation->reason,
@@ -171,7 +154,6 @@ class QuotationService
                     'description' => $it->description,
                     'is_header' => $it->is_header,
                     'is_optional' => $it->is_optional,
-                    'is_placement_fee' => $it->is_placement_fee,
                     'quantity' => $this->formatService->cleanDecimal($it->quantity),
                     'rate' => $this->formatService->cleanDecimal($it->rate),
                     'sort_order' => $it->sort_order,
@@ -191,21 +173,14 @@ class QuotationService
             if (! empty($data['expiry_date'])) {
                 $data['expiry_date'] = Carbon::parse($data['expiry_date'])->format('Y-m-d');
             }
-            if (! empty($data['commencement_date'])) {
-                $data['commencement_date'] = Carbon::parse($data['commencement_date'])->format('Y-m-d');
-            }
 
             $quotation->update([
                 'customer_id' => $data['customer_id'] ?? null,
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
-                'commencement_date' => $data['commencement_date'] ?? null,
-                'monthly_salary' => $data['monthly_salary'] ?? null,
-                'loan_duration' => $data['loan_duration'] ?? null,
-                'rest_day_of_the_week' => json_encode($data['rest_day_of_the_week'] ?? []),
-                'rest_days_per_month' => $data['rest_days_per_month'] ?? null,
-                'compensation_off_in_lieu' => $data['compensation_off_in_lieu'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
+                'deposit_type' => $data['deposit_type'] ?? null,
+                'deposit_value' => $data['deposit_value'] ?? null,
                 'payment_method' => $data['payment_method'] ?? null,
                 'description' => $data['description'] ?? null,
                 'status' => $data['status'] ?? $quotation->status,

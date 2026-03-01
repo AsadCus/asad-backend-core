@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { manifestSchema, travelerSchema } from './schema';
+import { type TravelerSchema } from './schema';
 
 export const travelerValidationSchema = travelerSchema.superRefine(
     (data, ctx) => {
@@ -28,6 +29,8 @@ export const travelerValidationSchema = travelerSchema.superRefine(
 
 export const manifestValidationSchema = manifestSchema.superRefine(
     (data, ctx) => {
+        const travelers = (data.travelers as TravelerSchema[] | undefined) ?? [];
+
         // package_id
         if (!data.package_id || data.package_id < 1) {
             ctx.addIssue({
@@ -68,8 +71,8 @@ export const manifestValidationSchema = manifestSchema.superRefine(
         }
 
         // Travelers validation
-        if (data.travelers && data.travelers.length > 0) {
-            data.travelers.forEach((traveler, index) => {
+        if (travelers.length > 0) {
+            travelers.forEach((traveler, index) => {
                 if (!traveler.sn || traveler.sn < 1) {
                     ctx.addIssue({
                         path: ['travelers', index, 'sn'],

@@ -22,20 +22,9 @@ export const quotationSchema = z.object({
     sales_registration_number: z.string().nullable().optional(),
 
     description: z.string().nullable().optional(),
-    commencement_date: z.string().nullable().optional(),
-    monthly_salary: z.union([z.string(), z.number()]).nullable().optional(),
-    loan_duration: z.union([z.string(), z.number()]).nullable().optional(),
-    cost_of_maid: z.union([z.string(), z.number()]).nullable().optional(),
-    rest_day_of_the_week: z.array(z.string()).optional(),
-    rest_days_per_month: z
-        .union([z.string(), z.number()])
-        .nullable()
-        .optional(),
-    compensation_off_in_lieu: z
-        .union([z.string(), z.number()])
-        .nullable()
-        .optional(),
     payment_plan: z.string().nullable().optional(),
+    deposit_type: z.string().nullable().optional(),
+    deposit_value: z.union([z.string(), z.number()]).nullable().optional(),
     payment_method: z.string().nullable().optional(),
     status: z.string().optional(),
     items_count: z.number().optional(),
@@ -65,6 +54,11 @@ export const paymentPlans = [
     { label: 'Installment', value: 'installment' },
 ];
 
+export const depositTypes = [
+    { label: 'Percentage (%)', value: 'percentage' },
+    { label: 'Fixed Amount ($)', value: 'fixed' },
+];
+
 export const paymentMethods = [
     { label: 'Cash', value: 'cash' },
     { label: 'Bank Transfer', value: 'transfer' },
@@ -91,15 +85,3 @@ export const statusColors = {
     expired: 'bg-purple-100 text-purple-800',
     cancelled: 'bg-red-100 text-red-800',
 };
-
-export const daysOfWeek = [
-    { value: 'Weekdays', label: 'Weekdays' },
-    { value: 'Monday', label: 'Monday' },
-    { value: 'Tuesday', label: 'Tuesday' },
-    { value: 'Wednesday', label: 'Wednesday' },
-    { value: 'Thursday', label: 'Thursday' },
-    { value: 'Friday', label: 'Friday' },
-    { value: 'Saturday', label: 'Saturday' },
-    { value: 'Sunday', label: 'Sunday' },
-    { value: 'Weekend', label: 'Weekend' },
-];

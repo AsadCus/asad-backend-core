@@ -305,10 +305,6 @@
                 // Build description
                 $descriptionText = e($item['description'] ?? '');
 
-                if (!empty($item['is_placement_fee']) && $rate > 0 && $qty > 0) {
-                    $descriptionText .= ' - $' . number_format($rate, 0) . ' x ' . $qty . ' month(s)';
-                }
-
                 // Check if this item has children
                 $children = collect($allItems)
                     ->filter(function ($child) use ($item) {

@@ -4,13 +4,16 @@ namespace Database\Seeders;
 
 use App\Enums\EnquiryStatus;
 use App\Models\Customer;
-use App\Models\CustomerGroup;
-use App\Models\CustomerGroupMember;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
 use App\Models\EnquiryRemark;
 use App\Models\GeneralEnquiry;
 use App\Models\Notification;
+use App\Models\Package;
 use App\Models\PrivateEnquiry;
+use App\Models\SharingGroup;
+use App\Models\SharingGroupMember;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Database\Seeder;
@@ -49,6 +52,8 @@ class EnquirySeeder extends Seeder
                 'name' => 'John Smith',
                 'contact_number' => '+1234567890',
                 'email' => 'john.smith@example.com',
+                'package_name' => 'Umrah Economy 14 Days',
+                'package_room_type' => 'double',
                 'preferred_destinations' => 'Paris, London, Amsterdam',
                 'preferred_travelling_date' => '2026-05-15',
                 'no_of_adults' => 2,
@@ -60,6 +65,8 @@ class EnquirySeeder extends Seeder
                 'name' => 'Sarah Johnson',
                 'contact_number' => '+9876543210',
                 'email' => 'sarah.johnson@example.com',
+                'package_name' => 'Umrah Premium 10 Days',
+                'package_room_type' => 'double',
                 'preferred_destinations' => 'Tokyo, Bangkok, Singapore',
                 'preferred_travelling_date' => '2026-06-20',
                 'no_of_adults' => 3,
@@ -71,6 +78,8 @@ class EnquirySeeder extends Seeder
                 'name' => 'Michael Brown',
                 'contact_number' => '+1122334455',
                 'email' => 'michael.brown@example.com',
+                'package_name' => 'Umrah Economy 14 Days',
+                'package_room_type' => 'double',
                 'preferred_destinations' => 'Sydney, Melbourne, Brisbane',
                 'preferred_travelling_date' => '2026-07-10',
                 'no_of_adults' => 2,
@@ -82,6 +91,8 @@ class EnquirySeeder extends Seeder
                 'name' => 'Emily White',
                 'contact_number' => '+5566778899',
                 'email' => 'emily.white@example.com',
+                'package_name' => 'Umrah Economy 14 Days',
+                'package_room_type' => 'double',
                 'preferred_destinations' => 'Barcelona, Madrid, Lisbon',
                 'preferred_travelling_date' => '2026-08-05',
                 'no_of_adults' => 1,
@@ -93,6 +104,8 @@ class EnquirySeeder extends Seeder
                 'name' => 'David Martinez',
                 'contact_number' => '+4433221100',
                 'email' => 'david.martinez@example.com',
+                'package_name' => 'Umrah Ramadan Special',
+                'package_room_type' => 'quad',
                 'preferred_destinations' => 'New York, Los Angeles, Miami',
                 'preferred_travelling_date' => '2026-09-12',
                 'no_of_adults' => 2,
@@ -106,12 +119,20 @@ class EnquirySeeder extends Seeder
             $status = $data['status'];
             unset($data['status']);
 
+            $selectedPackage = $this->resolveSeededPackageSelection(
+                $data['package_name'] ?? null,
+                $data['package_room_type'] ?? null,
+            );
+
+            unset($data['package_name'], $data['package_room_type']);
+
             $parentEnquiry = Enquiry::create([
                 'type' => 'general',
                 'status' => $status->value,
                 'name' => $data['name'],
                 'contact_number' => $data['contact_number'],
                 'email' => $data['email'],
+                'package_id' => $selectedPackage['package_id'],
                 'created_by' => $adminAndSalesUsers->random()->id ?? $defaultCreator,
             ]);
 
@@ -217,6 +238,8 @@ class EnquirySeeder extends Seeder
                 'name' => 'Fatimah Binti Hassan',
                 'contact_number' => '0171234567',
                 'email' => 'fatimah.hassan@example.com',
+                'post_confirmed_package_name' => 'Umrah Premium 10 Days',
+                'post_confirmed_package_room_type' => 'triple',
                 'passport_expiry_date' => '2029-08-15',
                 'departure_date' => '2026-05-01',
                 'return_date' => '2026-05-14',
@@ -252,14 +275,28 @@ class EnquirySeeder extends Seeder
             $status = $data['status'];
             unset($data['status']);
 
+            $postConfirmedPackage = $this->resolveSeededPackageSelection(
+                $data['post_confirmed_package_name'] ?? null,
+                $data['post_confirmed_package_room_type'] ?? null,
+            );
+
+            unset($data['post_confirmed_package_name'], $data['post_confirmed_package_room_type']);
+
             $parentEnquiry = Enquiry::create([
                 'type' => 'private',
                 'status' => $status->value,
                 'name' => $data['name'],
                 'contact_number' => $data['contact_number'],
                 'email' => $data['email'],
+                'package_id' => null,
                 'created_by' => $adminAndSalesUsers->random()->id ?? $defaultCreator,
             ]);
+
+            if ($status === EnquiryStatus::Confirmed && $postConfirmedPackage['package_id']) {
+                $parentEnquiry->update([
+                    'package_id' => $postConfirmedPackage['package_id'],
+                ]);
+            }
 
             PrivateEnquiry::create([
                 'enquiry_id' => $parentEnquiry->id,
@@ -335,23 +372,26 @@ class EnquirySeeder extends Seeder
         }
 
         // Check if customer group already exists for this enquiry
-        $existingGroup = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $existingGroup = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
 
         if (! $existingGroup) {
-            // Create customer group with the customer as leader
-            $group = CustomerGroup::create([
+            $selectedPackage = $this->getPackageSelectionForConfirmedEnquiry($enquiry);
+
+            // Create customer confirmation with the customer as leader
+            $group = CustomerConfirmation::create([
                 'enquiry_id' => $enquiry->id,
                 'created_by' => User::role('admin')->first()?->id,
-                'package_id' => 1,
-                'package_room_type' => 'double',
-                'package_category' => 'classic_umrah',
+                'package_id' => $selectedPackage['package_id'],
+                'package_room_type' => $selectedPackage['package_room_type'],
+                'package_category' => $selectedPackage['package_category'],
                 'date_of_application' => now()->subDays(rand(1, 14)),
             ]);
 
-            CustomerGroupMember::create([
-                'customer_group_id' => $group->id,
+            CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $group->id,
                 'customer_id' => $customer->id,
                 'is_leader' => true,
+                'status' => 'confirmed',
             ]);
 
             // Add additional members for multi-member groups
@@ -380,13 +420,186 @@ class EnquirySeeder extends Seeder
                     ], $memberBiodata));
                 }
 
-                CustomerGroupMember::create([
-                    'customer_group_id' => $group->id,
+                CustomerConfirmationMember::create([
+                    'customer_confirmation_id' => $group->id,
                     'customer_id' => $memberCustomer->id,
                     'is_leader' => false,
+                    'status' => 'pending_payment',
                 ]);
             }
+
+            $this->seedSharingGroupsForConfirmation($group);
         }
+    }
+
+    /**
+     * Determine package selection for a confirmed enquiry based on workflow.
+     * General enquiries carry selected package before confirmation.
+     * Private enquiries select package after confirmation.
+     *
+     * @return array{package_id: int|null, package_room_type: string, package_category: string}
+     */
+    private function getPackageSelectionForConfirmedEnquiry(Enquiry $enquiry): array
+    {
+        if ($enquiry->package_id) {
+            $package = Package::find($enquiry->package_id);
+
+            return [
+                'package_id' => $package?->id,
+                'package_room_type' => $this->inferRoomTypeFromPackage($package?->name),
+                'package_category' => $this->inferCategoryFromPackage($package?->name),
+            ];
+        }
+
+        $fallbackPackage = Package::query()->where('status', 'open')->orderBy('id')->first();
+
+        if ($fallbackPackage) {
+            $enquiry->update([
+                'package_id' => $fallbackPackage->id,
+            ]);
+        }
+
+        return [
+            'package_id' => $fallbackPackage?->id,
+            'package_room_type' => $this->inferRoomTypeFromPackage($fallbackPackage?->name),
+            'package_category' => $this->inferCategoryFromPackage($fallbackPackage?->name),
+        ];
+    }
+
+    /**
+     * Resolve a package selection by seed data package name.
+     *
+     * @return array{package_id: int|null, package_room_type: string, package_category: string}
+     */
+    private function resolveSeededPackageSelection(?string $packageName, ?string $packageRoomType = null): array
+    {
+        $package = Package::query()
+            ->when($packageName, fn ($query) => $query->where('name', $packageName))
+            ->orderBy('id')
+            ->first();
+
+        return [
+            'package_id' => $package?->id,
+            'package_room_type' => $packageRoomType ?? $this->inferRoomTypeFromPackage($package?->name),
+            'package_category' => $this->inferCategoryFromPackage($package?->name),
+        ];
+    }
+
+    private function inferRoomTypeFromPackage(?string $packageName): string
+    {
+        if (! is_string($packageName)) {
+            return 'double';
+        }
+
+        $normalized = strtolower($packageName);
+
+        return str_contains($normalized, 'family') ? 'quad' : 'double';
+    }
+
+    private function inferCategoryFromPackage(?string $packageName): string
+    {
+        if (! is_string($packageName)) {
+            return 'classic_umrah';
+        }
+
+        $normalized = strtolower($packageName);
+
+        if (str_contains($normalized, 'hajj')) {
+            return 'hajj';
+        }
+
+        if (str_contains($normalized, 'premium')) {
+            return 'premium_umrah';
+        }
+
+        return 'classic_umrah';
+    }
+
+    /**
+     * Seed draft sharing groups for a customer confirmation.
+     */
+    private function seedSharingGroupsForConfirmation(CustomerConfirmation $confirmation): void
+    {
+        $confirmation->loadMissing('members.customer.user');
+
+        if ($confirmation->sharingGroups()->exists()) {
+            return;
+        }
+
+        $members = $confirmation->members
+            ->sortByDesc(fn (CustomerConfirmationMember $member) => $member->is_leader)
+            ->values();
+
+        $memberCount = $members->count();
+        if ($memberCount === 0) {
+            return;
+        }
+
+        if ($memberCount === 1) {
+            $this->createSharingGroup($confirmation, $members->all(), 'single', 0);
+
+            return;
+        }
+
+        if ($memberCount === 2) {
+            $this->createSharingGroup($confirmation, $members->all(), 'double', 0);
+
+            return;
+        }
+
+        $this->createSharingGroup($confirmation, $members->slice(0, 2)->all(), 'double', 0);
+        $this->createSharingGroup($confirmation, $members->slice(2)->all(), 'single', 1);
+    }
+
+    /**
+     * Create one sharing group and its pivot members.
+     *
+     * @param  array<int, CustomerConfirmationMember>  $members
+     */
+    private function createSharingGroup(CustomerConfirmation $confirmation, array $members, string $sharingPlan, int $sortOrder): void
+    {
+        $expectedCapacity = match ($sharingPlan) {
+            'single' => 1,
+            'double' => 2,
+            'triple' => 3,
+            'quad' => 4,
+            default => 1,
+        };
+
+        $status = count($members) >= $expectedCapacity ? 'ready' : 'pending_merge';
+
+        $sharingGroup = SharingGroup::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'sharing_plan' => $sharingPlan,
+            'expected_capacity' => $expectedCapacity,
+            'status' => $status,
+            'sort_order' => $sortOrder,
+            'remarks' => 'Seeded from confirmed enquiry workflow',
+        ]);
+
+        foreach (array_values($members) as $index => $member) {
+            SharingGroupMember::create([
+                'sharing_group_id' => $sharingGroup->id,
+                'customer_confirmation_member_id' => $member->id,
+                'role_in_group' => $this->determineRoleInGroup($member, $index),
+                'sort_order' => $index,
+                'remarks' => null,
+            ]);
+        }
+    }
+
+    private function determineRoleInGroup(CustomerConfirmationMember $member, int $index): string
+    {
+        if ($member->is_leader || $index === 0) {
+            return 'leader';
+        }
+
+        $age = $member->customer?->date_of_birth?->age;
+        if (is_int($age) && $age < 18) {
+            return 'child';
+        }
+
+        return 'friend';
     }
 
     /**
@@ -663,11 +876,11 @@ class EnquirySeeder extends Seeder
 
         // Notify about customers created from confirmed enquiries
         $confirmedEnquiries = Enquiry::where('status', EnquiryStatus::Confirmed->value)
-            ->with('customerGroup.members.customer.user')
+            ->with('customerConfirmation.members.customer.user')
             ->get();
 
         foreach ($confirmedEnquiries as $enquiry) {
-            $customerName = $enquiry->customerGroup?->members?->first()?->customer?->user?->name ?? $enquiry->name;
+            $customerName = $enquiry->customerConfirmation?->members?->first()?->customer?->user?->name ?? $enquiry->name;
 
             $notification = Notification::create([
                 'title' => 'New Customer Created',

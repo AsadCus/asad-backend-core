@@ -1,3842 +1,1060 @@
 import { DatePickerField } from '@/components/date-picker';
-import { FieldRequirements } from '@/components/field-requirements';
-import { ProperInput } from '@/components/proper-input';
+import { FormField } from '@/components/form-field';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { store, update } from '@/routes/manifests';
-import { type ValueNumberOptionType } from '@/types';
-import { router, useForm } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, Minus, Plus, RotateCcw } from 'lucide-react';
-import { FormEvent, useCallback, useState } from 'react';
-import { type ManifestSchema, type TravelerSchema } from './schema';
+import { type OptionType } from '@/types';
+import { useForm } from '@inertiajs/react';
+import { AlertCircle, ArrowLeft, RotateCcw } from 'lucide-react';
+import { nanoid } from 'nanoid';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import ManifestCustomerDatatable from './components/manifest-customer-datatable';
+import ManifestInformationCard from './components/manifest-information-card';
+import {
+    type CustomerConfirmationData,
+    type ManifestFormData,
+    type ManifestFormProps,
+    type PackageAccommodationOption,
+    type PackageForManifestOption,
+    type TravelerWithUI,
+} from './types';
 import { manifestValidationSchema } from './validation';
 
-interface CustomerGroupData {
-    id: number;
-    package_room_type: string;
-    enquiry_id: number;
-    enquiry_type: string;
-    enquiry_status: string;
-    leader_name: string;
-    leader_email: string;
-    leader_contact: string;
-    leader_customer_number: string;
-    member_count: number;
-    created_at: string;
-    members: CustomerMemberData[];
+export type { ManifestFormData } from './types';
+
+interface ManifestFormStore {
+    data: ManifestFormData;
+    errors: Record<string, string>;
+    processing: boolean;
+    setData: (key: string, value: unknown) => void;
+    setError: (field: string, value: string) => void;
+    clearErrors: () => void;
+    reset: () => void;
+    post: (url: string) => void;
+    put: (url: string) => void;
 }
 
-interface CustomerMemberData {
-    id?: number;
-    customer_id?: number;
-    is_leader?: boolean;
-    name?: string;
-    email?: string;
-    contact?: string;
-    customer_number?: string;
-    nric_number?: string;
-    sn?: number;
-    name_as_per_passport?: string;
-    date_of_sign_up?: string;
-    is_first_time_umrah?: boolean;
-    ppt_no?: string;
-    passport_no?: string;
-    gender?: string;
-    date_of_birth?: string;
-    age?: number;
-    contact_no?: string;
-    date_of_issue?: string;
-    date_of_expiry?: string;
-    issue_place?: string;
-    birth_place?: string;
-    package_price?: number;
-    discount?: number;
-    date_of_deposit_payment?: string;
-    deposit_payment?: number;
-    date_of_second_payment?: string;
-    second_payment?: number;
-    balance_due?: number;
-    is_fully_paid?: boolean;
-    receipt_no?: string;
-    remarks?: string;
-    nationality?: string;
-    room_no?: string;
-    room_type?: string;
-    bed_type?: string;
-    no_of_beds_checked?: number;
-    meal?: string;
-    relationship?: string;
-    passport_number?: string;
-    passport_issue_date?: string;
-    passport_expiry_date?: string;
-    passport_place_of_issue?: string;
+function slugifyTab(value: string): string {
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
 }
 
-export type ManifestFormData = Omit<ManifestSchema, 'travelers' | 'rooms'> & {
-    travelers?: Record<number, TravelerSchema[]>;
-    roomListMakkah?: Record<number, TravelerSchema[]>;
-    roomListMadinah?: Record<number, TravelerSchema[]>;
-    roomListOthers?: Record<number, TravelerSchema[]>;
-    airlineList?: Record<number, TravelerSchema[]>;
-    rooms?: Record<number, TravelerSchema[]>[];
-};
+function toTravelerWithUI(
+    row: Record<string, unknown>,
+    index: number,
+): TravelerWithUI {
+    const memberId = Number(row.customer_confirmation_member_id);
+    const customerId = Number(row.customer_id);
+    const travelerId = Number(row.id);
 
-interface ManifestFormProps {
-    mode: 'create' | 'edit' | 'view';
-    initialData?: ManifestFormData;
-    dataPackage?: ValueNumberOptionType[];
-    customerGroups?: CustomerGroupData[];
-    onCancel: () => void;
-}
-
-const STATUS_OPTIONS = ['draft', 'confirmed', 'completed', 'cancelled'];
-
-const MEAL_OPTIONS = ['Breakfast', 'Lunch', 'Dinner', 'None'];
-
-const ROOM_TYPE_OPTIONS = ['Quad', 'Triple', 'Double', 'Single'];
-
-const BED_TYPE_OPTIONS = ['Single', 'King'];
-
-const GENDER_OPTIONS = ['male', 'female', 'other'];
-
-// ============ Default Values ============
-
-const getDefaultValues = (
-    initialData: ManifestFormData | undefined,
-): { data: ManifestFormData; selectedGroups: number[] } => {
     return {
-        data: initialData || {},
-        selectedGroups: initialData?.travelers
-            ? Object.keys(initialData.travelers).map(Number)
-            : [],
+        ...(row as TravelerWithUI),
+        row_key:
+            typeof row.row_key === 'string' && row.row_key.trim().length > 0
+                ? row.row_key
+                : Number.isFinite(memberId)
+                  ? `traveler-member-${memberId}`
+                  : Number.isFinite(customerId)
+                    ? `traveler-customer-${customerId}`
+                    : Number.isFinite(travelerId)
+                      ? `traveler-id-${travelerId}`
+                      : `traveler-temp-${nanoid()}`,
+        sn: Number(row.sn ?? index + 1),
+        sharing_group_key: String(
+            row.sharing_group_key ??
+                row.sharing_group_id ??
+                row.customer_confirmation_member_id ??
+                `solo-${index}`,
+        ),
     };
+}
+
+function flattenGroupedRows(rows: unknown): TravelerWithUI[] {
+    if (!Array.isArray(rows)) {
+        if (rows && typeof rows === 'object') {
+            return Object.values(rows as Record<string, unknown[]>)
+                .flat()
+                .filter(
+                    (item): item is Record<string, unknown> =>
+                        !!item && typeof item === 'object',
+                )
+                .map((item, index) => toTravelerWithUI(item, index));
+        }
+
+        return [];
+    }
+
+    return rows
+        .filter(
+            (item): item is Record<string, unknown> =>
+                !!item && typeof item === 'object',
+        )
+        .map((item, index) => toTravelerWithUI(item, index));
+}
+
+const sharingPlanCapacity: Record<string, number> = {
+    single: 1,
+    double: 2,
+    triple: 3,
+    quad: 4,
 };
 
-// ============ Sub-Components ============
+function buildSharingPlanGroupKeys(
+    confirmation: CustomerConfirmationData,
+    members: Array<{ id?: number; sharing_plan?: string | null }>,
+): Map<number, string> {
+    const assignments = new Map<number, string>();
+    const membersByPlan = new Map<string, number[]>();
 
-interface ManifestInfoCardProps {
-    isView: boolean;
-    data: ManifestFormData;
-    setData: (key: string, value: ManifestFormData[keyof ManifestFormData]) => void;
-    dataPackage: ValueNumberOptionType[];
-    renderError: (path: string) => React.ReactNode;
-}
+    members.forEach((member) => {
+        const memberId = Number(member.id);
+        if (!Number.isFinite(memberId)) {
+            return;
+        }
 
-function ManifestInfoCard({
-    isView,
-    data,
-    setData,
-    dataPackage,
-    renderError,
-}: ManifestInfoCardProps) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Manifest Information</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="package_id">
-                        Package
-                        <FieldRequirements
-                            required
-                            hint="Select the package for this manifest"
-                        />
-                    </Label>
-                    <div className="relative">
-                        <Select
-                            value={String(data.package_id || '')}
-                            onValueChange={(v) =>
-                                setData('package_id', Number(v))
-                            }
-                            disabled={isView}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Package" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {dataPackage.map((pkg) => (
-                                    <SelectItem
-                                        key={pkg.value}
-                                        value={String(pkg.value)}
-                                    >
-                                        {pkg.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {renderError('package_id')}
-                    </div>
-                </div>
+        const sharingPlan = (member.sharing_plan ?? '').toString().trim();
+        if (!sharingPlan) {
+            assignments.set(memberId, `solo-${memberId}`);
 
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="reference_number">
-                        Reference Number
-                        <FieldRequirements
-                            required
-                            hint="Enter the manifest reference number"
-                        />
-                    </Label>
-                    <div className="relative">
-                        <ProperInput
-                            id="reference_number"
-                            value={data.reference_number ?? ''}
-                            disabled={isView}
-                            onCommit={(v) => setData('reference_number', v)}
-                            placeholder="Enter reference number"
-                        />
-                        {renderError('reference_number')}
-                    </div>
-                </div>
+            return;
+        }
 
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="status">
-                        Status
-                        <FieldRequirements hint="Select the manifest status" />
-                    </Label>
-                    <div className="relative">
-                        <Select
-                            value={data.status}
-                            onValueChange={(v) => setData('status', v)}
-                            disabled={isView}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_OPTIONS.map((s) => (
-                                    <SelectItem key={s} value={s}>
-                                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {renderError('status')}
-                    </div>
-                </div>
+        if (!membersByPlan.has(sharingPlan)) {
+            membersByPlan.set(sharingPlan, []);
+        }
 
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="duration">
-                        Duration
-                        <FieldRequirements hint="Enter duration (e.g. 14 Days / 13 Nights)" />
-                    </Label>
-                    <div className="relative">
-                        <ProperInput
-                            id="duration"
-                            value={data.duration ?? ''}
-                            disabled={isView}
-                            onCommit={(v) => setData('duration', v)}
-                            placeholder="e.g. 14 Days / 13 Nights"
-                        />
-                        {renderError('duration')}
-                    </div>
-                </div>
+        membersByPlan.get(sharingPlan)?.push(memberId);
+    });
 
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="departure_date">
-                        Departure Date
-                        <FieldRequirements
-                            required
-                            hint="Select departure date"
-                        />
-                    </Label>
-                    <div className="relative">
-                        <DatePickerField
-                            id="departure_date"
-                            value={data.departure_date}
-                            onChange={(v) => setData('departure_date', v)}
-                            disabled={isView}
-                        />
-                        {renderError('departure_date')}
-                    </div>
-                </div>
+    membersByPlan.forEach((memberIds, sharingPlan) => {
+        const normalizedPlan = sharingPlan.toLowerCase();
+        const capacity = sharingPlanCapacity[normalizedPlan] ?? 1;
 
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="return_date">
-                        Return Date
-                        <FieldRequirements required hint="Select return date" />
-                    </Label>
-                    <div className="relative">
-                        <DatePickerField
-                            id="return_date"
-                            value={data.return_date}
-                            onChange={(v) => setData('return_date', v)}
-                            disabled={isView}
-                        />
-                        {renderError('return_date')}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-interface HotelDetailsCardProps {
-    isView: boolean;
-    data: ManifestFormData;
-    setData: (key: string, value: ManifestFormData[keyof ManifestFormData]) => void;
-    renderError: (path: string) => React.ReactNode;
-}
-
-function HotelDetailsCard({
-    isView,
-    data,
-    setData,
-    renderError,
-}: HotelDetailsCardProps) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Hotel Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {/* Makkah */}
-                <div>
-                    <h4 className="mb-3 text-base font-medium text-muted-foreground">
-                        Makkah Hotel
-                    </h4>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="makkah_hotel">
-                                Hotel Name
-                                <FieldRequirements hint="Enter Makkah hotel name" />
-                            </Label>
-                            <div className="relative">
-                                <ProperInput
-                                    id="makkah_hotel"
-                                    value={data.makkah_hotel ?? ''}
-                                    disabled={isView}
-                                    onCommit={(v) => setData('makkah_hotel', v)}
-                                    placeholder="Enter hotel name"
-                                />
-                                {renderError('makkah_hotel')}
-                            </div>
-                        </div>
-
-                        <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="makkah_check_in">
-                                Check In
-                                <FieldRequirements hint="Select check-in date" />
-                            </Label>
-                            <div className="relative">
-                                <DatePickerField
-                                    id="makkah_check_in"
-                                    value={data.makkah_check_in}
-                                    onChange={(v) =>
-                                        setData('makkah_check_in', v)
-                                    }
-                                    disabled={isView}
-                                />
-                                {renderError('makkah_check_in')}
-                            </div>
-                        </div>
-
-                        <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="makkah_check_out">
-                                Check Out
-                                <FieldRequirements hint="Select check-out date" />
-                            </Label>
-                            <div className="relative">
-                                <DatePickerField
-                                    id="makkah_check_out"
-                                    value={data.makkah_check_out}
-                                    onChange={(v) =>
-                                        setData('makkah_check_out', v)
-                                    }
-                                    disabled={isView}
-                                />
-                                {renderError('makkah_check_out')}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {/* Madinah */}
-                <div>
-                    <h4 className="mb-3 text-base font-medium text-muted-foreground">
-                        Madinah Hotel
-                    </h4>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="madinah_hotel">
-                                Hotel Name
-                                <FieldRequirements hint="Enter Madinah hotel name" />
-                            </Label>
-                            <div className="relative">
-                                <ProperInput
-                                    id="madinah_hotel"
-                                    value={data.madinah_hotel ?? ''}
-                                    disabled={isView}
-                                    onCommit={(v) =>
-                                        setData('madinah_hotel', v)
-                                    }
-                                    placeholder="Enter hotel name"
-                                />
-                                {renderError('madinah_hotel')}
-                            </div>
-                        </div>
-
-                        <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="madinah_check_in">
-                                Check In
-                                <FieldRequirements hint="Select check-in date" />
-                            </Label>
-                            <div className="relative">
-                                <DatePickerField
-                                    id="madinah_check_in"
-                                    value={data.madinah_check_in}
-                                    onChange={(v) =>
-                                        setData('madinah_check_in', v)
-                                    }
-                                    disabled={isView}
-                                />
-                                {renderError('madinah_check_in')}
-                            </div>
-                        </div>
-
-                        <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="madinah_check_out">
-                                Check Out
-                                <FieldRequirements hint="Select check-out date" />
-                            </Label>
-                            <div className="relative">
-                                <DatePickerField
-                                    id="madinah_check_out"
-                                    value={data.madinah_check_out}
-                                    onChange={(v) =>
-                                        setData('madinah_check_out', v)
-                                    }
-                                    disabled={isView}
-                                />
-                                {renderError('madinah_check_out')}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-interface MealsNotesCardProps {
-    isView: boolean;
-    data: ManifestFormData;
-    setData: (key: string, value: ManifestFormData[keyof ManifestFormData]) => void;
-    renderError: (path: string) => React.ReactNode;
-}
-
-function MealsNotesCard({
-    isView,
-    data,
-    setData,
-    renderError,
-}: MealsNotesCardProps) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Meals & Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="first_meal">
-                        First Meal
-                        <FieldRequirements hint="Select first meal" />
-                    </Label>
-                    <div className="relative">
-                        <Select
-                            value={data.first_meal}
-                            onValueChange={(v) => setData('first_meal', v)}
-                            disabled={isView}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Meal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {MEAL_OPTIONS.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {m}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {renderError('first_meal')}
-                    </div>
-                </div>
-
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="last_meal">
-                        Last Meal
-                        <FieldRequirements hint="Select last meal" />
-                    </Label>
-                    <div className="relative">
-                        <Select
-                            value={data.last_meal}
-                            onValueChange={(v) => setData('last_meal', v)}
-                            disabled={isView}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Meal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {MEAL_OPTIONS.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {m}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {renderError('last_meal')}
-                    </div>
-                </div>
-
-                <div className="grid w-full items-center gap-3 md:col-span-3">
-                    <Label htmlFor="notes">
-                        Notes
-                        <FieldRequirements hint="Add any additional notes" />
-                    </Label>
-                    <div className="relative">
-                        <Textarea
-                            id="notes"
-                            value={data.notes}
-                            onChange={(e) => setData('notes', e.target.value)}
-                            disabled={isView}
-                            rows={3}
-                        />
-                        {renderError('notes')}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-interface TravelersByGroupCardProps {
-    isView: boolean;
-    customerGroups: CustomerGroupData[];
-    data: ManifestFormData;
-    updateTraveler: (
-        groupId: number,
-        index: number,
-        field: keyof TravelerSchema,
-        value: string | number | boolean,
-    ) => void;
-    removeTraveler: (index: number) => void;
-    renderError: (path: string) => React.ReactNode;
-    selectedGroupIds: number[];
-    onAddGroup: (groupId: number) => void;
-    onRemoveGroup: (groupId: number) => void;
-}
-
-function TravelersByGroupCard({
-    isView,
-    customerGroups,
-    data,
-    updateTraveler,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    removeTraveler,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    renderError,
-    selectedGroupIds,
-    onAddGroup,
-    onRemoveGroup,
-}: TravelersByGroupCardProps) {
-    const [openGroupDialog, setOpenGroupDialog] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const getGroupLabel = (groupId: number): string => {
-        const group = customerGroups.find((g) => g.id === groupId);
-        if (!group) return `Group ${groupId}`;
-        const leader = group.members?.find((m) => m.is_leader);
-        const leaderName = leader?.name || 'Unknown';
-        return `Group - ${leaderName}`;
-    };
-
-    const getGroupMembers = (groupId: number): CustomerMemberData[] => {
-        return (
-            (data.travelers?.[groupId] as unknown as CustomerMemberData[]) || []
-        );
-    };
-
-    const addGroup = (groupId: number) => {
-        onAddGroup(groupId);
-        setOpenGroupDialog(false);
-    };
-
-    const removeGroup = (groupId: number) => {
-        onRemoveGroup(groupId);
-    };
-
-    const getFilteredGroups = (): CustomerGroupData[] => {
-        if (!searchTerm.trim()) return customerGroups;
-
-        return customerGroups.filter((group) => {
-            const groupLabel = getGroupLabel(group.id).toLowerCase();
-            const memberNames =
-                group.members
-                    ?.map((m) => (m.name ?? '').toLowerCase())
-                    .join(' ') || '';
-
-            return (
-                groupLabel.includes(searchTerm.toLowerCase()) ||
-                memberNames.includes(searchTerm.toLowerCase())
+        memberIds.forEach((memberId, index) => {
+            const chunkNumber = Math.floor(index / capacity) + 1;
+            assignments.set(
+                memberId,
+                `plan-${normalizedPlan}-${confirmation.id}-${chunkNumber}`,
             );
         });
-    };
+    });
 
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Travelers by Group</CardTitle>
-                {!isView && (
-                    <Dialog
-                        open={openGroupDialog}
-                        onOpenChange={(open) => {
-                            setOpenGroupDialog(open);
-                            if (!open) setSearchTerm('');
-                        }}
-                    >
-                        <Button
-                            size="sm"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                setOpenGroupDialog(true);
-                            }}
-                        >
-                            <Plus className="mr-1 h-4 w-4" />
-                            Add Traveler
-                        </Button>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Select Customer Group</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-3">
-                                <Input
-                                    placeholder="Search by group name or member..."
-                                    value={searchTerm}
-                                    onChange={(e) =>
-                                        setSearchTerm(e.target.value)
-                                    }
-                                    className="mb-2"
-                                />
-                                <div className="max-h-96 space-y-2 overflow-y-auto">
-                                    {getFilteredGroups().length > 0 ? (
-                                        getFilteredGroups().map((group) => (
-                                            <Button
-                                                key={group.id}
-                                                variant={
-                                                    selectedGroupIds.includes(
-                                                        group.id,
-                                                    )
-                                                        ? 'default'
-                                                        : 'outline'
-                                                }
-                                                className="w-full justify-start"
-                                                onClick={() =>
-                                                    addGroup(group.id)
-                                                }
-                                                disabled={selectedGroupIds.includes(
-                                                    group.id,
-                                                )}
-                                            >
-                                                {getGroupLabel(group.id)} (
-                                                {group.members?.length || 0}{' '}
-                                                members)
-                                            </Button>
-                                        ))
-                                    ) : (
-                                        <p className="py-4 text-center text-sm text-muted-foreground">
-                                            No groups found matching your
-                                            search.
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                )}
-            </CardHeader>
-            <CardContent>
-                {selectedGroupIds.length === 0 ? (
-                    <p className="py-4 text-center text-base text-muted-foreground">
-                        No groups added. Click "Add Travel" to select a group.
-                    </p>
-                ) : (
-                    <Tabs
-                        defaultValue={`group-${selectedGroupIds[0]}`}
-                        className="w-full"
-                    >
-                        <TabsList className="flex w-full flex-wrap">
-                            {selectedGroupIds.map((groupId) => (
-                                <TabsTrigger
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="flex items-center gap-2"
-                                >
-                                    {getGroupLabel(groupId)}{' '}
-                                    {!isView && (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-4 w-4 p-0"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                removeGroup(groupId);
-                                            }}
-                                        >
-                                            <Minus className="h-3 w-3" />
-                                        </Button>
-                                    )}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
+    return assignments;
+}
 
-                        {selectedGroupIds.map((groupId) => {
-                            const members = getGroupMembers(groupId);
-                            const groupLabel = getGroupLabel(groupId);
+function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
+    const travelers = flattenGroupedRows(initialData?.travelers ?? []);
 
-                            return (
-                                <TabsContent
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="mt-4 space-y-4"
-                                >
-                                    <div className="">
-                                        <h4 className="mb-4 font-semibold">
-                                            {groupLabel} Members
-                                        </h4>
+    const roomLists =
+        initialData?.roomLists ??
+        ({
+            makkah: flattenGroupedRows(initialData?.roomListMakkah ?? []),
+            madinah: flattenGroupedRows(initialData?.roomListMadinah ?? []),
+            others: flattenGroupedRows(initialData?.roomListOthers ?? []),
+        } as Record<string, TravelerWithUI[]>);
 
-                                        {members.length > 0 ? (
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full border text-sm">
-                                                    <thead>
-                                                        <tr className="border-b bg-muted/50">
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                S/N
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Name As Per
-                                                                Passport
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Date of Sign Up
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                1st Time Umrah
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                PPT No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Gender
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                D.O.B
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Age
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Contact No.
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                D.O.I
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                D.O.E
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Issue Place
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Birth Place
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Package Price
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Discount
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Date of Deposit
-                                                                Payment
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Deposit Payment
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Date of Second
-                                                                Payment
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Second Payment
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Balance Due
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Fully Paid
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Receipt No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Remarks
-                                                            </th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {members.map(
-                                                            (
-                                                                member,
-                                                                memberIdx,
-                                                            ) => (
-                                                                <tr
-                                                                    key={
-                                                                        member.id
-                                                                    }
-                                                                    className="border-b"
-                                                                >
-                                                                    <td className="p-2">
-                                                                        {memberIdx +
-                                                                            1}
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.name_as_per_passport ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                v,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'name_as_per_passport',
-                                                                                    v
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[150px]"
-                                                                        />
-                                                                    </td>
-
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            type="date"
-                                                                            value={
-                                                                                member.date_of_sign_up ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'date_of_sign_up',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Select
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            value={
-                                                                                member.is_first_time_umrah
-                                                                                    ? 'yes'
-                                                                                    : 'no'
-                                                                            }
-                                                                            onValueChange={(
-                                                                                value,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'is_first_time_umrah',
-                                                                                    value ===
-                                                                                        'yes',
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <SelectTrigger className="min-w-[100px]">
-                                                                                <SelectValue placeholder="Yes/No" />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="yes">
-                                                                                    Yes
-                                                                                </SelectItem>
-                                                                                <SelectItem value="no">
-                                                                                    No
-                                                                                </SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.ppt_no ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'ppt_no',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                            placeholder="PPT No"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Select
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            value={
-                                                                                member.gender ||
-                                                                                ''
-                                                                            }
-                                                                            onValueChange={(
-                                                                                value,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'gender',
-                                                                                    value,
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <SelectTrigger className="min-w-[100px]">
-                                                                                <SelectValue placeholder="Gender" />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {GENDER_OPTIONS.map(
-                                                                                    (
-                                                                                        g,
-                                                                                    ) => (
-                                                                                        <SelectItem
-                                                                                            key={
-                                                                                                g
-                                                                                            }
-                                                                                            value={
-                                                                                                g
-                                                                                            }
-                                                                                        >
-                                                                                            {
-                                                                                                g
-                                                                                            }
-                                                                                        </SelectItem>
-                                                                                    ),
-                                                                                )}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            type="date"
-                                                                            value={
-                                                                                member.date_of_birth ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'date_of_birth',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.age?.toString() ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'age',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[80px]"
-                                                                            placeholder="Age"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.contact_no ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'contact_no',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                            placeholder="Contact"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            type="date"
-                                                                            value={
-                                                                                member.date_of_issue ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'date_of_issue',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            type="date"
-                                                                            value={
-                                                                                member.date_of_expiry ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'date_of_expiry',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.issue_place ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'issue_place',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                            placeholder="Issue Place"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.birth_place ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'birth_place',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                            placeholder="Birth Place"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.package_price?.toString() ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'package_price',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[100px]"
-                                                                            placeholder="Price"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.discount?.toString() ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'discount',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[100px]"
-                                                                            placeholder="Discount"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            type="date"
-                                                                            value={
-                                                                                member.date_of_deposit_payment ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'date_of_deposit_payment',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.deposit_payment?.toString() ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'deposit_payment',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[100px]"
-                                                                            placeholder="Deposit"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            type="date"
-                                                                            value={
-                                                                                member.date_of_second_payment ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'date_of_second_payment',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[120px]"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.second_payment?.toString() ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'second_payment',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[100px]"
-                                                                            placeholder="2nd Payment"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.balance_due?.toString() ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'balance_due',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[100px]"
-                                                                            placeholder="Balance"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Select
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            value={
-                                                                                member.is_fully_paid
-                                                                                    ? 'yes'
-                                                                                    : 'no'
-                                                                            }
-                                                                            onValueChange={(
-                                                                                value,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'is_fully_paid',
-                                                                                    value ===
-                                                                                        'yes',
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <SelectTrigger className="min-w-[100px]">
-                                                                                <SelectValue
-                                                                                    placeholder={
-                                                                                        member.is_fully_paid
-                                                                                            ? 'Yes'
-                                                                                            : 'No'
-                                                                                    }
-                                                                                />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="yes">
-                                                                                    Yes
-                                                                                </SelectItem>
-                                                                                <SelectItem value="no">
-                                                                                    No
-                                                                                </SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.receipt_no ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'receipt_no',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[100px]"
-                                                                            placeholder="Receipt"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2">
-                                                                        <Input
-                                                                            value={
-                                                                                member.remarks ||
-                                                                                ''
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateTraveler(
-                                                                                    groupId,
-                                                                                    memberIdx,
-                                                                                    'remarks',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                )
-                                                                            }
-                                                                            className="min-w-[100px]"
-                                                                            placeholder="Remarks"
-                                                                        />
-                                                                    </td>
-                                                                </tr>
-                                                            ),
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ) : (
-                                            <p className="py-4 text-center text-base text-muted-foreground">
-                                                No members in this group.
-                                            </p>
-                                        )}
-                                    </div>
-                                </TabsContent>
-                            );
-                        })}
-                    </Tabs>
-                )}
-            </CardContent>
-        </Card>
+    const normalizedRoomLists = Object.fromEntries(
+        Object.entries(roomLists)
+            .map(([key, rows]) => [key, flattenGroupedRows(rows)])
+            .filter(([, rows]) => rows.length > 0),
     );
-}
 
-interface RoomListMakkahCardProps {
-    isView: boolean;
-    customerGroups: CustomerGroupData[];
-    data: ManifestFormData;
-    updateTraveler: (
-        groupId: number,
-        index: number,
-        field: keyof TravelerSchema,
-        value: string | number | boolean,
-    ) => void;
-    removeTraveler: (index: number) => void;
-    renderError: (path: string) => React.ReactNode;
-    selectedGroupIds: number[];
-}
+    const airlineList = flattenGroupedRows(
+        initialData?.airlineList ?? travelers,
+    );
 
-function RoomListMakkahCard({
-    isView,
-    customerGroups,
-    data,
-    updateTraveler,
-    removeTraveler,
-    renderError,
-    selectedGroupIds,
-}: RoomListMakkahCardProps) {
-    const getGroupLabel = (groupId: number): string => {
-        const group = customerGroups.find((g) => g.id === groupId);
-        if (!group) return `Group ${groupId}`;
-        const leader = group.members?.find((m) => m.is_leader);
-        const leaderName = leader?.name || 'Unknown';
-        return `Group - ${leaderName}`;
-    };
-
-    const getGroupMembers = (groupId: number): CustomerMemberData[] => {
-        return (
-            (data?.roomListMakkah?.[
-                groupId
-            ] as unknown as CustomerMemberData[]) || []
+    const selectedConfirmationIds =
+        initialData?.selected_confirmation_ids ??
+        Array.from(
+            new Set(
+                travelers
+                    .map((row) => row.customer_confirmation_id)
+                    .filter((value): value is number => Number.isFinite(value)),
+            ),
         );
+
+    return {
+        id: initialData?.id,
+        package_id: initialData?.package_id ?? 0,
+        reference_number: initialData?.reference_number ?? '',
+        status: initialData?.status ?? 'draft',
+        company_address: initialData?.company_address ?? '',
+        company_phone: initialData?.company_phone ?? '',
+        departure_date: initialData?.departure_date ?? '',
+        return_date: initialData?.return_date ?? '',
+        duration: initialData?.duration ?? '',
+        first_meal: initialData?.first_meal ?? '',
+        last_meal: initialData?.last_meal ?? '',
+        notes: initialData?.notes ?? '',
+        flight_details: initialData?.flight_details ?? {},
+        travelers,
+        roomLists: normalizedRoomLists,
+        airlineList,
+        selected_confirmation_ids: selectedConfirmationIds,
     };
-
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Room List Makkah</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {selectedGroupIds.length === 0 ? (
-                    <p className="py-4 text-center text-base text-muted-foreground">
-                        No groups added. Select a group from the Travelers tab.
-                    </p>
-                ) : (
-                    <Tabs
-                        defaultValue={`group-${selectedGroupIds[0]}`}
-                        className="w-full"
-                    >
-                        <TabsList className="flex w-full flex-wrap">
-                            {selectedGroupIds.map((groupId) => (
-                                <TabsTrigger
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="flex items-center gap-2"
-                                >
-                                    {getGroupLabel(groupId)}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-
-                        {selectedGroupIds.map((groupId) => {
-                            const members = getGroupMembers(groupId);
-                            const groupLabel = getGroupLabel(groupId);
-
-                            return (
-                                <TabsContent
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="mt-4 space-y-4"
-                                >
-                                    <div className="">
-                                        <h4 className="mb-4 font-semibold">
-                                            {groupLabel} Members
-                                        </h4>
-                                        {members.length > 0 ? (
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full border text-base">
-                                                    <thead>
-                                                        <tr className="border-b bg-muted/50">
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                S/N
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Name (as per
-                                                                passport)
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Relationship
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Passport No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Room No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Room Type
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Bed Type
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                DOB
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Age
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Meal
-                                                            </th>
-                                                            {!isView && (
-                                                                <th className="p-2 text-left whitespace-nowrap">
-                                                                    Actions
-                                                                </th>
-                                                            )}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {members.map(
-                                                            (
-                                                                member,
-                                                                memberIdx,
-                                                            ) => {
-                                                                return (
-                                                                    <tr
-                                                                        key={
-                                                                            memberIdx
-                                                                        }
-                                                                        className="border-b"
-                                                                    >
-                                                                        <td className="p-2">
-                                                                            {
-                                                                                memberIdx + 1
-                                                                            }
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <p></p>
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.name_as_per_passport ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'name_as_per_passport',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[180px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.name_as_per_passport`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.relationship ??
-                                                                                        '-'
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'relationship',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[100px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.relationship`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.passport_no ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'passport_no',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[120px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.passport_no`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.room_no ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'room_no',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[80px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.room_no`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member?.room_type ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'room_type',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {ROOM_TYPE_OPTIONS.map(
-                                                                                        (
-                                                                                            r,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    r
-                                                                                                }
-                                                                                                value={r.toLowerCase()}
-                                                                                            >
-                                                                                                {
-                                                                                                    r
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member?.bed_type ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'bed_type',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {BED_TYPE_OPTIONS.map(
-                                                                                        (
-                                                                                            b,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    b
-                                                                                                }
-                                                                                                value={
-                                                                                                    b
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    b
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Input
-                                                                                type="date"
-                                                                                value={
-                                                                                    member.date_of_birth
-                                                                                        ? new Date(
-                                                                                              member.date_of_birth,
-                                                                                          )
-                                                                                              .toISOString()
-                                                                                              .split(
-                                                                                                  'T',
-                                                                                              )[0]
-                                                                                        : ''
-                                                                                }
-                                                                                onChange={(
-                                                                                    e,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'date_of_birth',
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                className="min-w-[130px]"
-                                                                            />
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    value={String(
-                                                                                        member.age,
-                                                                                    )}
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'age',
-                                                                                            Number(
-                                                                                                e
-                                                                                                    .target
-                                                                                                    .value,
-                                                                                            ) ||
-                                                                                                0,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[60px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.age`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member.meal ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'meal',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {MEAL_OPTIONS.map(
-                                                                                        (
-                                                                                            m,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    m
-                                                                                                }
-                                                                                                value={
-                                                                                                    m
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    m
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        {!isView && (
-                                                                            <td className="p-2">
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    onClick={() =>
-                                                                                        removeTraveler(
-                                                                                            memberIdx,
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    <Minus className="h-4 w-4 text-destructive" />
-                                                                                </Button>
-                                                                            </td>
-                                                                        )}
-                                                                    </tr>
-                                                                );
-                                                            },
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ) : (
-                                            <p className="py-4 text-center text-base text-muted-foreground">
-                                                No members in this group.
-                                            </p>
-                                        )}
-                                    </div>
-                                </TabsContent>
-                            );
-                        })}
-                    </Tabs>
-                )}
-            </CardContent>
-        </Card>
-    );
 }
 
-interface RoomListMadinahCardProps {
-    isView: boolean;
-    customerGroups: CustomerGroupData[];
-    data: ManifestFormData;
-    updateTraveler: (
-        groupId: number,
-        index: number,
-        field: keyof TravelerSchema,
-        value: string | number | boolean,
-    ) => void;
-    removeTraveler: (index: number) => void;
-    renderError: (path: string) => React.ReactNode;
-    selectedGroupIds: number[];
-}
+function buildRoomRowsFromTravelers(
+    travelers: TravelerWithUI[],
+    existingRows: TravelerWithUI[] = [],
+    accommodationKey: string,
+): TravelerWithUI[] {
+    return travelers.map((traveler, index) => {
+        const existing = existingRows.find(
+            (row) =>
+                row.customer_confirmation_member_id ===
+                traveler.customer_confirmation_member_id,
+        );
 
-function RoomListMadinahCard({
-    isView,
-    customerGroups,
-    data,
-    updateTraveler,
-    removeTraveler,
-    renderError,
-    selectedGroupIds,
-}: RoomListMadinahCardProps) {
-    const getGroupLabel = (groupId: number): string => {
-        const group = customerGroups.find((g) => g.id === groupId);
-        if (!group) return `Group ${groupId}`;
-        const leader = group.members?.find((m) => m.is_leader);
-        const leaderName = leader?.name || 'Unknown';
-        return `Group - ${leaderName}`;
-    };
-
-    const getGroupMembers = (groupId: number): CustomerMemberData[] => {
-        return data?.roomListMadinah?.[groupId] || [];
-    };
-
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Room List - Madinah</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {selectedGroupIds.length === 0 ? (
-                    <p className="py-4 text-center text-base text-muted-foreground">
-                        No groups added. Select a group from the Travelers tab.
-                    </p>
-                ) : (
-                    <Tabs
-                        defaultValue={`group-${selectedGroupIds[0]}`}
-                        className="w-full"
-                    >
-                        <TabsList className="flex w-full flex-wrap">
-                            {selectedGroupIds.map((groupId) => (
-                                <TabsTrigger
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="flex items-center gap-2"
-                                >
-                                    {getGroupLabel(groupId)}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-
-                        {selectedGroupIds.map((groupId) => {
-                            const members = getGroupMembers(groupId);
-                            const groupLabel = getGroupLabel(groupId);
-
-                            return (
-                                <TabsContent
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="mt-4 space-y-4"
-                                >
-                                    <div className="">
-                                        <h4 className="mb-4 font-semibold">
-                                            {groupLabel} Members
-                                        </h4>
-                                        {members.length > 0 ? (
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full border text-base">
-                                                    <thead>
-                                                        <tr className="border-b bg-muted/50">
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                S/N
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Name (as per
-                                                                passport)
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Relationship
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Passport No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Room No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Room Type
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Bed Type
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                DOB
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Age
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Meal
-                                                            </th>
-                                                            {!isView && (
-                                                                <th className="p-2 text-left whitespace-nowrap">
-                                                                    Actions
-                                                                </th>
-                                                            )}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {members.map(
-                                                            (
-                                                                member,
-                                                                memberIdx,
-                                                            ) => {
-                                                                return (
-                                                                    <tr
-                                                                        key={
-                                                                            memberIdx
-                                                                        }
-                                                                        className="border-b"
-                                                                    >
-                                                                        <td className="p-2">
-                                                                            {memberIdx +
-                                                                                1}
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <p></p>
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.name_as_per_passport ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'name_as_per_passport',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[180px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.name_as_per_passport`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.relationship ??
-                                                                                        '-'
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'relationship',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[100px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.relationship`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.passport_no ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'passport_no',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[120px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.passport_no`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.room_no ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'room_no',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[80px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.room_no`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member?.room_type ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'room_type',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {ROOM_TYPE_OPTIONS.map(
-                                                                                        (
-                                                                                            r,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    r
-                                                                                                }
-                                                                                                value={r.toLowerCase()}
-                                                                                            >
-                                                                                                {
-                                                                                                    r
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member?.bed_type ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'bed_type',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {BED_TYPE_OPTIONS.map(
-                                                                                        (
-                                                                                            b,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    b
-                                                                                                }
-                                                                                                value={
-                                                                                                    b
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    b
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Input
-                                                                                type="date"
-                                                                                value={
-                                                                                    member.date_of_birth
-                                                                                        ? new Date(
-                                                                                              member.date_of_birth,
-                                                                                          )
-                                                                                              .toISOString()
-                                                                                              .split(
-                                                                                                  'T',
-                                                                                              )[0]
-                                                                                        : ''
-                                                                                }
-                                                                                onChange={(
-                                                                                    e,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'date_of_birth',
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                className="min-w-[130px]"
-                                                                            />
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    value={String(
-                                                                                        member.age,
-                                                                                    )}
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'age',
-                                                                                            Number(
-                                                                                                e
-                                                                                                    .target
-                                                                                                    .value,
-                                                                                            ) ||
-                                                                                                0,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[60px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.age`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member.meal ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'meal',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {MEAL_OPTIONS.map(
-                                                                                        (
-                                                                                            m,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    m
-                                                                                                }
-                                                                                                value={
-                                                                                                    m
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    m
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        {!isView && (
-                                                                            <td className="p-2">
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    onClick={() =>
-                                                                                        removeTraveler(
-                                                                                            memberIdx,
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    <Minus className="h-4 w-4 text-destructive" />
-                                                                                </Button>
-                                                                            </td>
-                                                                        )}
-                                                                    </tr>
-                                                                );
-                                                            },
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ) : (
-                                            <p className="py-4 text-center text-base text-muted-foreground">
-                                                No members in this group.
-                                            </p>
-                                        )}
-                                    </div>
-                                </TabsContent>
-                            );
-                        })}
-                    </Tabs>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
-interface RoomListOthersCardProps {
-    isView: boolean;
-    customerGroups: CustomerGroupData[];
-    data: ManifestFormData;
-    updateTraveler: (
-        groupId: number,
-        index: number,
-        field: keyof TravelerSchema,
-        value: string | number | boolean,
-    ) => void;
-    removeTraveler: (index: number) => void;
-    renderError: (path: string) => React.ReactNode;
-    selectedGroupIds: number[];
-}
-
-function RoomListOthersCard({
-    isView,
-    customerGroups,
-    data,
-    updateTraveler,
-    removeTraveler,
-    renderError,
-    selectedGroupIds,
-}: RoomListOthersCardProps) {
-    const getGroupLabel = (groupId: number): string => {
-        const group = customerGroups.find((g) => g.id === groupId);
-        if (!group) return `Group ${groupId}`;
-        const leader = group.members?.find((m) => m.is_leader);
-        const leaderName = leader?.name || 'Unknown';
-        return `Group - ${leaderName}`;
-    };
-
-    const getGroupMembers = (groupId: number): CustomerMemberData[] => {
-        return data?.roomListOthers?.[groupId] || [];
-    };
-
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Room List - Others</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {selectedGroupIds.length === 0 ? (
-                    <p className="py-4 text-center text-base text-muted-foreground">
-                        No groups added. Select a group from the Travelers tab.
-                    </p>
-                ) : (
-                    <Tabs
-                        defaultValue={`group-${selectedGroupIds[0]}`}
-                        className="w-full"
-                    >
-                        <TabsList className="flex w-full flex-wrap">
-                            {selectedGroupIds.map((groupId) => (
-                                <TabsTrigger
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="flex items-center gap-2"
-                                >
-                                    {getGroupLabel(groupId)}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-
-                        {selectedGroupIds.map((groupId) => {
-                            const members = getGroupMembers(groupId);
-                            const groupLabel = getGroupLabel(groupId);
-
-                            return (
-                                <TabsContent
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="mt-4 space-y-4"
-                                >
-                                    <div className="">
-                                        <h4 className="mb-4 font-semibold">
-                                            {groupLabel} Members
-                                        </h4>
-                                        {members.length > 0 ? (
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full border text-base">
-                                                    <thead>
-                                                        <tr className="border-b bg-muted/50">
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                S/N
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Name (as per
-                                                                passport)
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Relationship
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Passport No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Room No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Room Type
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Bed Type
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                DOB
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Age
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Meal
-                                                            </th>
-                                                            {!isView && (
-                                                                <th className="p-2 text-left whitespace-nowrap">
-                                                                    Actions
-                                                                </th>
-                                                            )}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {members.map(
-                                                            (
-                                                                member,
-                                                                memberIdx,
-                                                            ) => {
-                                                                return (
-                                                                    <tr
-                                                                        key={
-                                                                            memberIdx
-                                                                        }
-                                                                        className="border-b"
-                                                                    >
-                                                                        <td className="p-2">
-                                                                            {memberIdx +
-                                                                                1}
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <p></p>
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.name_as_per_passport ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'name_as_per_passport',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[180px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.name_as_per_passport`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.relationship ??
-                                                                                        '-'
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'relationship',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[100px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.relationship`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.passport_no ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'passport_no',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[120px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.passport_no`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member?.room_no ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'room_no',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[80px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.room_no`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member?.room_type ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'room_type',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {ROOM_TYPE_OPTIONS.map(
-                                                                                        (
-                                                                                            r,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    r
-                                                                                                }
-                                                                                                value={r.toLowerCase()}
-                                                                                            >
-                                                                                                {
-                                                                                                    r
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member?.bed_type ??
-                                                                                    ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'bed_type',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {BED_TYPE_OPTIONS.map(
-                                                                                        (
-                                                                                            b,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    b
-                                                                                                }
-                                                                                                value={
-                                                                                                    b
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    b
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Input
-                                                                                type="date"
-                                                                                value={
-                                                                                    member.date_of_birth
-                                                                                        ? new Date(
-                                                                                              member.date_of_birth,
-                                                                                          )
-                                                                                              .toISOString()
-                                                                                              .split(
-                                                                                                  'T',
-                                                                                              )[0]
-                                                                                        : ''
-                                                                                }
-                                                                                onChange={(
-                                                                                    e,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'date_of_birth',
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                className="min-w-[130px]"
-                                                                            />
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    value={String(
-                                                                                        member.age,
-                                                                                    )}
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'age',
-                                                                                            Number(
-                                                                                                e
-                                                                                                    .target
-                                                                                                    .value,
-                                                                                            ) ||
-                                                                                                0,
-                                                                                        )
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    className="min-w-[60px]"
-                                                                                />
-                                                                                {renderError(
-                                                                                    `travelers.${memberIdx}.age`,
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member.meal ??
-                                                                                    ""
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    v,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'meal',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {MEAL_OPTIONS.map(
-                                                                                        (
-                                                                                            m,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    m
-                                                                                                }
-                                                                                                value={
-                                                                                                    m
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    m
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        {!isView && (
-                                                                            <td className="p-2">
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    onClick={() =>
-                                                                                        removeTraveler(
-                                                                                            memberIdx,
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    <Minus className="h-4 w-4 text-destructive" />
-                                                                                </Button>
-                                                                            </td>
-                                                                        )}
-                                                                    </tr>
-                                                                );
-                                                            },
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ) : (
-                                            <p className="py-4 text-center text-base text-muted-foreground">
-                                                No members in this group.
-                                            </p>
-                                        )}
-                                    </div>
-                                </TabsContent>
-                            );
-                        })}
-                    </Tabs>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
-interface AirlinesNameListCardProps {
-    isView: boolean;
-    customerGroups: CustomerGroupData[];
-    data: ManifestFormData;
-    updateTraveler: (
-        groupId: number,
-        index: number,
-        field: keyof TravelerSchema,
-        value: string | number | boolean,
-    ) => void;
-    removeTraveler: (index: number) => void;
-    renderError: (path: string) => React.ReactNode;
-    selectedGroupIds: number[];
-}
-
-function AirlinesNameListCard({
-    isView,
-    customerGroups,
-    data,
-    updateTraveler,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    removeTraveler,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    renderError,
-    selectedGroupIds,
-}: AirlinesNameListCardProps) {
-    const getGroupLabel = (groupId: number): string => {
-        const group = customerGroups.find((g) => g.id === groupId);
-        if (!group) return `Group ${groupId}`;
-        const leader = group.members?.find((m) => m.is_leader);
-        const leaderName = leader?.name || 'Unknown';
-        return `Group - ${leaderName}`;
-    };
-
-    const getGroupMembers = (groupId: number): CustomerMemberData[] => {
-        return data.airlineList?.[groupId] || [];
-    };
-
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Airlines Name List</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {selectedGroupIds.length === 0 ? (
-                    <p className="py-4 text-center text-base text-muted-foreground">
-                        No groups added. Select a group from the Travelers tab.
-                    </p>
-                ) : (
-                    <Tabs
-                        defaultValue={`group-${selectedGroupIds[0]}`}
-                        className="w-full"
-                    >
-                        <TabsList className="flex w-full flex-wrap">
-                            {selectedGroupIds.map((groupId) => (
-                                <TabsTrigger
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="flex items-center gap-2"
-                                >
-                                    {getGroupLabel(groupId)}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-
-                        {selectedGroupIds.map((groupId) => {
-                            const members = getGroupMembers(groupId);
-                            const groupLabel = getGroupLabel(groupId);
-
-                            return (
-                                <TabsContent
-                                    key={groupId}
-                                    value={`group-${groupId}`}
-                                    className="mt-4 space-y-4"
-                                >
-                                    <div className="">
-                                        <h4 className="mb-4 font-semibold">
-                                            {groupLabel} Passenger List
-                                        </h4>
-                                        {members.length > 0 ? (
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full border text-sm">
-                                                    <thead>
-                                                        <tr className="border-b bg-muted/50">
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                S/N
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Name as per
-                                                                Passport
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Nationality
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                PPT No
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Gender
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                D.O.B
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                D.O.I
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                D.O.E
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Issue Place
-                                                            </th>
-                                                            <th className="p-2 text-left whitespace-nowrap">
-                                                                Remarks
-                                                            </th>
-                                                            {!isView && (
-                                                                <th className="p-2 text-left whitespace-nowrap">
-                                                                    Actions
-                                                                </th>
-                                                            )}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {members.map(
-                                                            (
-                                                                member,
-                                                                memberIdx,
-                                                            ) => {
-                                                                return (
-                                                                    <tr
-                                                                        key={`${groupId}-${memberIdx}`}
-                                                                        className="border-b"
-                                                                    >
-                                                                        <td className="p-2">
-                                                                            {memberIdx +1}
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member.name_as_per_passport ??
-                                                                                        ''
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'name_as_per_passport',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    className="min-w-[150px]"
-                                                                                />
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member.nationality ??
-                                                                                        ''
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'nationality',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    className="min-w-[100px]"
-                                                                                />
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member.passport_no ??
-                                                                                        ''
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'passport_no',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    className="min-w-[100px]"
-                                                                                />
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Select
-                                                                                value={
-                                                                                    member.gender ??
-                                                                                    ''
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    g,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'gender',
-                                                                                        g,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="min-w-[100px]">
-                                                                                    <SelectValue placeholder="-" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {GENDER_OPTIONS.map(
-                                                                                        (
-                                                                                            g,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    g
-                                                                                                }
-                                                                                                value={
-                                                                                                    g
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    g
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Input
-                                                                                type="date"
-                                                                                value={
-                                                                                    member.date_of_birth
-                                                                                        ? new Date(
-                                                                                              member.date_of_birth,
-                                                                                          )
-                                                                                              .toISOString()
-                                                                                              .split(
-                                                                                                  'T',
-                                                                                              )[0]
-                                                                                        : ''
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                onChange={(
-                                                                                    e,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'date_of_birth',
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    )
-                                                                                }
-                                                                                className="min-w-[130px]"
-                                                                            />
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Input
-                                                                                type="date"
-                                                                                value={
-                                                                                    member.date_of_issue
-                                                                                        ? new Date(
-                                                                                              member.date_of_issue,
-                                                                                          )
-                                                                                              .toISOString()
-                                                                                              .split(
-                                                                                                  'T',
-                                                                                              )[0]
-                                                                                        : ''
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                onChange={(
-                                                                                    e,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'date_of_issue',
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    )
-                                                                                }
-                                                                                className="min-w-[130px]"
-                                                                            />
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <Input
-                                                                                type="date"
-                                                                                value={
-                                                                                    member.date_of_expiry
-                                                                                        ? new Date(
-                                                                                              member.date_of_expiry,
-                                                                                          )
-                                                                                              .toISOString()
-                                                                                              .split(
-                                                                                                  'T',
-                                                                                              )[0]
-                                                                                        : ''
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                onChange={(
-                                                                                    e,
-                                                                                ) =>
-                                                                                    updateTraveler(
-                                                                                        groupId,
-                                                                                        memberIdx,
-                                                                                        'date_of_expiry',
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    )
-                                                                                }
-                                                                                className="min-w-[130px]"
-                                                                            />
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member.issue_place ??
-                                                                                        ''
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'issue_place',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    className="min-w-[120px]"
-                                                                                />
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="p-2">
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    value={
-                                                                                        member.remarks ??
-                                                                                        ''
-                                                                                    }
-                                                                                    disabled={
-                                                                                        isView
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateTraveler(
-                                                                                            groupId,
-                                                                                            memberIdx,
-                                                                                            'remarks',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    className="min-w-[100px]"
-                                                                                />
-                                                                            </div>
-                                                                        </td>
-                                                                        {!isView && (
-                                                                            <td className="p-2">
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                >
-                                                                                    <Minus className="h-4 w-4 text-destructive" />
-                                                                                </Button>
-                                                                            </td>
-                                                                        )}
-                                                                    </tr>
-                                                                );
-                                                            },
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ) : (
-                                            <p className="py-4 text-center text-base text-muted-foreground">
-                                                No members in this group.
-                                            </p>
-                                        )}
-                                    </div>
-                                </TabsContent>
-                            );
-                        })}
-                    </Tabs>
-                )}
-            </CardContent>
-        </Card>
-    );
+        return {
+            ...traveler,
+            ...existing,
+            row_key:
+                existing?.row_key ??
+                traveler.row_key ??
+                `room-${accommodationKey}-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index}`,
+            sn: index + 1,
+            accommodation_key: accommodationKey,
+            sharing_group_key:
+                traveler.sharing_group_key ??
+                existing?.sharing_group_key ??
+                `solo-${traveler.customer_confirmation_member_id ?? index}`,
+        };
+    });
 }
 
 export default function ManifestForm({
     mode,
     initialData,
     dataPackage = [],
-    customerGroups = [],
+    customerConfirmations = [],
     onCancel,
 }: ManifestFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
     const isCreate = mode === 'create';
 
-    const { data: defaultsData, selectedGroups: defaultSelectedGroups } =
-        getDefaultValues(initialData);
+    const packageOptions = dataPackage as PackageForManifestOption[];
+    const defaults = buildDefaultData(initialData);
 
-    const form = useForm<ManifestFormData>(defaultsData);
-    const { data, setData, processing, reset, errors, setError, clearErrors } =
-        form;
+    const form = useForm(defaults) as unknown as ManifestFormStore;
+    const data = form.data;
+    const { setData } = form;
+    const errorAlertRef = useRef<HTMLDivElement | null>(null);
 
-    // State untuk tracking selected customer groups - initialize from defaults
-    const [selectedCustomerGroupIds, setSelectedCustomerGroupIds] = useState<
-        number[]
-    >(defaultSelectedGroups);
+    const isCancelledTraveler = useCallback((traveler: TravelerWithUI) => {
+        return traveler.status === 'cancelled';
+    }, []);
 
-    // Helper function untuk menambah group dan populate travelers
-    const addCustomerGroup = useCallback(
-        (groupId: number) => {
-            if (selectedCustomerGroupIds.includes(groupId)) return;
-
-            // Tambahkan groupId ke selected groups
-            setSelectedCustomerGroupIds([...selectedCustomerGroupIds, groupId]);
-
-            // Find group dan ambil members
-            const group = customerGroups.find((g) => g.id === groupId);
-
-            const travelers = data.travelers || [];
-
-            if (group && group.members) {
-                travelers[groupId] = group.members.map((member, idx) => ({
-                    id: member.id,
-                    customer_id: member.customer_id,
-                    customer_group_id: groupId,
-                    package_id: data.package_id,
-                    name_as_per_passport: member.name,
-                    date_of_sign_up: new Date().toISOString().split('T')[0],
-                    is_first_time_umrah: false,
-                    ppt_no: member.passport_number || '',
-                    gender: member.gender || '',
-                    date_of_birth: member.date_of_birth || '',
-                    age: member.age || 0,
-                    contact_no: member.contact || '',
-                    date_of_issue: member.passport_issue_date || '',
-                    date_of_expiry: member.passport_expiry_date || '',
-                    issue_place: member.passport_place_of_issue || '',
-                    birth_place: 'indonesia',
-                    package_price: 0,
-                    discount: 0,
-                    date_of_deposit_payment: '',
-                    deposit_payment: 0,
-                    date_of_second_payment: '',
-                    second_payment: 0,
-                    balance_due: 0,
-                    is_fully_paid: false,
-                    receipt_no: '',
-                    remarks: '',
-                    sn: (data.travelers?.length ?? 0) + idx + 1,
-                }));
-
-                setData('travelers', travelers);
-
-                // Initialize roomListMakkah
-                const roomListMakkah = data.roomListMakkah || {};
-                roomListMakkah[groupId] = group.members.map((member) => ({
-                    id: member.id,
-                    customer_id: member.customer_id,
-                    customer_group_id: groupId,
-                    name_as_per_passport: member.name,
-                    relationship: member.is_leader ? 'Self' : 'Self',
-                    passport_no: member.passport_number || '',
-                    room_no: '',
-                    location: '',
-                    room_number: '',
-                    room_type: '',
-                    bed_type: '',
-                    date_of_birth: member.date_of_birth || '',
-                    age: member.age || 0,
-                    no_of_beds_checked: 0,
-                    meal: '',
-                    remarks: '',
-                }));
-                setData('roomListMakkah', roomListMakkah);
-
-                // Initialize roomListMadinah
-                const roomListMadinah = data.roomListMadinah || {};
-                roomListMadinah[groupId] = group.members.map((member) => ({
-                    id: member.id,
-                    customer_id: member.customer_id,
-                    customer_group_id: groupId,
-                    name_as_per_passport: member.name,
-                    relationship: member.is_leader ? 'Self' : 'Self',
-                    passport_no: member.passport_number || '',
-                    room_no: '',
-                    location: '',
-                    room_number: '',
-                    room_type: '',
-                    bed_type: '',
-                    date_of_birth: member.date_of_birth || '',
-                    age: member.age || 0,
-                    no_of_beds_checked: 0,
-                    meal: '',
-                    remarks: '',
-                }));
-                setData('roomListMadinah', roomListMadinah);
-
-                // Initialize roomListOthers
-                const roomListOthers = data.roomListOthers || {};
-                roomListOthers[groupId] = group.members.map((member) => ({
-                    id: member.id,
-                    customer_id: member.customer_id,
-                    customer_group_id: groupId,
-                    name_as_per_passport: member.name,
-                    relationship: member.is_leader ? 'Self' : 'Self',
-                    passport_no: member.passport_number || '',
-                    room_no: '',
-                    location: '',
-                    room_number: '',
-                    room_type: '',
-                    bed_type: '',
-                    date_of_birth: member.date_of_birth || '',
-                    age: member.age || 0,
-                    no_of_beds_checked: 0,
-                    meal: '',
-                    remarks: '',
-                }));
-                setData('roomListOthers', roomListOthers);
-
-                // Initialize airlineList
-                const airlineList = data.airlineList || {};
-                airlineList[groupId] = group.members.map((member, idx) => ({
-                    id: member.id,
-                    customer_id: member.customer_id,
-                    customer_group_id: groupId,
-                    sn: (data.travelers?.length ?? 0) + idx + 1,
-                    name_as_per_passport: member.name,
-                    nationality: '',
-                    passport_no: member.passport_number || '',
-                    gender: '',
-                    date_of_birth: member.date_of_birth || '',
-                    date_of_issue: member.passport_issue_date || '',
-                    date_of_expiry: member.passport_expiry_date || '',
-                    issue_place: member.passport_place_of_issue || '',
-                    remarks: '',
-                }));
-                setData('airlineList', airlineList);
-            }
-        },
-        [
-            selectedCustomerGroupIds,
-            customerGroups,
-            data.travelers,
-            data.roomListMakkah,
-            data.roomListMadinah,
-            data.roomListOthers,
-            data.airlineList,
-            data.package_id,
-            setData,
-        ],
+    const selectedPackage = useMemo(
+        () => packageOptions.find((item) => item.value === data.package_id),
+        [packageOptions, data.package_id],
     );
 
-    // Helper function untuk remove group dan hapus travelers
-    const removeCustomerGroup = useCallback(
-        (groupId: number) => {
-            // Remove dari selected groups
-            setSelectedCustomerGroupIds(
-                selectedCustomerGroupIds.filter((id) => id !== groupId),
-            );
+    const hotelAccommodations = useMemo(() => {
+        return (selectedPackage?.accommodations ?? []).filter(
+            (accommodation) => !!accommodation.hotel_name,
+        );
+    }, [selectedPackage]);
 
-            // Find group
-            const group = customerGroups.find((g) => g.id === groupId);
-            if (group && group.members) {
-                // Get member names yang akan dihapus
-                const memberNames = group.members.map((m) => m.name);
-
-                // Filter travelers - hapus yang sesuai dengan group members
-                const updatedTravelers = (data.travelers ?? []).filter(
-                    (traveler: TravelerSchema) =>
-                        !memberNames.includes(
-                            traveler.name_as_per_passport ?? '',
-                        ),
-                );
-
-                // Re-number sn
-                const renumberedTravelers = updatedTravelers.map(
-                    (traveler: TravelerSchema, idx: number) => ({
-                        ...traveler,
-                        sn: idx + 1,
-                    }),
-                );
-
-                setData('travelers', renumberedTravelers);
-
-                // Remove roomListMakkah for this group
-                const updatedRoomListMakkah = { ...data.roomListMakkah };
-                delete updatedRoomListMakkah[groupId];
-                setData('roomListMakkah', updatedRoomListMakkah);
-
-                // Remove roomListMadinah for this group
-                const updatedRoomListMadinah = { ...data.roomListMadinah };
-                delete updatedRoomListMadinah[groupId];
-                setData('roomListMadinah', updatedRoomListMadinah);
-
-                // Remove roomListOthers for this group
-                const updatedRoomListOthers = { ...data.roomListOthers };
-                delete updatedRoomListOthers[groupId];
-                setData('roomListOthers', updatedRoomListOthers);
-
-                // Remove airlineList for this group
-                const updatedAirlineList = { ...data.airlineList };
-                delete updatedAirlineList[groupId];
-                setData('airlineList', updatedAirlineList);
-            }
-        },
-        [
-            selectedCustomerGroupIds,
-            customerGroups,
-            data.travelers,
-            data.roomListMakkah,
-            data.roomListMadinah,
-            data.roomListOthers,
-            data.airlineList,
-            setData,
-        ],
-    );
-
-    const updateTraveler = useCallback(
-        (
-            groupId: number,
-            index: number,
-            field: keyof TravelerSchema,
-            value: string | number | boolean,
-        ) => {
-            const travelers = data.travelers || [];
-            travelers[groupId][index] = {
-                ...travelers[groupId][index],
-                [field]: value,
-            };
-            setData('travelers', travelers);
-        },
-        [data.travelers, setData],
-    );
-
-    const updateRoomListMakkah = useCallback(
-        (
-            groupId: number,
-            index: number,
-            field: keyof TravelerSchema,
-            value: string | number | boolean,
-        ) => {
-            const roomListMakkah = data.roomListMakkah || [];
-            roomListMakkah[groupId][index] = {
-                ...roomListMakkah[groupId][index],
-                [field]: value,
-            };
-            setData('roomListMakkah', roomListMakkah);
-        },
-        [data.roomListMakkah, setData],
-    );
-
-    const updateRoomListMadinah = useCallback(
-        (
-            groupId: number,
-            index: number,
-            field: keyof TravelerSchema,
-            value: string | number | boolean,
-        ) => {
-            const roomListMadinah = data.roomListMadinah || [];
-            roomListMadinah[groupId][index] = {
-                ...roomListMadinah[groupId][index],
-                [field]: value,
-            };
-            setData('roomListMadinah', roomListMadinah);
-        },
-        [data.roomListMadinah, setData],
-    );
-
-    const updateRoomListOthers = useCallback(
-        (
-            groupId: number,
-            index: number,
-            field: keyof TravelerSchema,
-            value: string | number | boolean,
-        ) => {
-            const roomListOthers = data.roomListOthers || [];
-            roomListOthers[groupId][index] = {
-                ...roomListOthers[groupId][index],
-                [field]: value,
-            };
-            setData('roomListOthers', roomListOthers);
-        },
-        [data.roomListOthers, setData],
-    );
-
-    const updateAirlineList = useCallback(
-        (
-            groupId: number,
-            index: number,
-            field: keyof TravelerSchema,
-            value: string | number | boolean,
-        ) => {
-            const airlineList = data.airlineList || [];
-            airlineList[groupId][index] = {
-                ...airlineList[groupId][index],
-                [field]: value,
-            };
-            setData('airlineList', airlineList);
-        },
-        [data.airlineList, setData],
-    );
-
-    const removeTraveler = useCallback(
-        (index: number) => {
-            const updatedTravelers = (data.travelers ?? {}) as Record<number, TravelerSchema[]>;
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const filtered = Object.fromEntries(
-                Object.entries(updatedTravelers).map(([key, travelers]) => [
-                    key,
-                    travelers.filter((_, i: number) => i !== index),
-                ]),
-            );
-            setData('travelers', updatedTravelers);
-        },
-        [data.travelers, setData],
-    );
-
-    const result = manifestValidationSchema.safeParse(data);
-    
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _validateClientSide = (): boolean => {
-        clearErrors();
-        let valid = true;
-        if (!result.success) {
-            result.error.issues.forEach((issue) => {
-                const key = issue.path.join('.') as keyof ManifestSchema;
-                setError(key, issue.message);
-            });
-            valid = false;
+    const roomTabs = useMemo(() => {
+        if (hotelAccommodations.length === 0) {
+            return [
+                {
+                    key: 'makkah',
+                    label: 'Makkah',
+                    accommodation: {
+                        location: 'Makkah',
+                        hotel_name: '',
+                        check_in: '',
+                        check_out: '',
+                        type_of_meal: '',
+                    } as PackageAccommodationOption,
+                },
+            ];
         }
 
-        return valid;
+        return hotelAccommodations.map((accommodation) => ({
+            key: slugifyTab(
+                accommodation.location || accommodation.hotel_name || 'hotel',
+            ),
+            label:
+                accommodation.location || accommodation.hotel_name || 'Hotel',
+            accommodation,
+        }));
+    }, [hotelAccommodations]);
+
+    useEffect(() => {
+        const currentTravelers = (
+            (data.travelers ?? []) as TravelerWithUI[]
+        ).filter((traveler) => !isCancelledTraveler(traveler));
+        const currentRoomLists = data.roomLists ?? {};
+
+        const syncedRoomLists = Object.fromEntries(
+            roomTabs.map((tab) => [
+                tab.key,
+                buildRoomRowsFromTravelers(
+                    currentTravelers,
+                    (currentRoomLists[tab.key] ?? []) as TravelerWithUI[],
+                    tab.key,
+                ),
+            ]),
+        );
+
+        const currentKeys = Object.keys(currentRoomLists);
+        const syncedKeys = Object.keys(syncedRoomLists);
+        const keysChanged =
+            currentKeys.length !== syncedKeys.length ||
+            currentKeys.some((key) => !syncedKeys.includes(key));
+
+        if (keysChanged) {
+            setData('roomLists', syncedRoomLists);
+        }
+    }, [
+        roomTabs,
+        data.travelers,
+        data.roomLists,
+        isCancelledTraveler,
+        setData,
+    ]);
+
+    const updateFromTravelers = useCallback(
+        (nextTravelers: TravelerWithUI[]) => {
+            const travelersWithSn = nextTravelers.map((row, index) => ({
+                ...row,
+                sn: index + 1,
+                status: row.status ?? 'assigned',
+            }));
+
+            const activeTravelersWithSn = travelersWithSn.filter(
+                (traveler) => !isCancelledTraveler(traveler),
+            );
+
+            const travelerMap = new Map(
+                activeTravelersWithSn.map((row) => [
+                    row.customer_confirmation_member_id,
+                    row,
+                ]),
+            );
+
+            const nextRoomLists = Object.fromEntries(
+                Object.entries(data.roomLists ?? {}).map(([key, rows]) => [
+                    key,
+                    buildRoomRowsFromTravelers(
+                        activeTravelersWithSn,
+                        (rows as TravelerWithUI[]).map((row) => ({
+                            ...row,
+                            name_as_per_passport:
+                                travelerMap.get(
+                                    row.customer_confirmation_member_id,
+                                )?.name_as_per_passport ??
+                                row.name_as_per_passport,
+                            passport_no:
+                                travelerMap.get(
+                                    row.customer_confirmation_member_id,
+                                )?.passport_no ?? row.passport_no,
+                        })),
+                        key,
+                    ),
+                ]),
+            );
+
+            const nextAirline = travelersWithSn
+                .map((traveler) => {
+                    const existing = (data.airlineList ?? []).find(
+                        (row) =>
+                            row.customer_confirmation_member_id ===
+                            traveler.customer_confirmation_member_id,
+                    ) as TravelerWithUI | undefined;
+
+                    return {
+                        ...traveler,
+                        ...existing,
+                        row_key:
+                            existing?.row_key ??
+                            traveler.row_key ??
+                            `airline-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? traveler.sn}`,
+                        sn: traveler.sn,
+                    };
+                })
+                .filter((traveler) => !isCancelledTraveler(traveler));
+
+            form.setData('travelers', travelersWithSn);
+            form.setData('roomLists', nextRoomLists);
+            form.setData('airlineList', nextAirline);
+        },
+        [data.airlineList, data.roomLists, form, isCancelledTraveler],
+    );
+
+    const selectedConfirmationIds = useMemo(
+        () => data.selected_confirmation_ids ?? [],
+        [data.selected_confirmation_ids],
+    );
+
+    const packageMatchedConfirmations = useMemo(() => {
+        if (!data.package_id || data.package_id < 1) {
+            return [] as CustomerConfirmationData[];
+        }
+
+        return customerConfirmations.filter(
+            (confirmation) => confirmation.package_id === data.package_id,
+        );
+    }, [customerConfirmations, data.package_id]);
+
+    const availableConfirmations = packageMatchedConfirmations.filter(
+        (confirmation) => !selectedConfirmationIds.includes(confirmation.id),
+    );
+
+    useEffect(() => {
+        if (!data.package_id || data.package_id < 1) {
+            if (selectedConfirmationIds.length === 0) {
+                return;
+            }
+
+            form.setData('selected_confirmation_ids', []);
+            updateFromTravelers(
+                ((data.travelers ?? []) as TravelerWithUI[]).filter(
+                    (row) => !row.customer_confirmation_id,
+                ),
+            );
+
+            return;
+        }
+
+        const allowedConfirmationIds = new Set(
+            packageMatchedConfirmations.map((confirmation) => confirmation.id),
+        );
+
+        const nextSelectedIds = selectedConfirmationIds.filter((id) =>
+            allowedConfirmationIds.has(id),
+        );
+
+        const hasSelectionMismatch =
+            nextSelectedIds.length !== selectedConfirmationIds.length;
+
+        const currentTravelers = (data.travelers ?? []) as TravelerWithUI[];
+        const nextTravelers = currentTravelers.filter((row) => {
+            if (!row.customer_confirmation_id) {
+                return true;
+            }
+
+            return allowedConfirmationIds.has(row.customer_confirmation_id);
+        });
+
+        const hasTravelerMismatch =
+            nextTravelers.length !== currentTravelers.length;
+
+        if (!hasSelectionMismatch && !hasTravelerMismatch) {
+            return;
+        }
+
+        form.setData('selected_confirmation_ids', nextSelectedIds);
+        updateFromTravelers(nextTravelers);
+    }, [
+        form,
+        data.package_id,
+        data.travelers,
+        packageMatchedConfirmations,
+        selectedConfirmationIds,
+        updateFromTravelers,
+    ]);
+
+    const addCustomerConfirmation = (confirmationId: number) => {
+        const confirmation = packageMatchedConfirmations.find(
+            (item) => item.id === confirmationId,
+        );
+
+        if (!confirmation) {
+            return;
+        }
+
+        const currentTravelers = (data.travelers ?? []) as TravelerWithUI[];
+        const existingMemberIds = new Set(
+            currentTravelers.map(
+                (traveler) => traveler.customer_confirmation_member_id,
+            ),
+        );
+
+        const newTravelers = (confirmation.members ?? [])
+            .filter((member) => member.status !== 'cancelled')
+            .filter((member) => !existingMemberIds.has(member.id));
+
+        const sharingPlanGroups = buildSharingPlanGroupKeys(
+            confirmation,
+            newTravelers,
+        );
+
+        const mappedTravelers = newTravelers.map((member, index) => ({
+            customer_id: member.customer_id,
+            customer_confirmation_member_id: member.id,
+            customer_confirmation_id: confirmation.id,
+            customer_name: member.name,
+            name_as_per_passport: member.name,
+            relationship: member.is_leader ? 'Self' : '',
+            passport_no: member.passport_number ?? '',
+            ppt_no: member.passport_number ?? '',
+            date_of_birth: member.date_of_birth ?? '',
+            age: member.age ?? undefined,
+            date_of_issue: member.passport_issue_date ?? '',
+            date_of_expiry: member.passport_expiry_date ?? '',
+            issue_place: member.passport_place_of_issue ?? '',
+            sharing_group_key: Number.isFinite(Number(member.id))
+                ? sharingPlanGroups.get(Number(member.id))
+                : undefined,
+            row_key: `traveler-member-${member.id}`,
+            sn: currentTravelers.length + index + 1,
+            status: 'assigned' as const,
+        }));
+
+        const mergedTravelers = [...currentTravelers, ...mappedTravelers];
+
+        form.setData('selected_confirmation_ids', [
+            ...(data.selected_confirmation_ids ?? []),
+            confirmation.id,
+        ]);
+
+        updateFromTravelers(mergedTravelers);
     };
 
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
+    const removeCustomerConfirmation = (confirmationId: number) => {
+        const filteredTravelers = (
+            (data.travelers ?? []) as TravelerWithUI[]
+        ).filter((row) => row.customer_confirmation_id !== confirmationId);
 
-        const formattedData = data;
+        form.setData(
+            'selected_confirmation_ids',
+            (data.selected_confirmation_ids ?? []).filter(
+                (id: number) => id !== confirmationId,
+            ),
+        );
+
+        updateFromTravelers(filteredTravelers);
+    };
+
+    const submit = (event: React.FormEvent) => {
+        event.preventDefault();
+
+        const validationResult = manifestValidationSchema.safeParse(data);
+        form.clearErrors();
+
+        if (!validationResult.success) {
+            validationResult.error.issues.forEach((issue) => {
+                form.setError(
+                    issue.path.join('.') as keyof ManifestFormData,
+                    issue.message,
+                );
+            });
+
+            setTimeout(() => {
+                errorAlertRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                });
+            }, 0);
+
+            return;
+        }
 
         if (isCreate) {
-            router.post(store().url, formattedData, {
-                onError: (errors: Record<string, string>) => setError(errors),
-            });
-        } else if (isEdit && data.id) {
-            router.put(update(data.id).url, formattedData, {
-                onError: (errors: Record<string, string>) => setError(errors),
-            });
+            form.post(store().url);
+        }
+
+        if (isEdit && data.id) {
+            form.put(update(data.id).url);
         }
     };
 
     const renderError = (path: string) => {
-        const errorMap = errors as Record<string, string | undefined>;
-        const message = errorMap[path];
-        if (!message) return null;
+        const message = form.errors[path];
+
+        if (typeof message !== 'string' || message.length === 0) {
+            return null;
+        }
+
         return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
+    const groupedErrorSummary = useMemo(() => {
+        const globalErrors: Array<{ path: string; message: string }> = [];
+        const travelerErrors = new Map<
+            number,
+            Array<{ path: string; message: string }>
+        >();
+
+        Object.entries(form.errors).forEach(([path, message]) => {
+            if (!message) {
+                return;
+            }
+
+            const travelerMatch = path.match(/^travelers\.(\d+)\./);
+
+            if (!travelerMatch) {
+                globalErrors.push({ path, message });
+
+                return;
+            }
+
+            const travelerIndex = Number(travelerMatch[1]);
+            if (!travelerErrors.has(travelerIndex)) {
+                travelerErrors.set(travelerIndex, []);
+            }
+
+            travelerErrors.get(travelerIndex)?.push({ path, message });
+        });
+
+        return {
+            globalErrors,
+            travelerGroups: [...travelerErrors.entries()].map(
+                ([travelerIndex, issues]) => ({
+                    travelerIndex,
+                    travelerName:
+                        ((data.travelers ?? []) as TravelerWithUI[])[
+                            travelerIndex
+                        ]?.name_as_per_passport ||
+                        `Traveler ${travelerIndex + 1}`,
+                    issues,
+                }),
+            ),
+        };
+    }, [form.errors, data.travelers]);
+
+    const nonCancelledTravelers = useMemo(() => {
+        return ((data.travelers ?? []) as TravelerWithUI[]).filter(
+            (traveler) => !isCancelledTraveler(traveler),
+        );
+    }, [data.travelers, isCancelledTraveler]);
+
+    const moveTravelerToHolding = async (traveler: TravelerWithUI) => {
+        const memberId = traveler.customer_confirmation_member_id;
+        const travelerId = traveler.id;
+
+        if (!memberId || !travelerId || !data.id) {
+            return;
+        }
+
+        try {
+            const csrfToken = document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content');
+
+            const response = await fetch(
+                `/manifests/${data.id}/travelers/${travelerId}/move-holding`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                    },
+                    body: JSON.stringify({
+                        target_package_id: null,
+                    }),
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to move traveler to holding.');
+            }
+
+            const nextTravelers = (
+                (data.travelers ?? []) as TravelerWithUI[]
+            ).map((row) => {
+                if (
+                    row.customer_confirmation_member_id ===
+                    traveler.customer_confirmation_member_id
+                ) {
+                    return {
+                        ...row,
+                        status: 'cancelled' as const,
+                    };
+                }
+
+                return row;
+            });
+
+            const activeConfirmationIds = new Set(
+                nextTravelers
+                    .filter((row) => row.status !== 'cancelled')
+                    .map((row) => row.customer_confirmation_id)
+                    .filter((value): value is number => Number.isFinite(value)),
+            );
+
+            form.setData(
+                'selected_confirmation_ids',
+                (data.selected_confirmation_ids ?? []).filter((id) =>
+                    activeConfirmationIds.has(id),
+                ),
+            );
+            updateFromTravelers(nextTravelers);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const setAccommodationInfo = (
+        tabKey: string,
+        field:
+            | 'hotel_name'
+            | 'location'
+            | 'check_in'
+            | 'check_out'
+            | 'type_of_meal',
+        value: string,
+    ) => {
+        const flightDetails = (data.flight_details ?? {}) as Record<
+            string,
+            unknown
+        >;
+        const currentInfo =
+            (flightDetails.ui_accommodation_info as
+                | Record<string, Record<string, string>>
+                | undefined) ?? {};
+
+        const nextFlightDetails: Record<string, unknown> = {
+            ...flightDetails,
+            ui_accommodation_info: {
+                ...currentInfo,
+                [tabKey]: {
+                    ...(currentInfo[tabKey] ?? {}),
+                    [field]: value,
+                },
+            },
+        };
+
+        form.setData('flight_details', nextFlightDetails);
+    };
+
+    const getAccommodationInfo = (
+        tabKey: string,
+        fallback: PackageAccommodationOption,
+    ): Record<string, string> => {
+        const flightDetails = (data.flight_details ?? {}) as Record<
+            string,
+            unknown
+        >;
+        const currentInfo =
+            (flightDetails.ui_accommodation_info as
+                | Record<string, Record<string, string>>
+                | undefined) ?? {};
+
+        return {
+            hotel_name:
+                currentInfo[tabKey]?.hotel_name ?? fallback.hotel_name ?? '',
+            location: currentInfo[tabKey]?.location ?? fallback.location ?? '',
+            check_in: currentInfo[tabKey]?.check_in ?? fallback.check_in ?? '',
+            check_out:
+                currentInfo[tabKey]?.check_out ?? fallback.check_out ?? '',
+            type_of_meal:
+                currentInfo[tabKey]?.type_of_meal ??
+                fallback.type_of_meal ??
+                '',
+        };
+    };
+
     return (
-        <form className="space-y-6">
-            {/* Error Alert */}
-            {Object.keys(errors).length > 0 && !isView && (
-                <Alert variant="destructive">
+        <form onSubmit={submit} className="space-y-6">
+            {Object.keys(form.errors).length > 0 && !isView && (
+                <Alert variant="destructive" ref={errorAlertRef}>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                        Please fix the errors below and try again
+                        <div className="space-y-2">
+                            <p>
+                                Please fix the validation errors before
+                                submitting.
+                            </p>
+                            {groupedErrorSummary.globalErrors.map(
+                                ({ path, message }) => (
+                                    <p key={path} className="text-sm">
+                                        {path}: {message}
+                                    </p>
+                                ),
+                            )}
+                            {groupedErrorSummary.travelerGroups.map(
+                                ({ travelerIndex, travelerName, issues }) => (
+                                    <div
+                                        key={travelerIndex}
+                                        className="space-y-1"
+                                    >
+                                        <p className="font-medium">
+                                            {travelerName}
+                                        </p>
+                                        {issues.map(({ path, message }) => (
+                                            <p key={path} className="text-sm">
+                                                {path.split('.').slice(-1)[0]}:{' '}
+                                                {message}
+                                            </p>
+                                        ))}
+                                    </div>
+                                ),
+                            )}
+                        </div>
                     </AlertDescription>
                 </Alert>
             )}
 
-            <ManifestInfoCard
+            <ManifestInformationCard
                 isView={isView}
                 data={data}
-                setData={setData}
-                dataPackage={dataPackage}
+                dataPackage={packageOptions}
+                setData={form.setData}
                 renderError={renderError}
             />
 
-            <HotelDetailsCard
-                isView={isView}
-                data={data}
-                setData={setData}
-                renderError={renderError}
-            />
+            <Card>
+                <CardHeader>
+                    <CardTitle>Customer Confirmation Selection</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex flex-wrap items-end gap-3">
+                        <FormField
+                            label="Add Customer Confirmation"
+                            className="min-w-[280px] flex-1"
+                        >
+                            <ProperInputSelect
+                                options={
+                                    availableConfirmations.map((item) => ({
+                                        value: String(item.id),
+                                        label: `#${item.id} · ${item.leader_name ?? '-'} (${item.member_count ?? 0} pax)`,
+                                    })) as OptionType[]
+                                }
+                                onValueChange={(value) =>
+                                    addCustomerConfirmation(Number(value))
+                                }
+                                value=""
+                                placeholder={
+                                    data.package_id && data.package_id > 0
+                                        ? 'Select confirmation'
+                                        : 'Select package first'
+                                }
+                                disabled={
+                                    isView ||
+                                    !data.package_id ||
+                                    data.package_id < 1 ||
+                                    availableConfirmations.length === 0
+                                }
+                            />
+                        </FormField>
+                    </div>
 
-            <MealsNotesCard
-                isView={isView}
-                data={data}
-                setData={setData}
-                renderError={renderError}
-            />
-
-            {/* <p>{JSON.stringify(data)}</p> */}
+                    {selectedConfirmationIds.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {selectedConfirmationIds.map((confirmationId) => (
+                                <Button
+                                    key={confirmationId}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isView}
+                                    onClick={() =>
+                                        removeCustomerConfirmation(
+                                            confirmationId,
+                                        )
+                                    }
+                                >
+                                    Remove #{confirmationId}
+                                </Button>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             <Tabs defaultValue="travelers" className="w-full">
                 <TabsList className="flex w-full flex-wrap">
                     <TabsTrigger value="travelers">Travelers</TabsTrigger>
-                    <TabsTrigger value="room-list-makkah">
-                        Room List Makkah
-                    </TabsTrigger>
-                    <TabsTrigger value="room-list-madinah">
-                        Room List Madinah
-                    </TabsTrigger>
-                    <TabsTrigger value="room-list-others">
-                        Room List Others
-                    </TabsTrigger>
-                    <TabsTrigger value="airlines-namelist">
-                        Airlines NameList
-                    </TabsTrigger>
+                    {roomTabs.map((tab) => (
+                        <TabsTrigger key={tab.key} value={`room-${tab.key}`}>
+                            Room List - {tab.label}
+                        </TabsTrigger>
+                    ))}
+                    <TabsTrigger value="airline">Airline Name List</TabsTrigger>
                 </TabsList>
-                <TabsContent value="travelers">
-                    <TravelersByGroupCard
-                        isView={isView}
-                        customerGroups={customerGroups}
-                        data={data}
-                        updateTraveler={updateTraveler}
-                        removeTraveler={removeTraveler}
-                        renderError={renderError}
-                        selectedGroupIds={selectedCustomerGroupIds}
-                        onAddGroup={addCustomerGroup}
-                        onRemoveGroup={removeCustomerGroup}
+
+                <TabsContent value="travelers" className="space-y-4">
+                    <ManifestCustomerDatatable
+                        mode="travelers"
+                        rows={(data.travelers ?? []) as TravelerWithUI[]}
+                        disabled={isView}
+                        allowReorder
+                        onMoveToHolding={moveTravelerToHolding}
+                        onRowsChange={updateFromTravelers}
                     />
                 </TabsContent>
-                <TabsContent value="room-list-makkah" className="mt-4">
-                    <RoomListMakkahCard
-                        isView={isView}
-                        customerGroups={customerGroups}
-                        data={data}
-                        updateTraveler={updateRoomListMakkah}
-                        removeTraveler={removeTraveler}
-                        renderError={renderError}
-                        selectedGroupIds={selectedCustomerGroupIds}
-                    />
-                </TabsContent>
-                <TabsContent value="room-list-madinah" className="mt-4">
-                    <RoomListMadinahCard
-                        isView={isView}
-                        customerGroups={customerGroups}
-                        data={data}
-                        updateTraveler={updateRoomListMadinah}
-                        removeTraveler={removeTraveler}
-                        renderError={renderError}
-                        selectedGroupIds={selectedCustomerGroupIds}
-                    />
-                </TabsContent>
-                <TabsContent value="room-list-others" className="mt-4">
-                    <RoomListOthersCard
-                        isView={isView}
-                        customerGroups={customerGroups}
-                        data={data}
-                        updateTraveler={updateRoomListOthers}
-                        removeTraveler={removeTraveler}
-                        renderError={renderError}
-                        selectedGroupIds={selectedCustomerGroupIds}
-                    />
-                </TabsContent>
-                <TabsContent value="airlines-namelist" className="mt-4">
-                    <AirlinesNameListCard
-                        isView={isView}
-                        customerGroups={customerGroups}
-                        data={data}
-                        updateTraveler={updateAirlineList}
-                        removeTraveler={removeTraveler}
-                        renderError={renderError}
-                        selectedGroupIds={selectedCustomerGroupIds}
+
+                {roomTabs.map((tab) => {
+                    const roomRows =
+                        ((data.roomLists ?? {})[tab.key] as
+                            | TravelerWithUI[]
+                            | undefined) ?? [];
+                    const visibleRoomRows = roomRows.filter(
+                        (row) => !isCancelledTraveler(row),
+                    );
+                    const accommodationInfo = getAccommodationInfo(
+                        tab.key,
+                        tab.accommodation,
+                    );
+
+                    return (
+                        <TabsContent
+                            key={tab.key}
+                            value={`room-${tab.key}`}
+                            className="space-y-4"
+                        >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>
+                                        {tab.label} Accommodation Information
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                                    <FormField label="Hotel">
+                                        <Input
+                                            value={accommodationInfo.hotel_name}
+                                            disabled={isView}
+                                            onChange={(event) =>
+                                                setAccommodationInfo(
+                                                    tab.key,
+                                                    'hotel_name',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField label="Location">
+                                        <Input
+                                            value={accommodationInfo.location}
+                                            disabled={isView}
+                                            onChange={(event) =>
+                                                setAccommodationInfo(
+                                                    tab.key,
+                                                    'location',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField label="Check In">
+                                        <DatePickerField
+                                            id={`${tab.key}-check-in`}
+                                            value={accommodationInfo.check_in}
+                                            disabled={isView}
+                                            onChange={(value) =>
+                                                setAccommodationInfo(
+                                                    tab.key,
+                                                    'check_in',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField label="Check Out">
+                                        <DatePickerField
+                                            id={`${tab.key}-check-out`}
+                                            value={accommodationInfo.check_out}
+                                            disabled={isView}
+                                            onChange={(value) =>
+                                                setAccommodationInfo(
+                                                    tab.key,
+                                                    'check_out',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField label="Meal Plan">
+                                        <Input
+                                            value={
+                                                accommodationInfo.type_of_meal
+                                            }
+                                            disabled={isView}
+                                            onChange={(event) =>
+                                                setAccommodationInfo(
+                                                    tab.key,
+                                                    'type_of_meal',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </FormField>
+                                </CardContent>
+                            </Card>
+
+                            <ManifestCustomerDatatable
+                                mode="room"
+                                rows={visibleRoomRows}
+                                disabled={isView}
+                                allowReorder
+                                onRowsChange={(rows: TravelerWithUI[]) =>
+                                    form.setData('roomLists', {
+                                        ...(data.roomLists ?? {}),
+                                        [tab.key]: rows.map((row, index) => ({
+                                            ...row,
+                                            sort_order: index + 1,
+                                        })),
+                                    })
+                                }
+                            />
+                        </TabsContent>
+                    );
+                })}
+
+                <TabsContent value="airline" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Airline Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <p className="text-sm text-muted-foreground">
+                                    Airline
+                                </p>
+                                <p className="font-medium">
+                                    {selectedPackage?.airline || '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">
+                                    PNR
+                                </p>
+                                <p className="font-medium">
+                                    {selectedPackage?.pnr || '-'}
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <ManifestCustomerDatatable
+                        mode="airline"
+                        rows={((data.airlineList ?? []) as TravelerWithUI[])
+                            .filter((row) => !isCancelledTraveler(row))
+                            .map((row) => {
+                                const activeTraveler =
+                                    nonCancelledTravelers.find(
+                                        (traveler) =>
+                                            traveler.customer_confirmation_member_id ===
+                                            row.customer_confirmation_member_id,
+                                    );
+
+                                return {
+                                    ...row,
+                                    name_as_per_passport:
+                                        activeTraveler?.name_as_per_passport ??
+                                        row.name_as_per_passport,
+                                };
+                            })}
+                        disabled={isView}
+                        onRowsChange={(rows: TravelerWithUI[]) =>
+                            form.setData('airlineList', rows)
+                        }
                     />
                 </TabsContent>
             </Tabs>
 
-            {/* Action Buttons */}
             <div className="flex items-center justify-end gap-2">
                 <Button type="button" variant="outline" onClick={onCancel}>
                     <ArrowLeft className="mr-1 h-4 w-4" />
@@ -3847,12 +1065,12 @@ export default function ManifestForm({
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => reset()}
+                            onClick={() => form.reset()}
                         >
                             <RotateCcw className="mr-1 h-4 w-4" />
                             Reset
                         </Button>
-                        <Button onClick={handleSubmit} disabled={processing}>
+                        <Button type="submit" disabled={form.processing}>
                             {isCreate ? 'Create Manifest' : 'Update Manifest'}
                         </Button>
                     </>

@@ -1,0 +1,243 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Customer;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
+use App\Models\Invoice;
+use App\Models\Order;
+use App\Models\Package;
+use App\Models\Quotation;
+use App\Models\QuotationItem;
+use App\Models\Receipt;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ReceiptMemberStatusSyncTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function createConfirmationWithQuotationOrder(): array
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $package = Package::create([
+            'package_number' => 'PKG-TEST',
+            'name' => 'Test Package',
+            'status' => 'open',
+            'price_single' => 5000,
+            'price_double' => 3500,
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Single Sharing — Test Member',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+            'handover_date' => now()->addDays(60)->format('Y-m-d'),
+        ]);
+
+        $depositInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'type' => 'deposit',
+            'description' => 'Invoice For Deposit',
+            'amount' => 5000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        return compact(
+            'user',
+            'package',
+            'customer',
+            'confirmation',
+            'member',
+            'quotation',
+            'item',
+            'order',
+            'depositInvoice',
+        );
+    }
+
+    public function test_full_payment_receipt_sets_member_to_confirmed(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('confirmed', $data['member']->status);
+    }
+
+    public function test_partial_payment_receipt_sets_member_to_partially_paid(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        // Create a second invoice (balance) so that paying only the deposit is partial
+        Invoice::create([
+            'order_id' => $data['order']->id,
+            'type' => 'handover',
+            'description' => 'Invoice For Balance',
+            'amount' => 2000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        // Update deposit invoice to be only partial (3000 of 5000 total)
+        $data['depositInvoice']->update(['amount' => 3000]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 3000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('partially_paid', $data['member']->status);
+    }
+
+    public function test_deleting_receipt_reverts_member_to_pending_payment(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $receipt = Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('confirmed', $data['member']->status);
+
+        $receipt->delete();
+
+        $data['member']->refresh();
+        $this->assertEquals('pending_payment', $data['member']->status);
+    }
+
+    public function test_receipt_does_not_affect_cancelled_members(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        // Set member to cancelled before receipt
+        $data['member']->update(['status' => 'cancelled']);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('cancelled', $data['member']->status);
+    }
+
+    public function test_receipt_does_not_affect_draft_members(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        // Set member to draft (not yet in payment flow)
+        $data['member']->update(['status' => 'draft']);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('draft', $data['member']->status);
+    }
+
+    public function test_receipt_on_non_confirmation_quotation_does_not_fail(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-STANDALONE',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+            'handover_date' => now()->addDays(60)->format('Y-m-d'),
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Standalone Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        // Should not throw an exception
+        $receipt = Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'cash',
+        ]);
+
+        $this->assertDatabaseHas('receipts', ['id' => $receipt->id]);
+    }
+}

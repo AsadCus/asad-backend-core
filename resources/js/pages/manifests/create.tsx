@@ -4,9 +4,8 @@ import { type BreadcrumbItem, type ValueNumberOptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import ManifestForm, { type ManifestFormData } from './form';
-import { type TravelerSchema } from './schema';
 
-interface CustomerGroupData {
+interface CustomerConfirmationData {
     id: number;
     package_room_type: string;
     enquiry_id: number;
@@ -41,7 +40,7 @@ interface CustomerMemberData {
 
 interface CreateManifestProps {
     dataPackage: ValueNumberOptionType[];
-    customerGroups?: CustomerGroupData[];
+    customerConfirmations?: CustomerConfirmationData[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -51,64 +50,28 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-
-
-
-// Default room data for Makkah
-const DEFAULT_ROOM_DATA_MAKKAH = {
-  
-};
-
-// Default room data for Madinah
-const DEFAULT_ROOM_DATA_MADINAH = {
-    
-};
-
-// Default room data for Others (Transit & Airlines)
-const DEFAULT_ROOM_DATA_OTHERS = {
-   
-};
-
-const DEFAULT_MANIFEST_TRAVELERS: Record<number, TravelerSchema[]> = {
-   
-};
-
-const DEFAULT_AIRLINE_LIST = {
-   
-};
-
-
 const MANIFEST_DATA = {
     package_id: 0,
     reference_number: '',
-    status: '',
+    status: 'draft',
     company_address: '',
     company_phone: '',
     departure_date: '',
     return_date: '',
     duration: '',
-    makkah_hotel: '',
-    makkah_check_in: '',
-    makkah_check_out: '',
-    madinah_hotel: '',
-    madinah_check_in: '',
-    madinah_check_out: '',
-    groupIds:[],
     first_meal: '',
     last_meal: '',
     notes: '',
-    travelers: DEFAULT_MANIFEST_TRAVELERS,
-    roomListMakkah: DEFAULT_ROOM_DATA_MAKKAH,
-    roomListMadinah: DEFAULT_ROOM_DATA_MADINAH,
-    roomListOthers: DEFAULT_ROOM_DATA_OTHERS,
-    airlineList: DEFAULT_AIRLINE_LIST,
+    flight_details: {},
+    travelers: [],
+    roomLists: {},
+    airlineList: [],
+    selected_confirmation_ids: [],
 } as ManifestFormData;
-
-
 
 export default function CreateManifest({
     dataPackage,
-    customerGroups = [],
+    customerConfirmations = [],
 }: CreateManifestProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -127,7 +90,7 @@ export default function CreateManifest({
                         mode="create"
                         initialData={MANIFEST_DATA}
                         dataPackage={dataPackage}
-                        customerGroups={customerGroups}
+                        customerConfirmations={customerConfirmations}
                         onCancel={handleCancel}
                     />
                 </div>

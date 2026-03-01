@@ -98,12 +98,12 @@ class AgreementController extends Controller
             'customer_nric' => $quotation->customer->nric_number,
             'maid_name' => '-',
             'maid_passport' => '-',
-            'monthly_salary' => $this->formatService->cleanDecimal($quotation->monthly_salary),
-            'loan_amount' => $this->formatService->cleanDecimal($quotation->total_placement_fee),
-            'loan_duration_months' => $this->formatService->cleanDecimal($quotation->total_placement_quantity),
-            'monthly_loan_payment' => $this->formatService->cleanDecimal($quotation->monthly_placement_fee),
-            'late_payment_interest_amount' => $this->formatService->cleanDecimal($quotation->monthly_salary * (3 / 100)),
-            'placement_fee_invoices' => $quotation->placement_fee_invoices,
+            'monthly_salary' => 0,
+            'loan_amount' => 0,
+            'loan_duration_months' => 0,
+            'monthly_loan_payment' => 0,
+            'late_payment_interest_amount' => 0,
+            'placement_fee_invoices' => [],
             'status' => $quotation->status,
         ];
     }

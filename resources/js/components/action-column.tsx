@@ -36,7 +36,11 @@ export type ActionType =
     | 'enquiry-status-negotiating'
     | 'enquiry-status-confirmed'
     | 'add-remark'
-    | 'copy-public-edit-link';
+    | 'copy-public-edit-link'
+    | 'move-members'
+    | 'cancel-member'
+    | 'view-member'
+    | 'edit-member';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

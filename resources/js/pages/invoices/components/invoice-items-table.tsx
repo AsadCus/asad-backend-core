@@ -34,7 +34,6 @@ export default function InvoiceItemsTable({
             currentInvoiceIndex={currentInvoiceIndex}
             onMoveItem={onMoveItem}
             showOptionalColumn={false}
-            showPlacementFeeColumn={true}
         />
     );
 }

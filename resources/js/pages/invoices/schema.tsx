@@ -12,7 +12,6 @@ export const invoiceItemSchema = z.object({
     status: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     is_header: z.boolean().nullable().optional(),
-    is_placement_fee: z.boolean().nullable().optional(),
     quantity: z.union([z.string(), z.number()]).nullable().optional(),
     rate: z.union([z.string(), z.number()]).nullable().optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),
@@ -40,6 +39,7 @@ export const invoiceSchema = z.object({
     invoice_date: z.string().nullable().optional(),
     due_date: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
+    has_receipt: z.boolean().optional(),
     description: z.string().nullable().optional(),
     items: z.array(invoiceItemSchema),
 });

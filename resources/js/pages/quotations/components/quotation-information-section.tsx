@@ -167,33 +167,6 @@ export default function QuotationInformationSection({
                         </div>
                     </div>
 
-                    {/* Commencement Date */}
-                    <div className="grid w-full items-center gap-3 md:flex md:justify-end">
-                        <Label
-                            className="text-nowrap"
-                            htmlFor="commencement_date"
-                        >
-                            Handover Date
-                            <FieldRequirements
-                                required
-                                hint="Must be at least today date"
-                                format="DD/MM/YYYY"
-                            />
-                        </Label>
-                        <div className="relative w-full md:w-72">
-                            <DatePickerField
-                                id="commencement_date"
-                                value={data.commencement_date ?? ''}
-                                disabled={isView}
-                                disabledDates={isBeforeToday}
-                                quickDate
-                                onChange={(val) =>
-                                    setData('commencement_date', val)
-                                }
-                            />
-                            {renderError('commencement_date')}
-                        </div>
-                    </div>
                 </section>
             </div>
         </FormSection>

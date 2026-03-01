@@ -4,20 +4,26 @@ namespace App\Services;
 
 use App\Enums\EnquiryStatus;
 use App\Models\Customer;
-use App\Models\CustomerGroup;
-use App\Models\CustomerGroupMember;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
+use App\Models\ManifestTraveler;
+use App\Models\Package;
+use App\Models\Quotation;
+use App\Models\QuotationItem;
+use App\Models\ReceiptAllocation;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
-class CustomerGroupService
+class CustomerConfirmationService
 {
-    /** Create a customer group from request data. */
-    public function createGroup(array $data): CustomerGroup
+    /** Create a customer confirmation from request data. */
+    public function createGroup(array $data): CustomerConfirmation
     {
         return DB::transaction(function () use ($data) {
             $enquiryId = $data['enquiry_id'] ?? null;
@@ -26,7 +32,7 @@ class CustomerGroupService
                 $enquiry = Enquiry::findOrFail($enquiryId);
             }
 
-            $group = CustomerGroup::create([
+            $group = CustomerConfirmation::create([
                 'enquiry_id' => $enquiryId,
                 'created_by' => auth()->id(),
                 'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
@@ -39,10 +45,13 @@ class CustomerGroupService
                 $customer = $this->findOrCreateCustomer($member);
                 $this->processFileUploads($customer, $member);
 
-                CustomerGroupMember::create([
-                    'customer_group_id' => $group->id,
+                CustomerConfirmationMember::create([
+                    'customer_confirmation_id' => $group->id,
                     'customer_id' => $customer->id,
                     'is_leader' => (bool) ($member['is_leader'] ?? false),
+                    'status' => $member['status'] ?? 'draft',
+                    'sharing_plan' => $member['sharing_plan'] ?? null,
+                    'role' => $member['role'] ?? null,
                 ]);
             }
 
@@ -55,7 +64,7 @@ class CustomerGroupService
             activity()
                 ->performedOn($group)
                 ->withProperties([
-                    'subject_type' => 'CustomerGroup',
+                    'subject_type' => 'CustomerConfirmation',
                     'subject_id' => $group->id,
                     'old' => [],
                     'attributes' => $newSnapshot,
@@ -65,7 +74,7 @@ class CustomerGroupService
                         packageId: $group->package_id,
                     ),
                 ])
-                ->log('Customer group created'.($enquiryId ? ' for enquiry #'.$enquiryId : ''));
+                ->log('Customer confirmation created'.($enquiryId ? ' for enquiry #'.$enquiryId : ''));
 
             return $group;
         });
@@ -219,10 +228,10 @@ class CustomerGroupService
             ->all();
     }
 
-    /** Get group details by enquiry ID. */
-    public function getByEnquiryId(int $enquiryId): ?CustomerGroup
+    /** Get confirmation details by enquiry ID. */
+    public function getByEnquiryId(int $enquiryId): ?CustomerConfirmation
     {
-        return CustomerGroup::with('members.customer.user')
+        return CustomerConfirmation::with('members.customer.user')
             ->where('enquiry_id', $enquiryId)
             ->first();
     }
@@ -230,34 +239,69 @@ class CustomerGroupService
     /** Get grouped customer data for index listing. */
     public function getForGroupedIndex(): array
     {
-        return CustomerGroup::with(['members.customer.user', 'enquiry'])
+        return CustomerConfirmation::with([
+            'members.customer.user',
+            'members.receiptAllocations',
+            'members.quotationItems',
+            'enquiry',
+            'package',
+        ])
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function (CustomerGroup $group) {
+            ->map(function (CustomerConfirmation $group) {
                 $leader = $group->members->firstWhere('is_leader', true);
-                $participants = $group->members->where('is_leader', false)->values();
+
+                $activeMembers = $group->members->filter(
+                    fn (CustomerConfirmationMember $member) => $member->status !== 'cancelled'
+                );
+
+                $groupTotalAmount = $activeMembers->sum(function (CustomerConfirmationMember $member) use ($group) {
+                    $packagePrice = $this->getPackagePriceForSharingPlan($group->package, $member->sharing_plan);
+
+                    return (float) $packagePrice;
+                });
+
+                $groupPaidAmount = $activeMembers->sum(
+                    fn (CustomerConfirmationMember $member) => (float) $member->receiptAllocations->sum('allocated_amount')
+                );
+
+                $canCreateQuotation = $activeMembers
+                    ->contains(fn (CustomerConfirmationMember $member) => $member->quotationItems->isEmpty());
 
                 return [
                     'id' => $group->id,
                     'enquiry_id' => $group->enquiry_id,
                     'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,
                     'enquiry_status' => $group->enquiry?->status?->label(),
-                    'leader_name' => $leader?->customer?->user?->name ?? '-',
-                    'leader_email' => $leader?->customer?->user?->email ?? '-',
-                    'leader_contact' => $leader?->customer?->user?->contact ?? '-',
-                    'leader_customer_number' => $leader?->customer?->customer_number ?? '-',
+                    'enquiry_email' => $group->enquiry?->email ?? ($leader?->customer?->user?->email ?? '-'),
+                    'enquiry_contact' => $group->enquiry?->contact_number ?? ($leader?->customer?->user?->contact ?? '-'),
                     'member_count' => $group->members->count(),
+                    'paid_amount' => round($groupPaidAmount, 2),
+                    'total_amount' => round($groupTotalAmount, 2),
+                    'can_create_quotation' => $canCreateQuotation,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
-                    'members' => $group->members->map(function ($member) {
+                    'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
+                        $totalAmount = $member->status === 'cancelled'
+                            ? 0
+                            : $this->getPackagePriceForSharingPlan($group->package, $member->sharing_plan);
+
+                        $paidAmount = (float) $member->receiptAllocations->sum('allocated_amount');
+
                         return [
                             'id' => $member->id,
+                            'group_id' => $member->customer_confirmation_id,
                             'customer_id' => $member->customer_id,
                             'is_leader' => $member->is_leader,
+                            'status' => $member->status ?? 'draft',
+                            'sharing_plan' => $member->sharing_plan,
+                            'role' => $member->role,
+                            'has_quotation' => $member->quotationItems->isNotEmpty(),
+                            'paid_amount' => round($paidAmount, 2),
+                            'total_amount' => round((float) $totalAmount, 2),
                             'name' => $member->customer?->user?->name ?? '-',
                             'email' => $member->customer?->user?->email ?? '-',
                             'contact' => $member->customer?->user?->contact ?? '-',
                             'customer_number' => $member->customer?->customer_number ?? '-',
-                            'nric_number' => $member->customer?->nric_number ?? '-',
                         ];
                     })->all(),
                 ];
@@ -303,10 +347,10 @@ class CustomerGroupService
             ->all();
     }
 
-    /** Get full customer group details for edit or show. */
+    /** Get full customer confirmation details for edit or show. */
     public function getForEditShow(int $id): array
     {
-        $group = CustomerGroup::with(['members.customer.user', 'enquiry.package', 'package'])
+        $group = CustomerConfirmation::with(['members.customer.user', 'enquiry.package', 'package'])
             ->findOrFail($id);
 
         return [
@@ -316,14 +360,18 @@ class CustomerGroupService
             'package_room_type' => $group->package_room_type,
             'package_category' => $group->package_category,
             'date_of_application' => $group->date_of_application_formatted,
-            'members' => $group->members->map(function (CustomerGroupMember $member) {
+            'members' => $group->members->map(function (CustomerConfirmationMember $member) {
                 $customer = $member->customer;
                 $user = $customer?->user;
 
                 return [
                     'member_id' => $member->id,
+                    'id' => $member->id,
                     'customer_id' => $customer?->id,
                     'is_leader' => $member->is_leader,
+                    'status' => $member->status ?? 'draft',
+                    'sharing_plan' => $member->sharing_plan,
+                    'role' => $member->role,
                     'name' => $user?->name ?? '',
                     'email' => $user?->email ?? '',
                     'contact_number' => $user?->contact ?? '',
@@ -348,11 +396,11 @@ class CustomerGroupService
         ];
     }
 
-    /** Update a customer group and its members. */
-    public function updateGroup(int $id, array $data): CustomerGroup
+    /** Update a customer confirmation and its members. */
+    public function updateGroup(int $id, array $data): CustomerConfirmation
     {
         return DB::transaction(function () use ($id, $data) {
-            $group = CustomerGroup::with('enquiry')->findOrFail($id);
+            $group = CustomerConfirmation::with(['enquiry', 'members.customer.user'])->findOrFail($id);
             $oldSnapshot = $this->sanitizeSnapshot(
                 $this->buildGroupSnapshot($group),
             );
@@ -376,17 +424,61 @@ class CustomerGroupService
                 'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
             ]);
 
-            $group->members()->delete();
+            $existingMembers = $group->members->keyBy('id');
+            $updatedMemberIds = [];
 
             foreach ($data['members'] as $memberData) {
+                $matchedMember = $this->findExistingMemberMatch($group, $memberData, $updatedMemberIds);
+
                 $customer = $this->findOrCreateCustomer($memberData);
                 $this->processFileUploads($customer, $memberData);
 
-                CustomerGroupMember::create([
-                    'customer_group_id' => $group->id,
+                if ($matchedMember) {
+                    $incomingSharingPlan = $memberData['sharing_plan'] ?? null;
+                    $sharingPlanChanged = $incomingSharingPlan !== $matchedMember->sharing_plan;
+
+                    if ($sharingPlanChanged && $this->memberHasAnyBilling($matchedMember->id)) {
+                        $this->resetMemberBillingLinksForRecreate($matchedMember->id);
+                    }
+
+                    $matchedMember->update([
+                        'customer_id' => $customer->id,
+                        'is_leader' => (bool) ($memberData['is_leader'] ?? false),
+                        'status' => $memberData['status'] ?? 'draft',
+                        'sharing_plan' => $incomingSharingPlan,
+                        'role' => $memberData['role'] ?? null,
+                    ]);
+
+                    $updatedMemberIds[] = $matchedMember->id;
+
+                    continue;
+                }
+
+                $createdMember = CustomerConfirmationMember::create([
+                    'customer_confirmation_id' => $group->id,
                     'customer_id' => $customer->id,
                     'is_leader' => (bool) ($memberData['is_leader'] ?? false),
+                    'status' => $memberData['status'] ?? 'draft',
+                    'sharing_plan' => $memberData['sharing_plan'] ?? null,
+                    'role' => $memberData['role'] ?? null,
                 ]);
+
+                $updatedMemberIds[] = $createdMember->id;
+            }
+
+            $removedMembers = $existingMembers
+                ->filter(fn (CustomerConfirmationMember $member) => ! in_array($member->id, $updatedMemberIds, true));
+
+            foreach ($removedMembers as $removedMember) {
+                if ($this->memberHasPaidBilling($removedMember->id)) {
+                    $memberName = $removedMember->customer?->user?->name ?? "#{$removedMember->id}";
+
+                    throw ValidationException::withMessages([
+                        'members' => "Cannot remove member {$memberName} because paid billing already exists.",
+                    ]);
+                }
+
+                $removedMember->delete();
             }
 
             $group->load('members.customer.user', 'enquiry', 'package');
@@ -397,7 +489,7 @@ class CustomerGroupService
             activity()
                 ->performedOn($group)
                 ->withProperties([
-                    'subject_type' => 'CustomerGroup',
+                    'subject_type' => 'CustomerConfirmation',
                     'subject_id' => $group->id,
                     'old' => $oldSnapshot,
                     'attributes' => $newSnapshot,
@@ -407,17 +499,74 @@ class CustomerGroupService
                         packageId: $group->package_id,
                     ),
                 ])
-                ->log('Customer group #'.$group->id.' updated');
+                ->log('Customer confirmation #'.$group->id.' updated');
 
             return $group;
         });
     }
 
-    /** Delete a customer group and its members only. */
+    private function findExistingMemberMatch(
+        CustomerConfirmation $group,
+        array $memberData,
+        array $updatedMemberIds,
+    ): ?CustomerConfirmationMember {
+        $memberId = isset($memberData['member_id']) ? (int) $memberData['member_id'] : null;
+        if ($memberId) {
+            $matchedByMemberId = $group->members
+                ->first(fn (CustomerConfirmationMember $member) => $member->id === $memberId);
+
+            if ($matchedByMemberId && ! in_array($matchedByMemberId->id, $updatedMemberIds, true)) {
+                return $matchedByMemberId;
+            }
+        }
+
+        $customerId = isset($memberData['customer_id']) ? (int) $memberData['customer_id'] : null;
+        if ($customerId) {
+            $matchedByCustomerId = $group->members
+                ->first(function (CustomerConfirmationMember $member) use ($customerId, $updatedMemberIds) {
+                    return $member->customer_id === $customerId
+                        && ! in_array($member->id, $updatedMemberIds, true);
+                });
+
+            if ($matchedByCustomerId) {
+                return $matchedByCustomerId;
+            }
+        }
+
+        return null;
+    }
+
+    private function memberHasAnyBilling(int $memberId): bool
+    {
+        return QuotationItem::query()
+            ->where('customer_confirmation_member_id', $memberId)
+            ->exists();
+    }
+
+    private function memberHasPaidBilling(int $memberId): bool
+    {
+        return QuotationItem::query()
+            ->where('customer_confirmation_member_id', $memberId)
+            ->whereHas('invoices.receipt')
+            ->exists();
+    }
+
+    private function resetMemberBillingLinksForRecreate(int $memberId): void
+    {
+        QuotationItem::query()
+            ->where('customer_confirmation_member_id', $memberId)
+            ->update(['customer_confirmation_member_id' => null]);
+
+        ReceiptAllocation::query()
+            ->where('customer_confirmation_member_id', $memberId)
+            ->delete();
+    }
+
+    /** Delete a customer confirmation and its members only. */
     public function deleteGroup(int $id): void
     {
         DB::transaction(function () use ($id) {
-            $group = CustomerGroup::with(['members', 'enquiry'])->findOrFail($id);
+            $group = CustomerConfirmation::with(['members', 'enquiry'])->findOrFail($id);
             $oldSnapshot = $this->sanitizeSnapshot(
                 $this->buildGroupSnapshot($group),
             );
@@ -440,13 +589,13 @@ class CustomerGroupService
                         'old_status' => EnquiryStatus::Confirmed->value,
                         'new_status' => EnquiryStatus::Negotiating->value,
                     ])
-                    ->log("Enquiry #{$enquiry->id} moved to Negotiating after customer group deletion");
+                    ->log("Enquiry #{$enquiry->id} moved to Negotiating after customer confirmation deletion");
             }
 
             activity()
                 ->performedOn($group)
                 ->withProperties([
-                    'subject_type' => 'CustomerGroup',
+                    'subject_type' => 'CustomerConfirmation',
                     'subject_id' => $id,
                     'old' => $oldSnapshot,
                     'attributes' => [
@@ -459,11 +608,180 @@ class CustomerGroupService
                         packageId: $group->package_id,
                     ),
                 ])
-                ->log('Customer group #'.$id.' deleted');
+                ->log('Customer confirmation #'.$id.' deleted');
         });
     }
 
-    private function buildGroupSnapshot(CustomerGroup $group): array
+    /** Update one confirmation member's customer/profile/status/sharing plan. */
+    public function updateMemberDetails(int $memberId, array $data): array
+    {
+        return DB::transaction(function () use ($memberId, $data) {
+            $member = CustomerConfirmationMember::with(['customer.user'])->findOrFail($memberId);
+
+            $customer = $member->customer;
+            if (! $customer) {
+                abort(422, 'Member customer record is missing.');
+            }
+
+            $this->updateCustomerIfNeeded($customer, $data);
+            $this->processFileUploads($customer, $data);
+
+            $member->update([
+                'status' => $data['status'] ?? $member->status,
+                'sharing_plan' => $data['sharing_plan'] ?? $member->sharing_plan,
+                'role' => $data['role'] ?? $member->role,
+            ]);
+
+            $member->refresh();
+            $member->load('customer.user');
+
+            return [
+                'id' => $member->id,
+                'customer_id' => $member->customer_id,
+                'is_leader' => $member->is_leader,
+                'status' => $member->status,
+                'sharing_plan' => $member->sharing_plan,
+                'role' => $member->role,
+                'name' => $member->customer?->user?->name ?? '',
+                'email' => $member->customer?->user?->email ?? '',
+                'contact_number' => $member->customer?->user?->contact ?? '',
+                'nric_number' => $member->customer?->nric_number ?? '',
+                'address' => $member->customer?->address ?? '',
+                'nationality' => $member->customer?->nationality ?? '',
+                'passport_number' => $member->customer?->passport_number ?? '',
+                'passport_issue_date' => $member->customer?->passport_issue_date_formatted ?? '',
+                'passport_expiry_date' => $member->customer?->passport_expiry_date_formatted ?? '',
+                'passport_place_of_issue' => $member->customer?->passport_place_of_issue ?? '',
+                'gender' => $member->customer?->gender ?? '',
+                'marital_status' => $member->customer?->marital_status ?? '',
+                'date_of_birth' => $member->customer?->date_of_birth_formatted ?? '',
+                'place_of_birth' => $member->customer?->place_of_birth ?? '',
+                'first_time_umrah' => $member->customer?->first_time_umrah ?? false,
+                'has_chronic_disease' => $member->customer?->has_chronic_disease ?? false,
+                'chronic_disease_details' => $member->customer?->chronic_disease_details ?? '',
+                'passport_path' => $member->customer?->passport_path ? Storage::disk('public')->url($member->customer->passport_path) : null,
+                'photo_path' => $member->customer?->photo_path ? Storage::disk('public')->url($member->customer->photo_path) : null,
+            ];
+        });
+    }
+
+    /** Mark one member as cancelled. */
+    public function cancelMember(int $memberId): void
+    {
+        DB::transaction(function () use ($memberId) {
+            $member = CustomerConfirmationMember::findOrFail($memberId);
+
+            $member->update([
+                'status' => 'cancelled',
+            ]);
+        });
+    }
+
+    /**
+     * Move selected members from an existing confirmation to a new holding confirmation.
+     * Selected source members are marked as cancelled and their linked manifest travelers are cancelled.
+     */
+    public function moveMembersToHolding(
+        int $sourceConfirmationId,
+        array $memberIds,
+        ?int $targetPackageId = null,
+        ?int $sourceManifestId = null,
+    ): CustomerConfirmation {
+        return DB::transaction(function () use ($sourceConfirmationId, $memberIds, $targetPackageId, $sourceManifestId) {
+            $sourceGroup = CustomerConfirmation::with('members')
+                ->findOrFail($sourceConfirmationId);
+
+            $selectedMembers = CustomerConfirmationMember::query()
+                ->where('customer_confirmation_id', $sourceGroup->id)
+                ->whereIn('id', $memberIds)
+                ->get();
+
+            if ($selectedMembers->isEmpty()) {
+                abort(422, 'No valid members selected for moving.');
+            }
+
+            $selectedMemberIds = $selectedMembers->pluck('id')->all();
+
+            $sourceMembersById = $selectedMembers->keyBy('id');
+
+            CustomerConfirmationMember::query()
+                ->whereIn('id', $selectedMemberIds)
+                ->update(['status' => 'cancelled']);
+
+            ManifestTraveler::query()
+                ->whereIn('customer_confirmation_member_id', $selectedMemberIds)
+                ->when($sourceManifestId, function ($query) use ($sourceManifestId) {
+                    $query->where('manifest_id', $sourceManifestId);
+                })
+                ->update(['status' => 'cancelled']);
+
+            $newGroup = CustomerConfirmation::create([
+                'enquiry_id' => $sourceGroup->enquiry_id,
+                'created_by' => auth()->id(),
+                'package_id' => $targetPackageId,
+                'package_room_type' => $sourceGroup->package_room_type,
+                'package_category' => $sourceGroup->package_category,
+                'date_of_application' => now(),
+            ]);
+
+            $memberIdMap = [];
+
+            foreach ($selectedMembers->values() as $index => $member) {
+                $createdMember = CustomerConfirmationMember::create([
+                    'customer_confirmation_id' => $newGroup->id,
+                    'customer_id' => $member->customer_id,
+                    'is_leader' => $index === 0,
+                    'status' => 'draft',
+                    'sharing_plan' => $sourceMembersById[$member->id]?->sharing_plan,
+                    'role' => $sourceMembersById[$member->id]?->role,
+                ]);
+
+                $memberIdMap[$member->id] = $createdMember->id;
+            }
+
+            $allocations = ReceiptAllocation::query()
+                ->whereIn('customer_confirmation_member_id', array_keys($memberIdMap))
+                ->get();
+
+            foreach ($allocations as $allocation) {
+                $targetMemberId = $memberIdMap[$allocation->customer_confirmation_member_id] ?? null;
+
+                if (! $targetMemberId) {
+                    continue;
+                }
+
+                ReceiptAllocation::create([
+                    'receipt_id' => $allocation->receipt_id,
+                    'customer_confirmation_member_id' => $targetMemberId,
+                    'allocated_amount' => $allocation->allocated_amount,
+                    'notes' => $allocation->notes,
+                ]);
+            }
+
+            $newGroup->load('members.customer.user', 'enquiry', 'package');
+
+            activity()
+                ->performedOn($newGroup)
+                ->withProperties([
+                    'subject_type' => 'CustomerConfirmation',
+                    'subject_id' => $newGroup->id,
+                    'context' => $this->buildLogContext(
+                        operation: 'move_to_holding',
+                        enquiryId: $newGroup->enquiry_id,
+                        packageId: $newGroup->package_id,
+                    ),
+                    'source_confirmation_id' => $sourceGroup->id,
+                    'source_member_ids' => $selectedMemberIds,
+                    'source_manifest_id' => $sourceManifestId,
+                    'new_member_ids' => array_values($memberIdMap),
+                ])
+                ->log('Customer members moved to holding confirmation #'.$newGroup->id);
+
+            return $newGroup;
+        });
+    }
+
+    private function buildGroupSnapshot(CustomerConfirmation $group): array
     {
         $group->loadMissing(['members.customer.user', 'enquiry', 'package']);
 
@@ -478,7 +796,7 @@ class CustomerGroupService
                 'member_count' => $group->members->count(),
             ],
             'members' => $group->members
-                ->map(function (CustomerGroupMember $member) {
+                ->map(function (CustomerConfirmationMember $member) {
                     $customer = $member->customer;
                     $user = $customer?->user;
 
@@ -486,6 +804,9 @@ class CustomerGroupService
                         'member_id' => $member->id,
                         'customer_id' => $customer?->id,
                         'is_leader' => (bool) $member->is_leader,
+                        'status' => $member->status,
+                        'sharing_plan' => $member->sharing_plan,
+                        'role' => $member->role,
                         'name' => $user?->name,
                         'email' => $user?->email,
                         'contact_number' => $user?->contact,
@@ -591,6 +912,21 @@ class CustomerGroupService
         ];
     }
 
+    private function getPackagePriceForSharingPlan(?Package $package, ?string $sharingPlan): float
+    {
+        if (! $package || ! $sharingPlan) {
+            return 0;
+        }
+
+        return match ($sharingPlan) {
+            'single' => (float) ($package->price_single ?? 0),
+            'double' => (float) ($package->price_double ?? 0),
+            'triple' => (float) ($package->price_triple ?? 0),
+            'quad' => (float) ($package->price_quad ?? 0),
+            default => 0,
+        };
+    }
+
     /** Store one uploaded file and return its path. */
     private function handleFileUpload(mixed $file, string $field, string $customerName): ?string
     {
@@ -645,5 +981,95 @@ class CustomerGroupService
         if (! empty($updates)) {
             $customer->update($updates);
         }
+    }
+
+    /**
+     * Generate quotation(s) from a customer confirmation.
+     *
+     * Each payer gets one quotation. Each member they pay for becomes a quotation item
+     * with the cost derived from the package sharing-plan price.
+     *
+     * @param  array<int, int[]>  $payerToMembers  Maps payer member ID → array of member IDs they pay for.
+     * @return \App\Models\Quotation[]
+     */
+    public function generateQuotationsFromConfirmation(int $confirmationId, array $payerToMembers): array
+    {
+        return DB::transaction(function () use ($confirmationId, $payerToMembers) {
+            $group = CustomerConfirmation::with(['members.customer.user', 'package'])
+                ->findOrFail($confirmationId);
+
+            $package = $group->package;
+            $membersById = $group->members->keyBy('id');
+
+            $createdQuotations = [];
+
+            foreach ($payerToMembers as $payerMemberId => $coveredMemberIds) {
+                $payerMember = $membersById->get((int) $payerMemberId);
+                if (! $payerMember || ! $payerMember->customer) {
+                    continue;
+                }
+
+                $quotation = Quotation::create([
+                    'customer_id' => $payerMember->customer->id,
+                    'customer_confirmation_id' => $confirmationId,
+                    'quotation_date' => now()->format('Y-m-d'),
+                    'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+                    'payment_plan' => 'full',
+                    'status' => 'draft',
+                    'description' => 'Payment for travel package — '
+                        .($package->name ?? 'Package #'.$package->id),
+                ]);
+
+                $sortOrder = 1;
+
+                foreach ($coveredMemberIds as $memberId) {
+                    $member = $membersById->get((int) $memberId);
+                    if (! $member || ! $member->customer) {
+                        continue;
+                    }
+
+                    $sharingPlan = $member->sharing_plan;
+                    $rate = $this->getPackagePriceForSharingPlan($package, $sharingPlan);
+                    $planLabel = ucfirst($sharingPlan ?? 'standard');
+                    $memberName = $member->customer->user->name ?? 'Member #'.$member->id;
+
+                    QuotationItem::create([
+                        'quotation_id' => $quotation->id,
+                        'customer_confirmation_member_id' => $member->id,
+                        'description' => "{$memberName} — {$planLabel} Sharing",
+                        'is_header' => false,
+                        'quantity' => 1,
+                        'rate' => $rate,
+                        'sort_order' => $sortOrder++,
+                    ]);
+                }
+
+                // Update covered members to pending_payment
+                CustomerConfirmationMember::whereIn('id', $coveredMemberIds)
+                    ->where('status', 'draft')
+                    ->update(['status' => 'pending_payment']);
+
+                $quotation->load('quotationItems');
+                $createdQuotations[] = $quotation;
+            }
+
+            return $createdQuotations;
+        });
+    }
+
+    /**
+     * Recalculate confirmation member statuses based on payment state.
+     *
+     * Called after a receipt is created, updated, or deleted.
+     * Walks from invoice → order → quotation → quotation_items to find
+     * linked confirmation members and sets:
+     *   - confirmed:       all invoices on the order are fully paid
+     *   - partially_paid:  at least one invoice is paid but not all
+     *   - pending_payment: no invoices are paid
+     */
+    public function syncMemberPaymentStatus(int $invoiceId): void
+    {
+        app(PaymentStatusService::class)
+            ->syncAfterReceiptMutation($invoiceId);
     }
 }

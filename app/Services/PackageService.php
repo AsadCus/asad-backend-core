@@ -61,10 +61,24 @@ class PackageService
 
     public function getForFilter()
     {
-        return Package::get()->map(function ($q) {
+        return Package::with('accommodations')->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => $q->name,
+                'airline' => $q->airline,
+                'pnr' => $q->pnr,
+                'departure_date' => $q->departure_date_formatted,
+                'arrival_date' => $q->arrival_date_formatted,
+                'accommodations' => $q->accommodations->map(function ($accommodation) {
+                    return [
+                        'id' => $accommodation->id,
+                        'location' => $accommodation->location,
+                        'hotel_name' => $accommodation->hotel_name,
+                        'type_of_meal' => $accommodation->type_of_meal,
+                        'check_in' => $accommodation->check_in_formatted,
+                        'check_out' => $accommodation->check_out_formatted,
+                    ];
+                })->values()->toArray(),
             ];
         });
     }

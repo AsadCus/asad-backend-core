@@ -71,14 +71,9 @@ export function QuotationForm({
         customer_address: '',
         customer_email: null,
         description: '',
-        commencement_date: '',
-        monthly_salary: '',
-        loan_duration: '',
-        cost_of_maid: '',
-        rest_day_of_the_week: ['Weekend'],
-        rest_days_per_month: '',
-        compensation_off_in_lieu: '',
         payment_plan: 'full',
+        deposit_type: null,
+        deposit_value: null,
         payment_method: 'transfer',
         status: 'draft',
         reason: '',
@@ -157,20 +152,6 @@ export function QuotationForm({
             setSelectedCustomerData(prefilledCustomerData);
         }
     }, [prefilledCustomerData, prefilledCustomerId, isCreate]);
-
-    useEffect(() => {
-        if (!data.monthly_salary || !data.loan_duration) return;
-
-        const salary = Number(data.monthly_salary);
-        const loan = Number(data.loan_duration);
-
-        if (Number.isNaN(salary) || Number.isNaN(loan)) return;
-
-        setData((prev) => ({
-            ...prev,
-            cost_of_maid: String(salary * loan),
-        }));
-    }, [data.monthly_salary, data.loan_duration, setData]);
 
     // items
     const initializedRef = useRef(false);

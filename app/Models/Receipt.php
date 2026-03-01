@@ -7,7 +7,6 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Log;
 
 class Receipt extends Model
 {
@@ -79,27 +78,32 @@ class Receipt extends Model
                 ]
             );
 
-            if ($invoice->outstandingAmount == 0) {
-                $invoice->update(['status' => 'paid']);
-            }
+            app(\App\Services\PaymentStatusService::class)
+                ->syncAfterReceiptMutation((int) $receipt->invoice_id);
         });
 
         static::updated(function ($receipt) {
-            if ($receipt->isDirty(['amount', 'receipt_date'])) {
+            if ($receipt->wasChanged(['invoice_id', 'amount', 'receipt_date'])) {
                 $financialTransactionService = app(\App\Services\FinancialTransactionService::class);
                 $financialTransactionService->updateReceiptRevenue($receipt);
 
-                $invoice = $receipt->invoice;
-                if ($invoice->outstandingAmount == 0) {
-                    $invoice->update(['status' => 'paid']);
-                } else {
-                    $invoice->update(['status' => 'issued']);
-                }
+                app(\App\Services\PaymentStatusService::class)
+                    ->syncAfterReceiptReassignment(
+                        $receipt->getOriginal('invoice_id')
+                            ? (int) $receipt->getOriginal('invoice_id')
+                            : null,
+                        (int) $receipt->invoice_id,
+                    );
             }
         });
 
         static::deleting(function ($receipt) {
             FinancialTransaction::where('reference_type', 'App\Models\Receipt')->where('reference_id', $receipt->id)->delete();
+        });
+
+        static::deleted(function ($receipt) {
+            app(\App\Services\PaymentStatusService::class)
+                ->syncAfterReceiptMutation((int) $receipt->invoice_id);
         });
     }
 }

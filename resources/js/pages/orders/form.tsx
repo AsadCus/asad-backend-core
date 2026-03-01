@@ -1,8 +1,16 @@
 import { DatePickerField } from '@/components/date-picker';
+import { ProperInput } from '@/components/proper-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { isBeforeToday } from '@/lib/utils';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
@@ -18,7 +26,7 @@ import {
 } from '../invoices/lib/utils';
 import { InvoiceSchema } from '../invoices/schema';
 import QuotationItemTableForm from '../quotations/items/form';
-import { QuotationSchema } from '../quotations/schema';
+import { QuotationSchema, depositTypes } from '../quotations/schema';
 import { PaymentPlanSection } from './components/payment-plan-section';
 import {
     autoFillInvoiceDates,
@@ -103,7 +111,9 @@ export default function OrderForm({
     const initialFormState: OrderSchema = {
         order_number: '',
         payment_plan: quotation?.payment_plan ?? 'direct',
-        handover_date: quotation?.commencement_date ?? '',
+        deposit_type: quotation?.deposit_type ?? null,
+        deposit_value: quotation?.deposit_value ?? null,
+        handover_date: '',
         invoices: [],
         items: initialItems ?? [],
 
@@ -141,6 +151,8 @@ export default function OrderForm({
                     buildInitialInvoices({
                         ...quotation,
                         payment_plan: paymentPlan,
+                        deposit_type: data.deposit_type,
+                        deposit_value: data.deposit_value,
                     }),
                 );
             } else {
@@ -149,7 +161,14 @@ export default function OrderForm({
 
             setData('invoices', invoices);
         }
-    }, [initialData, quotation, data.payment_plan, setData]);
+    }, [
+        initialData,
+        quotation,
+        data.payment_plan,
+        data.deposit_type,
+        data.deposit_value,
+        setData,
+    ]);
 
     function addInvoice() {
         const newInvoices = [...data.invoices, createEmptyInvoice()];
@@ -427,6 +446,8 @@ export default function OrderForm({
                                                     data.invoices,
                                                     data.handover_date ??
                                                         undefined,
+                                                    data.deposit_type,
+                                                    data.deposit_value,
                                                 ),
                                             })
                                         }
@@ -464,6 +485,117 @@ export default function OrderForm({
                                                 {renderError('handover_date')}
                                             </div>
                                         </div>
+                                    )}
+
+                                    {/* Deposit Config (installment) */}
+                                    {data.payment_plan === 'installment' && (
+                                        <>
+                                            <div className="grid gap-2">
+                                                <Label>Deposit Type</Label>
+                                                <div className="relative">
+                                                    <Select
+                                                        value={String(
+                                                            data.deposit_type ??
+                                                                '',
+                                                        )}
+                                                        onValueChange={(v) => {
+                                                            const newData = {
+                                                                ...data,
+                                                                deposit_type: v,
+                                                            };
+                                                            newData.invoices =
+                                                                buildInvoices(
+                                                                    data.payment_plan ??
+                                                                        'installment',
+                                                                    data.invoices,
+                                                                    data.handover_date ??
+                                                                        undefined,
+                                                                    v,
+                                                                    data.deposit_value,
+                                                                );
+                                                            setData(newData);
+                                                        }}
+                                                        disabled={isView}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {depositTypes.map(
+                                                                (dt) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            dt.value
+                                                                        }
+                                                                        value={
+                                                                            dt.value
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            dt.label
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {renderError(
+                                                        'deposit_type',
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid gap-2">
+                                                <Label>Deposit Value</Label>
+                                                <div className="relative">
+                                                    <ProperInput
+                                                        value={
+                                                            data.deposit_value ??
+                                                            ''
+                                                        }
+                                                        type="number"
+                                                        inputProps={{
+                                                            step: 'any',
+                                                            min: '0',
+                                                            ...(data.deposit_type ===
+                                                            'percentage'
+                                                                ? {
+                                                                      max: '100',
+                                                                  }
+                                                                : {}),
+                                                        }}
+                                                        placeholder={
+                                                            data.deposit_type ===
+                                                            'percentage'
+                                                                ? 'Enter %'
+                                                                : 'Enter amount'
+                                                        }
+                                                        disabled={isView}
+                                                        onCommit={(v) => {
+                                                            const newData = {
+                                                                ...data,
+                                                                deposit_value:
+                                                                    v,
+                                                            };
+                                                            newData.invoices =
+                                                                buildInvoices(
+                                                                    data.payment_plan ??
+                                                                        'installment',
+                                                                    data.invoices,
+                                                                    data.handover_date ??
+                                                                        undefined,
+                                                                    data.deposit_type,
+                                                                    v,
+                                                                );
+                                                            setData(newData);
+                                                        }}
+                                                    />
+                                                    {renderError(
+                                                        'deposit_value',
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -710,9 +842,6 @@ export default function OrderForm({
                                                         showOptionalColumn={
                                                             false
                                                         }
-                                                        showPlacementFeeColumn={
-                                                            true
-                                                        }
                                                     />
                                                 </>
                                             )}
@@ -847,7 +976,6 @@ export default function OrderForm({
                                                     setData('items', next)
                                                 }
                                                 disabled
-                                                showPlacementFeeColumn
                                             />
                                         </>
                                     )}
@@ -940,7 +1068,6 @@ export default function OrderForm({
                                 currentInvoiceIndex={0}
                                 onChange={() => {}}
                                 onMoveItem={() => {}}
-                                showPlacementFeeColumn={true}
                             />
                         </div>
                     </DialogContent>

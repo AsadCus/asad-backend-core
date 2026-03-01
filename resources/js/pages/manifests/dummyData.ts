@@ -1,4 +1,8 @@
-import { type ManifestSchema, type TravelerSchema, type RoomSchema } from './schema';
+import {
+    type ManifestSchema,
+    type RoomSchema,
+    type TravelerSchema,
+} from './schema';
 
 /**
  * Dummy data untuk testing Manifest Form
@@ -49,8 +53,6 @@ export const dummyManifestData: ManifestSchema = {
     travelers: [
         {
             sn: 1,
-            manifest_id: 1,
-            package_id: 1,
             name_as_per_passport: 'Ahmad Bin Abdullah',
             customer_id: 1001,
             ppt_no: 'A12345678',
@@ -68,7 +70,7 @@ export const dummyManifestData: ManifestSchema = {
             discount: 0,
             date_of_deposit_payment: '2024-01-10',
             deposit_payment: 3500,
-            date_of_second_payment: null,
+            date_of_second_payment: undefined,
             second_payment: 0,
             balance_due: 0,
             is_fully_paid: true,
@@ -77,8 +79,6 @@ export const dummyManifestData: ManifestSchema = {
         },
         {
             sn: 2,
-            manifest_id: 1,
-            package_id: 1,
             name_as_per_passport: 'Siti Binti Abdullah',
             customer_id: 1002,
             ppt_no: 'A87654321',
@@ -96,7 +96,7 @@ export const dummyManifestData: ManifestSchema = {
             discount: 0,
             date_of_deposit_payment: '2024-01-10',
             deposit_payment: 3500,
-            date_of_second_payment: null,
+            date_of_second_payment: undefined,
             second_payment: 0,
             balance_due: 0,
             is_fully_paid: true,
@@ -105,8 +105,6 @@ export const dummyManifestData: ManifestSchema = {
         },
         {
             sn: 3,
-            manifest_id: 1,
-            package_id: 1,
             name_as_per_passport: 'Muhammad Farhan Abdullah',
             customer_id: 1003,
             ppt_no: 'A11223344',
@@ -124,7 +122,7 @@ export const dummyManifestData: ManifestSchema = {
             discount: 0,
             date_of_deposit_payment: '2024-01-15',
             deposit_payment: 2500,
-            date_of_second_payment: null,
+            date_of_second_payment: undefined,
             second_payment: 0,
             balance_due: 700,
             is_fully_paid: false,
@@ -133,8 +131,6 @@ export const dummyManifestData: ManifestSchema = {
         },
         {
             sn: 4,
-            manifest_id: 1,
-            package_id: 1,
             name_as_per_passport: 'Fatimah Binti Ahmad',
             customer_id: 1004,
             ppt_no: 'A55667788',
@@ -152,7 +148,7 @@ export const dummyManifestData: ManifestSchema = {
             discount: 0,
             date_of_deposit_payment: '2024-01-10',
             deposit_payment: 3500,
-            date_of_second_payment: null,
+            date_of_second_payment: undefined,
             second_payment: 0,
             balance_due: 0,
             is_fully_paid: true,
@@ -161,8 +157,6 @@ export const dummyManifestData: ManifestSchema = {
         },
         {
             sn: 5,
-            manifest_id: 1,
-            package_id: 1,
             name_as_per_passport: 'Hassan Bin Ahmad',
             customer_id: 1005,
             ppt_no: 'A99887766',
@@ -180,7 +174,7 @@ export const dummyManifestData: ManifestSchema = {
             discount: 0,
             date_of_deposit_payment: '2024-01-10',
             deposit_payment: 3200,
-            date_of_second_payment: null,
+            date_of_second_payment: undefined,
             second_payment: 0,
             balance_due: 0,
             is_fully_paid: true,
@@ -269,8 +263,6 @@ export const dummyManifestData: ManifestSchema = {
 
 export const dummyTravelerData: TravelerSchema = {
     sn: 6,
-    manifest_id: 1,
-    package_id: 1,
     name_as_per_passport: 'Nurul Asyiqin Binti Hassan',
     customer_id: 1006,
     ppt_no: 'A44556677',
@@ -288,7 +280,7 @@ export const dummyTravelerData: TravelerSchema = {
     discount: 0,
     date_of_deposit_payment: '2024-01-20',
     deposit_payment: 1400,
-    date_of_second_payment: null,
+    date_of_second_payment: undefined,
     second_payment: 0,
     balance_due: 1400,
     is_fully_paid: false,
@@ -319,7 +311,7 @@ export const packageOptions = [
     { value: 4, label: 'Family Umrah Package' },
 ];
 
-export const customerGroupsDummyData = [
+export const customerConfirmationsDummyData = [
     {
         id: 1,
         package_room_type: 'Double',

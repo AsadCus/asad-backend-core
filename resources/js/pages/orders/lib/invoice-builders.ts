@@ -64,80 +64,67 @@ export function buildInvoicesFromItems(
     items: InvoiceItemSchema[],
     totalAmount?: number,
     handoverDate?: string,
+    depositType?: string | null,
+    depositValue?: number | string | null,
 ): InvoiceSchema[] {
     let invoices: InvoiceSchema[] = [];
 
-    if (paymentPlan !== 'installment') {
-        const amount = totalAmount ?? calculateTotal(items);
+    const amount = totalAmount ?? calculateTotal(items);
+
+    if (paymentPlan === 'direct') {
+        invoices = [
+            {
+                _key: nanoid(),
+                description: null,
+                items,
+                amount,
+            },
+        ];
+    } else if (paymentPlan === 'full') {
+        invoices = [
+            {
+                _key: nanoid(),
+                description: 'Invoice For Deposit',
+                items,
+                amount,
+            },
+            {
+                _key: nanoid(),
+                description: 'Invoice For Handover',
+                items: [],
+                amount: 0,
+            },
+        ];
+    } else if (paymentPlan === 'installment') {
+        // Travel flow: deposit + balance based on deposit config
+        let depositAmount = 0;
+        const numericDepositValue = Number(depositValue ?? 0);
+
+        if (depositType === 'percentage' && numericDepositValue > 0) {
+            depositAmount =
+                Math.round(amount * (numericDepositValue / 100) * 100) /
+                100;
+        } else if (depositType === 'fixed' && numericDepositValue > 0) {
+            depositAmount = Math.min(numericDepositValue, amount);
+        }
+
+        const balanceAmount =
+            Math.round((amount - depositAmount) * 100) / 100;
 
         invoices = [
             {
                 _key: nanoid(),
-                description:
-                    paymentPlan === 'direct' ? null : 'Invoice For Deposit',
+                description: 'Invoice For Deposit',
                 items,
-                amount,
+                amount: depositAmount,
             },
-            ...(paymentPlan !== 'direct'
-                ? [
-                      {
-                          _key: nanoid(),
-                          description: 'Invoice For Handover',
-                          items: [],
-                          amount: 0,
-                      },
-                  ]
-                : []),
-        ];
-    } else {
-        // installment logic
-        const depositItems: InvoiceItemSchema[] = [];
-        const handoverItems: InvoiceItemSchema[] = [];
-        const installmentBuckets: InvoiceItemSchema[][] = [];
-
-        items.forEach((item) => {
-            if (!item.is_placement_fee) {
-                depositItems.push(item);
-                return;
-            }
-
-            const split = splitPlacementFeeItem(item);
-
-            handoverItems.push(...split.handover);
-
-            split.installments.forEach((instItem, index) => {
-                if (!installmentBuckets[index]) {
-                    installmentBuckets[index] = [];
-                }
-                installmentBuckets[index].push(instItem);
-            });
-        });
-
-        // deposit
-        invoices.push({
-            _key: nanoid(),
-            description: 'Invoice For Deposit',
-            items: depositItems,
-            amount: calculateTotal(depositItems),
-        });
-
-        // handover
-        invoices.push({
-            _key: nanoid(),
-            description: 'Invoice For Handover',
-            items: handoverItems,
-            amount: calculateTotal(handoverItems),
-        });
-
-        // installments
-        installmentBuckets.forEach((items, index) => {
-            invoices.push({
+            {
                 _key: nanoid(),
-                description: `Invoice For Installment ${index + 1}`,
-                items,
-                amount: calculateTotal(items),
-            });
-        });
+                description: 'Invoice For Balance',
+                items: [],
+                amount: balanceAmount,
+            },
+        ];
     }
 
     if (handoverDate) {
@@ -167,7 +154,6 @@ export function quotationItemsToInvoiceItems(
             : null,
         description: item.description,
         is_header: item.is_header,
-        is_placement_fee: item.is_placement_fee,
         quantity: item.quantity,
         rate: item.rate,
         amount: item.amount,
@@ -184,7 +170,9 @@ export function buildInitialInvoices(
         quotation.payment_plan ?? 'full',
         items,
         Number(quotation.total_amount),
-        quotation.commencement_date ?? undefined,
+        undefined,
+        quotation.deposit_type,
+        quotation.deposit_value,
     );
 }
 
@@ -192,132 +180,17 @@ export function buildInvoices(
     paymentPlan: string,
     previousInvoices: InvoiceSchema[],
     handoverDate?: string,
+    depositType?: string | null,
+    depositValue?: number | string | null,
 ): InvoiceSchema[] {
-    let items = collectAllItems(previousInvoices);
+    const items = collectAllItems(previousInvoices);
 
-    const placementFeeItems = items.filter(
-        (item) => item.is_placement_fee === true && !item.is_header,
+    return buildInvoicesFromItems(
+        paymentPlan,
+        items,
+        undefined,
+        handoverDate,
+        depositType,
+        depositValue,
     );
-
-    const wasInInstallmentMode = placementFeeItems.length > 1;
-
-    if (wasInInstallmentMode && paymentPlan !== 'installment') {
-        items = mergeSplitPlacementFeeItems(items);
-    }
-
-    return buildInvoicesFromItems(paymentPlan, items, undefined, handoverDate);
-}
-
-function cloneItemWithQuantity(
-    item: InvoiceItemSchema,
-    quantity: number,
-): InvoiceItemSchema {
-    return {
-        ...item,
-        _key: nanoid(),
-        quantity,
-        amount: Number(quantity) * Number(item.rate ?? 0),
-    };
-}
-
-function splitPlacementFeeItem(
-    item: InvoiceItemSchema,
-    handoverQty = 2,
-): {
-    handover: InvoiceItemSchema[];
-    installments: InvoiceItemSchema[];
-} {
-    const SCALE = 100;
-
-    const toInt = (v: number) => Math.round(v * SCALE);
-    const fromInt = (v: number) => v / SCALE;
-
-    const totalQtyInt = toInt(Number(item.quantity ?? 0));
-    const handoverQtyInt = toInt(handoverQty);
-
-    if (totalQtyInt <= 0) {
-        return { handover: [], installments: [] };
-    }
-
-    const result = {
-        handover: [] as InvoiceItemSchema[],
-        installments: [] as InvoiceItemSchema[],
-    };
-
-    const handoverInt = Math.min(handoverQtyInt, totalQtyInt);
-    result.handover.push(cloneItemWithQuantity(item, fromInt(handoverInt)));
-
-    let remaining = totalQtyInt - handoverInt;
-
-    while (remaining > 0) {
-        const qtyInt = Math.min(SCALE, remaining);
-        result.installments.push(cloneItemWithQuantity(item, fromInt(qtyInt)));
-        remaining -= qtyInt;
-    }
-
-    return result;
-}
-
-function mergeSplitPlacementFeeItems(
-    items: InvoiceItemSchema[],
-): InvoiceItemSchema[] {
-    const placementFeeItems = items.filter(
-        (item) => item.is_placement_fee === true,
-    );
-
-    if (placementFeeItems.length === 0) {
-        return items;
-    }
-
-    const groups = new Map<string, InvoiceItemSchema[]>();
-
-    placementFeeItems.forEach((item) => {
-        const key = `${item.description || ''}|${item.rate || ''}|${item.is_header || false}`;
-        if (!groups.has(key)) {
-            groups.set(key, []);
-        }
-        groups.get(key)!.push(item);
-    });
-
-    const mergedItems: InvoiceItemSchema[] = [];
-    const seenKeys = new Set<string>();
-
-    for (const groupItems of groups.values()) {
-        if (groupItems.length === 1) {
-            mergedItems.push(...groupItems);
-            seenKeys.add(groupItems[0]._key);
-            continue;
-        }
-
-        const totalQuantity = groupItems.reduce(
-            (sum, item) => sum + Number(item.quantity || 0),
-            0,
-        );
-
-        const templateItem = groupItems[0];
-
-        const mergedItem: InvoiceItemSchema = {
-            ...templateItem,
-            _key: nanoid(),
-            quantity: totalQuantity,
-            amount: totalQuantity * Number(templateItem.rate || 0),
-            parent_id: null,
-            parent_key: null,
-        };
-
-        mergedItems.push(mergedItem);
-
-        groupItems.forEach((item) => seenKeys.add(item._key));
-    }
-
-    return [
-        ...items.filter((item) => !item.is_placement_fee),
-        ...items.filter(
-            (item) =>
-                item.is_placement_fee &&
-                !seenKeys.has(item._key) &&
-                mergedItems.length > 0,
-        ),
-        ...mergedItems,
-    ];
 }

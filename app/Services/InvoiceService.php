@@ -26,6 +26,7 @@ class InvoiceService
     public function getForDataTable(array $filters = [])
     {
         return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy'])
+            ->withCount('receipt')
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('order.quotation.customer', function ($cq) use ($value) {
                     $cq->where('handled_by', $value);
@@ -50,6 +51,7 @@ class InvoiceService
                     'invoice_date' => $i->invoice_date_formatted,
                     'due_date' => $i->due_date_formatted,
                     'status' => $i->status,
+                    'has_receipt' => (int) ($i->receipt_count ?? 0) > 0,
                     'created_at' => $i->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
                 ];
@@ -122,7 +124,6 @@ class InvoiceService
                 'type' => $item->type,
                 'description' => $item->description,
                 'is_header' => $item->is_header,
-                'is_placement_fee' => $item->is_placement_fee,
                 'quantity' => $this->formatService->cleanDecimal($item->quantity),
                 'rate' => $this->formatService->cleanDecimal($item->rate),
                 'sort_order' => $item->sort_order,

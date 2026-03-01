@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
-use App\Services\CustomerGroupService;
+use App\Services\CustomerConfirmationService;
 use App\Services\CustomerService;
 use App\Services\PackageService;
 use App\Services\SalesService;
@@ -34,7 +34,7 @@ class CustomerController extends Controller
 
     protected $userRule;
 
-    protected $customerGroupService;
+    protected $customerConfirmationService;
 
     protected $packageService;
 
@@ -46,7 +46,7 @@ class CustomerController extends Controller
         CountryService $countryService,
         UserService $userService,
         UserRule $userRule,
-        CustomerGroupService $customerGroupService,
+        CustomerConfirmationService $customerConfirmationService,
         PackageService $packageService,
     ) {
         $this->customerService = $customerService;
@@ -56,7 +56,7 @@ class CustomerController extends Controller
         $this->countryService = $countryService;
         $this->userService = $userService;
         $this->userRule = $userRule;
-        $this->customerGroupService = $customerGroupService;
+        $this->customerConfirmationService = $customerConfirmationService;
         $this->packageService = $packageService;
 
         $this->middleware('permission:customer view', ['only' => ['index', 'show']]);

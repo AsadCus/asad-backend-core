@@ -156,7 +156,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
             status_label: string;
         };
         child: Record<string, unknown>;
-        customerGroup: unknown;
+        customerConfirmation: unknown;
     } | null>(null);
 
     // Enquiry Status Action state

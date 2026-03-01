@@ -11,7 +11,6 @@ export const quotationItemSchema = z.object({
     description: z.string().nullable().optional(),
     is_header: z.boolean().nullable().optional(),
     is_optional: z.boolean().nullable().optional(),
-    is_placement_fee: z.boolean().nullable().optional(),
     quantity: z.union([z.string(), z.number()]).nullable().optional(),
     rate: z.union([z.string(), z.number()]).nullable().optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),

@@ -2,20 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use App\Services\OrderService;
-use App\Services\InvoiceService;
-use App\Http\Controllers\Controller;
 use App\Services\CustomerService;
+use App\Services\InvoiceService;
+use App\Services\OrderService;
 use App\Services\QuotationService;
 use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class InvoiceController extends Controller
 {
-    protected $invoiceService, $orderService, $quotationService, $customerService, $salesService;
+    protected $invoiceService;
+
+    protected $orderService;
+
+    protected $quotationService;
+
+    protected $customerService;
+
+    protected $salesService;
 
     public function __construct(InvoiceService $invoiceService, OrderService $orderService, QuotationService $quotationService, CustomerService $customerService, SalesService $salesService)
     {
@@ -54,7 +61,7 @@ class InvoiceController extends Controller
                 'data' => $data,
             ]);
         } else {
-            return redirect()->route('invoice.index')->with('error', 'Select order first to create invoice');
+            return redirect()->route('invoice.index')->with('error', 'Select quotation first to create invoice');
         }
     }
 
@@ -63,6 +70,11 @@ class InvoiceController extends Controller
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
             'description' => 'nullable|string',
+            'amount' => 'required|numeric|min:0',
+            'invoice_date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:invoice_date',
+            'status' => 'nullable|in:draft,issued,paid,overdue,cancelled',
+            'items' => 'nullable|array',
         ]);
 
         $this->invoiceService->store($validated);
@@ -74,7 +86,7 @@ class InvoiceController extends Controller
     public function show($id)
     {
         $data['data'] = $this->invoiceService->getForEditShow($id);
-        $data['order'] = $this->orderService->getForEditShow($data['data']['id']);
+        $data['order'] = $this->orderService->getForEditShow($data['data']['order_id']);
         $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
 
         return Inertia::render('invoices/view', [
@@ -90,7 +102,7 @@ class InvoiceController extends Controller
     public function edit($id)
     {
         $data['data'] = $this->invoiceService->getForEditShow($id);
-        $data['order'] = $this->orderService->getForEditShow($data['data']['id']);
+        $data['order'] = $this->orderService->getForEditShow($data['data']['order_id']);
         $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
 
         return Inertia::render('invoices/edit', [
@@ -103,6 +115,11 @@ class InvoiceController extends Controller
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
             'description' => 'nullable|string',
+            'amount' => 'required|numeric|min:0',
+            'invoice_date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:invoice_date',
+            'status' => 'nullable|in:draft,issued,paid,overdue,cancelled',
+            'items' => 'nullable|array',
         ]);
 
         $this->invoiceService->update($validated, $id);
@@ -119,6 +136,7 @@ class InvoiceController extends Controller
             foreach ($ids as $deleteId) {
                 $this->invoiceService->delete($deleteId);
             }
+
             return redirect()->route('invoice.index')
                 ->with('success', 'Selected invoices deleted successfully.');
         }
@@ -148,10 +166,11 @@ class InvoiceController extends Controller
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96);
 
-            return $pdf->stream($invoice['invoice_number'] . '.pdf');
+            return $pdf->stream($invoice['invoice_number'].'.pdf');
         } catch (\Exception $e) {
-            Log::error('Invoice PDF Generation Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+            Log::error('Invoice PDF Generation Error: '.$e->getMessage());
+
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 }

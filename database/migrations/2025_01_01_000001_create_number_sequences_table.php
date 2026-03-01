@@ -14,7 +14,7 @@ return new class extends Migration
             $table->integer('year');
             $table->integer('current_number')->default(0);
             $table->timestamps();
-            
+
             $table->unique(['type', 'year']);
         });
     }

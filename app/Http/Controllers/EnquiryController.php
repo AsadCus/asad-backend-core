@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Rules\CustomerGroupRule;
+use App\Rules\CustomerConfirmationRule;
 use App\Rules\PackageRule;
-use App\Services\CustomerGroupService;
+use App\Services\CustomerConfirmationService;
 use App\Services\EnquiryService;
 use App\Services\PackageService;
 use Illuminate\Http\Request;
@@ -15,8 +15,8 @@ class EnquiryController extends Controller
 {
     public function __construct(
         protected EnquiryService $enquiryService,
-        protected CustomerGroupService $customerGroupService,
-        protected CustomerGroupRule $customerGroupRule,
+        protected CustomerConfirmationService $customerConfirmationService,
+        protected CustomerConfirmationRule $customerConfirmationRule,
         protected PackageService $packageService,
     ) {}
 
@@ -58,8 +58,8 @@ class EnquiryController extends Controller
                 'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
             ],
             'child' => $child,
-            'customerGroup' => $enquiry->customerGroup
-                ? $this->customerGroupService->getByEnquiryId($enquiry->id)
+            'customerConfirmation' => $enquiry->customerConfirmation
+                ? $this->customerConfirmationService->getByEnquiryId($enquiry->id)
                 : null,
         ]);
     }
@@ -89,7 +89,7 @@ class EnquiryController extends Controller
 
         // Build validation rules — include package_data.* when present
         $rules = array_merge(
-            $this->customerGroupRule->rules(),
+            $this->customerConfirmationRule->rules(),
             ['terms_accepted' => ['sometimes', 'accepted']],
         );
 
@@ -122,29 +122,29 @@ class EnquiryController extends Controller
                 $this->enquiryService->updatePackage((int) $id, $package->id);
             }
 
-            // Create the customer group
-            $this->customerGroupService->createGroup($validated);
+            // Create the customer confirmation
+            $this->customerConfirmationService->createGroup($validated);
 
-            return back()->with('success', 'Customer group created and enquiry confirmed successfully.');
+            return back()->with('success', 'Customer confirmation created and enquiry confirmed successfully.');
         });
     }
 
     /**
-     * Create a customer group (standalone or linked to an enquiry).
+     * Create a customer confirmation (standalone or linked to an enquiry).
      */
-    public function createCustomerGroup(Request $request)
+    public function createCustomerConfirmation(Request $request)
     {
         $validated = $request->validate(array_merge(
-            $this->customerGroupRule->rules(requireEnquiry: false),
+            $this->customerConfirmationRule->rules(requireEnquiry: false),
             [
                 'terms_accepted' => ['sometimes', 'accepted'],
                 'enquiry_id' => ['nullable', 'integer', 'exists:enquiries,id'],
             ],
         ));
 
-        $this->customerGroupService->createGroup($validated);
+        $this->customerConfirmationService->createGroup($validated);
 
-        return back()->with('success', 'Customer group created successfully.');
+        return back()->with('success', 'Customer confirmation created successfully.');
     }
 
     /**
@@ -169,7 +169,7 @@ class EnquiryController extends Controller
         $query = $request->input('q', '');
 
         return response()->json(
-            $this->customerGroupService->searchCustomers($query)
+            $this->customerConfirmationService->searchCustomers($query)
         );
     }
 
@@ -205,7 +205,7 @@ class EnquiryController extends Controller
     public function listCustomers()
     {
         return response()->json(
-            $this->customerGroupService->listActiveCustomers()
+            $this->customerConfirmationService->listActiveCustomers()
         );
     }
 }

@@ -88,7 +88,6 @@ interface QuotationItemTableFormProps<T extends QuotationItemSchema> {
         itemKeys: string[],
     ) => void;
     showOptionalColumn?: boolean;
-    showPlacementFeeColumn?: boolean;
 }
 
 export default function QuotationItemTableForm<T extends QuotationItemSchema>({
@@ -102,7 +101,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     currentInvoiceIndex,
     onMoveItem,
     showOptionalColumn = false,
-    showPlacementFeeColumn = false,
 }: QuotationItemTableFormProps<T>) {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -122,15 +120,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     const computeItemAmount = (item: T) => {
         if (item.is_header) return 0;
 
-        const salary = Number(quotation?.monthly_salary ?? item.rate ?? 0);
-        const loanDuration = Number(
-            quotation?.loan_duration ?? item.quantity ?? 0,
-        );
-
-        if (item.is_placement_fee) {
-            return salary * loanDuration;
-        }
-
         const quantity = Number(item.quantity ?? 0);
         const rate = Number(item.rate ?? 0);
 
@@ -139,56 +128,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
     const normalizeSortOrder = (list: T[]) =>
         list.map((item, i) => ({ ...item, sort_order: i + 1 })) as T[];
-
-    // Handle upfront item for quotation
-    useEffect(() => {
-        if (!quotation) return;
-
-        const salary = Number(quotation.monthly_salary);
-        const loan = Number(quotation.loan_duration);
-
-        if (Number.isNaN(salary) || Number.isNaN(loan)) return;
-
-        const existingIndex = items.findIndex(
-            (i) => i.is_placement_fee === true,
-        );
-
-        if (existingIndex !== -1) {
-            const updatedItem = { ...items[existingIndex] };
-            let changed = false;
-
-            if (Number(updatedItem.rate) !== salary) {
-                updatedItem.rate = String(salary);
-                changed = true;
-            }
-
-            if (Number(updatedItem.quantity) !== loan) {
-                updatedItem.quantity = loan;
-                changed = true;
-            }
-
-            if (changed) {
-                const next = [...items];
-                next[existingIndex] = updatedItem;
-                onChange(next);
-            }
-        } else {
-            const newItem = {
-                _key: `upfront-${nanoid()}`,
-                id: undefined,
-                description: 'Placement Fee',
-                quantity: loan,
-                rate: String(salary),
-                amount: String(salary * loan),
-                is_header: false,
-                is_placement_fee: true,
-                is_optional: false,
-                parent_id: null,
-                sort_order: items.length + 1,
-            } as T;
-            onChange([...items, newItem]);
-        }
-    }, [quotation, items, onChange, showOptionalColumn]);
 
     // Actions
     const addItem = () => {
@@ -207,15 +146,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
         const newItem = showOptionalColumn
             ? { ...baseNewItem, is_optional: false, parent_key: null }
-            : showPlacementFeeColumn
-              ? {
-                    ...baseNewItem,
-                    is_placement_fee: false,
-                    parent_key: null,
-                    invoice_key: null,
-                    invoice_id: undefined,
-                }
-              : baseNewItem;
+            : baseNewItem;
 
         onChange(normalizeSortOrder([...items, newItem as T]));
     };
@@ -261,14 +192,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
         const child = showOptionalColumn
             ? { ...baseChild, is_optional: false }
-            : showPlacementFeeColumn
-              ? {
-                    ...baseChild,
-                    is_placement_fee: false,
-                    invoice_key: null,
-                    invoice_id: undefined,
-                }
-              : baseChild;
+            : baseChild;
 
         const next = [...items];
         next.splice(index + 1, 0, child as T);
@@ -539,8 +463,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             quantity: payload.item.quantity,
                                             rate: payload.item.rate,
                                             is_header: payload.item.is_header,
-                                            is_placement_fee:
-                                                payload.item.is_placement_fee,
                                             id: payload.item.id,
                                         } as Partial<T>);
                                         return;
@@ -576,9 +498,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                       is_optional:
                                                           payload.parent
                                                               .is_optional,
-                                                      is_placement_fee:
-                                                          payload.parent
-                                                              .is_placement_fee,
                                                   } as T)
                                                 : i,
                                         );
@@ -599,8 +518,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                 is_header: false,
                                                 is_optional:
                                                     payload.parent.is_optional,
-                                                is_placement_fee:
-                                                    child.is_placement_fee,
                                                 sort_order: 0,
                                             }),
                                         ) as T[];
@@ -669,33 +586,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                   onCheckedChange={(v) =>
                                       updateItemByKey(item._key, {
                                           is_optional: Boolean(v),
-                                      } as Partial<T>)
-                                  }
-                              />
-                          );
-                      },
-                  },
-              ]
-            : []),
-        ...(showPlacementFeeColumn
-            ? [
-                  {
-                      id: 'is_placement_fee',
-                      header: 'Fee',
-                      meta: { className: 'sm:table-cell' },
-                      cell: ({
-                          row,
-                      }: {
-                          row: { original: VisibleItem<T> };
-                      }) => {
-                          const { item } = row.original;
-                          return (
-                              <Checkbox
-                                  checked={item.is_placement_fee ?? false}
-                                  disabled={disabled}
-                                  onCheckedChange={(v) =>
-                                      updateItemByKey(item._key, {
-                                          is_placement_fee: Boolean(v),
                                       } as Partial<T>)
                                   }
                               />

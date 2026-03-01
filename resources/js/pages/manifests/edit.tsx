@@ -3,10 +3,9 @@ import { index } from '@/routes/manifests';
 import { type BreadcrumbItem, type ValueNumberOptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
-import ManifestForm from './form';
-import { type ManifestSchema } from './schema';
+import ManifestForm, { type ManifestFormData } from './form';
 
-interface CustomerGroupData {
+interface CustomerConfirmationData {
     id: number;
     enquiry_id: number;
     enquiry_type: string;
@@ -39,9 +38,9 @@ interface CustomerMemberData {
 }
 
 interface EditManifestProps {
-    data: ManifestSchema;
+    data: ManifestFormData;
     dataPackage: ValueNumberOptionType[];
-    customerGroups?: CustomerGroupData[];
+    customerConfirmations?: CustomerConfirmationData[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -54,7 +53,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function EditManifest({
     data,
     dataPackage,
-    customerGroups = [],
+    customerConfirmations = [],
 }: EditManifestProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -73,7 +72,7 @@ export default function EditManifest({
                         mode="edit"
                         initialData={data}
                         dataPackage={dataPackage}
-                        customerGroups={customerGroups}
+                        customerConfirmations={customerConfirmations}
                         onCancel={handleCancel}
                     />
                 </div>

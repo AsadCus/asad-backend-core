@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 import { OptionType } from '@/types';
 import { CheckIcon, ChevronDown, X } from 'lucide-react';
 import * as React from 'react';
-import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 
 interface ProperInputSelectProps {
@@ -26,6 +25,8 @@ interface ProperInputSelectProps {
     disabled?: boolean;
     className?: string;
     truncate?: number;
+    searchable?: boolean;
+    autoCloseOnSelect?: boolean;
 }
 
 export function ProperInputSelect({
@@ -36,26 +37,25 @@ export function ProperInputSelect({
     disabled = false,
     className,
     truncate = 100,
+    searchable = true,
+    autoCloseOnSelect = true,
 }: ProperInputSelectProps) {
-    const [selectedValue, setSelectedValue] = React.useState<string | number>(
-        value,
-    );
     const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 
+    const selectedValue = value ?? '';
     const selected = options.find(
-        (option) => String(option.value) === String(value),
+        (option) => String(option.value) === String(selectedValue),
     );
 
     const onOptionSelect = (option: string) => {
-        setSelectedValue(option);
         onValueChange?.(option);
-        // setIsPopoverOpen(false);
+        if (autoCloseOnSelect) {
+            setIsPopoverOpen(false);
+        }
     };
 
     const onClearAllOptions = () => {
-        setSelectedValue('');
         onValueChange?.('');
-        // setIsPopoverOpen(false);
     };
 
     const truncateLabel = (label: string, maxLength: number): string => {
@@ -71,28 +71,28 @@ export function ProperInputSelect({
     return (
         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
-                <Button
+                <button
+                    type="button"
                     onClick={() => setIsPopoverOpen((prev) => !prev)}
-                    variant="outline"
                     role="combobox"
                     disabled={disabled}
                     aria-expanded={isPopoverOpen}
+                    data-placeholder={!selected ? '' : undefined}
                     className={cn(
-                        'w-full justify-between bg-transparent px-3 py-1 [&_svg]:pointer-events-auto',
-                        !selected && 'text-muted-foreground',
+                        "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-base whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:ring-destructive/40 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
                         className,
                     )}
                 >
-                    {selectedValue ? (
-                        <div className="flex w-full items-center justify-between">
-                            <div className="flex items-center text-foreground">
+                    {selected ? (
+                        <div className="flex w-full items-center gap-2">
+                            <span className="line-clamp-1 flex-1 text-left">
                                 {displayLabel}
-                            </div>
-                            <div className="flex items-center justify-between">
+                            </span>
+                            <div className="flex items-center gap-1">
                                 {selectedValue && (
                                     <>
                                         <X
-                                            className="cursor-pointer text-muted-foreground"
+                                            className="size-4 cursor-pointer text-muted-foreground"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onClearAllOptions();
@@ -104,52 +104,53 @@ export function ProperInputSelect({
                                         />
                                     </>
                                 )}
-                                <ChevronDown className="cursor-pointer text-muted-foreground" />
+                                <ChevronDown className="size-4 opacity-50" />
                             </div>
                         </div>
                     ) : (
-                        <div className="mx-auto flex w-full items-center justify-between">
-                            <span className="text-base text-muted-foreground">
+                        <div className="flex w-full items-center justify-between gap-2">
+                            <span className="line-clamp-1 text-left text-muted-foreground">
                                 {placeholder}
                             </span>
-                            <ChevronDown className="cursor-pointer text-muted-foreground" />
+                            <ChevronDown className="size-4 opacity-50" />
                         </div>
                     )}
-                </Button>
+                </button>
             </PopoverTrigger>
             <PopoverContent
                 className={cn(
-                    'w-full max-w-[var(--radix-popover-trigger-width)] p-0',
+                    'relative z-50 max-h-96 w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-md border bg-popover p-0 text-popover-foreground shadow-md',
                     className,
                 )}
                 align="start"
             >
                 <Command>
-                    <CommandInput placeholder="Search..." />
-                    <CommandList className="max-h-[unset] overflow-y-hidden">
-                        <CommandGroup className="max-h-[16rem] overflow-y-auto">
+                    {searchable && <CommandInput placeholder="Search..." />}
+                    <CommandList className="max-h-96">
+                        <CommandGroup className="max-h-80 overflow-y-auto p-1">
                             {options.map((option) => {
                                 const isSelected =
-                                    selectedValue === option.value;
+                                    String(selectedValue) ===
+                                    String(option.value);
                                 return (
                                     <CommandItem
                                         key={option.value}
                                         onSelect={() =>
                                             onOptionSelect(option.value)
                                         }
-                                        className="cursor-pointer"
+                                        className="relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-base outline-hidden select-none focus:bg-accent focus:text-accent-foreground"
                                     >
-                                        <div
+                                        <span className="line-clamp-1">
+                                            {option.label}
+                                        </span>
+                                        <span
                                             className={cn(
-                                                'mr-1 flex h-4 w-4 items-center justify-center',
-                                                isSelected
-                                                    ? 'text-primary'
-                                                    : 'invisible',
+                                                'absolute right-2 flex size-3.5 items-center justify-center',
+                                                !isSelected && 'invisible',
                                             )}
                                         >
-                                            <CheckIcon className="h-4 w-4" />
-                                        </div>
-                                        <span>{option.label}</span>
+                                            <CheckIcon className="size-4" />
+                                        </span>
                                     </CommandItem>
                                 );
                             })}

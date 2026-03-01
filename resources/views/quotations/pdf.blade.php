@@ -273,27 +273,14 @@
                             $indentClass = 'sub-item';
                         }
 
-                        $isPlacement = !empty($item['is_placement_fee']);
-
                         $amount = null;
                         if (empty($item['is_header'])) {
-                            $amount = $isPlacement
-                                ? (float) ($data['monthly_salary'] ?? 0) * (float) ($data['loan_duration'] ?? 0)
-                                : (float) ($item['quantity'] ?? 0) * (float) ($item['rate'] ?? 0);
+                            $amount = (float) ($item['quantity'] ?? 0) * (float) ($item['rate'] ?? 0);
 
                             $subtotal += $amount;
                         }
 
                         $description = $item['description'];
-
-                        if ($isPlacement && !empty($data['monthly_salary']) && !empty($data['loan_duration'])) {
-                            $description .=
-                                ' - $' .
-                                number_format($data['monthly_salary'], 0) .
-                                ' x ' .
-                                $data['loan_duration'] .
-                                ' month(s)';
-                        }
                     @endphp
 
                     @if (!empty($item['is_header']))

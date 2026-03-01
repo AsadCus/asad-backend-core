@@ -333,12 +333,6 @@
 
                 // Build description
                 $descriptionText = e($item['description']);
-                $isUpfrontPlacement = !empty($item['is_placement_fee']);
-
-                if ($isUpfrontPlacement && !empty($item['rate']) && !empty($item['quantity'])) {
-                    $descriptionText .=
-                        ' - $' . number_format($item['rate'], 0) . ' x ' . $item['quantity'] . ' month(s)';
-                }
 
                 // Check if this item has children
                 $children = collect($allItems)

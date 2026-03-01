@@ -8,6 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
     destroy as destroyReceipt,
+    edit as editReceipt,
     getForShow as getReceiptForShow,
     index as receiptIndex,
 } from '@/routes/receipt';
@@ -130,6 +131,10 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
 
     const actions: ActionType[] = [];
 
+    if (userPermissions.includes('receipt edit')) {
+        actions.push('edit');
+    }
+
     if (userPermissions.includes('receipt view')) {
         actions.push('preview');
         actions.push('download');
@@ -194,6 +199,8 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
 
                                 if (action === 'preview') {
                                     handlePreview(receipt);
+                                } else if (action === 'edit') {
+                                    router.get(editReceipt(receiptId).url);
                                 } else if (action === 'download') {
                                     (async () => {
                                         try {

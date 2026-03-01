@@ -299,14 +299,9 @@ class QuotationController extends Controller
 
             $data['payment_plan_label'] = $paymentPlanLabel;
 
-            $items = $this->mergePlacementFeeItemsForPdf(
-                $data['items'] ?? [],
-                $data
-            );
-
             $html = view('quotations.pdf', [
                 'data' => $data,
-                'items' => $this->sortForPdf($items),
+                'items' => $this->sortForPdf($data['items'] ?? []),
             ])->render();
 
             return Pdf::loadHTML($html)
@@ -320,39 +315,6 @@ class QuotationController extends Controller
 
             return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
-    }
-
-    private function mergePlacementFeeItemsForPdf(array $items, array $data): array
-    {
-        $items = collect($items)->sortBy('sort_order')->values();
-
-        $placement = $items->filter(
-            fn ($i) => ! empty($i['is_placement_fee'])
-        );
-
-        if ($placement->isEmpty()) {
-            return $items->all();
-        }
-
-        $totalQty = $placement->sum(fn ($i) => (float) $i['quantity']);
-        $rate = (float) ($data['monthly_salary'] ?? 0);
-        $baseSort = $placement->first()['sort_order'];
-
-        $filtered = $items->reject(fn ($i) => ! empty($i['is_placement_fee']));
-
-        $mergedPlacement = [
-            ...$placement->first(),
-            'description' => 'Placement Fee',
-            'quantity' => $totalQty,
-            'rate' => $rate,
-            'parent_id' => null,
-            'parent_key' => null,
-            'is_header' => false,
-            'is_placement_fee' => true,
-            'sort_order' => $baseSort,
-        ];
-
-        return $filtered->push($mergedPlacement)->sortBy('sort_order')->values()->all();
     }
 
     private function sortForPdf(array $items): array

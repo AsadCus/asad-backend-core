@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ManifestTraveler extends Model
 {
@@ -24,6 +25,9 @@ class ManifestTraveler extends Model
         'total_cost',
         'total_paid',
         'outstanding_amount',
+        'customer_id',
+        'customer_confirmation_member_id',
+        'status',
     ];
 
     protected $casts = [
@@ -33,6 +37,7 @@ class ManifestTraveler extends Model
         'total_cost' => 'decimal:2',
         'total_paid' => 'decimal:2',
         'outstanding_amount' => 'decimal:2',
+        'status' => 'string',
     ];
 
     public function getDateOfBirthFormattedAttribute(): ?string
@@ -43,5 +48,30 @@ class ManifestTraveler extends Model
     public function manifest(): BelongsTo
     {
         return $this->belongsTo(Manifest::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function confirmationMember(): BelongsTo
+    {
+        return $this->belongsTo(CustomerConfirmationMember::class, 'customer_confirmation_member_id');
+    }
+
+    public function roomMembers(): HasMany
+    {
+        return $this->hasMany(ManifestRoomMember::class, 'manifest_traveler_id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(ManifestPayment::class, 'manifest_traveler_id');
+    }
+
+    public function accommodationAssignments(): HasMany
+    {
+        return $this->hasMany(ManifestAccommodationAssignment::class, 'manifest_traveler_id');
     }
 }

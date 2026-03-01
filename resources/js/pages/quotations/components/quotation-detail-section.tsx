@@ -1,6 +1,5 @@
 import { FieldRequirements } from '@/components/field-requirements';
 import { FormSection } from '@/components/form-section';
-import { MultiSelect } from '@/components/multi-select';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -16,7 +15,11 @@ import React from 'react';
 import { ProperInput } from '../../../components/proper-input';
 import QuotationItemTableForm from '../items/form';
 import { QuotationItemSchema } from '../items/schema';
-import { QuotationSchema, SetDataFn, daysOfWeek } from '../schema';
+import {
+    QuotationSchema,
+    SetDataFn,
+    depositTypes,
+} from '../schema';
 
 interface Props {
     data: QuotationSchema;
@@ -43,43 +46,6 @@ export default function QuotationDetailSection({
     quotationNotes = [],
     status,
 }: Props) {
-    const handleLoanDuration = (value: string) => {
-        setData('loan_duration', value);
-        if (value && data.monthly_salary) {
-            const loan = parseFloat(value);
-            const salary = parseFloat(String(data.monthly_salary));
-            if (!isNaN(loan) && !isNaN(salary)) {
-                setData('cost_of_maid', String(loan * salary));
-            }
-        } else {
-            setData('cost_of_maid', '');
-        }
-    };
-
-    const handleMonthlySalaryChange = (value: string) => {
-        setData('monthly_salary', value);
-
-        if (value && data.loan_duration) {
-            const salary = parseFloat(value);
-            const loan = parseFloat(String(data.loan_duration));
-            if (!isNaN(salary) && !isNaN(loan)) {
-                setData('cost_of_maid', String(loan * salary));
-            }
-        } else {
-            setData('cost_of_maid', '');
-        }
-
-        if (value) {
-            const salary = parseFloat(value);
-            if (!isNaN(salary) && salary > 0) {
-                const compensation = salary / 20;
-                setData('compensation_off_in_lieu', compensation);
-            }
-        } else {
-            setData('compensation_off_in_lieu', '');
-        }
-    };
-
     return (
         <FormSection
             value="maid_and_quotation_details"
@@ -112,124 +78,6 @@ export default function QuotationDetailSection({
                                     onCommit={(v) => setData('description', v)}
                                 />
                                 {renderError('description')}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                            {/* Monthly Salary */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="monthly_salary">
-                                    Monthly Salary{' '}
-                                    <FieldRequirements
-                                        required
-                                        hint="Monthly salary amount"
-                                        format="Numeric amount"
-                                        example="600, 800, 1500.5"
-                                    />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="monthly_salary"
-                                        value={data.monthly_salary ?? ''}
-                                        type="number"
-                                        inputProps={{ step: 'any', min: '0' }}
-                                        placeholder="Enter amount"
-                                        disabled={isView}
-                                        onCommit={(v) =>
-                                            handleMonthlySalaryChange(v)
-                                        }
-                                    />
-                                    {renderError('monthly_salary')}
-                                </div>
-                            </div>
-
-                            {/* Loan Duration */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="loan_duration">
-                                    Loan Duration (Months){' '}
-                                    <FieldRequirements
-                                        required
-                                        hint="Number of months for the placement loan"
-                                        format="Decimal number"
-                                        example="6, 12.5, 18"
-                                    />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="loan_duration"
-                                        value={data.loan_duration ?? ''}
-                                        type="number"
-                                        inputProps={{ step: 'any', min: '0' }}
-                                        placeholder="Enter months"
-                                        disabled={isView}
-                                        onCommit={(v) => handleLoanDuration(v)}
-                                    />
-                                    {renderError('loan_duration')}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                            {/* Rest Days Per Month */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="rest_days_per_month">
-                                    Rest Days per Month
-                                    <FieldRequirements
-                                        required
-                                        hint="Number of rest days preferred per month. (min 0, max 6)"
-                                        example="4"
-                                    />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="rest_days_per_month"
-                                        value={data.rest_days_per_month ?? ''}
-                                        type="number"
-                                        inputProps={{
-                                            step: 'any',
-                                            min: '0',
-                                            max: '6',
-                                        }}
-                                        placeholder="Enter amount"
-                                        disabled={isView}
-                                        onCommit={(v) =>
-                                            setData('rest_days_per_month', v)
-                                        }
-                                    />
-                                    {renderError('rest_days_per_month')}
-                                </div>
-                            </div>
-
-                            {/* Compensation Off In Lieu */}
-                            <div className="grid w-full items-center gap-3">
-                                <Label htmlFor="compensation_off_in_lieu">
-                                    Compensation Off in Lieu
-                                    <FieldRequirements
-                                        required
-                                        hint="Amount paid for each off day worked (e.g. Sunday or public holiday). Auto-calculated as Monthly Salary ÷ 20"
-                                        format="Numeric amount"
-                                        example="20, 36.5"
-                                    />
-                                </Label>
-                                <div className="relative">
-                                    <ProperInput
-                                        id="compensation_off_in_lieu"
-                                        value={
-                                            data.compensation_off_in_lieu ?? ''
-                                        }
-                                        type="number"
-                                        inputProps={{ step: 'any', min: '0' }}
-                                        placeholder="Auto-calculated from salary"
-                                        disabled={isView}
-                                        onCommit={(v) =>
-                                            setData(
-                                                'compensation_off_in_lieu',
-                                                v,
-                                            )
-                                        }
-                                    />
-                                    {renderError('compensation_off_in_lieu')}
-                                </div>
                             </div>
                         </div>
                     </section>
@@ -270,6 +118,94 @@ export default function QuotationDetailSection({
                             </div>
                         </div>
 
+                        {/* Deposit Config (shown for installment) */}
+                        {data.payment_plan === 'installment' && (
+                            <>
+                                <div className="grid w-full items-center gap-3">
+                                    <Label>
+                                        Deposit Type
+                                        <FieldRequirements
+                                            required
+                                            hint="Choose percentage or fixed amount"
+                                        />
+                                    </Label>
+                                    <div className="relative">
+                                        <Select
+                                            disabled={isView}
+                                            value={String(
+                                                data.deposit_type ?? '',
+                                            )}
+                                            onValueChange={(value) =>
+                                                setData('deposit_type', value)
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {depositTypes.map((dt) => (
+                                                    <SelectItem
+                                                        key={dt.value}
+                                                        value={dt.value}
+                                                    >
+                                                        {dt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {renderError('deposit_type')}
+                                    </div>
+                                </div>
+
+                                <div className="grid w-full items-center gap-3">
+                                    <Label htmlFor="deposit_value">
+                                        Deposit Value
+                                        <FieldRequirements
+                                            required
+                                            hint={
+                                                data.deposit_type ===
+                                                'percentage'
+                                                    ? 'Enter percentage (1-100)'
+                                                    : 'Enter deposit amount'
+                                            }
+                                            example={
+                                                data.deposit_type ===
+                                                'percentage'
+                                                    ? '30, 50'
+                                                    : '500, 1000'
+                                            }
+                                        />
+                                    </Label>
+                                    <div className="relative">
+                                        <ProperInput
+                                            id="deposit_value"
+                                            value={data.deposit_value ?? ''}
+                                            type="number"
+                                            inputProps={{
+                                                step: 'any',
+                                                min: '0',
+                                                ...(data.deposit_type ===
+                                                'percentage'
+                                                    ? { max: '100' }
+                                                    : {}),
+                                            }}
+                                            placeholder={
+                                                data.deposit_type ===
+                                                'percentage'
+                                                    ? 'Enter %'
+                                                    : 'Enter amount'
+                                            }
+                                            disabled={isView}
+                                            onCommit={(v) =>
+                                                setData('deposit_value', v)
+                                            }
+                                        />
+                                        {renderError('deposit_value')}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
                         {/* Payment Method */}
                         <div className="grid w-full items-center gap-3">
                             <Label>
@@ -305,34 +241,6 @@ export default function QuotationDetailSection({
                             </div>
                         </div>
 
-                        {/* Rest Day of the Week */}
-                        <div className="grid w-full items-center gap-3">
-                            <Label>
-                                Rest Day of the Week{' '}
-                                <FieldRequirements
-                                    required
-                                    hint="Rest day preferred"
-                                    example="Weekend"
-                                />
-                            </Label>
-                            <div className="relative">
-                                <MultiSelect
-                                    disabled={isView}
-                                    options={daysOfWeek}
-                                    placeholder="Select day(s)"
-                                    defaultValue={data.rest_day_of_the_week}
-                                    onValueChange={(value) => {
-                                        return setData(
-                                            'rest_day_of_the_week',
-                                            value,
-                                        );
-                                    }}
-                                    responsive={true}
-                                    minWidth="0px"
-                                />
-                                {renderError('rest_day_of_the_week')}
-                            </div>
-                        </div>
                     </section>
                 </div>
 
@@ -348,7 +256,6 @@ export default function QuotationDetailSection({
                         renderError={renderError}
                         disabled={isView}
                         showOptionalColumn={false}
-                        showPlacementFeeColumn={true}
                     />
                 </div>
 

@@ -31,9 +31,6 @@ return new class extends Migration
             $table->text('chronic_disease_details')->nullable();
             $table->string('passport_path')->nullable();
             $table->string('photo_path')->nullable();
-            $table->string('age_preferences')->nullable();
-            $table->string('country_preferences')->nullable();
-            $table->string('experience_preferences')->nullable();
             $table->foreignId('branch_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignId('handled_by')->nullable()->constrained('users')->cascadeOnDelete();
             $table->timestamp('last_login')->nullable();

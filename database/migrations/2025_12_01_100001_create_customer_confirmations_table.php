@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customer_groups', function (Blueprint $table) {
+        Schema::create('customer_confirmations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('enquiry_id')->nullable()->constrained('enquiries')->cascadeOnDelete();
             $table->foreignId('package_id')->nullable()->constrained('packages')->nullOnDelete();
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('customer_groups');
+        Schema::dropIfExists('customer_confirmations');
     }
 };

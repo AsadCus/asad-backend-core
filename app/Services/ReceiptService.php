@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Helpers\FormatService;
+use App\Models\Invoice;
 use App\Models\Receipt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ReceiptService
 {
@@ -60,22 +62,26 @@ class ReceiptService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
+            $invoice = Invoice::query()->findOrFail((int) $data['invoice_id']);
+
+            $alreadyHasReceipt = Receipt::query()
+                ->where('invoice_id', $invoice->id)
+                ->exists();
+
+            if ($alreadyHasReceipt) {
+                throw ValidationException::withMessages([
+                    'invoice_id' => 'A receipt already exists for this invoice.',
+                ]);
+            }
+
             $receipt = Receipt::create([
-                'invoice_id' => $data['invoice_id'],
-                'amount' => $this->formatService->cleanDecimal($data['amount']),
+                'invoice_id' => $invoice->id,
+                'amount' => $this->formatService->cleanDecimal((string) $invoice->amount),
                 'receipt_date' => $data['receipt_date'],
                 'payment_method' => $data['payment_method'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
             ]);
-
-            $invoice = $receipt->invoice()->with(['order.quotation.customer'])->first();
-
-            if ($invoice->outstanding_amount <= 0) {
-                $invoice->update(['status' => 'paid']);
-            } else {
-                $invoice->update(['status' => 'partial']);
-            }
 
             return $receipt;
         });
@@ -110,7 +116,6 @@ class ReceiptService
                 'type' => $item->type,
                 'description' => $item->description,
                 'is_header' => $item->is_header,
-                'is_placement_fee' => $item->is_placement_fee,
                 'quantity' => $this->formatService->cleanDecimal($item->quantity),
                 'rate' => $this->formatService->cleanDecimal($item->rate),
                 'sort_order' => $item->sort_order,
@@ -123,22 +128,36 @@ class ReceiptService
         return DB::transaction(function () use ($data, $id) {
             $receipt = Receipt::findOrFail($id);
 
+            $targetInvoiceId = array_key_exists('invoice_id', $data) && $data['invoice_id'] !== null
+                ? (int) $data['invoice_id']
+                : (int) $receipt->invoice_id;
+
+            if ($targetInvoiceId !== (int) $receipt->invoice_id) {
+                $alreadyHasReceipt = Receipt::query()
+                    ->where('invoice_id', $targetInvoiceId)
+                    ->where('id', '!=', $receipt->id)
+                    ->exists();
+
+                if ($alreadyHasReceipt) {
+                    throw ValidationException::withMessages([
+                        'invoice_id' => 'A receipt already exists for this invoice.',
+                    ]);
+                }
+            }
+
+            $amount = $receipt->amount;
+            if (array_key_exists('amount', $data) && $data['amount'] !== null) {
+                $amount = $this->formatService->cleanDecimal($data['amount']);
+            }
+
             $receipt->update([
-                'invoice_id' => $data['invoice_id'],
-                'amount' => $this->formatService->cleanDecimal($data['amount']),
+                'invoice_id' => $targetInvoiceId,
+                'amount' => $amount,
                 'receipt_date' => $data['receipt_date'],
                 'payment_method' => $data['payment_method'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
             ]);
-
-            $invoice = $receipt->invoice()->with(['order.quotation.customer'])->first();
-
-            if ($invoice->outstanding_amount <= 0) {
-                $invoice->update(['status' => 'paid']);
-            } else {
-                $invoice->update(['status' => 'partial']);
-            }
 
             return $receipt;
         });

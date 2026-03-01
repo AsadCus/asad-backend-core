@@ -117,14 +117,14 @@ class ScheduleController extends Controller
 
             'customer_name' => $quotation->customer->user->name,
 
-            'monthly_salary' => $this->formatService->cleanDecimal($quotation->monthly_salary),
-            'loan_amount' => $this->formatService->cleanDecimal($quotation->total_placement_fee),
-            'loan_duration_months' => $this->formatService->cleanDecimal($quotation->total_placement_quantity),
-            'monthly_loan_payment' => $this->formatService->cleanDecimal($quotation->monthly_placement_fee),
+            'monthly_salary' => 0,
+            'loan_amount' => 0,
+            'loan_duration_months' => 0,
+            'monthly_loan_payment' => 0,
 
             'rest_day_of_the_week' => $resultDays,
-            'rest_days_per_month' => $quotation->rest_days_per_month,
-            'compensation_off_in_lieu' => $this->formatService->cleanDecimal($quotation->compensation_off_in_lieu),
+            'rest_days_per_month' => 0,
+            'compensation_off_in_lieu' => 0,
 
             'breakdown' => $paymentScheduleService->generatePaymentSchedule($quotation),
 

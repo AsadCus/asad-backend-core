@@ -99,6 +99,24 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('view-member') && (
+                <Item onClick={() => onAction?.('view-member', row)}>View</Item>
+            )}
+
+            {actions.includes('edit-member') && (
+                <Item onClick={() => onAction?.('edit-member', row)}>Edit</Item>
+            )}
+
+            {actions.includes('move-members') && (
+                <Item onClick={() => onAction?.('move-members', row)}>Move</Item>
+            )}
+
+            {actions.includes('cancel-member') && (
+                <Item onClick={() => onAction?.('cancel-member', row)}>
+                    Cancelled
+                </Item>
+            )}
+
             {actions.includes('download') && (
                 <Item onClick={() => onAction?.('download', row)}>
                     Download PDF

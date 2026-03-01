@@ -129,6 +129,8 @@ class OrderService
             'quotation_id' => $o->quotation_id ?? '-',
             'quotation_number' => $o->quotation->quotation_number ?? '-',
             'payment_plan' => $o->payment_plan,
+            'deposit_type' => $o->quotation->deposit_type ?? null,
+            'deposit_value' => $this->formatService->cleanDecimal($o->quotation->deposit_value ?? 0),
             'handover_date' => $o->handover_date_formatted,
             'invoices' => $o->invoices->map(fn ($invoice) => [
                 'id' => $invoice->id,
@@ -147,7 +149,6 @@ class OrderService
                     'type' => $item->type,
                     'description' => $item->description,
                     'is_header' => $item->is_header,
-                    'is_placement_fee' => $item->is_placement_fee,
                     'quantity' => $this->formatService->cleanDecimal($item->quantity),
                     'rate' => $this->formatService->cleanDecimal($item->rate),
                     'sort_order' => $item->sort_order,

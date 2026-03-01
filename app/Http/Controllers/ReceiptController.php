@@ -2,20 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use App\Models\Receipt;
-use App\Services\ReceiptService;
-use App\Services\InvoiceService;
-use App\Http\Controllers\Controller;
 use App\Services\CustomerService;
+use App\Services\InvoiceService;
+use App\Services\ReceiptService;
 use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 
 class ReceiptController extends Controller
 {
-    protected $receiptService, $invoiceService, $customerService, $salesService;
+    protected $receiptService;
+
+    protected $invoiceService;
+
+    protected $customerService;
+
+    protected $salesService;
 
     public function __construct(ReceiptService $receiptService, InvoiceService $invoiceService, CustomerService $customerService, SalesService $salesService)
     {
@@ -60,13 +65,12 @@ class ReceiptController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'invoice_id' => 'required|exists:invoices,id',
-            'amount' => 'required|numeric',
-            // 'amount' => 'required|numeric|min:0',
-            'receipt_date' => 'required|date',
-            'payment_method' => 'nullable|string',
-            'reference' => 'nullable|string',
-            'description' => 'nullable|string',
+            'invoice_id' => ['required', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'receipt_date' => ['required', 'date'],
+            'payment_method' => ['nullable', 'string'],
+            'reference' => ['nullable', 'string'],
+            'description' => ['nullable', 'string'],
         ]);
 
         $this->receiptService->store($validated);
@@ -104,8 +108,12 @@ class ReceiptController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'invoice_id' => 'required|exists:invoices,id',
-            'description' => 'nullable|string',
+            'invoice_id' => ['nullable', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')->ignore((int) $id)],
+            'amount' => ['nullable', 'numeric', 'min:0'],
+            'receipt_date' => ['required', 'date'],
+            'payment_method' => ['nullable', 'string'],
+            'reference' => ['nullable', 'string'],
+            'description' => ['nullable', 'string'],
         ]);
 
         $this->receiptService->update($validated, $id);
@@ -122,6 +130,7 @@ class ReceiptController extends Controller
             foreach ($ids as $deleteId) {
                 $this->receiptService->delete($deleteId);
             }
+
             return redirect()->route('receipt.index')
                 ->with('success', 'Selected receipts deleted successfully.');
         }
@@ -161,10 +170,11 @@ class ReceiptController extends Controller
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96);
 
-            return $pdf->stream($data['receipt_number'] . '.pdf');
+            return $pdf->stream($data['receipt_number'].'.pdf');
         } catch (\Exception $e) {
-            Log::error('Receipt PDF Generation Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+            Log::error('Receipt PDF Generation Error: '.$e->getMessage());
+
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 }

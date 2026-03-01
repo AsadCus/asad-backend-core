@@ -33,13 +33,12 @@ class QuotationItemService
             })
             ->orderBy('sort_order')
             ->get()
-            ->map(fn(QuotationItemMaster $m) => [
+            ->map(fn (QuotationItemMaster $m) => [
                 'id' => $m->id,
                 'parent_id' => $m->parent_id,
                 'description' => $m->description,
                 'is_header' => $m->is_header,
                 'is_optional' => $m->is_optional,
-                'is_placement_fee' => $m->is_placement_fee,
                 'quantity' => $this->formatService->cleanDecimal($m->quantity),
                 'rate' => $this->formatService->cleanDecimal($m->rate),
                 'sort_order' => $m->sort_order,
@@ -90,7 +89,7 @@ class QuotationItemService
             foreach ($items as $row) {
                 $item = $row['item'] ?? $row;
 
-                if (!empty($item['parent_key']) || !empty($item['parent_id'])) {
+                if (! empty($item['parent_key']) || ! empty($item['parent_id'])) {
                     continue;
                 }
 
@@ -99,7 +98,6 @@ class QuotationItemService
                     'parent_id' => null,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,
-                    'is_placement_fee' => $item['is_placement_fee'] ?? false,
                     'quantity' => $item['quantity'] ?? null,
                     'rate' => $item['rate'] ?? null,
                     'sort_order' => $item['sort_order'] ?? 0,
@@ -107,11 +105,11 @@ class QuotationItemService
 
                 $createdIds[] = $quotationItem->id;
 
-                if (!empty($item['_key'])) {
+                if (! empty($item['_key'])) {
                     $keyToId[$item['_key']] = $quotationItem->id;
                 }
 
-                if (!empty($item['id'])) {
+                if (! empty($item['id'])) {
                     $masterIdToQuotationId[$item['id']] = $quotationItem->id;
                 }
             }
@@ -123,13 +121,13 @@ class QuotationItemService
                 // resolve parent
                 $parentId = null;
 
-                if (!empty($item['parent_key'])) {
+                if (! empty($item['parent_key'])) {
                     $parentId = $keyToId[$item['parent_key']] ?? null;
-                } elseif (!empty($item['parent_id'])) {
+                } elseif (! empty($item['parent_id'])) {
                     $parentId = $masterIdToQuotationId[$item['parent_id']] ?? null;
                 }
 
-                if (!$parentId) {
+                if (! $parentId) {
                     continue;
                 }
 
@@ -138,7 +136,6 @@ class QuotationItemService
                     'parent_id' => $parentId,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,
-                    'is_placement_fee' => $item['is_placement_fee'] ?? false,
                     'quantity' => $item['quantity'] ?? null,
                     'rate' => $item['rate'] ?? null,
                     'sort_order' => $item['sort_order'] ?? 0,
@@ -146,11 +143,11 @@ class QuotationItemService
 
                 $createdIds[] = $quotationItem->id;
 
-                if (!empty($item['_key'])) {
+                if (! empty($item['_key'])) {
                     $keyToId[$item['_key']] = $quotationItem->id;
                 }
 
-                if (!empty($item['id'])) {
+                if (! empty($item['id'])) {
                     $masterIdToQuotationId[$item['id']] = $quotationItem->id;
                 }
             }
@@ -170,7 +167,7 @@ class QuotationItemService
             foreach ($items as $row) {
                 $item = $row['item'] ?? $row;
 
-                if (!empty($item['parent_key']) || !empty($item['parent_id'])) {
+                if (! empty($item['parent_key']) || ! empty($item['parent_id'])) {
                     continue;
                 }
 
@@ -181,7 +178,6 @@ class QuotationItemService
                     'parent_id' => null,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,
-                    'is_placement_fee'  => $item['is_placement_fee'] ?? false,
                     'quantity' => $item['quantity'] ?? null,
                     'rate' => $item['rate'] ?? null,
                     'sort_order' => $item['sort_order'] ?? 0,
@@ -196,11 +192,11 @@ class QuotationItemService
 
                 $incomingIds[] = $quotationItem->id;
 
-                if (!empty($item['_key'])) {
+                if (! empty($item['_key'])) {
                     $keyToId[$item['_key']] = $quotationItem->id;
                 }
 
-                if (!empty($item['id'])) {
+                if (! empty($item['id'])) {
                     $masterIdToQuotationId[$item['id']] = $quotationItem->id;
                 }
             }
@@ -211,13 +207,13 @@ class QuotationItemService
 
                 $parentId = null;
 
-                if (!empty($item['parent_key'])) {
+                if (! empty($item['parent_key'])) {
                     $parentId = $keyToId[$item['parent_key']] ?? null;
-                } elseif (!empty($item['parent_id'])) {
+                } elseif (! empty($item['parent_id'])) {
                     $parentId = $masterIdToQuotationId[$item['parent_id']] ?? null;
                 }
 
-                if (!$parentId) {
+                if (! $parentId) {
                     continue;
                 }
 
@@ -228,7 +224,6 @@ class QuotationItemService
                     'parent_id' => $parentId,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,
-                    'is_placement_fee'  => $item['is_placement_fee'] ?? false,
                     'quantity' => $item['quantity'] ?? null,
                     'rate' => $item['rate'] ?? null,
                     'sort_order' => $item['sort_order'] ?? 0,
@@ -260,19 +255,19 @@ class QuotationItemService
             foreach ($data as $d) {
                 $item = is_array($d) ? $d : (array) $d;
 
-                if (!empty($item['parent_key'])) {
+                if (! empty($item['parent_key'])) {
                     continue;
                 }
 
-                $id = !empty($item['id']) ? (int) $item['id'] : null;
+                $id = ! empty($item['id']) ? (int) $item['id'] : null;
 
                 $payload = [
-                    'parent_id'  => $item['parent_id'] ?? null,
+                    'parent_id' => $item['parent_id'] ?? null,
                     'description' => $item['description'],
-                    'is_header'  => $item['is_header'],
-                    'is_optional'  => $item['is_optional'],
-                    'quantity'   => $item['quantity'] ?? null,
-                    'rate'     => $item['rate'] ?? null,
+                    'is_header' => $item['is_header'],
+                    'is_optional' => $item['is_optional'],
+                    'quantity' => $item['quantity'] ?? null,
+                    'rate' => $item['rate'] ?? null,
                     'sort_order' => (int) ($item['sort_order'] ?? 0),
                 ];
 
@@ -289,7 +284,7 @@ class QuotationItemService
 
                 $incomingIds[] = $master->id;
 
-                if (!empty($item['_key'])) {
+                if (! empty($item['_key'])) {
                     $keyToId[$item['_key']] = $master->id;
                 }
             }
@@ -303,19 +298,19 @@ class QuotationItemService
                 }
 
                 $parentId = $keyToId[$item['parent_key']] ?? null;
-                if (!$parentId) {
+                if (! $parentId) {
                     continue;
                 }
 
-                $id = !empty($item['id']) ? (int) $item['id'] : null;
+                $id = ! empty($item['id']) ? (int) $item['id'] : null;
 
                 $payload = [
-                    'parent_id'  => $parentId,
+                    'parent_id' => $parentId,
                     'description' => $item['description'],
-                    'is_header'  => $item['is_header'],
-                    'is_optional'  => $item['is_optional'],
-                    'quantity'   => $item['quantity'] ?? null,
-                    'rate'     => $item['rate'] ?? null,
+                    'is_header' => $item['is_header'],
+                    'is_optional' => $item['is_optional'],
+                    'quantity' => $item['quantity'] ?? null,
+                    'rate' => $item['rate'] ?? null,
                     'sort_order' => (int) ($item['sort_order'] ?? 0),
                 ];
 
@@ -344,7 +339,7 @@ class QuotationItemService
     public function deleteItem($id)
     {
         $item = QuotationItem::find($id);
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 
@@ -354,7 +349,7 @@ class QuotationItemService
     public function deleteItemMaster($id)
     {
         $item = QuotationItemMaster::find($id);
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 
