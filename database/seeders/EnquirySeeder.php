@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\EnquiryStatus;
+use App\Helpers\NumberGenerator;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -28,8 +29,30 @@ class EnquirySeeder extends Seeder
     {
         $this->seedGeneralEnquiries();
         $this->seedPrivateEnquiries();
+        $this->ensureMinimumCustomerConfirmations(10);
         $this->createRandomRemarks();
         $this->createEnquiryNotifications();
+    }
+
+    private function ensureMinimumCustomerConfirmations(int $minimum): void
+    {
+        $currentCount = CustomerConfirmation::query()->count();
+
+        if ($currentCount >= $minimum) {
+            return;
+        }
+
+        $remaining = $minimum - $currentCount;
+
+        $candidateEnquiries = Enquiry::query()
+            ->whereDoesntHave('customerConfirmation')
+            ->orderBy('id')
+            ->limit($remaining)
+            ->get();
+
+        foreach ($candidateEnquiries as $enquiry) {
+            $this->createCustomerForConfirmedEnquiry($enquiry);
+        }
     }
 
     /**
@@ -47,73 +70,53 @@ class EnquirySeeder extends Seeder
         $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
         $defaultCreator = $adminAndSalesUsers->first()?->id;
 
-        $generalEnquiries = [
-            [
-                'name' => 'John Smith',
-                'contact_number' => '+1234567890',
-                'email' => 'john.smith@example.com',
-                'package_name' => 'Umrah Economy 14 Days',
-                'package_room_type' => 'double',
-                'preferred_destinations' => 'Paris, London, Amsterdam',
-                'preferred_travelling_date' => '2026-05-15',
-                'no_of_adults' => 2,
-                'no_of_children' => 1,
-                'requires_mobility_assistance' => null,
-                'status' => EnquiryStatus::NewLead,
-            ],
-            [
-                'name' => 'Sarah Johnson',
-                'contact_number' => '+9876543210',
-                'email' => 'sarah.johnson@example.com',
-                'package_name' => 'Umrah Premium 10 Days',
-                'package_room_type' => 'double',
-                'preferred_destinations' => 'Tokyo, Bangkok, Singapore',
-                'preferred_travelling_date' => '2026-06-20',
-                'no_of_adults' => 3,
-                'no_of_children' => 2,
-                'requires_mobility_assistance' => null,
-                'status' => EnquiryStatus::Contacted,
-            ],
-            [
-                'name' => 'Michael Brown',
-                'contact_number' => '+1122334455',
-                'email' => 'michael.brown@example.com',
-                'package_name' => 'Umrah Economy 14 Days',
-                'package_room_type' => 'double',
-                'preferred_destinations' => 'Sydney, Melbourne, Brisbane',
-                'preferred_travelling_date' => '2026-07-10',
-                'no_of_adults' => 2,
-                'no_of_children' => 0,
-                'requires_mobility_assistance' => 'Yes, wheelchair accessibility required',
-                'status' => EnquiryStatus::Negotiating,
-            ],
-            [
-                'name' => 'Emily White',
-                'contact_number' => '+5566778899',
-                'email' => 'emily.white@example.com',
-                'package_name' => 'Umrah Economy 14 Days',
-                'package_room_type' => 'double',
-                'preferred_destinations' => 'Barcelona, Madrid, Lisbon',
-                'preferred_travelling_date' => '2026-08-05',
-                'no_of_adults' => 1,
-                'no_of_children' => 0,
-                'requires_mobility_assistance' => null,
-                'status' => EnquiryStatus::Confirmed,
-            ],
-            [
-                'name' => 'David Martinez',
-                'contact_number' => '+4433221100',
-                'email' => 'david.martinez@example.com',
-                'package_name' => 'Umrah Ramadan Special',
-                'package_room_type' => 'quad',
-                'preferred_destinations' => 'New York, Los Angeles, Miami',
-                'preferred_travelling_date' => '2026-09-12',
-                'no_of_adults' => 2,
-                'no_of_children' => 2,
-                'requires_mobility_assistance' => null,
-                'status' => EnquiryStatus::NewLead,
-            ],
-        ];
+        $openPackages = Package::query()->where('status', 'open')->inRandomOrder()->get();
+
+        if ($openPackages->isEmpty()) {
+            $this->command->warn('No open packages found for general enquiry seeding.');
+
+            return;
+        }
+
+        $generalEnquiries = [];
+
+        for ($index = 0; $index < 8; $index++) {
+            $status = $index < 4
+                ? EnquiryStatus::Confirmed
+                : fake()->randomElement([
+                    EnquiryStatus::NewLead,
+                    EnquiryStatus::Contacted,
+                    EnquiryStatus::Negotiating,
+                ]);
+
+            $selectedPackage = $openPackages->random();
+            $travelDate = now()->addDays(fake()->numberBetween(10, 120));
+
+            $generalEnquiries[] = [
+                'name' => fake()->name(),
+                'contact_number' => fake()->phoneNumber(),
+                'email' => fake()->unique()->safeEmail(),
+                'package_name' => $selectedPackage->name,
+                'package_room_type' => fake()->randomElement(['single', 'double', 'triple', 'quad']),
+                'preferred_destinations' => collect(fake()->randomElements([
+                    'Makkah',
+                    'Madinah',
+                    'Taif',
+                    'Jeddah',
+                ], 2))->implode(', '),
+                'preferred_travelling_date' => $travelDate->toDateString(),
+                'no_of_adults' => fake()->numberBetween(1, 4),
+                'no_of_children' => fake()->numberBetween(0, 2),
+                'requires_mobility_assistance' => fake()->boolean(20)
+                    ? fake()->randomElement([
+                        'Wheelchair support required',
+                        'Elderly assistance needed',
+                        'Prefer lift-accessible rooms',
+                    ])
+                    : null,
+                'status' => $status,
+            ];
+        }
 
         foreach ($generalEnquiries as $data) {
             $status = $data['status'];
@@ -167,120 +170,58 @@ class EnquirySeeder extends Seeder
         $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
         $defaultCreator = $adminAndSalesUsers->first()?->id;
 
-        $privateEnquiries = [
-            [
-                'name' => 'Ahmad Bin Ali',
-                'contact_number' => '0123456789',
-                'email' => 'ahmad.ali@example.com',
-                'passport_expiry_date' => '2027-12-31',
-                'departure_date' => '2026-03-01',
-                'return_date' => '2026-03-15',
-                'no_of_pax' => 4,
-                'no_of_children' => 2,
-                'airline' => 'Saudia Airlines',
-                'class' => 'Economy',
-                'require_mutawif' => true,
-                'require_umrah_course' => false,
-                'require_umrah_official' => true,
-                'makkah_or_madinah_first' => 'Makkah',
-                'no_of_nights_makkah' => '5',
-                'hotel_makkah' => 'Hilton Suites Makkah',
-                'meals_makkah' => 'Breakfast Only',
-                'no_of_nights_madinah' => '4',
-                'hotel_madinah' => 'The Oberoi',
-                'meals_madinah' => 'Half Board',
-                'land_transfer' => 'Hi-Ace (8 Pax)',
-                'add_on_speed_train' => true,
-                'require_meet_greet' => false,
-                'require_mutawiffah_ustazah_rawdah' => false,
-                'madinah_tour_with_mutawif' => true,
-                'makkah_tour_with_mutawif' => false,
-                'has_chronic_disease' => false,
-                'chronic_disease_details' => null,
-                'need_wheelchair' => 'No',
-                'other_remarks' => 'Vegetarian meal preferred',
-                'status' => EnquiryStatus::NewLead,
-            ],
-            [
-                'name' => 'Siti Aminah',
-                'contact_number' => '0198765432',
-                'email' => 'siti.aminah@example.com',
-                'passport_expiry_date' => '2028-05-20',
-                'departure_date' => '2026-04-10',
-                'return_date' => '2026-04-25',
-                'no_of_pax' => 2,
-                'no_of_children' => 0,
-                'airline' => 'Emirates',
-                'class' => 'Business',
-                'require_mutawif' => false,
-                'require_umrah_course' => true,
-                'require_umrah_official' => false,
-                'makkah_or_madinah_first' => 'Madinah',
-                'no_of_nights_makkah' => '4',
-                'hotel_makkah' => 'Swissotel Makkah',
-                'meals_makkah' => 'Full Board',
-                'no_of_nights_madinah' => '5',
-                'hotel_madinah' => 'Intercontinental Dar Al Iman',
-                'meals_madinah' => 'Breakfast Only',
-                'land_transfer' => 'Sedan (2 Pax)',
-                'add_on_speed_train' => false,
-                'require_meet_greet' => true,
-                'require_mutawiffah_ustazah_rawdah' => true,
-                'madinah_tour_with_mutawif' => false,
-                'makkah_tour_with_mutawif' => true,
-                'has_chronic_disease' => true,
-                'chronic_disease_details' => 'Diabetes',
-                'need_wheelchair' => 'Yes',
-                'other_remarks' => null,
-                'status' => EnquiryStatus::Contacted,
-            ],
-            [
-                'name' => 'Fatimah Binti Hassan',
-                'contact_number' => '0171234567',
-                'email' => 'fatimah.hassan@example.com',
-                'post_confirmed_package_name' => 'Umrah Premium 10 Days',
-                'post_confirmed_package_room_type' => 'triple',
-                'passport_expiry_date' => '2029-08-15',
-                'departure_date' => '2026-05-01',
-                'return_date' => '2026-05-14',
-                'no_of_pax' => 3,
-                'no_of_children' => 1,
-                'airline' => 'Qatar Airways',
-                'class' => 'Economy',
-                'require_mutawif' => true,
-                'require_umrah_course' => true,
-                'require_umrah_official' => true,
-                'makkah_or_madinah_first' => 'Makkah',
-                'no_of_nights_makkah' => '5',
-                'hotel_makkah' => 'Fairmont Makkah Clock Royal Tower Hotel',
-                'meals_makkah' => 'Half Board',
-                'no_of_nights_madinah' => '4',
-                'hotel_madinah' => 'Sofitel Shahd Al Madinah',
-                'meals_madinah' => 'Full Board',
-                'land_transfer' => 'GMC (4 Pax)',
-                'add_on_speed_train' => true,
-                'require_meet_greet' => true,
-                'require_mutawiffah_ustazah_rawdah' => false,
-                'madinah_tour_with_mutawif' => true,
-                'makkah_tour_with_mutawif' => true,
-                'has_chronic_disease' => false,
-                'chronic_disease_details' => null,
-                'need_wheelchair' => 'No',
-                'other_remarks' => 'Family trip, need adjoining rooms.',
-                'status' => EnquiryStatus::Confirmed,
-            ],
-        ];
+        $privateEnquiries = [];
+
+        for ($index = 0; $index < 6; $index++) {
+            $status = $index < 3
+                ? EnquiryStatus::Confirmed
+                : fake()->randomElement([
+                    EnquiryStatus::NewLead,
+                    EnquiryStatus::Contacted,
+                    EnquiryStatus::Negotiating,
+                ]);
+
+            $departureDate = now()->addDays(fake()->numberBetween(20, 140));
+            $returnDate = (clone $departureDate)->addDays(fake()->numberBetween(8, 14));
+
+            $privateEnquiries[] = [
+                'name' => fake()->name(),
+                'contact_number' => fake()->phoneNumber(),
+                'email' => fake()->unique()->safeEmail(),
+                'passport_expiry_date' => now()->addYears(fake()->numberBetween(2, 8))->toDateString(),
+                'departure_date' => $departureDate->toDateString(),
+                'return_date' => $returnDate->toDateString(),
+                'no_of_pax' => fake()->numberBetween(2, 6),
+                'no_of_children' => fake()->numberBetween(0, 2),
+                'airline' => fake()->randomElement(['Saudia Airlines', 'Emirates', 'Qatar Airways']),
+                'class' => fake()->randomElement(['Economy', 'Business']),
+                'require_mutawif' => fake()->boolean(),
+                'require_umrah_course' => fake()->boolean(),
+                'require_umrah_official' => fake()->boolean(),
+                'makkah_or_madinah_first' => fake()->randomElement(['Makkah', 'Madinah']),
+                'no_of_nights_makkah' => (string) fake()->numberBetween(4, 7),
+                'hotel_makkah' => fake()->company().' Makkah Hotel',
+                'meals_makkah' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
+                'no_of_nights_madinah' => (string) fake()->numberBetween(3, 6),
+                'hotel_madinah' => fake()->company().' Madinah Hotel',
+                'meals_madinah' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
+                'land_transfer' => fake()->randomElement(['Sedan (2 Pax)', 'Hi-Ace (8 Pax)', 'GMC (4 Pax)']),
+                'add_on_speed_train' => fake()->boolean(),
+                'require_meet_greet' => fake()->boolean(),
+                'require_mutawiffah_ustazah_rawdah' => fake()->boolean(),
+                'madinah_tour_with_mutawif' => fake()->boolean(),
+                'makkah_tour_with_mutawif' => fake()->boolean(),
+                'has_chronic_disease' => fake()->boolean(20),
+                'chronic_disease_details' => fake()->boolean(20) ? fake()->sentence(4) : null,
+                'need_wheelchair' => fake()->randomElement(['Yes', 'No']),
+                'other_remarks' => fake()->boolean(35) ? fake()->sentence() : null,
+                'status' => $status,
+            ];
+        }
 
         foreach ($privateEnquiries as $data) {
             $status = $data['status'];
             unset($data['status']);
-
-            $postConfirmedPackage = $this->resolveSeededPackageSelection(
-                $data['post_confirmed_package_name'] ?? null,
-                $data['post_confirmed_package_room_type'] ?? null,
-            );
-
-            unset($data['post_confirmed_package_name'], $data['post_confirmed_package_room_type']);
 
             $parentEnquiry = Enquiry::create([
                 'type' => 'private',
@@ -291,12 +232,6 @@ class EnquirySeeder extends Seeder
                 'package_id' => null,
                 'created_by' => $adminAndSalesUsers->random()->id ?? $defaultCreator,
             ]);
-
-            if ($status === EnquiryStatus::Confirmed && $postConfirmedPackage['package_id']) {
-                $parentEnquiry->update([
-                    'package_id' => $postConfirmedPackage['package_id'],
-                ]);
-            }
 
             PrivateEnquiry::create([
                 'enquiry_id' => $parentEnquiry->id,
@@ -356,8 +291,7 @@ class EnquirySeeder extends Seeder
             $user->assignRole('customer');
         }
 
-        // Get biodata from pre-defined customer profiles
-        $biodata = $this->getCustomerBiodata($enquiry->email);
+        $biodata = $this->buildBiodata();
 
         // Check if customer already exists
         $customer = Customer::where('user_id', $user->id)->first();
@@ -376,6 +310,23 @@ class EnquirySeeder extends Seeder
 
         if (! $existingGroup) {
             $selectedPackage = $this->getPackageSelectionForConfirmedEnquiry($enquiry);
+            $statusScenario = ((int) $enquiry->id) % 5;
+
+            $resolveLeaderStatus = match ($statusScenario) {
+                0 => 'draft',
+                1 => 'pending_payment',
+                2 => 'pending_payment',
+                3 => 'partially_paid',
+                default => 'confirmed',
+            };
+
+            $resolveMemberStatus = match ($statusScenario) {
+                0 => 'draft',
+                1 => 'pending_payment',
+                2 => 'pending_payment',
+                3 => 'pending_payment',
+                default => 'confirmed',
+            };
 
             // Create customer confirmation with the customer as leader
             $group = CustomerConfirmation::create([
@@ -391,11 +342,11 @@ class EnquirySeeder extends Seeder
                 'customer_confirmation_id' => $group->id,
                 'customer_id' => $customer->id,
                 'is_leader' => true,
-                'status' => 'confirmed',
+                'status' => $resolveLeaderStatus,
+                'sharing_plan' => $selectedPackage['package_room_type'] ?? 'double',
             ]);
 
-            // Add additional members for multi-member groups
-            $additionalMembers = $this->getAdditionalGroupMembers($enquiry->email);
+            $additionalMembers = $this->buildAdditionalMembers(fake()->numberBetween(1, 3));
             foreach ($additionalMembers as $memberData) {
                 $memberUser = User::where('email', $memberData['email'])->first();
                 if (! $memberUser) {
@@ -411,7 +362,7 @@ class EnquirySeeder extends Seeder
 
                 $memberCustomer = Customer::where('user_id', $memberUser->id)->first();
                 if (! $memberCustomer) {
-                    $memberBiodata = $this->getCustomerBiodata($memberData['email']);
+                    $memberBiodata = $this->buildBiodata();
                     $memberCustomer = Customer::create(array_merge([
                         'user_id' => $memberUser->id,
                         'branch_id' => 1,
@@ -424,7 +375,8 @@ class EnquirySeeder extends Seeder
                     'customer_confirmation_id' => $group->id,
                     'customer_id' => $memberCustomer->id,
                     'is_leader' => false,
-                    'status' => 'pending_payment',
+                    'status' => $resolveMemberStatus,
+                    'sharing_plan' => $selectedPackage['package_room_type'] ?? 'double',
                 ]);
             }
 
@@ -441,6 +393,24 @@ class EnquirySeeder extends Seeder
      */
     private function getPackageSelectionForConfirmedEnquiry(Enquiry $enquiry): array
     {
+        if ($enquiry->type === 'private') {
+            $exclusivePackage = $enquiry->package_id
+                ? Package::find($enquiry->package_id)
+                : $this->createExclusivePackageForPrivateEnquiry($enquiry);
+
+            if ($exclusivePackage && ! $enquiry->package_id) {
+                $enquiry->update([
+                    'package_id' => $exclusivePackage->id,
+                ]);
+            }
+
+            return [
+                'package_id' => $exclusivePackage?->id,
+                'package_room_type' => 'double',
+                'package_category' => 'deluxe_umrah',
+            ];
+        }
+
         if ($enquiry->package_id) {
             $package = Package::find($enquiry->package_id);
 
@@ -464,6 +434,102 @@ class EnquirySeeder extends Seeder
             'package_room_type' => $this->inferRoomTypeFromPackage($fallbackPackage?->name),
             'package_category' => $this->inferCategoryFromPackage($fallbackPackage?->name),
         ];
+    }
+
+    private function createExclusivePackageForPrivateEnquiry(Enquiry $enquiry): Package
+    {
+        $basePrice = fake()->randomFloat(2, 3000, 7000);
+        $departureDate = now()->addDays(fake()->numberBetween(20, 180));
+        $arrivalDate = (clone $departureDate)->addDays(fake()->numberBetween(8, 14));
+
+        $package = Package::create([
+            'package_number' => NumberGenerator::generate('package'),
+            'name' => 'Exclusive Private '.$enquiry->name.' '.strtoupper(fake()->lexify('??')),
+            'status' => 'open',
+            'price_single' => $basePrice,
+            'price_double' => max($basePrice - 700, 1000),
+            'price_triple' => max($basePrice - 1200, 900),
+            'price_quad' => max($basePrice - 1600, 800),
+            'child_with_bed_price' => max($basePrice - 1800, 700),
+            'child_no_bed_price' => max($basePrice - 2200, 600),
+            'infant_price' => 450,
+            'airline' => fake()->randomElement(['Saudia Airlines', 'Emirates', 'Qatar Airways']),
+            'pnr' => strtoupper(fake()->bothify('??###')),
+            'departure_date' => $departureDate->toDateString(),
+            'arrival_date' => $arrivalDate->toDateString(),
+            'total_seats' => fake()->numberBetween(8, 20),
+            'seats_left' => fake()->numberBetween(2, 8),
+            'visa_type' => 'Umrah Visa',
+            'vehicle_type' => fake()->randomElement(['Sedan', 'SUV', 'Van']),
+            'ticket_type' => fake()->randomElement(['Economy', 'Business']),
+            'included' => "Flight Tickets\nHotel Accommodation\nGround Transport",
+            'not_included' => "Personal Expenses\nTips & Gratuities",
+            'offer' => null,
+            'remarks' => 'Exclusive package generated for private enquiry workflow',
+        ]);
+
+        $package->accommodations()->createMany([
+            [
+                'location' => 'Mekkah',
+                'hotel_name' => fake()->company().' Makkah',
+                'type_of_meal' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
+                'check_in' => $departureDate->copy()->addDay()->toDateString(),
+                'check_out' => $departureDate->copy()->addDays(6)->toDateString(),
+            ],
+            [
+                'location' => 'Madinah',
+                'hotel_name' => fake()->company().' Madinah',
+                'type_of_meal' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
+                'check_in' => $departureDate->copy()->addDays(6)->toDateString(),
+                'check_out' => $arrivalDate->copy()->subDay()->toDateString(),
+            ],
+        ]);
+
+        return $package;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildBiodata(): array
+    {
+        $gender = fake()->randomElement(['male', 'female']);
+        $dob = fake()->dateTimeBetween('-65 years', '-12 years');
+
+        return [
+            'nric_number' => strtoupper(fake()->bothify('S#######?')),
+            'address' => fake()->address(),
+            'nationality' => fake()->country(),
+            'passport_number' => strtoupper(fake()->bothify('??#######')),
+            'passport_issue_date' => fake()->dateTimeBetween('-8 years', '-2 years')->format('Y-m-d'),
+            'passport_expiry_date' => fake()->dateTimeBetween('+2 years', '+10 years')->format('Y-m-d'),
+            'passport_place_of_issue' => fake()->city(),
+            'gender' => $gender,
+            'marital_status' => fake()->randomElement(['single', 'married', 'divorced', 'widowed']),
+            'date_of_birth' => $dob->format('Y-m-d'),
+            'place_of_birth' => fake()->city(),
+            'first_time_umrah' => fake()->boolean(),
+            'has_chronic_disease' => fake()->boolean(18),
+            'chronic_disease_details' => fake()->boolean(18) ? fake()->sentence() : null,
+        ];
+    }
+
+    /**
+     * @return array<int, array{name: string, email: string, contact: string}>
+     */
+    private function buildAdditionalMembers(int $count): array
+    {
+        $members = [];
+
+        for ($index = 0; $index < $count; $index++) {
+            $members[] = [
+                'name' => fake()->name(),
+                'email' => fake()->unique()->safeEmail(),
+                'contact' => fake()->phoneNumber(),
+            ];
+        }
+
+        return $members;
     }
 
     /**
@@ -504,12 +570,8 @@ class EnquirySeeder extends Seeder
 
         $normalized = strtolower($packageName);
 
-        if (str_contains($normalized, 'hajj')) {
-            return 'hajj';
-        }
-
-        if (str_contains($normalized, 'premium')) {
-            return 'premium_umrah';
+        if (str_contains($normalized, 'premium') || str_contains($normalized, 'ramadan')) {
+            return 'deluxe_umrah';
         }
 
         return 'classic_umrah';

@@ -273,6 +273,7 @@ class CustomerConfirmationService
                     'enquiry_id' => $group->enquiry_id,
                     'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,
                     'enquiry_status' => $group->enquiry?->status?->label(),
+                    'main_customer_name' => $leader?->customer?->user?->name ?? '-',
                     'enquiry_email' => $group->enquiry?->email ?? ($leader?->customer?->user?->email ?? '-'),
                     'enquiry_contact' => $group->enquiry?->contact_number ?? ($leader?->customer?->user?->contact ?? '-'),
                     'member_count' => $group->members->count(),
@@ -350,13 +351,17 @@ class CustomerConfirmationService
     /** Get full customer confirmation details for edit or show. */
     public function getForEditShow(int $id): array
     {
-        $group = CustomerConfirmation::with(['members.customer.user', 'enquiry.package', 'package'])
+        $group = CustomerConfirmation::with(['members.customer.user', 'members.quotationItems', 'enquiry.package', 'package'])
             ->findOrFail($id);
 
         return [
             'id' => $group->id,
             'enquiry_id' => $group->enquiry_id,
             'package_id' => $group->package_id,
+            'package_price_single' => $group->package?->price_single,
+            'package_price_double' => $group->package?->price_double,
+            'package_price_triple' => $group->package?->price_triple,
+            'package_price_quad' => $group->package?->price_quad,
             'package_room_type' => $group->package_room_type,
             'package_category' => $group->package_category,
             'date_of_application' => $group->date_of_application_formatted,
@@ -370,6 +375,7 @@ class CustomerConfirmationService
                     'customer_id' => $customer?->id,
                     'is_leader' => $member->is_leader,
                     'status' => $member->status ?? 'draft',
+                    'has_quotation' => $member->quotationItems->isNotEmpty(),
                     'sharing_plan' => $member->sharing_plan,
                     'role' => $member->role,
                     'name' => $user?->name ?? '',

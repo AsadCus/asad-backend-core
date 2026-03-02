@@ -15,7 +15,7 @@ import {
 interface EditQuotationProps {
     data: {
         data: QuotationSchema;
-        customers: [];
+        customerConfirmations: [];
     };
 }
 
@@ -50,7 +50,7 @@ export default function EditQuotation({ data }: EditQuotationProps) {
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
                         statuses={statuses}
-                        customers={data.customers}
+                        customerConfirmations={data.customerConfirmations}
                         onCancel={handleCancel}
                     />
                 </div>

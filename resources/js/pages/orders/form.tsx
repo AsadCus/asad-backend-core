@@ -1,8 +1,7 @@
-import { DatePickerField } from '@/components/date-picker';
+import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -11,7 +10,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { isBeforeToday } from '@/lib/utils';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
@@ -26,12 +24,13 @@ import {
 } from '../invoices/lib/utils';
 import { InvoiceSchema } from '../invoices/schema';
 import QuotationItemTableForm from '../quotations/items/form';
-import { QuotationSchema, depositTypes } from '../quotations/schema';
+import { QuotationSchema } from '../quotations/schema';
 import { PaymentPlanSection } from './components/payment-plan-section';
 import {
     autoFillInvoiceDates,
-    buildInitialInvoices,
     buildInvoices,
+    buildInvoicesFromItems,
+    quotationItemsToInvoiceItems,
 } from './lib/invoice-builders';
 import { OrderSchema } from './schema';
 import { orderValidationSchema } from './validation';
@@ -92,6 +91,11 @@ function createEmptyInvoice(): InvoiceSchema {
     };
 }
 
+const depositTypes = [
+    { label: 'Percentage (%)', value: 'percentage' },
+    { label: 'Fixed Amount ($)', value: 'fixed' },
+];
+
 export default function OrderForm({
     mode,
     initialData,
@@ -111,9 +115,8 @@ export default function OrderForm({
     const initialFormState: OrderSchema = {
         order_number: '',
         payment_plan: quotation?.payment_plan ?? 'direct',
-        deposit_type: quotation?.deposit_type ?? null,
-        deposit_value: quotation?.deposit_value ?? null,
-        handover_date: '',
+        deposit_type: 'fixed',
+        deposit_value: null,
         invoices: [],
         items: initialItems ?? [],
 
@@ -140,26 +143,48 @@ export default function OrderForm({
         clearErrors,
     } = useForm<OrderSchema>(defaultData);
 
+    function rebuildInvoicesFromSource(
+        paymentPlan: string,
+        depositType?: string | null,
+        depositValue?: number | string | null,
+    ): InvoiceSchema[] {
+        if (quotation) {
+            return normalizeInvoices(
+                autoFillInvoiceDates(
+                    buildInvoicesFromItems(
+                        paymentPlan,
+                        quotationItemsToInvoiceItems(quotation),
+                        Number(quotation.total_amount ?? 0),
+                        depositType,
+                        depositValue,
+                    ),
+                    quotation.quotation_date ?? '',
+                ),
+            );
+        }
+
+        return normalizeInvoices(
+            buildInvoices(
+                paymentPlan,
+                data.invoices,
+                depositType,
+                depositValue,
+            ),
+        );
+    }
+
     useEffect(() => {
         if (!initialData && quotation) {
-            let invoices;
-            if (data.payment_plan) {
-                const paymentPlan =
-                    data.payment_plan ?? quotation.payment_plan ?? 'full';
-
-                invoices = normalizeInvoices(
-                    buildInitialInvoices({
-                        ...quotation,
-                        payment_plan: paymentPlan,
-                        deposit_type: data.deposit_type,
-                        deposit_value: data.deposit_value,
-                    }),
-                );
-            } else {
-                invoices = normalizeInvoices(buildInitialInvoices(quotation));
-            }
-
-            setData('invoices', invoices);
+            const paymentPlan =
+                data.payment_plan ?? quotation.payment_plan ?? 'full';
+            setData(
+                'invoices',
+                rebuildInvoicesFromSource(
+                    paymentPlan,
+                    data.deposit_type,
+                    data.deposit_value,
+                ),
+            );
         }
     }, [
         initialData,
@@ -172,11 +197,7 @@ export default function OrderForm({
 
     function addInvoice() {
         const newInvoices = [...data.invoices, createEmptyInvoice()];
-        const withDates = autoFillInvoiceDates(
-            newInvoices,
-            data.handover_date ?? '',
-        );
-        setData('invoices', withDates);
+        setData('invoices', newInvoices);
     }
 
     function removeInvoice(index: number) {
@@ -441,160 +462,100 @@ export default function OrderForm({
                                             setData({
                                                 ...data,
                                                 payment_plan: v,
-                                                invoices: buildInvoices(
-                                                    v,
-                                                    data.invoices,
-                                                    data.handover_date ??
-                                                        undefined,
-                                                    data.deposit_type,
-                                                    data.deposit_value,
-                                                ),
+                                                invoices:
+                                                    rebuildInvoicesFromSource(
+                                                        v,
+                                                        data.deposit_type,
+                                                        data.deposit_value,
+                                                    ),
                                             })
                                         }
                                     />
 
-                                    {/* Handover Date */}
-                                    {data.payment_plan !== 'direct' && (
-                                        <div className="grid gap-2">
-                                            <Label>Handover Date</Label>
-                                            <div className="relative">
-                                                <DatePickerField
-                                                    id="handover_date"
-                                                    value={
-                                                        data.handover_date ?? ''
-                                                    }
-                                                    disabled={isView}
-                                                    disabledDates={
-                                                        isBeforeToday
-                                                    }
-                                                    quickDate
-                                                    onChange={(v) => {
-                                                        const updatedInvoices =
-                                                            autoFillInvoiceDates(
-                                                                data.invoices,
-                                                                v,
-                                                            );
+                                    {data.payment_plan === 'installment' && (
+                                        <>
+                                            <FormField label="Deposit Type">
+                                                <Select
+                                                    value={String(
+                                                        data.deposit_type ?? '',
+                                                    )}
+                                                    onValueChange={(v) => {
                                                         setData({
                                                             ...data,
-                                                            handover_date: v,
+                                                            deposit_type: v,
                                                             invoices:
-                                                                updatedInvoices,
+                                                                rebuildInvoicesFromSource(
+                                                                    data.payment_plan ??
+                                                                        'installment',
+                                                                    v,
+                                                                    data.deposit_value,
+                                                                ),
+                                                        });
+                                                    }}
+                                                    disabled={isView}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {depositTypes.map(
+                                                            (dt) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        dt.value
+                                                                    }
+                                                                    value={
+                                                                        dt.value
+                                                                    }
+                                                                >
+                                                                    {dt.label}
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                {renderError('deposit_type')}
+                                            </FormField>
+
+                                            <FormField label="Deposit Value">
+                                                <ProperInput
+                                                    value={
+                                                        data.deposit_value ?? ''
+                                                    }
+                                                    type="number"
+                                                    inputProps={{
+                                                        step: 'any',
+                                                        min: '0',
+                                                        ...(data.deposit_type ===
+                                                        'percentage'
+                                                            ? {
+                                                                  max: '100',
+                                                              }
+                                                            : {}),
+                                                    }}
+                                                    placeholder={
+                                                        data.deposit_type ===
+                                                        'percentage'
+                                                            ? 'Enter %'
+                                                            : 'Enter amount'
+                                                    }
+                                                    disabled={isView}
+                                                    onCommit={(v) => {
+                                                        setData({
+                                                            ...data,
+                                                            deposit_value: v,
+                                                            invoices:
+                                                                rebuildInvoicesFromSource(
+                                                                    data.payment_plan ??
+                                                                        'installment',
+                                                                    data.deposit_type,
+                                                                    v,
+                                                                ),
                                                         });
                                                     }}
                                                 />
-                                                {renderError('handover_date')}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Deposit Config (installment) */}
-                                    {data.payment_plan === 'installment' && (
-                                        <>
-                                            <div className="grid gap-2">
-                                                <Label>Deposit Type</Label>
-                                                <div className="relative">
-                                                    <Select
-                                                        value={String(
-                                                            data.deposit_type ??
-                                                                '',
-                                                        )}
-                                                        onValueChange={(v) => {
-                                                            const newData = {
-                                                                ...data,
-                                                                deposit_type: v,
-                                                            };
-                                                            newData.invoices =
-                                                                buildInvoices(
-                                                                    data.payment_plan ??
-                                                                        'installment',
-                                                                    data.invoices,
-                                                                    data.handover_date ??
-                                                                        undefined,
-                                                                    v,
-                                                                    data.deposit_value,
-                                                                );
-                                                            setData(newData);
-                                                        }}
-                                                        disabled={isView}
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {depositTypes.map(
-                                                                (dt) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            dt.value
-                                                                        }
-                                                                        value={
-                                                                            dt.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            dt.label
-                                                                        }
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {renderError(
-                                                        'deposit_type',
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="grid gap-2">
-                                                <Label>Deposit Value</Label>
-                                                <div className="relative">
-                                                    <ProperInput
-                                                        value={
-                                                            data.deposit_value ??
-                                                            ''
-                                                        }
-                                                        type="number"
-                                                        inputProps={{
-                                                            step: 'any',
-                                                            min: '0',
-                                                            ...(data.deposit_type ===
-                                                            'percentage'
-                                                                ? {
-                                                                      max: '100',
-                                                                  }
-                                                                : {}),
-                                                        }}
-                                                        placeholder={
-                                                            data.deposit_type ===
-                                                            'percentage'
-                                                                ? 'Enter %'
-                                                                : 'Enter amount'
-                                                        }
-                                                        disabled={isView}
-                                                        onCommit={(v) => {
-                                                            const newData = {
-                                                                ...data,
-                                                                deposit_value:
-                                                                    v,
-                                                            };
-                                                            newData.invoices =
-                                                                buildInvoices(
-                                                                    data.payment_plan ??
-                                                                        'installment',
-                                                                    data.invoices,
-                                                                    data.handover_date ??
-                                                                        undefined,
-                                                                    data.deposit_type,
-                                                                    v,
-                                                                );
-                                                            setData(newData);
-                                                        }}
-                                                    />
-                                                    {renderError(
-                                                        'deposit_value',
-                                                    )}
-                                                </div>
-                                            </div>
+                                                {renderError('deposit_value')}
+                                            </FormField>
                                         </>
                                     )}
                                 </div>
@@ -898,78 +859,79 @@ export default function OrderForm({
 
                                     {!quotationCollapsed && (
                                         <>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                                                <div className="grid gap-2">
+                                            {quotation.package_name && (
+                                                <div className="grid w-full items-center gap-3 rounded-md border p-3">
                                                     <Label>
-                                                        Monthly Salary
+                                                        Package & Sharing Plan
+                                                        Costs
                                                     </Label>
-                                                    <Input
-                                                        id="monthly_salary"
-                                                        type="number"
-                                                        step="any"
-                                                        min="0"
-                                                        value={
-                                                            quotation.monthly_salary ??
-                                                            ''
-                                                        }
-                                                        disabled
-                                                    />
-                                                </div>
+                                                    <div className="space-y-1 text-sm">
+                                                        <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">
+                                                            <span className="text-muted-foreground">
+                                                                Package
+                                                            </span>
+                                                            <span>
+                                                                {
+                                                                    quotation.package_name
+                                                                }
+                                                            </span>
+                                                        </div>
 
-                                                <div className="grid gap-2">
-                                                    <Label>
-                                                        Loan Duration (Months)
-                                                    </Label>
-                                                    <Input
-                                                        id="loan_duration"
-                                                        type="number"
-                                                        step="any"
-                                                        min="0"
-                                                        value={
-                                                            quotation.loan_duration ??
-                                                            ''
-                                                        }
-                                                        disabled
-                                                    />
-                                                </div>
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <span className="text-muted-foreground">
+                                                                Single
+                                                            </span>
+                                                            <span>
+                                                                $
+                                                                {Number(
+                                                                    quotation.package_price_single ??
+                                                                        0,
+                                                                ).toFixed(2)}
+                                                            </span>
+                                                        </div>
 
-                                                <div className="grid gap-2">
-                                                    <Label>
-                                                        Cost of Maid/Placement
-                                                        Fee
-                                                    </Label>
-                                                    <Input
-                                                        id="cost_of_maid"
-                                                        type="number"
-                                                        step="any"
-                                                        min="0"
-                                                        value={
-                                                            Number(
-                                                                quotation.monthly_salary,
-                                                            ) *
-                                                            Number(
-                                                                quotation.loan_duration,
-                                                            )
-                                                        }
-                                                        disabled
-                                                    />
-                                                </div>
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <span className="text-muted-foreground">
+                                                                Double
+                                                            </span>
+                                                            <span>
+                                                                $
+                                                                {Number(
+                                                                    quotation.package_price_double ??
+                                                                        0,
+                                                                ).toFixed(2)}
+                                                            </span>
+                                                        </div>
 
-                                                <div className="grid gap-2">
-                                                    <Label>Total Amount</Label>
-                                                    <Input
-                                                        id="total_amount"
-                                                        type="number"
-                                                        step="any"
-                                                        min="0"
-                                                        value={
-                                                            quotation.total_amount ??
-                                                            ''
-                                                        }
-                                                        disabled
-                                                    />
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <span className="text-muted-foreground">
+                                                                Triple
+                                                            </span>
+                                                            <span>
+                                                                $
+                                                                {Number(
+                                                                    quotation.package_price_triple ??
+                                                                        0,
+                                                                ).toFixed(2)}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <span className="text-muted-foreground">
+                                                                Quad
+                                                            </span>
+                                                            <span>
+                                                                $
+                                                                {Number(
+                                                                    quotation.package_price_quad ??
+                                                                        0,
+                                                                ).toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
+
                                             <QuotationItemTableForm
                                                 items={initialItems ?? []}
                                                 onChange={(next) =>
@@ -1016,63 +978,6 @@ export default function OrderForm({
                     </div>
                 </form>
             </div>
-
-            {/* {previewInvoice && (
-                <Dialog
-                    open={!!previewInvoice}
-                    onOpenChange={() => setPreviewInvoice(null)}
-                >
-                    <DialogContent className="flex max-h-[98%] min-h-fit max-w-[95%] min-w-fit flex-col items-center justify-center overflow-y-hidden">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {previewInvoice.invoice_number ||
-                                    'Invoice Preview'}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {previewInvoice.description || '—'}
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="mb-3 w-full text-base text-muted-foreground">
-                            <div className="grid grid-cols-1 gap-2">
-                                <div>
-                                    <span className="font-medium text-foreground">
-                                        Invoice Date:
-                                    </span>{' '}
-                                    {previewInvoice.invoice_date
-                                        ? new Date(
-                                              previewInvoice.invoice_date,
-                                          ).toLocaleDateString()
-                                        : '—'}
-                                </div>
-
-                                <div>
-                                    <span className="font-medium text-foreground">
-                                        Due Date:
-                                    </span>{' '}
-                                    {previewInvoice.due_date
-                                        ? new Date(
-                                              previewInvoice.due_date,
-                                          ).toLocaleDateString()
-                                        : '—'}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="max-h-[90vh] overflow-auto">
-                            <QuotationItemTableForm
-                                items={previewInvoice.items}
-                                disabled
-                                renderError={() => null}
-                                invoices={[]}
-                                currentInvoiceIndex={0}
-                                onChange={() => {}}
-                                onMoveItem={() => {}}
-                            />
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            )} */}
         </>
     );
 }

@@ -10,7 +10,7 @@ import { paymentMethods, paymentPlans, statuses } from './schema';
 
 interface CreateQuotationProps {
     data: {
-        customers: [];
+        customerConfirmations: [];
         quotationItems: [];
         quotationNotes: [];
     };
@@ -54,7 +54,7 @@ export default function CreateQuotation({
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
                         statuses={statuses}
-                        customers={data.customers}
+                        customerConfirmations={data.customerConfirmations}
                         quotationItems={data.quotationItems}
                         quotationNotes={data.quotationNotes}
                         prefilledCustomerId={prefilledCustomerId}

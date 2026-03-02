@@ -13,17 +13,10 @@ class QuotationSeeder extends Seeder
 {
     public function run(): void
     {
-        if (Quotation::query()->exists()) {
-            $this->command->info('Quotations already seeded, skipping...');
-
-            return;
-        }
-
         $groups = CustomerConfirmation::query()
             ->with(['members.customer.user', 'members.quotationItems', 'package'])
             ->whereNotNull('package_id')
             ->orderBy('id')
-            ->take(8)
             ->get();
 
         if ($groups->isEmpty()) {
@@ -32,42 +25,78 @@ class QuotationSeeder extends Seeder
             return;
         }
 
-        foreach ($groups as $index => $group) {
-            $activeMembers = $group->members
-                ->filter(fn (CustomerConfirmationMember $member) => $member->status !== 'cancelled')
+        foreach ($groups as $group) {
+            $eligibleMembers = $group->members
+                ->filter(fn (CustomerConfirmationMember $member) => in_array($member->status, ['pending_payment', 'partially_paid', 'confirmed'], true))
+                ->filter(fn (CustomerConfirmationMember $member) => $member->quotationItems->isEmpty())
                 ->values();
 
-            if ($activeMembers->isEmpty()) {
+            if ($eligibleMembers->isEmpty()) {
                 continue;
             }
 
-            $shouldSeedPartially = $index % 2 === 0 && $activeMembers->count() > 1;
-            $membersToQuote = $shouldSeedPartially
-                ? $activeMembers->slice(0, $activeMembers->count() - 1)->values()
-                : $activeMembers;
-
-            if ($membersToQuote->isEmpty()) {
-                continue;
-            }
-
-            $payerMember = $membersToQuote->firstWhere('is_leader', true) ?? $membersToQuote->first();
+            $payerMember = $group->members->firstWhere('is_leader', true) ?? $eligibleMembers->first();
 
             if (! $payerMember?->customer_id) {
                 continue;
             }
 
-            $quotation = Quotation::query()->create([
-                'customer_id' => $payerMember->customer_id,
-                'customer_confirmation_id' => $group->id,
-                'quotation_date' => Carbon::now()->subDays(25 - min($index, 20))->toDateString(),
-                'expiry_date' => Carbon::now()->addDays(7 + min($index, 15))->toDateString(),
-                'payment_plan' => 'full',
-                'payment_method' => 'transfer',
-                'description' => 'Seeded quotation from customer confirmation workflow',
-                'status' => 'accepted',
-            ]);
+            $remainingMembers = $eligibleMembers->values();
+            $quotationIndex = 0;
 
-            foreach ($membersToQuote as $memberIndex => $member) {
+            if ($payerMember && $remainingMembers->contains('id', $payerMember->id)) {
+                $leaderCoveredMembers = $remainingMembers->take(min(2, $remainingMembers->count()))->values();
+
+                if ($leaderCoveredMembers->isNotEmpty()) {
+                    $quotation = Quotation::query()->create([
+                        'customer_id' => $payerMember->customer_id,
+                        'customer_confirmation_id' => $group->id,
+                        'quotation_date' => Carbon::now()->subDays(fake()->numberBetween(5, 30))->toDateString(),
+                        'expiry_date' => Carbon::now()->addDays(fake()->numberBetween(7, 21))->toDateString(),
+                        'payment_plan' => (($group->id + $quotationIndex) % 2 === 0) ? 'installment' : 'full',
+                        'payment_method' => 'transfer',
+                        'description' => 'Seeded quotation from payment workflow',
+                        'status' => 'accepted',
+                    ]);
+
+                    foreach ($leaderCoveredMembers->values() as $itemIndex => $member) {
+                        $amount = $this->resolvePackageAmount($group, $member);
+
+                        QuotationItem::query()->create([
+                            'quotation_id' => $quotation->id,
+                            'customer_confirmation_member_id' => $member->id,
+                            'description' => ($member->customer?->user?->name ?? 'Member').' - '.ucfirst((string) $member->sharing_plan).' sharing',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => $amount,
+                            'sort_order' => $itemIndex + 1,
+                        ]);
+                    }
+
+                    $quotationIndex++;
+                    $remainingMemberIds = $leaderCoveredMembers->pluck('id')->all();
+                    $remainingMembers = $remainingMembers
+                        ->reject(fn (CustomerConfirmationMember $member) => in_array($member->id, $remainingMemberIds, true))
+                        ->values();
+                }
+            }
+
+            foreach ($remainingMembers as $member) {
+                if (! $member->customer_id) {
+                    continue;
+                }
+
+                $quotation = Quotation::query()->create([
+                    'customer_id' => $member->customer_id,
+                    'customer_confirmation_id' => $group->id,
+                    'quotation_date' => Carbon::now()->subDays(fake()->numberBetween(5, 30))->toDateString(),
+                    'expiry_date' => Carbon::now()->addDays(fake()->numberBetween(7, 21))->toDateString(),
+                    'payment_plan' => (($group->id + $quotationIndex) % 2 === 0) ? 'installment' : 'full',
+                    'payment_method' => 'transfer',
+                    'description' => 'Seeded quotation from payment workflow',
+                    'status' => 'accepted',
+                ]);
+
                 $amount = $this->resolvePackageAmount($group, $member);
 
                 QuotationItem::query()->create([
@@ -77,12 +106,10 @@ class QuotationSeeder extends Seeder
                     'is_header' => false,
                     'quantity' => 1,
                     'rate' => $amount,
-                    'sort_order' => $memberIndex + 1,
+                    'sort_order' => 1,
                 ]);
 
-                if (in_array($member->status, ['draft', 'confirmed'], true)) {
-                    $member->update(['status' => 'pending_payment']);
-                }
+                $quotationIndex++;
             }
         }
 

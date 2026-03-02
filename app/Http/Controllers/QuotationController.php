@@ -60,7 +60,7 @@ class QuotationController extends Controller
 
     public function create(Request $request)
     {
-        $data['customers'] = $this->customerService->getForFilterWithCode();
+        $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions();
         $data['quotationItems'] = $this->quotationItemService->getQuotationItemMasters(false);
         $data['quotationNotes'] = $this->noteService->get('master', 'quotation');
 
@@ -108,7 +108,9 @@ class QuotationController extends Controller
     public function show($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['customers'] = $this->customerService->getForFilterWithCode();
+        $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions(
+            (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
+        );
 
         return Inertia::render('quotations/view', [
             'data' => $data,
@@ -123,7 +125,9 @@ class QuotationController extends Controller
     public function edit($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['customers'] = $this->customerService->getForFilterWithCode();
+        $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions(
+            (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
+        );
 
         return Inertia::render('quotations/edit', [
             'data' => $data,

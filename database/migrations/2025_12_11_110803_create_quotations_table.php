@@ -21,19 +21,9 @@ return new class extends Migration
             $table->foreignId('customer_confirmation_id')->nullable()->constrained('customer_confirmations')->nullOnDelete();
             $table->foreignId('sales_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('payment_plan')->nullable();
-            $table->string('deposit_type')->nullable();
-            $table->decimal('deposit_value', 10, 2)->nullable();
             $table->string('payment_method')->nullable();
             $table->text('description')->nullable();
-            $table->enum('status', [
-                'draft',
-                'sent',
-                'revised',
-                'accepted',
-                'converted',
-                'rejected',
-                'expired',
-            ])->default('draft');
+            $table->string('status')->default('draft');
             $table->string('reason')->nullable();
             $table->boolean('is_locked')->default(false);
             $table->timestamps();

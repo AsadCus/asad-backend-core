@@ -53,7 +53,6 @@ class OrderService
                     'sales_id' => $o->quotation->customer->handledBy->id ?? '-',
                     'sales_name' => $o->quotation->customer->handledBy->name ?? '-',
                     'payment_plan' => $o->payment_plan,
-                    'handover_date' => $o->handover_date_formatted,
                     'created_at' => $o->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $o->updated_at?->translatedFormat('d F Y'),
                     'has_receipts' => $hasReceipts,
@@ -98,7 +97,6 @@ class OrderService
             $order = Order::create([
                 'quotation_id' => $data['quotation_id'],
                 'payment_plan' => $data['payment_plan'],
-                'handover_date' => $data['handover_date'],
             ]);
 
             $this->quotationService->converted($order->quotation->id);
@@ -129,9 +127,6 @@ class OrderService
             'quotation_id' => $o->quotation_id ?? '-',
             'quotation_number' => $o->quotation->quotation_number ?? '-',
             'payment_plan' => $o->payment_plan,
-            'deposit_type' => $o->quotation->deposit_type ?? null,
-            'deposit_value' => $this->formatService->cleanDecimal($o->quotation->deposit_value ?? 0),
-            'handover_date' => $o->handover_date_formatted,
             'invoices' => $o->invoices->map(fn ($invoice) => [
                 'id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
@@ -164,7 +159,6 @@ class OrderService
             $order->quotation()->where('is_locked', false)->update(['is_locked' => true]);
             $order->update([
                 'payment_plan' => $data['payment_plan'],
-                'handover_date' => $data['handover_date'],
             ]);
 
             $incomingInvoiceIds = [];

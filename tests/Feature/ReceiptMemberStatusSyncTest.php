@@ -71,7 +71,6 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $order = Order::create([
             'quotation_id' => $quotation->id,
             'payment_plan' => 'full',
-            'handover_date' => now()->addDays(60)->format('Y-m-d'),
         ]);
 
         $depositInvoice = Invoice::create([
@@ -83,6 +82,8 @@ class ReceiptMemberStatusSyncTest extends TestCase
             'due_date' => now()->format('Y-m-d'),
             'status' => 'issued',
         ]);
+
+        $depositInvoice->quotationItems()->sync([$item->id]);
 
         return compact(
             'user',
@@ -125,7 +126,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
             'invoice_date' => now()->format('Y-m-d'),
             'due_date' => now()->addDays(30)->format('Y-m-d'),
             'status' => 'issued',
-        ]);
+        ])->quotationItems()->sync([$data['item']->id]);
 
         // Update deposit invoice to be only partial (3000 of 5000 total)
         $data['depositInvoice']->update(['amount' => 3000]);
@@ -139,6 +140,44 @@ class ReceiptMemberStatusSyncTest extends TestCase
 
         $data['member']->refresh();
         $this->assertEquals('partially_paid', $data['member']->status);
+    }
+
+    public function test_installment_receipts_set_member_to_confirmed_when_all_linked_invoices_paid(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['depositInvoice']->update(['amount' => 3000]);
+
+        $balanceInvoice = Invoice::create([
+            'order_id' => $data['order']->id,
+            'type' => 'handover',
+            'description' => 'Invoice For Balance',
+            'amount' => 2000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $balanceInvoice->quotationItems()->sync([$data['item']->id]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 3000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('partially_paid', $data['member']->status);
+
+        Receipt::create([
+            'invoice_id' => $balanceInvoice->id,
+            'amount' => 2000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('confirmed', $data['member']->status);
     }
 
     public function test_deleting_receipt_reverts_member_to_pending_payment(): void
@@ -218,7 +257,6 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $order = Order::create([
             'quotation_id' => $quotation->id,
             'payment_plan' => 'full',
-            'handover_date' => now()->addDays(60)->format('Y-m-d'),
         ]);
 
         $invoice = Invoice::create([

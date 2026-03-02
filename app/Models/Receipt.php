@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\QuotationStatus;
 use App\Helpers\NumberGenerator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -58,7 +59,7 @@ class Receipt extends Model
 
             // Check if quotation is cancelled or soft deleted - don't create financial transaction
             $quotation = $invoice->order?->quotation;
-            if ($quotation && ($quotation->status === 'cancelled' || $quotation->trashed())) {
+            if ($quotation && ($quotation->status === QuotationStatus::Cancelled || $quotation->trashed())) {
                 return;
             }
 

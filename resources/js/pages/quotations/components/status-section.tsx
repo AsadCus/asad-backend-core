@@ -1,5 +1,5 @@
+import { FormField } from '@/components/form-field';
 import { FormSection } from '@/components/form-section';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -34,22 +34,22 @@ export default function StatusSection({
     status,
 }: Props) {
     const allowedValues = useMemo(() => {
-        if (mode === 'edit' && initialStatus === 'sent') {
+        if (mode === 'edit' && initialStatus === 'ready') {
             return ['revised'];
         } else if (initialStatus === 'accepted') {
-            return ['draft', 'sent', 'accepted'];
+            return ['draft', 'ready', 'accepted'];
         } else if (initialStatus === 'rejected') {
-            return ['draft', 'sent', 'rejected'];
+            return ['draft', 'ready', 'rejected'];
         } else if (initialStatus === 'expired') {
-            return ['draft', 'sent', 'expired'];
+            return ['draft', 'ready', 'expired'];
         } else if (initialStatus === 'cancelled') {
             return ['cancelled'];
         }
-        return ['draft', 'sent'];
+        return ['draft', 'ready'];
     }, [mode, initialStatus]);
 
     useEffect(() => {
-        if (mode === 'edit' && initialStatus === 'sent') {
+        if (mode === 'edit' && initialStatus === 'ready') {
             if (data.status !== 'revised') {
                 setData('status', 'revised');
             }
@@ -64,7 +64,7 @@ export default function StatusSection({
             : allowedValues.map((v) => ({ value: v, label: v }));
 
     const selectDisabled =
-        isView || (mode === 'edit' && initialStatus === 'sent');
+        isView || (mode === 'edit' && initialStatus === 'ready');
 
     return (
         <FormSection
@@ -77,43 +77,35 @@ export default function StatusSection({
             <div id="section-status" className="space-y-6">
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                     {/* Status */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label>Status</Label>
-                        <div className="relative">
-                            <Select
-                                disabled={selectDisabled}
-                                value={String(data.status ?? '')}
-                                onValueChange={(value) =>
-                                    setData('status', value)
-                                }
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {selectOptions.map((s) => (
-                                        <SelectItem
-                                            key={s.value}
-                                            value={String(s.value)}
-                                        >
-                                            {s.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {renderError('status')}
-                        </div>
-                    </div>
+                    <FormField label="Status">
+                        <Select
+                            disabled={selectDisabled}
+                            value={String(data.status ?? '')}
+                            onValueChange={(value) => setData('status', value)}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {selectOptions.map((s) => (
+                                    <SelectItem
+                                        key={s.value}
+                                        value={String(s.value)}
+                                    >
+                                        {s.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {renderError('status')}
+                    </FormField>
 
                     {/* reason */}
                     {data.status === 'rejected' && (
-                        <div className="grid w-full items-center gap-3">
-                            <Label>Reason</Label>
-                            <div className="relative">
-                                <Textarea value={data.reason ?? ''} disabled />
-                                {renderError('reason')}
-                            </div>
-                        </div>
+                        <FormField label="Reason">
+                            <Textarea value={data.reason ?? ''} disabled />
+                            {renderError('reason')}
+                        </FormField>
                     )}
                 </div>
             </div>

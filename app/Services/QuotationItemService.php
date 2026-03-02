@@ -95,6 +95,7 @@ class QuotationItemService
 
                 $quotationItem = QuotationItem::create([
                     'quotation_id' => $quotationId,
+                    'customer_confirmation_member_id' => $item['customer_confirmation_member_id'] ?? null,
                     'parent_id' => null,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,
@@ -133,6 +134,7 @@ class QuotationItemService
 
                 $quotationItem = QuotationItem::create([
                     'quotation_id' => $quotationId,
+                    'customer_confirmation_member_id' => $item['customer_confirmation_member_id'] ?? null,
                     'parent_id' => $parentId,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,
@@ -162,6 +164,8 @@ class QuotationItemService
             $keyToId = [];
             $masterIdToQuotationId = [];
             $incomingIds = [];
+            $existingMemberIds = QuotationItem::where('quotation_id', $quotationId)
+                ->pluck('customer_confirmation_member_id', 'id');
 
             // pass 1 — root items
             foreach ($items as $row) {
@@ -172,9 +176,13 @@ class QuotationItemService
                 }
 
                 $id = $item['id'] ?? null;
+                $customerConfirmationMemberId = array_key_exists('customer_confirmation_member_id', $item)
+                    ? $item['customer_confirmation_member_id']
+                    : ($id ? $existingMemberIds->get($id) : null);
 
                 $payload = [
                     'quotation_id' => $quotationId,
+                    'customer_confirmation_member_id' => $customerConfirmationMemberId,
                     'parent_id' => null,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,
@@ -218,9 +226,13 @@ class QuotationItemService
                 }
 
                 $id = $item['id'] ?? null;
+                $customerConfirmationMemberId = array_key_exists('customer_confirmation_member_id', $item)
+                    ? $item['customer_confirmation_member_id']
+                    : ($id ? $existingMemberIds->get($id) : null);
 
                 $payload = [
                     'quotation_id' => $quotationId,
+                    'customer_confirmation_member_id' => $customerConfirmationMemberId,
                     'parent_id' => $parentId,
                     'description' => $item['description'],
                     'is_header' => $item['is_header'] ?? false,

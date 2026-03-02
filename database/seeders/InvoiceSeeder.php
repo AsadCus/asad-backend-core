@@ -50,6 +50,46 @@ class InvoiceSeeder extends Seeder
             $invoiceDate = Carbon::parse($order->quotation?->quotation_date ?? now())
                 ->addDays(3 + min($index, 8));
 
+            $itemIds = $quotationItems
+                ->where('is_header', false)
+                ->pluck('id')
+                ->values();
+
+            $paymentPlan = (string) ($order->payment_plan ?? 'full');
+
+            if ($paymentPlan === 'installment') {
+                $depositAmount = round($amount * 0.4, 2);
+                $balanceAmount = round($amount - $depositAmount, 2);
+
+                $depositInvoice = Invoice::query()->create([
+                    'order_id' => $order->id,
+                    'type' => 'deposit',
+                    'description' => 'Seeded deposit invoice from quotation '.$order->quotation?->quotation_number,
+                    'amount' => $depositAmount,
+                    'invoice_date' => $invoiceDate->toDateString(),
+                    'due_date' => $invoiceDate->copy()->addDays(7)->toDateString(),
+                    'status' => 'issued',
+                ]);
+
+                $balanceInvoice = Invoice::query()->create([
+                    'order_id' => $order->id,
+                    'type' => 'handover',
+                    'description' => 'Seeded balance invoice from quotation '.$order->quotation?->quotation_number,
+                    'amount' => $balanceAmount,
+                    'invoice_date' => $invoiceDate->copy()->addDays(10)->toDateString(),
+                    'due_date' => $invoiceDate->copy()->addDays(24)->toDateString(),
+                    'status' => 'issued',
+                ]);
+
+                if ($itemIds->isNotEmpty()) {
+                    $syncIds = $itemIds->all();
+                    $depositInvoice->quotationItems()->sync($syncIds);
+                    $balanceInvoice->quotationItems()->sync($syncIds);
+                }
+
+                continue;
+            }
+
             $invoice = Invoice::query()->create([
                 'order_id' => $order->id,
                 'type' => 'deposit',
@@ -59,11 +99,6 @@ class InvoiceSeeder extends Seeder
                 'due_date' => $invoiceDate->copy()->addDays(14)->toDateString(),
                 'status' => 'issued',
             ]);
-
-            $itemIds = $quotationItems
-                ->where('is_header', false)
-                ->pluck('id')
-                ->values();
 
             if ($itemIds->isNotEmpty()) {
                 $invoice->quotationItems()->sync($itemIds->all());

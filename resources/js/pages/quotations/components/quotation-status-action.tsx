@@ -34,7 +34,7 @@ export function getAvailableQuotationActions(
 ): QuotationStatusActionType[] {
     if (!status) return [];
 
-    if (status === 'sent' || status === 'revised') {
+    if (status === 'ready' || status === 'revised') {
         return ['accept', 'reject', 'expire', 'cancel'];
     }
 

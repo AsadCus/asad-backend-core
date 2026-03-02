@@ -36,10 +36,10 @@ class DatabaseSeeder extends Seeder
             ManifestSeeder::class,
 
             // Transactions
-            // QuotationSeeder::class,
-            // OrderSeeder::class,
-            // InvoiceSeeder::class,
-            // ReceiptSeeder::class,
+            QuotationSeeder::class,
+            OrderSeeder::class,
+            InvoiceSeeder::class,
+            ReceiptSeeder::class,
         ]);
     }
 }

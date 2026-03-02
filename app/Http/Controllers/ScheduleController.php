@@ -110,7 +110,6 @@ class ScheduleController extends Controller
                     ? [
                         'id' => $quotation->order->id,
                         'order_number' => $quotation->order->order_number,
-                        'handover_date' => $quotation->order->handover_date_formatted,
                     ]
                     : null,
             ],
@@ -128,7 +127,7 @@ class ScheduleController extends Controller
 
             'breakdown' => $paymentScheduleService->generatePaymentSchedule($quotation),
 
-            'status' => $quotation->status,
+            'status' => $quotation->status?->value,
             'is_active' => true,
         ];
     }

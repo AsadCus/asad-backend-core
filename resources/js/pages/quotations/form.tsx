@@ -3,7 +3,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { navigateToSection } from '@/lib/navigation-helper';
 import { formatDateForDisplay } from '@/lib/utils';
-import { getForShow as getCustomerForShow } from '@/routes/customer';
+import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { nanoid } from 'nanoid';
@@ -24,7 +24,7 @@ interface QuotationFormProps {
     paymentPlans?: OptionType[];
     paymentMethods?: OptionType[];
     statuses?: OptionType[];
-    customers?: OptionType[];
+    customerConfirmations?: OptionType[];
     quotationItems?: QuotationItemSchema[];
     quotationNotes?: NoteSchema[];
     prefilledCustomerId?: string;
@@ -38,7 +38,7 @@ export function QuotationForm({
     paymentPlans = [],
     paymentMethods = [],
     statuses = [],
-    customers = [],
+    customerConfirmations = [],
     quotationItems = [],
     quotationNotes = [],
     prefilledCustomerId,
@@ -65,6 +65,7 @@ export function QuotationForm({
         quotation_date: today,
         expiry_date: today,
         customer_id: undefined,
+        customer_confirmation_id: undefined,
         customer_name: '',
         nric_number: '',
         customer_contact: '',
@@ -72,8 +73,6 @@ export function QuotationForm({
         customer_email: null,
         description: '',
         payment_plan: 'full',
-        deposit_type: null,
-        deposit_value: null,
         payment_method: 'transfer',
         status: 'draft',
         reason: '',
@@ -120,24 +119,39 @@ export function QuotationForm({
     });
     const [selectedCustomerData, setSelectedCustomerData] =
         useState<UserSchema | null>(null);
+    const [availableMembers, setAvailableMembers] = useState<
+        Array<{
+            member_id: number;
+            customer_id: number;
+            name: string;
+            sharing_plan: string | null;
+            status: string;
+            is_leader?: boolean;
+            has_quotation?: boolean;
+            contact_number?: string;
+            address?: string;
+            email?: string;
+        }>
+    >([]);
+    const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+    const [handlerMemberId, setHandlerMemberId] = useState<number | null>(null);
+    const [packagePrices, setPackagePrices] = useState<{
+        single: number;
+        double: number;
+        triple: number;
+        quad: number;
+    }>({
+        single: 0,
+        double: 0,
+        triple: 0,
+        quad: 0,
+    });
 
     // customer
-    const getCustomerDetail = async (id: number) => {
-        try {
-            const response = await fetch(getCustomerForShow(id).url);
-            if (!response) throw new Error('Network error');
-            const customer = await response.json();
-            setSelectedCustomerData(customer);
-        } catch (err) {
-            console.error('Failed to fetch customer details:', err);
-        }
-    };
-
     useEffect(() => {
         if (selectedCustomerData) {
             setData((prev) => ({
                 ...prev,
-                // nric_number: selectedCustomerData.nric_number,
                 customer_name: selectedCustomerData.name,
                 customer_contact: selectedCustomerData.contact,
                 customer_address: selectedCustomerData.address,
@@ -152,6 +166,245 @@ export function QuotationForm({
             setSelectedCustomerData(prefilledCustomerData);
         }
     }, [prefilledCustomerData, prefilledCustomerId, isCreate]);
+
+    const getRateFromSharingPlan = useCallback(
+        (sharingPlan?: string | null) => {
+            if (sharingPlan === 'single') return packagePrices.single;
+            if (sharingPlan === 'double') return packagePrices.double;
+            if (sharingPlan === 'triple') return packagePrices.triple;
+            if (sharingPlan === 'quad') return packagePrices.quad;
+            return 0;
+        },
+        [packagePrices],
+    );
+
+    const buildItemsFromMembers = useCallback(
+        (memberIds: number[], existingItems: QuotationItemSchema[] = []) => {
+            const selectedMembers = availableMembers.filter((member) =>
+                memberIds.includes(member.member_id),
+            );
+
+            const existingItemByMemberId = new Map(
+                existingItems
+                    .filter(
+                        (item) =>
+                            Number(item.customer_confirmation_member_id ?? 0) >
+                            0,
+                    )
+                    .map((item) => [
+                        Number(item.customer_confirmation_member_id),
+                        item,
+                    ]),
+            );
+
+            return selectedMembers.map((member, index) => {
+                const existingItem = existingItemByMemberId.get(
+                    member.member_id,
+                );
+
+                if (existingItem) {
+                    return {
+                        ...existingItem,
+                        _key:
+                            existingItem._key ||
+                            (existingItem.id
+                                ? `id-${existingItem.id}`
+                                : nanoid()),
+                        customer_confirmation_member_id: member.member_id,
+                        sharing_plan: member.sharing_plan,
+                        sort_order: index + 1,
+                    };
+                }
+
+                return {
+                    _key: nanoid(),
+                    id: undefined,
+                    quotation_id: undefined,
+                    customer_confirmation_member_id: member.member_id,
+                    sharing_plan: member.sharing_plan,
+                    parent_id: null,
+                    parent_key: null,
+                    description: `${member.name} - ${member.sharing_plan ? `${member.sharing_plan.charAt(0).toUpperCase()}${member.sharing_plan.slice(1)}` : 'Standard'} sharing`,
+                    is_header: false,
+                    is_optional: false,
+                    quantity: 1,
+                    rate: getRateFromSharingPlan(member.sharing_plan),
+                    amount: getRateFromSharingPlan(member.sharing_plan),
+                    sort_order: index + 1,
+                };
+            });
+        },
+        [availableMembers, getRateFromSharingPlan],
+    );
+
+    const syncHandlerCustomer = useCallback(
+        (memberId: number | null) => {
+            if (!memberId) return;
+
+            const member = availableMembers.find(
+                (m) => m.member_id === memberId,
+            );
+            if (!member) return;
+
+            setData((prev) => ({
+                ...prev,
+                customer_id: member.customer_id,
+                customer_name: member.name,
+                customer_contact:
+                    member.contact_number ?? prev.customer_contact,
+                customer_address: member.address ?? prev.customer_address,
+                customer_email: member.email ?? prev.customer_email,
+            }));
+        },
+        [availableMembers, setData],
+    );
+
+    const loadCustomerConfirmation = useCallback(
+        async (confirmationId: number) => {
+            const response = await fetch(
+                showCustomerConfirmation(confirmationId).url,
+            );
+            if (!response.ok) {
+                throw new Error('Failed to load customer confirmation');
+            }
+
+            const confirmation = await response.json();
+
+            const members = (confirmation.members ?? []) as Array<{
+                member_id: number;
+                customer_id: number;
+                name: string;
+                sharing_plan: string | null;
+                status: string;
+                is_leader?: boolean;
+                has_quotation?: boolean;
+                contact_number?: string;
+                address?: string;
+                email?: string;
+            }>;
+
+            const linkedMemberIds = new Set(
+                (data.items ?? [])
+                    .map((item) =>
+                        Number(item.customer_confirmation_member_id ?? 0),
+                    )
+                    .filter((value) => value > 0),
+            );
+
+            const eligible = members.filter((member) => {
+                if (linkedMemberIds.has(member.member_id)) {
+                    return true;
+                }
+
+                return member.status === 'draft' && !member.has_quotation;
+            });
+
+            setAvailableMembers(eligible);
+
+            const autoSelectedMemberIds = isCreate
+                ? eligible.map((member) => member.member_id)
+                : eligible
+                      .filter((member) => linkedMemberIds.has(member.member_id))
+                      .map((member) => member.member_id);
+
+            setSelectedMemberIds(autoSelectedMemberIds);
+
+            const currentHandlerMember = eligible.find(
+                (member) =>
+                    member.customer_id === data.customer_id &&
+                    autoSelectedMemberIds.includes(member.member_id),
+            );
+
+            const nextHandlerId =
+                currentHandlerMember?.member_id ??
+                (autoSelectedMemberIds.length === 1
+                    ? autoSelectedMemberIds[0]
+                    : (autoSelectedMemberIds[0] ?? null));
+
+            setHandlerMemberId(nextHandlerId);
+
+            setPackagePrices({
+                single: Number(confirmation.package_price_single ?? 0),
+                double: Number(confirmation.package_price_double ?? 0),
+                triple: Number(confirmation.package_price_triple ?? 0),
+                quad: Number(confirmation.package_price_quad ?? 0),
+            });
+
+            setData((prev) => ({
+                ...prev,
+                customer_confirmation_id: confirmationId,
+                package_name:
+                    confirmation.package_data?.name ?? prev.package_name,
+                package_price_single: Number(
+                    confirmation.package_price_single ?? 0,
+                ),
+                package_price_double: Number(
+                    confirmation.package_price_double ?? 0,
+                ),
+                package_price_triple: Number(
+                    confirmation.package_price_triple ?? 0,
+                ),
+                package_price_quad: Number(
+                    confirmation.package_price_quad ?? 0,
+                ),
+                ...(isCreate
+                    ? {
+                          items: buildItemsFromMembers(autoSelectedMemberIds),
+                      }
+                    : {}),
+                customer_id: nextHandlerId
+                    ? (eligible.find(
+                          (member) => member.member_id === nextHandlerId,
+                      )?.customer_id ?? prev.customer_id)
+                    : prev.customer_id,
+                customer_name: nextHandlerId
+                    ? (eligible.find(
+                          (member) => member.member_id === nextHandlerId,
+                      )?.name ?? prev.customer_name)
+                    : prev.customer_name,
+                customer_contact: nextHandlerId
+                    ? (eligible.find(
+                          (member) => member.member_id === nextHandlerId,
+                      )?.contact_number ?? prev.customer_contact)
+                    : prev.customer_contact,
+                customer_address: nextHandlerId
+                    ? (eligible.find(
+                          (member) => member.member_id === nextHandlerId,
+                      )?.address ?? prev.customer_address)
+                    : prev.customer_address,
+                customer_email: nextHandlerId
+                    ? (eligible.find(
+                          (member) => member.member_id === nextHandlerId,
+                      )?.email ?? prev.customer_email)
+                    : prev.customer_email,
+            }));
+        },
+        [
+            buildItemsFromMembers,
+            data.customer_id,
+            data.items,
+            isCreate,
+            setData,
+        ],
+    );
+
+    useEffect(() => {
+        if (!data.customer_confirmation_id) {
+            return;
+        }
+
+        if (!isCreate) {
+            loadCustomerConfirmation(
+                Number(data.customer_confirmation_id),
+            ).catch(() => {
+                setAvailableMembers([]);
+            });
+        }
+    }, [data.customer_confirmation_id, isCreate, loadCustomerConfirmation]);
+
+    useEffect(() => {
+        syncHandlerCustomer(handlerMemberId);
+    }, [handlerMemberId, syncHandlerCustomer]);
 
     // items
     const initializedRef = useRef(false);
@@ -260,6 +513,12 @@ export function QuotationForm({
         );
     };
 
+    const noteErrors = Object.entries(
+        errors as Record<string, string | undefined>,
+    )
+        .filter(([key, message]) => key.startsWith('notes') && Boolean(message))
+        .map(([, message]) => String(message));
+
     // misc
     const handleSectionClick = useCallback(
         (sectionId: string) => {
@@ -305,10 +564,59 @@ export function QuotationForm({
                     <QuotationInformationSection
                         data={data}
                         isView={isView}
+                        disableCustomerConfirmation={!isCreate}
                         setData={setData}
                         renderError={renderError}
-                        customers={customers}
-                        getCustomerDetail={getCustomerDetail}
+                        customerConfirmations={customerConfirmations}
+                        availableMembers={availableMembers}
+                        selectedMemberIds={selectedMemberIds}
+                        handlerMemberId={handlerMemberId}
+                        onCustomerConfirmationChange={(value) => {
+                            const confirmationId = Number(value ?? 0);
+
+                            if (!confirmationId) {
+                                setAvailableMembers([]);
+                                setSelectedMemberIds([]);
+                                setHandlerMemberId(null);
+                                setData('customer_confirmation_id', null);
+
+                                return;
+                            }
+
+                            loadCustomerConfirmation(confirmationId).catch(
+                                () => {
+                                    setAvailableMembers([]);
+                                    setSelectedMemberIds([]);
+                                    setHandlerMemberId(null);
+                                },
+                            );
+                        }}
+                        onSelectedMembersChange={(memberIds) => {
+                            setSelectedMemberIds(memberIds);
+
+                            if (!isView) {
+                                const nextItems = buildItemsFromMembers(
+                                    memberIds,
+                                    data.items ?? [],
+                                );
+                                setData('items', nextItems);
+                            }
+
+                            if (!memberIds.length) {
+                                setHandlerMemberId(null);
+                                return;
+                            }
+
+                            if (
+                                !handlerMemberId ||
+                                !memberIds.includes(handlerMemberId)
+                            ) {
+                                setHandlerMemberId(memberIds[0]);
+                            }
+                        }}
+                        onHandlerChange={(memberId) => {
+                            setHandlerMemberId(memberId);
+                        }}
                         status={getQuotationSectionStatus(
                             'customer_and_quotation_information',
                         )}
@@ -322,6 +630,7 @@ export function QuotationForm({
                         onChange={(nextItems) => setData('items', nextItems)}
                         items={data.items ?? []}
                         quotationNotes={data.notes}
+                        noteErrors={noteErrors}
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
                         status={getQuotationSectionStatus(

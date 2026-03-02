@@ -12,6 +12,7 @@ export const quotationSchema = z.object({
     order_number: z.string().nullable().optional(),
 
     customer_id: z.number().nullable().optional(),
+    customer_confirmation_id: z.number().nullable().optional(),
     nric_number: z.string().nullable().optional(),
     customer_number: z.string().nullable().optional(),
     customer_name: z.string().nullable().optional(),
@@ -23,9 +24,21 @@ export const quotationSchema = z.object({
 
     description: z.string().nullable().optional(),
     payment_plan: z.string().nullable().optional(),
-    deposit_type: z.string().nullable().optional(),
-    deposit_value: z.union([z.string(), z.number()]).nullable().optional(),
     payment_method: z.string().nullable().optional(),
+    package_name: z.string().nullable().optional(),
+    package_price_single: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_double: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_triple: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_quad: z.union([z.string(), z.number()]).nullable().optional(),
     status: z.string().optional(),
     items_count: z.number().optional(),
     total_amount: z.union([z.string(), z.number()]).nullable().optional(),
@@ -54,11 +67,6 @@ export const paymentPlans = [
     { label: 'Installment', value: 'installment' },
 ];
 
-export const depositTypes = [
-    { label: 'Percentage (%)', value: 'percentage' },
-    { label: 'Fixed Amount ($)', value: 'fixed' },
-];
-
 export const paymentMethods = [
     { label: 'Cash', value: 'cash' },
     { label: 'Bank Transfer', value: 'transfer' },
@@ -67,7 +75,7 @@ export const paymentMethods = [
 
 export const statuses = [
     { label: 'Draft', value: 'draft' },
-    { label: 'Ready', value: 'sent' },
+    { label: 'Ready', value: 'ready' },
     { label: 'Revised', value: 'revised' },
     { label: 'Accepted', value: 'accepted' },
     { label: 'Converted', value: 'converted' },
@@ -78,7 +86,7 @@ export const statuses = [
 
 export const statusColors = {
     draft: 'bg-gray-100 text-gray-800',
-    sent: 'bg-cyan-100 text-cyan-800',
+    ready: 'bg-cyan-100 text-cyan-800',
     revised: 'bg-yellow-100 text-yellow-800',
     accepted: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',

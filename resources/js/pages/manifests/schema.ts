@@ -247,20 +247,6 @@ export const manifestStatusLabels = {
     cancelled: 'Cancelled',
 };
 
-export const sharingPlanOptions = [
-    { label: 'Single', value: 'single' },
-    { label: 'Double', value: 'double' },
-    { label: 'Triple', value: 'triple' },
-    { label: 'Quad', value: 'quad' },
-];
-
-export const sharingPlanCapacity: Record<string, number> = {
-    single: 1,
-    double: 2,
-    triple: 3,
-    quad: 4,
-};
-
 export const roomStatusOptions = [
     { label: 'Pending', value: 'pending' },
     { label: 'Filled', value: 'filled' },

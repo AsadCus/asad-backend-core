@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\QuotationStatus;
 use App\Helpers\FormatService;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\FinancialTransaction;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
@@ -54,7 +57,7 @@ class QuotationService
                     'total_amount' => $this->formatService->cleanDecimal($q->total_amount),
                     'payment_plan' => $q->payment_plan_label,
                     'payment_method' => ucfirst($q->payment_method),
-                    'status' => $q->status,
+                    'status' => $q->status?->value,
                     'reason' => $q->reason,
                     'have_invoices' => $q->order?->invoices()->exists() ?? false,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),
@@ -79,7 +82,10 @@ class QuotationService
 
     public function getCanCreateOrderForFilter()
     {
-        $data = Quotation::select('id', 'quotation_number')->whereIn('status', ['sent', 'accepted'])->whereDoesntHave('order')->get()->map(function ($q) {
+        $data = Quotation::select('id', 'quotation_number')->whereIn('status', [
+            QuotationStatus::Ready->value,
+            QuotationStatus::Accepted->value,
+        ])->whereDoesntHave('order')->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => $q->quotation_number,
@@ -101,14 +107,13 @@ class QuotationService
 
             $quotation = Quotation::create([
                 'customer_id' => $data['customer_id'] ?? null,
+                'customer_confirmation_id' => $data['customer_confirmation_id'] ?? null,
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
-                'deposit_type' => $data['deposit_type'] ?? null,
-                'deposit_value' => $data['deposit_value'] ?? null,
                 'payment_method' => $data['payment_method'] ?? null,
                 'description' => $data['description'] ?? null,
-                'status' => $data['status'] ?? 'draft',
+                'status' => $data['status'] ?? QuotationStatus::Draft->value,
                 'reason' => $data['reason'] ?? null,
             ]);
 
@@ -116,17 +121,28 @@ class QuotationService
                 $this->quotationItemService->storeQuotationItems($quotation->id, $data['items']);
             }
 
+            $linkedMemberIds = $quotation->quotationItems()
+                ->whereNotNull('customer_confirmation_member_id')
+                ->pluck('customer_confirmation_member_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            $this->syncLinkedMemberStatuses($linkedMemberIds, []);
+
             return $quotation;
         });
     }
 
     public function getForEditShow($id): array
     {
-        $quotation = Quotation::with(['customer.user', 'quotationItems'])->findOrFail($id);
+        $quotation = Quotation::with(['customer.user', 'quotationItems.confirmationMember', 'customerConfirmation.package'])->findOrFail($id);
 
         return [
             'id' => $quotation->id,
             'quotation_number' => $quotation->quotation_number,
+            'customer_confirmation_id' => $quotation->customer_confirmation_id,
             'customer_id' => $quotation->customer_id,
             'customer_number' => $quotation->customer->customer_number ?? '',
             'customer_name' => $quotation->customer->user->name ?? '',
@@ -139,11 +155,14 @@ class QuotationService
             'expiry_date' => $quotation->expiry_date_formatted,
             'total_amount' => $this->formatService->cleanDecimal($quotation->total_amount),
             'payment_plan' => $quotation->payment_plan,
-            'deposit_type' => $quotation->deposit_type,
-            'deposit_value' => $this->formatService->cleanDecimal($quotation->deposit_value),
             'payment_method' => $quotation->payment_method,
-            'status' => $quotation->status,
+            'status' => $quotation->status?->value,
             'reason' => $quotation->reason,
+            'package_name' => $quotation->customerConfirmation?->package?->name,
+            'package_price_single' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_single),
+            'package_price_double' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_double),
+            'package_price_triple' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_triple),
+            'package_price_quad' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_quad),
             'sales_registration_number' => $quotation->sales_registration_number,
             'model' => 'quotation',
             'notes' => $quotation->quotationNotes->sortBy('sort_order')->values()->toArray(),
@@ -151,6 +170,8 @@ class QuotationService
                 return [
                     'id' => $it->id,
                     'parent_id' => $it->parent_id,
+                    'customer_confirmation_member_id' => $it->customer_confirmation_member_id,
+                    'sharing_plan' => $it->confirmationMember?->sharing_plan,
                     'description' => $it->description,
                     'is_header' => $it->is_header,
                     'is_optional' => $it->is_optional,
@@ -167,6 +188,14 @@ class QuotationService
         return DB::transaction(function () use ($data, $id) {
             $quotation = Quotation::findOrFail($id);
 
+            $previousLinkedMemberIds = $quotation->quotationItems()
+                ->whereNotNull('customer_confirmation_member_id')
+                ->pluck('customer_confirmation_member_id')
+                ->map(fn ($memberId) => (int) $memberId)
+                ->unique()
+                ->values()
+                ->all();
+
             if (! empty($data['quotation_date'])) {
                 $data['quotation_date'] = Carbon::parse($data['quotation_date'])->format('Y-m-d');
             }
@@ -176,14 +205,13 @@ class QuotationService
 
             $quotation->update([
                 'customer_id' => $data['customer_id'] ?? null,
+                'customer_confirmation_id' => $data['customer_confirmation_id'] ?? $quotation->customer_confirmation_id,
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
-                'deposit_type' => $data['deposit_type'] ?? null,
-                'deposit_value' => $data['deposit_value'] ?? null,
                 'payment_method' => $data['payment_method'] ?? null,
                 'description' => $data['description'] ?? null,
-                'status' => $data['status'] ?? $quotation->status,
+                'status' => $data['status'] ?? $quotation->status?->value,
                 'reason' => $data['reason'] ?? $quotation->reason,
             ]);
 
@@ -191,15 +219,96 @@ class QuotationService
                 $this->quotationItemService->replaceQuotationItems($quotation->id, $data['items']);
             }
 
+            $currentLinkedMemberIds = $quotation->quotationItems()
+                ->whereNotNull('customer_confirmation_member_id')
+                ->pluck('customer_confirmation_member_id')
+                ->map(fn ($memberId) => (int) $memberId)
+                ->unique()
+                ->values()
+                ->all();
+
+            $removedLinkedMemberIds = array_values(array_diff(
+                $previousLinkedMemberIds,
+                $currentLinkedMemberIds
+            ));
+
+            $this->syncLinkedMemberStatuses($currentLinkedMemberIds, $removedLinkedMemberIds);
+
             return $quotation->fresh();
         });
+    }
+
+    private function syncLinkedMemberStatuses(array $currentMemberIds, array $removedMemberIds): void
+    {
+        if (! empty($currentMemberIds)) {
+            CustomerConfirmationMember::query()
+                ->whereIn('id', $currentMemberIds)
+                ->where('status', 'draft')
+                ->update(['status' => 'pending_payment']);
+        }
+
+        if (empty($removedMemberIds)) {
+            return;
+        }
+
+        $stillLinkedMemberIds = QuotationItem::query()
+            ->whereIn('customer_confirmation_member_id', $removedMemberIds)
+            ->pluck('customer_confirmation_member_id')
+            ->map(fn ($memberId) => (int) $memberId)
+            ->unique()
+            ->values()
+            ->all();
+
+        $toRevertMemberIds = array_values(array_diff($removedMemberIds, $stillLinkedMemberIds));
+
+        if (empty($toRevertMemberIds)) {
+            return;
+        }
+
+        CustomerConfirmationMember::query()
+            ->whereIn('id', $toRevertMemberIds)
+            ->where('status', 'pending_payment')
+            ->update(['status' => 'draft']);
+    }
+
+    public function getCustomerConfirmationCreateOptions(?int $includeConfirmationId = null): array
+    {
+        return CustomerConfirmation::query()
+            ->with(['members.customer.user', 'members.quotationItems'])
+            ->where(function ($query) use ($includeConfirmationId) {
+                $query->whereHas('members', function ($memberQuery) {
+                    $memberQuery->where('status', 'draft')
+                        ->whereDoesntHave('quotationItems');
+                });
+
+                if ($includeConfirmationId) {
+                    $query->orWhere('id', $includeConfirmationId);
+                }
+            })
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (CustomerConfirmation $confirmation) {
+                $leader = $confirmation->members->firstWhere('is_leader', true)
+                    ?? $confirmation->members->first();
+
+                $eligibleCount = $confirmation->members
+                    ->filter(fn (CustomerConfirmationMember $member) => $member->status === 'draft' && $member->quotationItems->isEmpty())
+                    ->count();
+
+                return [
+                    'value' => $confirmation->id,
+                    'label' => 'CC-'.$confirmation->id.' - '.($leader?->customer?->user?->name ?? 'Unknown').' ('.$eligibleCount.' member(s))',
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     public function accept($id)
     {
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
-            $quotation->update(['status' => 'accepted']);
+            $quotation->update(['status' => QuotationStatus::Accepted->value]);
 
             return $quotation;
         });
@@ -209,7 +318,7 @@ class QuotationService
     {
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
-            $quotation->update(['status' => 'converted']);
+            $quotation->update(['status' => QuotationStatus::Converted->value]);
 
             return $quotation;
         });
@@ -220,8 +329,21 @@ class QuotationService
         return DB::transaction(function () use ($data, $id) {
             $quotation = Quotation::findOrFail($id);
 
+            $linkedMemberIds = $quotation->quotationItems()
+                ->whereNotNull('customer_confirmation_member_id')
+                ->pluck('customer_confirmation_member_id')
+                ->unique()
+                ->values();
+
+            if ($linkedMemberIds->isNotEmpty()) {
+                CustomerConfirmationMember::query()
+                    ->whereIn('id', $linkedMemberIds)
+                    ->where('status', '!=', 'cancelled')
+                    ->update(['status' => 'draft']);
+            }
+
             $quotation->update([
-                'status' => 'rejected',
+                'status' => QuotationStatus::Rejected->value,
                 'reason' => $data['reason'] ?? null,
             ]);
 
@@ -234,7 +356,7 @@ class QuotationService
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
             $quotation->update([
-                'status' => 'sent',
+                'status' => QuotationStatus::Ready->value,
             ]);
 
             return $quotation->fresh();
@@ -247,7 +369,7 @@ class QuotationService
             $quotation = Quotation::findOrFail($id);
 
             $quotation->update([
-                'status' => 'expired',
+                'status' => QuotationStatus::Expired->value,
             ]);
 
             return $quotation;
@@ -258,6 +380,19 @@ class QuotationService
     {
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
+
+            $linkedMemberIds = $quotation->quotationItems()
+                ->whereNotNull('customer_confirmation_member_id')
+                ->pluck('customer_confirmation_member_id')
+                ->unique()
+                ->values();
+
+            if ($linkedMemberIds->isNotEmpty()) {
+                CustomerConfirmationMember::query()
+                    ->whereIn('id', $linkedMemberIds)
+                    ->where('status', '!=', 'cancelled')
+                    ->update(['status' => 'draft']);
+            }
 
             if ($quotation->order) {
                 $invoices = $quotation->order->invoices;
@@ -273,7 +408,7 @@ class QuotationService
                 }
             }
 
-            $quotation->update(['status' => 'cancelled']);
+            $quotation->update(['status' => QuotationStatus::Cancelled->value]);
 
             return $quotation;
         });
@@ -287,7 +422,7 @@ class QuotationService
             return false;
         }
 
-        $quotation->update(['status' => 'expired']);
+        $quotation->update(['status' => QuotationStatus::Expired->value]);
 
         return $quotation->delete();
     }

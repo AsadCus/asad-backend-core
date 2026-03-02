@@ -12,6 +12,7 @@ class PaymentStatusService
         $invoice = Invoice::with([
             'receipt',
             'order.invoices.receipt',
+            'order.invoices.quotationItems',
             'order.quotation.quotationItems',
         ])->find($invoiceId);
 
@@ -72,20 +73,37 @@ class PaymentStatusService
         }
 
         $orderInvoices = $invoice->order->invoices;
-        $totalInvoiceAmount = $orderInvoices->sum(fn (Invoice $orderInvoice) => (float) $orderInvoice->amount);
-        $totalPaid = $orderInvoices->sum(fn (Invoice $orderInvoice) => (float) $orderInvoice->receipt->sum('amount'));
 
-        if ($totalInvoiceAmount > 0 && $totalPaid >= $totalInvoiceAmount) {
-            $newStatus = 'confirmed';
-        } elseif ($totalPaid > 0) {
-            $newStatus = 'partially_paid';
-        } else {
-            $newStatus = 'pending_payment';
+        foreach ($memberIds as $memberId) {
+            $memberInvoices = $orderInvoices
+                ->filter(function (Invoice $orderInvoice) use ($memberId) {
+                    return $orderInvoice->quotationItems
+                        ->contains(fn ($item) => (int) $item->customer_confirmation_member_id === (int) $memberId);
+                })
+                ->values();
+
+            if ($memberInvoices->isEmpty()) {
+                continue;
+            }
+
+            $paidInvoicesCount = $memberInvoices->filter(function (Invoice $memberInvoice) {
+                $invoicePaid = (float) $memberInvoice->receipt->sum('amount');
+
+                return $invoicePaid >= (float) $memberInvoice->amount;
+            })->count();
+
+            if ($paidInvoicesCount === $memberInvoices->count()) {
+                $newStatus = 'confirmed';
+            } elseif ($paidInvoicesCount > 0) {
+                $newStatus = 'partially_paid';
+            } else {
+                $newStatus = 'pending_payment';
+            }
+
+            CustomerConfirmationMember::query()
+                ->where('id', $memberId)
+                ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed'])
+                ->update(['status' => $newStatus]);
         }
-
-        CustomerConfirmationMember::query()
-            ->whereIn('id', $memberIds)
-            ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed'])
-            ->update(['status' => $newStatus]);
     }
 }

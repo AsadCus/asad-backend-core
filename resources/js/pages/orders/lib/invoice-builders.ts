@@ -1,69 +1,146 @@
-import { formatDateForDisplay } from '@/lib/utils';
 import { calculateTotal, collectAllItems } from '@/pages/invoices/lib/utils';
 import { InvoiceItemSchema, InvoiceSchema } from '@/pages/invoices/schema';
 import { QuotationSchema } from '@/pages/quotations/schema';
-import { addMonths, setDate } from 'date-fns';
 import { nanoid } from 'nanoid';
-
-function calculateInvoiceDates(
-    invoiceIndex: number,
-    handoverDate: string,
-): { invoice_date: string; due_date: string } {
-    if (!handoverDate) {
-        return { invoice_date: '', due_date: '' };
-    }
-
-    const handover = new Date(handoverDate);
-
-    if (isNaN(handover.getTime())) {
-        return { invoice_date: '', due_date: '' };
-    }
-
-    let invoiceDate: Date;
-    let dueDate: Date;
-
-    if (invoiceIndex === 0) {
-        invoiceDate = new Date();
-        dueDate = new Date();
-    } else if (invoiceIndex === 1) {
-        invoiceDate = new Date(handover);
-        dueDate = new Date(handover);
-    } else {
-        invoiceDate = setDate(addMonths(handover, invoiceIndex - 1), 20);
-        dueDate = invoiceDate;
-    }
-
-    return {
-        invoice_date: formatDateForDisplay(invoiceDate),
-        due_date: formatDateForDisplay(dueDate),
-    };
-}
 
 export function autoFillInvoiceDates(
     invoices: InvoiceSchema[],
-    handoverDate: string,
+    defaultDate?: string,
 ): InvoiceSchema[] {
-    if (!handoverDate) return invoices;
+    if (!defaultDate) {
+        return invoices;
+    }
 
-    return invoices.map((invoice, index) => {
-        const { invoice_date, due_date } = calculateInvoiceDates(
-            index,
-            handoverDate,
-        );
+    return invoices.map((invoice) => ({
+        ...invoice,
+        invoice_date: invoice.invoice_date || defaultDate,
+        due_date: invoice.due_date || defaultDate,
+    }));
+}
+
+function roundToCents(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+function buildInstallmentItems(
+    items: InvoiceItemSchema[],
+    depositType?: string | null,
+    depositValue?: number | string | null,
+): { depositItems: InvoiceItemSchema[]; balanceItems: InvoiceItemSchema[] } {
+    const packageItems = items.filter(
+        (item) =>
+            !item.is_header &&
+            Number(item.customer_confirmation_member_id ?? 0) > 0,
+    );
+
+    if (!packageItems.length) {
+        return {
+            depositItems: items,
+            balanceItems: [],
+        };
+    }
+
+    const packageItemsWithAmounts = packageItems.map((item) => {
+        const quantity = Number(item.quantity ?? 0);
+        const rate = Number(item.rate ?? 0);
+        const fallbackAmount = roundToCents(quantity * rate);
+        const amount = roundToCents(Number(item.amount ?? fallbackAmount));
 
         return {
-            ...invoice,
-            invoice_date,
-            due_date,
+            ...item,
+            amount,
         };
     });
+
+    const packageTotal = roundToCents(
+        packageItemsWithAmounts.reduce(
+            (sum, item) => sum + Number(item.amount ?? 0),
+            0,
+        ),
+    );
+    const nonPackageItems = items.filter(
+        (item) =>
+            item.is_header ||
+            Number(item.customer_confirmation_member_id ?? 0) <= 0,
+    );
+
+    let depositAmount = 0;
+    const numericDepositValue = Number(depositValue ?? 0);
+
+    if (depositType === 'percentage' && numericDepositValue > 0) {
+        depositAmount = roundToCents(
+            packageTotal * (numericDepositValue / 100),
+        );
+    } else if (depositType === 'fixed' && numericDepositValue > 0) {
+        depositAmount = Math.min(
+            roundToCents(numericDepositValue),
+            packageTotal,
+        );
+    }
+
+    if (depositAmount <= 0) {
+        return {
+            depositItems: nonPackageItems,
+            balanceItems: packageItemsWithAmounts,
+        };
+    }
+
+    const perItemDeposit = roundToCents(
+        depositAmount / packageItemsWithAmounts.length,
+    );
+    let allocated = 0;
+    const depositItems: InvoiceItemSchema[] = [...nonPackageItems];
+    const balanceItems: InvoiceItemSchema[] = [];
+
+    packageItemsWithAmounts.forEach((item, index) => {
+        const quantity = Number(item.quantity ?? 0) || 1;
+        const amount = roundToCents(Number(item.amount ?? 0));
+
+        const lineDepositAmount =
+            index === packageItemsWithAmounts.length - 1
+                ? roundToCents(depositAmount - allocated)
+                : Math.min(perItemDeposit, amount);
+
+        allocated = roundToCents(allocated + lineDepositAmount);
+
+        const lineBalanceAmount = roundToCents(amount - lineDepositAmount);
+
+        if (lineDepositAmount > 0) {
+            depositItems.push({
+                ...item,
+                _key: nanoid(),
+                id: undefined,
+                parent_id: null,
+                parent_key: null,
+                description: `${item.description ?? 'Package'} (Deposit)`,
+                quantity,
+                rate: roundToCents(lineDepositAmount / quantity),
+                amount: lineDepositAmount,
+            });
+        }
+
+        if (lineBalanceAmount > 0) {
+            balanceItems.push({
+                ...item,
+                _key: nanoid(),
+                id: undefined,
+                parent_id: null,
+                parent_key: null,
+                description: `${item.description ?? 'Package'} (Balance)`,
+                quantity,
+                rate: roundToCents(lineBalanceAmount / quantity),
+                amount: lineBalanceAmount,
+            });
+        }
+    });
+
+    return { depositItems, balanceItems };
 }
 
 export function buildInvoicesFromItems(
     paymentPlan: string,
     items: InvoiceItemSchema[],
     totalAmount?: number,
-    handoverDate?: string,
     depositType?: string | null,
     depositValue?: number | string | null,
 ): InvoiceSchema[] {
@@ -84,51 +161,35 @@ export function buildInvoicesFromItems(
         invoices = [
             {
                 _key: nanoid(),
-                description: 'Invoice For Deposit',
+                description: 'Invoice For Full Payment',
                 items,
                 amount,
             },
-            {
-                _key: nanoid(),
-                description: 'Invoice For Handover',
-                items: [],
-                amount: 0,
-            },
         ];
     } else if (paymentPlan === 'installment') {
-        // Travel flow: deposit + balance based on deposit config
-        let depositAmount = 0;
-        const numericDepositValue = Number(depositValue ?? 0);
+        const { depositItems, balanceItems } = buildInstallmentItems(
+            items,
+            depositType,
+            depositValue,
+        );
 
-        if (depositType === 'percentage' && numericDepositValue > 0) {
-            depositAmount =
-                Math.round(amount * (numericDepositValue / 100) * 100) /
-                100;
-        } else if (depositType === 'fixed' && numericDepositValue > 0) {
-            depositAmount = Math.min(numericDepositValue, amount);
-        }
-
-        const balanceAmount =
-            Math.round((amount - depositAmount) * 100) / 100;
+        const depositAmount = roundToCents(calculateTotal(depositItems));
+        const balanceAmount = roundToCents(calculateTotal(balanceItems));
 
         invoices = [
             {
                 _key: nanoid(),
                 description: 'Invoice For Deposit',
-                items,
+                items: depositItems,
                 amount: depositAmount,
             },
             {
                 _key: nanoid(),
                 description: 'Invoice For Balance',
-                items: [],
+                items: balanceItems,
                 amount: balanceAmount,
             },
         ];
-    }
-
-    if (handoverDate) {
-        invoices = autoFillInvoiceDates(invoices, handoverDate);
     }
 
     return invoices;
@@ -149,6 +210,9 @@ export function quotationItemsToInvoiceItems(
         _key: item.id ? `id-${item.id}` : nanoid(),
         id: item.id ?? undefined,
         parent_id: item.parent_id ?? null,
+        customer_confirmation_member_id:
+            item.customer_confirmation_member_id ?? null,
+        sharing_plan: item.sharing_plan ?? null,
         parent_key: item.parent_id
             ? (keyMap.get(item.parent_id) ?? null)
             : null,
@@ -171,15 +235,13 @@ export function buildInitialInvoices(
         items,
         Number(quotation.total_amount),
         undefined,
-        quotation.deposit_type,
-        quotation.deposit_value,
+        undefined,
     );
 }
 
 export function buildInvoices(
     paymentPlan: string,
     previousInvoices: InvoiceSchema[],
-    handoverDate?: string,
     depositType?: string | null,
     depositValue?: number | string | null,
 ): InvoiceSchema[] {
@@ -189,7 +251,6 @@ export function buildInvoices(
         paymentPlan,
         items,
         undefined,
-        handoverDate,
         depositType,
         depositValue,
     );

@@ -8,7 +8,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { type CustomerSchema, sharingPlanOptions } from './schema';
+import { sharingPlanOptions } from '@/pages/packages/schema';
+import { type CustomerSchema } from './schema';
 
 interface ConfirmedCustomerFormFieldsProps {
     customer: CustomerSchema;

@@ -43,7 +43,6 @@ import {
     confirmationMemberStatusColors,
     confirmationMemberStatusLabels,
     emptyMember,
-    sharingPlanOptions,
     type CustomerConfirmationDatatableSchema,
     type CustomerConfirmationFormSchema,
     type CustomerConfirmationMemberDatatableSchema,
@@ -51,6 +50,7 @@ import {
 } from '../customer/schema';
 import { customerValidationSchema } from '../customer/validation';
 import { statusColors, typeColors } from '../enquiries/schema';
+import { sharingPlanOptions } from '../packages/schema';
 import CustomerConfirmationForm from './form';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -72,13 +72,18 @@ const formatCurrency = (value: number): string => {
 const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     createSelectColumn<CustomerConfirmationDatatableSchema>(),
     {
+        accessorKey: 'main_customer_name',
+        header: 'Customer Name',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'enquiry_email',
-        header: 'Enquiry Email',
+        header: 'Email',
         meta: { exportable: true },
     },
     {
         accessorKey: 'enquiry_contact',
-        header: 'Enquiry Contact',
+        header: 'Contact',
         meta: { exportable: true },
     },
     {
@@ -179,6 +184,25 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
         accessorKey: 'customer_number',
         header: 'Customer Number',
         meta: { exportable: true },
+    },
+    {
+        accessorKey: 'sharing_plan',
+        header: 'Sharing Plan',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const sharingPlan = row.original.sharing_plan;
+
+            if (!sharingPlan) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
+            return (
+                <Badge variant="outline">
+                    {sharingPlan.charAt(0).toUpperCase() + sharingPlan.slice(1)}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'status',
@@ -821,12 +845,16 @@ export default function ConfirmedCustomerIndex({
                 <DataTable
                     columns={memberColumns}
                     data={data}
-                    actions={['view-member']}
-                    getRowActions={() => [
-                        'edit-member',
-                        'move-members',
-                        'cancel-member',
-                    ]}
+                    actions={['view']}
+                    getRowActions={(member) => {
+                        const rowActions: ActionType[] = ['edit'];
+
+                        if (member.status !== 'cancelled') {
+                            rowActions.push('move-members', 'cancel-member');
+                        }
+
+                        return rowActions;
+                    }}
                     addButtonText=""
                     onAction={(action, payload) => {
                         if (!payload) {
@@ -837,7 +865,7 @@ export default function ConfirmedCustomerIndex({
                             payload as Row<CustomerConfirmationMemberDatatableSchema>;
                         const member = tableRow.original;
 
-                        if (action === 'view-member') {
+                        if (action === 'view') {
                             openMemberDialog(
                                 member.group_id,
                                 member.id,
@@ -846,7 +874,7 @@ export default function ConfirmedCustomerIndex({
                             return;
                         }
 
-                        if (action === 'edit-member') {
+                        if (action === 'edit') {
                             openMemberDialog(
                                 member.group_id,
                                 member.id,
@@ -901,7 +929,7 @@ export default function ConfirmedCustomerIndex({
                             enableExpand
                             getRowActions={(group) => {
                                 const rowActions: ActionType[] = [
-                                    'copy-public-edit-link',
+                                    'copy-customer-confirmation-public-edit-link',
                                     'move-members',
                                 ];
 
@@ -928,7 +956,8 @@ export default function ConfirmedCustomerIndex({
                                     } else if (action === 'edit') {
                                         handleOpenGroupDialog(groupId, 'edit');
                                     } else if (
-                                        action === 'copy-public-edit-link'
+                                        action ===
+                                        'copy-customer-confirmation-public-edit-link'
                                     ) {
                                         setSelectedPublicLinkGroupId(groupId);
                                         setPublicLinkDialogOpen(true);
@@ -1089,7 +1118,7 @@ export default function ConfirmedCustomerIndex({
             </Dialog>
 
             <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
-                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+                <DialogContent className="flex max-h-[95%] max-w-[95%] flex-col">
                     <DialogHeader>
                         <DialogTitle>Move Members to Holding</DialogTitle>
                         <DialogDescription>
@@ -1298,9 +1327,11 @@ export default function ConfirmedCustomerIndex({
                 open={quotationDialogOpen}
                 onOpenChange={setQuotationDialogOpen}
             >
-                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>Create Quotation</DialogTitle>
+                <DialogContent className="flex max-h-[95%] max-w-[95%] flex-col md:min-w-3xl">
+                    <DialogHeader className="gap-0">
+                        <DialogTitle className="text-xl">
+                            Create Quotation
+                        </DialogTitle>
                         <DialogDescription>
                             Assign a payer for each member. The main member pays
                             for everyone by default — change individual payers
@@ -1308,121 +1339,123 @@ export default function ConfirmedCustomerIndex({
                         </DialogDescription>
                     </DialogHeader>
 
-                    {quotationGroup && (
-                        <div className="space-y-4">
-                            <div className="space-y-2 rounded-md border p-3">
-                                {quotationGroup.members
-                                    .filter(
-                                        (m) =>
-                                            m.status !== 'cancelled' &&
-                                            !m.has_quotation,
-                                    )
-                                    .map((member) => {
-                                        const activeMembers =
-                                            quotationGroup.members.filter(
-                                                (m) =>
-                                                    m.status !==
-                                                        'cancelled' &&
-                                                    !m.has_quotation,
-                                            );
+                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                        {quotationGroup && (
+                            <div className="space-y-4">
+                                <div className="space-y-2 rounded-md border p-3">
+                                    {quotationGroup.members
+                                        .filter(
+                                            (m) =>
+                                                m.status !== 'cancelled' &&
+                                                !m.has_quotation,
+                                        )
+                                        .map((member) => {
+                                            const activeMembers =
+                                                quotationGroup.members.filter(
+                                                    (m) =>
+                                                        m.status !==
+                                                            'cancelled' &&
+                                                        !m.has_quotation,
+                                                );
 
-                                        return (
-                                            <div
-                                                key={member.id}
-                                                className="flex items-center justify-between gap-3 rounded px-2 py-2"
-                                            >
-                                                <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                    <span className="truncate font-medium">
-                                                        {member.name}
-                                                    </span>
-                                                    <Badge
-                                                        variant={
-                                                            member.is_leader
-                                                                ? 'default'
-                                                                : 'secondary'
-                                                        }
-                                                        className="shrink-0"
-                                                    >
-                                                        {member.is_leader
-                                                            ? 'Main'
-                                                            : 'Participant'}
-                                                    </Badge>
-                                                    {member.sharing_plan && (
+                                            return (
+                                                <div
+                                                    key={member.id}
+                                                    className="grid grid-cols-1 items-center justify-between gap-3 rounded px-2 py-2 md:grid-cols-2"
+                                                >
+                                                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                        <span className="truncate font-medium">
+                                                            {member.name}
+                                                        </span>
                                                         <Badge
-                                                            variant="outline"
+                                                            variant={
+                                                                member.is_leader
+                                                                    ? 'default'
+                                                                    : 'secondary'
+                                                            }
                                                             className="shrink-0"
                                                         >
-                                                            {member.sharing_plan
-                                                                .charAt(0)
-                                                                .toUpperCase() +
-                                                                member.sharing_plan.slice(
-                                                                    1,
-                                                                )}
+                                                            {member.is_leader
+                                                                ? 'Main'
+                                                                : 'Participant'}
                                                         </Badge>
-                                                    )}
-                                                </div>
+                                                        {member.sharing_plan && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="shrink-0"
+                                                            >
+                                                                {member.sharing_plan
+                                                                    .charAt(0)
+                                                                    .toUpperCase() +
+                                                                    member.sharing_plan.slice(
+                                                                        1,
+                                                                    )}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
 
-                                                <div className="w-48 shrink-0">
-                                                    <ProperInputSelect
-                                                        options={activeMembers.map(
-                                                            (m) => ({
-                                                                value: String(
-                                                                    m.id,
-                                                                ),
-                                                                label: m.is_leader
-                                                                    ? `${m.name} (Main)`
-                                                                    : m.name,
-                                                            }),
-                                                        )}
-                                                        value={String(
-                                                            payerMapping[
-                                                                member.id
-                                                            ] ?? '',
-                                                        )}
-                                                        onValueChange={(
-                                                            value,
-                                                        ) => {
-                                                            setPayerMapping(
-                                                                (prev) => ({
-                                                                    ...prev,
-                                                                    [member.id]:
-                                                                        Number(
-                                                                            value,
-                                                                        ),
+                                                    <div className="w-full shrink-0">
+                                                        <ProperInputSelect
+                                                            options={activeMembers.map(
+                                                                (m) => ({
+                                                                    value: String(
+                                                                        m.id,
+                                                                    ),
+                                                                    label: m.is_leader
+                                                                        ? `${m.name} (Main)`
+                                                                        : m.name,
                                                                 }),
-                                                            );
-                                                        }}
-                                                        placeholder="Select payer"
-                                                    />
+                                                            )}
+                                                            value={String(
+                                                                payerMapping[
+                                                                    member.id
+                                                                ] ?? '',
+                                                            )}
+                                                            onValueChange={(
+                                                                value,
+                                                            ) => {
+                                                                setPayerMapping(
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        [member.id]:
+                                                                            Number(
+                                                                                value,
+                                                                            ),
+                                                                    }),
+                                                                );
+                                                            }}
+                                                            placeholder="Select payer"
+                                                        />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
-                            </div>
+                                            );
+                                        })}
+                                </div>
 
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() =>
-                                        setQuotationDialogOpen(false)
-                                    }
-                                    disabled={isGeneratingQuotations}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={submitGenerateQuotations}
-                                    disabled={isGeneratingQuotations}
-                                >
-                                    {isGeneratingQuotations
-                                        ? 'Creating...'
-                                        : 'Create Quotation'}
-                                </Button>
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            setQuotationDialogOpen(false)
+                                        }
+                                        disabled={isGeneratingQuotations}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onClick={submitGenerateQuotations}
+                                        disabled={isGeneratingQuotations}
+                                    >
+                                        {isGeneratingQuotations
+                                            ? 'Creating...'
+                                            : 'Create Quotation'}
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
 

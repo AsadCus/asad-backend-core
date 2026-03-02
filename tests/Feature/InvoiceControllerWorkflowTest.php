@@ -39,7 +39,6 @@ class InvoiceControllerWorkflowTest extends TestCase
         $order = Order::create([
             'quotation_id' => $quotation->id,
             'payment_plan' => 'full',
-            'handover_date' => now()->addDays(60)->format('Y-m-d'),
         ]);
 
         $invoice = Invoice::create([

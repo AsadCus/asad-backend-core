@@ -48,13 +48,6 @@ export function ActionMenuItems<TData>({
         ? (row.original as WithHandledBy)?.handled_by
         : (row as TData & WithHandledBy).handled_by;
 
-    const hasMaidStatusActions =
-        actions.includes('maid-status-schedule') ||
-        actions.includes('maid-status-complete') ||
-        actions.includes('maid-status-finalize') ||
-        actions.includes('maid-status-cancel') ||
-        actions.includes('maid-status-update');
-
     const hasQuotationStatusActions =
         actions.includes('quotation-status-accept') ||
         actions.includes('quotation-status-convert') ||
@@ -77,74 +70,8 @@ export function ActionMenuItems<TData>({
                 <Item onClick={() => onAction?.('view', row)}>View</Item>
             )}
 
-            {actions.includes('handle-customer') && !handledBy && (
-                <Item onClick={() => onAction?.('handle-customer', row)}>
-                    Handle
-                </Item>
-            )}
-
-            {actions.includes('create-quotation') && (
-                <Item onClick={() => onAction?.('create-quotation', row)}>
-                    Create Quotation
-                </Item>
-            )}
-
             {actions.includes('edit') && (
                 <Item onClick={() => onAction?.('edit', row)}>Edit</Item>
-            )}
-
-            {actions.includes('copy-public-edit-link') && (
-                <Item onClick={() => onAction?.('copy-public-edit-link', row)}>
-                    Copy Public Edit Link
-                </Item>
-            )}
-
-            {actions.includes('view-member') && (
-                <Item onClick={() => onAction?.('view-member', row)}>View</Item>
-            )}
-
-            {actions.includes('edit-member') && (
-                <Item onClick={() => onAction?.('edit-member', row)}>Edit</Item>
-            )}
-
-            {actions.includes('move-members') && (
-                <Item onClick={() => onAction?.('move-members', row)}>Move</Item>
-            )}
-
-            {actions.includes('cancel-member') && (
-                <Item onClick={() => onAction?.('cancel-member', row)}>
-                    Cancelled
-                </Item>
-            )}
-
-            {actions.includes('download') && (
-                <Item onClick={() => onAction?.('download', row)}>
-                    Download PDF
-                </Item>
-            )}
-
-            {actions.includes('set-default-year') && (
-                <Item onClick={() => onAction?.('set-default-year', row)}>
-                    Set Default
-                </Item>
-            )}
-
-            {actions.includes('quotation-create') && (
-                <Item onClick={() => onAction?.('quotation-create', row)}>
-                    Create Quotation
-                </Item>
-            )}
-
-            {actions.includes('enable-customer') && (
-                <Item onClick={() => onAction?.('enable-customer', row)}>
-                    Enable Customer
-                </Item>
-            )}
-
-            {actions.includes('disable-customer') && (
-                <Item onClick={() => onAction?.('disable-customer', row)}>
-                    Disable Customer
-                </Item>
             )}
 
             {hasQuotationStatusActions && (
@@ -271,9 +198,72 @@ export function ActionMenuItems<TData>({
                 </>
             )}
 
+            {actions.includes('download') && (
+                <Item onClick={() => onAction?.('download', row)}>
+                    Download PDF
+                </Item>
+            )}
+
+            {actions.includes('set-default-year') && (
+                <Item onClick={() => onAction?.('set-default-year', row)}>
+                    Set Default
+                </Item>
+            )}
+
+            {actions.includes('create-quotation') && (
+                <Item onClick={() => onAction?.('create-quotation', row)}>
+                    Create Quotation
+                </Item>
+            )}
+
+            {actions.includes(
+                'copy-customer-confirmation-public-edit-link',
+            ) && (
+                <Item
+                    onClick={() =>
+                        onAction?.(
+                            'copy-customer-confirmation-public-edit-link',
+                            row,
+                        )
+                    }
+                >
+                    Copy Public Edit Link
+                </Item>
+            )}
+
             {actions.includes('add-remark') && (
                 <Item onClick={() => onAction?.('add-remark', row)}>
                     Remark
+                </Item>
+            )}
+
+            {actions.includes('move-members') && (
+                <Item onClick={() => onAction?.('move-members', row)}>
+                    Move
+                </Item>
+            )}
+
+            {actions.includes('cancel-member') && (
+                <Item onClick={() => onAction?.('cancel-member', row)}>
+                    Cancel
+                </Item>
+            )}
+
+            {actions.includes('handle-customer') && !handledBy && (
+                <Item onClick={() => onAction?.('handle-customer', row)}>
+                    Handle
+                </Item>
+            )}
+
+            {actions.includes('enable-customer') && (
+                <Item onClick={() => onAction?.('enable-customer', row)}>
+                    Enable Customer
+                </Item>
+            )}
+
+            {actions.includes('disable-customer') && (
+                <Item onClick={() => onAction?.('disable-customer', row)}>
+                    Disable Customer
                 </Item>
             )}
 
@@ -284,67 +274,6 @@ export function ActionMenuItems<TData>({
                 >
                     Delete
                 </Item>
-            )}
-
-            {hasMaidStatusActions && (
-                <>
-                    <Separator />
-
-                    <Sub>
-                        <SubTrigger>Status Actions</SubTrigger>
-                        <SubContent>
-                            {actions.includes('maid-status-schedule') && (
-                                <Item
-                                    onClick={() =>
-                                        onAction?.('maid-status-schedule', row)
-                                    }
-                                >
-                                    Schedule Interview
-                                </Item>
-                            )}
-
-                            {actions.includes('maid-status-complete') && (
-                                <Item
-                                    onClick={() =>
-                                        onAction?.('maid-status-complete', row)
-                                    }
-                                >
-                                    Complete Interview
-                                </Item>
-                            )}
-
-                            {actions.includes('maid-status-finalize') && (
-                                <Item
-                                    onClick={() =>
-                                        onAction?.('maid-status-finalize', row)
-                                    }
-                                >
-                                    Finalize Documents
-                                </Item>
-                            )}
-
-                            {actions.includes('maid-status-cancel') && (
-                                <Item
-                                    onClick={() =>
-                                        onAction?.('maid-status-cancel', row)
-                                    }
-                                >
-                                    Cancel Interview
-                                </Item>
-                            )}
-
-                            {actions.includes('maid-status-update') && (
-                                <Item
-                                    onClick={() =>
-                                        onAction?.('maid-status-update', row)
-                                    }
-                                >
-                                    Update Status
-                                </Item>
-                            )}
-                        </SubContent>
-                    </Sub>
-                </>
             )}
         </>
     );

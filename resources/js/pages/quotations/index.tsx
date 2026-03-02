@@ -272,7 +272,11 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 
-                                if (hasEditPermission && !q.have_invoices) {
+                                if (
+                                    hasEditPermission &&
+                                    (!q.have_invoices ||
+                                        q.status === 'converted')
+                                ) {
                                     rowActions.push('edit');
                                 }
 

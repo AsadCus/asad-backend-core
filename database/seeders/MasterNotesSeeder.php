@@ -13,18 +13,8 @@ class MasterNotesSeeder extends Seeder
             // Quotation Notes
             [
                 'model' => 'quotation',
-                'description' => '50% refund of Service Fee within 6 months if employer decided to terminate the contract & MDW must return to agency for Transfer (Employer to sign/authorise the consent of transfer online)',
+                'description' => 'Any further changes to the quotation may affect the final price',
                 'sort_order' => 1,
-            ],
-            [
-                'model' => 'quotation',
-                'description' => '2 Free Replacements within 6 months',
-                'sort_order' => 2,
-            ],
-            [
-                'model' => 'quotation',
-                'description' => 'For every replacement, the employer will need to pay: Top Up difference in Agency Fee + Processing Fee + Documentation Fee + WPOL Filing Fee + SIP (if needed) + Transport & Facilitation Fee + Insurance Fee + Any Placement Fee Top Up + Embassy Contract Fee (if needed) * Loan/Placement Fee (Upfront Payment)',
-                'sort_order' => 3,
             ],
 
             // Invoice Notes

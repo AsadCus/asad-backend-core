@@ -106,13 +106,6 @@ export const packageCategoryOptions = [
     { label: 'Deluxe Umrah', value: 'deluxe_umrah' },
 ];
 
-export const sharingPlanOptions = [
-    { label: 'Single', value: 'single' },
-    { label: 'Double', value: 'double' },
-    { label: 'Triple', value: 'triple' },
-    { label: 'Quad', value: 'quad' },
-];
-
 export const genderOptions = [
     { label: 'Male', value: 'male' },
     { label: 'Female', value: 'female' },
@@ -148,6 +141,7 @@ export interface CustomerConfirmationDatatableSchema {
     enquiry_id: number | null;
     enquiry_type: string | null;
     enquiry_status: string | null;
+    main_customer_name: string;
     enquiry_email: string;
     enquiry_contact: string;
     member_count: number;

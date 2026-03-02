@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\QuotationStatus;
 use App\Helpers\NumberGenerator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -23,8 +24,6 @@ class Quotation extends Model
         'customer_confirmation_id',
         'description',
         'payment_plan',
-        'deposit_type',
-        'deposit_value',
         'payment_method',
         'status',
         'reason',
@@ -34,8 +33,8 @@ class Quotation extends Model
     protected $casts = [
         'quotation_date' => 'date',
         'expiry_date' => 'date',
-        'deposit_value' => 'decimal:2',
         'is_locked' => 'boolean',
+        'status' => QuotationStatus::class,
     ];
 
     public function customer(): BelongsTo
@@ -91,7 +90,7 @@ class Quotation extends Model
 
     public function getCanGenerateOrderAttribute(): bool
     {
-        return $this->status === 'accepted' && ! $this->is_locked;
+        return $this->status === QuotationStatus::Accepted && ! $this->is_locked;
     }
 
     public function salesRegistrationNumber(): Attribute
@@ -140,7 +139,7 @@ class Quotation extends Model
         });
 
         static::restored(function ($quotation) {
-            if ($quotation->status === 'cancelled') {
+            if ($quotation->status === QuotationStatus::Cancelled) {
                 return;
             }
 

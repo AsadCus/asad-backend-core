@@ -2,10 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\CustomerConfirmationMember;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Models\QuotationItem;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Carbon;
 
 class OrderSeeder extends Seeder
 {
@@ -37,13 +38,43 @@ class OrderSeeder extends Seeder
             Order::query()->create([
                 'quotation_id' => $quotation->id,
                 'payment_plan' => $quotation->payment_plan ?: 'full',
-                'handover_date' => Carbon::parse($quotation->quotation_date ?? now())
-                    ->addDays(35 + min($index, 10))
-                    ->toDateString(),
             ]);
 
             if ($quotation->status !== 'converted') {
                 $quotation->update(['status' => 'converted']);
+            }
+        }
+
+        $confirmedMemberIds = CustomerConfirmationMember::query()
+            ->whereIn('status', ['confirmed', 'partially_paid'])
+            ->pluck('id')
+            ->all();
+
+        if (! empty($confirmedMemberIds)) {
+            $memberQuotationIds = QuotationItem::query()
+                ->whereIn('customer_confirmation_member_id', $confirmedMemberIds)
+                ->pluck('quotation_id')
+                ->unique()
+                ->values();
+
+            $memberQuotations = Quotation::query()
+                ->with('order')
+                ->whereIn('id', $memberQuotationIds)
+                ->get();
+
+            foreach ($memberQuotations as $quotation) {
+                if ($quotation->order) {
+                    continue;
+                }
+
+                Order::query()->create([
+                    'quotation_id' => $quotation->id,
+                    'payment_plan' => $quotation->payment_plan ?: 'full',
+                ]);
+
+                if ($quotation->status !== 'converted') {
+                    $quotation->update(['status' => 'converted']);
+                }
             }
         }
 

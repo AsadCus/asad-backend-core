@@ -16,17 +16,10 @@ export type ActionType =
     | 'delete'
     | 'download'
     | 'handle-customer'
-    | 'select-maid'
     | 'create-quotation'
     | 'enable-customer'
     | 'disable-customer'
-    | 'maid-status-schedule'
-    | 'maid-status-complete'
-    | 'maid-status-finalize'
-    | 'maid-status-cancel'
-    | 'maid-status-update'
     | 'set-default-year'
-    | 'quotation-create'
     | 'quotation-status-accept'
     | 'quotation-status-convert'
     | 'quotation-status-reject'
@@ -36,11 +29,9 @@ export type ActionType =
     | 'enquiry-status-negotiating'
     | 'enquiry-status-confirmed'
     | 'add-remark'
-    | 'copy-public-edit-link'
+    | 'copy-customer-confirmation-public-edit-link'
     | 'move-members'
-    | 'cancel-member'
-    | 'view-member'
-    | 'edit-member';
+    | 'cancel-member';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

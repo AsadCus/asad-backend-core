@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { sharingPlanCapacity } from '@/pages/packages/schema';
 import { store, update } from '@/routes/manifests';
 import { type OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
@@ -97,13 +98,6 @@ function flattenGroupedRows(rows: unknown): TravelerWithUI[] {
         )
         .map((item, index) => toTravelerWithUI(item, index));
 }
-
-const sharingPlanCapacity: Record<string, number> = {
-    single: 1,
-    double: 2,
-    triple: 3,
-    quad: 4,
-};
 
 function buildSharingPlanGroupKeys(
     confirmation: CustomerConfirmationData,

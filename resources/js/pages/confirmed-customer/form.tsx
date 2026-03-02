@@ -60,7 +60,6 @@ import CustomerFormFields from '../customer/form-fields';
 import {
     emptyMember,
     packageCategoryOptions,
-    sharingPlanOptions,
     type CustomerConfirmationFormData,
     type CustomerConfirmationFormSchema,
     type CustomerMemberFormData,
@@ -75,7 +74,7 @@ import {
 } from '../enquiries/schema';
 import PackageForm from '../packages/form';
 import PackageInformationSection from '../packages/package-information-section';
-import { type PackageSchema } from '../packages/schema';
+import { sharingPlanOptions, type PackageSchema } from '../packages/schema';
 
 type ClientValidationErrors = Record<string, string>;
 

@@ -104,7 +104,7 @@ class AgreementController extends Controller
             'monthly_loan_payment' => 0,
             'late_payment_interest_amount' => 0,
             'placement_fee_invoices' => [],
-            'status' => $quotation->status,
+            'status' => $quotation->status?->value,
         ];
     }
 }

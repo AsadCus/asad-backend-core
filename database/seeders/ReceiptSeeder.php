@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\CustomerConfirmationMember;
-use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\Receipt;
 use App\Models\ReceiptAllocation;
 use Illuminate\Database\Seeder;
@@ -19,26 +19,28 @@ class ReceiptSeeder extends Seeder
             return;
         }
 
-        $invoices = Invoice::query()
+        $orders = Order::query()
             ->with([
-                'receipt',
-                'order.quotation.quotationItems',
+                'invoices.receipt',
+                'quotation.quotationItems',
             ])
             ->orderBy('id')
             ->get();
 
-        if ($invoices->isEmpty()) {
-            $this->command->warn('No invoices found; skipping receipt seeding.');
+        if ($orders->isEmpty()) {
+            $this->command->warn('No orders found; skipping receipt seeding.');
 
             return;
         }
 
-        foreach ($invoices as $index => $invoice) {
-            if ($invoice->receipt->isNotEmpty()) {
+        $forcedPartialInstallmentApplied = false;
+
+        foreach ($orders as $index => $order) {
+            if ($order->invoices->isEmpty()) {
                 continue;
             }
 
-            $memberIds = $invoice->order?->quotation?->quotationItems
+            $memberIds = $order->quotation?->quotationItems
                 ?->whereNotNull('customer_confirmation_member_id')
                 ->pluck('customer_confirmation_member_id')
                 ->unique()
@@ -58,36 +60,56 @@ class ReceiptSeeder extends Seeder
                 continue;
             }
 
-            $invoiceAmount = (float) $invoice->amount;
+            $isInstallment = $order->invoices->count() > 1;
 
-            $receipt = Receipt::query()->create([
-                'invoice_id' => $invoice->id,
-                'amount' => $invoiceAmount,
-                'receipt_date' => Carbon::now()->subDays(7 - $index)->toDateString(),
-                'payment_method' => $index % 2 === 0 ? 'transfer' : 'cash',
-                'reference' => $this->generateReference($index % 2 === 0 ? 'transfer' : 'cash'),
-                'description' => 'Seeded receipt for per-member allocation',
-            ]);
+            if ($isInstallment && ! $forcedPartialInstallmentApplied) {
+                $invoicesToPay = $order->invoices->take(1);
+                $forcedPartialInstallmentApplied = true;
+            } else {
+                $paymentProfile = $order->id % 3;
+                $invoicesToPay = $paymentProfile === 2
+                    ? $order->invoices
+                    : ($paymentProfile === 1 ? $order->invoices->take(1) : collect());
+            }
 
-            $remaining = $invoiceAmount;
-            $memberCount = max(1, $members->count());
+            foreach ($invoicesToPay as $invoice) {
+                if ($invoice->receipt->isNotEmpty()) {
+                    continue;
+                }
 
-            foreach ($members as $memberIndex => $member) {
-                $isLastMember = $memberIndex === $memberCount - 1;
-                $allocatedAmount = $isLastMember
-                    ? $remaining
-                    : round($invoiceAmount / $memberCount, 2);
+                $invoiceAmount = (float) $invoice->amount;
 
-                ReceiptAllocation::query()->create([
-                    'receipt_id' => $receipt->id,
-                    'customer_confirmation_member_id' => $member->id,
-                    'allocated_amount' => $allocatedAmount,
-                    'notes' => $member->is_leader
-                        ? 'Leader-paid allocation from seeded receipt'
-                        : 'Member allocation from shared seeded receipt',
+                $paymentMethod = $index % 2 === 0 ? 'transfer' : 'cash';
+
+                $receipt = Receipt::query()->create([
+                    'invoice_id' => $invoice->id,
+                    'amount' => $invoiceAmount,
+                    'receipt_date' => Carbon::now()->subDays(7 - $index)->toDateString(),
+                    'payment_method' => $paymentMethod,
+                    'reference' => $this->generateReference($paymentMethod),
+                    'description' => 'Seeded receipt for per-member allocation',
                 ]);
 
-                $remaining = round($remaining - $allocatedAmount, 2);
+                $remaining = $invoiceAmount;
+                $memberCount = max(1, $members->count());
+
+                foreach ($members as $memberIndex => $member) {
+                    $isLastMember = $memberIndex === $memberCount - 1;
+                    $allocatedAmount = $isLastMember
+                        ? $remaining
+                        : round($invoiceAmount / $memberCount, 2);
+
+                    ReceiptAllocation::query()->create([
+                        'receipt_id' => $receipt->id,
+                        'customer_confirmation_member_id' => $member->id,
+                        'allocated_amount' => $allocatedAmount,
+                        'notes' => $member->is_leader
+                            ? 'Leader-paid allocation from seeded receipt'
+                            : 'Member allocation from shared seeded receipt',
+                    ]);
+
+                    $remaining = round($remaining - $allocatedAmount, 2);
+                }
             }
         }
 
