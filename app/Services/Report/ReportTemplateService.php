@@ -19,21 +19,29 @@ class ReportTemplateService
             'company_address' => $settings->company_address,
             'company_phone' => $settings->company_phone,
             'company_email' => $settings->company_email,
-            'logo_url' => $settings->logo_path 
-                ? Storage::disk('public')->url($settings->logo_path) 
+            'logo_url' => $settings->logo_path
+                ? Storage::disk('public')->url($settings->logo_path)
                 : null,
             'footer_text' => $settings->footer_text,
-            'stamp_url' => $settings->stamp_path 
-                ? Storage::disk('public')->url($settings->stamp_path) 
+            'stamp_url' => $settings->stamp_path
+                ? Storage::disk('public')->url($settings->stamp_path)
                 : null,
-            'signature_url' => $settings->signature_path 
-                ? Storage::disk('public')->url($settings->signature_path) 
+            'signature_url' => $settings->signature_path
+                ? Storage::disk('public')->url($settings->signature_path)
                 : null,
+            // Per-module template configs (for use in settings page)
+            'module_templates' => [
+                'quotation' => $settings->getModuleTemplate('quotation'),
+                'invoice' => $settings->getModuleTemplate('invoice'),
+                'receipt' => $settings->getModuleTemplate('receipt'),
+            ],
         ];
     }
 
     /**
      * Build report data structure by merging branding with body data.
+     * Merges the specific module template settings into branding so
+     * Blade views can access title_color, footer_text, show_stamp, show_signature.
      *
      * @param string $type Report type: 'invoice', 'quotation', 'receipt'
      * @param array $bodyData Module-specific report data
@@ -41,8 +49,15 @@ class ReportTemplateService
      */
     public function build(string $type, array $bodyData): array
     {
+        $settings = ReportSetting::current();
+        $branding = $this->getBranding();
+
+        // Merge the per-module template config into branding
+        $moduleTemplate = $settings->getModuleTemplate($type);
+        $branding = array_merge($branding, $moduleTemplate);
+
         return [
-            'branding' => $this->getBranding(),
+            'branding' => $branding,
             'type' => $type,
             'body' => $bodyData,
         ];

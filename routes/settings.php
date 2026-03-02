@@ -27,6 +27,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/report-template', [ReportTemplateController::class, 'index'])->name('report-template.edit');
     Route::put('settings/report-template', [ReportTemplateController::class, 'update'])->name('report-template.update');
+    Route::post('settings/report-template/modules', [ReportTemplateController::class, 'storeModule'])->name('report-template.modules.store');
+    Route::delete('settings/report-template/modules/{key}', [ReportTemplateController::class, 'destroyModule'])->name('report-template.modules.destroy');
 
     Route::get('settings/two-factor', [TwoFactorAuthenticationController::class, 'show'])
         ->name('two-factor.show');

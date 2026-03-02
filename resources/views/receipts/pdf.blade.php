@@ -45,7 +45,7 @@
 
         /* Title Bar */
         .title-bar {
-            background-color: #40A09D;
+            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
             color: white;
             text-align: center;
             font-weight: bold;
@@ -400,10 +400,27 @@
 
         <!-- Footer -->
         <div class="footer-section">
-            <div class="footer-note">
-                Paynow to UEN 53496387X or Bank Transfer to DBS Business Multi Currency Account 072-131956-0.<br>
-                For further assistance, please contact us at 8785 5651.
-            </div>
+            @if(!empty($branding['footer_text']))
+                <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+            @else
+                <div class="footer-note">
+                    Paynow to UEN 53496387X or Bank Transfer to DBS Business Multi Currency Account 072-131956-0.<br>
+                    For further assistance, please contact us at 8785 5651.
+                </div>
+            @endif
+
+            @if(!empty($branding['show_stamp']) && $branding['stamp_url'])
+                <div style="margin-top: 15px;">
+                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 80px; width: auto;">
+                </div>
+            @endif
+
+            @if(!empty($branding['show_signature']) && $branding['signature_url'])
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 9px; margin: 0;">Authorised Signature</p>
+                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
+                </div>
+            @endif
         </div>
     </div>
 </body>

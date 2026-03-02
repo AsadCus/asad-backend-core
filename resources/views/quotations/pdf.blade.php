@@ -60,7 +60,7 @@
 
         /* Quotation Bar */
         .quotation-bar {
-            background-color: #40A09D;
+            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
             color: white;
             text-align: center;
             font-weight: bold;
@@ -320,28 +320,45 @@
 
     <!-- Footer Notes -->
     <div class="footer-section">
-        @forelse($data['notes'] ?? [] as $note)
-            <div class="footer-note">
-                {!! $note['description'] ?? '' !!}
-            </div>
-        @empty
-            <div class="footer-note">
-                50 % refund of Service Fee within 6 months if employer decided to terminate the contract & MDW must
-                return
-                to<br>
-                agency for Transfer (Employer to sign/authorise the consent of transfer online)
-            </div>
+        @if(!empty($branding['footer_text']))
+            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+        @else
+            @forelse($data['notes'] ?? [] as $note)
+                <div class="footer-note">
+                    {!! $note['description'] ?? '' !!}
+                </div>
+            @empty
+                <div class="footer-note">
+                    50 % refund of Service Fee within 6 months if employer decided to terminate the contract & MDW must
+                    return
+                    to<br>
+                    agency for Transfer (Employer to sign/authorise the consent of transfer online)
+                </div>
 
-            <div class="replacement-box">2 Free Replacements within 6 months</div>
+                <div class="replacement-box">2 Free Replacements within 6 months</div>
 
-            <div class="terms-note">
-                For every replacement, the employer will need to pay: Top Up difference in Agency Fee + Processing Fee
-                +<br>
-                Documentation Fee + WPOL Filing Fee + SIP (if needed) + Transport & Facilitation Fee + Insurance Fee +
-                Any<br>
-                Placement Fee Top Up + Embassy Contract Fee (if needed) * Loan/Placement Fee (Upfront Payment)
+                <div class="terms-note">
+                    For every replacement, the employer will need to pay: Top Up difference in Agency Fee + Processing Fee
+                    +<br>
+                    Documentation Fee + WPOL Filing Fee + SIP (if needed) + Transport & Facilitation Fee + Insurance Fee +
+                    Any<br>
+                    Placement Fee Top Up + Embassy Contract Fee (if needed) * Loan/Placement Fee (Upfront Payment)
+                </div>
+            @endforelse
+        @endif
+
+        @if(!empty($branding['show_stamp']) && $branding['stamp_url'])
+            <div style="margin-top: 15px;">
+                <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 80px; width: auto;">
             </div>
-        @endforelse
+        @endif
+
+        @if(!empty($branding['show_signature']) && $branding['signature_url'])
+            <div style="margin-top: 10px;">
+                <p style="font-size: 9px; margin: 0;">Authorised Signature</p>
+                <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
+            </div>
+        @endif
 
         <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
     </div>

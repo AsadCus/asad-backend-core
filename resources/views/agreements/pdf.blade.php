@@ -53,7 +53,7 @@
         }
 
         .title-bar {
-            background-color: #40A09D;
+            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
             color: white;
             text-align: center;
             font-weight: bold;
@@ -180,13 +180,16 @@
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                <img src="{{ public_path('logo_agency.png') }}">
+                @if(!empty($branding['logo_url']))
+                    <img src="{{ $branding['logo_url'] }}" alt="Company Logo">
+                @else
+                    <img src="{{ public_path('logo_agency.png') }}">
+                @endif
             </td>
             <td class="info-cell">
                 <div>
-                    <b style="margin-bottom: 4px; font-size: 13px; color: #333;">Urban Care Employment Agency</b><br>
-                    931 Yishun Central 1<br>
-                    #01-109, Singapore 760931<br>
+                    <b style="margin-bottom: 4px; font-size: 13px; color: #333;">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</b><br>
+                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}<br>
                     <div style="margin-top: 4px;">
                         @if ($agreement['sales_registration_number'] ?? false)
                             <b>REGISTRATION NO. {{ $agreement['sales_registration_number'] }}</b><br>
@@ -319,13 +322,30 @@
                 <div style="margin-top: 3px; font-size: 9px;">{{ $employerName ?? '' }}</div>
             </td>
             <td class="right-align">
-                <div class="signature-box"></div>
+                @if(!empty($branding['show_signature']) && $branding['signature_url'])
+                    <div style="text-align: right; margin-bottom: 4px;">
+                        <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
+                    </div>
+                @else
+                    <div class="signature-box"></div>
+                @endif
+                @if(!empty($branding['show_stamp']) && $branding['stamp_url'])
+                    <div style="text-align: right; margin-bottom: 4px;">
+                        <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 60px; width: auto;">
+                    </div>
+                @endif
                 <div class="signature-line" style="margin-left: auto;"></div>
-                <div class="signature-label">Urban Care Employment Agency</div>
+                <div class="signature-label">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</div>
                 <div class="signature-label">Licence No. 25C2708</div>
             </td>
         </tr>
     </table>
+
+    @if(!empty($branding['footer_text']))
+        <div style="margin-top: 20px; font-size: 9px; color: #555; border-top: 1px solid #ddd; padding-top: 8px;">
+            {!! nl2br(e($branding['footer_text'])) !!}
+        </div>
+    @endif
 
 </body>
 

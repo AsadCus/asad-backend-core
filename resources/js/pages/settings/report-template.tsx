@@ -1,315 +1,602 @@
 import { FormEventHandler, useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
+import { ImagePreviewDialog } from '@/components/image-preview-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Transition } from '@headlessui/react';
-import { update as updateReportTemplate } from '@/routes/report-template';
+import {
+    storeModule as storeModuleRoute,
+    destroyModule as destroyModuleRoute,
+    update as updateReportTemplate,
+} from '@/routes/report-template';
+import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 
-interface FormData {
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ModuleTemplate {
+    title_color: string;
+    footer_text: string;
+    show_stamp: boolean;
+    show_signature: boolean;
+}
+
+interface RegisteredModule {
+    key: string;
+    label: string;
+    document_type: string;
+}
+
+interface ReportTemplateSettings {
     company_name: string;
     company_address: string;
     company_phone: string;
     company_email: string;
     footer_text: string;
-    logo_file: File | null;
-    stamp_file: File | null;
-    signature_file: File | null;
+    logo_path: string | null;
+    stamp_path: string | null;
+    signature_path: string | null;
+    module_templates: Record<string, ModuleTemplate>;
+    registered_modules: RegisteredModule[];
 }
 
 interface ReportTemplateData {
-    settings: {
-        company_name: string;
-        company_address: string;
-        company_phone: string;
-        company_email: string;
-        footer_text: string;
-        logo_path: string | null;
-        stamp_path: string | null;
-        signature_path: string | null;
-    };
+    settings: ReportTemplateSettings;
 }
 
-export default function ReportTemplate({ settings }: ReportTemplateData) {
-    const { data, setData, post, errors, processing, recentlySuccessful, transform } =
-        useForm<FormData>({
-            company_name: settings.company_name,
-            company_address: settings.company_address || '',
-            company_phone: settings.company_phone || '',
-            company_email: settings.company_email || '',
-            footer_text: settings.footer_text || '',
-            logo_file: null,
-            stamp_file: null,
-            signature_file: null,
-        });
+// ─────────────────────────────────────────────────────────────────────────────
+// Built-in modules (hardcoded, cannot be deleted)
+// ─────────────────────────────────────────────────────────────────────────────
 
-    const [logoPreview, setLogoPreview] = useState<string | null>(
-        settings.logo_path ? `/storage/${settings.logo_path}` : null
-    );
-    const [stampPreview, setStampPreview] = useState<string | null>(
-        settings.stamp_path ? `/storage/${settings.stamp_path}` : null
-    );
-    const [signaturePreview, setSignaturePreview] = useState<string | null>(
-        settings.signature_path ? `/storage/${settings.signature_path}` : null
-    );
+const BUILTIN_MODULES: RegisteredModule[] = [
+    { key: 'quotation', label: 'Quotation', document_type: 'QUOTATION' },
+    { key: 'invoice', label: 'Invoice', document_type: 'INVOICE' },
+    { key: 'receipt', label: 'Receipt', document_type: 'OFFICIAL RECEIPT' },
+    { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
+];
 
-    const handleFileChange = (
-        field: 'logo_file' | 'stamp_file' | 'signature_file',
-        setPreview: (preview: string | null) => void
-    ) => {
-        return (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (file) {
-                setData(field, file);
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setPreview(reader.result as string);
-                };
-                reader.readAsDataURL(file);
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF Preview Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PdfPreviewProps {
+    titleColor: string;
+    footerText: string;
+    showStamp: boolean;
+    showSignature: boolean;
+    documentType: string;
+    companyName: string;
+    logoPreview: string | null;
+    stampPreview: string | null;
+    signaturePreview: string | null;
+}
+
+function PdfPreview({ titleColor, footerText, showStamp, showSignature, documentType, companyName, logoPreview, stampPreview, signaturePreview }: PdfPreviewProps) {
+    return (
+        <div className="w-full rounded-lg border bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between bg-muted/50 px-3 py-2 border-b">
+                <span className="text-xs font-medium text-muted-foreground">PDF Preview</span>
+                <span className="text-xs text-muted-foreground italic">Sample only</span>
+            </div>
+            <div className="p-4 space-y-3" style={{ fontFamily: 'Arial, sans-serif', fontSize: '9px' }}>
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex-shrink-0">
+                        {logoPreview ? (
+                            <img src={logoPreview} alt="Logo" className="h-10 w-auto object-contain" />
+                        ) : (
+                            <div className="h-10 w-20 rounded bg-gray-100 flex items-center justify-center text-[8px] text-gray-400">Your Logo</div>
+                        )}
+                    </div>
+                    <div className="text-right text-[8px] text-gray-600 leading-tight">
+                        <div className="font-bold text-[9px] text-gray-800">{companyName || 'Company Name'}</div>
+                        <div>Company Address, Singapore</div>
+                        <div className="mt-0.5 font-semibold">LICENCE NO. 25C2708</div>
+                    </div>
+                </div>
+                <div className="py-1.5 text-center font-bold tracking-widest text-white text-[9px]" style={{ backgroundColor: titleColor || '#40A09D' }}>
+                    {documentType || 'DOCUMENT'}
+                </div>
+                <div className="flex gap-4 text-[8px]">
+                    <div className="flex-1 space-y-0.5">
+                        <div className="flex"><span className="font-semibold w-14">Customer</span><span>: Sample Customer</span></div>
+                        <div className="flex"><span className="font-semibold w-14">Address</span><span>: 123 Sample St</span></div>
+                    </div>
+                    <div className="space-y-0.5">
+                        <div className="flex"><span className="font-semibold w-20">Doc Number</span><span>: DOC-2025-0001</span></div>
+                        <div className="flex"><span className="font-semibold w-20">Date</span><span>: 01/01/2025</span></div>
+                    </div>
+                </div>
+                <div className="border-t border-b border-gray-800 py-1.5 space-y-0.5 text-[8px]">
+                    <div className="flex justify-between font-semibold border-b border-gray-800 pb-0.5">
+                        <span>Item Description</span><span>Amount</span>
+                    </div>
+                    <div className="flex justify-between"><span>1. Sample Item</span><span>SGD 1,000.00</span></div>
+                </div>
+                <div className="text-right font-bold text-[9px]">Total: SGD 1,000.00</div>
+                <div className="border-t pt-2 text-[8px] text-gray-600 space-y-1.5">
+                    {footerText
+                        ? <p className="leading-tight whitespace-pre-wrap">{footerText}</p>
+                        : <p className="leading-tight text-gray-400 italic">Footer text will appear here...</p>
+                    }
+                    {(showStamp || showSignature) && (
+                        <div className="flex gap-4 mt-2">
+                            {showStamp && (
+                                stampPreview
+                                    ? <img src={stampPreview} alt="Stamp" className="h-8 w-auto object-contain opacity-70" />
+                                    : <div className="h-8 w-14 rounded border border-dashed border-gray-300 flex items-center justify-center text-[7px] text-gray-400">Stamp</div>
+                            )}
+                            {showSignature && (
+                                <div>
+                                    {signaturePreview
+                                        ? <img src={signaturePreview} alt="Signature" className="h-8 w-auto object-contain opacity-70" />
+                                        : <div className="h-8 w-16 rounded border border-dashed border-gray-300 flex items-center justify-center text-[7px] text-gray-400">Signature</div>
+                                    }
+                                    <div className="text-[7px] text-gray-400 mt-0.5">Authorised Signature</div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// File Upload Field
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FileUploadFieldProps {
+    id: string;
+    label: string;
+    hint: string;
+    preview: string | null;
+    previewAlt: string;
+    error?: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onClear: () => void;
+}
+
+function FileUploadField({ id, label, hint, preview, previewAlt, error, onChange, onClear }: FileUploadFieldProps) {
+    return (
+        <div>
+            <Label htmlFor={id}>{label}</Label>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-2">{hint}</p>
+            <Input id={id} type="file" accept="image/jpeg,image/png,image/jpg" onChange={onChange} className="mt-1 block w-full" />
+            <p className="mt-1 text-xs text-muted-foreground">Accepted: JPG, JPEG, PNG. Max 2MB</p>
+            <InputError message={error} className="mt-2" />
+            {preview && (
+                <div className="mt-3 flex items-center gap-3">
+                    <ImagePreviewDialog imageSrc={preview} imageAlt={previewAlt} title={previewAlt} thumbnailSize={80} rounded="rounded" />
+                    <Button type="button" variant="outline" size="sm" onClick={onClear}>Clear</Button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add Module Dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AddModuleDialog() {
+    const [open, setOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [fields, setFields] = useState({ key: '', label: '', document_type: '' });
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+    const handleSubmit: FormEventHandler = (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        setFieldErrors({});
+        router.post(
+            storeModuleRoute().url,
+            {
+                key: fields.key,
+                label: fields.label,
+                document_type: fields.document_type,
+            },
+            {
+                // No preserveState — let Inertia reload the page so new
+                // registered_modules props come in, which changes the `key`
+                // on this component causing React to remount it (open → false).
+                onError: (errs) => {
+                    setFieldErrors(errs as Record<string, string>);
+                    setSubmitting(false);
+                },
+                onFinish: () => setSubmitting(false),
             }
-        };
+        );
     };
 
-    const clearFile = (
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="flex items-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Module
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Add Document Module</DialogTitle>
+                    <DialogDescription>
+                        Register a new document type for template customisation. The PDF blade template for this module still needs to be created by a developer.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                    <div>
+                        <Label htmlFor="mod_key">Module Key <span className="text-red-500">*</span></Label>
+                        <p className="text-xs text-muted-foreground mt-0.5 mb-1">Unique identifier, lowercase letters, numbers, underscores only. E.g. <code className="text-xs bg-muted px-1 rounded">manifest</code></p>
+                        <Input
+                            id="mod_key"
+                            value={fields.key}
+                            onChange={(e) => setFields(f => ({ ...f, key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))}
+                            placeholder="manifest"
+                            required
+                        />
+                        <InputError message={fieldErrors.key} className="mt-1" />
+                    </div>
+                    <div>
+                        <Label htmlFor="mod_label">Display Label <span className="text-red-500">*</span></Label>
+                        <p className="text-xs text-muted-foreground mt-0.5 mb-1">Shown in the module dropdown. E.g. <code className="text-xs bg-muted px-1 rounded">Manifest</code></p>
+                        <Input
+                            id="mod_label"
+                            value={fields.label}
+                            onChange={(e) => setFields(f => ({ ...f, label: e.target.value }))}
+                            placeholder="Manifest"
+                            required
+                        />
+                        <InputError message={fieldErrors.label} className="mt-1" />
+                    </div>
+                    <div>
+                        <Label htmlFor="mod_doctype">Document Type Label <span className="text-red-500">*</span></Label>
+                        <p className="text-xs text-muted-foreground mt-0.5 mb-1">Appears as title in the PDF. E.g. <code className="text-xs bg-muted px-1 rounded">MANIFEST</code></p>
+                        <Input
+                            id="mod_doctype"
+                            value={fields.document_type}
+                            onChange={(e) => setFields(f => ({ ...f, document_type: e.target.value.toUpperCase() }))}
+                            placeholder="MANIFEST"
+                            required
+                        />
+                        <InputError message={fieldErrors.document_type} className="mt-1" />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={submitting}>Add Module</Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function ReportTemplate({ settings }: ReportTemplateData) {
+    const [brandingOpen, setBrandingOpen] = useState(true);
+
+    // Combine built-in + custom registered modules
+    const allModules: RegisteredModule[] = [
+        ...BUILTIN_MODULES,
+        ...(settings.registered_modules ?? []),
+    ];
+
+    const [selectedModule, setSelectedModule] = useState<string>(allModules[0]?.key ?? 'quotation');
+
+    const buildInitialModuleTemplates = (): Record<string, ModuleTemplate> => {
+        const defaults: Record<string, ModuleTemplate> = {};
+        allModules.forEach(({ key }) => {
+            defaults[key] = {
+                title_color: settings.module_templates?.[key]?.title_color ?? '#40A09D',
+                footer_text: settings.module_templates?.[key]?.footer_text ?? '',
+                show_stamp: settings.module_templates?.[key]?.show_stamp ?? false,
+                show_signature: settings.module_templates?.[key]?.show_signature ?? false,
+            };
+        });
+        return defaults;
+    };
+
+    const { data, setData, post, errors, processing, recentlySuccessful } = useForm({
+        company_name: settings.company_name,
+        company_address: settings.company_address || '',
+        company_phone: settings.company_phone || '',
+        company_email: settings.company_email || '',
+        footer_text: settings.footer_text || '',
+        _method: 'put',
+        logo_file: null,
+        stamp_file: null,
+        signature_file: null,
+        module_templates: buildInitialModuleTemplates(),
+    });
+
+    const [logoPreview, setLogoPreview] = useState<string | null>(settings.logo_path ? `/storage/${settings.logo_path}` : null);
+    const [stampPreview, setStampPreview] = useState<string | null>(settings.stamp_path ? `/storage/${settings.stamp_path}` : null);
+    const [signaturePreview, setSignaturePreview] = useState<string | null>(settings.signature_path ? `/storage/${settings.signature_path}` : null);
+
+    const makeFileHandler = (
         field: 'logo_file' | 'stamp_file' | 'signature_file',
-        setPreview: (preview: string | null) => void
-    ) => {
-        return () => {
-            setData(field, null);
-            setPreview(null);
-        };
+        setPreview: (v: string | null) => void,
+    ) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setData(field, file);
+        const reader = new FileReader();
+        reader.onloadend = () => setPreview(reader.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const makeClearHandler = (
+        field: 'logo_file' | 'stamp_file' | 'signature_file',
+        setPreview: (v: string | null) => void,
+    ) => () => { setData(field, null); setPreview(null); };
+
+    const updateModule = (field: keyof ModuleTemplate, value: string | boolean) => {
+        setData('module_templates', {
+            ...data.module_templates,
+            [selectedModule]: {
+                ...(data.module_templates[selectedModule] ?? { title_color: '#40A09D', footer_text: '', show_stamp: false, show_signature: false }),
+                [field]: value,
+            },
+        });
+    };
+
+    const handleDeleteModule = (key: string) => {
+        const label = allModules.find(m => m.key === key)?.label ?? key;
+        if (!confirm(`Delete module "${label}"? This will also remove its template settings.`)) return;
+        router.delete(destroyModuleRoute(key).url, {
+            onSuccess: () => {
+                // Reset to first built-in so we don't land on a deleted module
+                setSelectedModule(BUILTIN_MODULES[0].key);
+            },
+        });
     };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        transform((data) => ({
-            ...data,
-            _method: 'put',
-        }));
         post(updateReportTemplate.url(), {
             forceFormData: true,
         });
     };
 
+    const activeModule = data.module_templates[selectedModule];
+    const activeDefinition = allModules.find(m => m.key === selectedModule);
+    const isBuiltin = BUILTIN_MODULES.some(m => m.key === selectedModule);
+
     return (
         <AppLayout>
             <Head title="Report Template Settings" />
-
             <SettingsLayout>
                 <HeadingSmall
                     title="Report Template Settings"
-                    description="Manage branding for invoices, quotations, and receipts"
+                    description="Manage branding and per-module PDF document settings"
                 />
 
-                <form onSubmit={submit} className="mt-6 space-y-6">
-                    {/* Company Name */}
-                    <div>
-                        <Label htmlFor="company_name">
-                            Company Name <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                            id="company_name"
-                            type="text"
-                            value={data.company_name}
-                            onChange={(e) =>
-                                setData('company_name', e.target.value)
-                            }
-                            className="mt-1 block w-full"
-                            autoComplete="organization"
-                            required
-                        />
-                        <InputError message={errors.company_name} className="mt-2" />
-                    </div>
+                <form onSubmit={submit} className="mt-6 space-y-4">
 
-                    {/* Company Address */}
-                    <div>
-                        <Label htmlFor="company_address">Company Address</Label>
-                        <Textarea
-                            id="company_address"
-                            value={data.company_address}
-                            onChange={(e) =>
-                                setData('company_address', e.target.value)
-                            }
-                            className="mt-1 block w-full"
-                            rows={3}
-                        />
-                        <InputError message={errors.company_address} className="mt-2" />
-                    </div>
-
-                    {/* Company Phone */}
-                    <div>
-                        <Label htmlFor="company_phone">Company Phone</Label>
-                        <Input
-                            id="company_phone"
-                            type="text"
-                            value={data.company_phone}
-                            onChange={(e) =>
-                                setData('company_phone', e.target.value)
-                            }
-                            className="mt-1 block w-full"
-                            autoComplete="tel"
-                        />
-                        <InputError message={errors.company_phone} className="mt-2" />
-                    </div>
-
-                    {/* Company Email */}
-                    <div>
-                        <Label htmlFor="company_email">Company Email</Label>
-                        <Input
-                            id="company_email"
-                            type="email"
-                            value={data.company_email}
-                            onChange={(e) =>
-                                setData('company_email', e.target.value)
-                            }
-                            className="mt-1 block w-full"
-                            autoComplete="email"
-                        />
-                        <InputError message={errors.company_email} className="mt-2" />
-                    </div>
-
-                    {/* Footer Text */}
-                    <div>
-                        <Label htmlFor="footer_text">Footer Text</Label>
-                        <Textarea
-                            id="footer_text"
-                            value={data.footer_text}
-                            onChange={(e) =>
-                                setData('footer_text', e.target.value)
-                            }
-                            className="mt-1 block w-full"
-                            rows={2}
-                        />
-                        <InputError message={errors.footer_text} className="mt-2" />
-                    </div>
-
-                    {/* Logo Upload */}
-                    <div>
-                        <Label htmlFor="logo_file">Company Logo</Label>
-                        <Input
-                            id="logo_file"
-                            type="file"
-                            accept="image/jpeg,image/png,image/jpg"
-                            onChange={handleFileChange('logo_file', setLogoPreview)}
-                            className="mt-1 block w-full"
-                        />
-                        <p className="mt-1 text-sm text-gray-500">
-                            Accepted: JPG, JPEG, PNG. Max 2MB
-                        </p>
-                        <InputError message={errors.logo_file} className="mt-2" />
-                        {logoPreview && (
-                            <div className="mt-4">
-                                <img
-                                    src={logoPreview}
-                                    alt="Logo Preview"
-                                    className="h-32 w-auto object-contain border rounded"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={clearFile('logo_file', setLogoPreview)}
-                                    className="mt-2"
-                                >
-                                    Clear Logo
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Stamp Upload */}
-                    <div>
-                        <Label htmlFor="stamp_file">Company Stamp</Label>
-                        <Input
-                            id="stamp_file"
-                            type="file"
-                            accept="image/jpeg,image/png,image/jpg"
-                            onChange={handleFileChange('stamp_file', setStampPreview)}
-                            className="mt-1 block w-full"
-                        />
-                        <p className="mt-1 text-sm text-gray-500">
-                            Accepted: JPG, JPEG, PNG. Max 2MB
-                        </p>
-                        <InputError message={errors.stamp_file} className="mt-2" />
-                        {stampPreview && (
-                            <div className="mt-4">
-                                <img
-                                    src={stampPreview}
-                                    alt="Stamp Preview"
-                                    className="h-32 w-auto object-contain border rounded"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={clearFile('stamp_file', setStampPreview)}
-                                    className="mt-2"
-                                >
-                                    Clear Stamp
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Signature Upload */}
-                    <div>
-                        <Label htmlFor="signature_file">Authorized Signature</Label>
-                        <Input
-                            id="signature_file"
-                            type="file"
-                            accept="image/jpeg,image/png,image/jpg"
-                            onChange={handleFileChange(
-                                'signature_file',
-                                setSignaturePreview
-                            )}
-                            className="mt-1 block w-full"
-                        />
-                        <p className="mt-1 text-sm text-gray-500">
-                            Accepted: JPG, JPEG, PNG. Max 2MB
-                        </p>
-                        <InputError message={errors.signature_file} className="mt-2" />
-                        {signaturePreview && (
-                            <div className="mt-4">
-                                <img
-                                    src={signaturePreview}
-                                    alt="Signature Preview"
-                                    className="h-32 w-auto object-contain border rounded"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={clearFile(
-                                        'signature_file',
-                                        setSignaturePreview
-                                    )}
-                                    className="mt-2"
-                                >
-                                    Clear Signature
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Submit Button */}
-                    <div className="flex items-center gap-4">
-                        <Button type="submit" disabled={processing}>
-                            Save Changes
-                        </Button>
-
-                        <Transition
-                            show={recentlySuccessful}
-                            enter="transition ease-in-out"
-                            enterFrom="opacity-0"
-                            leave="transition ease-in-out"
-                            leaveTo="opacity-0"
+                    {/* ── Section 1: Global Branding ── */}
+                    <div className="rounded-lg border shadow-sm overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={() => setBrandingOpen(v => !v)}
+                            className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
                         >
-                            <p className="text-sm text-gray-600">Saved successfully.</p>
+                            <div>
+                                <p className="text-sm font-semibold">Global Branding</p>
+                                <p className="text-xs text-muted-foreground">Company info and assets shared across all document types</p>
+                            </div>
+                            {brandingOpen
+                                ? <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                : <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            }
+                        </button>
+
+                        {brandingOpen && (
+                            <div className="p-5 space-y-5">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div className="sm:col-span-2">
+                                        <Label htmlFor="company_name">Company Name <span className="text-red-500">*</span></Label>
+                                        <Input id="company_name" value={data.company_name} onChange={(e) => setData('company_name', e.target.value)} className="mt-1" required />
+                                        <InputError message={errors.company_name} className="mt-2" />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <Label htmlFor="company_address">Company Address</Label>
+                                        <Textarea id="company_address" value={data.company_address} onChange={(e) => setData('company_address', e.target.value)} className="mt-1" rows={3} />
+                                        <InputError message={errors.company_address} className="mt-2" />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="company_phone">Company Phone</Label>
+                                        <Input id="company_phone" value={data.company_phone} onChange={(e) => setData('company_phone', e.target.value)} className="mt-1" />
+                                        <InputError message={errors.company_phone} className="mt-2" />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="company_email">Company Email</Label>
+                                        <Input id="company_email" type="email" value={data.company_email} onChange={(e) => setData('company_email', e.target.value)} className="mt-1" />
+                                        <InputError message={errors.company_email} className="mt-2" />
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                                    <FileUploadField id="logo_file" label="Company Logo" hint="Displayed top-left on all PDFs." preview={logoPreview} previewAlt="Company Logo" error={errors.logo_file} onChange={makeFileHandler('logo_file', setLogoPreview)} onClear={makeClearHandler('logo_file', setLogoPreview)} />
+                                    <FileUploadField id="stamp_file" label="Company Stamp" hint="Enable per-module in the section below." preview={stampPreview} previewAlt="Company Stamp" error={errors.stamp_file} onChange={makeFileHandler('stamp_file', setStampPreview)} onClear={makeClearHandler('stamp_file', setStampPreview)} />
+                                    <FileUploadField id="signature_file" label="Authorised Signature" hint="Enable per-module in the section below." preview={signaturePreview} previewAlt="Authorised Signature" error={errors.signature_file} onChange={makeFileHandler('signature_file', setSignaturePreview)} onClear={makeClearHandler('signature_file', setSignaturePreview)} />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── Section 2: Module Templates ── */}
+                    <div className="rounded-lg border shadow-sm overflow-hidden">
+                        {/* Header with Module Selector + Add/Delete */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-muted/40 border-b">
+                            <div>
+                                <p className="text-sm font-semibold">Module Template</p>
+                                <p className="text-xs text-muted-foreground">Customize PDF appearance per document type</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Select value={selectedModule} onValueChange={setSelectedModule}>
+                                    <SelectTrigger className="w-44">
+                                        <SelectValue placeholder="Select module" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {BUILTIN_MODULES.length > 0 && (
+                                            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Built-in</div>
+                                        )}
+                                        {BUILTIN_MODULES.map(m => (
+                                            <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
+                                        ))}
+                                        {settings.registered_modules?.length > 0 && (
+                                            <div className="px-2 py-1 mt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-t">Custom</div>
+                                        )}
+                                        {(settings.registered_modules ?? []).map(m => (
+                                            <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Delete custom module */}
+                                {!isBuiltin && (
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => handleDeleteModule(selectedModule)}
+                                        className="flex items-center gap-1.5"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Delete
+                                    </Button>
+                                )}
+
+                                {/* Add new module — key forces remount when module count changes, closing the dialog */}
+                                <AddModuleDialog
+                                    key={settings.registered_modules?.length ?? 0}
+                                    onAdded={() => { }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Module Settings + Preview */}
+                        <div className="p-5">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Left: Settings */}
+                                <div className="space-y-5">
+                                    {/* Title Bar Color */}
+                                    <div>
+                                        <Label htmlFor="title_color">Title Bar Color</Label>
+                                        <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                                            Background color for the <strong>{activeDefinition?.label ?? selectedModule}</strong> document title bar.
+                                        </p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-12 rounded border shadow-sm flex-shrink-0" style={{ backgroundColor: activeModule?.title_color || '#40A09D' }} />
+                                            <Input
+                                                id="title_color"
+                                                type="color"
+                                                value={activeModule?.title_color || '#40A09D'}
+                                                onChange={(e) => updateModule('title_color', e.target.value)}
+                                                className="h-9 w-14 cursor-pointer p-0.5 border rounded"
+                                            />
+                                            <Input
+                                                type="text"
+                                                value={activeModule?.title_color || '#40A09D'}
+                                                onChange={(e) => updateModule('title_color', e.target.value)}
+                                                placeholder="#40A09D"
+                                                className="flex-1 font-mono text-sm"
+                                                maxLength={7}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Footer Text */}
+                                    <div>
+                                        <Label htmlFor="module_footer_text">Footer Text</Label>
+                                        <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                                            Custom footer for <strong>{activeDefinition?.label ?? selectedModule}</strong>. Leave blank to use default.
+                                        </p>
+                                        <Textarea
+                                            id="module_footer_text"
+                                            value={activeModule?.footer_text || ''}
+                                            onChange={(e) => updateModule('footer_text', e.target.value)}
+                                            rows={4}
+                                            placeholder="e.g. Payment terms, bank details, or custom notes..."
+                                        />
+                                    </div>
+
+                                    <Separator />
+
+                                    {/* Toggles */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-medium">Document Elements</h4>
+                                        <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                            <div>
+                                                <p className="text-sm font-medium">Show Company Stamp</p>
+                                                <p className="text-xs text-muted-foreground">Display stamp from Branding section.</p>
+                                            </div>
+                                            <Switch checked={activeModule?.show_stamp ?? false} onCheckedChange={(v) => updateModule('show_stamp', v)} />
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                            <div>
+                                                <p className="text-sm font-medium">Show Authorised Signature</p>
+                                                <p className="text-xs text-muted-foreground">Display signature from Branding section.</p>
+                                            </div>
+                                            <Switch checked={activeModule?.show_signature ?? false} onCheckedChange={(v) => updateModule('show_signature', v)} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right: Live Preview */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Live Preview</Label>
+                                    <p className="text-xs text-muted-foreground">Updates as you change settings above.</p>
+                                    <PdfPreview
+                                        titleColor={activeModule?.title_color ?? '#40A09D'}
+                                        footerText={activeModule?.footer_text ?? ''}
+                                        showStamp={activeModule?.show_stamp ?? false}
+                                        showSignature={activeModule?.show_signature ?? false}
+                                        documentType={activeDefinition?.document_type ?? selectedModule.toUpperCase()}
+                                        companyName={data.company_name}
+                                        logoPreview={logoPreview}
+                                        stampPreview={stampPreview}
+                                        signaturePreview={signaturePreview}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Save Button ── */}
+                    <div className="flex items-center gap-4 pt-2">
+                        <Button type="submit" disabled={processing}>Save Changes</Button>
+                        <Transition show={recentlySuccessful} enter="transition ease-in-out" enterFrom="opacity-0" leave="transition ease-in-out" leaveTo="opacity-0">
+                            <p className="text-sm text-green-600">Saved successfully.</p>
                         </Transition>
                     </div>
                 </form>
