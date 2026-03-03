@@ -176,7 +176,7 @@ class EnquiryService
      */
     public function getById(int $id): Enquiry
     {
-        return Enquiry::with(['generalEnquiry', 'privateEnquiry', 'customerGroup.members.customer.user'])->findOrFail($id);
+        return Enquiry::with(['generalEnquiry', 'privateEnquiry', 'customerConfirmation.members.customer.user'])->findOrFail($id);
     }
 
     /**
@@ -218,7 +218,7 @@ class EnquiryService
     {
         return Enquiry::query()
             ->where('status', EnquiryStatus::Confirmed)
-            ->whereDoesntHave('customerGroup')
+            ->whereDoesntHave('customerConfirmation')
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(fn (Enquiry $enquiry) => [

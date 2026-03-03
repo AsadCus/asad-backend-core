@@ -31,10 +31,10 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
-import { update as updateGroup } from '@/routes/customer-groups';
+import { update as updateGroup } from '@/routes/customer-confirmations';
 import {
     confirm as confirmEnquiry,
-    createCustomerGroup,
+    createCustomerConfirmation,
     getForShow,
     listCustomers,
 } from '@/routes/enquiries';
@@ -55,17 +55,17 @@ import {
     useRef,
     useState,
 } from 'react';
+import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fields';
 import CustomerFormFields from '../customer/form-fields';
 import {
     emptyMember,
     packageCategoryOptions,
-    packageRoomTypeOptions,
-    type CustomerGroupFormData,
-    type CustomerGroupFormSchema,
+    type CustomerConfirmationFormData,
+    type CustomerConfirmationFormSchema,
     type CustomerMemberFormData,
     type CustomerOption,
 } from '../customer/schema';
-import { customerGroupFormValidationSchema } from '../customer/validation';
+import { customerConfirmationFormValidationSchema } from '../customer/validation';
 import EnquiryViewDialog from '../enquiries/components/enquiry-view-dialog';
 import {
     EnquiryDetails,
@@ -74,7 +74,7 @@ import {
 } from '../enquiries/schema';
 import PackageForm from '../packages/form';
 import PackageInformationSection from '../packages/package-information-section';
-import { type PackageSchema } from '../packages/schema';
+import { sharingPlanOptions, type PackageSchema } from '../packages/schema';
 
 type ClientValidationErrors = Record<string, string>;
 
@@ -91,6 +91,10 @@ interface LinkedPackageInfo {
     vehicle_type?: string | null;
     ticket_type?: string | null;
     remarks?: string | null;
+    price_single?: number | null;
+    price_double?: number | null;
+    price_triple?: number | null;
+    price_quad?: number | null;
 }
 
 export interface CustomerConfirmationFormProps {
@@ -104,7 +108,7 @@ export interface CustomerConfirmationFormProps {
     prefillPackageId?: number | null;
     isPublic?: boolean;
     publicSubmitUrl?: string;
-    initialData?: CustomerGroupFormSchema;
+    initialData?: CustomerConfirmationFormSchema;
     packageOptions?: OptionType[];
     packageData?: PackageSchema;
     onSuccess?: () => void;
@@ -180,6 +184,10 @@ export default function CustomerConfirmationForm({
                 vehicle_type: pkg.vehicle_type,
                 ticket_type: pkg.ticket_type,
                 remarks: pkg.remarks,
+                price_single: pkg.price_single,
+                price_double: pkg.price_double,
+                price_triple: pkg.price_triple,
+                price_quad: pkg.price_quad,
             });
             setLinkedPackageData(pkg);
         } finally {
@@ -241,7 +249,7 @@ export default function CustomerConfirmationForm({
     ]);
 
     // Form
-    const defaultData: CustomerGroupFormData = (initialData ?? {
+    const defaultData: CustomerConfirmationFormData = (initialData ?? {
         enquiry_id: enquiryId ?? null,
         package_id: prefillPackageId ?? null,
         package_room_type: '',
@@ -256,9 +264,9 @@ export default function CustomerConfirmationForm({
             },
         ],
         terms_accepted: isPublic && isEdit ? true : !isPublic,
-    }) as CustomerGroupFormData;
+    }) as CustomerConfirmationFormData;
 
-    const form = useForm<CustomerGroupFormData>(defaultData);
+    const form = useForm<CustomerConfirmationFormData>(defaultData);
     const { data, setData, post, processing, clearErrors, setError } = form;
     const errors: Record<string, string | undefined> = form.errors;
     const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
@@ -333,11 +341,60 @@ export default function CustomerConfirmationForm({
                 vehicle_type: current?.vehicle_type,
                 ticket_type: current?.ticket_type,
                 remarks: current?.remarks,
+                price_single: current?.price_single,
+                price_double: current?.price_double,
+                price_triple: current?.price_triple,
+                price_quad: current?.price_quad,
             }));
         }
 
         loadPackageInfo(Number(packageId));
     }, [data.package_id, packageData, packageOptions, loadPackageInfo]);
+
+    const memberSharingPlanOptions = useMemo(() => {
+        const packagePriceSource =
+            linkedPackageInfo ??
+            (linkedPackageData as {
+                price_single?: number | null;
+                price_double?: number | null;
+                price_triple?: number | null;
+                price_quad?: number | null;
+            } | null);
+
+        if (!packagePriceSource) {
+            return sharingPlanOptions;
+        }
+
+        const dynamic = [
+            {
+                value: 'single',
+                label: 'Single',
+                price: Number(packagePriceSource.price_single ?? 0),
+            },
+            {
+                value: 'double',
+                label: 'Double',
+                price: Number(packagePriceSource.price_double ?? 0),
+            },
+            {
+                value: 'triple',
+                label: 'Triple',
+                price: Number(packagePriceSource.price_triple ?? 0),
+            },
+            {
+                value: 'quad',
+                label: 'Quad',
+                price: Number(packagePriceSource.price_quad ?? 0),
+            },
+        ]
+            .filter((item) => item.price > 0)
+            .map((item) => ({
+                value: item.value,
+                label: `${item.label} (${item.price.toFixed(2)})`,
+            }));
+
+        return dynamic.length > 0 ? dynamic : sharingPlanOptions;
+    }, [linkedPackageInfo, linkedPackageData]);
 
     // Helpers
 
@@ -590,7 +647,7 @@ export default function CustomerConfirmationForm({
     function validateClientSide(): boolean {
         clearErrors();
         const clientErrors: ClientValidationErrors = {};
-        const result = customerGroupFormValidationSchema.safeParse(data);
+        const result = customerConfirmationFormValidationSchema.safeParse(data);
 
         if (!result.success) {
             result.error.issues.forEach((issue) => {
@@ -695,7 +752,7 @@ export default function CustomerConfirmationForm({
                 ? publicSubmitUrl
                 : enquiryId
                   ? confirmEnquiry(enquiryId).url
-                  : createCustomerGroup().url;
+                  : createCustomerConfirmation().url;
 
             form.transform((currentData) => ({
                 ...currentData,
@@ -941,45 +998,13 @@ export default function CustomerConfirmationForm({
                                         disabled={
                                             isView ||
                                             processing ||
-                                            isPrivateWithLinkedPackage
+                                            isPrivateWithLinkedPackage ||
+                                            (isPublic &&
+                                                Boolean(data.package_id))
                                         }
                                         truncate={30}
                                     />
                                 )}
-                            </FormField>
-
-                            <FormField
-                                label="Room Type"
-                                fieldRequirementsProps={{
-                                    hint: 'Select the preferred room accommodation type',
-                                    example: 'Double, Triple, Quad',
-                                }}
-                                htmlFor="package_room_type"
-                                error={getError('package_room_type')}
-                            >
-                                <Select
-                                    value={data.package_room_type ?? ''}
-                                    onValueChange={(v) =>
-                                        setData('package_room_type', v || null)
-                                    }
-                                    disabled={isView || processing}
-                                >
-                                    <SelectTrigger id="package_room_type">
-                                        <SelectValue placeholder="Select room type..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {packageRoomTypeOptions.map(
-                                            (option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={String(option.value)}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ),
-                                        )}
-                                    </SelectContent>
-                                </Select>
                             </FormField>
 
                             <FormField
@@ -1116,7 +1141,7 @@ export default function CustomerConfirmationForm({
                                                         variant="default"
                                                         className="ml-1 text-xs"
                                                     >
-                                                        Leader
+                                                        Main
                                                     </Badge>
                                                 )}
                                             </TabsTrigger>
@@ -1153,7 +1178,7 @@ export default function CustomerConfirmationForm({
                                                         className="h-4 w-4 accent-primary"
                                                     />
                                                     <Label className="text-base">
-                                                        Group Leader
+                                                        Main
                                                     </Label>
                                                 </div>
                                             </div>
@@ -1175,20 +1200,74 @@ export default function CustomerConfirmationForm({
                                                 )}
                                         </div>
 
-                                        <CustomerFormFields
-                                            customer={customer}
-                                            index={idx}
-                                            isView={isView}
-                                            processing={processing}
-                                            getError={getError}
-                                            onUpdateCustomer={(field, value) =>
-                                                updateCustomer(
-                                                    idx,
-                                                    field,
-                                                    value,
-                                                )
-                                            }
-                                        />
+                                        <div className="space-y-6">
+                                            <Card>
+                                                <CardHeader className="gap-0">
+                                                    <CardTitle className="text-xl">
+                                                        Customer Confirmation
+                                                        Information
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        Customer confirmation
+                                                        details related to this
+                                                        member.
+                                                    </CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <ConfirmedCustomerFormFields
+                                                        customer={customer}
+                                                        index={idx}
+                                                        isView={isView}
+                                                        processing={processing}
+                                                        getError={getError}
+                                                        sharingPlanSelectOptions={
+                                                            memberSharingPlanOptions
+                                                        }
+                                                        onUpdateCustomer={(
+                                                            field,
+                                                            value,
+                                                        ) =>
+                                                            updateCustomer(
+                                                                idx,
+                                                                field,
+                                                                value,
+                                                            )
+                                                        }
+                                                    />
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card>
+                                                <CardHeader className="gap-0">
+                                                    <CardTitle className="text-xl">
+                                                        Customer Information
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        Personal details of the
+                                                        customer member.
+                                                    </CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <CustomerFormFields
+                                                        customer={customer}
+                                                        index={idx}
+                                                        isView={isView}
+                                                        processing={processing}
+                                                        getError={getError}
+                                                        onUpdateCustomer={(
+                                                            field,
+                                                            value,
+                                                        ) =>
+                                                            updateCustomer(
+                                                                idx,
+                                                                field,
+                                                                value,
+                                                            )
+                                                        }
+                                                    />
+                                                </CardContent>
+                                            </Card>
+                                        </div>
                                     </TabsContent>
                                 ))}
                             </Tabs>

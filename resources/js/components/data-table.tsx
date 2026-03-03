@@ -22,8 +22,10 @@ import {
     getPaginationRowModel,
     getSortedRowModel,
     Row,
+    RowData,
     RowSelectionState,
     SortingState,
+    Table as TanStackTable,
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
@@ -45,17 +47,13 @@ import {
     ContextMenuTrigger,
 } from './ui/context-menu';
 
-interface DataTableProps<TData, TValue = unknown> {
+interface DataTableProps<TData extends RowData, TValue = unknown> {
     columns: ColumnDef<TData, TValue>[];
     data: TData[];
     actions: ActionType[];
     url?: string;
-    renderFilter?: (
-        table: ReturnType<typeof useReactTable<TData>>,
-    ) => React.ReactNode;
-    renderEmptyState?: (
-        table: ReturnType<typeof useReactTable<TData>>,
-    ) => React.ReactNode;
+    renderFilter?: (table: TanStackTable<TData>) => React.ReactNode;
+    renderEmptyState?: (table: TanStackTable<TData>) => React.ReactNode;
     onAction?: (action: ActionType, row?: Row<TData>) => void;
     getRowActions?: (row: TData) => ActionType[];
     initialState?: {
@@ -73,7 +71,7 @@ interface DataTableProps<TData, TValue = unknown> {
     addButtonText?: string;
 }
 
-export function DataTable<TData, TValue = unknown>({
+export function DataTable<TData extends RowData, TValue = unknown>({
     columns,
     data,
     actions,
@@ -102,7 +100,7 @@ export function DataTable<TData, TValue = unknown>({
     const [density, setDensity] = useState<string>('flexible');
     const [expanded, setExpanded] = useState<ExpandedState>({});
 
-    const includesValue: FilterFn<unknown> = (
+    const includesValue: FilterFn<TData> = (
         row,
         columnId,
         filterValue: string[],
@@ -128,7 +126,7 @@ export function DataTable<TData, TValue = unknown>({
         return filterValue.some((f) => values.includes(String(f)));
     };
 
-    const dateRangeFilter: FilterFn<unknown> = (
+    const dateRangeFilter: FilterFn<TData> = (
         row,
         columnId,
         filterValue: { from?: string; to?: string },
@@ -246,7 +244,7 @@ export function DataTable<TData, TValue = unknown>({
             : []),
     ];
 
-    const table = useReactTable({
+    const table = useReactTable<TData>({
         data,
         columns: finalColumns,
         filterFns: {

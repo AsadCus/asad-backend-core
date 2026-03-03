@@ -327,10 +327,7 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
                                         ? ''
                                         : Number(qty) * Number(rate);
 
-                                    const descriptionText =
-                                        item.is_placement_fee && !item.is_header
-                                            ? `${item.description} - $${rate} x ${qty} month(s)`
-                                            : item.description;
+                                    const descriptionText = item.description;
 
                                     const nextItem = sortedItems[index + 1];
                                     const isLastChild =

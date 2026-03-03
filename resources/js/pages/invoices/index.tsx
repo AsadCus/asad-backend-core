@@ -166,7 +166,11 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: false },
         cell: ({ row }) => {
             const invoice = row.original;
-            if (invoice.status !== 'paid' && invoice.status !== 'cancelled') {
+            if (
+                invoice.status !== 'paid' &&
+                invoice.status !== 'cancelled' &&
+                !invoice.has_receipt
+            ) {
                 return (
                     <Button
                         variant="outline"

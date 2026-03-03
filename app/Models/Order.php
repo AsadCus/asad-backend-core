@@ -6,8 +6,6 @@ use App\Helpers\NumberGenerator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Casts\Attribute;
-use Carbon\Carbon;
 
 class Order extends Model
 {
@@ -15,11 +13,6 @@ class Order extends Model
         'quotation_id',
         'order_number',
         'payment_plan',
-        'handover_date',
-    ];
-
-    protected $casts = [
-        'handover_date' => 'date',
     ];
 
     public function quotation(): BelongsTo
@@ -30,14 +23,6 @@ class Order extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class, 'order_id');
-    }
-
-    // Formatting Helpers
-    public function getHandoverDateFormattedAttribute(): ?string
-    {
-        return $this->handover_date
-            ? Carbon::parse($this->handover_date)->translatedFormat('d F Y')
-            : null;
     }
 
     // Model Hooks

@@ -4,6 +4,7 @@ import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
+import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import {
     genderOptions,
     maritalStatusOptions,
@@ -27,7 +28,7 @@ const DOCUMENT_FIELDS = [
     {
         fileKey: 'passport_file' as const,
         pathKey: 'passport_path' as const,
-        label: 'Passport Copy',
+        label: 'Passport',
         accept: '.jpg,.jpeg,.png,.pdf',
         hint: 'Upload a scan or photo of the passport bio-data page',
     },
@@ -50,6 +51,10 @@ export default function CustomerFormFields({
     onUpdateCustomer,
 }: CustomerFormFieldsProps) {
     const disabled = isView || processing;
+    const todayDisplayDate = formatDateForDisplay(new Date());
+    const passportIssueDateValue =
+        customer.passport_issue_date || todayDisplayDate;
+    const passportIssueDate = parseDisplayDate(passportIssueDateValue);
     const prefix =
         fieldPrefix ?? (typeof index === 'number' ? `members.${index}` : '');
     const fieldPath = (field: keyof CustomerSchema): string => {
@@ -171,6 +176,7 @@ export default function CustomerFormFields({
                             }
                             placeholder="Select gender"
                             disabled={disabled}
+                            searchable={false}
                         />
                     </FormField>
 
@@ -191,6 +197,7 @@ export default function CustomerFormFields({
                             }
                             placeholder="Select marital status"
                             disabled={disabled}
+                            searchable={false}
                         />
                     </FormField>
 
@@ -335,7 +342,7 @@ export default function CustomerFormFields({
                     >
                         <DatePickerField
                             id={fieldPath('passport_issue_date')}
-                            value={customer.passport_issue_date}
+                            value={passportIssueDateValue}
                             disabled={disabled}
                             fromYear={2000}
                             toYear={new Date().getFullYear()}
@@ -356,10 +363,30 @@ export default function CustomerFormFields({
                     >
                         <DatePickerField
                             id={fieldPath('passport_expiry_date')}
-                            value={customer.passport_expiry_date}
+                            value={
+                                customer.passport_expiry_date ||
+                                todayDisplayDate
+                            }
                             disabled={disabled}
-                            fromYear={new Date().getFullYear()}
+                            fromYear={
+                                passportIssueDate
+                                    ? passportIssueDate.getFullYear()
+                                    : new Date().getFullYear()
+                            }
                             toYear={new Date().getFullYear() + 15}
+                            disabledDates={(date) => {
+                                if (!passportIssueDate) {
+                                    return false;
+                                }
+
+                                const compareDate = new Date(date);
+                                compareDate.setHours(0, 0, 0, 0);
+
+                                const minDate = new Date(passportIssueDate);
+                                minDate.setHours(0, 0, 0, 0);
+
+                                return compareDate < minDate;
+                            }}
                             onChange={(v) =>
                                 onUpdateCustomer('passport_expiry_date', v)
                             }

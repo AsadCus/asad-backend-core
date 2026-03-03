@@ -1,4 +1,4 @@
-import { customerGroupFormSchema, customerSchema } from './schema';
+import { customerConfirmationFormSchema, customerSchema } from './schema';
 
 export const customerValidationSchema = customerSchema.superRefine(
     (data, ctx) => {
@@ -131,8 +131,8 @@ export const customerValidationSchema = customerSchema.superRefine(
     },
 );
 
-export const customerGroupFormValidationSchema =
-    customerGroupFormSchema.superRefine((data, ctx) => {
+export const customerConfirmationFormValidationSchema =
+    customerConfirmationFormSchema.superRefine((data, ctx) => {
         if (
             !data.date_of_application ||
             data.date_of_application.trim().length === 0
@@ -161,6 +161,18 @@ export const customerGroupFormValidationSchema =
                         ...issue,
                         path: ['members', index, ...issue.path],
                     });
+                });
+            }
+
+            if (
+                data.package_id &&
+                (!member.sharing_plan || member.sharing_plan.trim().length === 0)
+            ) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['members', index, 'sharing_plan'],
+                    message:
+                        'Sharing plan is required when a package is selected.',
                 });
             }
         });

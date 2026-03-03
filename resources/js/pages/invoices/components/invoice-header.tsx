@@ -2,7 +2,7 @@ import { DatePickerField } from '@/components/date-picker';
 import { FieldRequirements } from '@/components/field-requirements';
 import { ProperInput } from '@/components/proper-input';
 import { Label } from '@/components/ui/label';
-import { isBeforeToday, parseDisplayDate } from '@/lib/utils';
+import { parseDisplayDate } from '@/lib/utils';
 import { InvoiceSchema } from '@/pages/invoices/schema';
 import { isBefore } from 'date-fns';
 
@@ -49,7 +49,7 @@ export function InvoiceHeader({
                     Invoice Date{' '}
                     <FieldRequirements
                         required
-                        hint="Must be at least today date"
+                        hint="Default from quote date"
                         format="DD/MM/YYYY"
                     />
                 </Label>
@@ -58,7 +58,6 @@ export function InvoiceHeader({
                         id="invoice_date"
                         value={invoice.invoice_date ?? ''}
                         disabled={disabled}
-                        disabledDates={isBeforeToday}
                         quickDate
                         onChange={(e) => onChange({ invoice_date: e })}
                     />
@@ -72,7 +71,7 @@ export function InvoiceHeader({
                     Due Date{' '}
                     <FieldRequirements
                         required
-                        hint="Must be at least today date & after invoice date"
+                        hint="Must be same or after invoice date"
                         format="DD/MM/YYYY"
                     />
                 </Label>
@@ -82,15 +81,11 @@ export function InvoiceHeader({
                         value={invoice.due_date ?? ''}
                         disabled={disabled}
                         disabledDates={(date) => {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-
-                            const quoteDate = invoice.invoice_date
+                            const invoiceDate = invoice.invoice_date
                                 ? parseDisplayDate(invoice.invoice_date)
                                 : null;
 
-                            if (isBefore(date, today)) return true;
-                            if (quoteDate && isBefore(date, quoteDate))
+                            if (invoiceDate && isBefore(date, invoiceDate))
                                 return true;
 
                             return false;

@@ -15,7 +15,7 @@ import {
 interface ViewQuotationProps {
     data: {
         data: QuotationSchema;
-        customers: [];
+        customerConfirmations: [];
     };
 }
 
@@ -50,7 +50,7 @@ export default function ViewQuotation({ data }: ViewQuotationProps) {
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
                         statuses={statuses}
-                        customers={data.customers}
+                        customerConfirmations={data.customerConfirmations}
                         onCancel={handleCancel}
                     />
                 </div>

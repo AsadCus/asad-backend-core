@@ -2,7 +2,7 @@
 
 namespace App\Rules;
 
-class CustomerGroupRule
+class CustomerConfirmationRule
 {
     public function rules(?bool $requireEnquiry = true): array
     {
@@ -15,12 +15,16 @@ class CustomerGroupRule
 
             // Members
             'members' => ['required', 'array', 'min:1'],
+            'members.*.member_id' => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
+            'members.*.customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'members.*.name' => ['required', 'string', 'max:255'],
             'members.*.email' => ['required', 'email', 'max:255'],
             'members.*.contact_number' => ['required', 'string', 'max:30'],
             'members.*.nric_number' => ['required', 'string', 'max:50'],
             'members.*.address' => ['required', 'string', 'max:500'],
             'members.*.is_leader' => ['required', 'boolean'],
+            'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
+            'members.*.role' => ['nullable', 'string', 'max:255'],
 
             // Biodata per member
             'members.*.first_time_umrah' => ['nullable', 'boolean'],

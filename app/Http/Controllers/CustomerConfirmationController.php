@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Rules\CustomerGroupRule;
-use App\Services\CustomerGroupService;
+use App\Http\Requests\CustomerConfirmation\GenerateQuotationsRequest;
+use App\Models\CustomerConfirmation;
+use App\Rules\CustomerConfirmationRule;
+use App\Services\CustomerConfirmationService;
 use App\Services\PackageService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -12,20 +15,20 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
-class CustomerGroupController extends Controller
+class CustomerConfirmationController extends Controller
 {
     public function __construct(
-        protected CustomerGroupService $customerGroupService,
-        protected CustomerGroupRule $customerGroupRule,
+        protected CustomerConfirmationService $customerConfirmationService,
+        protected CustomerConfirmationRule $customerConfirmationRule,
         protected PackageService $packageService,
     ) {}
 
     /**
-     * Display a listing of confirmed customer groups.
+     * Display a listing of confirmed customer confirmations.
      */
     public function index()
     {
-        $dataGroups = $this->customerGroupService->getForGroupedIndex();
+        $dataGroups = $this->customerConfirmationService->getForGroupedIndex();
         $packageOptions = $this->packageService->getForFilter();
 
         return Inertia::render('confirmed-customer/index', [
@@ -35,34 +38,34 @@ class CustomerGroupController extends Controller
     }
 
     /**
-     * Get customer group data for view/edit (JSON).
+     * Get customer confirmation data for view/edit (JSON).
      */
     public function show(string $id)
     {
         return response()->json(
-            $this->customerGroupService->getForEditShow((int) $id)
+            $this->customerConfirmationService->getForEditShow((int) $id)
         );
     }
 
     /**
-     * Update a customer group and its members.
+     * Update a customer confirmation and its members.
      */
     public function update(Request $request, string $id)
     {
         $validated = $request->validate(array_merge(
-            $this->customerGroupRule->rules(requireEnquiry: false),
+            $this->customerConfirmationRule->rules(requireEnquiry: false),
             [
                 'enquiry_id' => ['nullable', 'integer', 'exists:enquiries,id'],
             ],
         ));
 
-        $this->customerGroupService->updateGroup((int) $id, $validated);
+        $this->customerConfirmationService->updateGroup((int) $id, $validated);
 
-        return back()->with('success', 'Customer group updated successfully.');
+        return back()->with('success', 'Customer confirmation updated successfully.');
     }
 
     /**
-     * Delete a customer group and its members.
+     * Delete a customer confirmation and its members.
      */
     public function destroy(Request $request, string $id)
     {
@@ -70,15 +73,114 @@ class CustomerGroupController extends Controller
 
         if ($ids && is_array($ids)) {
             foreach ($ids as $groupId) {
-                $this->customerGroupService->deleteGroup((int) $groupId);
+                $this->customerConfirmationService->deleteGroup((int) $groupId);
             }
 
-            return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Selected customer groups deleted successfully.');
+            return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Selected customer confirmations deleted successfully.');
         }
 
-        $this->customerGroupService->deleteGroup((int) $id);
+        $this->customerConfirmationService->deleteGroup((int) $id);
 
-        return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Customer group deleted successfully.');
+        return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Customer confirmation deleted successfully.');
+    }
+
+    /**
+     * Move selected members from an existing confirmation into a new holding confirmation.
+     */
+    public function moveMembers(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'member_ids' => ['required', 'array', 'min:1'],
+            'member_ids.*' => ['integer', 'exists:customer_confirmation_members,id'],
+            'target_package_id' => ['nullable', 'integer', 'exists:packages,id'],
+            'source_manifest_id' => ['nullable', 'integer', 'exists:manifests,id'],
+        ]);
+
+        $newConfirmation = $this->customerConfirmationService->moveMembersToHolding(
+            (int) $id,
+            $validated['member_ids'],
+            $validated['target_package_id'] ?? null,
+            $validated['source_manifest_id'] ?? null,
+        );
+
+        return response()->json([
+            'message' => 'Customer members moved to holding confirmation successfully.',
+            'new_confirmation_id' => $newConfirmation->id,
+        ]);
+    }
+
+    /**
+     * Update one customer confirmation member profile/status/sharing plan.
+     */
+    public function updateMember(Request $request, string $memberId): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'contact_number' => ['required', 'string', 'max:30'],
+            'nric_number' => ['required', 'string', 'max:50'],
+            'address' => ['required', 'string', 'max:500'],
+            'nationality' => ['required', 'string', 'max:100'],
+            'passport_number' => ['required', 'string', 'max:50'],
+            'passport_issue_date' => ['required', 'date'],
+            'passport_expiry_date' => ['required', 'date'],
+            'passport_place_of_issue' => ['required', 'string', 'max:255'],
+            'gender' => ['required', 'string', 'in:male,female'],
+            'marital_status' => ['required', 'string', 'in:single,married,divorced,widowed'],
+            'date_of_birth' => ['required', 'date'],
+            'place_of_birth' => ['required', 'string', 'max:255'],
+            'first_time_umrah' => ['nullable', 'boolean'],
+            'has_chronic_disease' => ['nullable', 'boolean'],
+            'chronic_disease_details' => ['nullable', 'string', 'max:1000'],
+            'passport_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'passport_path' => ['nullable', 'string'],
+            'photo_path' => ['nullable', 'string'],
+            'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled'],
+            'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
+            'role' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $member = $this->customerConfirmationService->updateMemberDetails((int) $memberId, $validated);
+
+        return response()->json([
+            'message' => 'Member updated successfully.',
+            'member' => $member,
+        ]);
+    }
+
+    /**
+     * Mark one confirmation member as cancelled.
+     */
+    public function cancelMember(string $memberId): JsonResponse
+    {
+        $this->customerConfirmationService->cancelMember((int) $memberId);
+
+        return response()->json([
+            'message' => 'Member cancelled successfully.',
+        ]);
+    }
+
+    /**
+     * Generate quotation(s) from a customer confirmation.
+     *
+     * Accepts a payer-to-members mapping and creates one quotation per payer.
+     */
+    public function generateQuotations(GenerateQuotationsRequest $request, string $id): JsonResponse
+    {
+        CustomerConfirmation::query()->findOrFail((int) $id);
+
+        $validated = $request->validated();
+
+        $quotations = $this->customerConfirmationService->generateQuotationsFromConfirmation(
+            (int) $id,
+            $validated['payer_to_members'],
+        );
+
+        return response()->json([
+            'message' => count($quotations).' quotation(s) created successfully.',
+            'quotation_ids' => array_map(fn ($q) => $q->id, $quotations),
+        ]);
     }
 
     /**
@@ -119,22 +221,22 @@ class CustomerGroupController extends Controller
     }
 
     /**
-     * Store a customer group from the public create form.
+     * Store a customer confirmation from the public create form.
      */
     public function publicCreateStore(Request $request)
     {
         $validated = $request->validate(array_merge(
-            $this->customerGroupRule->rules(requireEnquiry: false),
+            $this->customerConfirmationRule->rules(requireEnquiry: false),
             ['terms_accepted' => ['required', 'accepted']],
         ));
 
-        $this->customerGroupService->createGroup($validated);
+        $this->customerConfirmationService->createGroup($validated);
 
         return back()->with('success', 'Your application has been submitted successfully.');
     }
 
     /**
-     * Show the public edit form for an existing customer group.
+     * Show the public edit form for an existing customer confirmation.
      */
     public function publicEditForm(Request $request, string $encryptedId)
     {
@@ -155,7 +257,7 @@ class CustomerGroupController extends Controller
             $oneTimeToken = $this->ensureValidOneTimeEditToken($request, (int) $groupId);
         }
 
-        $groupData = $this->customerGroupService->getForEditShow((int) $groupId);
+        $groupData = $this->customerConfirmationService->getForEditShow((int) $groupId);
         $packageOptions = $this->packageService->getForFilter();
 
         $linkExpiresAt = is_numeric($request->query('expires'))
@@ -188,7 +290,7 @@ class CustomerGroupController extends Controller
     }
 
     /**
-     * Update a customer group from the public edit form.
+     * Update a customer confirmation from the public edit form.
      */
     public function publicEditStore(Request $request, string $encryptedId)
     {
@@ -210,11 +312,11 @@ class CustomerGroupController extends Controller
         }
 
         $validated = $request->validate(array_merge(
-            $this->customerGroupRule->rules(requireEnquiry: false),
+            $this->customerConfirmationRule->rules(requireEnquiry: false),
             ['terms_accepted' => ['required', 'accepted']],
         ));
 
-        $this->customerGroupService->updateGroup((int) $groupId, $validated);
+        $this->customerConfirmationService->updateGroup((int) $groupId, $validated);
 
         if ($linkType === 'one_time' && $oneTimeToken) {
             Cache::forget($this->oneTimeEditLinkCacheKey($oneTimeToken));
@@ -232,7 +334,7 @@ class CustomerGroupController extends Controller
     }
 
     /**
-     * Generate a signed URL for public edit link (copy from customer group index).
+     * Generate a signed URL for public edit link (copy from customer confirmation index).
      */
     public function generatePublicEditLink(Request $request, string $groupId)
     {
@@ -262,7 +364,7 @@ class CustomerGroupController extends Controller
         activity()
             ->causedBy($request->user())
             ->withProperties([
-                'subject_type' => 'CustomerGroup',
+                'subject_type' => 'CustomerConfirmation',
                 'subject_id' => (int) $groupId,
                 'link_type' => $linkType,
             ])
@@ -278,7 +380,7 @@ class CustomerGroupController extends Controller
 
     private function oneTimeEditLinkCacheKey(string $token): string
     {
-        return "customer-group-public-edit-link:{$token}";
+        return "customer-confirmation-public-edit-link:{$token}";
     }
 
     private function ensureValidOneTimeEditToken(Request $request, int $groupId): string

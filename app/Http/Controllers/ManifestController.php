@@ -2,29 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomerConfirmationMember;
+use App\Models\ManifestTraveler;
 use App\Rules\ManifestRule;
+use App\Services\CustomerConfirmationService;
 use App\Services\ManifestService;
 use App\Services\PackageService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class ManifestController extends Controller
 {
-    protected $manifestService;
-    protected $manifestRule;
-    protected $packageService;
-
-    public function __construct(ManifestService $manifestService, ManifestRule $manifestRule, PackageService $packageService)
-    {
-        $this->manifestService = $manifestService;
-        $this->manifestRule = $manifestRule;
-        $this->packageService = $packageService;
-    }
+    public function __construct(
+        protected ManifestService $manifestService,
+        protected ManifestRule $manifestRule,
+        protected PackageService $packageService,
+        protected CustomerConfirmationService $customerConfirmationService,
+    ) {}
 
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(): \Inertia\Response
     {
         $data['manifestsForDatatable'] = $this->manifestService->getForDataTable();
 
@@ -36,21 +38,25 @@ class ManifestController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(): \Inertia\Response
     {
         $dataPackage = $this->packageService->getForFilter();
+        $customerConfirmations = $this->manifestService->getCustomerConfirmationsForManifest();
 
         return Inertia::render('manifests/create', [
             'dataPackage' => $dataPackage,
+            'customerConfirmations' => $customerConfirmations,
         ]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $validated = $request->validate($this->manifestRule->rules());
+        $normalizedPayload = $this->normalizeManifestPayload($request->all());
+        $validated = validator($normalizedPayload, $this->manifestRule->rules())->validate();
+        $this->ensureTravelerPackageMatchesManifestPackage($validated);
         $this->manifestService->store($validated);
 
         return redirect()->route('manifests.index')
@@ -60,38 +66,44 @@ class ManifestController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(string $id): \Inertia\Response
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
+        $customerConfirmations = $this->manifestService->getCustomerConfirmationsForManifest();
 
         return Inertia::render('manifests/show', [
             'data' => $manifest,
             'dataPackage' => $dataPackage,
+            'customerConfirmations' => $customerConfirmations,
         ]);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(string $id): \Inertia\Response
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
+        $customerConfirmations = $this->manifestService->getCustomerConfirmationsForManifest();
 
         return Inertia::render('manifests/edit', [
             'data' => $manifest,
             'dataPackage' => $dataPackage,
+            'customerConfirmations' => $customerConfirmations,
         ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $id): \Illuminate\Http\RedirectResponse
     {
-        $validated = $request->validate($this->manifestRule->rules($id));
-        $this->manifestService->update($validated, $id);
+        $normalizedPayload = $this->normalizeManifestPayload($request->all());
+        $validated = validator($normalizedPayload, $this->manifestRule->rules((int) $id))->validate();
+        $this->ensureTravelerPackageMatchesManifestPackage($validated);
+        $this->manifestService->update($validated, (int) $id);
 
         return redirect()->route('manifests.index')
             ->with('success', 'Manifest updated successfully.');
@@ -100,7 +112,7 @@ class ManifestController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request, string $id)
+    public function destroy(Request $request, string $id): \Illuminate\Http\RedirectResponse
     {
         $ids = $request->input('ids');
         if ($ids && is_array($ids)) {
@@ -116,5 +128,382 @@ class ManifestController extends Controller
 
         return redirect()->route('manifests.index')
             ->with('success', 'Manifest deleted successfully.');
+    }
+
+    /**
+     * Add a room to a manifest.
+     */
+    public function addRoom(Request $request, string $manifestId): JsonResponse
+    {
+        $validated = $request->validate($this->manifestRule->roomRules());
+        $room = $this->manifestService->addRoom((int) $manifestId, $validated);
+
+        return response()->json(['room' => $room], 201);
+    }
+
+    /**
+     * Update a room.
+     */
+    public function updateRoom(Request $request, string $roomId): JsonResponse
+    {
+        $validated = $request->validate($this->manifestRule->roomRules());
+        $room = $this->manifestService->updateRoom((int) $roomId, $validated);
+
+        return response()->json(['room' => $room]);
+    }
+
+    /**
+     * Delete a room.
+     */
+    public function deleteRoom(string $roomId): JsonResponse
+    {
+        $this->manifestService->deleteRoom((int) $roomId);
+
+        return response()->json(['message' => 'Room deleted successfully.']);
+    }
+
+    /**
+     * Add a payment to a manifest.
+     */
+    public function addPayment(Request $request, string $manifestId): JsonResponse
+    {
+        $validated = $request->validate($this->manifestRule->paymentRules());
+        $payment = $this->manifestService->addPayment((int) $manifestId, $validated);
+
+        return response()->json(['payment' => $payment], 201);
+    }
+
+    /**
+     * Update a payment.
+     */
+    public function updatePayment(Request $request, string $paymentId): JsonResponse
+    {
+        $validated = $request->validate($this->manifestRule->paymentRules());
+        $payment = $this->manifestService->updatePayment((int) $paymentId, $validated);
+
+        return response()->json(['payment' => $payment]);
+    }
+
+    /**
+     * Delete a payment.
+     */
+    public function deletePayment(string $paymentId): JsonResponse
+    {
+        $this->manifestService->deletePayment((int) $paymentId);
+
+        return response()->json(['message' => 'Payment deleted successfully.']);
+    }
+
+    /**
+     * Attach a sharing group to a manifest.
+     */
+    public function attachSharingGroup(Request $request, string $manifestId): JsonResponse
+    {
+        $validated = $request->validate([
+            'sharing_group_id' => ['required', 'integer', 'exists:sharing_groups,id'],
+            'manifest_room_id' => ['nullable', 'integer', 'exists:manifest_rooms,id'],
+        ]);
+
+        $msg = $this->manifestService->attachSharingGroup(
+            (int) $manifestId,
+            $validated['sharing_group_id'],
+            $validated['manifest_room_id'] ?? null,
+        );
+
+        return response()->json(['manifest_sharing_group' => $msg], 201);
+    }
+
+    /**
+     * Detach a sharing group from a manifest.
+     */
+    public function detachSharingGroup(string $manifestId, string $sharingGroupId): JsonResponse
+    {
+        $this->manifestService->detachSharingGroup((int) $manifestId, (int) $sharingGroupId);
+
+        return response()->json(['message' => 'Sharing group detached successfully.']);
+    }
+
+    /**
+     * Get manifest data as JSON (for dialog previews).
+     */
+    public function getForShow(string $id): JsonResponse
+    {
+        $manifest = $this->manifestService->getForEditShow($id);
+
+        return response()->json($manifest);
+    }
+
+    /**
+     * Move one manifest traveler to a new holding confirmation and cancel existing assignment.
+     */
+    public function moveTravelerToHolding(Request $request, string $manifestId, string $travelerId): JsonResponse
+    {
+        $validated = $request->validate([
+            'target_package_id' => ['nullable', 'integer', 'exists:packages,id'],
+        ]);
+
+        $traveler = ManifestTraveler::query()
+            ->where('manifest_id', (int) $manifestId)
+            ->where('id', (int) $travelerId)
+            ->firstOrFail();
+
+        if (! $traveler->customer_confirmation_member_id) {
+            throw ValidationException::withMessages([
+                'traveler' => 'Only confirmation-linked travelers can be moved to holding.',
+            ]);
+        }
+
+        $member = CustomerConfirmationMember::query()
+            ->findOrFail((int) $traveler->customer_confirmation_member_id);
+
+        $newConfirmation = $this->customerConfirmationService->moveMembersToHolding(
+            (int) $member->customer_confirmation_id,
+            [(int) $member->id],
+            $validated['target_package_id'] ?? null,
+            (int) $manifestId,
+        );
+
+        return response()->json([
+            'message' => 'Traveler moved to holding confirmation successfully.',
+            'new_confirmation_id' => $newConfirmation->id,
+        ]);
+    }
+
+    /**
+     * Normalize grouped frontend payload into backend validation shape.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeManifestPayload(array $payload): array
+    {
+        $travelers = array_map(function (array $traveler): array {
+            $traveler['room_type'] = $this->normalizeRoomType($traveler['room_type'] ?? null);
+            $traveler['bed_type'] = $this->normalizeBedType($traveler['bed_type'] ?? null);
+
+            return $traveler;
+        }, $this->flattenGroupedRows(Arr::get($payload, 'travelers', [])));
+        $payload['travelers'] = $travelers;
+
+        $roomLists = Arr::get($payload, 'roomLists', []);
+
+        if (! is_array($roomLists) || $roomLists === []) {
+            $roomLists = array_filter([
+                'makkah' => Arr::get($payload, 'roomListMakkah', []),
+                'madinah' => Arr::get($payload, 'roomListMadinah', []),
+                'others' => Arr::get($payload, 'roomListOthers', []),
+            ], fn (mixed $rows) => is_array($rows) && $rows !== []);
+        }
+
+        $roomLists = $this->normalizeRoomListsForUi($roomLists);
+
+        $roomRows = $this->normalizeRoomRowsFromLists($roomLists);
+
+        if (! empty($roomRows)) {
+            $payload['rooms'] = $roomRows;
+        }
+
+        $flightDetails = Arr::get($payload, 'flight_details', []);
+        if (! is_array($flightDetails)) {
+            $flightDetails = [];
+        }
+
+        $airlineList = $this->flattenGroupedRows(Arr::get($payload, 'airlineList', []));
+
+        $flightDetails['ui_room_lists'] = $roomLists;
+        $flightDetails['ui_airline_list'] = $airlineList;
+
+        // backward compatibility for existing payload readers
+        $flightDetails['ui_room_list_makkah'] = $roomLists['makkah'] ?? [];
+        $flightDetails['ui_room_list_madinah'] = $roomLists['madinah'] ?? [];
+        $flightDetails['ui_room_list_others'] = $roomLists['others'] ?? [];
+
+        $payload['flight_details'] = $flightDetails;
+        $payload['airlineList'] = $airlineList;
+        $payload['roomLists'] = $roomLists;
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $roomLists
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function normalizeRoomListsForUi(array $roomLists): array
+    {
+        $normalized = [];
+
+        foreach ($roomLists as $accommodationKey => $rows) {
+            $flatRows = $this->flattenGroupedRows($rows);
+
+            $normalized[(string) $accommodationKey] = array_map(
+                function (array $row, int $index): array {
+                    $row['room_type'] = $this->normalizeRoomType($row['room_type'] ?? null) ?? ($row['room_type'] ?? null);
+                    $row['bed_type'] = $this->normalizeBedType($row['bed_type'] ?? null) ?? ($row['bed_type'] ?? null);
+                    $row['sort_order'] = (int) ($row['sort_order'] ?? $row['sn'] ?? ($index + 1));
+                    $row['sn'] = $row['sort_order'];
+
+                    return $row;
+                },
+                $flatRows,
+                array_keys($flatRows),
+            );
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Flatten grouped payload sections: Record<number, Row[]> -> Row[].
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function flattenGroupedRows(mixed $rows): array
+    {
+        if (! is_array($rows) || $rows === []) {
+            return [];
+        }
+
+        $first = reset($rows);
+
+        if (array_is_list($rows) && is_array($first) && ! array_is_list($first)) {
+            return array_values(array_filter($rows, fn ($row) => is_array($row)));
+        }
+
+        $flattened = [];
+
+        foreach ($rows as $groupRows) {
+            if (! is_array($groupRows)) {
+                continue;
+            }
+
+            foreach ($groupRows as $groupRow) {
+                if (is_array($groupRow)) {
+                    $flattened[] = $groupRow;
+                }
+            }
+        }
+
+        return $flattened;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeRoomRowsFromLists(array $roomLists): array
+    {
+        $normalizedRooms = [];
+
+        foreach ($roomLists as $location => $rows) {
+            $flatRows = $this->flattenGroupedRows($rows);
+            if ($flatRows === []) {
+                continue;
+            }
+
+            $grouped = [];
+
+            foreach ($flatRows as $row) {
+                $groupKey = (string) (
+                    $row['sharing_group_key']
+                    ?? $row['sharing_group_id']
+                    ?? $row['customer_confirmation_member_id']
+                    ?? $row['customer_id']
+                    ?? uniqid('room_', true)
+                );
+
+                $grouped[$groupKey][] = $row;
+            }
+
+            foreach ($grouped as $members) {
+                $first = $members[0];
+
+                $normalizedRooms[] = [
+                    'location' => is_string($location) ? $location : null,
+                    'room_number' => $first['room_number'] ?? $first['room_no'] ?? null,
+                    'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
+                    'bed_type' => $this->normalizeBedType($first['bed_type'] ?? null),
+                    'capacity' => $first['no_of_beds_checked'] ?? count($members),
+                    'status' => 'pending',
+                    'room_label' => $first['name_as_per_passport'] ?? null,
+                ];
+            }
+        }
+
+        return $normalizedRooms;
+    }
+
+    private function normalizeRoomType(mixed $roomType): ?string
+    {
+        if (! is_string($roomType) || trim($roomType) === '') {
+            return null;
+        }
+
+        $mapped = strtolower(trim($roomType));
+
+        return match ($mapped) {
+            'quad' => 'QUAD',
+            'triple' => 'TRIPLE',
+            'double' => 'DOUBLE',
+            'single' => 'SINGLE',
+            'twin' => 'TWIN',
+            default => null,
+        };
+    }
+
+    private function normalizeBedType(mixed $bedType): ?string
+    {
+        if (! is_string($bedType) || trim($bedType) === '') {
+            return null;
+        }
+
+        $mapped = strtolower(trim($bedType));
+
+        return match ($mapped) {
+            'single' => 'SINGLE',
+            'king' => 'KING',
+            'queen' => 'QUEEN',
+            default => null,
+        };
+    }
+
+    /**
+     * Ensure confirmation members attached as travelers belong to the same package as manifest.
+     *
+     * @param  array<string, mixed>  $validated
+     *
+     * @throws ValidationException
+     */
+    private function ensureTravelerPackageMatchesManifestPackage(array $validated): void
+    {
+        $manifestPackageId = isset($validated['package_id']) ? (int) $validated['package_id'] : null;
+
+        if (! $manifestPackageId) {
+            return;
+        }
+
+        $travelers = $this->flattenGroupedRows(Arr::get($validated, 'travelers', []));
+        $memberIds = collect($travelers)
+            ->pluck('customer_confirmation_member_id')
+            ->filter()
+            ->map(fn (mixed $memberId) => (int) $memberId)
+            ->unique()
+            ->values();
+
+        if ($memberIds->isEmpty()) {
+            return;
+        }
+
+        $hasMismatch = CustomerConfirmationMember::query()
+            ->whereIn('id', $memberIds->all())
+            ->whereHas('confirmation', function ($query) use ($manifestPackageId) {
+                $query->where('package_id', '!=', $manifestPackageId);
+            })
+            ->exists();
+
+        if ($hasMismatch) {
+            throw ValidationException::withMessages([
+                'travelers' => 'Customer confirmation package must match the selected manifest package.',
+            ]);
+        }
     }
 }

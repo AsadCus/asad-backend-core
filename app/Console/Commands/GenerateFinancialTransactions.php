@@ -3,10 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\FinancialTransaction;
+use App\Models\FinancialYear;
 use App\Models\Maid;
 use App\Models\Receipt;
-use App\Models\Quotation;
-use App\Models\FinancialYear;
 use App\Services\FinancialTransactionService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -50,8 +49,9 @@ class GenerateFinancialTransactions extends Command
         $yearId = $this->option('year');
         $processAll = $this->option('all');
 
-        if (!$yearId && !$processAll) {
+        if (! $yearId && ! $processAll) {
             $this->error('Please specify either --year=ID or --all option');
+
             return 1;
         }
 
@@ -61,6 +61,7 @@ class GenerateFinancialTransactions extends Command
 
         if ($financialYears->isEmpty()) {
             $this->error('No financial years found');
+
             return 1;
         }
 
@@ -70,6 +71,7 @@ class GenerateFinancialTransactions extends Command
         }
 
         $this->info("\n✓ Financial transaction generation completed!");
+
         return 0;
     }
 
@@ -94,6 +96,7 @@ class GenerateFinancialTransactions extends Command
 
         if ($dates->isEmpty()) {
             $this->info('  ✓ No data found, skipping financial year creation');
+
             return;
         }
 
@@ -153,6 +156,7 @@ class GenerateFinancialTransactions extends Command
         ]);
 
         $this->line("  Created FY {$fyYear}: {$startDate->format('Y-m-d')} to {$endDate->format('Y-m-d')}");
+
         return true;
     }
 
@@ -270,7 +274,6 @@ class GenerateFinancialTransactions extends Command
         }
     }
 
-
     protected function generateTransactionsForYear(FinancialYear $year)
     {
         $startDate = Carbon::parse($year->start_date);
@@ -291,7 +294,7 @@ class GenerateFinancialTransactions extends Command
 
             $shouldBeSoftDeleted = $maid->deleted_at !== null;
 
-            if (!$existingTransaction) {
+            if (! $existingTransaction) {
                 try {
                     $cost = $maid->getTotalCostOfMaid();
 
@@ -321,7 +324,7 @@ class GenerateFinancialTransactions extends Command
                 if ($shouldBeSoftDeleted && $existingTransaction->deleted_at === null) {
                     $existingTransaction->delete();
                     $maidUpdated++;
-                } elseif (!$shouldBeSoftDeleted && $existingTransaction->deleted_at !== null) {
+                } elseif (! $shouldBeSoftDeleted && $existingTransaction->deleted_at !== null) {
                     $existingTransaction->restore();
                     $maidUpdated++;
                 }
@@ -351,9 +354,9 @@ class GenerateFinancialTransactions extends Command
 
             $quotation = $receipt->invoice->order->quotation;
             $shouldBeSoftDeleted = $quotation &&
-                ($quotation->status === 'cancelled' || $quotation->deleted_at !== null);
+                ($quotation->status === \App\Enums\QuotationStatus::Cancelled || $quotation->deleted_at !== null);
 
-            if (!$existingTransaction) {
+            if (! $existingTransaction) {
                 try {
                     $transaction = $this->financialTransactionService->recordRevenue(
                         (float) $receipt->amount,
@@ -381,7 +384,7 @@ class GenerateFinancialTransactions extends Command
                 if ($shouldBeSoftDeleted && $existingTransaction->deleted_at === null) {
                     $existingTransaction->delete();
                     $receiptUpdated++;
-                } elseif (!$shouldBeSoftDeleted && $existingTransaction->deleted_at !== null) {
+                } elseif (! $shouldBeSoftDeleted && $existingTransaction->deleted_at !== null) {
                     $existingTransaction->restore();
                     $receiptUpdated++;
                 }

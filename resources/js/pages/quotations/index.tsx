@@ -123,59 +123,6 @@ const columns: ColumnDef<QuotationSchema>[] = [
         filterFn: 'dateRangeFilter',
     },
     {
-        accessorKey: 'commencement_date',
-        header: 'Commencement Date',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-    },
-    {
-        accessorKey: 'monthly_salary',
-        header: 'Monthly Salary',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'loan_duration',
-        header: 'Loan Duration',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'rest_day_of_the_week',
-        header: 'Rest Day of the Week',
-        meta: { exportable: true },
-        cell: ({ row }) => {
-            const d = row.getValue('rest_day_of_the_week');
-            const values = Array.isArray(d)
-                ? d
-                : typeof d === 'string'
-                  ? d.split(',').map((v) => v.trim())
-                  : [];
-
-            return (
-                <div className="flex flex-wrap gap-1">
-                    {values.map((value: string, index: number) => (
-                        <Badge
-                            key={index}
-                            variant="outline"
-                            className="text-sm"
-                        >
-                            {value}
-                        </Badge>
-                    ))}
-                </div>
-            );
-        },
-    },
-    {
-        accessorKey: 'rest_days_per_month',
-        header: 'Rest Days / Month',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'compensation_off_in_lieu',
-        header: 'Compensation Off in Lieu',
-        meta: { exportable: true },
-    },
-    {
         accessorKey: 'items_count',
         header: 'Items Count',
         meta: { exportable: true },
@@ -325,7 +272,11 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 
-                                if (hasEditPermission && !q.have_invoices) {
+                                if (
+                                    hasEditPermission &&
+                                    (!q.have_invoices ||
+                                        q.status === 'converted')
+                                ) {
                                     rowActions.push('edit');
                                 }
 
@@ -434,12 +385,6 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     sales_id: false,
                                     description: false,
                                     expiry_date: false,
-                                    commencement_date: false,
-                                    monthly_salary: false,
-                                    loan_duration: false,
-                                    rest_day_of_the_week: false,
-                                    rest_days_per_month: false,
-                                    compensation_off_in_lieu: false,
                                     items_count: false,
                                     payment_plan: false,
                                     payment_method: false,

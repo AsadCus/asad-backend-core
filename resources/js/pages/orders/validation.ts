@@ -26,15 +26,6 @@ export const orderValidationSchema = orderSchema.superRefine((data, ctx) => {
         });
     }
 
-    // handover_date
-    if (!data.handover_date) {
-        ctx.addIssue({
-            path: ['handover_date'],
-            message: 'Handover date is required',
-            code: z.ZodIssueCode.custom,
-        });
-    }
-
     // invoices
     if (!data.invoices?.length) {
         ctx.addIssue({

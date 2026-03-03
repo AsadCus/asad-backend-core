@@ -4,10 +4,15 @@ namespace Tests\Feature;
 
 use App\Enums\EnquiryStatus;
 use App\Models\Customer;
-use App\Models\CustomerGroup;
-use App\Models\CustomerGroupMember;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
+use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\Package;
+use App\Models\Quotation;
+use App\Models\QuotationItem;
+use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Arr;
@@ -18,7 +23,7 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-class CustomerGroupFormTest extends TestCase
+class CustomerConfirmationFormTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -135,7 +140,7 @@ class CustomerGroupFormTest extends TestCase
         $this->assertNull($enquiry->package_id);
     }
 
-    public function test_customer_group_creation_with_biodata_fields(): void
+    public function test_customer_confirmation_creation_with_biodata_fields(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -173,8 +178,8 @@ class CustomerGroupFormTest extends TestCase
 
         $response->assertRedirect();
 
-        // Check customer group fields
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        // Check customer confirmation fields
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
         $this->assertNotNull($group);
         $this->assertEquals('double', $group->package_room_type);
         $this->assertEquals('classic_umrah', $group->package_category);
@@ -194,7 +199,7 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals('single', $customer->marital_status);
     }
 
-    public function test_customer_group_creation_with_package_id(): void
+    public function test_customer_confirmation_creation_with_package_id(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -228,12 +233,12 @@ class CustomerGroupFormTest extends TestCase
 
         $response->assertRedirect();
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
         $this->assertNotNull($group);
         $this->assertEquals($package->id, $group->package_id);
     }
 
-    public function test_customer_group_show_returns_json(): void
+    public function test_customer_confirmation_show_returns_json(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -259,9 +264,9 @@ class CustomerGroupFormTest extends TestCase
             ],
         ]);
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
 
-        $response = $this->getJson(route('customer-groups.show', $group->id));
+        $response = $this->getJson(route('customer-confirmations.show', $group->id));
         $response->assertOk();
         $response->assertJsonStructure([
             'id',
@@ -274,7 +279,7 @@ class CustomerGroupFormTest extends TestCase
         ]);
     }
 
-    public function test_customer_group_update(): void
+    public function test_customer_confirmation_update(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -299,9 +304,9 @@ class CustomerGroupFormTest extends TestCase
             ],
         ]);
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
 
-        $response = $this->put(route('customer-groups.update', $group->id), [
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-06-15',
             'package_room_type' => 'triple',
             'package_category' => 'deluxe_umrah',
@@ -323,7 +328,7 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals('2026-06-15', $group->date_of_application->format('Y-m-d'));
     }
 
-    public function test_customer_group_update_with_multiple_members(): void
+    public function test_customer_confirmation_update_with_multiple_members(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -355,11 +360,11 @@ class CustomerGroupFormTest extends TestCase
             ],
         ]);
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
         $this->assertEquals(2, $group->members()->count());
 
         // Update with 3 members
-        $response = $this->put(route('customer-groups.update', $group->id), [
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-07-01',
             'package_room_type' => 'quad',
             'package_category' => 'deluxe_umrah',
@@ -393,7 +398,7 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals('2026-07-01', $group->date_of_application->format('Y-m-d'));
     }
 
-    public function test_customer_group_update_accepts_method_spoofed_post_payload(): void
+    public function test_customer_confirmation_update_accepts_method_spoofed_post_payload(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -424,9 +429,9 @@ class CustomerGroupFormTest extends TestCase
             ],
         ]);
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
 
-        $response = $this->post(route('customer-groups.update', $group->id), [
+        $response = $this->post(route('customer-confirmations.update', $group->id), [
             '_method' => 'put',
             'date_of_application' => '2026-08-12',
             'package_room_type' => 'double',
@@ -455,6 +460,317 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals(2, $group->members()->count());
     }
 
+    public function test_customer_confirmation_update_preserves_existing_member_ids(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Preserve IDs',
+            'contact_number' => '0123000000',
+            'email' => 'preserve@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Preserve Leader',
+                    'email' => 'preserve-leader@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Preserve Member',
+                    'email' => 'preserve-member@test.com',
+                    'nric_number' => 'S9988776A',
+                    'passport_number' => 'P9988776',
+                    'is_leader' => false,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer.user')
+            ->where('enquiry_id', $enquiry->id)
+            ->firstOrFail();
+
+        $leader = $group->members->firstWhere('is_leader', true);
+        $member = $group->members->firstWhere('is_leader', false);
+
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
+            'date_of_application' => '2026-01-15',
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'members' => [
+                $this->memberPayload([
+                    'member_id' => $leader->id,
+                    'customer_id' => $leader->customer_id,
+                    'name' => 'Preserve Leader Updated',
+                    'email' => 'preserve-leader@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'member_id' => $member->id,
+                    'customer_id' => $member->customer_id,
+                    'name' => 'Preserve Member Updated',
+                    'email' => 'preserve-member@test.com',
+                    'nric_number' => 'S9988776A',
+                    'passport_number' => 'P9988776',
+                    'is_leader' => false,
+                ]),
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $group->refresh();
+        $group->load('members.customer.user');
+
+        $currentMemberIds = $group->members->pluck('id')->all();
+
+        $this->assertContains($leader->id, $currentMemberIds);
+        $this->assertContains($member->id, $currentMemberIds);
+    }
+
+    public function test_customer_confirmation_update_blocks_removing_member_with_paid_billing(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Paid Guard',
+            'contact_number' => '0123000001',
+            'email' => 'paid-guard@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-PAID-GUARD',
+            'name' => 'Paid Guard Package',
+            'status' => 'active',
+            'price_single' => 3000,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'package_id' => $package->id,
+            'date_of_application' => '2026-01-05',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Paid Leader',
+                    'email' => 'paid-leader@test.com',
+                    'is_leader' => true,
+                    'sharing_plan' => 'single',
+                ]),
+                $this->memberPayload([
+                    'name' => 'Paid Member',
+                    'email' => 'paid-member@test.com',
+                    'nric_number' => 'S1122334A',
+                    'passport_number' => 'PX1122334',
+                    'is_leader' => false,
+                    'sharing_plan' => 'single',
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer.user')
+            ->where('enquiry_id', $enquiry->id)
+            ->firstOrFail();
+
+        $paidMember = $group->members->firstWhere('is_leader', false);
+        $remainingMember = $group->members->firstWhere('is_leader', true);
+
+        $quotation = Quotation::create([
+            'customer_id' => $paidMember->customer_id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->toDateString(),
+            'expiry_date' => now()->addDays(30)->toDateString(),
+            'payment_plan' => 'full',
+            'status' => 'accepted',
+            'description' => 'Paid guard quotation',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $paidMember->id,
+            'description' => 'Paid guard item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 3000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'type' => 'deposit',
+            'description' => 'Paid guard invoice',
+            'amount' => 3000,
+            'invoice_date' => now()->toDateString(),
+            'due_date' => now()->addDays(7)->toDateString(),
+            'status' => 'issued',
+        ]);
+
+        $invoice->quotationItems()->attach($quotationItem->id);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 3000,
+            'receipt_date' => now()->toDateString(),
+            'payment_method' => 'bank_transfer',
+            'reference' => 'PAID-GUARD',
+        ]);
+
+        $response = $this->from('/confirmed-customer')
+            ->put(route('customer-confirmations.update', $group->id), [
+                'date_of_application' => '2026-02-01',
+                'package_id' => $package->id,
+                'members' => [
+                    $this->memberPayload([
+                        'member_id' => $remainingMember->id,
+                        'customer_id' => $remainingMember->customer_id,
+                        'name' => 'Paid Leader',
+                        'email' => 'paid-leader@test.com',
+                        'is_leader' => true,
+                        'sharing_plan' => 'single',
+                    ]),
+                ],
+            ]);
+
+        $response->assertRedirect('/confirmed-customer');
+        $response->assertSessionHasErrors('members');
+
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $paidMember->id,
+        ]);
+    }
+
+    public function test_customer_confirmation_update_resets_member_billing_links_when_sharing_plan_changes(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Sharing Reset',
+            'contact_number' => '0123000002',
+            'email' => 'sharing-reset@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-SHARING-RESET',
+            'name' => 'Sharing Reset Package',
+            'status' => 'active',
+            'price_single' => 4000,
+            'price_double' => 2500,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'package_id' => $package->id,
+            'date_of_application' => '2026-01-05',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Sharing Member',
+                    'email' => 'sharing-member@test.com',
+                    'is_leader' => true,
+                    'sharing_plan' => 'single',
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer.user')
+            ->where('enquiry_id', $enquiry->id)
+            ->firstOrFail();
+
+        $member = $group->members->firstOrFail();
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->toDateString(),
+            'expiry_date' => now()->addDays(30)->toDateString(),
+            'payment_plan' => 'full',
+            'status' => 'accepted',
+            'description' => 'Sharing reset quotation',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Sharing reset item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 4000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'type' => 'deposit',
+            'description' => 'Sharing reset invoice',
+            'amount' => 4000,
+            'invoice_date' => now()->toDateString(),
+            'due_date' => now()->addDays(7)->toDateString(),
+            'status' => 'issued',
+        ]);
+
+        $invoice->quotationItems()->attach($quotationItem->id);
+
+        $receipt = Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 4000,
+            'receipt_date' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'reference' => 'SHARING-RESET',
+        ]);
+
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
+            'date_of_application' => '2026-02-10',
+            'package_id' => $package->id,
+            'members' => [
+                $this->memberPayload([
+                    'member_id' => $member->id,
+                    'customer_id' => $member->customer_id,
+                    'name' => 'Sharing Member',
+                    'email' => 'sharing-member@test.com',
+                    'is_leader' => true,
+                    'sharing_plan' => 'double',
+                ]),
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $member->id,
+            'sharing_plan' => 'double',
+        ]);
+
+        $this->assertDatabaseHas('quotation_items', [
+            'id' => $quotationItem->id,
+            'customer_confirmation_member_id' => null,
+        ]);
+
+        $this->assertDatabaseHas('receipts', [
+            'id' => $receipt->id,
+            'invoice_id' => $invoice->id,
+        ]);
+    }
+
     public function test_private_group_update_rejects_replacing_linked_package(): void
     {
         $this->actingAs($this->adminUser);
@@ -481,7 +797,7 @@ class CustomerGroupFormTest extends TestCase
             'package_id' => $originalPackage->id,
         ]);
 
-        $group = CustomerGroup::create([
+        $group = CustomerConfirmation::create([
             'enquiry_id' => $enquiry->id,
             'created_by' => $this->adminUser->id,
             'package_id' => $originalPackage->id,
@@ -499,13 +815,13 @@ class CustomerGroupFormTest extends TestCase
             'customer_number' => 'C-PRIVATE-001',
         ]);
 
-        CustomerGroupMember::create([
-            'customer_group_id' => $group->id,
+        CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
             'customer_id' => $customer->id,
             'is_leader' => true,
         ]);
 
-        $response = $this->put(route('customer-groups.update', $group->id), [
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-10-20',
             'package_id' => $replacementPackage->id,
             'members' => [
@@ -523,7 +839,7 @@ class CustomerGroupFormTest extends TestCase
         $this->assertEquals($originalPackage->id, $group->package_id);
     }
 
-    public function test_customer_group_destroy_deletes_group_and_members_only_and_reverts_enquiry_status(): void
+    public function test_customer_confirmation_destroy_deletes_group_and_members_only_and_reverts_enquiry_status(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -554,17 +870,17 @@ class CustomerGroupFormTest extends TestCase
             ],
         ]);
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
         $memberCustomerIds = $group->members()->pluck('customer_id')->all();
         $memberUserIds = Customer::whereIn('id', $memberCustomerIds)->pluck('user_id')->all();
 
         $this->assertCount(2, $memberCustomerIds);
 
-        $response = $this->delete(route('customer-groups.destroy', $group->id));
+        $response = $this->delete(route('customer-confirmations.destroy', $group->id));
         $response->assertRedirect();
 
-        $this->assertDatabaseMissing('customer_groups', ['id' => $group->id]);
-        $this->assertDatabaseMissing('customer_group_members', ['customer_group_id' => $group->id]);
+        $this->assertDatabaseMissing('customer_confirmations', ['id' => $group->id]);
+        $this->assertDatabaseMissing('customer_confirmation_members', ['customer_confirmation_id' => $group->id]);
 
         foreach ($memberCustomerIds as $customerId) {
             $this->assertDatabaseHas('customers', ['id' => $customerId]);
@@ -620,16 +936,16 @@ class CustomerGroupFormTest extends TestCase
             ])],
         ]);
 
-        $firstGroup = CustomerGroup::where('enquiry_id', $firstEnquiry->id)->firstOrFail();
-        $secondGroup = CustomerGroup::where('enquiry_id', $secondEnquiry->id)->firstOrFail();
+        $firstGroup = CustomerConfirmation::where('enquiry_id', $firstEnquiry->id)->firstOrFail();
+        $secondGroup = CustomerConfirmation::where('enquiry_id', $secondEnquiry->id)->firstOrFail();
 
         $response = $this->delete(route('confirmed-customer.destroy', 0), [
             'ids' => [$firstGroup->id, $secondGroup->id],
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('customer_groups', ['id' => $firstGroup->id]);
-        $this->assertDatabaseMissing('customer_groups', ['id' => $secondGroup->id]);
+        $this->assertDatabaseMissing('customer_confirmations', ['id' => $firstGroup->id]);
+        $this->assertDatabaseMissing('customer_confirmations', ['id' => $secondGroup->id]);
 
         $firstEnquiry->refresh();
         $secondEnquiry->refresh();
@@ -704,7 +1020,7 @@ class CustomerGroupFormTest extends TestCase
 
         $response->assertRedirect();
 
-        $this->assertDatabaseHas('customer_groups', [
+        $this->assertDatabaseHas('customer_confirmations', [
             'package_room_type' => 'quad',
         ]);
     }
@@ -722,7 +1038,7 @@ class CustomerGroupFormTest extends TestCase
             'created_by' => $this->adminUser->id,
         ]);
 
-        $response = $this->getJson(route('customer-groups.generate-link', $enquiry->id));
+        $response = $this->getJson(route('customer-confirmations.generate-link', $enquiry->id));
         $response->assertOk();
         $response->assertJsonStructure(['url']);
 
@@ -756,9 +1072,9 @@ class CustomerGroupFormTest extends TestCase
             ],
         ]);
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
 
-        $response = $this->getJson(route('customer-groups.generate-edit-link', [
+        $response = $this->getJson(route('customer-confirmations.generate-edit-link', [
             'groupId' => $group->id,
             'link_type' => 'one_time',
         ]));
@@ -827,7 +1143,7 @@ class CustomerGroupFormTest extends TestCase
             ],
         ]);
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
         $encryptedId = Crypt::encrypt($group->id);
 
         $updateUrl = URL::signedRoute('customer-confirmation.public.update', [
@@ -848,7 +1164,7 @@ class CustomerGroupFormTest extends TestCase
         ])->assertSessionHasErrors('terms_accepted');
     }
 
-    public function test_customer_group_activity_logs_store_detailed_old_and_new_snapshots(): void
+    public function test_customer_confirmation_activity_logs_store_detailed_old_and_new_snapshots(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -878,12 +1194,12 @@ class CustomerGroupFormTest extends TestCase
             ],
         ])->assertRedirect();
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
 
         $createActivity = Activity::query()
-            ->where('subject_type', CustomerGroup::class)
+            ->where('subject_type', CustomerConfirmation::class)
             ->where('subject_id', $group->id)
-            ->where('description', 'like', 'Customer group created%')
+            ->where('description', 'like', 'Customer confirmation created%')
             ->latest('id')
             ->first();
 
@@ -900,7 +1216,7 @@ class CustomerGroupFormTest extends TestCase
         $this->assertNotSame('detailed-leader@test.com', $maskedCreateEmail);
         $this->assertTrue(str_contains((string) $maskedCreateEmail, '*'));
 
-        $this->put(route('customer-groups.update', $group->id), [
+        $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-09-02',
             'package_room_type' => 'triple',
             'package_category' => 'deluxe_umrah',
@@ -918,9 +1234,9 @@ class CustomerGroupFormTest extends TestCase
         ])->assertRedirect();
 
         $updateActivity = Activity::query()
-            ->where('subject_type', CustomerGroup::class)
+            ->where('subject_type', CustomerConfirmation::class)
             ->where('subject_id', $group->id)
-            ->where('description', 'Customer group #'.$group->id.' updated')
+            ->where('description', 'Customer confirmation #'.$group->id.' updated')
             ->latest('id')
             ->first();
 
@@ -938,12 +1254,12 @@ class CustomerGroupFormTest extends TestCase
         $this->assertNotSame('0190000000', $maskedUpdateContact);
         $this->assertTrue(str_contains((string) $maskedUpdateContact, '*'));
 
-        $this->delete(route('customer-groups.destroy', $group->id))->assertRedirect();
+        $this->delete(route('customer-confirmations.destroy', $group->id))->assertRedirect();
 
         $deleteActivity = Activity::query()
-            ->where('subject_type', CustomerGroup::class)
+            ->where('subject_type', CustomerConfirmation::class)
             ->where('subject_id', $group->id)
-            ->where('description', 'Customer group #'.$group->id.' deleted')
+            ->where('description', 'Customer confirmation #'.$group->id.' deleted')
             ->latest('id')
             ->first();
 
@@ -953,5 +1269,67 @@ class CustomerGroupFormTest extends TestCase
         $this->assertSame('delete', data_get($deleteProperties, 'context.operation'));
         $this->assertSame(true, data_get($deleteProperties, 'attributes.deleted'));
         $this->assertSame($group->id, data_get($deleteProperties, 'old.group.id'));
+    }
+
+    public function test_generate_quotations_rejects_members_outside_confirmation_group(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-GEN-001',
+            'name' => 'Generate Quotation Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $payerUser = User::factory()->create(['email' => 'payer@test.com']);
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-PAYER-001',
+        ]);
+
+        $outsideUser = User::factory()->create(['email' => 'outside@test.com']);
+        $outsideCustomer = Customer::create([
+            'user_id' => $outsideUser->id,
+            'customer_number' => 'CUST-OUT-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'is_leader' => true,
+            'status' => 'draft',
+            'sharing_plan' => 'single',
+        ]);
+
+        $outsideConfirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $outsideMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $outsideConfirmation->id,
+            'customer_id' => $outsideCustomer->id,
+            'is_leader' => true,
+            'status' => 'draft',
+            'sharing_plan' => 'single',
+        ]);
+
+        $response = $this->postJson(route('customer-confirmations.generate-quotations', $confirmation->id), [
+            'payer_to_members' => [
+                (string) $payerMember->id => [$outsideMember->id],
+            ],
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('payer_to_members');
     }
 }

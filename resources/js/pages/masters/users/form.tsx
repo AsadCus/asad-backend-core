@@ -468,32 +468,34 @@ export function UserForm({
                         )}
 
                         {/* Password & Confirm Password */}
-                        {!isView && role !== 'supplier' && (
-                            <UserPasswordFields
-                                password={data.password ?? ''}
-                                passwordConfirmation={
-                                    data.password_confirmation ?? ''
-                                }
-                                sendEmail={data.send_email ?? false}
-                                isView={isView}
-                                onGenerateRandom={generatePassword}
-                                onPasswordChange={(value) => {
-                                    clearErrors('password');
-                                    setData('password', value);
-                                }}
-                                onPasswordConfirmationChange={(value) => {
-                                    clearErrors('password_confirmation');
-                                    setData('password_confirmation', value);
-                                }}
-                                onSendEmailChange={(checked) =>
-                                    setData('send_email', checked)
-                                }
-                                passwordError={errors.password}
-                                passwordConfirmationError={
-                                    errors.password_confirmation
-                                }
-                            />
-                        )}
+                        {!isView &&
+                            role !== 'supplier' &&
+                            role !== 'customer' && (
+                                <UserPasswordFields
+                                    password={data.password ?? ''}
+                                    passwordConfirmation={
+                                        data.password_confirmation ?? ''
+                                    }
+                                    sendEmail={data.send_email ?? false}
+                                    isView={isView}
+                                    onGenerateRandom={generatePassword}
+                                    onPasswordChange={(value) => {
+                                        clearErrors('password');
+                                        setData('password', value);
+                                    }}
+                                    onPasswordConfirmationChange={(value) => {
+                                        clearErrors('password_confirmation');
+                                        setData('password_confirmation', value);
+                                    }}
+                                    onSendEmailChange={(checked) =>
+                                        setData('send_email', checked)
+                                    }
+                                    passwordError={errors.password}
+                                    passwordConfirmationError={
+                                        errors.password_confirmation
+                                    }
+                                />
+                            )}
                     </CardContent>
                 </Card>
 

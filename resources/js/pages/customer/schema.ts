@@ -25,6 +25,9 @@ export const customerSchema = z.object({
     first_time_umrah: z.boolean().nullable().optional(),
     has_chronic_disease: z.boolean().nullable().optional(),
     chronic_disease_details: z.string().nullable().optional(),
+    status: z.string().optional(),
+    sharing_plan: z.string().nullable().optional(),
+    role: z.string().nullable().optional(),
     // Image uploads (File on submit, string path from server)
     passport_file: z.any().optional(),
     photo_file: z.any().optional(),
@@ -34,8 +37,8 @@ export const customerSchema = z.object({
 
 export type CustomerSchema = z.infer<typeof customerSchema>;
 
-// ── Customer Group form schema (group-level + members) ──
-export const customerGroupFormSchema = z.object({
+// ── Customer Confirmation form schema (group-level + members) ──
+export const customerConfirmationFormSchema = z.object({
     id: z.number().optional(),
     enquiry_id: z.number().nullable().optional(),
     package_id: z.number().nullable().optional(),
@@ -46,7 +49,9 @@ export const customerGroupFormSchema = z.object({
     terms_accepted: z.boolean().optional(),
 });
 
-export type CustomerGroupFormSchema = z.infer<typeof customerGroupFormSchema>;
+export type CustomerConfirmationFormSchema = z.infer<
+    typeof customerConfirmationFormSchema
+>;
 
 export type CustomerMemberFormData = Omit<
     CustomerSchema,
@@ -58,7 +63,10 @@ export type CustomerMemberFormData = Omit<
     photo_path?: string | null;
 };
 
-export type CustomerGroupFormData = Omit<CustomerGroupFormSchema, 'members'> & {
+export type CustomerConfirmationFormData = Omit<
+    CustomerConfirmationFormSchema,
+    'members'
+> & {
     members: CustomerMemberFormData[];
     package_data?: PackageSchema;
 };
@@ -110,31 +118,55 @@ export const maritalStatusOptions = [
     { label: 'Widowed', value: 'widowed' },
 ];
 
-// ── Datatable schemas (Customer Groups index) ──
-export interface CustomerGroupMemberDatatableSchema {
+// ── Datatable schemas (Customer Confirmations index) ──
+export interface CustomerConfirmationMemberDatatableSchema {
     id: number;
+    group_id: number;
     customer_id: number;
     is_leader: boolean;
+    status?: string;
+    sharing_plan?: string | null;
+    role?: string | null;
+    has_quotation?: boolean;
+    paid_amount: number;
+    total_amount: number;
     name: string;
     email: string;
     contact: string;
     customer_number: string;
-    nric_number: string;
 }
 
-export interface CustomerGroupDatatableSchema {
+export interface CustomerConfirmationDatatableSchema {
     id: number;
     enquiry_id: number | null;
     enquiry_type: string | null;
     enquiry_status: string | null;
-    leader_name: string;
-    leader_email: string;
-    leader_contact: string;
-    leader_customer_number: string;
+    main_customer_name: string;
+    enquiry_email: string;
+    enquiry_contact: string;
     member_count: number;
+    paid_amount: number;
+    total_amount: number;
+    can_create_quotation: boolean;
     created_at: string;
-    members: CustomerGroupMemberDatatableSchema[];
+    members: CustomerConfirmationMemberDatatableSchema[];
 }
+
+export const confirmationMemberStatusColors: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-800',
+    pending_payment: 'bg-amber-100 text-amber-800',
+    partially_paid: 'bg-blue-100 text-blue-800',
+    confirmed: 'bg-green-100 text-green-800',
+    cancelled: 'bg-red-100 text-red-800',
+};
+
+export const confirmationMemberStatusLabels: Record<string, string> = {
+    draft: 'Draft',
+    pending_payment: 'Pending Payment',
+    partially_paid: 'Partially Paid',
+    confirmed: 'Confirmed',
+    cancelled: 'Cancelled',
+};
 
 // ── Default empty member ──
 
@@ -157,6 +189,9 @@ export const emptyMember = (isLeader = false): CustomerSchema => ({
     first_time_umrah: null,
     has_chronic_disease: false,
     chronic_disease_details: '',
+    status: 'draft',
+    sharing_plan: null,
+    role: null,
     passport_file: undefined,
     photo_file: undefined,
     passport_path: null,

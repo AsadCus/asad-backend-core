@@ -48,9 +48,9 @@ class Enquiry extends Model
         return $this->belongsTo(User::class, 'handled_by');
     }
 
-    public function customerGroup(): HasOne
+    public function customerConfirmation(): HasOne
     {
-        return $this->hasOne(CustomerGroup::class, 'enquiry_id');
+        return $this->hasOne(CustomerConfirmation::class, 'enquiry_id');
     }
 
     public function remarks(): HasMany

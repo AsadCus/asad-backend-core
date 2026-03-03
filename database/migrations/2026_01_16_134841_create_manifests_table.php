@@ -37,6 +37,9 @@ return new class extends Migration
         Schema::create('manifest_travelers', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('customer_id')->nullable()->constrained('customers')->nullOnDelete();
+            $table->foreignId('customer_confirmation_member_id')->nullable();
+            $table->string('status')->default('assigned');
             $table->unsignedInteger('sn');
             $table->string('name_as_per_passport');
             $table->string('relationship')->nullable();
@@ -63,12 +66,16 @@ return new class extends Migration
             $table->string('room_type')->nullable();
             $table->string('bed_type')->nullable();
             $table->unsignedInteger('capacity')->default(1);
+            $table->string('sharing_plan')->nullable();
+            $table->string('status')->default('pending');
+            $table->string('room_label')->nullable();
             $table->timestamps();
         });
 
         Schema::create('manifest_payments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('manifest_traveler_id')->nullable()->constrained()->nullOnDelete();
             $table->string('traveler_name');
             $table->string('description');
             $table->decimal('amount', 10, 2)->default(0);

@@ -3,12 +3,44 @@ import { index } from '@/routes/manifests';
 import { type BreadcrumbItem, type ValueNumberOptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
-import ManifestForm from './form';
-import { type ManifestSchema } from './schema';
+import ManifestForm, { type ManifestFormData } from './form';
+
+interface CustomerConfirmationData {
+    id: number;
+    enquiry_id: number;
+    enquiry_type: string;
+    package_room_type: string;
+    enquiry_status: string;
+    leader_name: string;
+    leader_email: string;
+    leader_contact: string;
+    leader_customer_number: string;
+    member_count: number;
+    created_at: string;
+    members: CustomerMemberData[];
+}
+
+interface CustomerMemberData {
+    id: number;
+    customer_id: number;
+    is_leader: boolean;
+    name: string;
+    email: string;
+    contact: string;
+    customer_number: string;
+    nric_number: string;
+    passport_number: string;
+    passport_issue_date: string;
+    passport_expiry_date: string;
+    passport_place_of_issue: string;
+    date_of_birth: string;
+    age: number;
+}
 
 interface EditManifestProps {
-    data: ManifestSchema;
+    data: ManifestFormData;
     dataPackage: ValueNumberOptionType[];
+    customerConfirmations?: CustomerConfirmationData[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -18,7 +50,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function EditManifest({ data, dataPackage }: EditManifestProps) {
+export default function EditManifest({
+    data,
+    dataPackage,
+    customerConfirmations = [],
+}: EditManifestProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -36,6 +72,7 @@ export default function EditManifest({ data, dataPackage }: EditManifestProps) {
                         mode="edit"
                         initialData={data}
                         dataPackage={dataPackage}
+                        customerConfirmations={customerConfirmations}
                         onCancel={handleCancel}
                     />
                 </div>

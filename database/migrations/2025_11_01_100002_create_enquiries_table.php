@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('email');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('package_id')->nullable()->constrained('packages')->nullOnDelete();
+            $table->foreignId('handled_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
     }

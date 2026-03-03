@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\AgreementController;
+use App\Http\Controllers\CustomerConfirmationController;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\EnquiryRemarkController;
@@ -47,12 +47,12 @@ Route::get('private-enquiries/public/create', [PrivateEnquiryController::class, 
 Route::post('private-enquiries/public/store', [PrivateEnquiryController::class, 'storePublic'])->name('private-enquiries.public.store');
 
 // Public Customer Confirmation Create
-Route::get('customer-confirmation/public/create', [CustomerGroupController::class, 'publicCreateForm'])->name('customer-confirmation.public.create');
-Route::post('customer-confirmation/public/create', [CustomerGroupController::class, 'publicCreateStore'])->name('customer-confirmation.public.store');
+Route::get('customer-confirmation/public/create', [CustomerConfirmationController::class, 'publicCreateForm'])->name('customer-confirmation.public.create');
+Route::post('customer-confirmation/public/create', [CustomerConfirmationController::class, 'publicCreateStore'])->name('customer-confirmation.public.store');
 
 // Public Customer Confirmation Edit (Encrypted ID)
-Route::get('customer-confirmation/public/edit/{encryptedId}', [CustomerGroupController::class, 'publicEditForm'])->name('customer-confirmation.public.edit');
-Route::post('customer-confirmation/public/update/{encryptedId}', [CustomerGroupController::class, 'publicEditStore'])->name('customer-confirmation.public.update');
+Route::get('customer-confirmation/public/edit/{encryptedId}', [CustomerConfirmationController::class, 'publicEditForm'])->name('customer-confirmation.public.edit');
+Route::post('customer-confirmation/public/update/{encryptedId}', [CustomerConfirmationController::class, 'publicEditStore'])->name('customer-confirmation.public.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -159,22 +159,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('enquiries/{id}/status', [EnquiryController::class, 'transitionStatus'])->name('enquiries.transition-status');
     Route::post('enquiries/{id}/confirm', [EnquiryController::class, 'confirm'])->name('enquiries.confirm');
     Route::get('enquiries/{id}/package-prefill', [EnquiryController::class, 'packagePrefill'])->name('enquiries.package-prefill');
-    Route::post('enquiries/customer-group', [EnquiryController::class, 'createCustomerGroup'])->name('enquiries.create-customer-group');
+    Route::post('enquiries/customer-confirmation', [EnquiryController::class, 'createCustomerConfirmation'])->name('enquiries.create-customer-confirmation');
     Route::get('enquiries/search-customers', [EnquiryController::class, 'searchCustomers'])->name('enquiries.search-customers');
     Route::get('enquiries/available-enquiries', [EnquiryController::class, 'availableEnquiries'])->name('enquiries.available-enquiries');
     Route::get('enquiries/list-customers', [EnquiryController::class, 'listCustomers'])->name('enquiries.list-customers');
     Route::put('enquiries/{id}/package', [EnquiryController::class, 'updatePackage'])->name('enquiries.update-package');
 
-    // Customer Groups
-    Route::get('customer-groups/{id}', [CustomerGroupController::class, 'show'])->name('customer-groups.show');
-    Route::put('customer-groups/{id}', [CustomerGroupController::class, 'update'])->name('customer-groups.update');
-    Route::delete('customer-groups/{id}', [CustomerGroupController::class, 'destroy'])->name('customer-groups.destroy');
-    Route::get('customer-groups/{enquiryId}/generate-link', [CustomerGroupController::class, 'generatePublicLink'])->name('customer-groups.generate-link');
-    Route::get('customer-groups/{groupId}/generate-edit-link', [CustomerGroupController::class, 'generatePublicEditLink'])->name('customer-groups.generate-edit-link');
+    // Customer Confirmations
+    Route::get('customer-confirmations/{id}', [CustomerConfirmationController::class, 'show'])->name('customer-confirmations.show');
+    Route::put('customer-confirmations/{id}', [CustomerConfirmationController::class, 'update'])->name('customer-confirmations.update');
+    Route::delete('customer-confirmations/{id}', [CustomerConfirmationController::class, 'destroy'])->name('customer-confirmations.destroy');
+    Route::put('customer-confirmations/members/{memberId}', [CustomerConfirmationController::class, 'updateMember'])->name('customer-confirmations.members.update');
+    Route::post('customer-confirmations/members/{memberId}/cancel', [CustomerConfirmationController::class, 'cancelMember'])->name('customer-confirmations.members.cancel');
+    Route::post('customer-confirmations/{id}/move-members', [CustomerConfirmationController::class, 'moveMembers'])->name('customer-confirmations.move-members');
+    Route::post('customer-confirmations/{id}/generate-quotations', [CustomerConfirmationController::class, 'generateQuotations'])->name('customer-confirmations.generate-quotations');
+    Route::get('customer-confirmations/{enquiryId}/generate-link', [CustomerConfirmationController::class, 'generatePublicLink'])->name('customer-confirmations.generate-link');
+    Route::get('customer-confirmations/{groupId}/generate-edit-link', [CustomerConfirmationController::class, 'generatePublicEditLink'])->name('customer-confirmations.generate-edit-link');
 
-    // Confirmed Customer (Customer Groups)
-    Route::get('confirmed-customer', [CustomerGroupController::class, 'index'])->middleware('permission:customer view')->name('confirmed-customer.index');
-    Route::delete('confirmed-customer/{id}', [CustomerGroupController::class, 'destroy'])->middleware('permission:customer edit')->name('confirmed-customer.destroy');
+    // Confirmed Customer (Customer Confirmations)
+    Route::get('confirmed-customer', [CustomerConfirmationController::class, 'index'])->middleware('permission:customer view')->name('confirmed-customer.index');
+    Route::delete('confirmed-customer/{id}', [CustomerConfirmationController::class, 'destroy'])->middleware('permission:customer edit')->name('confirmed-customer.destroy');
 
     // Enquiry Remarks
     Route::get('enquiries/{enquiryId}/remarks', [EnquiryRemarkController::class, 'index'])->name('enquiry-remarks.index');
@@ -188,6 +192,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Manifests
     Route::resource('manifests', ManifestController::class);
+    Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
+
+    // Manifest Rooms
+    Route::post('manifests/{manifestId}/rooms', [ManifestController::class, 'addRoom'])->name('manifests.rooms.store');
+    Route::put('manifests/rooms/{roomId}', [ManifestController::class, 'updateRoom'])->name('manifests.rooms.update');
+    Route::delete('manifests/rooms/{roomId}', [ManifestController::class, 'deleteRoom'])->name('manifests.rooms.destroy');
+
+    // Manifest Payments
+    Route::post('manifests/{manifestId}/payments', [ManifestController::class, 'addPayment'])->name('manifests.payments.store');
+    Route::put('manifests/payments/{paymentId}', [ManifestController::class, 'updatePayment'])->name('manifests.payments.update');
+    Route::delete('manifests/payments/{paymentId}', [ManifestController::class, 'deletePayment'])->name('manifests.payments.destroy');
+    Route::post('manifests/{manifestId}/travelers/{travelerId}/move-holding', [ManifestController::class, 'moveTravelerToHolding'])->name('manifests.travelers.move-holding');
+
+    // Manifest Sharing Groups
+    Route::post('manifests/{manifestId}/sharing-groups', [ManifestController::class, 'attachSharingGroup'])->name('manifests.sharing-groups.attach');
+    Route::delete('manifests/{manifestId}/sharing-groups/{sharingGroupId}', [ManifestController::class, 'detachSharingGroup'])->name('manifests.sharing-groups.detach');
 
     // Ops Movements (read-only view from packages + manifests)
     Route::resource('ops-movements', OpsMovementController::class)->only(['index', 'show']);

@@ -203,7 +203,6 @@ export default function MastersQuotationIndex({
                                 renderError={renderError}
                                 disabled={processing}
                                 showOptionalColumn={true}
-                                showPlacementFeeColumn={false}
                             />
 
                             <div className="flex justify-end gap-2">

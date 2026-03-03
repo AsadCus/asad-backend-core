@@ -76,3 +76,31 @@ export const packageStatusLabels: Record<string, string> = {
 export const packageTicketTypeLabels: Record<string, string> = {
     speed_train: 'Speed Train',
 };
+
+export const sharingPlanOptions = [
+    { label: 'Single', value: 'single' },
+    { label: 'Double', value: 'double' },
+    { label: 'Triple', value: 'triple' },
+    { label: 'Quad', value: 'quad' },
+];
+
+export const sharingPlanLabels: Record<string, string> = {
+    single: 'Single',
+    double: 'Double',
+    triple: 'Triple',
+    quad: 'Quad',
+};
+
+export const sharingPlanBadgeColors: Record<string, string> = {
+    single: 'bg-blue-100 text-blue-800',
+    double: 'bg-purple-100 text-purple-800',
+    triple: 'bg-indigo-100 text-indigo-800',
+    quad: 'bg-pink-100 text-pink-800',
+};
+
+export const sharingPlanCapacity: Record<string, number> = {
+    single: 1,
+    double: 2,
+    triple: 3,
+    quad: 4,
+};

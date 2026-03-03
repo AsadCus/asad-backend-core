@@ -1,147 +1,195 @@
-import { formatDateForDisplay } from '@/lib/utils';
 import { calculateTotal, collectAllItems } from '@/pages/invoices/lib/utils';
 import { InvoiceItemSchema, InvoiceSchema } from '@/pages/invoices/schema';
 import { QuotationSchema } from '@/pages/quotations/schema';
-import { addMonths, setDate } from 'date-fns';
 import { nanoid } from 'nanoid';
-
-function calculateInvoiceDates(
-    invoiceIndex: number,
-    handoverDate: string,
-): { invoice_date: string; due_date: string } {
-    if (!handoverDate) {
-        return { invoice_date: '', due_date: '' };
-    }
-
-    const handover = new Date(handoverDate);
-
-    if (isNaN(handover.getTime())) {
-        return { invoice_date: '', due_date: '' };
-    }
-
-    let invoiceDate: Date;
-    let dueDate: Date;
-
-    if (invoiceIndex === 0) {
-        invoiceDate = new Date();
-        dueDate = new Date();
-    } else if (invoiceIndex === 1) {
-        invoiceDate = new Date(handover);
-        dueDate = new Date(handover);
-    } else {
-        invoiceDate = setDate(addMonths(handover, invoiceIndex - 1), 20);
-        dueDate = invoiceDate;
-    }
-
-    return {
-        invoice_date: formatDateForDisplay(invoiceDate),
-        due_date: formatDateForDisplay(dueDate),
-    };
-}
 
 export function autoFillInvoiceDates(
     invoices: InvoiceSchema[],
-    handoverDate: string,
+    defaultDate?: string,
 ): InvoiceSchema[] {
-    if (!handoverDate) return invoices;
+    if (!defaultDate) {
+        return invoices;
+    }
 
-    return invoices.map((invoice, index) => {
-        const { invoice_date, due_date } = calculateInvoiceDates(
-            index,
-            handoverDate,
-        );
+    return invoices.map((invoice) => ({
+        ...invoice,
+        invoice_date: invoice.invoice_date || defaultDate,
+        due_date: invoice.due_date || defaultDate,
+    }));
+}
+
+function roundToCents(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+function buildInstallmentItems(
+    items: InvoiceItemSchema[],
+    depositType?: string | null,
+    depositValue?: number | string | null,
+): { depositItems: InvoiceItemSchema[]; balanceItems: InvoiceItemSchema[] } {
+    const packageItems = items.filter(
+        (item) =>
+            !item.is_header &&
+            Number(item.customer_confirmation_member_id ?? 0) > 0,
+    );
+
+    if (!packageItems.length) {
+        return {
+            depositItems: items,
+            balanceItems: [],
+        };
+    }
+
+    const packageItemsWithAmounts = packageItems.map((item) => {
+        const quantity = Number(item.quantity ?? 0);
+        const rate = Number(item.rate ?? 0);
+        const fallbackAmount = roundToCents(quantity * rate);
+        const amount = roundToCents(Number(item.amount ?? fallbackAmount));
 
         return {
-            ...invoice,
-            invoice_date,
-            due_date,
+            ...item,
+            amount,
         };
     });
+
+    const packageTotal = roundToCents(
+        packageItemsWithAmounts.reduce(
+            (sum, item) => sum + Number(item.amount ?? 0),
+            0,
+        ),
+    );
+    const nonPackageItems = items.filter(
+        (item) =>
+            item.is_header ||
+            Number(item.customer_confirmation_member_id ?? 0) <= 0,
+    );
+
+    let depositAmount = 0;
+    const numericDepositValue = Number(depositValue ?? 0);
+
+    if (depositType === 'percentage' && numericDepositValue > 0) {
+        depositAmount = roundToCents(
+            packageTotal * (numericDepositValue / 100),
+        );
+    } else if (depositType === 'fixed' && numericDepositValue > 0) {
+        depositAmount = Math.min(
+            roundToCents(numericDepositValue),
+            packageTotal,
+        );
+    }
+
+    if (depositAmount <= 0) {
+        return {
+            depositItems: nonPackageItems,
+            balanceItems: packageItemsWithAmounts,
+        };
+    }
+
+    const perItemDeposit = roundToCents(
+        depositAmount / packageItemsWithAmounts.length,
+    );
+    let allocated = 0;
+    const depositItems: InvoiceItemSchema[] = [...nonPackageItems];
+    const balanceItems: InvoiceItemSchema[] = [];
+
+    packageItemsWithAmounts.forEach((item, index) => {
+        const quantity = Number(item.quantity ?? 0) || 1;
+        const amount = roundToCents(Number(item.amount ?? 0));
+
+        const lineDepositAmount =
+            index === packageItemsWithAmounts.length - 1
+                ? roundToCents(depositAmount - allocated)
+                : Math.min(perItemDeposit, amount);
+
+        allocated = roundToCents(allocated + lineDepositAmount);
+
+        const lineBalanceAmount = roundToCents(amount - lineDepositAmount);
+
+        if (lineDepositAmount > 0) {
+            depositItems.push({
+                ...item,
+                _key: nanoid(),
+                id: undefined,
+                parent_id: null,
+                parent_key: null,
+                description: `${item.description ?? 'Package'} (Deposit)`,
+                quantity,
+                rate: roundToCents(lineDepositAmount / quantity),
+                amount: lineDepositAmount,
+            });
+        }
+
+        if (lineBalanceAmount > 0) {
+            balanceItems.push({
+                ...item,
+                _key: nanoid(),
+                id: undefined,
+                parent_id: null,
+                parent_key: null,
+                description: `${item.description ?? 'Package'} (Balance)`,
+                quantity,
+                rate: roundToCents(lineBalanceAmount / quantity),
+                amount: lineBalanceAmount,
+            });
+        }
+    });
+
+    return { depositItems, balanceItems };
 }
 
 export function buildInvoicesFromItems(
     paymentPlan: string,
     items: InvoiceItemSchema[],
     totalAmount?: number,
-    handoverDate?: string,
+    depositType?: string | null,
+    depositValue?: number | string | null,
 ): InvoiceSchema[] {
     let invoices: InvoiceSchema[] = [];
 
-    if (paymentPlan !== 'installment') {
-        const amount = totalAmount ?? calculateTotal(items);
+    const amount = totalAmount ?? calculateTotal(items);
+
+    if (paymentPlan === 'direct') {
+        invoices = [
+            {
+                _key: nanoid(),
+                description: null,
+                items,
+                amount,
+            },
+        ];
+    } else if (paymentPlan === 'full') {
+        invoices = [
+            {
+                _key: nanoid(),
+                description: 'Invoice For Full Payment',
+                items,
+                amount,
+            },
+        ];
+    } else if (paymentPlan === 'installment') {
+        const { depositItems, balanceItems } = buildInstallmentItems(
+            items,
+            depositType,
+            depositValue,
+        );
+
+        const depositAmount = roundToCents(calculateTotal(depositItems));
+        const balanceAmount = roundToCents(calculateTotal(balanceItems));
 
         invoices = [
             {
                 _key: nanoid(),
-                description:
-                    paymentPlan === 'direct' ? null : 'Invoice For Deposit',
-                items,
-                amount,
+                description: 'Invoice For Deposit',
+                items: depositItems,
+                amount: depositAmount,
             },
-            ...(paymentPlan !== 'direct'
-                ? [
-                      {
-                          _key: nanoid(),
-                          description: 'Invoice For Handover',
-                          items: [],
-                          amount: 0,
-                      },
-                  ]
-                : []),
-        ];
-    } else {
-        // installment logic
-        const depositItems: InvoiceItemSchema[] = [];
-        const handoverItems: InvoiceItemSchema[] = [];
-        const installmentBuckets: InvoiceItemSchema[][] = [];
-
-        items.forEach((item) => {
-            if (!item.is_placement_fee) {
-                depositItems.push(item);
-                return;
-            }
-
-            const split = splitPlacementFeeItem(item);
-
-            handoverItems.push(...split.handover);
-
-            split.installments.forEach((instItem, index) => {
-                if (!installmentBuckets[index]) {
-                    installmentBuckets[index] = [];
-                }
-                installmentBuckets[index].push(instItem);
-            });
-        });
-
-        // deposit
-        invoices.push({
-            _key: nanoid(),
-            description: 'Invoice For Deposit',
-            items: depositItems,
-            amount: calculateTotal(depositItems),
-        });
-
-        // handover
-        invoices.push({
-            _key: nanoid(),
-            description: 'Invoice For Handover',
-            items: handoverItems,
-            amount: calculateTotal(handoverItems),
-        });
-
-        // installments
-        installmentBuckets.forEach((items, index) => {
-            invoices.push({
+            {
                 _key: nanoid(),
-                description: `Invoice For Installment ${index + 1}`,
-                items,
-                amount: calculateTotal(items),
-            });
-        });
-    }
-
-    if (handoverDate) {
-        invoices = autoFillInvoiceDates(invoices, handoverDate);
+                description: 'Invoice For Balance',
+                items: balanceItems,
+                amount: balanceAmount,
+            },
+        ];
     }
 
     return invoices;
@@ -162,12 +210,14 @@ export function quotationItemsToInvoiceItems(
         _key: item.id ? `id-${item.id}` : nanoid(),
         id: item.id ?? undefined,
         parent_id: item.parent_id ?? null,
+        customer_confirmation_member_id:
+            item.customer_confirmation_member_id ?? null,
+        sharing_plan: item.sharing_plan ?? null,
         parent_key: item.parent_id
             ? (keyMap.get(item.parent_id) ?? null)
             : null,
         description: item.description,
         is_header: item.is_header,
-        is_placement_fee: item.is_placement_fee,
         quantity: item.quantity,
         rate: item.rate,
         amount: item.amount,
@@ -184,140 +234,24 @@ export function buildInitialInvoices(
         quotation.payment_plan ?? 'full',
         items,
         Number(quotation.total_amount),
-        quotation.commencement_date ?? undefined,
+        undefined,
+        undefined,
     );
 }
 
 export function buildInvoices(
     paymentPlan: string,
     previousInvoices: InvoiceSchema[],
-    handoverDate?: string,
+    depositType?: string | null,
+    depositValue?: number | string | null,
 ): InvoiceSchema[] {
-    let items = collectAllItems(previousInvoices);
+    const items = collectAllItems(previousInvoices);
 
-    const placementFeeItems = items.filter(
-        (item) => item.is_placement_fee === true && !item.is_header,
+    return buildInvoicesFromItems(
+        paymentPlan,
+        items,
+        undefined,
+        depositType,
+        depositValue,
     );
-
-    const wasInInstallmentMode = placementFeeItems.length > 1;
-
-    if (wasInInstallmentMode && paymentPlan !== 'installment') {
-        items = mergeSplitPlacementFeeItems(items);
-    }
-
-    return buildInvoicesFromItems(paymentPlan, items, undefined, handoverDate);
-}
-
-function cloneItemWithQuantity(
-    item: InvoiceItemSchema,
-    quantity: number,
-): InvoiceItemSchema {
-    return {
-        ...item,
-        _key: nanoid(),
-        quantity,
-        amount: Number(quantity) * Number(item.rate ?? 0),
-    };
-}
-
-function splitPlacementFeeItem(
-    item: InvoiceItemSchema,
-    handoverQty = 2,
-): {
-    handover: InvoiceItemSchema[];
-    installments: InvoiceItemSchema[];
-} {
-    const SCALE = 100;
-
-    const toInt = (v: number) => Math.round(v * SCALE);
-    const fromInt = (v: number) => v / SCALE;
-
-    const totalQtyInt = toInt(Number(item.quantity ?? 0));
-    const handoverQtyInt = toInt(handoverQty);
-
-    if (totalQtyInt <= 0) {
-        return { handover: [], installments: [] };
-    }
-
-    const result = {
-        handover: [] as InvoiceItemSchema[],
-        installments: [] as InvoiceItemSchema[],
-    };
-
-    const handoverInt = Math.min(handoverQtyInt, totalQtyInt);
-    result.handover.push(cloneItemWithQuantity(item, fromInt(handoverInt)));
-
-    let remaining = totalQtyInt - handoverInt;
-
-    while (remaining > 0) {
-        const qtyInt = Math.min(SCALE, remaining);
-        result.installments.push(cloneItemWithQuantity(item, fromInt(qtyInt)));
-        remaining -= qtyInt;
-    }
-
-    return result;
-}
-
-function mergeSplitPlacementFeeItems(
-    items: InvoiceItemSchema[],
-): InvoiceItemSchema[] {
-    const placementFeeItems = items.filter(
-        (item) => item.is_placement_fee === true,
-    );
-
-    if (placementFeeItems.length === 0) {
-        return items;
-    }
-
-    const groups = new Map<string, InvoiceItemSchema[]>();
-
-    placementFeeItems.forEach((item) => {
-        const key = `${item.description || ''}|${item.rate || ''}|${item.is_header || false}`;
-        if (!groups.has(key)) {
-            groups.set(key, []);
-        }
-        groups.get(key)!.push(item);
-    });
-
-    const mergedItems: InvoiceItemSchema[] = [];
-    const seenKeys = new Set<string>();
-
-    for (const groupItems of groups.values()) {
-        if (groupItems.length === 1) {
-            mergedItems.push(...groupItems);
-            seenKeys.add(groupItems[0]._key);
-            continue;
-        }
-
-        const totalQuantity = groupItems.reduce(
-            (sum, item) => sum + Number(item.quantity || 0),
-            0,
-        );
-
-        const templateItem = groupItems[0];
-
-        const mergedItem: InvoiceItemSchema = {
-            ...templateItem,
-            _key: nanoid(),
-            quantity: totalQuantity,
-            amount: totalQuantity * Number(templateItem.rate || 0),
-            parent_id: null,
-            parent_key: null,
-        };
-
-        mergedItems.push(mergedItem);
-
-        groupItems.forEach((item) => seenKeys.add(item._key));
-    }
-
-    return [
-        ...items.filter((item) => !item.is_placement_fee),
-        ...items.filter(
-            (item) =>
-                item.is_placement_fee &&
-                !seenKeys.has(item._key) &&
-                mergedItems.length > 0,
-        ),
-        ...mergedItems,
-    ];
 }

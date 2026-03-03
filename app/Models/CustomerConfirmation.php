@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class CustomerGroup extends Model
+class CustomerConfirmation extends Model
 {
+    protected $table = 'customer_confirmations';
+
     protected $fillable = [
         'enquiry_id',
         'created_by',
@@ -37,10 +39,10 @@ class CustomerGroup extends Model
 
     public function members(): HasMany
     {
-        return $this->hasMany(CustomerGroupMember::class, 'customer_group_id');
+        return $this->hasMany(CustomerConfirmationMember::class, 'customer_confirmation_id');
     }
 
-    public function leader(): ?CustomerGroupMember
+    public function leader(): ?CustomerConfirmationMember
     {
         return $this->members()->where('is_leader', true)->first();
     }
@@ -48,6 +50,16 @@ class CustomerGroup extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class, 'package_id');
+    }
+
+    public function sharingGroups(): HasMany
+    {
+        return $this->hasMany(SharingGroup::class, 'customer_confirmation_id');
+    }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class, 'customer_confirmation_id');
     }
 
     // Formatting Helpers

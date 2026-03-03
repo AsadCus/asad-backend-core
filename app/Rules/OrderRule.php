@@ -12,9 +12,8 @@ class OrderRule
             [
                 'quotation_id' => ['required', 'exists:quotations,id', Rule::unique('orders', 'quotation_id')->ignore($orderId)],
                 'payment_plan' => ['required', Rule::in(['direct', 'full', 'installment'])],
-                'handover_date' => ['required', 'date'],
             ],
-            (new InvoiceRule())->rules('invoices')
+            (new InvoiceRule)->rules('invoices')
         );
     }
 }

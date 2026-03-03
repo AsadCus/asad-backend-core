@@ -16,7 +16,6 @@ return new class extends Migration
             $table->foreignId('quotation_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('order_number')->unique()->nullable();
             $table->string('payment_plan')->nullable();
-            $table->date('handover_date')->nullable();
             $table->timestamps();
         });
     }

@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('quotation_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('quotation_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('customer_confirmation_member_id')->nullable()->constrained('customer_confirmation_members')->nullOnDelete();
             $table->foreignId('parent_id')->nullable()->constrained('quotation_items')->cascadeOnDelete();
             $table->text('description');
             $table->boolean('is_header')->default(false);
-            $table->boolean('is_placement_fee')->default(false);
             $table->decimal('quantity', 10, 2)->nullable();
             $table->decimal('rate', 10, 2)->nullable();
             $table->integer('sort_order')->default(0);

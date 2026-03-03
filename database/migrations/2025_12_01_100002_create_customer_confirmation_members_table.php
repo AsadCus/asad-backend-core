@@ -11,11 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customer_group_members', function (Blueprint $table) {
+        Schema::create('customer_confirmation_members', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_group_id')->constrained('customer_groups')->cascadeOnDelete();
+            $table->foreignId('customer_confirmation_id')->constrained('customer_confirmations')->cascadeOnDelete();
             $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
             $table->boolean('is_leader')->default(false);
+            $table->string('status')->default('draft');
+            $table->string('role')->nullable();
+            $table->string('sharing_plan')->nullable();
             $table->timestamps();
         });
     }
@@ -25,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('customer_group_members');
+        Schema::dropIfExists('customer_confirmation_members');
     }
 };

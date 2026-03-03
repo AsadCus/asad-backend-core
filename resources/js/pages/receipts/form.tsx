@@ -12,7 +12,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateForDisplay } from '@/lib/utils';
 import { getForShow } from '@/routes/invoice';
-import { store as storeReceipt } from '@/routes/receipt';
+import {
+    store as storeReceipt,
+    update as updateReceipt,
+} from '@/routes/receipt';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { useState } from 'react';
@@ -30,19 +33,21 @@ interface ReceiptFormProps {
 }
 
 export default function ReceiptForm({
-    // mode,
+    mode,
     initialData,
     invoiceId,
     invoiceData,
     invoiceOptions,
     onCancel,
 }: ReceiptFormProps) {
+    const isEditMode = mode === 'edit';
+
     const [selectedInvoice, setSelectedInvoice] =
         useState<InvoiceSchema | null>(invoiceData ?? null);
 
     const initialFormState: ReceiptSchema = {
         invoice_id: invoiceId ? Number(invoiceId) : undefined,
-        amount: selectedInvoice?.amount ?? '',
+        amount: selectedInvoice?.amount,
         receipt_date: formatDateForDisplay(new Date()),
         payment_method: selectedInvoice?.payment_method ?? 'transfer',
         reference: '',
@@ -53,7 +58,7 @@ export default function ReceiptForm({
         ...(initialData ?? initialFormState),
     };
 
-    const { data, setData, post, processing, errors } =
+    const { data, setData, post, put, processing, errors } =
         useForm<ReceiptSchema>(defaultData);
 
     // invoice
@@ -63,6 +68,7 @@ export default function ReceiptForm({
             if (!response) throw new Error('Network error');
             const invoice = await response.json();
             setSelectedInvoice(invoice);
+            setData('amount', invoice?.amount);
         } catch (err) {
             console.error('Failed to fetch customer details:', err);
         }
@@ -70,6 +76,13 @@ export default function ReceiptForm({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (isEditMode && data.id) {
+            put(updateReceipt(data.id).url);
+
+            return;
+        }
+
         post(storeReceipt().url);
     };
 
@@ -110,7 +123,7 @@ export default function ReceiptForm({
                                     getInvoiceDetail(id);
                                     setData('invoice_id', id);
                                 }}
-                                disabled={!invoiceId === false}
+                                disabled={isEditMode || !!invoiceId}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select invoice" />
@@ -139,9 +152,7 @@ export default function ReceiptForm({
                             <Input
                                 type="number"
                                 step="1"
-                                value={
-                                    selectedInvoice?.amount ?? data.amount ?? ''
-                                }
+                                value={data.amount || selectedInvoice?.amount || ''}
                                 onChange={(e) =>
                                     setData('amount', e.target.value)
                                 }
@@ -234,7 +245,11 @@ export default function ReceiptForm({
                         </Button>
                     )}
                     <Button type="submit" disabled={processing}>
-                        {processing ? 'Saving...' : 'Create'}
+                        {processing
+                            ? 'Saving...'
+                            : isEditMode
+                              ? 'Update'
+                              : 'Create'}
                     </Button>
                 </div>
             </form>

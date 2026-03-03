@@ -12,10 +12,10 @@ class QuotationItem extends Model
 
     protected $fillable = [
         'quotation_id',
+        'customer_confirmation_member_id',
         'parent_id',
         'description',
         'is_header',
-        'is_placement_fee',
         'quantity',
         'rate',
         'sort_order',
@@ -23,7 +23,6 @@ class QuotationItem extends Model
 
     protected $casts = [
         'is_header' => 'boolean',
-        'is_placement_fee' => 'boolean',
         'quantity' => 'decimal:2',
         'rate' => 'decimal:2',
     ];
@@ -41,6 +40,11 @@ class QuotationItem extends Model
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(Quotation::class, 'quotation_id');
+    }
+
+    public function confirmationMember(): BelongsTo
+    {
+        return $this->belongsTo(CustomerConfirmationMember::class, 'customer_confirmation_member_id');
     }
 
     public function invoices(): BelongsToMany

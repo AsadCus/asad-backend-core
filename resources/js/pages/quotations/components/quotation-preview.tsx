@@ -84,40 +84,9 @@ function alphabetIndex(index: number): string {
     return firstLetter + secondLetter;
 }
 
-function mergePlacementFeeItemsRaw(
-    rawItems: QuotationItemSchema[],
-    data: QuotationSchema,
-): QuotationItemSchema[] {
-    const placementItems = rawItems.filter(
-        (i) => i.is_placement_fee === true && !i.is_header,
-    );
-
-    if (!placementItems.length) return rawItems;
-
-    const monthlySalary = Number(data.monthly_salary ?? 0);
-    const loanDuration = Number(data.loan_duration ?? 0);
-
-    const base = placementItems[0];
-
-    const mergedItem: QuotationItemSchema = {
-        ...base,
-        description: 'Placement Fee',
-        quantity: loanDuration,
-        rate: monthlySalary,
-        parent_id: null,
-        parent_key: null,
-        sort_order: base.sort_order ?? 0,
-        is_placement_fee: true,
-    };
-
-    return [...rawItems.filter((i) => i.is_placement_fee !== true), mergedItem];
-}
-
 const QuotationPreview = forwardRef<HTMLDivElement, Props>(
     ({ data, items = [] }, ref) => {
-        const sortedItems = buildSortedItems(
-            mergePlacementFeeItemsRaw(items, data),
-        );
+        const sortedItems = buildSortedItems(items);
 
         let rootCounter = 0;
         const childCounters = new Map<string, number>();
@@ -136,11 +105,7 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
         const subtotal = sortedItems.reduce<number>((sum, item) => {
             if (item.is_header) return sum;
 
-            const isPlacement = item.is_placement_fee === true;
-            const amount = isPlacement
-                ? Number(data.monthly_salary ?? 0) *
-                  Number(data.loan_duration ?? 0)
-                : Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+            const amount = Number(item.quantity ?? 0) * Number(item.rate ?? 0);
 
             return sum + amount;
         }, 0);
@@ -246,7 +211,7 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                                 </tr>
                                 <tr>
                                     <td className="w-4/9">
-                                        <strong>Placement Fee</strong>
+                                        <strong>Payment Plan</strong>
                                     </td>
                                     <td>: {paymentPlanLabel || '-'}</td>
                                 </tr>
@@ -283,33 +248,15 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                                         indent = 'pl-6';
                                     }
 
-                                    const monthlySalary = Number(
-                                        data.monthly_salary ??
-                                            item.quantity ??
-                                            0,
-                                    );
-                                    const loanDuration = Number(
-                                        data.loan_duration ?? item.rate ?? 0,
-                                    );
-
-                                    const isUpfrontPlacement =
-                                        item.is_placement_fee === true;
-
-                                    const computedAmount = isUpfrontPlacement
-                                        ? monthlySalary * loanDuration
-                                        : Number(item.quantity ?? 0) *
-                                          Number(item.rate ?? 0);
+                                    const computedAmount =
+                                        Number(item.quantity ?? 0) *
+                                        Number(item.rate ?? 0);
 
                                     const amount = item.is_header
                                         ? ''
                                         : computedAmount;
 
-                                    const descriptionText =
-                                        isUpfrontPlacement &&
-                                        monthlySalary &&
-                                        loanDuration
-                                            ? `${item.description} - $${monthlySalary} x ${loanDuration} month(s)`
-                                            : item.description;
+                                    const descriptionText = item.description;
 
                                     if (item.is_header) {
                                         return (

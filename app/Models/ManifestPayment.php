@@ -16,6 +16,7 @@ class ManifestPayment extends Model
         'outstanding_amount',
         'payment_date',
         'status',
+        'manifest_traveler_id',
     ];
 
     protected $casts = [
@@ -33,5 +34,10 @@ class ManifestPayment extends Model
     public function manifest(): BelongsTo
     {
         return $this->belongsTo(Manifest::class);
+    }
+
+    public function traveler(): BelongsTo
+    {
+        return $this->belongsTo(ManifestTraveler::class, 'manifest_traveler_id');
     }
 }

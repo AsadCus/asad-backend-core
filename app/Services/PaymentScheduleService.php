@@ -9,7 +9,7 @@ class PaymentScheduleService
 {
     public function generatePaymentSchedule(Quotation $quotation): array
     {
-        $startDate = $quotation->order?->handover_date ?? $quotation->commencement_date ?? $quotation->created_at;
+        $startDate = $quotation->commencement_date ?? $quotation->created_at;
         $startDate = Carbon::parse($startDate);
 
         $monthlySalary = (float) ($quotation->monthly_salary ?? 0);

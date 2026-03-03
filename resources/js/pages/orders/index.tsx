@@ -19,6 +19,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { invoiceColumns } from '../invoices';
+import InvoicePreviewModal from '../invoices/components/invoice-preview-modal';
 import { InvoiceSchema, statuses } from '../invoices/schema';
 import { paymentPlans } from '../quotations/schema';
 import OrderCreateDialog from './components/order-create-dialog';
@@ -103,12 +104,6 @@ const columns: ColumnDef<OrderSchema>[] = [
         },
     },
     {
-        accessorKey: 'handover_date',
-        header: 'Handover Date',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-    },
-    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
@@ -132,6 +127,33 @@ export default function OrderIndex({ data }: QuotationsProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const [openCreateDialog, setOpenCreateDialog] = useState(false);
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    const [selectedInvoiceForPreview, setSelectedInvoiceForPreview] =
+        useState<InvoiceSchema | null>(null);
+    const [previewItems, setPreviewItems] = useState([]);
+
+    const handlePreview = async (invoice: InvoiceSchema) => {
+        try {
+            if (!invoice.id) return;
+
+            const response = await fetch(getInvoiceForShow(invoice.id).url);
+            if (response.ok) {
+                const invoiceData = await response.json();
+                setSelectedInvoiceForPreview(invoiceData);
+                setPreviewItems(invoiceData.items ?? []);
+            } else {
+                setSelectedInvoiceForPreview(invoice);
+                setPreviewItems([]);
+            }
+
+            setPreviewModalOpen(true);
+        } catch (error) {
+            console.error('Error fetching invoice items:', error);
+            setPreviewItems([]);
+            setSelectedInvoiceForPreview(invoice);
+            setPreviewModalOpen(true);
+        }
+    };
 
     const getRowActions = (row: OrderSchema): ActionType[] => {
         const rowActions: ActionType[] = [];
@@ -231,12 +253,6 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                     />
                                     <DateRangeFilter
                                         table={table}
-                                        columnId="handover_date"
-                                        title="Handover Date"
-                                        quickDate={true}
-                                    />
-                                    <DateRangeFilter
-                                        table={table}
                                         columnId="created_at"
                                         title="Created At"
                                         quickDate={true}
@@ -293,11 +309,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                     } else if (
                                                         action === 'preview'
                                                     ) {
-                                                        router.get(
-                                                            getInvoiceForShow(
-                                                                invoiceId,
-                                                            ).url,
-                                                        );
+                                                        handlePreview(invoice);
                                                     } else if (
                                                         action === 'edit'
                                                     ) {
@@ -388,6 +400,15 @@ export default function OrderIndex({ data }: QuotationsProps) {
                 onOpenChange={setOpenCreateDialog}
                 quotationOptions={convertableQuotations}
             />
+
+            {previewModalOpen && selectedInvoiceForPreview && (
+                <InvoicePreviewModal
+                    data={selectedInvoiceForPreview}
+                    items={previewItems}
+                    open={previewModalOpen}
+                    onOpenChange={setPreviewModalOpen}
+                />
+            )}
         </>
     );
 }

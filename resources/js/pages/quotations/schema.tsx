@@ -12,6 +12,7 @@ export const quotationSchema = z.object({
     order_number: z.string().nullable().optional(),
 
     customer_id: z.number().nullable().optional(),
+    customer_confirmation_id: z.number().nullable().optional(),
     nric_number: z.string().nullable().optional(),
     customer_number: z.string().nullable().optional(),
     customer_name: z.string().nullable().optional(),
@@ -22,21 +23,22 @@ export const quotationSchema = z.object({
     sales_registration_number: z.string().nullable().optional(),
 
     description: z.string().nullable().optional(),
-    commencement_date: z.string().nullable().optional(),
-    monthly_salary: z.union([z.string(), z.number()]).nullable().optional(),
-    loan_duration: z.union([z.string(), z.number()]).nullable().optional(),
-    cost_of_maid: z.union([z.string(), z.number()]).nullable().optional(),
-    rest_day_of_the_week: z.array(z.string()).optional(),
-    rest_days_per_month: z
-        .union([z.string(), z.number()])
-        .nullable()
-        .optional(),
-    compensation_off_in_lieu: z
-        .union([z.string(), z.number()])
-        .nullable()
-        .optional(),
     payment_plan: z.string().nullable().optional(),
     payment_method: z.string().nullable().optional(),
+    package_name: z.string().nullable().optional(),
+    package_price_single: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_double: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_triple: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_quad: z.union([z.string(), z.number()]).nullable().optional(),
     status: z.string().optional(),
     items_count: z.number().optional(),
     total_amount: z.union([z.string(), z.number()]).nullable().optional(),
@@ -73,7 +75,7 @@ export const paymentMethods = [
 
 export const statuses = [
     { label: 'Draft', value: 'draft' },
-    { label: 'Ready', value: 'sent' },
+    { label: 'Ready', value: 'ready' },
     { label: 'Revised', value: 'revised' },
     { label: 'Accepted', value: 'accepted' },
     { label: 'Converted', value: 'converted' },
@@ -84,22 +86,10 @@ export const statuses = [
 
 export const statusColors = {
     draft: 'bg-gray-100 text-gray-800',
-    sent: 'bg-cyan-100 text-cyan-800',
+    ready: 'bg-cyan-100 text-cyan-800',
     revised: 'bg-yellow-100 text-yellow-800',
     accepted: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
     expired: 'bg-purple-100 text-purple-800',
     cancelled: 'bg-red-100 text-red-800',
 };
-
-export const daysOfWeek = [
-    { value: 'Weekdays', label: 'Weekdays' },
-    { value: 'Monday', label: 'Monday' },
-    { value: 'Tuesday', label: 'Tuesday' },
-    { value: 'Wednesday', label: 'Wednesday' },
-    { value: 'Thursday', label: 'Thursday' },
-    { value: 'Friday', label: 'Friday' },
-    { value: 'Saturday', label: 'Saturday' },
-    { value: 'Sunday', label: 'Sunday' },
-    { value: 'Weekend', label: 'Weekend' },
-];

@@ -134,13 +134,12 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(permissions.includes('hidden hidden')
-            ? // ...(permissions.includes('sales view') ||
-              // permissions.includes('quotation view') ||
-              // permissions.includes('order view') ||
-              // permissions.includes('invoice view') ||
-              // permissions.includes('receipt view')
-              [
+        ...(permissions.includes('sales view') ||
+        permissions.includes('quotation view') ||
+        permissions.includes('order view') ||
+        permissions.includes('invoice view') ||
+        permissions.includes('receipt view')
+            ? [
                   {
                       title: 'Sales',
                       icon: Handshake,

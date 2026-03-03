@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\EnquiryStatus;
 use App\Models\Customer;
-use App\Models\CustomerGroup;
+use App\Models\CustomerConfirmation;
 use App\Models\Enquiry;
 use App\Models\EnquiryRemark;
 use App\Models\GeneralEnquiry;
@@ -295,7 +295,7 @@ class EnquiryWorkflowTest extends TestCase
         $this->assertEquals(3, EnquiryRemark::where('enquiry_id', $enquiry->id)->count());
     }
 
-    public function test_confirm_endpoint_creates_customer_group(): void
+    public function test_confirm_endpoint_creates_customer_confirmation(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -332,13 +332,13 @@ class EnquiryWorkflowTest extends TestCase
 
         $response->assertRedirect();
 
-        // Check customer group was created
-        $this->assertDatabaseHas('customer_groups', [
+        // Check customer confirmation was created
+        $this->assertDatabaseHas('customer_confirmations', [
             'enquiry_id' => $enquiry->id,
         ]);
 
         // Check leader
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
         $this->assertNotNull($group);
         $leader = $group->leader();
         $this->assertNotNull($leader);
@@ -427,8 +427,8 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
 
-        // Customer group should still be created
-        $this->assertDatabaseHas('customer_groups', [
+        // Customer confirmation should still be created
+        $this->assertDatabaseHas('customer_confirmations', [
             'enquiry_id' => $enquiry->id,
         ]);
     }
@@ -447,7 +447,7 @@ class EnquiryWorkflowTest extends TestCase
             'created_by' => $this->adminUser->id,
         ]);
 
-        $response = $this->post(route('enquiries.create-customer-group'), [
+        $response = $this->post(route('enquiries.create-customer-confirmation'), [
             'enquiry_id' => $enquiry->id,
             'date_of_application' => '2026-01-01',
             'members' => [
@@ -462,8 +462,8 @@ class EnquiryWorkflowTest extends TestCase
 
         $response->assertRedirect();
 
-        // Customer group should be linked to the enquiry
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        // Customer confirmation should be linked to the enquiry
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
         $this->assertNotNull($group);
         $this->assertEquals($enquiry->id, $group->enquiry_id);
     }
@@ -491,7 +491,7 @@ class EnquiryWorkflowTest extends TestCase
             'email' => 'hasgroup@test.com',
             'created_by' => $this->adminUser->id,
         ]);
-        CustomerGroup::create([
+        CustomerConfirmation::create([
             'enquiry_id' => $confirmedWithGroup->id,
             'created_by' => $this->adminUser->id,
         ]);
@@ -621,7 +621,7 @@ class EnquiryWorkflowTest extends TestCase
         // Should reuse the existing customer, not create a new one
         $this->assertEquals(1, Customer::where('user_id', $existingUser->id)->count());
 
-        $group = CustomerGroup::where('enquiry_id', $enquiry->id)->first();
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
         $leader = $group->leader();
         $this->assertEquals($existingCustomer->id, $leader->customer_id);
     }
@@ -650,7 +650,7 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertJsonStructure([
             'enquiry' => ['id', 'type', 'status', 'status_label'],
             'child',
-            'customerGroup',
+            'customerConfirmation',
         ]);
     }
 
@@ -798,11 +798,11 @@ class EnquiryWorkflowTest extends TestCase
         $this->assertDatabaseMissing('enquiries', ['id' => $enquiryId]);
     }
 
-    public function test_standalone_customer_group_creation_without_enquiry(): void
+    public function test_standalone_customer_confirmation_creation_without_enquiry(): void
     {
         $this->actingAs($this->adminUser);
 
-        $response = $this->post(route('enquiries.create-customer-group'), [
+        $response = $this->post(route('enquiries.create-customer-confirmation'), [
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -825,8 +825,8 @@ class EnquiryWorkflowTest extends TestCase
 
         $response->assertRedirect();
 
-        // Customer group created without enquiry_id
-        $group = CustomerGroup::whereNull('enquiry_id')->first();
+        // Customer confirmation created without enquiry_id
+        $group = CustomerConfirmation::whereNull('enquiry_id')->first();
         $this->assertNotNull($group);
         $this->assertNull($group->enquiry_id);
         $this->assertCount(2, $group->members);
@@ -848,7 +848,7 @@ class EnquiryWorkflowTest extends TestCase
     {
         $this->actingAs($this->adminUser);
 
-        $response = $this->post(route('enquiries.create-customer-group'), [
+        $response = $this->post(route('enquiries.create-customer-confirmation'), [
             'members' => [
                 [
                     'name' => '',
@@ -883,7 +883,7 @@ class EnquiryWorkflowTest extends TestCase
         ]);
 
         // Create a standalone group with same email - should update, not duplicate
-        $this->post(route('enquiries.create-customer-group'), [
+        $this->post(route('enquiries.create-customer-confirmation'), [
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([

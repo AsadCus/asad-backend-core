@@ -64,7 +64,7 @@ class QuotationController extends Controller
 
     public function create(Request $request)
     {
-        $data['customers'] = $this->customerService->getForFilterWithCode();
+        $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions();
         $data['quotationItems'] = $this->quotationItemService->getQuotationItemMasters(false);
         $data['quotationNotes'] = $this->noteService->get('master', 'quotation');
 
@@ -112,7 +112,9 @@ class QuotationController extends Controller
     public function show($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['customers'] = $this->customerService->getForFilterWithCode();
+        $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions(
+            (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
+        );
 
         return Inertia::render('quotations/view', [
             'data' => $data,
@@ -127,7 +129,9 @@ class QuotationController extends Controller
     public function edit($id)
     {
         $data['data'] = $this->quotationService->getForEditShow($id);
-        $data['customers'] = $this->customerService->getForFilterWithCode();
+        $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions(
+            (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
+        );
 
         return Inertia::render('quotations/edit', [
             'data' => $data,
@@ -304,14 +308,9 @@ class QuotationController extends Controller
 
             $data['payment_plan_label'] = $paymentPlanLabel;
 
-            $items = $this->mergePlacementFeeItemsForPdf(
-                $data['items'] ?? [],
-                $data
-            );
-
             $html = view('quotations.pdf', [
                 'data' => $data,
-                'items' => $this->sortForPdf($items),
+                'items' => $this->sortForPdf($data['items'] ?? []),
                 'branding' => $reportData['branding'],
             ])->render();
 
@@ -326,39 +325,6 @@ class QuotationController extends Controller
 
             return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
-    }
-
-    private function mergePlacementFeeItemsForPdf(array $items, array $data): array
-    {
-        $items = collect($items)->sortBy('sort_order')->values();
-
-        $placement = $items->filter(
-            fn ($i) => ! empty($i['is_placement_fee'])
-        );
-
-        if ($placement->isEmpty()) {
-            return $items->all();
-        }
-
-        $totalQty = $placement->sum(fn ($i) => (float) $i['quantity']);
-        $rate = (float) ($data['monthly_salary'] ?? 0);
-        $baseSort = $placement->first()['sort_order'];
-
-        $filtered = $items->reject(fn ($i) => ! empty($i['is_placement_fee']));
-
-        $mergedPlacement = [
-            ...$placement->first(),
-            'description' => 'Placement Fee',
-            'quantity' => $totalQty,
-            'rate' => $rate,
-            'parent_id' => null,
-            'parent_key' => null,
-            'is_header' => false,
-            'is_placement_fee' => true,
-            'sort_order' => $baseSort,
-        ];
-
-        return $filtered->push($mergedPlacement)->sortBy('sort_order')->values()->all();
     }
 
     private function sortForPdf(array $items): array
