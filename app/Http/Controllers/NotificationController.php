@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Notification;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,7 +18,6 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $notifications = $this->notificationService->getUserNotifications($request->user()->id);
-
 
         return Inertia::render('notifications/index', [
             'notifications' => $notifications,
@@ -56,7 +54,6 @@ class NotificationController extends Controller
 
         return $data;
     }
-
 
     public function markAsRead(Request $request, $id)
     {

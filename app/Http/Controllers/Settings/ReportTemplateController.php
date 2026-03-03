@@ -23,8 +23,7 @@ class ReportTemplateController extends Controller
     public function __construct(
         protected ReportTemplateService $reportTemplateService,
         protected UserRoleFileUploadService $fileUploadService,
-    ) {
-    }
+    ) {}
 
     /**
      * Show the report template settings page.
@@ -153,7 +152,7 @@ class ReportTemplateController extends Controller
 
         // Remove from registered_modules list
         $modules = collect($settings->registered_modules ?? [])
-            ->reject(fn($m) => $m['key'] === $key)
+            ->reject(fn ($m) => $m['key'] === $key)
             ->values()
             ->toArray();
 
@@ -167,5 +166,13 @@ class ReportTemplateController extends Controller
         ]);
 
         return back()->with('success', 'Module removed successfully.');
+    }
+
+    /**
+     * Get branding data as JSON (for API/AJAX requests from frontend previews).
+     */
+    public function getBrandingData()
+    {
+        return response()->json($this->reportTemplateService->getBranding());
     }
 }

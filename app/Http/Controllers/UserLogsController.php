@@ -14,6 +14,7 @@ class UserLogsController extends Controller
     public function index()
     {
         $lastActivity = Activity::with('causer')->latest()->get();
+
         return Inertia::render('user-logs/index', [
             'activities' => $lastActivity,
         ]);

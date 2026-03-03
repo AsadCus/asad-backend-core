@@ -203,12 +203,22 @@
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                <img src="{{ $branding['logo_url'] ?? public_path('logo_agency.png') }}" alt="Company Logo">
+                @if(!empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
+                    <img src="{{ $branding['logo_path_absolute'] }}" alt="Company Logo">
+                @else
+                    <img src="{{ public_path('logo_agency.png') }}" alt="Company Logo">
+                @endif
             </td>
             <td class="info-cell">
                 <div>
                     <b style="margin-bottom: 4px; font-size: 13px; color: #333;">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</b><br>
                     {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}<br>
+                    @if (!empty($branding['company_phone']))
+                        <div style="margin-top: 2px;">Tel: {{ $branding['company_phone'] }}</div>
+                    @endif
+                    @if (!empty($branding['company_email']))
+                        <div>Email: {{ $branding['company_email'] }}</div>
+                    @endif
                     <div style="margin-top: 4px;">
                         @if ($data['sales_registration_number'] ?? false)
                             <b>REGISTRATION NO. {{ $data['sales_registration_number'] }}</b><br>
@@ -405,16 +415,16 @@
                 </div>
             @endif
 
-            @if(!empty($branding['show_stamp']) && $branding['stamp_url'])
+            @if(!empty($branding['show_stamp']) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
                 <div style="margin-top: 15px;">
-                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 80px; width: auto;">
+                    <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp" style="max-height: 80px; width: auto;">
                 </div>
             @endif
 
-            @if(!empty($branding['show_signature']) && $branding['signature_url'])
+            @if(!empty($branding['show_signature']) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
                 <div style="margin-top: 10px;">
                     <p style="font-size: 9px; margin: 0;">Authorised Signature</p>
-                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
+                    <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
                 </div>
             @endif
         </div>

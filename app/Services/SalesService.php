@@ -8,7 +8,6 @@ use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Quotation;
-use App\Models\Receipt;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -59,7 +58,7 @@ class SalesService
     {
         $currentFiscalYear = $fiscalYear ?? FinancialYear::getCurrentYear();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [];
         }
 
@@ -92,10 +91,10 @@ class SalesService
             if ($fiscalYearStart->day === 1) {
                 $label = $currentPeriodStart->translatedFormat('F');
             } else {
-                $label = $currentPeriodStart->translatedFormat('d F') . ' - ' . $periodEnd->translatedFormat('d F');
+                $label = $currentPeriodStart->translatedFormat('d F').' - '.$periodEnd->translatedFormat('d F');
             }
 
-            $periodValue = 'month-' . $i;
+            $periodValue = 'month-'.$i;
 
             if ($now->between($currentPeriodStart, $periodEnd)) {
                 $defaultPeriod = $periodValue;
@@ -125,14 +124,14 @@ class SalesService
     {
         $currentFiscalYear = $fiscalYear ?? FinancialYear::getCurrentYear();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [];
         }
 
         $periodOptions = $this->getSalesPeriodOptions($currentFiscalYear);
         $selectedPeriod = collect($periodOptions['options'])->firstWhere('value', $period);
 
-        if (!$selectedPeriod) {
+        if (! $selectedPeriod) {
             $selectedPeriod = $periodOptions['options'][0];
         }
 
@@ -262,7 +261,7 @@ class SalesService
     {
         $currentFiscalYear = $fiscalYear ?? FinancialYear::getCurrentYear();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [
                 'count' => 0,
                 'amount' => 0,
@@ -294,7 +293,7 @@ class SalesService
     {
         $currentFiscalYear = $fiscalYear ?? FinancialYear::getCurrentYear();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [];
         }
 
@@ -351,7 +350,7 @@ class SalesService
     {
         $currentFiscalYear = $fiscalYear ?? FinancialYear::getCurrentYear();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             return [];
         }
 

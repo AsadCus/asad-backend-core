@@ -2,9 +2,9 @@
 
 namespace App\Services\MaidManagement;
 
-use Illuminate\Http\UploadedFile;
-use App\Services\MaidManagement\Mappers\ReferenceDataMapper;
 use App\Services\MaidManagement\Mappers\FormDataMapper;
+use App\Services\MaidManagement\Mappers\ReferenceDataMapper;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Main orchestrator for document upload and parsing
@@ -13,7 +13,9 @@ use App\Services\MaidManagement\Mappers\FormDataMapper;
 class MaidDocumentUploadService
 {
     private DocumentParser $documentParser;
+
     private DataExtractionService $extractionService;
+
     private FormDataMapper $formMapper;
 
     public function __construct(
@@ -28,10 +30,10 @@ class MaidDocumentUploadService
 
     /**
      * Process uploaded document and return form-ready data
-     * 
-     * @param UploadedFile $file
-     * @param bool $autoUploadPhotos Whether to automatically upload extracted photos
+     *
+     * @param  bool  $autoUploadPhotos  Whether to automatically upload extracted photos
      * @return array ['success' => true, 'data' => [...], 'metadata' => [...], 'photos' => [...]]
+     *
      * @throws \Exception if parsing or extraction fails
      */
     public function process(UploadedFile $file, bool $autoUploadPhotos = true): array
@@ -44,13 +46,13 @@ class MaidDocumentUploadService
         // Step 2: Auto-upload photos if enabled
         $uploadedPhotos = [];
         $photoUrl = null;
-        
-        if ($autoUploadPhotos && !empty($extractedPhotos)) {
+
+        if ($autoUploadPhotos && ! empty($extractedPhotos)) {
             $uploadResult = $this->uploadPhotos($extractedPhotos, $file->getClientOriginalName());
             $uploadedPhotos = $uploadResult['photos'];
-            
+
             // Use first photo as profile photo
-            if (!empty($uploadedPhotos) && isset($uploadedPhotos[0]['url'])) {
+            if (! empty($uploadedPhotos) && isset($uploadedPhotos[0]['url'])) {
                 $photoUrl = $uploadedPhotos[0]['url'];
             }
         }
@@ -76,28 +78,27 @@ class MaidDocumentUploadService
                 'sections_found' => array_keys($extractedData['sections'] ?? []),
                 'photos_in_document' => count($extractedPhotos),
                 'photos_uploaded' => count($uploadedPhotos),
-            ]
+            ],
         ];
     }
 
     /**
      * Upload multiple photos
-     * 
-     * @param array $photos Array of photo data from parser
-     * @param string $documentName Original document name for reference
-     * @return array
+     *
+     * @param  array  $photos  Array of photo data from parser
+     * @param  string  $documentName  Original document name for reference
      */
     private function uploadPhotos(array $photos, string $documentName): array
     {
-        $photoService = new PhotoUploadService();
+        $photoService = new PhotoUploadService;
         $results = [];
         $errors = [];
 
         // Limit photos based on config
         $maxPhotos = config('maid_photo.max_photos_per_document', 3);
         $uploadAll = config('maid_photo.upload_all_photos', false);
-        
-        if (!$uploadAll) {
+
+        if (! $uploadAll) {
             $photos = array_slice($photos, 0, 1); // Only first photo
         } else {
             $photos = array_slice($photos, 0, $maxPhotos);
@@ -106,13 +107,14 @@ class MaidDocumentUploadService
         foreach ($photos as $index => $photo) {
             // Validate photo first
             $validation = $photoService->validateImage($photo['content']);
-            
-            if (!$validation['valid']) {
+
+            if (! $validation['valid']) {
                 $errors[] = [
                     'index' => $index,
                     'filename' => $photo['filename'],
-                    'errors' => $validation['errors']
+                    'errors' => $validation['errors'],
                 ];
+
                 continue;
             }
 
@@ -129,7 +131,7 @@ class MaidDocumentUploadService
             // Upload
             $uploadResult = $photoService->uploadFromBinary(
                 $content,
-                $documentName . '_photo_' . $index
+                $documentName.'_photo_'.$index
             );
 
             if ($uploadResult['success']) {
@@ -145,7 +147,7 @@ class MaidDocumentUploadService
                 $errors[] = [
                     'index' => $index,
                     'filename' => $photo['filename'],
-                    'errors' => [$uploadResult['error']]
+                    'errors' => [$uploadResult['error']],
                 ];
             }
         }
@@ -165,7 +167,7 @@ class MaidDocumentUploadService
     {
         $documentParser = new DocumentParser($parsers);
         $extractionService = new DataExtractionService($extractors);
-        $referenceMapper = new ReferenceDataMapper();
+        $referenceMapper = new ReferenceDataMapper;
         $formMapper = new FormDataMapper($referenceMapper);
 
         return new self($documentParser, $extractionService, $formMapper);

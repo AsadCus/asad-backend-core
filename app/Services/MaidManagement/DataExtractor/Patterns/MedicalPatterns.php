@@ -91,7 +91,7 @@ class MedicalPatterns
         // Return both the enumerated pattern (if exists) and a generic fallback without numbering
         return array_values(array_filter([
             $patterns[$illness] ?? null,
-            '/(?:' . $illnessEsc . ')\s*(☒|☑|X|x|√|✓|×|)?/i',
+            '/(?:'.$illnessEsc.')\s*(☒|☑|X|x|√|✓|×|)?/i',
         ]));
     }
 

@@ -8,7 +8,7 @@ class NoteRule
     {
         return [
             'model' => ['required', 'string'],
-            'id'    => ['nullable', 'integer'],
+            'id' => ['nullable', 'integer'],
 
             'notes' => ['required', 'array', 'min:1'],
             'notes.*.id' => ['nullable', 'integer'],

@@ -21,7 +21,7 @@ return new class extends Migration
                 'PHYSICAL_DISABILITY',
                 'DIET_RESTRICTION',
                 'FOOD_PREFERENCE',
-                'FOOD_PREFERENCE_OTHERS'
+                'FOOD_PREFERENCE_OTHERS',
             ])->comment('Classification of the attribute type');
             $table->string('attribute_name', 200)->comment('e.g., Asthma, Peanuts, No Pork, Severe Back Pain');
 

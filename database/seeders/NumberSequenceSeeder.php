@@ -13,7 +13,7 @@ class NumberSequenceSeeder extends Seeder
     public function run(): void
     {
         $currentYear = date('Y');
-        
+
         $sequences = [
             ['type' => 'customer', 'year' => $currentYear, 'current_number' => 0],
             ['type' => 'maid', 'year' => $currentYear, 'current_number' => 0],

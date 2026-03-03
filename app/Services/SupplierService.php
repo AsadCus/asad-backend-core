@@ -42,7 +42,7 @@ class SupplierService
                 'value' => $q->supplier->id ?? null,
                 'label' => $q->supplier->name ?? $q->name,
             ];
-        })->filter(fn($item) => $item['value'] !== null);
+        })->filter(fn ($item) => $item['value'] !== null);
 
         return $data;
     }
@@ -54,7 +54,7 @@ class SupplierService
                 'value' => $q->supplier->name ?? $q->name,
                 'label' => $q->supplier->name ?? $q->name,
             ];
-        })->filter(fn($item) => $item['value'] !== null);
+        })->filter(fn ($item) => $item['value'] !== null);
 
         return $data;
     }

@@ -15,7 +15,7 @@ class Notification extends Model
         'link',
         'exclusive',
         'action_taken_by',
-        'action_taken_at'
+        'action_taken_at',
     ];
 
     public function userNotifications(): HasMany

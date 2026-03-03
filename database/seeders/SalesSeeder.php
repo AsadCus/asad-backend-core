@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Branch;
 use App\Models\Sales;
 use App\Models\User;
-use App\Models\Branch;
 use Illuminate\Database\Seeder;
 
 class SalesSeeder extends Seeder
@@ -13,8 +13,9 @@ class SalesSeeder extends Seeder
     {
         $branch = Branch::first();
 
-        if (!$branch) {
+        if (! $branch) {
             $this->command->warn('No branches found. Please run BranchSeeder first.');
+
             return;
         }
 

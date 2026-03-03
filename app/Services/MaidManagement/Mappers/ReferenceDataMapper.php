@@ -20,7 +20,7 @@ class ReferenceDataMapper
         }
 
         $nationalityInput = strtolower(trim($nationality));
-        
+
         // Try exact match first (adjective or name)
         $country = \App\Models\Country::whereRaw('LOWER(adjective) = ?', [$nationalityInput])
             ->orWhereRaw('LOWER(name) = ?', [$nationalityInput])
@@ -44,10 +44,10 @@ class ReferenceDataMapper
         foreach ($variations as $standard => $aliases) {
             foreach ($aliases as $alias) {
                 if (stripos($nationalityInput, $alias) !== false) {
-                    $country = \App\Models\Country::whereRaw('LOWER(adjective) LIKE ?', ['%' . $standard . '%'])
-                        ->orWhereRaw('LOWER(name) LIKE ?', ['%' . $standard . '%'])
+                    $country = \App\Models\Country::whereRaw('LOWER(adjective) LIKE ?', ['%'.$standard.'%'])
+                        ->orWhereRaw('LOWER(name) LIKE ?', ['%'.$standard.'%'])
                         ->first();
-                    
+
                     if ($country) {
                         return (string) $country->id;
                     }
@@ -56,13 +56,14 @@ class ReferenceDataMapper
         }
 
         // Fallback to partial match
-        $country = \App\Models\Country::where('adjective', 'like', '%' . $nationalityInput . '%')
-            ->orWhere('name', 'like', '%' . $nationalityInput . '%')
+        $country = \App\Models\Country::where('adjective', 'like', '%'.$nationalityInput.'%')
+            ->orWhere('name', 'like', '%'.$nationalityInput.'%')
             ->first();
 
         if ($country) {
             return (string) $country->id;
         }
+
         return null;
     }
 
@@ -76,7 +77,7 @@ class ReferenceDataMapper
         }
 
         $locationInput = strtolower(trim($location));
-        
+
         // Common Indonesian cities/regions - auto-map to Indonesia
         $indonesianLocations = [
             'jakarta', 'surabaya', 'bandung', 'medan', 'semarang', 'makassar',
@@ -88,7 +89,7 @@ class ReferenceDataMapper
             'java', 'jawa', 'sumatra', 'kalimantan', 'sulawesi',
             'nusa tenggara', 'ntb', 'ntt',
         ];
-        
+
         foreach ($indonesianLocations as $city) {
             if (stripos($locationInput, $city) !== false) {
                 $country = \App\Models\Country::whereRaw('LOWER(name) = ?', ['indonesia'])->first();
@@ -97,16 +98,16 @@ class ReferenceDataMapper
                 }
             }
         }
-        
+
         // Try direct match with country name
-        $country = \App\Models\Country::whereRaw('LOWER(name) LIKE ?', ['%' . $locationInput . '%'])
-            ->orWhereRaw('LOWER(adjective) LIKE ?', ['%' . $locationInput . '%'])
+        $country = \App\Models\Country::whereRaw('LOWER(name) LIKE ?', ['%'.$locationInput.'%'])
+            ->orWhereRaw('LOWER(adjective) LIKE ?', ['%'.$locationInput.'%'])
             ->first();
-            
+
         if ($country) {
             return (string) $country->id;
         }
-        
+
         return null;
     }
 
@@ -120,10 +121,10 @@ class ReferenceDataMapper
         }
 
         $religionInput = strtolower(trim($religion));
-        
+
         // Try exact match first
         $model = \App\Models\Religion::whereRaw('LOWER(name) = ?', [$religionInput])->first();
-        
+
         if ($model) {
             return (string) $model->id;
         }
@@ -137,10 +138,11 @@ class ReferenceDataMapper
         ];
 
         $model = $this->fuzzyMatchReligion($religionInput, $mappings);
-        
+
         if ($model) {
             return (string) $model->id;
         }
+
         return null;
     }
 
@@ -154,10 +156,10 @@ class ReferenceDataMapper
         }
 
         $educationInput = strtolower(trim($education));
-        
+
         // Try exact match first
         $model = \App\Models\EducationLevel::whereRaw('LOWER(name) = ?', [$educationInput])->first();
-        
+
         if ($model) {
             return (string) $model->id;
         }
@@ -169,10 +171,11 @@ class ReferenceDataMapper
         ];
 
         $model = $this->fuzzyMatchEducation($educationInput, $mappings);
-        
+
         if ($model) {
             return (string) $model->id;
         }
+
         return null;
     }
 
@@ -186,7 +189,7 @@ class ReferenceDataMapper
         }
 
         $maritalInput = strtolower(trim($maritalStatus));
-        
+
         $mappings = [
             'single' => ['single', 'unmarried', 'not married'],
             'widowed' => ['widowed', 'widow', 'widower'],
@@ -232,7 +235,7 @@ class ReferenceDataMapper
             $dob = preg_replace('/\s*[\/-]\s*/', '-', $dob);
             // Also collapse multiple spaces
             $dob = preg_replace('/\s+/', ' ', $dob);
-            
+
             // Try multiple date formats
             $formats = [
                 'd/m/Y',    // 26/06/1992
@@ -243,7 +246,7 @@ class ReferenceDataMapper
                 'd/m/y',    // 26/06/92
                 'd-m-y',    // 26-06-92
             ];
-            
+
             foreach ($formats as $format) {
                 try {
                     $date = Carbon::createFromFormat($format, $dob);
@@ -254,7 +257,7 @@ class ReferenceDataMapper
                     continue;
                 }
             }
-            
+
             // Fallback to Carbon::parse (after normalization)
             return Carbon::parse($dob)->format('d F Y');
         } catch (\Exception $e) {
@@ -276,7 +279,7 @@ class ReferenceDataMapper
         }
 
         // Last resort: partial match
-        return \App\Models\Religion::whereRaw('LOWER(name) LIKE ?', ['%' . $input . '%'])->first();
+        return \App\Models\Religion::whereRaw('LOWER(name) LIKE ?', ['%'.$input.'%'])->first();
     }
 
     private function fuzzyMatchEducation(string $input, array $mappings): ?\App\Models\EducationLevel
@@ -293,6 +296,6 @@ class ReferenceDataMapper
         }
 
         // Last resort: partial match
-        return \App\Models\EducationLevel::whereRaw('LOWER(name) LIKE ?', ['%' . $input . '%'])->first();
+        return \App\Models\EducationLevel::whereRaw('LOWER(name) LIKE ?', ['%'.$input.'%'])->first();
     }
 }

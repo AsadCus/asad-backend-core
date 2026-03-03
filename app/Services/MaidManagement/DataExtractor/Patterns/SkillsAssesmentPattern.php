@@ -20,7 +20,7 @@ class SkillsAssesmentPattern
         return [
             'table_markers' => [
                 'start' => '/S\/No\s+Areas of Work\s+Willingness\s+Yes\/No\s+Experience\s+Yes\/No/i',
-                'end' => '/Interviewed by overseas training centre/i'
+                'end' => '/Interviewed by overseas training centre/i',
             ],
             'headers' => [
                 'sno' => 'S/No',
@@ -28,44 +28,44 @@ class SkillsAssesmentPattern
                 'willingness' => 'Willingness Yes/No',
                 'experience' => 'Experience Yes/No',
                 'years' => 'If yes, state the no. of years',
-                'assessment' => 'Assessment/Observation'
+                'assessment' => 'Assessment/Observation',
             ],
             'areas_of_work' => [
                 1 => [
                     'key' => 'care_of_infants',
-                    'label' => 'Care of infants/children'
+                    'label' => 'Care of infants/children',
                 ],
                 2 => [
                     'key' => 'care_of_elderly',
-                    'label' => 'Care of elderly'
+                    'label' => 'Care of elderly',
                 ],
                 3 => [
                     'key' => 'care_of_disabled',
-                    'label' => 'Care of disabled'
+                    'label' => 'Care of disabled',
                 ],
                 4 => [
                     'key' => 'general_housework',
-                    'label' => 'General housework'
+                    'label' => 'General housework',
                 ],
                 5 => [
                     'key' => 'cooking',
-                    'label' => 'Cooking'
+                    'label' => 'Cooking',
                 ],
                 6 => [
                     'key' => 'language_abilities',
-                    'label' => 'Language abilities (spoken)'
+                    'label' => 'Language abilities (spoken)',
                 ],
                 7 => [
                     'key' => 'other_skills',
-                    'label' => 'Other skills, if any'
-                ]
+                    'label' => 'Other skills, if any',
+                ],
             ],
             'regex_patterns' => [
                 'willingness' => '/(YES|NO|Yes|No)/i',
                 'experience' => '/(YES|NO|Yes|No)/i',
                 'years' => '/(\d+)/',
-                'rating' => '/\b([1-5]|N\.?A\.?)\b/i'
-            ]
+                'rating' => '/\b([1-5]|N\.?A\.?)\b/i',
+            ],
         ];
     }
 
@@ -75,7 +75,7 @@ class SkillsAssesmentPattern
         return [
             'table_markers' => [
                 'start' => '/S\/No\s+Areas of Work\s+Willingness\s+Yes\/No\s+Experience\s+Yes\/No/i',
-                'end' => '/Interviewed by overseas training centre/i'
+                'end' => '/Interviewed by overseas training centre/i',
             ],
             'headers' => [
                 'sno' => 'S/No',
@@ -83,44 +83,44 @@ class SkillsAssesmentPattern
                 'willingness' => 'Willingness Yes/No',
                 'experience' => 'Experience Yes/No',
                 'years' => 'If yes, state the no. of years',
-                'assessment' => 'Assessment/Observation'
+                'assessment' => 'Assessment/Observation',
             ],
             'areas_of_work' => [
                 [
                     'key' => 'care_of_infants',
-                    'label' => 'Care of infants/children'
+                    'label' => 'Care of infants/children',
                 ],
                 [
                     'key' => 'care_of_elderly',
-                    'label' => 'Care elderly'
+                    'label' => 'Care elderly',
                 ],
                 [
                     'key' => 'care_of_disabled',
-                    'label' => 'Care of disabled'
+                    'label' => 'Care of disabled',
                 ],
                 [
                     'key' => 'general_housework',
-                    'label' => 'General housework'
+                    'label' => 'General housework',
                 ],
                 [
                     'key' => 'cooking',
-                    'label' => 'Cooking'
+                    'label' => 'Cooking',
                 ],
                 [
                     'key' => 'language_abilities',
-                    'label' => 'Language abilities (spoken)'
+                    'label' => 'Language abilities (spoken)',
                 ],
                 [
                     'key' => 'other_skills',
-                    'label' => 'Other skill, if any'
-                ]
+                    'label' => 'Other skill, if any',
+                ],
             ],
             'regex_patterns' => [
                 'willingness' => '/(YES|NO|Yes|No)/i',
                 'experience' => '/(YES|NO|Yes|No)/i',
                 'years' => '/(\d+)/',
-                'rating' => '/\b([1-5]|N\.?A\.?)\b/i'
-            ]
+                'rating' => '/\b([1-5]|N\.?A\.?)\b/i',
+            ],
         ];
     }
 
@@ -130,7 +130,7 @@ class SkillsAssesmentPattern
         return [
             'table_markers' => [
                 'start' => '/S\/No\s+Areas of Work\s+Willingness\s+Yes\/No\s+Experience\s+Yes\/No/i',
-                'end' => '/Interviewed by overseas training centre/i'
+                'end' => '/Interviewed by overseas training centre/i',
             ],
             'headers' => [
                 'sno' => 'S/No',
@@ -138,44 +138,44 @@ class SkillsAssesmentPattern
                 'willingness' => 'Willingness Yes/No',
                 'experience' => 'Experience Yes/No',
                 'years' => 'If yes, state the number of years (optional)',
-                'assessment' => 'Assessment/Observation'
+                'assessment' => 'Assessment/Observation',
             ],
             'areas_of_work' => [
                 1 => [
                     'key' => 'care_of_infants',
-                    'label' => 'Care of infants/children'
+                    'label' => 'Care of infants/children',
                 ],
                 2 => [
                     'key' => 'care_of_elderly',
-                    'label' => 'Care of elderly'
+                    'label' => 'Care of elderly',
                 ],
                 3 => [
                     'key' => 'care_of_disabled',
-                    'label' => 'Care of disabled'
+                    'label' => 'Care of disabled',
                 ],
                 4 => [
                     'key' => 'general_housework',
-                    'label' => 'General housework'
+                    'label' => 'General housework',
                 ],
                 5 => [
                     'key' => 'cooking',
-                    'label' => 'Cooking'
+                    'label' => 'Cooking',
                 ],
                 6 => [
                     'key' => 'language_abilities',
-                    'label' => 'Language abilities (spoken)'
+                    'label' => 'Language abilities (spoken)',
                 ],
                 7 => [
                     'key' => 'other_skills',
-                    'label' => 'Other skills, if any'
-                ]
+                    'label' => 'Other skills, if any',
+                ],
             ],
             'regex_patterns' => [
                 'willingness' => '/(YES|NO|Yes|No)/i',
                 'experience' => '/(YES|NO|Yes|No)/i',
                 'years' => '/(\d+)/',
-                'rating' => '/\b([1-5]|N\.?A\.?)\b/i'
-            ]
+                'rating' => '/\b([1-5]|N\.?A\.?)\b/i',
+            ],
         ];
     }
 
@@ -185,7 +185,7 @@ class SkillsAssesmentPattern
         return [
             'table_markers' => [
                 'start' => '/S\/No\s*AreasofWork\s*Willingness\s*Yes\/No\s*Experience\s*Yes\/No/i',
-                'end' => '/Interviewedbyoverseastrainingcentre/i'
+                'end' => '/Interviewedbyoverseastrainingcentre/i',
             ],
             'headers' => [
                 'sno' => 'S/No',
@@ -193,44 +193,44 @@ class SkillsAssesmentPattern
                 'willingness' => 'Willingness Yes/No',
                 'experience' => 'Experience Yes/No',
                 'years' => 'Ifyes,statetheno.ofyears',
-                'assessment' => 'Assessment/Observation'
+                'assessment' => 'Assessment/Observation',
             ],
             'areas_of_work' => [
                 [
                     'key' => 'care_of_infants',
-                    'label' => 'Careofinfants/children'
+                    'label' => 'Careofinfants/children',
                 ],
                 [
                     'key' => 'care_of_elderly',
-                    'label' => 'Careofelderly'
+                    'label' => 'Careofelderly',
                 ],
                 [
                     'key' => 'care_of_disabled',
-                    'label' => 'Careofdisabled'
+                    'label' => 'Careofdisabled',
                 ],
                 [
                     'key' => 'general_housework',
-                    'label' => 'Generalhousework'
+                    'label' => 'Generalhousework',
                 ],
                 [
                     'key' => 'cooking',
-                    'label' => 'Cooking'
+                    'label' => 'Cooking',
                 ],
                 [
                     'key' => 'language_abilities',
-                    'label' => 'Languageabilities(spoken)'
+                    'label' => 'Languageabilities(spoken)',
                 ],
                 [
                     'key' => 'other_skills',
-                    'label' => 'Otherskills,ifany'
-                ]
+                    'label' => 'Otherskills,ifany',
+                ],
             ],
             'regex_patterns' => [
                 'willingness' => '/(YES|NO|Yes|No)/i',
                 'experience' => '/(YES|NO|Yes|No)/i',
                 'years' => '/(\d+)/',
-                'rating' => '/\b([1-5]|N\.?A\.?)\b/i'
-            ]
+                'rating' => '/\b([1-5]|N\.?A\.?)\b/i',
+            ],
         ];
     }
 }

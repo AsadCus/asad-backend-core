@@ -17,9 +17,9 @@ class DataExtractionService
 
     /**
      * Extract all data from raw text
-     * 
-     * @param string $text Raw text dari document
-     * @param string|null $photoUrl Optional photo URL dari auto-upload
+     *
+     * @param  string  $text  Raw text dari document
+     * @param  string|null  $photoUrl  Optional photo URL dari auto-upload
      * @return array ['sections' => [...], 'personal' => [...], 'medical' => [...], etc]
      */
     public function extract(string $text, ?string $photoUrl = null): array
@@ -50,7 +50,7 @@ class DataExtractionService
     private function extractMedical(array $sections): array
     {
         $medical = $this->extractors['medical']->extract(
-            $sections['medical'] ?? '', 
+            $sections['medical'] ?? '',
             $sections['other'] ?? ''
         );
 
@@ -65,7 +65,7 @@ class DataExtractionService
     {
         $skillsText = $sections['skills'] ?? '';
         $extractor = new \App\Services\MaidManagement\DataExtractor\SkillsAssessmentExtractor($skillsText);
-        
+
         return $extractor->extract();
     }
 

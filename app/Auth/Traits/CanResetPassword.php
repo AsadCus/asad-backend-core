@@ -2,8 +2,8 @@
 
 namespace App\Auth\Traits;
 
-use Illuminate\Auth\Passwords\CanResetPassword as BaseCanResetPassword;
 use App\Notifications\ResetPassword as ResetPasswordNotification;
+use Illuminate\Auth\Passwords\CanResetPassword as BaseCanResetPassword;
 
 trait CanResetPassword
 {

@@ -74,7 +74,7 @@ class FinancialYearService
             'year' => $financialYear->year,
             'start_date' => $financialYear->start_date_formatted,
             'end_date' => $financialYear->end_date_formatted,
-            'default' => $financialYear->default
+            'default' => $financialYear->default,
         ];
 
         return $data;
@@ -88,7 +88,7 @@ class FinancialYearService
             $oldStartDate = $financialYear->start_date;
             $oldEndDate = $financialYear->end_date;
 
-            if (!empty($data['default']) && $data['default'] === true) {
+            if (! empty($data['default']) && $data['default'] === true) {
                 FinancialYear::where('id', '!=', $id)->where('default', true)->update(['default' => false]);
             }
 
@@ -148,7 +148,7 @@ class FinancialYearService
     {
         $financialYear = FinancialYear::find($id);
 
-        if (!$financialYear) {
+        if (! $financialYear) {
             return false;
         }
 
@@ -164,7 +164,7 @@ class FinancialYearService
     {
         $currentYear = FinancialYear::getCurrentYear();
 
-        if (!$currentYear) {
+        if (! $currentYear) {
             return [];
         }
 
@@ -175,7 +175,7 @@ class FinancialYearService
     {
         $currentYear = FinancialYear::getCurrentYear();
 
-        if (!$currentYear) {
+        if (! $currentYear) {
             return [];
         }
 
@@ -186,7 +186,7 @@ class FinancialYearService
     {
         $year = $financialYearId ? FinancialYear::find($financialYearId) : FinancialYear::getCurrentYear();
 
-        if (!$year) {
+        if (! $year) {
             return 0;
         }
 
@@ -200,7 +200,7 @@ class FinancialYearService
     {
         $year = $financialYearId ? FinancialYear::find($financialYearId) : FinancialYear::getCurrentYear();
 
-        if (!$year) {
+        if (! $year) {
             return 0;
         }
 

@@ -2,19 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Services\OrderService;
-use App\Services\QuotationService;
-use App\Http\Controllers\Controller;
 use App\Rules\OrderRule;
 use App\Services\CustomerService;
+use App\Services\OrderService;
+use App\Services\QuotationService;
 use App\Services\SalesService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class OrderController extends Controller
 {
-    protected $orderService, $quotationService, $orderRule, $customerService, $salesService;
+    protected $orderService;
+
+    protected $quotationService;
+
+    protected $orderRule;
+
+    protected $customerService;
+
+    protected $salesService;
 
     public function __construct(OrderService $orderService, QuotationService $quotationService, OrderRule $orderRule, CustomerService $customerService, SalesService $salesService)
     {
@@ -102,6 +108,7 @@ class OrderController extends Controller
             foreach ($ids as $deleteId) {
                 $this->orderService->delete($deleteId);
             }
+
             return redirect()->route('order.index')
                 ->with('success', 'Selected orders deleted successfully.');
         }

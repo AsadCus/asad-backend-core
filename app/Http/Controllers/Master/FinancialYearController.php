@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers\Master;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Rules\FinancialYearRule;
 use App\Services\FinancialYearService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class FinancialYearController extends Controller
 {
-    protected $financialYearService, $financialYearRule;
+    protected $financialYearService;
+
+    protected $financialYearRule;
 
     public function __construct(FinancialYearService $financialYearService, FinancialYearRule $financialYearRule)
     {

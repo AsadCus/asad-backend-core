@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use Inertia\Middleware;
-use Illuminate\Http\Request;
-use Illuminate\Foundation\Inspiring;
 use App\Services\NotificationService;
+use Illuminate\Foundation\Inspiring;
+use Illuminate\Http\Request;
+use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -62,9 +62,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
-                'success' => fn() => $request->session()->get('success'),
-                'error' => fn() => $request->session()->get('error'),
-                'result' => fn() => $request->session()->get('result'),
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'result' => fn () => $request->session()->get('result'),
             ],
 
         ];

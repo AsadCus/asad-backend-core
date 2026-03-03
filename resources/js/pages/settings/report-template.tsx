@@ -91,12 +91,15 @@ interface PdfPreviewProps {
     showSignature: boolean;
     documentType: string;
     companyName: string;
+    companyPhone: string;
+    companyEmail: string;
+    companyAddress: string;
     logoPreview: string | null;
     stampPreview: string | null;
     signaturePreview: string | null;
 }
 
-function PdfPreview({ titleColor, footerText, showStamp, showSignature, documentType, companyName, logoPreview, stampPreview, signaturePreview }: PdfPreviewProps) {
+function PdfPreview({ titleColor, footerText, showStamp, showSignature, documentType, companyName, companyPhone, companyEmail, companyAddress, logoPreview, stampPreview, signaturePreview }: PdfPreviewProps) {
     return (
         <div className="w-full rounded-lg border bg-white shadow-sm overflow-hidden">
             <div className="flex items-center justify-between bg-muted/50 px-3 py-2 border-b">
@@ -114,7 +117,9 @@ function PdfPreview({ titleColor, footerText, showStamp, showSignature, document
                     </div>
                     <div className="text-right text-[8px] text-gray-600 leading-tight">
                         <div className="font-bold text-[9px] text-gray-800">{companyName || 'Company Name'}</div>
-                        <div>Company Address, Singapore</div>
+                        <div className="whitespace-pre-line">{companyAddress || 'Company Address, Singapore'}</div>
+                        {companyPhone && <div className="mt-0.5">Tel: {companyPhone}</div>}
+                        {companyEmail && <div>Email: {companyEmail}</div>}
                         <div className="mt-0.5 font-semibold">LICENCE NO. 25C2708</div>
                     </div>
                 </div>
@@ -500,7 +505,6 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                 {/* Add new module — key forces remount when module count changes, closing the dialog */}
                                 <AddModuleDialog
                                     key={settings.registered_modules?.length ?? 0}
-                                    onAdded={() => { }}
                                 />
                             </div>
                         </div>
@@ -584,6 +588,9 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                         showSignature={activeModule?.show_signature ?? false}
                                         documentType={activeDefinition?.document_type ?? selectedModule.toUpperCase()}
                                         companyName={data.company_name}
+                                        companyPhone={data.company_phone}
+                                        companyEmail={data.company_email}
+                                        companyAddress={data.company_address}
                                         logoPreview={logoPreview}
                                         stampPreview={stampPreview}
                                         signaturePreview={signaturePreview}

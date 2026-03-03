@@ -22,7 +22,7 @@ class FinancialTransactionService
     ): FinancialTransaction {
         $financialYear = $this->getFinancialYearForDate($date);
 
-        if (!$financialYear) {
+        if (! $financialYear) {
             throw new \Exception('No financial year found for the given date');
         }
 
@@ -51,7 +51,7 @@ class FinancialTransactionService
     ): FinancialTransaction {
         $financialYear = $this->getFinancialYearForDate($date);
 
-        if (!$financialYear) {
+        if (! $financialYear) {
             throw new \Exception('No financial year found for the given date');
         }
 
@@ -140,7 +140,7 @@ class FinancialTransactionService
 
         $currentFiscalYear = FinancialYear::getCurrentYear();
 
-        if (!$currentFiscalYear) {
+        if (! $currentFiscalYear) {
             for ($i = $months - 1; $i >= 0; $i--) {
                 $date = $now->copy()->subMonths($i);
                 $monthStart = $date->copy()->startOfMonth();
@@ -229,7 +229,7 @@ class FinancialTransactionService
 
             $quarters[] = [
                 'quarter' => "Q{$i}",
-                'period' => $quarterStart->format('d M Y') . ' - ' . $quarterEnd->format('d M Y'),
+                'period' => $quarterStart->format('d M Y').' - '.$quarterEnd->format('d M Y'),
                 'expenses' => (float) $expenses,
                 'revenue' => (float) $revenue,
                 'profit' => (float) ($revenue - $expenses),
@@ -252,7 +252,7 @@ class FinancialTransactionService
     {
         $currentYear = FinancialYear::getCurrentYear();
 
-        if (!$currentYear) {
+        if (! $currentYear) {
             return [
                 'total_expenses' => 0,
                 'total_revenue' => 0,

@@ -10,8 +10,6 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Queue\SerializesModels;
-use Mailtrap\EmailHeader\CategoryHeader;
-use Mailtrap\EmailHeader\CustomVariableHeader;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Header\UnstructuredHeader;
 
@@ -20,7 +18,9 @@ class WelcomeMail extends Mailable
     use Queueable, SerializesModels;
 
     private string $name;
+
     private string $email;
+
     private string $password;
 
     public function __construct(string $name, string $email, string $password)
@@ -37,12 +37,12 @@ class WelcomeMail extends Mailable
     {
         return new Envelope(
             from: new Address(config('mail.from.address'), config('mail.from.name')),
-            subject: 'Welcome to ' . config('app.name'),
+            subject: 'Welcome to '.config('app.name'),
             using: [
                 function (Email $email) {
                     $headers = $email->getHeaders();
                     $headers->addTextHeader('X-Message-Source', parse_url(config('app.url'), PHP_URL_HOST));
-                    $headers->add(new UnstructuredHeader('X-Mailer', config('app.name') . ' Mail System'));
+                    $headers->add(new UnstructuredHeader('X-Mailer', config('app.name').' Mail System'));
                     $headers->addTextHeader('X-Environment', app()->environment());
                     $headers->addTextHeader('X-Sent-At', now()->toIso8601String());
                 },
@@ -61,7 +61,7 @@ class WelcomeMail extends Mailable
                 'name' => $this->name,
                 'email' => $this->email,
                 'password' => $this->password,
-                'loginUrl' => rtrim(config('app.url'), '/') . '/login',
+                'loginUrl' => rtrim(config('app.url'), '/').'/login',
             ],
         );
     }
@@ -90,7 +90,7 @@ class WelcomeMail extends Mailable
     public function headers(): Headers
     {
         return new Headers(
-            messageId: 'welcome-' . uniqid() . '@' . parse_url(config('app.url'), PHP_URL_HOST),
+            messageId: 'welcome-'.uniqid().'@'.parse_url(config('app.url'), PHP_URL_HOST),
             references: [],
             text: [
                 'X-App-Environment' => app()->environment(),

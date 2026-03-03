@@ -127,7 +127,7 @@ class UserSeeder extends Seeder
                 'link' => '/settings/profile',
                 'type' => 'warning',
             ],
-        ])->map(fn(array $n) => Notification::create($n));
+        ])->map(fn (array $n) => Notification::create($n));
 
         $adminAndSalesUsers = User::role(['admin', 'sales'])->get();
 

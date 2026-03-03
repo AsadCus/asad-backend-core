@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class FinancialTransaction extends Model
 {
     use SoftDeletes;
+
     protected $fillable = [
         'financial_year_id',
         'type',

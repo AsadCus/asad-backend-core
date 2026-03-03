@@ -9,6 +9,7 @@ class FormatService
         if ($value === null || $value === '') {
             return null;
         }
+
         return (float) $value;
     }
 
@@ -27,6 +28,6 @@ class FormatService
             $decimals = $showDecimals ? 2 : 0;
         }
 
-        return $sign . '$' . number_format($absValue, $decimals);
+        return $sign.'$'.number_format($absValue, $decimals);
     }
 }

@@ -2,14 +2,15 @@
 
 namespace App\Services\MaidManagement\FileParser;
 
-use ZipArchive;
 use DOMDocument;
 use DOMXPath;
 use Exception;
+use ZipArchive;
 
 class DocxParser
 {
     private array $errors = [];
+
     private array $metadata = [];
 
     public function parse(string $path): string
@@ -18,22 +19,22 @@ class DocxParser
             // Normalize path separators for Windows
             $path = str_replace('/', DIRECTORY_SEPARATOR, $path);
             $this->validateFile($path);
-            
+
             $zip = new ZipArchive;
-            if ($zip->open($path) !== TRUE) {
+            if ($zip->open($path) !== true) {
                 throw new Exception("Unable to open DOCX file: $path");
             }
 
             $xml = $zip->getFromName('word/document.xml');
             if ($xml === false) {
                 $zip->close();
-                throw new Exception("Invalid DOCX structure: document.xml not found");
+                throw new Exception('Invalid DOCX structure: document.xml not found');
             }
             $zip->close();
 
-            $doc = new DOMDocument();
-            if (!@$doc->loadXML($xml)) {
-                throw new Exception("Failed to parse XML content");
+            $doc = new DOMDocument;
+            if (! @$doc->loadXML($xml)) {
+                throw new Exception('Failed to parse XML content');
             }
 
             $xpath = new DOMXPath($doc);
@@ -41,30 +42,30 @@ class DocxParser
 
             $textParts = $this->extractTextWithTables($xpath);
             $text = $this->normalizeText(implode("\n", $textParts));
-            
+
             $this->validateStructure($text);
             $this->metadata['text_length'] = strlen($text);
             $this->metadata['has_tables'] = $this->hasTableContent($text);
-            
+
             return trim($text);
         } catch (Exception $e) {
             $this->errors[] = $e->getMessage();
-            throw new Exception("DOCX parsing failed: " . $e->getMessage());
+            throw new Exception('DOCX parsing failed: '.$e->getMessage());
         }
     }
 
     private function validateFile(string $path): void
     {
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             throw new Exception("File not found: $path");
         }
-        
+
         if (filesize($path) === 0) {
-            throw new Exception("File is empty");
+            throw new Exception('File is empty');
         }
-        
+
         if (filesize($path) > 10 * 1024 * 1024) {
-            throw new Exception("File too large (max 10MB)");
+            throw new Exception('File too large (max 10MB)');
         }
     }
 
@@ -72,15 +73,15 @@ class DocxParser
     {
         $textParts = [];
         $body = $xpath->query('//w:body')->item(0);
-        
-        if (!$body) {
-            throw new Exception("Document body not found");
+
+        if (! $body) {
+            throw new Exception('Document body not found');
         }
 
         foreach ($body->childNodes as $node) {
             if ($node->nodeName === 'w:tbl') {
                 $tableText = $this->extractTable($xpath, $node);
-                if (!empty($tableText)) {
+                if (! empty($tableText)) {
                     $textParts[] = $tableText;
                 }
             } elseif ($node->nodeName === 'w:p') {
@@ -98,15 +99,15 @@ class DocxParser
     {
         $rows = $xpath->query('.//w:tr', $tableNode);
         $tableLines = [];
-        
+
         foreach ($rows as $row) {
             $cells = $xpath->query('.//w:tc', $row);
             $rowCells = [];
-            
+
             foreach ($cells as $cell) {
                 $cellParagraphs = [];
                 $paragraphs = $xpath->query('.//w:p', $cell);
-                
+
                 foreach ($paragraphs as $p) {
                     $pText = '';
                     $texts = $xpath->query('.//w:t', $p);
@@ -117,18 +118,18 @@ class DocxParser
                         $cellParagraphs[] = trim($pText);
                     }
                 }
-                
-                if (!empty($cellParagraphs)) {
+
+                if (! empty($cellParagraphs)) {
                     $rowCells[] = implode("\n", $cellParagraphs);
                 }
             }
-            
-            if (!empty($rowCells)) {
+
+            if (! empty($rowCells)) {
                 // Join cells in row with newline to preserve vertical structure
                 $tableLines[] = implode("\n", $rowCells);
             }
         }
-        
+
         return implode("\n", $tableLines);
     }
 
@@ -139,7 +140,7 @@ class DocxParser
         foreach ($runs as $r) {
             $pText .= $r->nodeValue;
         }
-        
+
         $checkboxes = $xpath->query('.//w:checkBox', $pNode);
         foreach ($checkboxes as $cb) {
             $checked = $xpath->query('.//w:checked', $cb);
@@ -149,7 +150,7 @@ class DocxParser
                 $pText .= ' ☐';
             }
         }
-        
+
         return $pText;
     }
 
@@ -172,6 +173,7 @@ class DocxParser
         $text = preg_replace('/(\([A-E]\))/', "\n$1", $text);
         $text = preg_replace('/:{2,}/', ':', $text);
         $text = html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
+
         return $text;
     }
 
@@ -179,19 +181,19 @@ class DocxParser
     {
         $requiredSections = ['(A)', '(B)', '(C)'];
         $missingSections = [];
-        
+
         foreach ($requiredSections as $section) {
             if (stripos($text, $section) === false) {
                 $missingSections[] = $section;
             }
         }
-        
-        if (!empty($missingSections)) {
-            $this->errors[] = "Missing sections: " . implode(', ', $missingSections);
+
+        if (! empty($missingSections)) {
+            $this->errors[] = 'Missing sections: '.implode(', ', $missingSections);
         }
-        
+
         if (strlen($text) < 100) {
-            $this->errors[] = "Document content too short";
+            $this->errors[] = 'Document content too short';
         }
     }
 
@@ -212,8 +214,8 @@ class DocxParser
 
     /**
      * Extract photo dari DOCX dan return binary content
-     * 
-     * @param string $path Path ke file DOCX
+     *
+     * @param  string  $path  Path ke file DOCX
      * @return array|null ['content' => binary, 'filename' => string, 'mime_type' => string]
      */
     public function extractPhoto(string $path): ?array
@@ -231,7 +233,7 @@ class DocxParser
                 // Check if it's an image in word/media directory
                 if (preg_match('/word\/media\/(.*\.(jpe?g|png|bmp|gif))$/i', $entry, $matches)) {
                     $imgContent = $zip->getFromIndex($i);
-                    
+
                     if ($imgContent === false || empty($imgContent)) {
                         continue;
                     }
@@ -241,17 +243,17 @@ class DocxParser
                     $mimeType = $finfo->buffer($imgContent);
 
                     $zip->close();
-                    
+
                     return [
                         'content' => $imgContent,
                         'filename' => $matches[1], // Original filename from DOCX
                         'mime_type' => $mimeType,
-                        'size' => strlen($imgContent)
+                        'size' => strlen($imgContent),
                     ];
                 }
             }
         } catch (Exception $e) {
-            $this->errors[] = "Photo extraction failed: " . $e->getMessage();
+            $this->errors[] = 'Photo extraction failed: '.$e->getMessage();
         } finally {
             $zip->close();
         }
@@ -261,8 +263,8 @@ class DocxParser
 
     /**
      * Extract semua photos dari DOCX
-     * 
-     * @param string $path Path ke file DOCX
+     *
+     * @param  string  $path  Path ke file DOCX
      * @return array Array of photo data
      */
     public function extractAllPhotos(string $path): array
@@ -280,7 +282,7 @@ class DocxParser
 
                 if (preg_match('/word\/media\/(.*\.(jpe?g|png|bmp|gif))$/i', $entry, $matches)) {
                     $imgContent = $zip->getFromIndex($i);
-                    
+
                     if ($imgContent === false || empty($imgContent)) {
                         continue;
                     }
@@ -293,12 +295,12 @@ class DocxParser
                         'filename' => $matches[1],
                         'mime_type' => $mimeType,
                         'size' => strlen($imgContent),
-                        'index' => count($photos) // 0-based index
+                        'index' => count($photos), // 0-based index
                     ];
                 }
             }
         } catch (Exception $e) {
-            $this->errors[] = "Photos extraction failed: " . $e->getMessage();
+            $this->errors[] = 'Photos extraction failed: '.$e->getMessage();
         } finally {
             $zip->close();
         }

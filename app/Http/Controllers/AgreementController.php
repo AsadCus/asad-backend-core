@@ -12,6 +12,7 @@ use Inertia\Inertia;
 class AgreementController extends Controller
 {
     protected $formatService;
+
     protected ReportTemplateService $reportTemplateService;
 
     public function __construct(FormatService $formatService, ReportTemplateService $reportTemplateService)
@@ -30,7 +31,7 @@ class AgreementController extends Controller
             ->whereNotNull('customer_id')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn($q) => $this->mapQuotationToAgreement($q))
+            ->map(fn ($q) => $this->mapQuotationToAgreement($q))
             ->filter()
             ->values();
 
@@ -53,7 +54,7 @@ class AgreementController extends Controller
 
             $agreement = $this->mapQuotationToAgreement($quotation);
 
-            if (!$agreement) {
+            if (! $agreement) {
                 abort(404, 'Invalid agreement data');
             }
 
@@ -69,26 +70,26 @@ class AgreementController extends Controller
                 ->setPaper('a4')
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
-                ->stream($agreement['agreement_number'] . '.pdf');
+                ->stream($agreement['agreement_number'].'.pdf');
         } catch (\Throwable $e) {
             Log::error('Agreement PDF error', ['error' => $e->getMessage()]);
 
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 
     private function mapQuotationToAgreement(Quotation $quotation): ?array
     {
         if (
-            !$quotation->customer ||
-            !$quotation->customer->user
+            ! $quotation->customer ||
+            ! $quotation->customer->user
         ) {
             return null;
         }
 
         return [
             'id' => $quotation->id,
-            'agreement_number' => 'AGR-' . $quotation->id . '-' . $quotation->created_at->format('Ymd'),
+            'agreement_number' => 'AGR-'.$quotation->id.'-'.$quotation->created_at->format('Ymd'),
             'sales_registration_number' => $quotation->sales_registration_number,
             'quotation' => [
                 'id' => $quotation->id,

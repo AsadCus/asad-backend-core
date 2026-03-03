@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Branch;
 use App\Models\FinancialYear;
+use App\Models\User;
 use Inertia\Inertia;
 
 class MasterController extends Controller

@@ -26,8 +26,8 @@ class MaidRule
                 'string',
                 function ($attribute, $value, $fail) {
                     $ages = collect(explode(',', $value))
-                        ->map(fn($age) => trim($age))
-                        ->filter(fn($age) => $age !== '');
+                        ->map(fn ($age) => trim($age))
+                        ->filter(fn ($age) => $age !== '');
 
                     request()->merge([
                         'children_ages_count' => $ages->count(),
@@ -38,7 +38,7 @@ class MaidRule
                     }
 
                     foreach ($ages as $age) {
-                        if (!is_numeric($age) || $age < 0) {
+                        if (! is_numeric($age) || $age < 0) {
                             $fail('Each child age must be a positive number.');
                         }
                     }
@@ -70,6 +70,7 @@ class MaidRule
                         if ($validator->fails()) {
                             $fail($validator->errors()->first($attribute));
                         }
+
                         return;
                     }
 

@@ -2,12 +2,34 @@ import { formatCurrency } from '@/lib/utils';
 import { forwardRef } from 'react';
 import { AgreementSchema } from '../schema';
 
+interface BrandingData {
+    company_name: string;
+    company_address: string;
+    company_phone?: string;
+    company_email?: string;
+    logo_url?: string;
+    module_templates?: {
+        agreements?: {
+            title_color: string;
+            footer_text?: string;
+        };
+    };
+}
+
 interface Props {
     agreement: AgreementSchema;
+    branding?: BrandingData | null;
 }
 
 const AgreementPreview = forwardRef<HTMLDivElement, Props>(
-    ({ agreement }, ref) => {
+    ({ agreement, branding }, ref) => {
+        // Use branding data with fallbacks
+        const companyName = branding?.company_name || 'Urban Care Employment Agency';
+        const companyAddress = branding?.company_address || '931 Yishun Central 1\n#01-109, Singapore 760931';
+        const titleColor = branding?.module_templates?.agreements?.title_color || '#40A09DD4';
+        const logoUrl = branding?.logo_url || '/logo_agency.png';
+        const companyPhone = branding?.company_phone || '';
+        const companyEmail = branding?.company_email || '';
         const invoices = agreement.placement_fee_invoices
             ? agreement.placement_fee_invoices
             : [];
@@ -22,17 +44,24 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                 <div className="mb-4 flex items-center justify-between">
                     <div className="flex-shrink-0">
                         <img
-                            src="/logo_agency.png"
-                            alt="Urban Care Logo"
+                            src={logoUrl}
+                            alt="Company Logo"
                             className="h-[90px] w-64 object-contain"
                         />
                     </div>
                     <div className="text-right text-sm leading-snug">
                         <p className="mb-1 text-base font-bold">
-                            Urban Care Employment Agency
+                            {companyName}
                         </p>
-                        <p>931 Yishun Central 1</p>
-                        <p>#01-109, Singapore 760931</p>
+                        {companyAddress.split('\n').map((line, idx) => (
+                            <p key={idx}>{line}</p>
+                        ))}
+                        {(companyPhone || companyEmail) && (
+                            <div className="mt-1">
+                                {companyPhone && <p>Tel: {companyPhone}</p>}
+                                {companyEmail && <p>Email: {companyEmail}</p>}
+                            </div>
+                        )}
                         <div className="mt-1 font-bold">
                             {agreement.sales_registration_number && (
                                 <p>
@@ -47,7 +76,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
 
                 {/* Title Bar */}
                 <div
-                    style={{ backgroundColor: '#40A09DD4' }}
+                    style={{ backgroundColor: titleColor }}
                     className="mb-4 py-2 text-center text-sm font-bold text-white"
                 >
                     Agreement for Installment Payment between Employer &

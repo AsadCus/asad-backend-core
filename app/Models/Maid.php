@@ -202,7 +202,7 @@ class Maid extends Model
 
     public function getInterviewDateFormattedAttribute(): ?string
     {
-        if (!$this->interview_date) {
+        if (! $this->interview_date) {
             return null;
         }
 
@@ -212,9 +212,9 @@ class Maid extends Model
         if ($this->interview_end_date) {
             $end = Carbon::parse($this->interview_end_date);
             if ($start->isSameDay($end)) {
-                $formatted .= ' to ' . $end->format('h:i A');
+                $formatted .= ' to '.$end->format('h:i A');
             } else {
-                $formatted .= ' to ' . $end->format('M d, Y h:i A');
+                $formatted .= ' to '.$end->format('M d, Y h:i A');
             }
         }
 

@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers\Master;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Rules\BranchRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class BranchController extends Controller
 {
-    protected $branchService, $countryService, $branchRule;
+    protected $branchService;
+
+    protected $countryService;
+
+    protected $branchRule;
 
     public function __construct(BranchService $branchService, CountryService $countryService, BranchRule $branchRule)
     {

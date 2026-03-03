@@ -8,10 +8,26 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Download, Eye, Loader2, Printer } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { InvoiceItemSchema, InvoiceSchema } from '../schema';
 import InvoicePreview from './invoice-preview';
+
+interface BrandingData {
+    company_name: string;
+    company_address: string;
+    company_phone: string;
+    company_email: string;
+    logo_url: string | null;
+    module_templates: {
+        invoice: {
+            title_color: string;
+            footer_text: string;
+            show_stamp: boolean;
+            show_signature: boolean;
+        };
+    };
+}
 
 interface InvoicePreviewModalProps {
     data: InvoiceSchema;
@@ -28,10 +44,28 @@ export default function InvoicePreviewModal({
 }: InvoicePreviewModalProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [branding, setBranding] = useState<BrandingData | null>(null);
     const previewRef = useRef<HTMLDivElement>(null);
 
     const open = externalOpen ?? internalOpen;
     const setOpen = externalOnOpenChange ?? setInternalOpen;
+
+    useEffect(() => {
+        if (open && !branding) {
+            const fetchBranding = async () => {
+                try {
+                    const response = await fetch('/api/report-template/branding');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setBranding(data);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch branding:', error);
+                }
+            };
+            fetchBranding();
+        }
+    }, [open, branding]);
 
     const handleGeneratePdf = useCallback(async () => {
         if (!data.id) {
@@ -153,6 +187,7 @@ export default function InvoicePreviewModal({
                                 ref={previewRef}
                                 data={data}
                                 items={items}
+                                branding={branding}
                             />
                         </div>
                     </div>

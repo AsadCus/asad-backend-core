@@ -18,7 +18,7 @@ class ShareAppearance
     public function handle(Request $request, Closure $next): Response
     {
         Inertia::share([
-            'appearanceSettings' => fn() => AppearanceSetting::first(),
+            'appearanceSettings' => fn () => AppearanceSetting::first(),
         ]);
 
         return $next($request);

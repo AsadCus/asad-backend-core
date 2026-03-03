@@ -84,11 +84,11 @@ class BoxFieldExtractor
             $weight = str_replace(',', '.', $wMatch[1]);
         }
 
-        if (!$height && preg_match('/Place of birth.*?\n[\d\s]+([0-9]{3})\s*cm/is', $text, $hMatch)) {
+        if (! $height && preg_match('/Place of birth.*?\n[\d\s]+([0-9]{3})\s*cm/is', $text, $hMatch)) {
             $height = $hMatch[1];
         }
 
-        if (!$weight && preg_match('/cm.*?([0-9]{2,3}(?:[,.][0-9]+)?)\s*(?:Age|kg)/is', $text, $wMatch)) {
+        if (! $weight && preg_match('/cm.*?([0-9]{2,3}(?:[,.][0-9]+)?)\s*(?:Age|kg)/is', $text, $wMatch)) {
             $weight = str_replace(',', '.', $wMatch[1]);
         }
 
@@ -163,7 +163,7 @@ class BoxFieldExtractor
             '/([0-9]+)\s*rest\s*day\(s\)\s*per\s*month/i',
             '/([0-9]+)\s*rest\s*day/i',
         ];
-        
+
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $text, $match)) {
                 return $match[1];

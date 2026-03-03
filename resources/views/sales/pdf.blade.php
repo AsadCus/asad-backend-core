@@ -106,8 +106,8 @@
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                @if(!empty($branding['logo_url']))
-                    <img src="{{ $branding['logo_url'] }}" alt="Company Logo">
+                @if(!empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
+                    <img src="{{ $branding['logo_path_absolute'] }}" alt="Company Logo">
                 @else
                     <img src="{{ public_path('logo_agency.png') }}" alt="Company Logo">
                 @endif
@@ -164,16 +164,16 @@
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @endif
 
-            @if(!empty($branding['show_stamp']) && $branding['stamp_url'])
+            @if(!empty($branding['show_stamp']) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
                 <div style="margin-top: 15px;">
-                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 80px; width: auto;">
+                    <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp" style="max-height: 80px; width: auto;">
                 </div>
             @endif
 
-            @if(!empty($branding['show_signature']) && $branding['signature_url'])
+            @if(!empty($branding['show_signature']) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
                 <div style="margin-top: 10px;">
                     <p style="font-size: 9px; margin: 0;">Authorised Signature</p>
-                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
+                    <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
                 </div>
             @endif
         </div>

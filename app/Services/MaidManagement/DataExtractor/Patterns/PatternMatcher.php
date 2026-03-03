@@ -11,6 +11,7 @@ class PatternMatcher
                 return trim($match[1] ?? '');
             }
         }
+
         return null;
     }
 
@@ -19,9 +20,11 @@ class PatternMatcher
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $text, $matches)) {
                 array_shift($matches);
+
                 return array_map('trim', $matches);
             }
         }
+
         return [];
     }
 }

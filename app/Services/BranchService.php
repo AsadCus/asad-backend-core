@@ -59,7 +59,7 @@ class BranchService
         $data = [
             'id' => $branch->id,
             'name' => $branch->name,
-            'country_id' => $branch->country_id
+            'country_id' => $branch->country_id,
         ];
 
         return $data;
@@ -82,7 +82,7 @@ class BranchService
     public function delete($id)
     {
         $branch = Branch::find($id);
-        if (!$branch) {
+        if (! $branch) {
             return false;
         }
 

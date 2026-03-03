@@ -190,7 +190,7 @@ class SalesController extends Controller
 
             // Resolve branch name
             $branchName = '-';
-            if (!empty($userData['branch_id'])) {
+            if (! empty($userData['branch_id'])) {
                 $branch = $this->branchService->getForFilter()
                     ->firstWhere('id', $userData['branch_id']);
                 $branchName = $branch['name'] ?? '-';
@@ -213,7 +213,7 @@ class SalesController extends Controller
                 'branding' => $branding,
             ])->render();
 
-            $filename = 'sales-profile-' . str()->slug($data['name']) . '.pdf';
+            $filename = 'sales-profile-'.str()->slug($data['name']).'.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4')
@@ -223,7 +223,7 @@ class SalesController extends Controller
         } catch (\Throwable $e) {
             Log::error('Sales PDF error', ['error' => $e->getMessage()]);
 
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 }

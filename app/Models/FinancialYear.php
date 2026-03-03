@@ -51,7 +51,7 @@ class FinancialYear extends Model
     {
         $currentYear = self::getCurrentYear();
 
-        if (!$currentYear) {
+        if (! $currentYear) {
             // Default: Jan 1 to Dec 31 of current year
             $now = Carbon::now();
             $startDate = Carbon::create($now->year, 1, 1);

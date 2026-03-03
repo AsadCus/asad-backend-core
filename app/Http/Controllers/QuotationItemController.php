@@ -10,7 +10,11 @@ use Inertia\Inertia;
 
 class QuotationItemController extends Controller
 {
-    protected $quotationItemService, $quotationItemRule, $noteService;
+    protected $quotationItemService;
+
+    protected $quotationItemRule;
+
+    protected $noteService;
 
     public function __construct(QuotationItemService $quotationItemService, QuotationItemRule $quotationItemRule, NoteService $noteService)
     {

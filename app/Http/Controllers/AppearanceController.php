@@ -24,8 +24,8 @@ class AppearanceController extends Controller
                 'required',
                 'string',
                 function ($attribute, $value, $fail) {
-                    if (!preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/i', $value)) {
-                        $fail('The ' . $attribute . ' must be a valid hex color (e.g., #fff or #ffffff).');
+                    if (! preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/i', $value)) {
+                        $fail('The '.$attribute.' must be a valid hex color (e.g., #fff or #ffffff).');
                     }
                 },
             ],
@@ -36,10 +36,12 @@ class AppearanceController extends Controller
 
         if ($setting === null) {
             $setting = AppearanceSetting::create($validated);
+
             return back()->with('success', 'Appearance created.');
         }
 
         $setting->update($validated);
+
         return back()->with('success', 'Appearance updated.');
     }
 }

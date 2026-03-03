@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\ReportSetting;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class ReportSettingSeeder extends Seeder
@@ -29,4 +28,3 @@ class ReportSettingSeeder extends Seeder
         );
     }
 }
-

@@ -3,9 +3,24 @@ import { paymentMethods, paymentPlans } from '@/pages/quotations/schema';
 import React, { forwardRef } from 'react';
 import { InvoiceItemSchema, InvoiceSchema } from '../schema';
 
+interface BrandingData {
+    company_name: string;
+    company_address: string;
+    company_phone?: string;
+    company_email?: string;
+    logo_url?: string;
+    module_templates?: {
+        invoices?: {
+            title_color: string;
+            footer_text?: string;
+        };
+    };
+}
+
 interface Props {
     data: InvoiceSchema;
     items?: InvoiceItemSchema[];
+    branding?: BrandingData | null;
 }
 
 type InvoiceItemInternal = InvoiceItemSchema & {
@@ -88,8 +103,16 @@ function alphabetIndex(index: number) {
 }
 
 const InvoicePreview = forwardRef<HTMLDivElement, Props>(
-    ({ data, items = [] }, ref) => {
+    ({ data, items = [], branding }, ref) => {
         const sortedItems = buildSortedItems(items);
+
+        // Use branding data with fallbacks
+        const companyName = branding?.company_name || 'Urban Care Employment Agency';
+        const companyAddress = branding?.company_address || '931 Yishun Central 1\n#01-109, Singapore 760931';
+        const titleColor = branding?.module_templates?.invoices?.title_color || '#40A09DD4';
+        const logoUrl = branding?.logo_url || '/logo_agency.png';
+        const companyPhone = branding?.company_phone || '';
+        const companyEmail = branding?.company_email || '';
 
         let rootCounter = 0;
         const childCounters = new Map<string, number>();
@@ -133,17 +156,24 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
                 <div className="mb-2 flex items-center justify-between border-gray-300">
                     <div className="flex-shrink-0">
                         <img
-                            src="/logo_agency.png"
-                            alt="Urban Care Logo"
+                            src={logoUrl}
+                            alt="Company Logo"
                             className="h-[102px] w-80 object-contain"
                         />
                     </div>
                     <div className="flex-1 text-right text-sm leading-snug">
                         <p className="mb-1 text-base font-bold">
-                            Urban Care Employment Agency
+                            {companyName}
                         </p>
-                        <p>931 Yishun Central 1</p>
-                        <p>#01-109, Singapore 760931</p>
+                        {companyAddress.split('\n').map((line, idx) => (
+                            <p key={idx}>{line}</p>
+                        ))}
+                        {(companyPhone || companyEmail) && (
+                            <div className="mt-1">
+                                {companyPhone && <p>Tel: {companyPhone}</p>}
+                                {companyEmail && <p>Email: {companyEmail}</p>}
+                            </div>
+                        )}
                         <div className="mt-1 font-bold">
                             {data.sales_registration_number && (
                                 <p>
@@ -158,7 +188,7 @@ const InvoicePreview = forwardRef<HTMLDivElement, Props>(
 
                 {/* Invoice Title Bar */}
                 <div
-                    style={{ backgroundColor: '#40A09DD4' }}
+                    style={{ backgroundColor: titleColor }}
                     className="mb-4 py-2 text-center text-base font-bold tracking-widest text-white"
                 >
                     INVOICE

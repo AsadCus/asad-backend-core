@@ -20,7 +20,7 @@ class InvoiceItemService
         $items = InvoiceItem::query()
             ->orderBy('sort_order')
             ->get()
-            ->map(fn(InvoiceItem $m) => [
+            ->map(fn (InvoiceItem $m) => [
                 'id' => $m->id,
                 'parent_id' => $m->parent_id,
                 'invoice_id' => $m->invoice_id,
@@ -76,7 +76,7 @@ class InvoiceItemService
     {
         DB::transaction(function () use ($invoiceId, $items) {
             InvoiceItem::where('invoice_id', $invoiceId)->delete();
-            if (!empty($items)) {
+            if (! empty($items)) {
                 $this->store($invoiceId, $items);
             }
         });
@@ -85,7 +85,7 @@ class InvoiceItemService
     public function deleteItem($id)
     {
         $item = InvoiceItem::find($id);
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 

@@ -70,10 +70,10 @@ class EmploymentPatterns
         return [
             // Format: 2023 2025 SAUDI ARABIC TAKE CARE...
             '/(\d{4})\s*[-–]\s*(\d{4})\s+([A-Z][A-Z\s]+?)\s+([A-Z][A-Z\s,.\(\)]+)/i',
-            
+
             // Format dengan tab/spasi banyak: 2023    2025    COUNTRY    DUTIES
             '/(\d{4})\s+(\d{4})\s+([A-Z][A-Z\s]+?)\s{2,}(.+?)(?=\d{4}|\n|$)/is',
-            
+
             // Format: 2008 - 2009 BANDUNG (INDONESIA) GENERAL HOUSE MAID...
             '/(\d{4})\s*[-–]\s*(\d{4})\s+([A-Z\(\)][^\n]+?)\s+([A-Z][A-Z\s,.\(\)]+)/i',
         ];
@@ -87,7 +87,7 @@ class EmploymentPatterns
         return [
             // Format dengan duties di baris berbeda
             '/(\d{4})\s+(\d{4})\s+([A-Z][A-Z\s]+?)\s+(.+?)(?=\d{4}|C2|C3|Previous working|$)/is',
-            
+
             // Format dengan backtick: 2022 - 2024` JAKARTA
             '/(\d{4})\s*[-–]\s*(\d{4})`?\s+([A-Z][A-Z\s\(\)]+?)\s+(.+?)(?=\d{4}|C2|C3|$)/is',
         ];
@@ -148,7 +148,7 @@ class EmploymentPatterns
     public static function stackedVerticalEntries(string $text): array
     {
         $lines = preg_split('/\r?\n/', $text);
-        if (!$lines) {
+        if (! $lines) {
             return [];
         }
         $lines = array_map(static function ($l) {
@@ -166,6 +166,7 @@ class EmploymentPatterns
         for ($i = 0; $i < count($lines); $i++) {
             if ($fromIdx === null && preg_match('/^From$/i', $lines[$i])) {
                 $fromIdx = $i;
+
                 continue;
             }
             if ($toIdx === null && preg_match('/^To$/i', $lines[$i])) {
@@ -209,12 +210,12 @@ class EmploymentPatterns
 
         while ($pos < count($values)) {
             // Check if we have a year pair
-            if (!preg_match('/^\d{4}$/', $values[$pos] ?? '')) {
+            if (! preg_match('/^\d{4}$/', $values[$pos] ?? '')) {
                 break;
             }
 
             $fromYear = $values[$pos++];
-            if (!preg_match('/^\d{4}$/', $values[$pos] ?? '')) {
+            if (! preg_match('/^\d{4}$/', $values[$pos] ?? '')) {
                 break;
             }
             $toYear = $values[$pos++];
@@ -222,66 +223,66 @@ class EmploymentPatterns
             // Get country - bisa multi-word (BANDUNG INDONESIA atau ARAB SAUDI)
             $countryLine = $values[$pos++] ?? null;
             $countryRaw = $countryLine;
-            
+
             // Check if country line contains multiple words (e.g., BANDUNG INDONESIA)
             if ($countryLine) {
                 $words = preg_split('/\s+/', $countryLine, -1, PREG_SPLIT_NO_EMPTY);
-                
+
                 // If 2 words and second is country name, use second word
                 if (count($words) === 2) {
                     $secondWord = strtoupper($words[1]);
                     $knownCountries = ['INDONESIA', 'SINGAPORE', 'MALAYSIA', 'THAILAND', 'PHILIPPINES', 'VIETNAM', 'CAMBODIA', 'MYANMAR', 'BRUNEI', 'LAOS'];
-                    
+
                     if (in_array($secondWord, $knownCountries)) {
                         // Format: CITY COUNTRY (e.g., BANDUNG INDONESIA)
                         $countryRaw = $countryLine; // Keep both for raw
                     }
                 }
             }
-            
+
             // Check if next line is also country part (for multi-line country)
             if ($pos < count($values)) {
                 $nextLine = trim($values[$pos]);
-                
+
                 // If next line is short, all caps, and contains country keyword
                 if (preg_match('/^[A-Z\s]+$/', $nextLine) && strlen($nextLine) < 20) {
                     $nextWords = preg_split('/\s+/', $nextLine, -1, PREG_SPLIT_NO_EMPTY);
                     $hasCountryKeyword = false;
-                    
+
                     foreach ($nextWords as $word) {
                         if (in_array(strtoupper($word), ['ARAB', 'SAUDI', 'INDIA', 'CHINA', 'HONG', 'KONG'])) {
                             $hasCountryKeyword = true;
                             break;
                         }
                     }
-                    
+
                     // Only append if it's not duplicate and has country keyword
                     if ($hasCountryKeyword && strtoupper($countryLine) !== strtoupper($nextLine)) {
-                        $countryRaw .= ' ' . $nextLine;
+                        $countryRaw .= ' '.$nextLine;
                         $pos++;
                     }
                 }
             }
-            
+
             // Get employer - bisa multi-word (INDIA MELAYU) atau single line
             $employer = null;
             $employerParts = [];
             $maxEmployerLines = 2;
             $linesChecked = 0;
-            
-            while ($pos < count($values) && !preg_match('/^\d{4}$/', $values[$pos]) && $linesChecked < $maxEmployerLines) {
+
+            while ($pos < count($values) && ! preg_match('/^\d{4}$/', $values[$pos]) && $linesChecked < $maxEmployerLines) {
                 $line = trim($values[$pos]);
-                
+
                 // Skip if same as country (duplicate)
                 if (strtoupper($line) === strtoupper($countryRaw)) {
                     $employer = $line;
                     $pos++;
                     break;
                 }
-                
+
                 $words = preg_split('/\s+/', $line, -1, PREG_SPLIT_NO_EMPTY);
                 $isEmployerLine = false;
-                
+
                 // Check if any word in line is employer keyword
                 foreach ($words as $word) {
                     if (in_array(strtoupper($word), $employerKeywords)) {
@@ -289,7 +290,7 @@ class EmploymentPatterns
                         break;
                     }
                 }
-                
+
                 if ($isEmployerLine) {
                     $employerParts[] = $values[$pos++];
                     $linesChecked++;
@@ -298,14 +299,14 @@ class EmploymentPatterns
                     break;
                 }
             }
-            
-            if (!$employer && !empty($employerParts)) {
+
+            if (! $employer && ! empty($employerParts)) {
                 $employer = implode(' ', $employerParts);
             }
 
             // Collect duties until next year or end
             $dutiesParts = [];
-            while ($pos < count($values) && !preg_match('/^\d{4}$/', $values[$pos])) {
+            while ($pos < count($values) && ! preg_match('/^\d{4}$/', $values[$pos])) {
                 $dutiesParts[] = $values[$pos++];
             }
 
@@ -351,43 +352,43 @@ class EmploymentPatterns
             'GENERAL HOUSE WORK' => 'GENERAL HOUSEWORK',  // normalize variations
             'OFCHILD' => 'OF CHILD',
         ];
-        
+
         foreach ($commonWords as $wrong => $correct) {
             $text = str_ireplace($wrong, $correct, $text);
         }
-        
+
         // Add space after comma if missing (,2 → , 2, ,GENERAL → , GENERAL)
         $text = preg_replace('/,([A-Z0-9])/', ', $1', $text);
-        
+
         // Add space before capital letters in concatenated words
         // TAKECAREOFCHILDREN → TAKE CARE OF CHILDREN
         // But avoid breaking words like BANDUNG
         $text = preg_replace('/([a-z])([A-Z])/', '$1 $2', $text);
-        
+
         // Add space between capital word followed by OF/AND + capital word
         // CAREOFCHILDREN → CARE OF CHILDREN (minimum 2 chars before/after)
         // CHILDRENAND → CHILDREN AND (minimum 2 chars before/after)
         $text = preg_replace('/([A-Z]{2,})(OF)([A-Z]{2,})/', '$1 $2 $3', $text);
         $text = preg_replace('/([A-Z]{2,})(AND)([A-Z]{2,})/', '$1 $2 $3', $text);
-        
+
         // Add space between word and A- pattern (like COOKINGA-4 → COOKING A-4)
         $text = preg_replace('/([A-Z]+)(A-\d+)/', '$1 $2', $text);
-        
+
         // Add space before numbers if preceded by letters
         // CHILDREN5 → CHILDREN 5, CHILD2 → CHILD 2
         $text = preg_replace('/([A-Z]+)(\d+)/', '$1 $2', $text);
-        
+
         // Add space before numbers followed by YO
         // 5YO → 5 YO, 2YOAND → 2 YO AND
         $text = preg_replace('/(\d+)(YO)/i', '$1 $2', $text);
-        
+
         // Add space after YO if followed by capital letter or comma
         // YOAND → YO AND, YO,2 → YO, 2
         $text = preg_replace('/(YO)([A-Z,])/i', '$1 $2', $text);
-        
+
         // Normalize multiple spaces
         $text = preg_replace('/\s+/', ' ', $text);
-        
+
         return $text;
     }
 
@@ -435,7 +436,7 @@ class EmploymentPatterns
             '/,\s*(\d+[a-z\s]*),?\s*$/i',
         ];
     }
-    
+
     /**
      * Pattern to extract ALL age references (for remarks field specifically)
      * This should be used ONLY after cleaning from duties

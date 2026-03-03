@@ -15,10 +15,10 @@ class NoteService
     {
         return match ($model) {
             'quotation' => ['model' => QuotationNotes::class, 'key' => 'quotation_id'],
-            'invoice'   => ['model' => InvoiceNotes::class,  'key' => 'invoice_id'],
-            'receipt'   => ['model' => ReceiptNotes::class,  'key' => 'receipt_id'],
-            'master'    => ['model' => MasterNotes::class,   'key' => 'model'],
-            default     => throw new InvalidArgumentException("Unsupported model: {$model}"),
+            'invoice' => ['model' => InvoiceNotes::class,  'key' => 'invoice_id'],
+            'receipt' => ['model' => ReceiptNotes::class,  'key' => 'receipt_id'],
+            'master' => ['model' => MasterNotes::class,   'key' => 'model'],
+            default => throw new InvalidArgumentException("Unsupported model: {$model}"),
         };
     }
 
@@ -26,9 +26,9 @@ class NoteService
     {
         return match ($model) {
             'quotation' => 'quotation_id',
-            'invoice'   => 'invoice_id',
-            'receipt'   => 'receipt_id',
-            default     => null,
+            'invoice' => 'invoice_id',
+            'receipt' => 'receipt_id',
+            default => null,
         };
     }
 
@@ -40,6 +40,7 @@ class NoteService
         }
 
         ['model' => $noteModel, 'key' => $key] = $this->resolve($model);
+
         return $noteModel::where($key, $id)->orderBy('sort_order')->get();
     }
 
@@ -48,7 +49,7 @@ class NoteService
         ['model' => $noteModel, 'key' => $key] = $this->resolve($model);
 
         $existing = $noteModel::query()
-            ->when($ownerId !== null, fn($q) => $q->where($key, $ownerId))
+            ->when($ownerId !== null, fn ($q) => $q->where($key, $ownerId))
             ->get()
             ->keyBy('id');
 
@@ -56,23 +57,23 @@ class NoteService
 
         $existing->keys()
             ->diff($incomingIds)
-            ->each(fn($id) => $existing[$id]->delete());
+            ->each(fn ($id) => $existing[$id]->delete());
 
         $result = collect();
 
         foreach ($notes as $note) {
-            if (!empty($note['id']) && $existing->has($note['id'])) {
+            if (! empty($note['id']) && $existing->has($note['id'])) {
                 $existing[$note['id']]->update([
                     'description' => $note['description'],
-                    'sort_order'  => $note['sort_order'],
+                    'sort_order' => $note['sort_order'],
                 ]);
 
                 $result->push($existing[$note['id']]);
             } else {
                 $payload = [
                     'description' => $note['description'],
-                    'sort_order'  => $note['sort_order'],
-                    $key          => $ownerId ?? $note['model'],
+                    'sort_order' => $note['sort_order'],
+                    $key => $ownerId ?? $note['model'],
                 ];
 
                 $result->push($noteModel::create($payload));

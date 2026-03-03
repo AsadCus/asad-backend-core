@@ -65,13 +65,13 @@ class NotificationService
                 }
             }
 
-            if (!empty($userIds)) {
+            if (! empty($userIds)) {
                 $targetUserIds = $targetUserIds->merge($userIds);
             }
 
             $targetUserIds = $targetUserIds->unique();
 
-            $userNotifications = $targetUserIds->map(fn($userId) => [
+            $userNotifications = $targetUserIds->map(fn ($userId) => [
                 'user_id' => $userId,
                 'notification_id' => $notification->id,
                 'created_at' => now(),

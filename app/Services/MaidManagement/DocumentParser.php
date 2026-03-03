@@ -20,13 +20,13 @@ class DocumentParser
 
     /**
      * Parse uploaded document to text
-     * 
+     *
      * @throws \Exception if file type not supported or parsing fails
      */
     public function parse(UploadedFile $file): string
     {
         $this->ensureTempDirectory();
-        
+
         $storedPath = $file->store('temp_uploads', 'local');
         $fullPath = $this->resolveFilePath($storedPath, $file);
         $extension = strtolower($file->getClientOriginalExtension());
@@ -43,15 +43,15 @@ class DocumentParser
 
     /**
      * Parse document dan extract photos sekaligus
-     * 
-     * @param UploadedFile $file
+     *
      * @return array ['text' => string, 'photos' => array]
+     *
      * @throws \Exception if file type not supported or parsing fails
      */
     public function parseWithPhotos(UploadedFile $file): array
     {
         $this->ensureTempDirectory();
-        
+
         $storedPath = $file->store('temp_uploads', 'local');
         $fullPath = $this->resolveFilePath($storedPath, $file);
         $extension = strtolower($file->getClientOriginalExtension());
@@ -62,7 +62,7 @@ class DocumentParser
 
             return [
                 'text' => $text,
-                'photos' => $photos
+                'photos' => $photos,
             ];
         } finally {
             // Always cleanup temp file
@@ -85,9 +85,9 @@ class DocumentParser
 
     private function ensureTempDirectory(): void
     {
-        $tempDir = storage_path('app' . DIRECTORY_SEPARATOR . 'temp_uploads');
-        
-        if (!file_exists($tempDir)) {
+        $tempDir = storage_path('app'.DIRECTORY_SEPARATOR.'temp_uploads');
+
+        if (! file_exists($tempDir)) {
             mkdir($tempDir, 0755, true);
         }
     }
@@ -97,7 +97,7 @@ class DocumentParser
         $fullPath = Storage::disk('local')->path($storedPath);
 
         // Fallback to uploaded temp path if stored path not found
-        if (!file_exists($fullPath)) {
+        if (! file_exists($fullPath)) {
             $tmp = $file->getRealPath();
             if ($tmp && file_exists($tmp)) {
                 $fullPath = $tmp;
@@ -112,7 +112,7 @@ class DocumentParser
         if ($extension === 'pdf' && isset($this->parsers['pdf'])) {
             return $this->parsers['pdf']->parse($filePath);
         }
-        
+
         if ($extension === 'docx' && isset($this->parsers['docx'])) {
             return $this->parsers['docx']->parse($filePath);
         }

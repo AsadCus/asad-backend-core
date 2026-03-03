@@ -7,19 +7,19 @@ class SkillsPatterns
     public static function skillDataPattern(string $skillLabel): array
     {
         $escaped = preg_quote($skillLabel, '/');
-        
+
         return [
             // Pattern 1: With detailed assessment
-            '/' . $escaped . '.*?\n.*?\n(Yes|No)\s*\n(Yes|No)\s*\n([^\n]+(?:\n[A-Z][^\n]+)*?)(?=\n\d+\.|$)/is',
-            
+            '/'.$escaped.'.*?\n.*?\n(Yes|No)\s*\n(Yes|No)\s*\n([^\n]+(?:\n[A-Z][^\n]+)*?)(?=\n\d+\.|$)/is',
+
             // Pattern 2: With numeric assessment
-            '/' . $escaped . '.*?\n.*?\n(Yes|No)\s*\n(Yes|No)\s*\n([0-9]+)/is',
-            
+            '/'.$escaped.'.*?\n.*?\n(Yes|No)\s*\n(Yes|No)\s*\n([0-9]+)/is',
+
             // Pattern 3: Simple Yes/No
-            '/' . $escaped . '.*?\n.*?\n(Yes|No)\s*\n(Yes|No)/is',
-            
+            '/'.$escaped.'.*?\n.*?\n(Yes|No)\s*\n(Yes|No)/is',
+
             // Pattern 4: Compact format
-            '/' . $escaped . '[^\n]*\n(Yes|No)\s*(Yes|No)\s*([^\n]*)/is',
+            '/'.$escaped.'[^\n]*\n(Yes|No)\s*(Yes|No)\s*([^\n]*)/is',
         ];
     }
 

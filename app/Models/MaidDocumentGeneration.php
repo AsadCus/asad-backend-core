@@ -61,13 +61,13 @@ class MaidDocumentGeneration extends Model
      */
     public function getFileSizeHumanAttribute(): string
     {
-        if (!$this->file_size) {
+        if (! $this->file_size) {
             return 'N/A';
         }
 
         $units = ['B', 'KB', 'MB', 'GB'];
         $power = min(floor(log($this->file_size, 1024)), count($units) - 1);
-        
-        return round($this->file_size / pow(1024, $power), 2) . ' ' . $units[$power];
+
+        return round($this->file_size / pow(1024, $power), 2).' '.$units[$power];
     }
 }

@@ -19,7 +19,7 @@ class NoteController extends Controller
     {
         $validated = $request->validate([
             'model' => ['required', 'string'],
-            'id'    => ['nullable'],
+            'id' => ['nullable'],
         ]);
 
         return response()->json($this->noteService->get($validated['model'], $validated['id'] ?? null));
