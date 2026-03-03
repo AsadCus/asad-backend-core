@@ -49,6 +49,7 @@ class ReportTemplateController extends Controller
                     'invoice' => $settings->getModuleTemplate('invoice'),
                     'receipt' => $settings->getModuleTemplate('receipt'),
                     'agreement' => $settings->getModuleTemplate('agreement'),
+                    'sales' => $settings->getModuleTemplate('sales'),
                 ],
                 'registered_modules' => $settings->registered_modules ?? [],
                 'updated_by' => $settings->updated_by,

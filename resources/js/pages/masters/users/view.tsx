@@ -1,8 +1,10 @@
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
 import { index } from '@/routes/master/user';
+import { generatePdf } from '@/routes/sales';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
+import { FileDown } from 'lucide-react';
 import { useCallback } from 'react';
 import { resolveUserRoleLabel } from './create';
 import { UserForm } from './form';
@@ -59,6 +61,17 @@ export default function ViewUser({
                     <h2 className="text-lg font-semibold">
                         {roleLabel} - View
                     </h2>
+                    {isSales && (data as unknown as UserSchema)?.id && (
+                        <a
+                            href={generatePdf((data as unknown as UserSchema).id!).url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+                        >
+                            <FileDown className="h-4 w-4" />
+                            Download PDF
+                        </a>
+                    )}
                 </div>
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <UserForm

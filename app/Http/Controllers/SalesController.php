@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
+use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
 use App\Services\UserRoles\SalesUserService;
 use App\Services\UserService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class SalesController extends Controller
@@ -26,16 +29,26 @@ class SalesController extends Controller
 
     protected $userRule;
 
-    public function __construct(SalesService $salesService, SalesUserService $salesUserService, BranchService $branchService, UserService $userService, CountryService $countryService, UserRule $userRule)
-    {
+    protected ReportTemplateService $reportTemplateService;
+
+    public function __construct(
+        SalesService $salesService,
+        SalesUserService $salesUserService,
+        BranchService $branchService,
+        UserService $userService,
+        CountryService $countryService,
+        UserRule $userRule,
+        ReportTemplateService $reportTemplateService,
+    ) {
         $this->salesService = $salesService;
         $this->salesUserService = $salesUserService;
         $this->branchService = $branchService;
         $this->userService = $userService;
         $this->countryService = $countryService;
         $this->userRule = $userRule;
+        $this->reportTemplateService = $reportTemplateService;
 
-        $this->middleware('permission:sales view', ['only' => ['index', 'show']]);
+        $this->middleware('permission:sales view', ['only' => ['index', 'show', 'generatePdf']]);
         $this->middleware('permission:sales create', ['only' => ['create', 'store']]);
         $this->middleware('permission:sales edit', ['only' => ['edit', 'update']]);
         $this->middleware('permission:sales delete', ['only' => ['destroy']]);
@@ -162,5 +175,55 @@ class SalesController extends Controller
         $this->userService->delete($id);
 
         return redirect()->intended(route('sales.index'))->with('success', 'Sales deleted successfully.');
+    }
+
+    /**
+     * Generate a PDF profile for the given salesperson.
+     */
+    public function generatePdf(string $id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $userData = $this->salesUserService->getForEditShow($id);
+
+            // Resolve branch name
+            $branchName = '-';
+            if (!empty($userData['branch_id'])) {
+                $branch = $this->branchService->getForFilter()
+                    ->firstWhere('id', $userData['branch_id']);
+                $branchName = $branch['name'] ?? '-';
+            }
+
+            $data = [
+                'name' => $userData['name'],
+                'email' => $userData['email'],
+                'contact' => $userData['contact'] ?? '-',
+                'branch_name' => $branchName,
+                'registration_number' => \App\Models\Sales::where('user_id', $id)
+                    ->value('registration_number') ?? '-',
+            ];
+
+            $reportData = $this->reportTemplateService->build('sales', $data);
+            $branding = $reportData['branding'];
+
+            $html = view('sales.pdf', [
+                'data' => $data,
+                'branding' => $branding,
+            ])->render();
+
+            $filename = 'sales-profile-' . str()->slug($data['name']) . '.pdf';
+
+            return Pdf::loadHTML($html)
+                ->setPaper('a4')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->stream($filename);
+        } catch (\Throwable $e) {
+            Log::error('Sales PDF error', ['error' => $e->getMessage()]);
+
+            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+        }
     }
 }

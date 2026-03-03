@@ -28,10 +28,10 @@ import {
 } from '@/components/ui/dialog';
 import { Transition } from '@headlessui/react';
 import {
-    storeModule as storeModuleRoute,
-    destroyModule as destroyModuleRoute,
-    update as updateReportTemplate,
-} from '@/routes/report-template';
+    store as storeModuleRoute,
+    destroy as destroyModuleRoute,
+} from '@/routes/report-template/modules';
+import { update as updateReportTemplate } from '@/routes/report-template';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,6 +77,7 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     { key: 'invoice', label: 'Invoice', document_type: 'INVOICE' },
     { key: 'receipt', label: 'Receipt', document_type: 'OFFICIAL RECEIPT' },
     { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
+    { key: 'sales', label: 'Sales Report', document_type: 'SALES PROFILE' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

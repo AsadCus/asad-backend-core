@@ -97,6 +97,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Sales
     Route::resource('sales', SalesController::class);
+    Route::get('sales/{sale}/generate-pdf', [SalesController::class, 'generatePdf'])->name('sales.generate.pdf');
 
     // Supplier
     Route::resource('supplier', SupplierController::class);
@@ -217,5 +218,5 @@ Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';

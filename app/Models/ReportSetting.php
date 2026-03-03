@@ -59,6 +59,12 @@ class ReportSetting extends Model
             'show_stamp' => false,
             'show_signature' => false,
         ],
+        'sales' => [
+            'title_color' => '#40A09D',
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+        ],
     ];
 
     /**
