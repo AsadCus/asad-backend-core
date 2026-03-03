@@ -3,7 +3,6 @@
 namespace App\Services\Report;
 
 use App\Models\ReportSetting;
-use Illuminate\Support\Facades\Storage;
 
 class ReportTemplateService
 {
@@ -19,15 +18,15 @@ class ReportTemplateService
             'company_address' => $settings->company_address,
             'company_phone' => $settings->company_phone,
             'company_email' => $settings->company_email,
-            // URL versions (for web/frontend display)
+            // Relative URL versions (for web/frontend display) - works regardless of APP_URL or port
             'logo_url' => $settings->logo_path
-                ? Storage::disk('public')->url($settings->logo_path)
+                ? '/storage/'.$settings->logo_path
                 : null,
             'stamp_url' => $settings->stamp_path
-                ? Storage::disk('public')->url($settings->stamp_path)
+                ? '/storage/'.$settings->stamp_path
                 : null,
             'signature_url' => $settings->signature_path
-                ? Storage::disk('public')->url($settings->signature_path)
+                ? '/storage/'.$settings->signature_path
                 : null,
             // Absolute path versions (for DomPDF)
             'logo_path_absolute' => $settings->logo_path
@@ -67,6 +66,11 @@ class ReportTemplateService
 
         // Merge the per-module template config into branding
         $moduleTemplate = $settings->getModuleTemplate($type);
+        
+        // Ensure boolean values are properly cast
+        $moduleTemplate['show_stamp'] = (bool) ($moduleTemplate['show_stamp'] ?? false);
+        $moduleTemplate['show_signature'] = (bool) ($moduleTemplate['show_signature'] ?? false);
+        
         $branding = array_merge($branding, $moduleTemplate);
 
         return [

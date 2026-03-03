@@ -75,9 +75,9 @@ interface ReportTemplateData {
 const BUILTIN_MODULES: RegisteredModule[] = [
     { key: 'quotation', label: 'Quotation', document_type: 'QUOTATION' },
     { key: 'invoice', label: 'Invoice', document_type: 'INVOICE' },
-    { key: 'receipt', label: 'Receipt', document_type: 'OFFICIAL RECEIPT' },
+    { key: 'receipt', label: 'Official Receipt', document_type: 'OFFICIAL RECEIPT' },
     { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
-    { key: 'sales', label: 'Sales Report', document_type: 'SALES PROFILE' },
+    { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -319,11 +319,12 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
     const buildInitialModuleTemplates = (): Record<string, ModuleTemplate> => {
         const defaults: Record<string, ModuleTemplate> = {};
         allModules.forEach(({ key }) => {
+            const serverData = settings.module_templates?.[key];
             defaults[key] = {
-                title_color: settings.module_templates?.[key]?.title_color ?? '#40A09D',
-                footer_text: settings.module_templates?.[key]?.footer_text ?? '',
-                show_stamp: settings.module_templates?.[key]?.show_stamp ?? false,
-                show_signature: settings.module_templates?.[key]?.show_signature ?? false,
+                title_color: serverData?.title_color ?? '#40A09D',
+                footer_text: serverData?.footer_text ?? '',
+                show_stamp: Boolean(serverData?.show_stamp ?? false),
+                show_signature: Boolean(serverData?.show_signature ?? false),
             };
         });
         return defaults;
@@ -386,12 +387,48 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        
+        // Build form data manually to exclude null file fields
+        // (prevents accidentally clearing files that user didn't touch)
+        const formData = new FormData();
+        
+        // Add all text/basic fields
+        formData.append('company_name', data.company_name);
+        formData.append('company_address', data.company_address || '');
+        formData.append('company_phone', data.company_phone || '');
+        formData.append('company_email', data.company_email || '');
+        formData.append('footer_text', data.footer_text || '');
+        formData.append('_method', 'put');
+        
+        // Add file fields ONLY if they have actual File objects (not null)
+        if (data.logo_file instanceof File) {
+            formData.append('logo_file', data.logo_file);
+        }
+        if (data.stamp_file instanceof File) {
+            formData.append('stamp_file', data.stamp_file);
+        }
+        if (data.signature_file instanceof File) {
+            formData.append('signature_file', data.signature_file);
+        }
+        
+        // Add module templates
+        Object.entries(data.module_templates).forEach(([moduleKey, moduleConfig]) => {
+            Object.entries(moduleConfig as Record<string, any>).forEach(([configKey, value]) => {
+                formData.append(`module_templates[${moduleKey}][${configKey}]`, String(value));
+            });
+        });
+        
         post(updateReportTemplate.url(), {
-            forceFormData: true,
+            data: formData,
         });
     };
 
-    const activeModule = data.module_templates[selectedModule];
+    const activeModule = data.module_templates[selectedModule] ?? {
+        title_color: '#40A09D',
+        footer_text: '',
+        show_stamp: false,
+        show_signature: false,
+    };
     const activeDefinition = allModules.find(m => m.key === selectedModule);
     const isBuiltin = BUILTIN_MODULES.some(m => m.key === selectedModule);
 
@@ -582,10 +619,10 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                     <Label className="text-sm font-medium">Live Preview</Label>
                                     <p className="text-xs text-muted-foreground">Updates as you change settings above.</p>
                                     <PdfPreview
-                                        titleColor={activeModule?.title_color ?? '#40A09D'}
-                                        footerText={activeModule?.footer_text ?? ''}
-                                        showStamp={activeModule?.show_stamp ?? false}
-                                        showSignature={activeModule?.show_signature ?? false}
+                                        titleColor={activeModule.title_color}
+                                        footerText={activeModule.footer_text}
+                                        showStamp={activeModule.show_stamp}
+                                        showSignature={activeModule.show_signature}
                                         documentType={activeDefinition?.document_type ?? selectedModule.toUpperCase()}
                                         companyName={data.company_name}
                                         companyPhone={data.company_phone}

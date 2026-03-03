@@ -32,6 +32,19 @@ class ReportTemplateController extends Controller
     {
         $settings = ReportSetting::current();
 
+        // Build module templates for all modules (built-in + custom)
+        $moduleTemplates = [];
+        
+        // Add built-in modules
+        foreach (array_keys(ReportSetting::$moduleDefaults) as $moduleKey) {
+            $moduleTemplates[$moduleKey] = $settings->getModuleTemplate($moduleKey);
+        }
+        
+        // Add custom registered modules
+        foreach ($settings->registered_modules ?? [] as $module) {
+            $moduleTemplates[$module['key']] = $settings->getModuleTemplate($module['key']);
+        }
+
         return Inertia::render('settings/report-template', [
             'settings' => [
                 'id' => $settings->id,
@@ -43,13 +56,7 @@ class ReportTemplateController extends Controller
                 'footer_text' => $settings->footer_text,
                 'stamp_path' => $settings->stamp_path,
                 'signature_path' => $settings->signature_path,
-                'module_templates' => [
-                    'quotation' => $settings->getModuleTemplate('quotation'),
-                    'invoice' => $settings->getModuleTemplate('invoice'),
-                    'receipt' => $settings->getModuleTemplate('receipt'),
-                    'agreement' => $settings->getModuleTemplate('agreement'),
-                    'sales' => $settings->getModuleTemplate('sales'),
-                ],
+                'module_templates' => $moduleTemplates,
                 'registered_modules' => $settings->registered_modules ?? [],
                 'updated_by' => $settings->updated_by,
                 'updated_at' => $settings->updated_at?->translatedFormat('d F Y H:i'),
@@ -83,6 +90,15 @@ class ReportTemplateController extends Controller
 
             // Deep-merge: keep existing keys, overwrite with incoming
             foreach ($incoming as $moduleType => $moduleConfig) {
+                // Ensure boolean values are properly cast from string to boolean
+                // (FormData sends booleans as strings "true"/"false")
+                if (isset($moduleConfig['show_stamp'])) {
+                    $moduleConfig['show_stamp'] = filter_var($moduleConfig['show_stamp'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+                }
+                if (isset($moduleConfig['show_signature'])) {
+                    $moduleConfig['show_signature'] = filter_var($moduleConfig['show_signature'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+                }
+                
                 $existing[$moduleType] = array_merge(
                     $existing[$moduleType] ?? ReportSetting::$moduleDefaults[$moduleType] ?? [],
                     $moduleConfig
@@ -92,14 +108,21 @@ class ReportTemplateController extends Controller
             $settings->update(['module_templates' => $existing]);
         }
 
-        // Process file uploads
-        $this->fileUploadService->processUploads(
-            model: $settings,
-            data: $validated,
-            fileKeyMap: self::FILE_KEY_MAP,
-            baseDirectory: 'report',
-            entityName: 'report-branding',
-        );
+        // Process file uploads - ONLY for files that were actually changed by user
+        // Only process keys where file is actually present (not null from form load)
+        $filteredData = array_filter($validated, function ($file, $key) {
+            return in_array($key, array_keys(self::FILE_KEY_MAP)) && ($file instanceof \Illuminate\Http\UploadedFile || $file === '');
+        }, ARRAY_FILTER_USE_BOTH);
+
+        if (!empty($filteredData)) {
+            $this->fileUploadService->processUploads(
+                model: $settings,
+                data: $filteredData,
+                fileKeyMap: self::FILE_KEY_MAP,
+                baseDirectory: 'report',
+                entityName: 'report-branding',
+            );
+        }
 
         return back()->with('success', 'Report template settings updated successfully.');
     }

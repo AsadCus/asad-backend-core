@@ -20,6 +20,8 @@ interface BrandingData {
     company_phone: string;
     company_email: string;
     logo_url: string | null;
+    stamp_url: string | null;
+    signature_url: string | null;
     module_templates: {
         receipt: {
             title_color: string;

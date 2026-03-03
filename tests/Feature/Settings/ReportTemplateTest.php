@@ -152,4 +152,47 @@ class ReportTemplateTest extends TestCase
 
         $response->assertSessionHasErrors('logo_file');
     }
+
+    public function test_updating_one_file_does_not_delete_other_files(): void
+    {
+        $user = User::factory()->create();
+
+        // Upload all three files initially
+        $logo = UploadedFile::fake()->image('logo.png');
+        $stamp = UploadedFile::fake()->image('stamp.png');
+        $signature = UploadedFile::fake()->image('signature.png');
+
+        $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company',
+            'logo_file' => $logo,
+            'stamp_file' => $stamp,
+            'signature_file' => $signature,
+        ]);
+
+        $settings = ReportSetting::current();
+        $originalLogoPath = $settings->logo_path;
+        $originalStampPath = $settings->stamp_path;
+        $originalSignaturePath = $settings->signature_path;
+
+        $this->assertNotNull($originalLogoPath);
+        $this->assertNotNull($originalStampPath);
+        $this->assertNotNull($originalSignaturePath);
+
+        // Update only the stamp file - the key test: other files should NOT be deleted
+        $newStamp = UploadedFile::fake()->image('new-stamp.png');
+
+        $response = $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company Updated',
+            'stamp_file' => $newStamp,
+            // Note: logo_file and signature_file are NOT included in this request
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        // The critical assertion: logo and signature should still exist (not be deleted)
+        $updated = ReportSetting::current();
+        $this->assertNotNull($updated->logo_path, 'Logo should not be deleted when updating only stamp');
+        $this->assertNotNull($updated->signature_path, 'Signature should not be deleted when updating only stamp');
+        $this->assertNotNull($updated->stamp_path, 'Stamp should be present after update');
+    }
 }

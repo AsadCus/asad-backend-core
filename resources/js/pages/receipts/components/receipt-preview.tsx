@@ -10,10 +10,14 @@ interface BrandingData {
     company_phone?: string;
     company_email?: string;
     logo_url?: string;
+    stamp_url?: string;
+    signature_url?: string;
     module_templates?: {
-        receipts?: {
+        receipt?: {
             title_color: string;
             footer_text?: string;
+            show_stamp?: boolean;
+            show_signature?: boolean;
         };
     };
 }
@@ -100,8 +104,8 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
         // Use branding data with fallbacks
         const companyName = branding?.company_name || 'Urban Care Employment Agency';
         const companyAddress = branding?.company_address || '931 Yishun Central 1\n#01-109, Singapore 760931';
-        const titleColor = branding?.module_templates?.receipts?.title_color || '#40A09DD4';
-        const logoUrl = branding?.logo_url || '/logo_agency.png';
+        const titleColor = branding?.module_templates?.receipt?.title_color || '#40A09DD4';
+        const logoUrl = branding?.logo_url ?? '/logo_agency.png'; // Use ?? to handle empty strings
         const companyPhone = branding?.company_phone || '';
         const companyEmail = branding?.company_email || '';
 
@@ -136,7 +140,7 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                             {companyName}
                         </p>
                         {companyAddress.split('\n').map((line, idx) => (
-                            <p key={idx}>{line}</p>
+                            <p key={`addr-${idx}`}>{line}</p>
                         ))}
                         {(companyPhone || companyEmail) && (
                             <div className="mt-1">
@@ -309,11 +313,8 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                                         isLastItem;
 
                                     return (
-                                        <>
-                                            <tr
-                                                key={item._internalKey}
-                                                className="border-b border-gray-200"
-                                            >
+                                        <React.Fragment key={item._internalKey}>
+                                            <tr className="border-b border-gray-200">
                                                 <td
                                                     className={`py-1 ${indent}`}
                                                 >
@@ -342,7 +343,7 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                                                         <td colSpan={3}></td>
                                                     </tr>
                                                 )}
-                                        </>
+                                        </React.Fragment>
                                     );
                                 })}
                             </tbody>
@@ -362,11 +363,38 @@ const ReceiptPreview = forwardRef<HTMLDivElement, Props>(
                     </div>
 
                     {/* Footer */}
-                    <div className="mt-8 text-center">
-                        Paynow to UEN 53496387X or Bank Transfer to DBS Business
-                        Multi Currency Account 072-131956-0.
-                        <br />
-                        For assistance, contact 8785 5651.
+                    <div className="mt-8 space-y-4 text-center text-sm">
+                        <p>
+                            Paynow to UEN 53496387X or Bank Transfer to DBS Business
+                            Multi Currency Account 072-131956-0.
+                            <br />
+                            For assistance, contact 8785 5651.
+                        </p>
+
+                        {/* Stamp Section */}
+                        {branding?.module_templates?.receipt?.show_stamp && branding?.stamp_url && (
+                            <div className="mt-6 text-center">
+                                <img
+                                    src={branding.stamp_url}
+                                    alt="Company Stamp"
+                                    className="mx-auto inline-block max-h-24 object-contain"
+                                />
+                            </div>
+                        )}
+
+                        {/* Signature Section */}
+                        {branding?.module_templates?.receipt?.show_signature && branding?.signature_url && (
+                            <div className="mt-6 text-center">
+                                <p className="mb-2 text-xs font-medium">
+                                    Authorised Signature
+                                </p>
+                                <img
+                                    src={branding.signature_url}
+                                    alt="Authorised Signature"
+                                    className="mx-auto inline-block max-h-20 object-contain"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

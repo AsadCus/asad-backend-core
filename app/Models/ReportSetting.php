@@ -103,8 +103,13 @@ class ReportSetting extends Model
         ];
 
         $stored = $this->module_templates[$type] ?? [];
+        
+        // Merge and ensure boolean casting
+        $merged = array_merge($defaults, $stored);
+        $merged['show_stamp'] = filter_var($merged['show_stamp'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $merged['show_signature'] = filter_var($merged['show_signature'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-        return array_merge($defaults, $stored);
+        return $merged;
     }
 
     /**

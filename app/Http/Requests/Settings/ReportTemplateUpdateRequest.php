@@ -33,25 +33,13 @@ class ReportTemplateUpdateRequest extends FormRequest
             'stamp_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'signature_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
 
-            // Per-module template settings
+            // Per-module template settings (wildcard for all modules including custom)
             'module_templates' => ['nullable', 'array'],
-            'module_templates.quotation' => ['nullable', 'array'],
-            'module_templates.quotation.title_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
-            'module_templates.quotation.footer_text' => ['nullable', 'string', 'max:2000'],
-            'module_templates.quotation.show_stamp' => ['nullable', 'boolean'],
-            'module_templates.quotation.show_signature' => ['nullable', 'boolean'],
-
-            'module_templates.invoice' => ['nullable', 'array'],
-            'module_templates.invoice.title_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
-            'module_templates.invoice.footer_text' => ['nullable', 'string', 'max:2000'],
-            'module_templates.invoice.show_stamp' => ['nullable', 'boolean'],
-            'module_templates.invoice.show_signature' => ['nullable', 'boolean'],
-
-            'module_templates.receipt' => ['nullable', 'array'],
-            'module_templates.receipt.title_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
-            'module_templates.receipt.footer_text' => ['nullable', 'string', 'max:2000'],
-            'module_templates.receipt.show_stamp' => ['nullable', 'boolean'],
-            'module_templates.receipt.show_signature' => ['nullable', 'boolean'],
+            'module_templates.*' => ['nullable', 'array'],
+            'module_templates.*.title_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'module_templates.*.footer_text' => ['nullable', 'string', 'max:2000'],
+            'module_templates.*.show_stamp' => ['nullable', 'boolean'],
+            'module_templates.*.show_signature' => ['nullable', 'boolean'],
         ];
     }
 

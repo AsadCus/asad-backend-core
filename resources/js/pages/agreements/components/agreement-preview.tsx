@@ -27,7 +27,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
         const companyName = branding?.company_name || 'Urban Care Employment Agency';
         const companyAddress = branding?.company_address || '931 Yishun Central 1\n#01-109, Singapore 760931';
         const titleColor = branding?.module_templates?.agreements?.title_color || '#40A09DD4';
-        const logoUrl = branding?.logo_url || '/logo_agency.png';
+        const logoUrl = branding?.logo_url ?? '/logo_agency.png'; // Use ?? to handle empty strings
         const companyPhone = branding?.company_phone || '';
         const companyEmail = branding?.company_email || '';
         const invoices = agreement.placement_fee_invoices
@@ -252,6 +252,17 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                         : '-'}
                 </div>
 
+                {/* Stamp Section */}
+                {branding?.module_templates?.agreements?.show_stamp && branding?.stamp_url && (
+                    <div className="mt-6 text-center">
+                        <img
+                            src={branding.stamp_url}
+                            alt="Company Stamp"
+                            className="mx-auto inline-block max-h-24 object-contain"
+                        />
+                    </div>
+                )}
+
                 {/* Signature Section */}
                 <div className="mt-8 grid grid-cols-2 gap-8 text-sm">
                     <div>
@@ -266,9 +277,21 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
                     <div className="text-right">
                         <div className="mb-12 ml-auto h-16 border-b-2 border-gray-900"></div>
                         <div className="font-bold">
-                            Urban Care Employment Agency
+                            {companyName}
                         </div>
                         <div className="text-sm">Licence No. 25C2708</div>
+                        
+                        {/* Authorised Signature from Branding */}
+                        {branding?.module_templates?.agreements?.show_signature && branding?.signature_url && (
+                            <div className="mt-4">
+                                <p className="mb-2 text-xs">Authorised Signature</p>
+                                <img
+                                    src={branding.signature_url}
+                                    alt="Authorised Signature"
+                                    className="mx-auto inline-block max-h-16 object-contain"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -9,10 +9,14 @@ interface BrandingData {
     company_phone?: string;
     company_email?: string;
     logo_url?: string;
+    stamp_url?: string;
+    signature_url?: string;
     module_templates?: {
-        quotations?: {
+        quotation?: {
             title_color: string;
             footer_text?: string;
+            show_stamp?: boolean;
+            show_signature?: boolean;
         };
     };
 }
@@ -106,8 +110,8 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
         // Use branding data with fallbacks
         const companyName = branding?.company_name || 'Urban Care Employment Agency';
         const companyAddress = branding?.company_address || '931 Yishun Central 1\n#01-109, Singapore 760931';
-        const titleColor = branding?.module_templates?.quotations?.title_color || '#40A09DD4';
-        const logoUrl = branding?.logo_url || '/logo_agency.png';
+        const titleColor = branding?.module_templates?.quotation?.title_color || '#40A09DD4';
+        const logoUrl = branding?.logo_url ?? '/logo_agency.png'; // Use ?? to handle empty strings
         const companyPhone = branding?.company_phone || '';
         const companyEmail = branding?.company_email || '';
 
@@ -350,6 +354,31 @@ const QuotationPreview = forwardRef<HTMLDivElement, Props>(
                                 }}
                             />
                         ))}
+
+                        {/* Stamp Section */}
+                        {branding?.module_templates?.quotation?.show_stamp && branding?.stamp_url && (
+                            <div className="mt-6 text-center">
+                                <img
+                                    src={branding.stamp_url}
+                                    alt="Company Stamp"
+                                    className="mx-auto inline-block max-h-24 object-contain"
+                                />
+                            </div>
+                        )}
+
+                        {/* Signature Section */}
+                        {branding?.module_templates?.quotation?.show_signature && branding?.signature_url && (
+                            <div className="mt-6 text-center">
+                                <p className="mb-2 text-xs font-medium">
+                                    Authorised Signature
+                                </p>
+                                <img
+                                    src={branding.signature_url}
+                                    alt="Authorised Signature"
+                                    className="mx-auto inline-block max-h-20 object-contain"
+                                />
+                            </div>
+                        )}
 
                         <p className="mt-4 text-center font-bold">
                             UPDATED:{' '}
