@@ -17,17 +17,17 @@ import ReceiptPreview from './receipt-preview';
 interface BrandingData {
     company_name: string;
     company_address: string;
-    company_phone: string;
-    company_email: string;
-    logo_url: string | null;
-    stamp_url: string | null;
-    signature_url: string | null;
-    module_templates: {
-        receipt: {
+    company_phone?: string;
+    company_email?: string;
+    logo_url?: string;
+    stamp_url?: string;
+    signature_url?: string;
+    module_templates?: {
+        receipt?: {
             title_color: string;
-            footer_text: string;
-            show_stamp: boolean;
-            show_signature: boolean;
+            footer_text?: string;
+            show_stamp?: boolean;
+            show_signature?: boolean;
         };
     };
 }

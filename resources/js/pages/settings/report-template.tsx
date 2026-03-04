@@ -41,8 +41,8 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     { key: 'quotation', label: 'Quotation', document_type: 'QUOTATION' },
     { key: 'invoice', label: 'Invoice', document_type: 'INVOICE' },
     { key: 'receipt', label: 'Official Receipt', document_type: 'OFFICIAL RECEIPT' },
-    { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
-    { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
+    // { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
+    // { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
 ];
 
 export default function ReportTemplate({ settings }: { settings: ReportTemplateSettings }) {
