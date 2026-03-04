@@ -1,3 +1,4 @@
+import { FormField } from '@/components/form-field';
 import HeadingSmall from '@/components/heading-small';
 import { ImagePreviewDialog } from '@/components/image-preview-dialog';
 import InputError from '@/components/input-error';
@@ -293,20 +294,22 @@ function FileUploadField({
     onClear,
 }: FileUploadFieldProps) {
     return (
-        <div>
-            <Label htmlFor={id}>{label}</Label>
-            <p className="mt-0.5 mb-2 text-sm text-muted-foreground">{hint}</p>
+        <FormField
+            label={label}
+            fieldRequirementsProps={{ hint }}
+            htmlFor={id}
+            error={error}
+        >
             <Input
                 id={id}
                 type="file"
                 accept="image/jpeg,image/png,image/jpg"
                 onChange={onChange}
-                className="mt-1 block w-full"
+                className="block w-full"
             />
             <p className="mt-1 text-sm text-muted-foreground">
                 Accepted: JPG, JPEG, PNG. Max 2MB
             </p>
-            <InputError message={error} className="mt-2" />
             {preview && (
                 <div className="mt-3 flex items-center gap-3">
                     <ImagePreviewDialog
@@ -326,7 +329,7 @@ function FileUploadField({
                     </Button>
                 </div>
             )}
-        </div>
+        </FormField>
     );
 }
 
@@ -373,7 +376,6 @@ function AddModuleDialog() {
             <DialogTrigger asChild>
                 <Button
                     type="button"
-                    variant="outline"
                     size="sm"
                     className="flex items-center gap-1.5"
                 >
@@ -673,7 +675,7 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
 
                     <form onSubmit={submit} className="space-y-6">
                         {/* ── Section 1: Global Branding ── */}
-                        <div className="overflow-hidden rounded-lg border shadow-sm">
+                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
                             <button
                                 type="button"
                                 onClick={() => setBrandingOpen((v) => !v)}
@@ -698,13 +700,15 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                             {brandingOpen && (
                                 <div className="space-y-5 p-5">
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        <div className="sm:col-span-2">
-                                            <Label htmlFor="company_name">
-                                                Company Name{' '}
-                                                <span className="text-red-500">
-                                                    *
-                                                </span>
-                                            </Label>
+                                        <FormField
+                                            label="Company Name"
+                                            fieldRequirementsProps={{
+                                                required: true,
+                                            }}
+                                            htmlFor="company_name"
+                                            error={errors.company_name}
+                                            className="sm:col-span-2"
+                                        >
                                             <Input
                                                 id="company_name"
                                                 value={data.company_name}
@@ -714,18 +718,15 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="mt-1"
                                                 required
                                             />
-                                            <InputError
-                                                message={errors.company_name}
-                                                className="mt-2"
-                                            />
-                                        </div>
-                                        <div className="sm:col-span-2">
-                                            <Label htmlFor="company_address">
-                                                Company Address
-                                            </Label>
+                                        </FormField>
+                                        <FormField
+                                            label="Company Address"
+                                            htmlFor="company_address"
+                                            error={errors.company_address}
+                                            className="sm:col-span-2"
+                                        >
                                             <Textarea
                                                 id="company_address"
                                                 value={data.company_address}
@@ -735,18 +736,14 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="mt-1"
                                                 rows={3}
                                             />
-                                            <InputError
-                                                message={errors.company_address}
-                                                className="mt-2"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="company_phone">
-                                                Company Phone
-                                            </Label>
+                                        </FormField>
+                                        <FormField
+                                            label="Company Phone"
+                                            htmlFor="company_phone"
+                                            error={errors.company_phone}
+                                        >
                                             <Input
                                                 id="company_phone"
                                                 value={data.company_phone}
@@ -756,17 +753,13 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="mt-1"
                                             />
-                                            <InputError
-                                                message={errors.company_phone}
-                                                className="mt-2"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="company_email">
-                                                Company Email
-                                            </Label>
+                                        </FormField>
+                                        <FormField
+                                            label="Company Email"
+                                            htmlFor="company_email"
+                                            error={errors.company_email}
+                                        >
                                             <Input
                                                 id="company_email"
                                                 type="email"
@@ -777,13 +770,8 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="mt-1"
                                             />
-                                            <InputError
-                                                message={errors.company_email}
-                                                className="mt-2"
-                                            />
-                                        </div>
+                                        </FormField>
                                     </div>
 
                                     <Separator />
@@ -843,7 +831,7 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                         </div>
 
                         {/* ── Section 2: Module Templates ── */}
-                        <div className="overflow-hidden rounded-lg border shadow-sm">
+                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
                             {/* Header with Module Selector + Add/Delete */}
                             <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
                                 <div>
@@ -931,18 +919,13 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                     {/* Left: Settings */}
                                     <div className="space-y-5">
                                         {/* Title Bar Color */}
-                                        <div>
-                                            <Label htmlFor="title_color">
-                                                Title Bar Color
-                                            </Label>
-                                            <p className="mt-0.5 mb-2 text-sm text-muted-foreground">
-                                                Background color for the{' '}
-                                                <strong>
-                                                    {activeDefinition?.label ??
-                                                        selectedModule}
-                                                </strong>{' '}
-                                                document title bar.
-                                            </p>
+                                        <FormField
+                                            label="Title Bar Color"
+                                            fieldRequirementsProps={{
+                                                hint: `Background color for the ${activeDefinition?.label ?? selectedModule} document title bar`,
+                                            }}
+                                            htmlFor="title_color"
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <div
                                                     className="h-9 w-12 flex-shrink-0 rounded border shadow-sm"
@@ -984,21 +967,16 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                                     maxLength={7}
                                                 />
                                             </div>
-                                        </div>
+                                        </FormField>
 
                                         {/* Footer Text */}
-                                        <div>
-                                            <Label htmlFor="module_footer_text">
-                                                Footer Text
-                                            </Label>
-                                            <p className="mt-0.5 mb-2 text-sm text-muted-foreground">
-                                                Custom footer for{' '}
-                                                <strong>
-                                                    {activeDefinition?.label ??
-                                                        selectedModule}
-                                                </strong>
-                                                . Leave blank to use default.
-                                            </p>
+                                        <FormField
+                                            label="Footer Text"
+                                            fieldRequirementsProps={{
+                                                hint: `Custom footer for ${activeDefinition?.label ?? selectedModule}. Leave blank to use default`,
+                                            }}
+                                            htmlFor="module_footer_text"
+                                        >
                                             <Textarea
                                                 id="module_footer_text"
                                                 value={
@@ -1014,7 +992,7 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                                 rows={4}
                                                 placeholder="e.g. Payment terms, bank details, or custom notes..."
                                             />
-                                        </div>
+                                        </FormField>
 
                                         <Separator />
 
@@ -1075,14 +1053,13 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
 
                                     {/* Right: Live Preview */}
                                     <div className="space-y-2">
-                                        <Label className="text-base font-medium">
-                                            Live Preview
-                                        </Label>
-                                        <p className="text-sm text-muted-foreground">
-                                            Updates as you change settings
-                                            above.
-                                        </p>
-                                        <PdfPreview
+                                        <FormField
+                                            label="Live Preview"
+                                            fieldRequirementsProps={{
+                                                hint: 'Updates as you change settings above',
+                                            }}
+                                        >
+                                            <PdfPreview
                                             titleColor={
                                                 activeModule.title_color
                                             }
@@ -1107,6 +1084,7 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                             stampPreview={stampPreview}
                                             signaturePreview={signaturePreview}
                                         />
+                                        </FormField>
                                     </div>
                                 </div>
                             </div>
