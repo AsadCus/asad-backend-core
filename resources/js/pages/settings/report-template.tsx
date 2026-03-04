@@ -564,24 +564,24 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
             field: 'logo_file' | 'stamp_file' | 'signature_file',
             setPreview: (v: string | null) => void,
         ) =>
-        (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            setData(field, file);
-            const reader = new FileReader();
-            reader.onloadend = () => setPreview(reader.result as string);
-            reader.readAsDataURL(file);
-        };
+            (e: React.ChangeEvent<HTMLInputElement>) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setData(field, file);
+                const reader = new FileReader();
+                reader.onloadend = () => setPreview(reader.result as string);
+                reader.readAsDataURL(file);
+            };
 
     const makeClearHandler =
         (
             field: 'logo_file' | 'stamp_file' | 'signature_file',
             setPreview: (v: string | null) => void,
         ) =>
-        () => {
-            setData(field, null);
-            setPreview(null);
-        };
+            () => {
+                setData(field, null);
+                setPreview(null);
+            };
 
     const updateModule = (
         field: keyof ModuleTemplate,
@@ -867,10 +867,10 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                             ))}
                                             {settings.registered_modules
                                                 ?.length > 0 && (
-                                                <div className="mt-1 border-t px-2 py-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                                                    Custom
-                                                </div>
-                                            )}
+                                                    <div className="mt-1 border-t px-2 py-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                                        Custom
+                                                    </div>
+                                                )}
                                             {(
                                                 settings.registered_modules ??
                                                 []
@@ -1060,30 +1060,30 @@ export default function ReportTemplate({ settings }: ReportTemplateData) {
                                             }}
                                         >
                                             <PdfPreview
-                                            titleColor={
-                                                activeModule.title_color
-                                            }
-                                            footerText={
-                                                activeModule.footer_text
-                                            }
-                                            showStamp={activeModule.show_stamp}
-                                            showSignature={
-                                                activeModule.show_signature
-                                            }
-                                            documentType={
-                                                activeDefinition?.document_type ??
-                                                selectedModule.toUpperCase()
-                                            }
-                                            companyName={data.company_name}
-                                            companyPhone={data.company_phone}
-                                            companyEmail={data.company_email}
-                                            companyAddress={
-                                                data.company_address
-                                            }
-                                            logoPreview={logoPreview}
-                                            stampPreview={stampPreview}
-                                            signaturePreview={signaturePreview}
-                                        />
+                                                titleColor={
+                                                    activeModule.title_color
+                                                }
+                                                footerText={
+                                                    activeModule.footer_text
+                                                }
+                                                showStamp={activeModule.show_stamp}
+                                                showSignature={
+                                                    activeModule.show_signature
+                                                }
+                                                documentType={
+                                                    activeDefinition?.document_type ??
+                                                    selectedModule.toUpperCase()
+                                                }
+                                                companyName={data.company_name}
+                                                companyPhone={data.company_phone}
+                                                companyEmail={data.company_email}
+                                                companyAddress={
+                                                    data.company_address
+                                                }
+                                                logoPreview={logoPreview}
+                                                stampPreview={stampPreview}
+                                                signaturePreview={signaturePreview}
+                                            />
                                         </FormField>
                                     </div>
                                 </div>
