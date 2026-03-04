@@ -92,7 +92,7 @@ interface QuotationItemTableFormProps<T extends QuotationItemSchema> {
 
 export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     mode = 'quotation',
-    quotation,
+    // quotation,
     items,
     onChange,
     renderError,

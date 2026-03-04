@@ -14,7 +14,7 @@ import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { InvoiceHeader } from '../invoices/components/invoice-header';
 import {
     calculateInvoicesTotal,
@@ -143,35 +143,38 @@ export default function OrderForm({
         clearErrors,
     } = useForm<OrderSchema>(defaultData);
 
-    function rebuildInvoicesFromSource(
-        paymentPlan: string,
-        depositType?: string | null,
-        depositValue?: number | string | null,
-    ): InvoiceSchema[] {
-        if (quotation) {
-            return normalizeInvoices(
-                autoFillInvoiceDates(
-                    buildInvoicesFromItems(
-                        paymentPlan,
-                        quotationItemsToInvoiceItems(quotation),
-                        Number(quotation.total_amount ?? 0),
-                        depositType,
-                        depositValue,
+    const rebuildInvoicesFromSource = useCallback(
+        (
+            paymentPlan: string,
+            depositType?: string | null,
+            depositValue?: number | string | null,
+        ): InvoiceSchema[] => {
+            if (quotation) {
+                return normalizeInvoices(
+                    autoFillInvoiceDates(
+                        buildInvoicesFromItems(
+                            paymentPlan,
+                            quotationItemsToInvoiceItems(quotation),
+                            Number(quotation.total_amount ?? 0),
+                            depositType,
+                            depositValue,
+                        ),
+                        quotation.quotation_date ?? '',
                     ),
-                    quotation.quotation_date ?? '',
+                );
+            }
+
+            return normalizeInvoices(
+                buildInvoices(
+                    paymentPlan,
+                    data.invoices,
+                    depositType,
+                    depositValue,
                 ),
             );
-        }
-
-        return normalizeInvoices(
-            buildInvoices(
-                paymentPlan,
-                data.invoices,
-                depositType,
-                depositValue,
-            ),
-        );
-    }
+        },
+        [quotation, data.invoices],
+    );
 
     useEffect(() => {
         if (!initialData && quotation) {
@@ -193,6 +196,7 @@ export default function OrderForm({
         data.deposit_type,
         data.deposit_value,
         setData,
+        rebuildInvoicesFromSource,
     ]);
 
     function addInvoice() {
