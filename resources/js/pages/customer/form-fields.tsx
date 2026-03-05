@@ -51,15 +51,15 @@ export default function CustomerFormFields({
     onUpdateCustomer,
 }: CustomerFormFieldsProps) {
     const disabled = isView || processing;
-    const todayDisplayDate = formatDateForDisplay(new Date());
-    const passportIssueDateValue =
-        customer.passport_issue_date || todayDisplayDate;
-    const passportIssueDate = parseDisplayDate(passportIssueDateValue);
     const prefix =
         fieldPrefix ?? (typeof index === 'number' ? `members.${index}` : '');
     const fieldPath = (field: keyof CustomerSchema): string => {
         return prefix ? `${prefix}.${field}` : String(field);
     };
+
+    const passportIssueDate = customer.passport_issue_date
+        ? parseDisplayDate(customer.passport_issue_date)
+        : null;
 
     return (
         <div className="space-y-6">
@@ -342,7 +342,7 @@ export default function CustomerFormFields({
                     >
                         <DatePickerField
                             id={fieldPath('passport_issue_date')}
-                            value={passportIssueDateValue}
+                            value={customer.passport_issue_date || ''}
                             disabled={disabled}
                             fromYear={2000}
                             toYear={new Date().getFullYear()}
@@ -363,10 +363,7 @@ export default function CustomerFormFields({
                     >
                         <DatePickerField
                             id={fieldPath('passport_expiry_date')}
-                            value={
-                                customer.passport_expiry_date ||
-                                todayDisplayDate
-                            }
+                            value={customer.passport_expiry_date || ''}
                             disabled={disabled}
                             fromYear={
                                 passportIssueDate

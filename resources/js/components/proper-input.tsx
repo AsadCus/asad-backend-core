@@ -33,10 +33,9 @@ export function ProperInput({
         setLocal(String(value ?? ''));
     }, [value]);
 
-    const commit = () => {
-        if (String(value ?? '') !== local) {
-            onCommit(local);
-        }
+    const handleChange = (newValue: string) => {
+        setLocal(newValue);
+        onCommit(newValue);
     };
 
     if (textarea) {
@@ -52,8 +51,7 @@ export function ProperInput({
                         : '',
                     className,
                 )}
-                onChange={(e) => setLocal(e.target.value)}
-                onBlur={commit}
+                onChange={(e) => handleChange(e.target.value)}
             />
         );
     }
@@ -70,14 +68,7 @@ export function ProperInput({
                 className,
             )}
             inputMode={type === 'number' ? 'decimal' : undefined}
-            onChange={(e) => setLocal(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commit();
-                }
-            }}
+            onChange={(e) => handleChange(e.target.value)}
             {...inputProps}
         />
     );
