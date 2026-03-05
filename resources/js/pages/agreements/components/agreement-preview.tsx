@@ -8,10 +8,12 @@ interface BrandingData {
     company_phone?: string;
     company_email?: string;
     logo_url?: string;
+    brand_color?: string;
     module_templates?: {
         agreements?: {
-            title_color: string;
             footer_text?: string;
+            show_stamp?: boolean;
+            show_signature?: boolean;
         };
     };
 }
@@ -26,7 +28,7 @@ const AgreementPreview = forwardRef<HTMLDivElement, Props>(
         // Use branding data with fallbacks
         const companyName = branding?.company_name || 'Urban Care Employment Agency';
         const companyAddress = branding?.company_address || '931 Yishun Central 1\n#01-109, Singapore 760931';
-        const titleColor = branding?.module_templates?.agreements?.title_color || '#40A09DD4';
+        const titleColor = branding?.brand_color || '#c05427';
         const logoUrl = branding?.logo_url ?? '/logo_agency.png'; // Use ?? to handle empty strings
         const companyPhone = branding?.company_phone || '';
         const companyEmail = branding?.company_email || '';

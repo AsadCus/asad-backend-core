@@ -78,9 +78,9 @@ export default function QuotationDetailSection({
             <div className="space-y-6">
                 <div
                     id="section-maid-assignment"
-                    className="grid grid-cols-1 items-start gap-4 pt-2 md:grid-cols-3"
+                    className="grid grid-cols-1 items-start gap-4 pt-2 md:grid-cols-2"
                 >
-                    <section className="order-1 grid grid-cols-1 items-start gap-4 md:col-span-2 md:grid-cols-1 lg:order-1">
+                    <section className="order-1 grid grid-cols-1 items-start gap-4 md:col-span-1 lg:order-1">
                         {/* Description */}
                         <FormField
                             label="Description"
@@ -165,16 +165,18 @@ export default function QuotationDetailSection({
                             {renderError('payment_method')}
                         </FormField>
 
-                        {data.package_name && (
+                        {(data.package_name || data.customer_confirmation_id) && (
                             <div className="grid w-full items-center gap-3 rounded-md border p-3">
                                 <Label>Package & Sharing Plan Costs</Label>
                                 <div className="space-y-1 text-sm">
-                                    <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">
-                                        <span className="text-muted-foreground">
-                                            Package
-                                        </span>
-                                        <span>{data.package_name}</span>
-                                    </div>
+                                    {data.package_name && (
+                                        <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">
+                                            <span className="text-muted-foreground">
+                                                Package
+                                            </span>
+                                            <span>{data.package_name}</span>
+                                        </div>
+                                    )}
                                     {sharingPlanCosts.map((row) => (
                                         <div
                                             key={row.key}

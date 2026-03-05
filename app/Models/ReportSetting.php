@@ -16,6 +16,7 @@ class ReportSetting extends Model
         'footer_text',
         'stamp_path',
         'signature_path',
+        'brand_color',
         'module_templates',
         'registered_modules',
         'updated_by',
@@ -36,31 +37,26 @@ class ReportSetting extends Model
      */
     public static array $moduleDefaults = [
         'quotation' => [
-            'title_color' => '#40A09D',
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
         ],
         'invoice' => [
-            'title_color' => '#40A09D',
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
         ],
         'receipt' => [
-            'title_color' => '#40A09D',
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
         ],
         'agreement' => [
-            'title_color' => '#40A09D',
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
         ],
         'sales' => [
-            'title_color' => '#40A09D',
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
@@ -84,6 +80,7 @@ class ReportSetting extends Model
                 'footer_text' => null,
                 'stamp_path' => null,
                 'signature_path' => null,
+                'brand_color' => '#c05427',
                 'module_templates' => null,
             ]
         );
@@ -92,11 +89,11 @@ class ReportSetting extends Model
     /**
      * Get the merged template config for a specific module type.
      * Falls back to defaults for any missing keys.
+     * Note: title_color is always taken from global brand_color.
      */
     public function getModuleTemplate(string $type): array
     {
         $defaults = self::$moduleDefaults[$type] ?? [
-            'title_color' => '#40A09D',
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
@@ -108,6 +105,9 @@ class ReportSetting extends Model
         $merged = array_merge($defaults, $stored);
         $merged['show_stamp'] = filter_var($merged['show_stamp'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $merged['show_signature'] = filter_var($merged['show_signature'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        
+        // Always use global brand_color for title_color
+        $merged['title_color'] = $this->brand_color ?? '#c05427';
 
         return $merged;
     }

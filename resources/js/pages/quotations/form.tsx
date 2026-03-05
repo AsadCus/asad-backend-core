@@ -197,7 +197,12 @@ export function QuotationForm({
                     ]),
             );
 
-            return selectedMembers.map((member, index) => {
+            // Keep existing items that are not linked to members (manual items)
+            const manualItems = existingItems.filter(
+                (item) => !item.customer_confirmation_member_id,
+            );
+
+            const memberItems = selectedMembers.map((member, index) => {
                 const existingItem = existingItemByMemberId.get(
                     member.member_id,
                 );
@@ -233,6 +238,9 @@ export function QuotationForm({
                     sort_order: index + 1,
                 };
             });
+
+            // Combine manual items with member items
+            return [...memberItems, ...manualItems];
         },
         [availableMembers, getRateFromSharingPlan],
     );
@@ -388,19 +396,22 @@ export function QuotationForm({
         ],
     );
 
+    const loadedConfirmationRef = useRef<number | null>(null);
+
     useEffect(() => {
         if (!data.customer_confirmation_id) {
             return;
         }
 
-        if (!isCreate) {
+        if (!isCreate && loadedConfirmationRef.current !== data.customer_confirmation_id) {
+            loadedConfirmationRef.current = data.customer_confirmation_id;
             loadCustomerConfirmation(
                 Number(data.customer_confirmation_id),
             ).catch(() => {
                 setAvailableMembers([]);
             });
         }
-    }, [data.customer_confirmation_id, isCreate, loadCustomerConfirmation]);
+    }, [data.customer_confirmation_id, isCreate]);
 
     useEffect(() => {
         syncHandlerCustomer(handlerMemberId);

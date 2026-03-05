@@ -28,6 +28,7 @@ class ReportTemplateUpdateRequest extends FormRequest
             'company_address' => ['nullable', 'string', 'max:1000'],
             'company_phone' => ['nullable', 'string', 'max:50'],
             'company_email' => ['nullable', 'email', 'max:255'],
+            'brand_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'footer_text' => ['nullable', 'string', 'max:2000'],
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'stamp_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
@@ -36,7 +37,6 @@ class ReportTemplateUpdateRequest extends FormRequest
             // Per-module template settings (wildcard for all modules including custom)
             'module_templates' => ['nullable', 'array'],
             'module_templates.*' => ['nullable', 'array'],
-            'module_templates.*.title_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'module_templates.*.footer_text' => ['nullable', 'string', 'max:2000'],
             'module_templates.*.show_stamp' => ['nullable', 'boolean'],
             'module_templates.*.show_signature' => ['nullable', 'boolean'],
@@ -54,13 +54,13 @@ class ReportTemplateUpdateRequest extends FormRequest
             'company_name.required' => 'Company name is required.',
             'company_name.max' => 'Company name must not exceed 255 characters.',
             'company_email.email' => 'Please provide a valid email address.',
+            'brand_color.regex' => 'Brand color must be a valid hex color (e.g. #c05427).',
             'logo_file.image' => 'Logo must be an image file.',
             'logo_file.max' => 'Logo file size must not exceed 2MB.',
             'stamp_file.image' => 'Stamp must be an image file.',
             'stamp_file.max' => 'Stamp file size must not exceed 2MB.',
             'signature_file.image' => 'Signature must be an image file.',
             'signature_file.max' => 'Signature file size must not exceed 2MB.',
-            'module_templates.*.title_color.regex' => 'Title color must be a valid hex color (e.g. #40A09D).',
         ];
     }
 }

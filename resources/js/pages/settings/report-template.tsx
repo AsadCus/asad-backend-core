@@ -18,6 +18,7 @@ interface ReportTemplateSettings {
     company_address: string;
     company_phone: string;
     company_email: string;
+    brand_color: string;
     logo_path: string | null;
     stamp_path: string | null;
     signature_path: string | null;
@@ -30,6 +31,7 @@ interface ReportTemplateFormData {
     company_address: string;
     company_phone: string;
     company_email: string;
+    brand_color: string;
     _method: 'put';
     logo_file: File | null;
     stamp_file: File | null;
@@ -60,7 +62,6 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
         allModules.forEach(({ key }) => {
             const serverData = settings.module_templates?.[key];
             defaults[key] = {
-                title_color: serverData?.title_color ?? '#40A09D',
                 footer_text: serverData?.footer_text ?? '',
                 show_stamp: Boolean(serverData?.show_stamp ?? false),
                 show_signature: Boolean(serverData?.show_signature ?? false),
@@ -75,6 +76,7 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             company_address: settings.company_address || '',
             company_phone: settings.company_phone || '',
             company_email: settings.company_email || '',
+            brand_color: settings.brand_color || '#c05427',
             _method: 'put',
             logo_file: null,
             stamp_file: null,
@@ -121,7 +123,6 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             ...data.module_templates,
             [selectedModule]: {
                 ...(data.module_templates[selectedModule] ?? {
-                    title_color: '#40A09D',
                     footer_text: '',
                     show_stamp: false,
                     show_signature: false,
@@ -152,7 +153,6 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
     };
 
     const activeModule = data.module_templates[selectedModule] ?? {
-        title_color: '#40A09D',
         footer_text: '',
         show_stamp: false,
         show_signature: false,
@@ -202,7 +202,7 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
                             }
                             PdfPreview={PdfPreview}
                             previewProps={{
-                                titleColor: activeModule.title_color,
+                                titleColor: data.brand_color || '#c05427',
                                 footerText: activeModule.footer_text,
                                 showStamp: activeModule.show_stamp,
                                 showSignature: activeModule.show_signature,

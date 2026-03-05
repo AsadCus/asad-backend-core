@@ -12,6 +12,7 @@ interface GlobalBrandingSectionProps {
         company_address: string;
         company_phone: string;
         company_email: string;
+        brand_color: string;
     };
     errors: Record<string, string | undefined>;
     logoPreview: string | null;
@@ -128,6 +129,43 @@ export function GlobalBrandingSection({
                                     onDataChange('company_email', e.target.value)
                                 }
                             />
+                        </FormField>
+                        <FormField
+                            label="Brand Color (Title Bar)"
+                            fieldRequirementsProps={{
+                                hint: 'Global color for all document title bars',
+                            }}
+                            htmlFor="brand_color"
+                            error={errors.brand_color}
+                            className="sm:col-span-2"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className="h-10 w-16 flex-shrink-0 rounded border shadow-sm"
+                                    style={{
+                                        backgroundColor: data.brand_color || '#c05427',
+                                    }}
+                                />
+                                <Input
+                                    id="brand_color"
+                                    type="color"
+                                    value={data.brand_color || '#c05427'}
+                                    onChange={(e) =>
+                                        onDataChange('brand_color', e.target.value)
+                                    }
+                                    className="h-10 w-16 cursor-pointer rounded border p-1"
+                                />
+                                <Input
+                                    type="text"
+                                    value={data.brand_color || '#c05427'}
+                                    onChange={(e) =>
+                                        onDataChange('brand_color', e.target.value)
+                                    }
+                                    placeholder="#c05427"
+                                    className="flex-1 font-mono"
+                                    maxLength={7}
+                                />
+                            </div>
                         </FormField>
                     </div>
 

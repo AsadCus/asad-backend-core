@@ -1,5 +1,4 @@
 export interface ModuleTemplate {
-    title_color: string;
     footer_text: string;
     show_stamp: boolean;
     show_signature: boolean;

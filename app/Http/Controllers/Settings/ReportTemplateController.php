@@ -52,6 +52,7 @@ class ReportTemplateController extends Controller
                 'company_address' => $settings->company_address,
                 'company_phone' => $settings->company_phone,
                 'company_email' => $settings->company_email,
+                'brand_color' => $settings->brand_color ?? '#c05427',
                 'logo_path' => $settings->logo_path,
                 'footer_text' => $settings->footer_text,
                 'stamp_path' => $settings->stamp_path,
@@ -79,6 +80,7 @@ class ReportTemplateController extends Controller
             'company_address' => $validated['company_address'] ?? null,
             'company_phone' => $validated['company_phone'] ?? null,
             'company_email' => $validated['company_email'] ?? null,
+            'brand_color' => $validated['brand_color'] ?? '#c05427',
             'footer_text' => $validated['footer_text'] ?? null,
             'updated_by' => auth()->id(),
         ]);

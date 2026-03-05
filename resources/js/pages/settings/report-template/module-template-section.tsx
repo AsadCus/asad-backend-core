@@ -103,43 +103,6 @@ export function ModuleTemplateSection({
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <div className="space-y-5">
                         <FormField
-                            label="Title Bar Color"
-                            fieldRequirementsProps={{
-                                hint: `Background color for the ${activeDefinition?.label ?? selectedModule} document title bar`,
-                            }}
-                            htmlFor="title_color"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div
-                                    className="h-9 w-12 flex-shrink-0 rounded border shadow-sm"
-                                    style={{
-                                        backgroundColor:
-                                            activeModule?.title_color || '#40A09D',
-                                    }}
-                                />
-                                <Input
-                                    id="title_color"
-                                    type="color"
-                                    value={activeModule?.title_color || '#40A09D'}
-                                    onChange={(e) =>
-                                        updateModule('title_color', e.target.value)
-                                    }
-                                    className="h-9 w-14 cursor-pointer rounded border p-0.5"
-                                />
-                                <Input
-                                    type="text"
-                                    value={activeModule?.title_color || '#40A09D'}
-                                    onChange={(e) =>
-                                        updateModule('title_color', e.target.value)
-                                    }
-                                    placeholder="#40A09D"
-                                    className="flex-1 font-mono text-base"
-                                    maxLength={7}
-                                />
-                            </div>
-                        </FormField>
-
-                        <FormField
                             label="Footer Text"
                             fieldRequirementsProps={{
                                 hint: `Custom footer for ${activeDefinition?.label ?? selectedModule}. Leave blank to use default`,

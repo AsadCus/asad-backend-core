@@ -16,7 +16,7 @@ class ReportSettingSeeder extends Seeder
         ReportSetting::firstOrCreate(
             ['id' => 1],
             [
-                'company_name' => 'Urban Care Employment Agency',
+                'company_name' => 'Karva Travel Management System',
                 'company_address' => "931 Yishun Central 1\n#01-109, Singapore 760931",
                 'company_phone' => null,
                 'company_email' => null,
@@ -24,6 +24,7 @@ class ReportSettingSeeder extends Seeder
                 'footer_text' => "Thank you for your business.\nFor any inquiries, please contact us.",
                 'stamp_path' => null,
                 'signature_path' => null,
+                'brand_color' => '#c05427',
             ]
         );
     }

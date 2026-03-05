@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             AppearanceSettingSeeder::class,
             FinancialYearSeeder::class,
             NumberSequenceSeeder::class,
+            ReportSettingSeeder::class,
 
             // Master Data
             CountrySeeder::class,
