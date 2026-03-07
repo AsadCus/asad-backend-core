@@ -91,6 +91,11 @@ class SalesController extends Controller
             );
         }
 
+        activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'Sales', 'subject_id' => $user->id ?? null])
+                ->log('Sales created successfully #'.($user->id ?? null));
+
         return redirect()->intended(route('master.user.sales.index'))->with('success', 'Sales created successfully.');
     }
 

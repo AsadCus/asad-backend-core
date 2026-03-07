@@ -91,6 +91,11 @@ class SupplierController extends Controller
             );
         }
 
+        activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'Supplier', 'subject_id' => $user->id ?? null])
+                ->log('Supplier created successfully #'.($user->id ?? null));
+
         return redirect()->intended(route('master.user.supplier.index'))->with('success', 'Supplier created successfully.');
     }
 

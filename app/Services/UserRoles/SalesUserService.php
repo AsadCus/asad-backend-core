@@ -40,6 +40,11 @@ class SalesUserService
                 'branch_id' => $data['branch_id'] ?? null,
             ]);
 
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'SalesUser', 'subject_id' => $user->id ?? null])
+                ->log('SalesUser created successfully #'.($user->id ?? null));
+
             return $user;
         });
     }
@@ -99,6 +104,11 @@ class SalesUserService
                     'branch_id' => $data['branch_id'] ?? null,
                 ]);
             }
+
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'SalesUser', 'subject_id' => $user->id ?? null])
+                ->log('SalesUser updated successfully #'.($user->id ?? null));
 
             return $user;
         });

@@ -33,6 +33,11 @@ class AdminUserService
 
             $user->assignRole(Role::findByName('admin'));
 
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'AdminUser', 'subject_id' => $user->id ?? null])
+                ->log('AdminUser created successfully #'.($user->id ?? null));
+
             return $user;
         });
     }
@@ -86,6 +91,11 @@ class AdminUserService
                     ? Hash::make($data['password'])
                     : $user->password,
             ]);
+
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'AdminUser', 'subject_id' => $user->id ?? null])
+                ->log('AdminUser updated successfully #'.($user->id ?? null));
 
             return $user;
         });

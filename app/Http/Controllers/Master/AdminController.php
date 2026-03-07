@@ -91,6 +91,11 @@ class AdminController extends Controller
             );
         }
 
+        activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'Admin', 'subject_id' => $user->id ?? null])
+                ->log('Admin created successfully #'.($user->id ?? null));
+
         return redirect()->intended(route('master.user.admin.index'))->with('success', 'Administrator created successfully.');
     }
 

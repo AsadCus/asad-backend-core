@@ -86,6 +86,11 @@ class InvoiceService
                 }
             }
 
+            activity()
+                ->performedOn($invoice)
+                ->withProperties(['subject_type' => 'Invoice', 'subject_id' => $invoice->id ?? null])
+                ->log('Invoice created successfully #'.($invoice->id ?? null));
+
             return $invoice;
         });
     }
@@ -158,6 +163,11 @@ class InvoiceService
                     $invoice->quotationItems()->sync($quotationItemIds);
                 }
             }
+
+            activity()
+                ->performedOn($invoice)
+                ->withProperties(['subject_type' => 'Invoice', 'subject_id' => $invoice->id ?? null])
+                ->log('Invoice updated successfully #'.($invoice->id ?? null));
 
             return $invoice;
         });

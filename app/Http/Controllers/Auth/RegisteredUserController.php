@@ -114,6 +114,11 @@ class RegisteredUserController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'RegisteredUser', 'subject_id' => $user->id ?? null])
+                ->log('RegisteredUser created successfully #'.($user->id ?? null));
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 }

@@ -113,6 +113,11 @@ class OrderService
                 ]);
             }
 
+            activity()
+                ->performedOn($order)
+                ->withProperties(['subject_type' => 'Order', 'subject_id' => $order->id ?? null])
+                ->log('Order created successfully #'.($order->id ?? null));
+
             return $order;
         });
     }

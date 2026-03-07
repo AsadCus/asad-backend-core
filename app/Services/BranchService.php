@@ -48,6 +48,11 @@ class BranchService
                 'country_id' => $data['country_id'],
             ]);
 
+            activity()
+                ->performedOn($branch)
+                ->withProperties(['subject_type' => 'Branch', 'subject_id' => $branch->id ?? null])
+                ->log('Branch created successfully #'.($branch->id ?? null));
+
             return $branch;
         });
     }
@@ -75,6 +80,11 @@ class BranchService
                 'country_id' => $data['country_id'],
             ]);
 
+            activity()
+                ->performedOn($branch)
+                ->withProperties(['subject_type' => 'Branch', 'subject_id' => $branch->id ?? null])
+                ->log('Branch updated successfully #'.($branch->id ?? null));
+
             return $branch;
         });
     }
@@ -86,6 +96,11 @@ class BranchService
             return false;
         }
 
-        return $branch->delete();
+        return activity()
+                ->performedOn($branch)
+                ->withProperties(['subject_type' => 'Branch', 'subject_id' => $branch->id ?? null])
+                ->log('Branch deleted successfully #'.($branch->id ?? null));
+
+            $branch->delete();
     }
 }

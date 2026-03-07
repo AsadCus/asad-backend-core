@@ -99,7 +99,12 @@ class UserService
             return false;
         }
 
-        return $user->delete();
+        return activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'User', 'subject_id' => $user->id ?? null])
+                ->log('User deleted successfully #'.($user->id ?? null));
+
+            $user->delete();
     }
 
     private function resolveRoleService(string $role): object
