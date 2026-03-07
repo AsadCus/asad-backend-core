@@ -33,6 +33,9 @@ class ReportTemplateUpdateRequest extends FormRequest
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'stamp_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'signature_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
+            'logo_path' => ['nullable', 'string'], // Allow empty string for deletion signal
+            'stamp_path' => ['nullable', 'string'], // Allow empty string for deletion signal
+            'signature_path' => ['nullable', 'string'], // Allow empty string for deletion signal
 
             // Per-module template settings (wildcard for all modules including custom)
             'module_templates' => ['nullable', 'array'],

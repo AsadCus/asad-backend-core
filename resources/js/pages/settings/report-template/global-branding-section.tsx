@@ -27,6 +27,9 @@ interface GlobalBrandingSectionProps {
     initialLogoPreviewFileName: string | null;
     initialStampPreviewFileName: string | null;
     initialSignaturePreviewFileName: string | null;
+    initialLogoDatabasePath: string | null;
+    initialStampDatabasePath: string | null;
+    initialSignatureDatabasePath: string | null;
     onDataChange: (field: string, value: string) => void;
     makeFileHandler: (
         field: 'logo_file' | 'stamp_file' | 'signature_file',
@@ -39,6 +42,8 @@ interface GlobalBrandingSectionProps {
         existingPreview: string | null,
         setPreviewFileName: (v: string | null) => void,
         existingFileName: string | null,
+        pathKey: 'logo_path' | 'stamp_path' | 'signature_path',
+        hasDatabaseFile: boolean,
     ) => () => void;
     setLogoPreview: (v: string | null) => void;
     setStampPreview: (v: string | null) => void;
@@ -64,6 +69,9 @@ export function GlobalBrandingSection({
     initialLogoPreviewFileName,
     initialStampPreviewFileName,
     initialSignaturePreviewFileName,
+    initialLogoDatabasePath,
+    initialStampDatabasePath,
+    initialSignatureDatabasePath,
     onDataChange,
     makeFileHandler,
     makeClearHandler,
@@ -209,7 +217,7 @@ export function GlobalBrandingSection({
                             previewAlt="Company Logo"
                             error={errors.logo_file}
                             onChange={makeFileHandler('logo_file', setLogoPreview, setLogoPreviewFileName)}
-                            onClear={makeClearHandler('logo_file', setLogoPreview, initialLogoPreview, setLogoPreviewFileName, initialLogoPreviewFileName)}
+                            onClear={makeClearHandler('logo_file', setLogoPreview, initialLogoPreview, setLogoPreviewFileName, initialLogoPreviewFileName, 'logo_path', !!initialLogoDatabasePath)}
                         />
                         <FileUploadField
                             id="stamp_file"
@@ -220,7 +228,7 @@ export function GlobalBrandingSection({
                             previewAlt="Company Stamp"
                             error={errors.stamp_file}
                             onChange={makeFileHandler('stamp_file', setStampPreview, setStampPreviewFileName)}
-                            onClear={makeClearHandler('stamp_file', setStampPreview, initialStampPreview, setStampPreviewFileName, initialStampPreviewFileName)}
+                            onClear={makeClearHandler('stamp_file', setStampPreview, initialStampPreview, setStampPreviewFileName, initialStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
                         />
                         <FileUploadField
                             id="signature_file"
@@ -241,6 +249,8 @@ export function GlobalBrandingSection({
                                 initialSignaturePreview,
                                 setSignaturePreviewFileName,
                                 initialSignaturePreviewFileName,
+                                'signature_path',
+                                !!initialSignatureDatabasePath,
                             )}
                         />
                     </div>

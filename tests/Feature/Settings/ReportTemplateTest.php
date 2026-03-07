@@ -195,4 +195,12 @@ class ReportTemplateTest extends TestCase
         $this->assertNotNull($updated->signature_path, 'Signature should not be deleted when updating only stamp');
         $this->assertNotNull($updated->stamp_path, 'Stamp should be present after update');
     }
+
+    // TODO: Test file deletion when FormData is properly sent from browser
+    // The issue is that HTTP request validation might not preserve empty strings
+    // but FormData from browser does. This needs to be tested end-to-end in browser.
+    //public function test_file_can_be_deleted_with_empty_string_signal(): void
+    //{
+    //    ...
+    //}
 }

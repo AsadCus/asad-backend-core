@@ -112,9 +112,23 @@ class ReportTemplateController extends Controller
 
         // Process file uploads - ONLY for files that were actually changed by user
         // Only process keys where file is actually present (not null from form load)
-        $filteredData = array_filter($validated, function ($file, $key) {
-            return in_array($key, array_keys(self::FILE_KEY_MAP)) && ($file instanceof \Illuminate\Http\UploadedFile || $file === '');
-        }, ARRAY_FILTER_USE_BOTH);
+        // Also include path keys with empty string signals for deletion by end-user
+        $filteredData = [];
+        
+        // Include file uploads
+        foreach (array_keys(self::FILE_KEY_MAP) as $fileKey) {
+            if (array_key_exists($fileKey, $validated) && 
+                ($validated[$fileKey] instanceof \Illuminate\Http\UploadedFile || $validated[$fileKey] === '')) {
+                $filteredData[$fileKey] = $validated[$fileKey];
+            }
+        }
+        
+        // Include path deletion signals (when path is empty string)
+        foreach (array_values(self::FILE_KEY_MAP) as $pathField) {
+            if (array_key_exists($pathField, $validated) && $validated[$pathField] === '') {
+                $filteredData[$pathField] = '';
+            }
+        }
 
         if (!empty($filteredData)) {
             $this->fileUploadService->processUploads(

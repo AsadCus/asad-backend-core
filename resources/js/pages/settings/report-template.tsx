@@ -36,6 +36,9 @@ interface ReportTemplateFormData {
     logo_file: File | null;
     stamp_file: File | null;
     signature_file: File | null;
+    logo_path: string | null;
+    stamp_path: string | null;
+    signature_path: string | null;
     module_templates: Record<string, ModuleTemplate>;
 }
 
@@ -92,6 +95,9 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             logo_file: null,
             stamp_file: null,
             signature_file: null,
+            logo_path: null,
+            stamp_path: null,
+            signature_path: null,
             module_templates: buildInitialModuleTemplates(),
         });
 
@@ -154,6 +160,8 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             existingPreview: string | null,
             setPreviewFileName: (v: string | null) => void,
             existingFileName: string | null,
+            pathKey: 'logo_path' | 'stamp_path' | 'signature_path',
+            hasDatabaseFile: boolean,
         ) =>
             () => {
                 // Cancel any active FileReader for this field
@@ -163,10 +171,15 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
                     activeReadersRef.current.delete(field);
                 }
 
-                // Clear newly selected file but preserve existing uploaded asset preview/name.
+                // Clear file and preview
                 setData(field, null);
-                setPreview(existingPreview);
-                setPreviewFileName(existingFileName);
+                setPreview(null);
+                setPreviewFileName(null);
+
+                // If there's an existing file in database, send empty string signal for deletion
+                if (hasDatabaseFile) {
+                    setData(pathKey, '');
+                }
             };
 
     const updateModule = (field: keyof ModuleTemplate, value: string | boolean) => {
@@ -241,6 +254,9 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
                             initialLogoPreviewFileName={extractFileName(settings.logo_path) ?? DEFAULT_LOGO_FILE_NAME}
                             initialStampPreviewFileName={extractFileName(settings.stamp_path)}
                             initialSignaturePreviewFileName={extractFileName(settings.signature_path)}
+                            initialLogoDatabasePath={settings.logo_path}
+                            initialStampDatabasePath={settings.stamp_path}
+                            initialSignatureDatabasePath={settings.signature_path}
                             setLogoPreview={setLogoPreview}
                             setStampPreview={setStampPreview}
                             setSignaturePreview={setSignaturePreview}
