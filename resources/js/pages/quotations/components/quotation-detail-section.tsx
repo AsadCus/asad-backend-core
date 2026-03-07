@@ -67,6 +67,10 @@ export default function QuotationDetailSection({
         },
     ];
 
+    const packageSharingPlanCostSummary = sharingPlanCosts
+        .map((row) => `${row.label}: $${row.value.toFixed(2)}`)
+        .join(' | ');
+
     return (
         <FormSection
             value="maid_and_quotation_details"
@@ -166,30 +170,40 @@ export default function QuotationDetailSection({
                         </FormField>
 
                         {(data.package_name || data.customer_confirmation_id) && (
-                            <div className="grid w-full items-center gap-3 rounded-md border p-3">
-                                <Label>Package & Sharing Plan Costs</Label>
-                                <div className="space-y-1 text-sm">
-                                    {data.package_name && (
-                                        <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">
-                                            <span className="text-muted-foreground">
-                                                Package
-                                            </span>
-                                            <span>{data.package_name}</span>
-                                        </div>
-                                    )}
-                                    {sharingPlanCosts.map((row) => (
-                                        <div
-                                            key={row.key}
-                                            className="flex items-center justify-between gap-3"
-                                        >
-                                            <span className="text-muted-foreground">
-                                                {row.label}
-                                            </span>
-                                            <span>${row.value.toFixed(2)}</span>
-                                        </div>
-                                    ))}
+                            <FormField
+                                label="Package Sharing Plan Cost"
+                                fieldRequirementsProps={{
+                                    hint: 'Reference package sharing prices used for member cost calculation',
+                                }}
+                            >
+                                <div className="grid w-full items-center gap-3 rounded-md border p-3">
+                                    <Label>Package & Sharing Plan Costs</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        {packageSharingPlanCostSummary}
+                                    </p>
+                                    <div className="space-y-1 text-sm">
+                                        {data.package_name && (
+                                            <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">
+                                                <span className="text-muted-foreground">
+                                                    Package
+                                                </span>
+                                                <span>{data.package_name}</span>
+                                            </div>
+                                        )}
+                                        {sharingPlanCosts.map((row) => (
+                                            <div
+                                                key={row.key}
+                                                className="flex items-center justify-between gap-3"
+                                            >
+                                                <span className="text-muted-foreground">
+                                                    {row.label}
+                                                </span>
+                                                <span>${row.value.toFixed(2)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            </FormField>
                         )}
                     </section>
                 </div>

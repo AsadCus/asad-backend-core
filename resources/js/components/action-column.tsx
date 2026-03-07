@@ -21,6 +21,7 @@ export type ActionType =
     | 'disable-customer'
     | 'set-default-year'
     | 'quotation-status-accept'
+    | 'quotation-status-ready'
     | 'quotation-status-convert'
     | 'quotation-status-reject'
     | 'quotation-status-expire'

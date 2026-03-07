@@ -7,7 +7,7 @@ import { show as showCustomerConfirmation } from '@/routes/customer-confirmation
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserSchema } from '../masters/users/schema';
 import { NoteSchema } from '../notes/schema';
 import QuotationDetailSection from './components/quotation-detail-section';
@@ -95,6 +95,14 @@ export function QuotationForm({
             : {}),
     };
 
+    const initialLinkedMemberIds = Array.from(
+        new Set(
+            (defaultData.items ?? [])
+                .map((item) => Number(item.customer_confirmation_member_id ?? 0))
+                .filter((value) => value > 0),
+        ),
+    );
+
     const {
         data,
         setData,
@@ -133,8 +141,11 @@ export function QuotationForm({
             email?: string;
         }>
     >([]);
-    const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+    const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>(
+        initialLinkedMemberIds,
+    );
     const [handlerMemberId, setHandlerMemberId] = useState<number | null>(null);
+
     const [packagePrices, setPackagePrices] = useState<{
         single: number;
         double: number;
@@ -179,8 +190,12 @@ export function QuotationForm({
     );
 
     const buildItemsFromMembers = useCallback(
-        (memberIds: number[], existingItems: QuotationItemSchema[] = []) => {
-            const selectedMembers = availableMembers.filter((member) =>
+        (
+            memberIds: number[],
+            existingItems: QuotationItemSchema[] = [],
+            membersSource = availableMembers,
+        ) => {
+            const selectedMembers = membersSource.filter((member) =>
                 memberIds.includes(member.member_id),
             );
 
@@ -280,6 +295,7 @@ export function QuotationForm({
 
             const members = (confirmation.members ?? []) as Array<{
                 member_id: number;
+                id?: number;
                 customer_id: number;
                 name: string;
                 sharing_plan: string | null;
@@ -291,15 +307,25 @@ export function QuotationForm({
                 email?: string;
             }>;
 
+            const normalizedMembers = members
+                .map((member) => ({
+                    ...member,
+                    member_id: Number(member.member_id ?? member.id ?? 0),
+                }))
+                .filter((member) => member.member_id > 0);
+
+            const sourceItems =
+                data.items?.length > 0 ? data.items : (initialData?.items ?? []);
+
             const linkedMemberIds = new Set(
-                (data.items ?? [])
+                sourceItems
                     .map((item) =>
                         Number(item.customer_confirmation_member_id ?? 0),
                     )
                     .filter((value) => value > 0),
             );
 
-            const eligible = members.filter((member) => {
+            const eligible = normalizedMembers.filter((member) => {
                 if (linkedMemberIds.has(member.member_id)) {
                     return true;
                 }
@@ -309,11 +335,32 @@ export function QuotationForm({
 
             setAvailableMembers(eligible);
 
-            const autoSelectedMemberIds = isCreate
+            const selectedFromLinkedIds = isCreate
                 ? eligible.map((member) => member.member_id)
-                : eligible
-                      .filter((member) => linkedMemberIds.has(member.member_id))
-                      .map((member) => member.member_id);
+                : Array.from(linkedMemberIds).filter((memberId) =>
+                      eligible.some((member) => member.member_id === memberId),
+                  );
+
+            const selectedFromHasQuotation = !isCreate
+                ? eligible
+                      .filter((member) => member.has_quotation)
+                      .map((member) => member.member_id)
+                : [];
+
+            const selectedFromLegacyItems =
+                !isCreate &&
+                sourceItems.length > 0 &&
+                selectedFromLinkedIds.length === 0 &&
+                selectedFromHasQuotation.length === 0
+                    ? eligible.map((member) => member.member_id)
+                    : [];
+
+            const autoSelectedMemberIds =
+                selectedFromLinkedIds.length > 0
+                    ? selectedFromLinkedIds
+                    : selectedFromHasQuotation.length > 0
+                      ? selectedFromHasQuotation
+                      : selectedFromLegacyItems;
 
             setSelectedMemberIds(autoSelectedMemberIds);
 
@@ -342,7 +389,9 @@ export function QuotationForm({
                 ...prev,
                 customer_confirmation_id: confirmationId,
                 package_name:
-                    confirmation.package_data?.name ?? prev.package_name,
+                    confirmation.package_name ??
+                    confirmation.package_data?.name ??
+                    prev.package_name,
                 package_price_single: Number(
                     confirmation.package_price_single ?? 0,
                 ),
@@ -356,9 +405,13 @@ export function QuotationForm({
                     confirmation.package_price_quad ?? 0,
                 ),
                 ...(isCreate
-                    ? {
-                          items: buildItemsFromMembers(autoSelectedMemberIds),
-                      }
+                                        ? {
+                                                    items: buildItemsFromMembers(
+                                                            autoSelectedMemberIds,
+                                                            prev.items ?? [],
+                                                            eligible,
+                                                    ),
+                                            }
                     : {}),
                 customer_id: nextHandlerId
                     ? (eligible.find(
@@ -391,6 +444,7 @@ export function QuotationForm({
             buildItemsFromMembers,
             data.customer_id,
             data.items,
+            initialData?.items,
             isCreate,
             setData,
         ],
@@ -400,22 +454,88 @@ export function QuotationForm({
 
     useEffect(() => {
         if (!data.customer_confirmation_id) {
+            loadedConfirmationRef.current = null;
             return;
         }
 
-        if (!isCreate && loadedConfirmationRef.current !== data.customer_confirmation_id) {
-            loadedConfirmationRef.current = data.customer_confirmation_id;
-            loadCustomerConfirmation(
-                Number(data.customer_confirmation_id),
-            ).catch(() => {
-                setAvailableMembers([]);
-            });
+        if (loadedConfirmationRef.current === data.customer_confirmation_id) {
+            return;
         }
-    }, [data.customer_confirmation_id, isCreate]);
+
+        loadedConfirmationRef.current = data.customer_confirmation_id;
+
+        loadCustomerConfirmation(
+            Number(data.customer_confirmation_id),
+        ).catch(() => {
+            setAvailableMembers([]);
+        });
+    }, [data.customer_confirmation_id, isCreate, loadCustomerConfirmation]);
 
     useEffect(() => {
         syncHandlerCustomer(handlerMemberId);
     }, [handlerMemberId, syncHandlerCustomer]);
+
+    const linkedMemberIdsFromItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    (data.items ?? [])
+                        .map((item) => Number(item.customer_confirmation_member_id ?? 0))
+                        .filter((value) => value > 0),
+                ),
+            ),
+        [data.items],
+    );
+
+    const effectiveSelectedMemberIds = useMemo(() => {
+        if (selectedMemberIds.length > 0) {
+            return selectedMemberIds;
+        }
+
+        return linkedMemberIdsFromItems;
+    }, [selectedMemberIds, linkedMemberIdsFromItems]);
+
+    useEffect(() => {
+        if (!isEdit || availableMembers.length === 0 || selectedMemberIds.length > 0) {
+            return;
+        }
+
+        const fallbackMemberIds =
+            linkedMemberIdsFromItems.length > 0
+                ? linkedMemberIdsFromItems.filter((memberId) =>
+                      availableMembers.some((member) => member.member_id === memberId),
+                  )
+                : availableMembers
+                      .filter((member) => member.has_quotation)
+                      .map((member) => member.member_id);
+
+        const resolvedFallbackMemberIds =
+            fallbackMemberIds.length > 0
+                ? fallbackMemberIds
+                : linkedMemberIdsFromItems.length === 0 && (data.items?.length ?? 0) > 0
+                  ? availableMembers.map((member) => member.member_id)
+                  : [];
+
+        if (resolvedFallbackMemberIds.length === 0) {
+            return;
+        }
+
+        setSelectedMemberIds(resolvedFallbackMemberIds);
+
+        if (
+            !handlerMemberId ||
+            !resolvedFallbackMemberIds.includes(handlerMemberId)
+        ) {
+            setHandlerMemberId(resolvedFallbackMemberIds[0]);
+        }
+    }, [
+        isEdit,
+        availableMembers,
+        selectedMemberIds.length,
+        linkedMemberIdsFromItems,
+        handlerMemberId,
+        data.items,
+    ]);
 
     // items
     const initializedRef = useRef(false);
@@ -580,12 +700,13 @@ export function QuotationForm({
                         renderError={renderError}
                         customerConfirmations={customerConfirmations}
                         availableMembers={availableMembers}
-                        selectedMemberIds={selectedMemberIds}
+                        selectedMemberIds={effectiveSelectedMemberIds}
                         handlerMemberId={handlerMemberId}
                         onCustomerConfirmationChange={(value) => {
                             const confirmationId = Number(value ?? 0);
 
                             if (!confirmationId) {
+                                loadedConfirmationRef.current = null;
                                 setAvailableMembers([]);
                                 setSelectedMemberIds([]);
                                 setHandlerMemberId(null);
@@ -593,14 +714,6 @@ export function QuotationForm({
 
                                 return;
                             }
-
-                            loadCustomerConfirmation(confirmationId).catch(
-                                () => {
-                                    setAvailableMembers([]);
-                                    setSelectedMemberIds([]);
-                                    setHandlerMemberId(null);
-                                },
-                            );
                         }}
                         onSelectedMembersChange={(memberIds) => {
                             setSelectedMemberIds(memberIds);

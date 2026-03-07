@@ -88,7 +88,7 @@ class QuotationController extends Controller
 
     public function store(Request $request)
     {
-        if ($request->status === 'sent' || $request->status === 'revised') {
+        if ($request->status === 'ready' || $request->status === 'revised') {
             $validated = $request->validate($this->quotationRule->sentRules());
         } else {
             $validated = $request->validate($this->quotationRule->rules());
@@ -140,7 +140,7 @@ class QuotationController extends Controller
 
     public function update(Request $request, $id)
     {
-        if ($request->status === 'sent' || $request->status === 'revised') {
+        if ($request->status === 'ready' || $request->status === 'revised') {
             $validated = $request->validate($this->quotationRule->sentRules());
         } else {
             $validated = $request->validate($this->quotationRule->rules());

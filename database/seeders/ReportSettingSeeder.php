@@ -20,7 +20,7 @@ class ReportSettingSeeder extends Seeder
                 'company_address' => "931 Yishun Central 1\n#01-109, Singapore 760931",
                 'company_phone' => null,
                 'company_email' => null,
-                'logo_path' => null,
+                'logo_path' => 'logo-primary.png',
                 'footer_text' => "Thank you for your business.\nFor any inquiries, please contact us.",
                 'stamp_path' => null,
                 'signature_path' => null,

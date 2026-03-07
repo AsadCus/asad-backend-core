@@ -7,11 +7,47 @@ use App\Models\ReportSetting;
 class ReportTemplateService
 {
     /**
+     * Resolve image URL and absolute path for report assets.
+     * Prefers storage uploads, then falls back to public assets.
+     *
+     * @return array{url: string|null, absolute: string|null}
+     */
+    private function resolveAsset(?string $path, ?string $defaultPublicFile = null): array
+    {
+        $candidatePath = $path ?: $defaultPublicFile;
+
+        if (! $candidatePath) {
+            return ['url' => null, 'absolute' => null];
+        }
+
+        $storageAbsolute = storage_path('app/public/'.$candidatePath);
+        if (file_exists($storageAbsolute)) {
+            return [
+                'url' => '/storage/'.$candidatePath,
+                'absolute' => $storageAbsolute,
+            ];
+        }
+
+        $publicAbsolute = public_path($candidatePath);
+        if (file_exists($publicAbsolute)) {
+            return [
+                'url' => '/'.$candidatePath,
+                'absolute' => $publicAbsolute,
+            ];
+        }
+
+        return ['url' => null, 'absolute' => null];
+    }
+
+    /**
      * Get current branding settings with resolved URLs.
      */
     public function getBranding(): array
     {
         $settings = ReportSetting::current();
+        $logo = $this->resolveAsset($settings->logo_path, 'logo-primary.png');
+        $stamp = $this->resolveAsset($settings->stamp_path);
+        $signature = $this->resolveAsset($settings->signature_path);
 
         return [
             'company_name' => $settings->company_name,
@@ -19,25 +55,13 @@ class ReportTemplateService
             'company_phone' => $settings->company_phone,
             'company_email' => $settings->company_email,
             // Relative URL versions (for web/frontend display) - works regardless of APP_URL or port
-            'logo_url' => $settings->logo_path
-                ? '/storage/'.$settings->logo_path
-                : null,
-            'stamp_url' => $settings->stamp_path
-                ? '/storage/'.$settings->stamp_path
-                : null,
-            'signature_url' => $settings->signature_path
-                ? '/storage/'.$settings->signature_path
-                : null,
+            'logo_url' => $logo['url'],
+            'stamp_url' => $stamp['url'],
+            'signature_url' => $signature['url'],
             // Absolute path versions (for DomPDF)
-            'logo_path_absolute' => $settings->logo_path
-                ? storage_path('app/public/'.$settings->logo_path)
-                : null,
-            'stamp_path_absolute' => $settings->stamp_path
-                ? storage_path('app/public/'.$settings->stamp_path)
-                : null,
-            'signature_path_absolute' => $settings->signature_path
-                ? storage_path('app/public/'.$settings->signature_path)
-                : null,
+            'logo_path_absolute' => $logo['absolute'],
+            'stamp_path_absolute' => $stamp['absolute'],
+            'signature_path_absolute' => $signature['absolute'],
             'footer_text' => $settings->footer_text,
             // Per-module template configs (for use in settings page)
             'module_templates' => [
@@ -66,11 +90,11 @@ class ReportTemplateService
 
         // Merge the per-module template config into branding
         $moduleTemplate = $settings->getModuleTemplate($type);
-        
+
         // Ensure boolean values are properly cast
         $moduleTemplate['show_stamp'] = (bool) ($moduleTemplate['show_stamp'] ?? false);
         $moduleTemplate['show_signature'] = (bool) ($moduleTemplate['show_signature'] ?? false);
-        
+
         $branding = array_merge($branding, $moduleTemplate);
 
         return [

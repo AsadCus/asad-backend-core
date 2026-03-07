@@ -269,7 +269,24 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         items.forEach((i) => {
             if (hasChildren(i)) next[i._key] = false;
         });
-        setExpanded((p) => ({ ...next, ...p }));
+
+        setExpanded((prev) => {
+            const merged = { ...next, ...prev };
+            const prevKeys = Object.keys(prev);
+            const mergedKeys = Object.keys(merged);
+
+            if (prevKeys.length === mergedKeys.length) {
+                const isSame = mergedKeys.every(
+                    (key) => prev[key] === merged[key],
+                );
+
+                if (isSame) {
+                    return prev;
+                }
+            }
+
+            return merged;
+        });
     }, [items, hasChildren]);
 
     // Visible items

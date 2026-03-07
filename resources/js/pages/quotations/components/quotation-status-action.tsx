@@ -10,12 +10,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { create } from '@/routes/invoice';
-import { accept, cancel, expire, reject } from '@/routes/quotation';
+import { accept, cancel, expire, ready, reject } from '@/routes/quotation';
 import { router } from '@inertiajs/react';
 import { Info, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
 export type QuotationStatusActionType =
+    | 'ready'
     | 'accept'
     | 'convert'
     | 'reject'
@@ -33,6 +34,10 @@ export function getAvailableQuotationActions(
     status?: string,
 ): QuotationStatusActionType[] {
     if (!status) return [];
+
+    if (status === 'draft' || status === 'rejected' || status === 'expired') {
+        return ['ready'];
+    }
 
     if (status === 'ready' || status === 'revised') {
         return ['accept', 'reject', 'expire', 'cancel'];
@@ -60,6 +65,8 @@ export function QuotationStatusAction({
 
     const getTitle = () => {
         switch (action) {
+            case 'ready':
+                return 'Mark Quotation as Ready';
             case 'accept':
                 return 'Accept Quotation';
             case 'convert':
@@ -77,6 +84,8 @@ export function QuotationStatusAction({
 
     const getDescription = () => {
         switch (action) {
+            case 'ready':
+                return 'Mark this quotation as ready to proceed with customer decision.';
             case 'accept':
                 return 'Accept this quotation and proceed to the next step.';
             case 'convert':
@@ -98,6 +107,10 @@ export function QuotationStatusAction({
         if (!quotationId) {
             setIsSubmitting(false);
             return;
+        }
+
+        if (action === 'ready') {
+            router.put(ready(quotationId).url, {}, finishHandler);
         }
 
         if (action === 'accept') {
@@ -205,6 +218,7 @@ export function QuotationStatusAction({
                         {isSubmitting && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
+                        {action === 'ready' && 'Mark Ready'}
                         {action === 'accept' && 'Accept'}
                         {action === 'convert' && 'Convert'}
                         {action === 'reject' && 'Reject'}

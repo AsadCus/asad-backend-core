@@ -358,6 +358,7 @@ class CustomerConfirmationService
             'id' => $group->id,
             'enquiry_id' => $group->enquiry_id,
             'package_id' => $group->package_id,
+            'package_name' => $group->package?->name,
             'package_price_single' => $group->package?->price_single,
             'package_price_double' => $group->package?->price_double,
             'package_price_triple' => $group->package?->price_triple,

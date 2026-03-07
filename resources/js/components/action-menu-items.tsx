@@ -49,6 +49,7 @@ export function ActionMenuItems<TData>({
         : (row as TData & WithHandledBy).handled_by;
 
     const hasQuotationStatusActions =
+        actions.includes('quotation-status-ready') ||
         actions.includes('quotation-status-accept') ||
         actions.includes('quotation-status-convert') ||
         actions.includes('quotation-status-reject') ||
@@ -78,8 +79,18 @@ export function ActionMenuItems<TData>({
                 <>
                     <Separator />
                     <Sub>
-                        <SubTrigger>Quotation Status</SubTrigger>
+                        <SubTrigger>Change Status</SubTrigger>
                         <SubContent>
+                            {actions.includes('quotation-status-ready') && (
+                                <Item
+                                    onClick={() =>
+                                        onAction?.('quotation-status-ready', row)
+                                    }
+                                >
+                                    Mark as Ready
+                                </Item>
+                            )}
+
                             {actions.includes('quotation-status-accept') && (
                                 <Item
                                     onClick={() =>
@@ -119,7 +130,7 @@ export function ActionMenuItems<TData>({
                                 </Item>
                             )}
 
-                            {/* {actions.includes('quotation-status-expire') && (
+                            {actions.includes('quotation-status-expire') && (
                                 <Item
                                     onClick={() =>
                                         onAction?.(
@@ -130,7 +141,7 @@ export function ActionMenuItems<TData>({
                                 >
                                     Expire Quotation
                                 </Item>
-                            )} */}
+                            )}
 
                             {actions.includes('quotation-status-cancel') && (
                                 <Item

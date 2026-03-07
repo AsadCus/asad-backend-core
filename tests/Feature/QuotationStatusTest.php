@@ -245,4 +245,48 @@ class QuotationStatusTest extends TestCase
             'status' => 'pending_payment',
         ]);
     }
+
+    public function test_delete_quotation_resets_linked_confirmation_members_to_draft(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-QS-006',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'status' => 'pending_payment',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => QuotationStatus::Draft->value,
+        ]);
+
+        QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Linked member item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 100,
+            'sort_order' => 1,
+        ]);
+
+        app(QuotationService::class)->delete($quotation->id);
+
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $member->id,
+            'status' => 'draft',
+        ]);
+    }
 }

@@ -360,7 +360,7 @@ export function ChartAreaInteractive({
                 <ChartContainer
                     config={chartConfig}
                     className={`aspect-auto w-full`}
-                    style={{ height: `${height}px` }}
+                    style={{ height: `${height}px`, minHeight: `${height}px` }}
                 >
                     {renderChart()}
                 </ChartContainer>

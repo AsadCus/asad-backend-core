@@ -381,18 +381,7 @@ class QuotationService
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
 
-            $linkedMemberIds = $quotation->quotationItems()
-                ->whereNotNull('customer_confirmation_member_id')
-                ->pluck('customer_confirmation_member_id')
-                ->unique()
-                ->values();
-
-            if ($linkedMemberIds->isNotEmpty()) {
-                CustomerConfirmationMember::query()
-                    ->whereIn('id', $linkedMemberIds)
-                    ->where('status', '!=', 'cancelled')
-                    ->update(['status' => 'draft']);
-            }
+            $this->resetLinkedMembersToDraft($this->getLinkedMemberIds($quotation));
 
             if ($quotation->order) {
                 $invoices = $quotation->order->invoices;
@@ -422,8 +411,39 @@ class QuotationService
             return false;
         }
 
+        $this->resetLinkedMembersToDraft($this->getLinkedMemberIds($quotation));
+
         $quotation->update(['status' => QuotationStatus::Expired->value]);
 
         return $quotation->delete();
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function getLinkedMemberIds(Quotation $quotation): array
+    {
+        return $quotation->quotationItems()
+            ->whereNotNull('customer_confirmation_member_id')
+            ->pluck('customer_confirmation_member_id')
+            ->map(fn ($memberId) => (int) $memberId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int>  $memberIds
+     */
+    private function resetLinkedMembersToDraft(array $memberIds): void
+    {
+        if (empty($memberIds)) {
+            return;
+        }
+
+        CustomerConfirmationMember::query()
+            ->whereIn('id', $memberIds)
+            ->where('status', '!=', 'cancelled')
+            ->update(['status' => 'draft']);
     }
 }

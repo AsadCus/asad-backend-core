@@ -14,7 +14,7 @@ import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InvoiceHeader } from '../invoices/components/invoice-header';
 import {
     calculateInvoicesTotal,
@@ -148,6 +148,7 @@ export default function OrderForm({
             paymentPlan: string,
             depositType?: string | null,
             depositValue?: number | string | null,
+            currentInvoices: InvoiceSchema[] = [],
         ): InvoiceSchema[] => {
             if (quotation) {
                 return normalizeInvoices(
@@ -167,36 +168,79 @@ export default function OrderForm({
             return normalizeInvoices(
                 buildInvoices(
                     paymentPlan,
-                    data.invoices,
+                    currentInvoices,
                     depositType,
                     depositValue,
                 ),
             );
         },
-        [quotation, data.invoices],
+        [quotation],
     );
 
-    useEffect(() => {
-        if (!initialData && quotation) {
-            const paymentPlan =
-                data.payment_plan ?? quotation.payment_plan ?? 'full';
-            setData(
-                'invoices',
-                rebuildInvoicesFromSource(
-                    paymentPlan,
-                    data.deposit_type,
-                    data.deposit_value,
-                ),
+    const serializeInvoicesForComparison = useCallback(
+        (invoices: InvoiceSchema[]): string => {
+            return JSON.stringify(
+                invoices.map((invoice) => ({
+                    invoice_date: invoice.invoice_date ?? '',
+                    due_date: invoice.due_date ?? '',
+                    description: invoice.description ?? '',
+                    amount: Number(invoice.amount ?? 0),
+                    items: (invoice.items ?? []).map((item) => ({
+                        id: item.id ?? null,
+                        parent_id: item.parent_id ?? null,
+                        customer_confirmation_member_id:
+                            item.customer_confirmation_member_id ?? null,
+                        description: item.description ?? '',
+                        is_header: Boolean(item.is_header),
+                        quantity: Number(item.quantity ?? 0),
+                        rate: Number(item.rate ?? 0),
+                        sort_order: Number(item.sort_order ?? 0),
+                    })),
+                })),
             );
+        },
+        [],
+    );
+
+    const didInitializeQuotationInvoicesRef = useRef(false);
+
+    useEffect(() => {
+        if (didInitializeQuotationInvoicesRef.current) {
+            return;
         }
+
+        if (initialData || !quotation) {
+            didInitializeQuotationInvoicesRef.current = true;
+            return;
+        }
+
+        const paymentPlan = data.payment_plan ?? quotation.payment_plan ?? 'full';
+
+        const nextInvoices = rebuildInvoicesFromSource(
+            paymentPlan,
+            data.deposit_type,
+            data.deposit_value,
+            data.invoices,
+        );
+
+        const currentHash = serializeInvoicesForComparison(data.invoices);
+        const nextHash = serializeInvoicesForComparison(nextInvoices);
+
+        if (currentHash !== nextHash) {
+            setData('invoices', nextInvoices);
+        }
+
+        didInitializeQuotationInvoicesRef.current = true;
     }, [
         initialData,
         quotation,
         data.payment_plan,
         data.deposit_type,
         data.deposit_value,
+        data.invoices,
         setData,
         rebuildInvoicesFromSource,
+        serializeInvoicesForComparison,
     ]);
 
     function addInvoice() {
@@ -376,9 +420,22 @@ export default function OrderForm({
                 next[invoice._key] = prev[invoice._key] ?? true;
             });
 
+            const prevKeys = Object.keys(prev);
+            const nextKeys = Object.keys(next);
+
+            if (prevKeys.length === nextKeys.length) {
+                const isSame = nextKeys.every(
+                    (key) => prev[key] === next[key],
+                );
+
+                if (isSame) {
+                    return prev;
+                }
+            }
+
             return next;
         });
-    }, [data]);
+    }, [data.invoices]);
 
     function toggleInvoice(invoiceKey: string) {
         setCollapsedInvoices((prev) => ({
@@ -471,6 +528,7 @@ export default function OrderForm({
                                                         v,
                                                         data.deposit_type,
                                                         data.deposit_value,
+                                                        data.invoices,
                                                     ),
                                             })
                                         }
@@ -493,6 +551,7 @@ export default function OrderForm({
                                                                         'installment',
                                                                     v,
                                                                     data.deposit_value,
+                                                                    data.invoices,
                                                                 ),
                                                         });
                                                     }}
@@ -554,6 +613,7 @@ export default function OrderForm({
                                                                         'installment',
                                                                     data.deposit_type,
                                                                     v,
+                                                                    data.invoices,
                                                                 ),
                                                         });
                                                     }}
