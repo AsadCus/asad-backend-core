@@ -13,8 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { store as storeModuleRoute } from '@/routes/report-template/modules';
 import { router } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
-import { FormEventHandler, useRef, useState } from 'react';
+import { Plus, X } from 'lucide-react';
+import { FormEventHandler, useEffect, useRef, useState } from 'react';
 import type { FileUploadFieldProps } from './types';
 
 export function FileUploadField({
@@ -29,12 +29,45 @@ export function FileUploadField({
     onClear,
 }: FileUploadFieldProps) {
     const [inputKey, setInputKey] = useState(0);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [localPreview, setLocalPreview] = useState<string | null>(null);
+    const objectUrlRef = useRef<string | null>(null);
+
+    const revokeObjectUrl = () => {
+        if (!objectUrlRef.current) {
+            return;
+        }
+
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+    };
+
+    useEffect(() => {
+        return () => {
+            revokeObjectUrl();
+        };
+    }, []);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+
+        if (file) {
+            revokeObjectUrl();
+            const objectUrl = URL.createObjectURL(file);
+            objectUrlRef.current = objectUrl;
+            setLocalPreview(objectUrl);
+        }
+
+        onChange(e);
+    };
 
     const handleClear = () => {
+        revokeObjectUrl();
+        setLocalPreview(null);
         setInputKey((prev) => prev + 1);
         onClear();
     };
+
+    const previewToShow = localPreview ?? preview;
 
     return (
         <FormField
@@ -43,60 +76,51 @@ export function FileUploadField({
             htmlFor={id}
             error={error}
         >
-            <div className="space-y-4 rounded-lg border p-3 sm:p-4">
+            <div className="relative flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-4">
                 <Input
                     key={inputKey}
                     id={id}
-                    ref={fileInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/jpg"
-                    onChange={onChange}
-                    className="hidden"
+                    onChange={handleFileChange}
+                    autoComplete="off"
+                    className="cursor-pointer"
                 />
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 w-full"
-                    onClick={() => fileInputRef.current?.click()}
-                >
-                    Choose File
-                </Button>
 
                 <p className="text-xs leading-relaxed text-muted-foreground">
                     Accepted: JPG, JPEG, PNG. Max 2MB
                 </p>
 
-                {preview && (
-                    <div className="space-y-3">
-                        <div className="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
+                {previewToShow && (
+                    <div className="flex w-full flex-col items-center gap-2">
+                        <div className="relative">
                             <ImagePreviewDialog
-                                imageSrc={preview}
+                                imageSrc={previewToShow}
                                 imageAlt={previewAlt}
                                 title={previewAlt}
                                 thumbnailSize={80}
                                 rounded="rounded"
                             />
-                            <div className="min-w-0 w-full flex-1 space-y-3">
-                                {previewFileName && (
-                                    <span
-                                        className="block truncate text-sm text-muted-foreground"
-                                        title={previewFileName}
-                                    >
-                                        {previewFileName}
-                                    </span>
-                                )}
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleClear}
-                                    className="w-full sm:w-auto"
-                                >
-                                    Clear
-                                </Button>
-                            </div>
+
+                            <button
+                                type="button"
+                                className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600 focus:outline-none"
+                                onClick={handleClear}
+                                aria-label={`Remove ${label}`}
+                                title={`Remove ${label}`}
+                            >
+                                <X className="h-4 w-4" aria-hidden="true" />
+                            </button>
                         </div>
+
+                        {previewFileName && (
+                            <span
+                                className="block max-w-full truncate text-sm text-muted-foreground"
+                                title={previewFileName}
+                            >
+                                {previewFileName}
+                            </span>
+                        )}
                     </div>
                 )}
             </div>

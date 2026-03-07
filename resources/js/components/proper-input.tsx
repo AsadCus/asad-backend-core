@@ -45,6 +45,7 @@ export function ProperInput({
                 value={local}
                 placeholder={placeholder}
                 disabled={disabled}
+                autoComplete="off"
                 className={cn(
                     size === 'compact'
                         ? 'min-h-[36px] px-2 py-1 text-base sm:min-h-[48px]'
@@ -63,6 +64,7 @@ export function ProperInput({
             value={local}
             placeholder={placeholder}
             disabled={disabled}
+            autoComplete="off"
             className={cn(
                 size === 'compact' ? 'h-6 px-2 py-1 text-base sm:h-7' : '',
                 className,

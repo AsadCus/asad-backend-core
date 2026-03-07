@@ -6,7 +6,7 @@ import { update as updateReportTemplate } from '@/routes/report-template';
 import { destroy as destroyModuleRoute } from '@/routes/report-template/modules';
 import { Transition } from '@headlessui/react';
 import { Head, router, useForm } from '@inertiajs/react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useRef, useState } from 'react';
 import { AddModuleDialog, FileUploadField } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
 import { ModuleTemplateSection } from './report-template/module-template-section';
@@ -46,6 +46,9 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     // { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
     // { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
 ];
+
+const DEFAULT_LOGO_PREVIEW = '/logo-primary.png';
+const DEFAULT_LOGO_FILE_NAME = 'logo-primary.png';
 
 export default function ReportTemplate({ settings }: { settings: ReportTemplateSettings }) {
     const extractFileName = (path: string | null): string | null => {
@@ -93,7 +96,7 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
         });
 
     const [logoPreview, setLogoPreview] = useState<string | null>(
-        settings.logo_path ? `/storage/${settings.logo_path}` : null,
+        settings.logo_path ? `/storage/${settings.logo_path}` : DEFAULT_LOGO_PREVIEW,
     );
     const [stampPreview, setStampPreview] = useState<string | null>(
         settings.stamp_path ? `/storage/${settings.stamp_path}` : null,
@@ -102,7 +105,7 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
         settings.signature_path ? `/storage/${settings.signature_path}` : null,
     );
     const [logoPreviewFileName, setLogoPreviewFileName] = useState<string | null>(
-        extractFileName(settings.logo_path),
+        extractFileName(settings.logo_path) ?? DEFAULT_LOGO_FILE_NAME,
     );
     const [stampPreviewFileName, setStampPreviewFileName] = useState<string | null>(
         extractFileName(settings.stamp_path),
@@ -110,6 +113,9 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
     const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<string | null>(
         extractFileName(settings.signature_path),
     );
+
+    // Track active FileReaders to prevent race conditions
+    const activeReadersRef = useRef<Map<string, FileReader>>(new Map());
 
     const makeFileHandler =
         (
@@ -120,10 +126,24 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             (e: React.ChangeEvent<HTMLInputElement>) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+
+                // Cancel any previous FileReader for this field
+                const existingReader = activeReadersRef.current.get(field);
+                if (existingReader) {
+                    existingReader.abort();
+                }
+
                 setData(field, file);
                 setPreviewFileName(file.name);
                 const reader = new FileReader();
-                reader.onloadend = () => setPreview(reader.result as string);
+                activeReadersRef.current.set(field, reader);
+                reader.onloadend = () => {
+                    // Only set preview if this reader wasn't aborted
+                    if (activeReadersRef.current.get(field) === reader) {
+                        setPreview(reader.result as string);
+                        activeReadersRef.current.delete(field);
+                    }
+                };
                 reader.readAsDataURL(file);
             };
 
@@ -136,6 +156,13 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             existingFileName: string | null,
         ) =>
             () => {
+                // Cancel any active FileReader for this field
+                const existingReader = activeReadersRef.current.get(field);
+                if (existingReader) {
+                    existingReader.abort();
+                    activeReadersRef.current.delete(field);
+                }
+
                 // Clear newly selected file but preserve existing uploaded asset preview/name.
                 setData(field, null);
                 setPreview(existingPreview);
@@ -208,10 +235,10 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
                             logoPreviewFileName={logoPreviewFileName}
                             stampPreviewFileName={stampPreviewFileName}
                             signaturePreviewFileName={signaturePreviewFileName}
-                            initialLogoPreview={settings.logo_path ? `/storage/${settings.logo_path}` : null}
+                            initialLogoPreview={settings.logo_path ? `/storage/${settings.logo_path}` : DEFAULT_LOGO_PREVIEW}
                             initialStampPreview={settings.stamp_path ? `/storage/${settings.stamp_path}` : null}
                             initialSignaturePreview={settings.signature_path ? `/storage/${settings.signature_path}` : null}
-                            initialLogoPreviewFileName={extractFileName(settings.logo_path)}
+                            initialLogoPreviewFileName={extractFileName(settings.logo_path) ?? DEFAULT_LOGO_FILE_NAME}
                             initialStampPreviewFileName={extractFileName(settings.stamp_path)}
                             initialSignaturePreviewFileName={extractFileName(settings.signature_path)}
                             setLogoPreview={setLogoPreview}

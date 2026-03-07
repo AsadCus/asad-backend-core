@@ -780,23 +780,20 @@ export default function ConfirmedCustomerIndex({
                 String(memberDialogData.sharing_plan ?? ''),
             );
             formData.append('role', String(memberDialogData.role ?? ''));
-            formData.append(
-                'passport_path',
-                String(memberDialogData.passport_path ?? ''),
-            );
-            formData.append(
-                'photo_path',
-                String(memberDialogData.photo_path ?? ''),
-            );
 
             if (memberDialogData.passport_file instanceof File) {
                 formData.append(
                     'passport_file',
                     memberDialogData.passport_file,
                 );
+            } else if (memberDialogData.passport_path === null) {
+                formData.append('passport_path', '');
             }
+
             if (memberDialogData.photo_file instanceof File) {
                 formData.append('photo_file', memberDialogData.photo_file);
+            } else if (memberDialogData.photo_path === null) {
+                formData.append('photo_path', '');
             }
 
             const response = await fetch(
