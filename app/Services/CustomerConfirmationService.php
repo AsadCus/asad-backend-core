@@ -265,18 +265,27 @@ class CustomerConfirmationService
                     fn (CustomerConfirmationMember $member) => (float) $member->receiptAllocations->sum('allocated_amount')
                 );
 
+                $quotedMemberCount = $activeMembers->filter(
+                    fn (CustomerConfirmationMember $member) => $member->quotationItems->isNotEmpty()
+                )->count();
+
                 $canCreateQuotation = $activeMembers
                     ->contains(fn (CustomerConfirmationMember $member) => $member->quotationItems->isEmpty());
 
                 return [
                     'id' => $group->id,
                     'enquiry_id' => $group->enquiry_id,
+                    'package_name' => $group->package?->name ?? '-',
+                    'date_of_application' => $group->date_of_application_formatted,
                     'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,
                     'enquiry_status' => $group->enquiry?->status?->label(),
                     'main_customer_name' => $leader?->customer?->user?->name ?? '-',
+                    'main_customer_number' => $leader?->customer?->customer_number ?? '-',
                     'enquiry_email' => $group->enquiry?->email ?? ($leader?->customer?->user?->email ?? '-'),
                     'enquiry_contact' => $group->enquiry?->contact_number ?? ($leader?->customer?->user?->contact ?? '-'),
                     'member_count' => $group->members->count(),
+                    'active_member_count' => $activeMembers->count(),
+                    'quoted_member_count' => $quotedMemberCount,
                     'paid_amount' => round($groupPaidAmount, 2),
                     'total_amount' => round($groupTotalAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
@@ -303,6 +312,9 @@ class CustomerConfirmationService
                             'email' => $member->customer?->user?->email ?? '-',
                             'contact' => $member->customer?->user?->contact ?? '-',
                             'customer_number' => $member->customer?->customer_number ?? '-',
+                            'nric_number' => $member->customer?->nric_number ?? '-',
+                            'nationality' => $member->customer?->nationality ?? '-',
+                            'passport_number' => $member->customer?->passport_number ?? '-',
                         ];
                     })->all(),
                 ];
@@ -341,8 +353,8 @@ class CustomerConfirmationService
                     'first_time_umrah' => $customer->first_time_umrah ?? false,
                     'has_chronic_disease' => $customer->has_chronic_disease ?? false,
                     'chronic_disease_details' => $customer->chronic_disease_details ?? '',
-                    'passport_path' => $customer->passport_path ? Storage::disk('public')->url($customer->passport_path) : null,
-                    'photo_path' => $customer->photo_path ? Storage::disk('public')->url($customer->photo_path) : null,
+                    'passport_path' => $customer->passport_path,
+                    'photo_path' => $customer->photo_path,
                 ];
             })
             ->all();
@@ -396,8 +408,8 @@ class CustomerConfirmationService
                     'first_time_umrah' => $customer?->first_time_umrah ?? false,
                     'has_chronic_disease' => $customer?->has_chronic_disease ?? false,
                     'chronic_disease_details' => $customer?->chronic_disease_details ?? '',
-                    'passport_path' => $customer?->passport_path ? Storage::disk('public')->url($customer->passport_path) : null,
-                    'photo_path' => $customer?->photo_path ? Storage::disk('public')->url($customer->photo_path) : null,
+                    'passport_path' => $customer?->passport_path,
+                    'photo_path' => $customer?->photo_path,
                 ];
             })->all(),
         ];
@@ -666,8 +678,8 @@ class CustomerConfirmationService
                 'first_time_umrah' => $member->customer?->first_time_umrah ?? false,
                 'has_chronic_disease' => $member->customer?->has_chronic_disease ?? false,
                 'chronic_disease_details' => $member->customer?->chronic_disease_details ?? '',
-                'passport_path' => $member->customer?->passport_path ? Storage::disk('public')->url($member->customer->passport_path) : null,
-                'photo_path' => $member->customer?->photo_path ? Storage::disk('public')->url($member->customer->photo_path) : null,
+                'passport_path' => $member->customer?->passport_path,
+                'photo_path' => $member->customer?->photo_path,
             ];
         });
     }

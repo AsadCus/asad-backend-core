@@ -48,6 +48,14 @@ const BUILTIN_MODULES: RegisteredModule[] = [
 ];
 
 export default function ReportTemplate({ settings }: { settings: ReportTemplateSettings }) {
+    const extractFileName = (path: string | null): string | null => {
+        if (!path) {
+            return null;
+        }
+
+        return decodeURIComponent(path.split('/').pop() || '');
+    };
+
     const allModules: RegisteredModule[] = [
         ...BUILTIN_MODULES,
         ...(settings.registered_modules ?? []),
@@ -93,16 +101,27 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
     const [signaturePreview, setSignaturePreview] = useState<string | null>(
         settings.signature_path ? `/storage/${settings.signature_path}` : null,
     );
+    const [logoPreviewFileName, setLogoPreviewFileName] = useState<string | null>(
+        extractFileName(settings.logo_path),
+    );
+    const [stampPreviewFileName, setStampPreviewFileName] = useState<string | null>(
+        extractFileName(settings.stamp_path),
+    );
+    const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<string | null>(
+        extractFileName(settings.signature_path),
+    );
 
     const makeFileHandler =
         (
             field: 'logo_file' | 'stamp_file' | 'signature_file',
             setPreview: (v: string | null) => void,
+            setPreviewFileName: (v: string | null) => void,
         ) =>
             (e: React.ChangeEvent<HTMLInputElement>) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 setData(field, file);
+                setPreviewFileName(file.name);
                 const reader = new FileReader();
                 reader.onloadend = () => setPreview(reader.result as string);
                 reader.readAsDataURL(file);
@@ -112,10 +131,15 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
         (
             field: 'logo_file' | 'stamp_file' | 'signature_file',
             setPreview: (v: string | null) => void,
+            existingPreview: string | null,
+            setPreviewFileName: (v: string | null) => void,
+            existingFileName: string | null,
         ) =>
             () => {
+                // Clear newly selected file but preserve existing uploaded asset preview/name.
                 setData(field, null);
-                setPreview(null);
+                setPreview(existingPreview);
+                setPreviewFileName(existingFileName);
             };
 
     const updateModule = (field: keyof ModuleTemplate, value: string | boolean) => {
@@ -164,7 +188,7 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
     return (
         <AppLayout>
             <Head title="Report Template Settings" />
-            <SettingsLayout>
+            <SettingsLayout wide>
                 <div className="space-y-6">
                     <HeadingSmall
                         title="Report Template Settings"
@@ -181,9 +205,21 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
                             onDataChange={(field, value) => setData(field as keyof ReportTemplateFormData, value)}
                             makeFileHandler={makeFileHandler}
                             makeClearHandler={makeClearHandler}
+                            logoPreviewFileName={logoPreviewFileName}
+                            stampPreviewFileName={stampPreviewFileName}
+                            signaturePreviewFileName={signaturePreviewFileName}
+                            initialLogoPreview={settings.logo_path ? `/storage/${settings.logo_path}` : null}
+                            initialStampPreview={settings.stamp_path ? `/storage/${settings.stamp_path}` : null}
+                            initialSignaturePreview={settings.signature_path ? `/storage/${settings.signature_path}` : null}
+                            initialLogoPreviewFileName={extractFileName(settings.logo_path)}
+                            initialStampPreviewFileName={extractFileName(settings.stamp_path)}
+                            initialSignaturePreviewFileName={extractFileName(settings.signature_path)}
                             setLogoPreview={setLogoPreview}
                             setStampPreview={setStampPreview}
                             setSignaturePreview={setSignaturePreview}
+                            setLogoPreviewFileName={setLogoPreviewFileName}
+                            setStampPreviewFileName={setStampPreviewFileName}
+                            setSignaturePreviewFileName={setSignaturePreviewFileName}
                             FileUploadField={FileUploadField}
                         />
 

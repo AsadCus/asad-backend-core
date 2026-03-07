@@ -1,8 +1,9 @@
 import { FormField } from '@/components/form-field';
 import { ImagePreviewDialog } from '@/components/image-preview-dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileText, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExternalLink, FileText } from 'lucide-react';
+import { useState } from 'react';
 
 export interface DocumentFieldProps {
     label: string;
@@ -17,6 +18,33 @@ export interface DocumentFieldProps {
     onClear: () => void;
 }
 
+interface PdfPreviewCardProps {
+    pdfSrc: string;
+    title: string;
+}
+
+function PdfPreviewCard({ pdfSrc, title }: PdfPreviewCardProps) {
+    return (
+        <a
+            href={pdfSrc}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative flex cursor-pointer items-center justify-center"
+            title={`View ${title}`}
+        >
+            <div
+                className="flex items-center justify-center rounded border bg-muted/30 transition-transform duration-300 hover:scale-105 dark:border-white"
+                style={{ width: '80px', height: '80px' }}
+            >
+                <FileText className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <div className="absolute inset-0 hidden items-center justify-center rounded bg-black/40 group-hover:flex">
+                <ExternalLink className="size-6 text-white" />
+            </div>
+        </a>
+    );
+}
+
 export function DocumentField({
     label,
     hint,
@@ -29,45 +57,48 @@ export function DocumentField({
     onSelect,
     onClear,
 }: DocumentFieldProps) {
-    const hasFile = !!fileValue;
-    const hasExisting = !!existingPath;
-    const hasContent = hasFile || hasExisting;
+    const [newFilePreview, setNewFilePreview] = useState<string | null>(null);
+    const [inputKey, setInputKey] = useState(0);
 
-    // Increment on clear so the native <input> remounts and resets to "No file chosen"
-    const [clearCount, setClearCount] = useState(0);
+    // Use preview for new file, or existing path for uploaded files
+    const previewSrc = newFilePreview || (existingPath ? `/storage/${existingPath}` : null);
 
-    const handleClear = useCallback(() => {
-        setClearCount((c) => c + 1);
-        onClear();
-    }, [onClear]);
-
-    // Create preview URL with proper cleanup
-    const previewUrl = useMemo(() => {
-        if (hasFile) {
-            return URL.createObjectURL(fileValue);
-        }
-        return existingPath ?? undefined;
-    }, [hasFile, fileValue, existingPath]);
-
-    // Cleanup blob URL when component unmounts or file changes
-    useEffect(() => {
-        return () => {
-            if (hasFile && previewUrl) {
-                URL.revokeObjectURL(previewUrl);
-            }
-        };
-    }, [hasFile, previewUrl]);
-
-    const isImage = hasFile
+    const isImage = fileValue
         ? fileValue.type.startsWith('image/')
         : existingPath?.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) != null;
 
-    // Extract readable filename
-    const displayFilename = hasFile
+    const isPdf = fileValue
+        ? fileValue.type === 'application/pdf'
+        : existingPath?.match(/\.pdf(\?|$)/i) != null;
+
+    // Extract filename for display
+    const displayFilename = fileValue
         ? fileValue.name
         : existingPath
           ? decodeURIComponent(existingPath.split('/').pop() || '')
           : '';
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        onSelect(file);
+
+        // Create preview for new file
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onloadend = () => setNewFilePreview(reader.result as string);
+            reader.readAsDataURL(file);
+        } else {
+            setNewFilePreview(null);
+        }
+    };
+
+    const handleClear = () => {
+        setNewFilePreview(null);
+        setInputKey((prev) => prev + 1); // Reset input
+        onClear();
+    };
 
     return (
         <FormField
@@ -75,74 +106,67 @@ export function DocumentField({
             fieldRequirementsProps={{ hint }}
             error={error}
         >
-            <div className="relative flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-4">
-                {/* Preview area */}
-                {hasContent ? (
-                    <div className="flex w-full flex-col items-center gap-2">
-                        <div className="relative">
-                            {previewUrl && isImage ? (
+            <div className="space-y-3">
+                {!isView && (
+                    <Input
+                        key={inputKey}
+                        type="file"
+                        accept={accept}
+                        onChange={handleFileChange}
+                        disabled={disabled}
+                        className="block w-full cursor-pointer"
+                    />
+                )}
+                
+                {previewSrc && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            {isImage ? (
                                 <ImagePreviewDialog
-                                    imageSrc={previewUrl}
+                                    imageSrc={previewSrc}
                                     imageAlt={label}
+                                    title={label}
+                                    thumbnailSize={80}
+                                    rounded="rounded"
                                 />
-                            ) : previewUrl ? (
-                                <a
-                                    href={previewUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex flex-col items-center gap-2 text-sm text-blue-600 underline dark:text-blue-400"
-                                >
-                                    <FileText className="h-12 w-12 text-muted-foreground" />
-                                    View document
-                                </a>
+                            ) : isPdf ? (
+                                <PdfPreviewCard
+                                    pdfSrc={previewSrc}
+                                    title={label}
+                                />
                             ) : null}
 
-                            {/* Remove button – top-right of the preview */}
-                            {!isView && (
-                                <button
-                                    type="button"
-                                    className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600 focus:outline-none"
-                                    onClick={handleClear}
-                                    aria-label={`Remove ${label}`}
-                                    title={`Remove ${label}`}
-                                    disabled={disabled}
-                                >
-                                    <X className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                            )}
-                        </div>
+                            <div className="flex flex-col gap-2">
+                                {displayFilename && (
+                                    <span
+                                        className="max-w-[200px] truncate text-sm text-muted-foreground"
+                                        title={displayFilename}
+                                    >
+                                        {displayFilename}
+                                    </span>
+                                )}
 
-                        {/* Show filename */}
-                        {displayFilename && (
-                            <span
-                                className="max-w-full truncate text-sm text-muted-foreground"
-                                title={displayFilename}
-                            >
-                                {displayFilename}
-                            </span>
-                        )}
-                    </div>
-                ) : (
-                    <div className="flex h-24 w-full items-center justify-center text-sm text-muted-foreground">
-                        No file uploaded
+                                {!isView && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleClear}
+                                        disabled={disabled}
+                                    >
+                                        Clear
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
 
-                {/* Visible file input – browser shows filename when a file is chosen */}
-                {!isView && (
-                    <Input
-                        key={clearCount}
-                        type="file"
-                        accept={accept}
-                        disabled={disabled}
-                        className="cursor-pointer"
-                        onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                                onSelect(file);
-                            }
-                        }}
-                    />
+                {/* Show message when no file */}
+                {!previewSrc && isView && (
+                    <p className="text-sm text-muted-foreground">
+                        No file uploaded
+                    </p>
                 )}
             </div>
         </FormField>

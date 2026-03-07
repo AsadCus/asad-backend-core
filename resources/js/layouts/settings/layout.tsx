@@ -39,7 +39,14 @@ const sidebarNavItems: NavItem[] = [
     },
 ];
 
-export default function SettingsLayout({ children }: PropsWithChildren) {
+interface SettingsLayoutProps extends PropsWithChildren {
+    wide?: boolean;
+}
+
+export default function SettingsLayout({
+    children,
+    wide = false,
+}: SettingsLayoutProps) {
     // When server-side rendering, we only render the layout on the client...
     if (typeof window === 'undefined') {
         return null;
@@ -84,8 +91,18 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
 
                 <Separator className="my-6 lg:hidden" />
 
-                <div className="flex-1 md:max-w-2xl">
-                    <section className="max-w-xl space-y-12">
+                <div
+                    className={cn('flex-1 min-w-0', {
+                        'md:max-w-2xl': !wide,
+                        'md:max-w-6xl': wide,
+                    })}
+                >
+                    <section
+                        className={cn('space-y-12', {
+                            'max-w-xl': !wide,
+                            'max-w-6xl': wide,
+                        })}
+                    >
                         {children}
                     </section>
                 </div>

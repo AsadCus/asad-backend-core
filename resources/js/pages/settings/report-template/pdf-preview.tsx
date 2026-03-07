@@ -24,11 +24,12 @@ export function PdfPreview({
                     Sample only
                 </span>
             </div>
-            <div
-                className="space-y-3 p-4"
-                style={{ fontFamily: 'Arial, sans-serif', fontSize: '9px' }}
-            >
-                <div className="flex items-start justify-between gap-2">
+            <div className="overflow-x-auto p-4">
+                <div
+                    className="min-w-[320px] space-y-3"
+                    style={{ fontFamily: 'Arial, sans-serif', fontSize: '9px' }}
+                >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex-shrink-0">
                         {logoPreview ? (
                             <img
@@ -64,7 +65,7 @@ export function PdfPreview({
                 >
                     {documentType || 'DOCUMENT'}
                 </div>
-                <div className="flex gap-4 text-[8px]">
+                <div className="flex flex-col gap-2 text-[8px] sm:flex-row sm:gap-4">
                     <div className="flex-1 space-y-0.5">
                         <div className="flex">
                             <span className="w-14 font-semibold">Customer</span>
@@ -145,6 +146,7 @@ export function PdfPreview({
                             )}
                         </div>
                     )}
+                </div>
                 </div>
             </div>
         </div>

@@ -8,7 +8,6 @@ use App\Services\NotificationService;
 use App\Services\UserRoleFileUploadService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 
 class CustomerUserService
@@ -46,8 +45,8 @@ class CustomerUserService
                 $user->first_time_umrah = $user->customer->first_time_umrah ?? false;
                 $user->has_chronic_disease = $user->customer->has_chronic_disease ?? false;
                 $user->chronic_disease_details = $user->customer->chronic_disease_details ?? '';
-                $user->passport_path = $user->customer->passport_path ? Storage::disk('public')->url($user->customer->passport_path) : null;
-                $user->photo_path = $user->customer->photo_path ? Storage::disk('public')->url($user->customer->photo_path) : null;
+                $user->passport_path = $user->customer->passport_path;
+                $user->photo_path = $user->customer->photo_path;
             }
 
             return $user;
@@ -137,8 +136,8 @@ class CustomerUserService
             'first_time_umrah' => $user->customer->first_time_umrah ?? false,
             'has_chronic_disease' => $user->customer->has_chronic_disease ?? false,
             'chronic_disease_details' => $user->customer->chronic_disease_details ?? '',
-            'passport_path' => $user->customer->passport_path ? Storage::disk('public')->url($user->customer->passport_path) : null,
-            'photo_path' => $user->customer->photo_path ? Storage::disk('public')->url($user->customer->photo_path) : null,
+            'passport_path' => $user->customer->passport_path,
+            'photo_path' => $user->customer->photo_path,
             'handled_by' => (string) ($user->customer->handled_by ?? ''),
             'password' => '',
             'password_confirmation' => '',

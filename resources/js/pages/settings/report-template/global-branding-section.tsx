@@ -18,18 +18,34 @@ interface GlobalBrandingSectionProps {
     logoPreview: string | null;
     stampPreview: string | null;
     signaturePreview: string | null;
+    logoPreviewFileName: string | null;
+    stampPreviewFileName: string | null;
+    signaturePreviewFileName: string | null;
+    initialLogoPreview: string | null;
+    initialStampPreview: string | null;
+    initialSignaturePreview: string | null;
+    initialLogoPreviewFileName: string | null;
+    initialStampPreviewFileName: string | null;
+    initialSignaturePreviewFileName: string | null;
     onDataChange: (field: string, value: string) => void;
     makeFileHandler: (
         field: 'logo_file' | 'stamp_file' | 'signature_file',
         setPreview: (v: string | null) => void,
+        setPreviewFileName: (v: string | null) => void,
     ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
     makeClearHandler: (
         field: 'logo_file' | 'stamp_file' | 'signature_file',
         setPreview: (v: string | null) => void,
+        existingPreview: string | null,
+        setPreviewFileName: (v: string | null) => void,
+        existingFileName: string | null,
     ) => () => void;
     setLogoPreview: (v: string | null) => void;
     setStampPreview: (v: string | null) => void;
     setSignaturePreview: (v: string | null) => void;
+    setLogoPreviewFileName: (v: string | null) => void;
+    setStampPreviewFileName: (v: string | null) => void;
+    setSignaturePreviewFileName: (v: string | null) => void;
     FileUploadField: React.ComponentType<FileUploadFieldProps>;
 }
 
@@ -39,12 +55,24 @@ export function GlobalBrandingSection({
     logoPreview,
     stampPreview,
     signaturePreview,
+    logoPreviewFileName,
+    stampPreviewFileName,
+    signaturePreviewFileName,
+    initialLogoPreview,
+    initialStampPreview,
+    initialSignaturePreview,
+    initialLogoPreviewFileName,
+    initialStampPreviewFileName,
+    initialSignaturePreviewFileName,
     onDataChange,
     makeFileHandler,
     makeClearHandler,
     setLogoPreview,
     setStampPreview,
     setSignaturePreview,
+    setLogoPreviewFileName,
+    setStampPreviewFileName,
+    setSignaturePreviewFileName,
     FileUploadField,
 }: GlobalBrandingSectionProps) {
     const [brandingOpen, setBrandingOpen] = useState(true);
@@ -70,8 +98,8 @@ export function GlobalBrandingSection({
             </button>
 
             {brandingOpen && (
-                <div className="space-y-5 p-5">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-7 p-7">
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <FormField
                             label="Company Name"
                             fieldRequirementsProps={{ required: true }}
@@ -169,43 +197,50 @@ export function GlobalBrandingSection({
                         </FormField>
                     </div>
 
-                    <Separator />
+                    <Separator className="my-1" />
 
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-7 md:grid-cols-2 xl:grid-cols-3">
                         <FileUploadField
                             id="logo_file"
                             label="Company Logo"
                             hint="Displayed top-left on all PDFs"
                             preview={logoPreview}
+                            previewFileName={logoPreviewFileName}
                             previewAlt="Company Logo"
                             error={errors.logo_file}
-                            onChange={makeFileHandler('logo_file', setLogoPreview)}
-                            onClear={makeClearHandler('logo_file', setLogoPreview)}
+                            onChange={makeFileHandler('logo_file', setLogoPreview, setLogoPreviewFileName)}
+                            onClear={makeClearHandler('logo_file', setLogoPreview, initialLogoPreview, setLogoPreviewFileName, initialLogoPreviewFileName)}
                         />
                         <FileUploadField
                             id="stamp_file"
                             label="Company Stamp"
                             hint="Enable per-module in the section below"
                             preview={stampPreview}
+                            previewFileName={stampPreviewFileName}
                             previewAlt="Company Stamp"
                             error={errors.stamp_file}
-                            onChange={makeFileHandler('stamp_file', setStampPreview)}
-                            onClear={makeClearHandler('stamp_file', setStampPreview)}
+                            onChange={makeFileHandler('stamp_file', setStampPreview, setStampPreviewFileName)}
+                            onClear={makeClearHandler('stamp_file', setStampPreview, initialStampPreview, setStampPreviewFileName, initialStampPreviewFileName)}
                         />
                         <FileUploadField
                             id="signature_file"
                             label="Authorised Signature"
                             hint="Enable per-module in the section below"
                             preview={signaturePreview}
+                            previewFileName={signaturePreviewFileName}
                             previewAlt="Authorised Signature"
                             error={errors.signature_file}
                             onChange={makeFileHandler(
                                 'signature_file',
                                 setSignaturePreview,
+                                setSignaturePreviewFileName,
                             )}
                             onClear={makeClearHandler(
                                 'signature_file',
                                 setSignaturePreview,
+                                initialSignaturePreview,
+                                setSignaturePreviewFileName,
+                                initialSignaturePreviewFileName,
                             )}
                         />
                     </div>

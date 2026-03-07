@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { store as storeModuleRoute } from '@/routes/report-template/modules';
 import { router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useRef, useState } from 'react';
 import type { FileUploadFieldProps } from './types';
 
 export function FileUploadField({
@@ -22,11 +22,20 @@ export function FileUploadField({
     label,
     hint,
     preview,
+    previewFileName,
     previewAlt,
     error,
     onChange,
     onClear,
 }: FileUploadFieldProps) {
+    const [inputKey, setInputKey] = useState(0);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    const handleClear = () => {
+        setInputKey((prev) => prev + 1);
+        onClear();
+    };
+
     return (
         <FormField
             label={label}
@@ -34,35 +43,63 @@ export function FileUploadField({
             htmlFor={id}
             error={error}
         >
-            <Input
-                id={id}
-                type="file"
-                accept="image/jpeg,image/png,image/jpg"
-                onChange={onChange}
-                className="block w-full"
-            />
-            <p className="mt-1 text-sm text-muted-foreground">
-                Accepted: JPG, JPEG, PNG. Max 2MB
-            </p>
-            {preview && (
-                <div className="mt-3 flex items-center gap-3">
-                    <ImagePreviewDialog
-                        imageSrc={preview}
-                        imageAlt={previewAlt}
-                        title={previewAlt}
-                        thumbnailSize={80}
-                        rounded="rounded"
-                    />
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={onClear}
-                    >
-                        Clear
-                    </Button>
-                </div>
-            )}
+            <div className="space-y-4 rounded-lg border p-3 sm:p-4">
+                <Input
+                    key={inputKey}
+                    id={id}
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    onChange={onChange}
+                    className="hidden"
+                />
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-full"
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    Choose File
+                </Button>
+
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                    Accepted: JPG, JPEG, PNG. Max 2MB
+                </p>
+
+                {preview && (
+                    <div className="space-y-3">
+                        <div className="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
+                            <ImagePreviewDialog
+                                imageSrc={preview}
+                                imageAlt={previewAlt}
+                                title={previewAlt}
+                                thumbnailSize={80}
+                                rounded="rounded"
+                            />
+                            <div className="min-w-0 w-full flex-1 space-y-3">
+                                {previewFileName && (
+                                    <span
+                                        className="block truncate text-sm text-muted-foreground"
+                                        title={previewFileName}
+                                    >
+                                        {previewFileName}
+                                    </span>
+                                )}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleClear}
+                                    className="w-full sm:w-auto"
+                                >
+                                    Clear
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </FormField>
     );
 }

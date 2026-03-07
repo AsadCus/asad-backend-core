@@ -72,8 +72,23 @@ const formatCurrency = (value: number): string => {
 const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     createSelectColumn<CustomerConfirmationDatatableSchema>(),
     {
+        accessorKey: 'id',
+        header: 'CC ID',
+        meta: { exportable: true },
+        cell: ({ row }) => (
+            <Badge variant="outline" className="font-mono text-xs">
+                CC-{row.original.id}
+            </Badge>
+        ),
+    },
+    {
         accessorKey: 'main_customer_name',
         header: 'Customer Name',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'main_customer_number',
+        header: 'Customer No',
         meta: { exportable: true },
     },
     {
@@ -91,10 +106,26 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         header: 'Members',
         meta: { exportable: true },
         cell: ({ row }) => (
-            <Badge variant="secondary" className="text-sm">
-                {row.original.member_count}
-            </Badge>
+            <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-sm">
+                    Total: {row.original.member_count}
+                </Badge>
+                <Badge variant="outline" className="text-sm">
+                    Active: {row.original.active_member_count}
+                </Badge>
+            </div>
         ),
+    },
+    {
+        accessorKey: 'package_name',
+        header: 'Package',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'date_of_application',
+        header: 'Applied Date',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'enquiry_type',
@@ -148,6 +179,30 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         ),
     },
     {
+        accessorKey: 'quoted_member_count',
+        header: 'Quoted',
+        meta: { exportable: true },
+        cell: ({ row }) => (
+            <Badge variant="outline" className="text-sm">
+                {row.original.quoted_member_count} / {row.original.active_member_count}
+            </Badge>
+        ),
+    },
+    {
+        accessorKey: 'can_create_quotation',
+        header: 'Quotation',
+        meta: { exportable: true },
+        cell: ({ row }) => (
+            <Badge
+                variant={row.original.can_create_quotation ? 'secondary' : 'default'}
+                className="text-sm"
+            >
+                {row.original.can_create_quotation ? 'Pending' : 'Completed'}
+            </Badge>
+        ),
+        filterFn: 'includesValue',
+    },
+    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
@@ -186,6 +241,16 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'nric_number',
+        header: 'NRIC',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'nationality',
+        header: 'Nationality',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'sharing_plan',
         header: 'Sharing Plan',
         meta: { exportable: true },
@@ -203,6 +268,26 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
             );
         },
         filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'has_quotation',
+        header: 'Quotation',
+        meta: { exportable: true },
+        cell: ({ row }) => (
+            <Badge
+                variant={
+                    row.original.has_quotation ? 'default' : 'secondary'
+                }
+            >
+                {row.original.has_quotation ? 'Created' : 'Pending'}
+            </Badge>
+        ),
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'passport_number',
+        header: 'Passport',
+        meta: { exportable: true },
     },
     {
         accessorKey: 'status',
@@ -899,6 +984,14 @@ export default function ConfirmedCustomerIndex({
                         }
                     }}
                     initialState={{
+                        columnVisibility: {
+                            nric_number: false,
+                            nationality: false,
+                            passport_number: false,
+                            customer_number: false,
+                            contact: false,
+                            email: false,
+                        },
                         pagination: {
                             pageIndex: 0,
                             pageSize: 10,
@@ -995,8 +1088,13 @@ export default function ConfirmedCustomerIndex({
                             }}
                             initialState={{
                                 columnVisibility: {
-                                    id: false,
+                                    main_customer_number: false,
+                                    enquiry_email: false,
+                                    enquiry_contact: false,
                                     enquiry_status: false,
+                                    created_at: false,
+                                    quoted_member_count: false,
+                                    can_create_quotation: false,
                                 },
                             }}
                             renderFilter={(table) => (

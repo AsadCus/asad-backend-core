@@ -134,17 +134,25 @@ export interface CustomerConfirmationMemberDatatableSchema {
     email: string;
     contact: string;
     customer_number: string;
+    nric_number: string;
+    nationality: string;
+    passport_number: string;
 }
 
 export interface CustomerConfirmationDatatableSchema {
     id: number;
     enquiry_id: number | null;
+    package_name: string;
+    date_of_application: string | null;
     enquiry_type: string | null;
     enquiry_status: string | null;
     main_customer_name: string;
+    main_customer_number: string;
     enquiry_email: string;
     enquiry_contact: string;
     member_count: number;
+    active_member_count: number;
+    quoted_member_count: number;
     paid_amount: number;
     total_amount: number;
     can_create_quotation: boolean;

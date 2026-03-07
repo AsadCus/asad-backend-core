@@ -1,6 +1,5 @@
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -46,16 +45,16 @@ export function ModuleTemplateSection({
 }: ModuleTemplateSectionProps) {
     return (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/40 px-4 py-3">
                 <div>
                     <p className="text-base font-semibold">Module Template</p>
                     <p className="text-sm text-muted-foreground">
                         Customize PDF appearance per document type
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                     <Select value={selectedModule} onValueChange={setSelectedModule}>
-                        <SelectTrigger className="w-44">
+                        <SelectTrigger className="w-full sm:w-44">
                             <SelectValue placeholder="Select module" />
                         </SelectTrigger>
                         <SelectContent>
@@ -88,7 +87,7 @@ export function ModuleTemplateSection({
                             variant="destructive"
                             size="sm"
                             onClick={() => handleDeleteModule(selectedModule)}
-                            className="flex items-center gap-1.5"
+                            className="w-full sm:w-auto flex items-center gap-1.5"
                         >
                             <Trash2 className="h-3.5 w-3.5" />
                             Delete

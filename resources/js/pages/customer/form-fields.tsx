@@ -4,7 +4,7 @@ import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
-import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
+import { parseDisplayDate } from '@/lib/utils';
 import {
     genderOptions,
     maritalStatusOptions,
@@ -487,8 +487,13 @@ export default function CustomerFormFields({
                                 onUpdateCustomer(doc.fileKey, file)
                             }
                             onClear={() => {
+                                // If there's a new file selected, only clear the new file
+                                // Otherwise, clear both file and existing path
+                                const hasNewFile = !!customer[doc.fileKey];
                                 onUpdateCustomer(doc.fileKey, null);
-                                onUpdateCustomer(doc.pathKey, null);
+                                if (!hasNewFile) {
+                                    onUpdateCustomer(doc.pathKey, null);
+                                }
                             }}
                         />
                     ))}

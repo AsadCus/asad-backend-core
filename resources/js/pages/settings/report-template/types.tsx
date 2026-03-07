@@ -15,6 +15,7 @@ export interface FileUploadFieldProps {
     label: string;
     hint: string;
     preview: string | null;
+    previewFileName?: string | null;
     previewAlt: string;
     error?: string;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
