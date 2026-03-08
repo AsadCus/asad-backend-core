@@ -151,6 +151,19 @@ class InvoiceController extends Controller
             ->with('success', 'Invoice deleted successfully.');
     }
 
+    public function preview($id)
+    {
+        $invoice = $this->invoiceService->getForEditShow($id);
+        $reportData = $this->reportTemplateService->build('invoice', $invoice);
+
+        return view('invoices.pdf', [
+            'data' => $invoice,
+            'items' => $invoice['items'],
+            'branding' => $reportData['branding'],
+            'is_pdf' => false,
+        ]);
+    }
+
     public function generatePdf($id)
     {
         try {
@@ -164,6 +177,7 @@ class InvoiceController extends Controller
                 'data' => $invoice,
                 'items' => $invoice['items'],
                 'branding' => $reportData['branding'],
+                'is_pdf' => true,
             ])->render();
 
             $pdf = Pdf::loadHTML($html)

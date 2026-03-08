@@ -6,7 +6,7 @@ import { update as updateReportTemplate } from '@/routes/report-template';
 import { destroy as destroyModuleRoute } from '@/routes/report-template/modules';
 import { Transition } from '@headlessui/react';
 import { Head, router, useForm } from '@inertiajs/react';
-import { FormEventHandler, useRef, useState } from 'react';
+import { FormEventHandler, useEffect, useRef, useState } from 'react';
 import { AddModuleDialog, FileUploadField } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
 import { ModuleTemplateSection } from './report-template/module-template-section';
@@ -46,8 +46,8 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     { key: 'quotation', label: 'Quotation', document_type: 'QUOTATION' },
     { key: 'invoice', label: 'Invoice', document_type: 'INVOICE' },
     { key: 'receipt', label: 'Official Receipt', document_type: 'OFFICIAL RECEIPT' },
-    // { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
-    // { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
+    { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
+    { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
 ];
 
 const DEFAULT_LOGO_PREVIEW = '/logo-primary.png';
@@ -213,7 +213,13 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(updateReportTemplate.url(), { forceFormData: true });
+        post(updateReportTemplate.url(), {
+            forceFormData: true,
+            onSuccess: () => {
+                // Refresh page after successful submission to ensure new image paths are loaded
+                router.reload();
+            },
+        });
     };
 
     const activeModule = data.module_templates[selectedModule] ?? {

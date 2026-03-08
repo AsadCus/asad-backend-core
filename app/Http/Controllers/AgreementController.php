@@ -31,12 +31,35 @@ class AgreementController extends Controller
             ->whereNotNull('customer_id')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn ($q) => $this->mapQuotationToAgreement($q))
+            ->map(fn (Quotation $q) => $this->mapQuotationToAgreement($q))
             ->filter()
             ->values();
 
         return Inertia::render('agreements/index', [
             'data' => $quotations,
+        ]);
+    }
+
+    public function preview($quotationId)
+    {
+        $quotation = Quotation::with([
+            'customer.user',
+            'order',
+            'quotationItems',
+        ])->findOrFail($quotationId);
+
+        $agreement = $this->mapQuotationToAgreement($quotation);
+
+        if (! $agreement) {
+            abort(404, 'Invalid agreement data');
+        }
+
+        $reportData = $this->reportTemplateService->build('agreement', []);
+
+        return view('agreements.pdf', [
+            'agreement' => $agreement,
+            'branding' => $reportData['branding'],
+            'is_pdf' => false,
         ]);
     }
 
@@ -64,6 +87,7 @@ class AgreementController extends Controller
             $html = view('agreements.pdf', [
                 'agreement' => $agreement,
                 'branding' => $branding,
+                'is_pdf' => true,
             ])->render();
 
             return Pdf::loadHTML($html)

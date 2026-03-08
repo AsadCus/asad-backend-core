@@ -30,6 +30,7 @@ export function FileUploadField({
 }: FileUploadFieldProps) {
     const [inputKey, setInputKey] = useState(0);
     const [localPreview, setLocalPreview] = useState<string | null>(null);
+    const [isObjectUrl, setIsObjectUrl] = useState(false);
     const objectUrlRef = useRef<string | null>(null);
 
     const revokeObjectUrl = () => {
@@ -39,7 +40,15 @@ export function FileUploadField({
 
         URL.revokeObjectURL(objectUrlRef.current);
         objectUrlRef.current = null;
+        setIsObjectUrl(false);
     };
+
+    // Sync localPreview with preview prop when preview changes from parent
+    useEffect(() => {
+        if (!isObjectUrl && preview) {
+            setLocalPreview(preview);
+        }
+    }, [preview, isObjectUrl]);
 
     useEffect(() => {
         return () => {
@@ -55,6 +64,7 @@ export function FileUploadField({
             const objectUrl = URL.createObjectURL(file);
             objectUrlRef.current = objectUrl;
             setLocalPreview(objectUrl);
+            setIsObjectUrl(true);
         }
 
         onChange(e);

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\NumberGenerator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,6 +27,17 @@ class CustomerConfirmation extends Model
         return [
             'date_of_application' => 'date',
         ];
+    }
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $model) {
+            if (empty($model->number)) {
+                $model->number = NumberGenerator::generateCustomerConfirmationNumber();
+            }
+        });
     }
 
     public function enquiry(): BelongsTo

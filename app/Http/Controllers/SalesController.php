@@ -48,7 +48,7 @@ class SalesController extends Controller
         $this->userRule = $userRule;
         $this->reportTemplateService = $reportTemplateService;
 
-        $this->middleware('permission:sales view', ['only' => ['index', 'show', 'generatePdf']]);
+        $this->middleware('permission:sales view', ['only' => ['index', 'show', 'preview', 'generatePdf']]);
         $this->middleware('permission:sales create', ['only' => ['create', 'store']]);
         $this->middleware('permission:sales edit', ['only' => ['edit', 'update']]);
         $this->middleware('permission:sales delete', ['only' => ['destroy']]);
@@ -177,6 +177,18 @@ class SalesController extends Controller
         return redirect()->intended(route('sales.index'))->with('success', 'Sales deleted successfully.');
     }
 
+    public function preview(string $id)
+    {
+        $data = $this->buildSalesReportData($id);
+        $reportData = $this->reportTemplateService->build('sales', $data);
+
+        return view('sales.pdf', [
+            'data' => $data,
+            'branding' => $reportData['branding'],
+            'is_pdf' => false,
+        ]);
+    }
+
     /**
      * Generate a PDF profile for the given salesperson.
      */
@@ -186,31 +198,14 @@ class SalesController extends Controller
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
-            $userData = $this->salesUserService->getForEditShow($id);
-
-            // Resolve branch name
-            $branchName = '-';
-            if (! empty($userData['branch_id'])) {
-                $branch = $this->branchService->getForFilter()
-                    ->firstWhere('id', $userData['branch_id']);
-                $branchName = $branch['name'] ?? '-';
-            }
-
-            $data = [
-                'name' => $userData['name'],
-                'email' => $userData['email'],
-                'contact' => $userData['contact'] ?? '-',
-                'branch_name' => $branchName,
-                'registration_number' => \App\Models\Sales::where('user_id', $id)
-                    ->value('registration_number') ?? '-',
-            ];
-
+            $data = $this->buildSalesReportData($id);
             $reportData = $this->reportTemplateService->build('sales', $data);
             $branding = $reportData['branding'];
 
             $html = view('sales.pdf', [
                 'data' => $data,
                 'branding' => $branding,
+                'is_pdf' => true,
             ])->render();
 
             $filename = 'sales-profile-'.str()->slug($data['name']).'.pdf';
@@ -225,5 +220,26 @@ class SalesController extends Controller
 
             return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
+    }
+
+    private function buildSalesReportData(string $id): array
+    {
+        $userData = $this->salesUserService->getForEditShow($id);
+
+        $branchName = '-';
+        if (! empty($userData['branch_id'])) {
+            $branch = $this->branchService->getForFilter()
+                ->firstWhere('id', $userData['branch_id']);
+            $branchName = $branch['name'] ?? '-';
+        }
+
+        return [
+            'name' => $userData['name'],
+            'email' => $userData['email'],
+            'contact' => $userData['contact'] ?? '-',
+            'branch_name' => $branchName,
+            'registration_number' => \App\Models\Sales::where('user_id', $id)
+                ->value('registration_number') ?? '-',
+        ];
     }
 }

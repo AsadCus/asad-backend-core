@@ -145,6 +145,29 @@ class ReceiptController extends Controller
             ->with('success', 'Receipt deleted successfully.');
     }
 
+    public function preview($id)
+    {
+        $data = $this->receiptService->getForEditShow($id);
+        $reportData = $this->reportTemplateService->build('receipt', $data);
+
+        $paymentMethod = $data['payment_method'] ?? 'full';
+        $paymentMethodLabel = match ($paymentMethod) {
+            'cash' => 'Cash',
+            'transfer' => 'Bank Transfer',
+            'paynow' => 'Paynow',
+            default => ucfirst($paymentMethod),
+        };
+
+        $data['payment_method_label'] = $paymentMethodLabel;
+
+        return view('receipts.pdf', [
+            'data' => $data,
+            'items' => $data['items'],
+            'branding' => $reportData['branding'],
+            'is_pdf' => false,
+        ]);
+    }
+
     public function generatePdf($id)
     {
         try {
@@ -168,6 +191,7 @@ class ReceiptController extends Controller
                 'data' => $data,
                 'items' => $data['items'],
                 'branding' => $reportData['branding'],
+                'is_pdf' => true,
             ])->render();
 
             $pdf = Pdf::loadHTML($html)

@@ -97,6 +97,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Sales
     Route::resource('sales', SalesController::class);
+    Route::get('sales/{sale}/preview', [SalesController::class, 'preview'])->name('sales.preview');
     Route::get('sales/{sale}/generate-pdf', [SalesController::class, 'generatePdf'])->name('sales.generate.pdf');
 
     // Supplier
@@ -112,6 +113,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Quotation
     Route::resource('quotation', QuotationController::class);
     Route::get('quotation-get-for-show/{id}', [QuotationController::class, 'getForShow'])->name('quotation.get-for-show');
+    Route::get('quotation/{id}/preview', [QuotationController::class, 'preview'])->name('quotation.preview');
     Route::get('quotation/{id}/generate-pdf', [QuotationController::class, 'generatePdf'])->name('quotation.generate.pdf');
     Route::put('quotation/{id}/ready', [QuotationController::class, 'readyQuotation'])->name('quotation.ready');
     Route::put('quotation/{id}/accept', [QuotationController::class, 'acceptQuotation'])->name('quotation.accept');
@@ -127,11 +129,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Invoice
     Route::resource('invoice', InvoiceController::class);
+    Route::get('invoice/{id}/preview', [InvoiceController::class, 'preview'])->name('invoice.preview');
     Route::get('invoice/{id}/generate-pdf', [InvoiceController::class, 'generatePdf'])->name('invoice.generate.pdf');
     Route::get('invoice-get-for-show/{id}', [InvoiceController::class, 'getForShow'])->name('invoice.get-for-show');
 
     // Receipt
     Route::resource('receipt', ReceiptController::class);
+    Route::get('receipt/{id}/preview', [ReceiptController::class, 'preview'])->name('receipt.preview');
     Route::get('receipt/{id}/generate-pdf', [ReceiptController::class, 'generatePdf'])->name('receipt.generate.pdf');
     Route::get('receipt-get-for-show/{id}', [ReceiptController::class, 'getForShow'])->name('receipt.get-for-show');
 
@@ -141,6 +145,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Agreement - Generated from Quotation (no database table)
     Route::get('agreement', [AgreementController::class, 'index'])->name('agreement.index');
+    Route::get('agreement/{quotation}/preview', [AgreementController::class, 'preview'])->name('agreement.preview');
     Route::get('agreement/{quotation}/export-pdf', [AgreementController::class, 'exportPdf'])->name('agreement.export-pdf');
 
     // User Logs

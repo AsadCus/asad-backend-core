@@ -41,11 +41,13 @@
         }
 
         .logo-cell img {
-            max-width: 280px;
-            max-height: 120px;
+            width: 240px;
+            max-width: 240px;
+            max-height: 90px;
             height: auto;
-            width: auto;
+            object-fit: contain;
             display: block;
+            margin: 0;
         }
 
         .info-cell b {
@@ -180,10 +182,16 @@
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                @if(!empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
+                @if(($is_pdf ?? false) && !empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
                     <img src="{{ $branding['logo_path_absolute'] }}" alt="Company Logo">
+                @elseif(!empty($branding['logo_url']))
+                    <img src="{{ $branding['logo_url'] }}" alt="Company Logo">
                 @else
-                    <img src="{{ public_path('logo_agency.png') }}" alt="Company Logo">
+                    @if($is_pdf ?? false)
+                        <img src="{{ public_path('logo-primary.png') }}" alt="Company Logo">
+                    @else
+                        <img src="/logo-primary.png" alt="Company Logo">
+                    @endif
                 @endif
             </td>
             <td class="info-cell">
@@ -328,16 +336,24 @@
                 <div style="margin-top: 3px; font-size: 9px;">{{ $employerName ?? '' }}</div>
             </td>
             <td class="right-align">
-                @if(!empty($branding['show_signature']) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
+                @if(!empty($branding['show_signature']))
                     <div style="text-align: right; margin-bottom: 4px;">
-                        <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto;">
+                        @if(($is_pdf ?? false) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
+                            <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto; display: block;">
+                        @elseif(!empty($branding['signature_url']))
+                            <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto; display: block;">
+                        @endif
                     </div>
                 @else
                     <div class="signature-box"></div>
                 @endif
-                @if(!empty($branding['show_stamp']) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
-                    <div style="text-align: right; margin-bottom: 4px;">
-                        <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp" style="max-height: 60px; width: auto;">
+                @if(!empty($branding['show_stamp']))
+                    <div style="text-align: right; margin-top: 10px; margin-bottom: 4px;">
+                        @if(($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
+                            <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp" style="max-height: 60px; width: auto; display: block;">
+                        @elseif(!empty($branding['stamp_url']))
+                            <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 60px; width: auto; display: block;">
+                        @endif
                     </div>
                 @endif
                 <div class="signature-line" style="margin-left: auto;"></div>

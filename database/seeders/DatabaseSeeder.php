@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             PackageSeeder::class,
             EnquirySeeder::class,
             ManifestSeeder::class,
+            CustomerConfirmationSeeder::class,
 
             // Transactions
             QuotationSeeder::class,

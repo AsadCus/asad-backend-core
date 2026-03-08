@@ -288,6 +288,29 @@ class QuotationController extends Controller
             ->with('success', 'Quotation deleted successfully.');
     }
 
+    public function preview($id)
+    {
+        $data = $this->quotationService->getForEditShow($id);
+        $reportData = $this->reportTemplateService->build('quotation', $data);
+
+        $paymentPlan = $data['payment_plan'] ?? 'full';
+        $paymentPlanLabel = match ($paymentPlan) {
+            'direct' => 'Direct',
+            'full' => 'Full Payment',
+            'installment' => 'Installment',
+            default => ucfirst($paymentPlan),
+        };
+
+        $data['payment_plan_label'] = $paymentPlanLabel;
+
+        return view('quotations.pdf', [
+            'data' => $data,
+            'items' => $this->sortForPdf($data['items'] ?? []),
+            'branding' => $reportData['branding'],
+            'is_pdf' => false,
+        ]);
+    }
+
     // export
     public function generatePdf($id)
     {
@@ -312,6 +335,7 @@ class QuotationController extends Controller
                 'data' => $data,
                 'items' => $this->sortForPdf($data['items'] ?? []),
                 'branding' => $reportData['branding'],
+                'is_pdf' => true,
             ])->render();
 
             return Pdf::loadHTML($html)

@@ -43,4 +43,9 @@ class NumberGenerator
             return "{$format['prefix']}-{$year}-{$number}";
         });
     }
+
+    public static function generateCustomerConfirmationNumber(): string
+    {
+        return self::generate('customer_confirmation');
+    }
 }
