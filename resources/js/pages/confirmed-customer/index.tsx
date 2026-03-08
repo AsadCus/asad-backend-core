@@ -73,21 +73,16 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     createSelectColumn<CustomerConfirmationDatatableSchema>(),
     {
         accessorKey: 'id',
-        header: 'CC ID',
+        header: 'ID',
         meta: { exportable: true },
-        cell: ({ row }) => (
-            <Badge variant="outline" className="font-mono text-xs">
-                CC-{row.original.id}
-            </Badge>
-        ),
     },
     {
-        accessorKey: 'main_customer_name',
+        accessorKey: 'customer_name',
         header: 'Customer Name',
         meta: { exportable: true },
     },
     {
-        accessorKey: 'main_customer_number',
+        accessorKey: 'customer_number',
         header: 'Customer No',
         meta: { exportable: true },
     },
@@ -103,14 +98,20 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     },
     {
         accessorKey: 'member_count',
-        header: 'Members',
+        header: 'Member(s)',
         meta: { exportable: true },
         cell: ({ row }) => (
             <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-sm">
+                <Badge
+                    variant="secondary"
+                    className="rounded-full px-3 py-1 text-base"
+                >
                     Total: {row.original.member_count}
                 </Badge>
-                <Badge variant="outline" className="text-sm">
+                <Badge
+                    variant="outline"
+                    className="rounded-full px-3 py-1 text-base"
+                >
                     Active: {row.original.active_member_count}
                 </Badge>
             </div>
@@ -184,7 +185,8 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         meta: { exportable: true },
         cell: ({ row }) => (
             <Badge variant="outline" className="text-sm">
-                {row.original.quoted_member_count} / {row.original.active_member_count}
+                {row.original.quoted_member_count} /{' '}
+                {row.original.active_member_count}
             </Badge>
         ),
     },
@@ -194,7 +196,9 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         meta: { exportable: true },
         cell: ({ row }) => (
             <Badge
-                variant={row.original.can_create_quotation ? 'secondary' : 'default'}
+                variant={
+                    row.original.can_create_quotation ? 'secondary' : 'default'
+                }
                 className="text-sm"
             >
                 {row.original.can_create_quotation ? 'Pending' : 'Completed'}
@@ -275,9 +279,7 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
         meta: { exportable: true },
         cell: ({ row }) => (
             <Badge
-                variant={
-                    row.original.has_quotation ? 'default' : 'secondary'
-                }
+                variant={row.original.has_quotation ? 'default' : 'secondary'}
             >
                 {row.original.has_quotation ? 'Created' : 'Pending'}
             </Badge>
@@ -1085,7 +1087,8 @@ export default function ConfirmedCustomerIndex({
                             }}
                             initialState={{
                                 columnVisibility: {
-                                    main_customer_number: false,
+                                    id: false,
+                                    customer_number: false,
                                     enquiry_email: false,
                                     enquiry_contact: false,
                                     enquiry_status: false,
