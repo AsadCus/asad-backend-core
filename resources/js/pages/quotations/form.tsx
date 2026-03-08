@@ -98,7 +98,9 @@ export function QuotationForm({
     const initialLinkedMemberIds = Array.from(
         new Set(
             (defaultData.items ?? [])
-                .map((item) => Number(item.customer_confirmation_member_id ?? 0))
+                .map((item) =>
+                    Number(item.customer_confirmation_member_id ?? 0),
+                )
                 .filter((value) => value > 0),
         ),
     );
@@ -178,22 +180,12 @@ export function QuotationForm({
         }
     }, [prefilledCustomerData, prefilledCustomerId, isCreate]);
 
-    const getRateFromSharingPlan = useCallback(
-        (sharingPlan?: string | null) => {
-            if (sharingPlan === 'single') return packagePrices.single;
-            if (sharingPlan === 'double') return packagePrices.double;
-            if (sharingPlan === 'triple') return packagePrices.triple;
-            if (sharingPlan === 'quad') return packagePrices.quad;
-            return 0;
-        },
-        [packagePrices],
-    );
-
     const buildItemsFromMembers = useCallback(
         (
             memberIds: number[],
             existingItems: QuotationItemSchema[] = [],
             membersSource = availableMembers,
+            packagePricesToUse?: typeof packagePrices,
         ) => {
             const selectedMembers = membersSource.filter((member) =>
                 memberIds.includes(member.member_id),
@@ -217,6 +209,15 @@ export function QuotationForm({
                 (item) => !item.customer_confirmation_member_id,
             );
 
+            const getRateForPlan = (sharingPlan?: string | null) => {
+                const prices = packagePricesToUse ?? packagePrices;
+                if (sharingPlan === 'single') return prices.single;
+                if (sharingPlan === 'double') return prices.double;
+                if (sharingPlan === 'triple') return prices.triple;
+                if (sharingPlan === 'quad') return prices.quad;
+                return 0;
+            };
+
             const memberItems = selectedMembers.map((member, index) => {
                 const existingItem = existingItemByMemberId.get(
                     member.member_id,
@@ -236,6 +237,8 @@ export function QuotationForm({
                     };
                 }
 
+                const rate = getRateForPlan(member.sharing_plan);
+
                 return {
                     _key: nanoid(),
                     id: undefined,
@@ -248,8 +251,8 @@ export function QuotationForm({
                     is_header: false,
                     is_optional: false,
                     quantity: 1,
-                    rate: getRateFromSharingPlan(member.sharing_plan),
-                    amount: getRateFromSharingPlan(member.sharing_plan),
+                    rate: rate,
+                    amount: rate,
                     sort_order: index + 1,
                 };
             });
@@ -257,7 +260,7 @@ export function QuotationForm({
             // Combine manual items with member items
             return [...memberItems, ...manualItems];
         },
-        [availableMembers, getRateFromSharingPlan],
+        [availableMembers, packagePrices],
     );
 
     const syncHandlerCustomer = useCallback(
@@ -315,7 +318,9 @@ export function QuotationForm({
                 .filter((member) => member.member_id > 0);
 
             const sourceItems =
-                data.items?.length > 0 ? data.items : (initialData?.items ?? []);
+                data.items?.length > 0
+                    ? data.items
+                    : (initialData?.items ?? []);
 
             const linkedMemberIds = new Set(
                 sourceItems
@@ -378,12 +383,14 @@ export function QuotationForm({
 
             setHandlerMemberId(nextHandlerId);
 
-            setPackagePrices({
+            const extractedPackagePrices = {
                 single: Number(confirmation.package_price_single ?? 0),
                 double: Number(confirmation.package_price_double ?? 0),
                 triple: Number(confirmation.package_price_triple ?? 0),
                 quad: Number(confirmation.package_price_quad ?? 0),
-            });
+            };
+
+            setPackagePrices(extractedPackagePrices);
 
             setData((prev) => ({
                 ...prev,
@@ -405,13 +412,14 @@ export function QuotationForm({
                     confirmation.package_price_quad ?? 0,
                 ),
                 ...(isCreate
-                                        ? {
-                                                    items: buildItemsFromMembers(
-                                                            autoSelectedMemberIds,
-                                                            prev.items ?? [],
-                                                            eligible,
-                                                    ),
-                                            }
+                    ? {
+                          items: buildItemsFromMembers(
+                              autoSelectedMemberIds,
+                              prev.items ?? [],
+                              eligible,
+                              extractedPackagePrices,
+                          ),
+                      }
                     : {}),
                 customer_id: nextHandlerId
                     ? (eligible.find(
@@ -464,11 +472,11 @@ export function QuotationForm({
 
         loadedConfirmationRef.current = data.customer_confirmation_id;
 
-        loadCustomerConfirmation(
-            Number(data.customer_confirmation_id),
-        ).catch(() => {
-            setAvailableMembers([]);
-        });
+        loadCustomerConfirmation(Number(data.customer_confirmation_id)).catch(
+            () => {
+                setAvailableMembers([]);
+            },
+        );
     }, [data.customer_confirmation_id, isCreate, loadCustomerConfirmation]);
 
     useEffect(() => {
@@ -480,7 +488,9 @@ export function QuotationForm({
             Array.from(
                 new Set(
                     (data.items ?? [])
-                        .map((item) => Number(item.customer_confirmation_member_id ?? 0))
+                        .map((item) =>
+                            Number(item.customer_confirmation_member_id ?? 0),
+                        )
                         .filter((value) => value > 0),
                 ),
             ),
@@ -496,14 +506,20 @@ export function QuotationForm({
     }, [selectedMemberIds, linkedMemberIdsFromItems]);
 
     useEffect(() => {
-        if (!isEdit || availableMembers.length === 0 || selectedMemberIds.length > 0) {
+        if (
+            !isEdit ||
+            availableMembers.length === 0 ||
+            selectedMemberIds.length > 0
+        ) {
             return;
         }
 
         const fallbackMemberIds =
             linkedMemberIdsFromItems.length > 0
                 ? linkedMemberIdsFromItems.filter((memberId) =>
-                      availableMembers.some((member) => member.member_id === memberId),
+                      availableMembers.some(
+                          (member) => member.member_id === memberId,
+                      ),
                   )
                 : availableMembers
                       .filter((member) => member.has_quotation)
@@ -512,7 +528,8 @@ export function QuotationForm({
         const resolvedFallbackMemberIds =
             fallbackMemberIds.length > 0
                 ? fallbackMemberIds
-                : linkedMemberIdsFromItems.length === 0 && (data.items?.length ?? 0) > 0
+                : linkedMemberIdsFromItems.length === 0 &&
+                    (data.items?.length ?? 0) > 0
                   ? availableMembers.map((member) => member.member_id)
                   : [];
 
@@ -662,6 +679,92 @@ export function QuotationForm({
         reset();
     };
 
+    useEffect(() => {
+        if (!isEdit) {
+            return;
+        }
+
+        const queryParams = new URLSearchParams(window.location.search);
+        const focusField = queryParams.get('focus_field');
+
+        if (!focusField) {
+            return;
+        }
+
+        const focusConfigByField: Record<
+            string,
+            { section: string; targetId: string }
+        > = {
+            customer_id: {
+                section: 'customer_and_quotation_information',
+                targetId: 'section-quotation-information',
+            },
+            quotation_date: {
+                section: 'customer_and_quotation_information',
+                targetId: 'quotation_date',
+            },
+            expiry_date: {
+                section: 'customer_and_quotation_information',
+                targetId: 'expiry_date',
+            },
+            description: {
+                section: 'maid_and_quotation_details',
+                targetId: 'description',
+            },
+            payment_plan: {
+                section: 'maid_and_quotation_details',
+                targetId: 'payment_plan',
+            },
+            payment_method: {
+                section: 'maid_and_quotation_details',
+                targetId: 'payment_method',
+            },
+            items: {
+                section: 'maid_and_quotation_details',
+                targetId: 'section-quotation-items',
+            },
+        };
+
+        const focusConfig = focusConfigByField[focusField];
+
+        if (!focusConfig) {
+            return;
+        }
+
+        setOpenSections((prev) => {
+            if (prev.includes(focusConfig.section)) {
+                return prev;
+            }
+
+            return [...prev, focusConfig.section];
+        });
+
+        const timeoutId = window.setTimeout(() => {
+            const targetElement = document.getElementById(focusConfig.targetId);
+
+            if (!targetElement) {
+                return;
+            }
+
+            targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+
+            if (
+                targetElement instanceof HTMLInputElement ||
+                targetElement instanceof HTMLTextAreaElement ||
+                targetElement instanceof HTMLButtonElement
+            ) {
+                targetElement.focus({ preventScroll: true });
+            }
+        }, 180);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [isEdit]);
+
     return (
         <div className="mx-auto w-full">
             {/* Progress Header */}
@@ -722,6 +825,8 @@ export function QuotationForm({
                                 const nextItems = buildItemsFromMembers(
                                     memberIds,
                                     data.items ?? [],
+                                    availableMembers,
+                                    packagePrices,
                                 );
                                 setData('items', nextItems);
                             }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\EnquiryStatus;
+use App\Helpers\NumberGenerator;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -33,6 +34,7 @@ class CustomerConfirmationService
             }
 
             $group = CustomerConfirmation::create([
+                'number' => NumberGenerator::generate('customer_confirmation'),
                 'enquiry_id' => $enquiryId,
                 'created_by' => auth()->id(),
                 'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
@@ -274,6 +276,7 @@ class CustomerConfirmationService
 
                 return [
                     'id' => $group->id,
+                    'number' => $group->number,
                     'enquiry_id' => $group->enquiry_id,
                     'package_name' => $group->package?->name ?? '-',
                     'date_of_application' => $group->date_of_application_formatted,

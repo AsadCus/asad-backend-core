@@ -40,6 +40,7 @@ export type CustomerSchema = z.infer<typeof customerSchema>;
 // ── Customer Confirmation form schema (group-level + members) ──
 export const customerConfirmationFormSchema = z.object({
     id: z.number().optional(),
+    number: z.string().nullable().optional(),
     enquiry_id: z.number().nullable().optional(),
     package_id: z.number().nullable().optional(),
     package_room_type: z.string().nullable().optional(),
@@ -141,6 +142,7 @@ export interface CustomerConfirmationMemberDatatableSchema {
 
 export interface CustomerConfirmationDatatableSchema {
     id: number;
+    number: string | null;
     enquiry_id: number | null;
     package_name: string;
     date_of_application: string | null;

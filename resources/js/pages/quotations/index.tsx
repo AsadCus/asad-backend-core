@@ -194,13 +194,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     ] = useState(false);
 
     const [quotationStatusActionType, setQuotationStatusActionType] = useState<
-        | 'ready'
-        | 'accept'
-        | 'convert'
-        | 'reject'
-        | 'expire'
-        | 'cancel'
-        | null
+        'ready' | 'accept' | 'convert' | 'reject' | 'expire' | 'cancel' | null
     >(null);
     const [selectedQuotationForStatus, setSelectedQuotationForStatus] =
         useState<QuotationSchema | null>(null);
@@ -441,18 +435,15 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
 
             <ConfirmDialog />
 
-            {selectedQuotationForStatus && (
-                <QuotationStatusAction
-                    quotationId={selectedQuotationForStatus.id}
-                    action={quotationStatusActionType ?? null}
-                    isOpen={quotationStatusActionDialogOpen}
-                    onClose={() => {
-                        setQuotationStatusActionDialogOpen(false);
-                        setQuotationStatusActionType(null);
-                        setSelectedQuotationForStatus(null);
-                    }}
-                />
-            )}
+            <QuotationStatusAction
+                quotationId={selectedQuotationForStatus?.id}
+                action={quotationStatusActionType ?? null}
+                isOpen={quotationStatusActionDialogOpen}
+                onClose={() => {
+                    setQuotationStatusActionDialogOpen(false);
+                    setQuotationStatusActionType(null);
+                }}
+            />
 
             {/* Preview Modal */}
             {previewModalOpen && selectedQuotationForPreview && (

@@ -12,6 +12,7 @@ class CustomerConfirmation extends Model
     protected $table = 'customer_confirmations';
 
     protected $fillable = [
+        'number',
         'enquiry_id',
         'created_by',
         'package_id',

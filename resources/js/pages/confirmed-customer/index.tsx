@@ -72,9 +72,14 @@ const formatCurrency = (value: number): string => {
 const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     createSelectColumn<CustomerConfirmationDatatableSchema>(),
     {
-        accessorKey: 'id',
-        header: 'ID',
+        accessorKey: 'number',
+        header: 'CC No',
         meta: { exportable: true },
+        cell: ({ row }) => (
+            <Badge variant="outline" className="font-mono text-xs">
+                {row.original.number}
+            </Badge>
+        ),
     },
     {
         accessorKey: 'customer_name',

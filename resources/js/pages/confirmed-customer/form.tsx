@@ -963,6 +963,14 @@ export default function CustomerConfirmationForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {data.number && (
+                            <div className="mb-4 flex items-center gap-2">
+                                <Label className="font-semibold">Confirmation Number:</Label>
+                                <Badge variant="outline" className="font-mono">
+                                    {data.number}
+                                </Badge>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                             <FormField
                                 label="Package"

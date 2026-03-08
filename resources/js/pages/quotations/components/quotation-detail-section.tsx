@@ -88,12 +88,14 @@ export default function QuotationDetailSection({
                         {/* Description */}
                         <FormField
                             label="Description"
+                            htmlFor="description"
                             fieldRequirementsProps={{
                                 required: true,
                                 hint: 'Enter quotation description',
                             }}
                         >
                             <ProperInput
+                                id="description"
                                 value={data.description ?? ''}
                                 textarea={true}
                                 placeholder="Input description"
@@ -108,6 +110,7 @@ export default function QuotationDetailSection({
                         {/* Payment Plan */}
                         <FormField
                             label="Payment Plan"
+                            htmlFor="payment_plan"
                             fieldRequirementsProps={{
                                 required: true,
                                 hint: 'Select the payment plan',
@@ -120,7 +123,7 @@ export default function QuotationDetailSection({
                                     setData('payment_plan', value)
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="payment_plan">
                                     <SelectValue placeholder="Select plan" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -140,6 +143,7 @@ export default function QuotationDetailSection({
                         {/* Payment Method */}
                         <FormField
                             label="Payment Method"
+                            htmlFor="payment_method"
                             fieldRequirementsProps={{
                                 required: true,
                                 hint: 'Select payment method',
@@ -152,7 +156,7 @@ export default function QuotationDetailSection({
                                     setData('payment_method', value)
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="payment_method">
                                     <SelectValue placeholder="Select method" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -169,7 +173,8 @@ export default function QuotationDetailSection({
                             {renderError('payment_method')}
                         </FormField>
 
-                        {(data.package_name || data.customer_confirmation_id) && (
+                        {(data.package_name ||
+                            data.customer_confirmation_id) && (
                             <FormField
                                 label="Package Sharing Plan Cost"
                                 fieldRequirementsProps={{
@@ -198,7 +203,9 @@ export default function QuotationDetailSection({
                                                 <span className="text-muted-foreground">
                                                     {row.label}
                                                 </span>
-                                                <span>${row.value.toFixed(2)}</span>
+                                                <span>
+                                                    ${row.value.toFixed(2)}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>

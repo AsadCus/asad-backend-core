@@ -16,6 +16,7 @@ class NumberGenerator
         'schedule' => ['prefix' => 'SCH', 'padding' => 4],
         'agreement' => ['prefix' => 'AGR', 'padding' => 4],
         'package' => ['prefix' => 'PKG', 'padding' => 4],
+        'customer_confirmation' => ['prefix' => 'CC', 'padding' => 4],
     ];
 
     public static function generate(string $type): string
