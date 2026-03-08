@@ -61,6 +61,11 @@ class FinancialYearService
                 'default' => $data['default'],
             ]);
 
+            activity()
+                ->performedOn($financialYear)
+                ->withProperties(['subject_type' => 'FinancialYear', 'subject_id' => $financialYear->id ?? null])
+                ->log('FinancialYear created successfully #'.($financialYear->id ?? null));
+
             return $financialYear;
         });
     }
@@ -105,6 +110,11 @@ class FinancialYearService
             if ($oldStartDate != $newStartDate || $oldEndDate != $newEndDate) {
                 $this->reassignFinancialTransactions();
             }
+
+            activity()
+                ->performedOn($financialYear)
+                ->withProperties(['subject_type' => 'FinancialYear', 'subject_id' => $financialYear->id ?? null])
+                ->log('FinancialYear updated successfully #'.($financialYear->id ?? null));
 
             return $financialYear;
         });

@@ -64,7 +64,12 @@ class EnquiryRemarkService
             'remark' => $data['remark'],
         ]);
 
-        return $remark;
+        activity()
+                ->performedOn($remark)
+                ->withProperties(['subject_type' => 'EnquiryRemark', 'subject_id' => $remark->id ?? null])
+                ->log('EnquiryRemark updated successfully #'.($remark->id ?? null));
+
+            return $remark;
     }
 
     /**

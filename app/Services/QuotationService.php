@@ -131,6 +131,11 @@ class QuotationService
 
             $this->syncLinkedMemberStatuses($linkedMemberIds, []);
 
+            activity()
+                ->performedOn($quotation)
+                ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id ?? null])
+                ->log('Quotation created successfully #'.($quotation->id ?? null));
+
             return $quotation;
         });
     }
@@ -415,7 +420,12 @@ class QuotationService
 
         $quotation->update(['status' => QuotationStatus::Expired->value]);
 
-        return $quotation->delete();
+        return activity()
+                ->performedOn($quotation)
+                ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id ?? null])
+                ->log('Quotation deleted successfully #'.($quotation->id ?? null));
+
+            $quotation->delete();
     }
 
     /**

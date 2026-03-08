@@ -36,6 +36,10 @@ class AppearanceController extends Controller
 
         if ($setting === null) {
             $setting = AppearanceSetting::create($validated);
+            activity()
+                ->performedOn($setting)
+                ->withProperties(['subject_type' => 'Appearance', 'subject_id' => $setting->id ?? null])
+                ->log('Appearance updated successfully #'.($setting->id ?? null));
 
             return back()->with('success', 'Appearance created.');
         }

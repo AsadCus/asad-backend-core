@@ -42,6 +42,11 @@ class SupplierUserService
                 'address' => $data['address'] ?? null,
             ]);
 
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'SupplierUser', 'subject_id' => $user->id ?? null])
+                ->log('SupplierUser created successfully #'.($user->id ?? null));
+
             return $user;
         });
     }
@@ -102,6 +107,11 @@ class SupplierUserService
                     'address' => $data['address'] ?? null,
                 ]);
             }
+
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'SupplierUser', 'subject_id' => $user->id ?? null])
+                ->log('SupplierUser updated successfully #'.($user->id ?? null));
 
             return $user;
         });

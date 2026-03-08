@@ -83,6 +83,11 @@ class ReceiptService
                 'description' => $data['description'] ?? null,
             ]);
 
+            activity()
+                ->performedOn($receipt)
+                ->withProperties(['subject_type' => 'Receipt', 'subject_id' => $receipt->id ?? null])
+                ->log('Receipt created successfully #'.($receipt->id ?? null));
+
             return $receipt;
         });
     }
@@ -158,6 +163,11 @@ class ReceiptService
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
             ]);
+
+            activity()
+                ->performedOn($receipt)
+                ->withProperties(['subject_type' => 'Receipt', 'subject_id' => $receipt->id ?? null])
+                ->log('Receipt updated successfully #'.($receipt->id ?? null));
 
             return $receipt;
         });

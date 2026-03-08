@@ -104,6 +104,11 @@ class CustomerUserService
                 'exclusive' => false,
             ], [], ['admin', 'sales'], $customer->branch_id);
 
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'CustomerUser', 'subject_id' => $user->id ?? null])
+                ->log('CustomerUser created successfully #'.($user->id ?? null));
+
             return $user;
         });
     }
@@ -186,6 +191,11 @@ class CustomerUserService
                     entityName: $user->name,
                 );
             }
+
+            activity()
+                ->performedOn($user)
+                ->withProperties(['subject_type' => 'CustomerUser', 'subject_id' => $user->id ?? null])
+                ->log('CustomerUser updated successfully #'.($user->id ?? null));
 
             return $user;
         });
