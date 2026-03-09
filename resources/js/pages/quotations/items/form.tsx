@@ -269,24 +269,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         items.forEach((i) => {
             if (hasChildren(i)) next[i._key] = false;
         });
-
-        setExpanded((prev) => {
-            const merged = { ...next, ...prev };
-            const prevKeys = Object.keys(prev);
-            const mergedKeys = Object.keys(merged);
-
-            if (prevKeys.length === mergedKeys.length) {
-                const isSame = mergedKeys.every(
-                    (key) => prev[key] === merged[key],
-                );
-
-                if (isSame) {
-                    return prev;
-                }
-            }
-
-            return merged;
-        });
+        setExpanded((p) => ({ ...next, ...p }));
     }, [items, hasChildren]);
 
     // Visible items
@@ -635,10 +618,9 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                             inputProps={{ step: 'any', min: 0 }}
                             disabled={disabled}
                             size="compact"
-                            debounceMs={500}
                             onCommit={(v) =>
                                 updateItemByKey(item._key, {
-                                    quantity: v,
+                                    quantity: Number(v),
                                 } as Partial<T>)
                             }
                         />
@@ -671,10 +653,9 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                             inputProps={{ step: '1' }}
                             disabled={disabled}
                             size="compact"
-                            debounceMs={500}
                             onCommit={(v) =>
                                 updateItemByKey(item._key, {
-                                    rate: v,
+                                    rate: Number(v),
                                 } as Partial<T>)
                             }
                         />
