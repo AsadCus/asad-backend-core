@@ -12,7 +12,7 @@ import {
 import { OptionType } from '@/types';
 import { isBefore } from 'date-fns';
 import { User } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { QuotationSchema, SetDataFn } from '../schema';
 
 interface Props {
@@ -52,6 +52,27 @@ export default function QuotationInformationSection({
     status,
 }: Props) {
     const [open, setOpen] = useState(false);
+    const selectedAvailableMembers = useMemo(
+        () =>
+            availableMembers.filter((member) =>
+                selectedMemberIds.includes(member.member_id),
+            ),
+        [availableMembers, selectedMemberIds],
+    );
+
+    const handlerOptions = useMemo(
+        () =>
+            selectedAvailableMembers.map((member) => ({
+                label: member.name,
+                value: member.member_id,
+            })),
+        [selectedAvailableMembers],
+    );
+
+    const addressLines = useMemo(
+        () => (data.customer_address ? data.customer_address.split('<br>') : []),
+        [data.customer_address],
+    );
 
     return (
         <FormSection
@@ -106,22 +127,20 @@ export default function QuotationInformationSection({
                                                 onCheckedChange={(
                                                     isChecked,
                                                 ) => {
-                                                    if (isChecked) {
-                                                        onSelectedMembersChange?.(
-                                                            [
-                                                                ...selectedMemberIds,
-                                                                member.member_id,
-                                                            ],
-                                                        );
-                                                    } else {
-                                                        onSelectedMembersChange?.(
-                                                            selectedMemberIds.filter(
-                                                                (id) =>
-                                                                    id !==
-                                                                    member.member_id,
-                                                            ),
-                                                        );
-                                                    }
+                                                    const nextMemberIds = isChecked
+                                                        ? [
+                                                              ...selectedMemberIds,
+                                                              member.member_id,
+                                                          ]
+                                                        : selectedMemberIds.filter(
+                                                              (id) =>
+                                                                  id !==
+                                                                  member.member_id,
+                                                          );
+
+                                                    onSelectedMembersChange?.(
+                                                        nextMemberIds,
+                                                    );
                                                 }}
                                             />
                                             <div className="flex flex-1 items-center gap-2">
@@ -176,10 +195,9 @@ export default function QuotationInformationSection({
                                             {data.customer_name}
                                         </span>
                                         <div className="text-base text-gray-600">
-                                            {data.customer_address
-                                                ? data.customer_address
-                                                      .split('<br>')
-                                                      .map((line, idx, arr) => (
+                                            {addressLines.length > 0
+                                                ? addressLines.map(
+                                                      (line, idx, arr) => (
                                                           <div key={idx}>
                                                               {line}
                                                               {idx <
@@ -188,7 +206,8 @@ export default function QuotationInformationSection({
                                                                   <br />
                                                               )}
                                                           </div>
-                                                      ))
+                                                      ),
+                                                  )
                                                 : '-'}
                                         </div>
                                         <span className="text-base text-gray-600">
@@ -215,16 +234,7 @@ export default function QuotationInformationSection({
                                             onChange={(value) =>
                                                 onHandlerChange?.(Number(value))
                                             }
-                                            options={availableMembers
-                                                .filter((member) =>
-                                                    selectedMemberIds.includes(
-                                                        member.member_id,
-                                                    ),
-                                                )
-                                                .map((member) => ({
-                                                    label: member.name,
-                                                    value: member.member_id,
-                                                }))}
+                                            options={handlerOptions}
                                             placeholder="Select member who handles this quotation"
                                         />
                                     </div>

@@ -67,13 +67,9 @@ export default function QuotationDetailSection({
         },
     ];
 
-    const packageSharingPlanCostSummary = sharingPlanCosts
-        .map((row) => `${row.label}: $${row.value.toFixed(2)}`)
-        .join(' | ');
-
     return (
         <FormSection
-            value="maid_and_quotation_details"
+            value="quotation_details"
             title="Quotation Details"
             description="Quotation and payment details"
             status={status}
@@ -183,9 +179,6 @@ export default function QuotationDetailSection({
                             >
                                 <div className="grid w-full items-center gap-3 rounded-md border p-3">
                                     <Label>Package & Sharing Plan Costs</Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        {packageSharingPlanCostSummary}
-                                    </p>
                                     <div className="space-y-1 text-sm">
                                         {data.package_name && (
                                             <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">

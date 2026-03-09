@@ -116,7 +116,7 @@ export default function OrderForm({
         order_number: '',
         payment_plan: quotation?.payment_plan ?? 'direct',
         deposit_type: 'fixed',
-        deposit_value: null,
+        deposit_value: 500,
         invoices: [],
         items: initialItems ?? [],
 
@@ -127,6 +127,13 @@ export default function OrderForm({
     const defaultData: OrderSchema = initialData
         ? {
               ...initialData,
+              deposit_type: initialData.deposit_type ?? 'fixed',
+              deposit_value:
+                  initialData.deposit_value === null ||
+                  initialData.deposit_value === undefined ||
+                  initialData.deposit_value === ''
+                      ? 500
+                      : initialData.deposit_value,
               invoices: normalizeInvoices(initialData.invoices ?? []),
           }
         : initialFormState;
@@ -214,7 +221,8 @@ export default function OrderForm({
             return;
         }
 
-        const paymentPlan = data.payment_plan ?? quotation.payment_plan ?? 'full';
+        const paymentPlan =
+            data.payment_plan ?? quotation.payment_plan ?? 'full';
 
         const nextInvoices = rebuildInvoicesFromSource(
             paymentPlan,
@@ -424,9 +432,7 @@ export default function OrderForm({
             const nextKeys = Object.keys(next);
 
             if (prevKeys.length === nextKeys.length) {
-                const isSame = nextKeys.every(
-                    (key) => prev[key] === next[key],
-                );
+                const isSame = nextKeys.every((key) => prev[key] === next[key]);
 
                 if (isSame) {
                     return prev;
@@ -519,19 +525,36 @@ export default function OrderForm({
                                         plans={paymentPlans}
                                         disabled={isView}
                                         renderError={renderError}
-                                        onChange={(v) =>
+                                        onChange={(v) => {
+                                            const nextDepositType =
+                                                v === 'installment'
+                                                    ? (data.deposit_type ??
+                                                      'fixed')
+                                                    : data.deposit_type;
+                                            const nextDepositValue =
+                                                v === 'installment' &&
+                                                (data.deposit_value ===
+                                                    undefined ||
+                                                    data.deposit_value ===
+                                                        null ||
+                                                    data.deposit_value === '')
+                                                    ? 500
+                                                    : data.deposit_value;
+
                                             setData({
                                                 ...data,
                                                 payment_plan: v,
+                                                deposit_type: nextDepositType,
+                                                deposit_value: nextDepositValue,
                                                 invoices:
                                                     rebuildInvoicesFromSource(
                                                         v,
-                                                        data.deposit_type,
-                                                        data.deposit_value,
+                                                        nextDepositType,
+                                                        nextDepositValue,
                                                         data.invoices,
                                                     ),
-                                            })
-                                        }
+                                            });
+                                        }}
                                     />
 
                                     {data.payment_plan === 'installment' && (

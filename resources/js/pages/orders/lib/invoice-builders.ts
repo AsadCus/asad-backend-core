@@ -26,7 +26,11 @@ function buildInstallmentItems(
     items: InvoiceItemSchema[],
     depositType?: string | null,
     depositValue?: number | string | null,
-): { depositItems: InvoiceItemSchema[]; balanceItems: InvoiceItemSchema[] } {
+): {
+    depositItems: InvoiceItemSchema[];
+    fiftyPercentItems: InvoiceItemSchema[];
+    balanceItems: InvoiceItemSchema[];
+} {
     const packageItems = items.filter(
         (item) =>
             !item.is_header &&
@@ -36,6 +40,7 @@ function buildInstallmentItems(
     if (!packageItems.length) {
         return {
             depositItems: items,
+            fiftyPercentItems: [],
             balanceItems: [],
         };
     }
@@ -52,60 +57,41 @@ function buildInstallmentItems(
         };
     });
 
-    const packageTotal = roundToCents(
-        packageItemsWithAmounts.reduce(
-            (sum, item) => sum + Number(item.amount ?? 0),
-            0,
-        ),
-    );
     const nonPackageItems = items.filter(
         (item) =>
             item.is_header ||
             Number(item.customer_confirmation_member_id ?? 0) <= 0,
     );
 
-    let depositAmount = 0;
     const numericDepositValue = Number(depositValue ?? 0);
-
-    if (depositType === 'percentage' && numericDepositValue > 0) {
-        depositAmount = roundToCents(
-            packageTotal * (numericDepositValue / 100),
-        );
-    } else if (depositType === 'fixed' && numericDepositValue > 0) {
-        depositAmount = Math.min(
-            roundToCents(numericDepositValue),
-            packageTotal,
-        );
-    }
-
-    if (depositAmount <= 0) {
-        return {
-            depositItems: nonPackageItems,
-            balanceItems: packageItemsWithAmounts,
-        };
-    }
-
-    const perItemDeposit = roundToCents(
-        depositAmount / packageItemsWithAmounts.length,
-    );
-    let allocated = 0;
     const depositItems: InvoiceItemSchema[] = [...nonPackageItems];
+    const fiftyPercentItems: InvoiceItemSchema[] = [];
     const balanceItems: InvoiceItemSchema[] = [];
 
-    packageItemsWithAmounts.forEach((item, index) => {
+    packageItemsWithAmounts.forEach((item) => {
         const quantity = Number(item.quantity ?? 0) || 1;
         const amount = roundToCents(Number(item.amount ?? 0));
+        const perItemDepositAmount =
+            depositType === 'percentage' && numericDepositValue > 0
+                ? roundToCents(amount * (numericDepositValue / 100))
+                : depositType === 'fixed' && numericDepositValue > 0
+                  ? roundToCents(
+                        Math.min(numericDepositValue, Number(item.amount ?? 0)),
+                    )
+                  : 0;
 
-        const lineDepositAmount =
-            index === packageItemsWithAmounts.length - 1
-                ? roundToCents(depositAmount - allocated)
-                : Math.min(perItemDeposit, amount);
+        const depositAmount = Math.min(perItemDepositAmount, amount);
+        const fiftyPercentTarget = roundToCents(amount * 0.5);
+        const remainingAfterDeposit = roundToCents(amount - depositAmount);
+        const fiftyPercentAmount = Math.min(
+            fiftyPercentTarget,
+            remainingAfterDeposit,
+        );
+        const balanceAmount = roundToCents(
+            amount - depositAmount - fiftyPercentAmount,
+        );
 
-        allocated = roundToCents(allocated + lineDepositAmount);
-
-        const lineBalanceAmount = roundToCents(amount - lineDepositAmount);
-
-        if (lineDepositAmount > 0) {
+        if (depositAmount > 0) {
             depositItems.push({
                 ...item,
                 _key: nanoid(),
@@ -114,12 +100,26 @@ function buildInstallmentItems(
                 parent_key: null,
                 description: `${item.description ?? 'Package'} (Deposit)`,
                 quantity,
-                rate: roundToCents(lineDepositAmount / quantity),
-                amount: lineDepositAmount,
+                rate: roundToCents(depositAmount / quantity),
+                amount: depositAmount,
             });
         }
 
-        if (lineBalanceAmount > 0) {
+        if (fiftyPercentAmount > 0) {
+            fiftyPercentItems.push({
+                ...item,
+                _key: nanoid(),
+                id: undefined,
+                parent_id: null,
+                parent_key: null,
+                description: `${item.description ?? 'Package'} (50%)`,
+                quantity,
+                rate: roundToCents(fiftyPercentAmount / quantity),
+                amount: fiftyPercentAmount,
+            });
+        }
+
+        if (balanceAmount > 0) {
             balanceItems.push({
                 ...item,
                 _key: nanoid(),
@@ -128,13 +128,13 @@ function buildInstallmentItems(
                 parent_key: null,
                 description: `${item.description ?? 'Package'} (Balance)`,
                 quantity,
-                rate: roundToCents(lineBalanceAmount / quantity),
-                amount: lineBalanceAmount,
+                rate: roundToCents(balanceAmount / quantity),
+                amount: balanceAmount,
             });
         }
     });
 
-    return { depositItems, balanceItems };
+    return { depositItems, fiftyPercentItems, balanceItems };
 }
 
 export function buildInvoicesFromItems(
@@ -167,13 +167,13 @@ export function buildInvoicesFromItems(
             },
         ];
     } else if (paymentPlan === 'installment') {
-        const { depositItems, balanceItems } = buildInstallmentItems(
-            items,
-            depositType,
-            depositValue,
-        );
+        const { depositItems, fiftyPercentItems, balanceItems } =
+            buildInstallmentItems(items, depositType, depositValue);
 
         const depositAmount = roundToCents(calculateTotal(depositItems));
+        const fiftyPercentAmount = roundToCents(
+            calculateTotal(fiftyPercentItems),
+        );
         const balanceAmount = roundToCents(calculateTotal(balanceItems));
 
         invoices = [
@@ -182,6 +182,12 @@ export function buildInvoicesFromItems(
                 description: 'Invoice For Deposit',
                 items: depositItems,
                 amount: depositAmount,
+            },
+            {
+                _key: nanoid(),
+                description: 'Invoice For 50%',
+                items: fiftyPercentItems,
+                amount: fiftyPercentAmount,
             },
             {
                 _key: nanoid(),

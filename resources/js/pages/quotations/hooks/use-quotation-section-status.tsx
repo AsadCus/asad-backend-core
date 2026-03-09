@@ -21,7 +21,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
         'customer_email',
     ],
 
-    maid_and_quotation_details: [
+    quotation_details: [
         'description',
         'payment_plan',
         'payment_method',
@@ -111,9 +111,9 @@ export function useQuotationSectionStatus({
                 ),
             },
             {
-                id: 'maid_and_quotation_details',
+                id: 'quotation_details',
                 title: 'Quotation Details',
-                status: getQuotationSectionStatus('maid_and_quotation_details'),
+                status: getQuotationSectionStatus('quotation_details'),
             },
             {
                 id: 'status',
