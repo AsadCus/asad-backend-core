@@ -6,7 +6,7 @@ import { update as updateReportTemplate } from '@/routes/report-template';
 import { destroy as destroyModuleRoute } from '@/routes/report-template/modules';
 import { Transition } from '@headlessui/react';
 import { Head, router, useForm } from '@inertiajs/react';
-import { FormEventHandler, useEffect, useRef, useState } from 'react';
+import { FormEventHandler, useRef, useState } from 'react';
 import { AddModuleDialog, FileUploadField } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
 import { ModuleTemplateSection } from './report-template/module-template-section';
@@ -45,7 +45,11 @@ interface ReportTemplateFormData {
 const BUILTIN_MODULES: RegisteredModule[] = [
     { key: 'quotation', label: 'Quotation', document_type: 'QUOTATION' },
     { key: 'invoice', label: 'Invoice', document_type: 'INVOICE' },
-    { key: 'receipt', label: 'Official Receipt', document_type: 'OFFICIAL RECEIPT' },
+    {
+        key: 'receipt',
+        label: 'Official Receipt',
+        document_type: 'OFFICIAL RECEIPT',
+    },
     { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
     { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
 ];
@@ -53,7 +57,11 @@ const BUILTIN_MODULES: RegisteredModule[] = [
 const DEFAULT_LOGO_PREVIEW = '/logo-primary.png';
 const DEFAULT_LOGO_FILE_NAME = 'logo-primary.png';
 
-export default function ReportTemplate({ settings }: { settings: ReportTemplateSettings }) {
+export default function ReportTemplate({
+    settings,
+}: {
+    settings: ReportTemplateSettings;
+}) {
     const extractFileName = (path: string | null): string | null => {
         if (!path) {
             return null;
@@ -102,7 +110,9 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
         });
 
     const [logoPreview, setLogoPreview] = useState<string | null>(
-        settings.logo_path ? `/storage/${settings.logo_path}` : DEFAULT_LOGO_PREVIEW,
+        settings.logo_path
+            ? `/storage/${settings.logo_path}`
+            : DEFAULT_LOGO_PREVIEW,
     );
     const [stampPreview, setStampPreview] = useState<string | null>(
         settings.stamp_path ? `/storage/${settings.stamp_path}` : null,
@@ -110,15 +120,15 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
     const [signaturePreview, setSignaturePreview] = useState<string | null>(
         settings.signature_path ? `/storage/${settings.signature_path}` : null,
     );
-    const [logoPreviewFileName, setLogoPreviewFileName] = useState<string | null>(
-        extractFileName(settings.logo_path) ?? DEFAULT_LOGO_FILE_NAME,
-    );
-    const [stampPreviewFileName, setStampPreviewFileName] = useState<string | null>(
-        extractFileName(settings.stamp_path),
-    );
-    const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<string | null>(
-        extractFileName(settings.signature_path),
-    );
+    const [logoPreviewFileName, setLogoPreviewFileName] = useState<
+        string | null
+    >(extractFileName(settings.logo_path) ?? DEFAULT_LOGO_FILE_NAME);
+    const [stampPreviewFileName, setStampPreviewFileName] = useState<
+        string | null
+    >(extractFileName(settings.stamp_path));
+    const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<
+        string | null
+    >(extractFileName(settings.signature_path));
 
     // Track active FileReaders to prevent race conditions
     const activeReadersRef = useRef<Map<string, FileReader>>(new Map());
@@ -129,29 +139,29 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             setPreview: (v: string | null) => void,
             setPreviewFileName: (v: string | null) => void,
         ) =>
-            (e: React.ChangeEvent<HTMLInputElement>) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
 
-                // Cancel any previous FileReader for this field
-                const existingReader = activeReadersRef.current.get(field);
-                if (existingReader) {
-                    existingReader.abort();
+            // Cancel any previous FileReader for this field
+            const existingReader = activeReadersRef.current.get(field);
+            if (existingReader) {
+                existingReader.abort();
+            }
+
+            setData(field, file);
+            setPreviewFileName(file.name);
+            const reader = new FileReader();
+            activeReadersRef.current.set(field, reader);
+            reader.onloadend = () => {
+                // Only set preview if this reader wasn't aborted
+                if (activeReadersRef.current.get(field) === reader) {
+                    setPreview(reader.result as string);
+                    activeReadersRef.current.delete(field);
                 }
-
-                setData(field, file);
-                setPreviewFileName(file.name);
-                const reader = new FileReader();
-                activeReadersRef.current.set(field, reader);
-                reader.onloadend = () => {
-                    // Only set preview if this reader wasn't aborted
-                    if (activeReadersRef.current.get(field) === reader) {
-                        setPreview(reader.result as string);
-                        activeReadersRef.current.delete(field);
-                    }
-                };
-                reader.readAsDataURL(file);
             };
+            reader.readAsDataURL(file);
+        };
 
     const makeClearHandler =
         (
@@ -163,26 +173,29 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
             pathKey: 'logo_path' | 'stamp_path' | 'signature_path',
             hasDatabaseFile: boolean,
         ) =>
-            () => {
-                // Cancel any active FileReader for this field
-                const existingReader = activeReadersRef.current.get(field);
-                if (existingReader) {
-                    existingReader.abort();
-                    activeReadersRef.current.delete(field);
-                }
+        () => {
+            // Cancel any active FileReader for this field
+            const existingReader = activeReadersRef.current.get(field);
+            if (existingReader) {
+                existingReader.abort();
+                activeReadersRef.current.delete(field);
+            }
 
-                // Clear file and preview
-                setData(field, null);
-                setPreview(null);
-                setPreviewFileName(null);
+            // Clear file and preview
+            setData(field, null);
+            setPreview(null);
+            setPreviewFileName(null);
 
-                // If there's an existing file in database, send empty string signal for deletion
-                if (hasDatabaseFile) {
-                    setData(pathKey, '');
-                }
-            };
+            // If there's an existing file in database, send empty string signal for deletion
+            if (hasDatabaseFile) {
+                setData(pathKey, '');
+            }
+        };
 
-    const updateModule = (field: keyof ModuleTemplate, value: string | boolean) => {
+    const updateModule = (
+        field: keyof ModuleTemplate,
+        value: string | boolean,
+    ) => {
         setData('module_templates', {
             ...data.module_templates,
             [selectedModule]: {
@@ -248,27 +261,55 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
                             logoPreview={logoPreview}
                             stampPreview={stampPreview}
                             signaturePreview={signaturePreview}
-                            onDataChange={(field, value) => setData(field as keyof ReportTemplateFormData, value)}
+                            onDataChange={(field, value) =>
+                                setData(
+                                    field as keyof ReportTemplateFormData,
+                                    value,
+                                )
+                            }
                             makeFileHandler={makeFileHandler}
                             makeClearHandler={makeClearHandler}
                             logoPreviewFileName={logoPreviewFileName}
                             stampPreviewFileName={stampPreviewFileName}
                             signaturePreviewFileName={signaturePreviewFileName}
-                            initialLogoPreview={settings.logo_path ? `/storage/${settings.logo_path}` : DEFAULT_LOGO_PREVIEW}
-                            initialStampPreview={settings.stamp_path ? `/storage/${settings.stamp_path}` : null}
-                            initialSignaturePreview={settings.signature_path ? `/storage/${settings.signature_path}` : null}
-                            initialLogoPreviewFileName={extractFileName(settings.logo_path) ?? DEFAULT_LOGO_FILE_NAME}
-                            initialStampPreviewFileName={extractFileName(settings.stamp_path)}
-                            initialSignaturePreviewFileName={extractFileName(settings.signature_path)}
+                            initialLogoPreview={
+                                settings.logo_path
+                                    ? `/storage/${settings.logo_path}`
+                                    : DEFAULT_LOGO_PREVIEW
+                            }
+                            initialStampPreview={
+                                settings.stamp_path
+                                    ? `/storage/${settings.stamp_path}`
+                                    : null
+                            }
+                            initialSignaturePreview={
+                                settings.signature_path
+                                    ? `/storage/${settings.signature_path}`
+                                    : null
+                            }
+                            initialLogoPreviewFileName={
+                                extractFileName(settings.logo_path) ??
+                                DEFAULT_LOGO_FILE_NAME
+                            }
+                            initialStampPreviewFileName={extractFileName(
+                                settings.stamp_path,
+                            )}
+                            initialSignaturePreviewFileName={extractFileName(
+                                settings.signature_path,
+                            )}
                             initialLogoDatabasePath={settings.logo_path}
                             initialStampDatabasePath={settings.stamp_path}
-                            initialSignatureDatabasePath={settings.signature_path}
+                            initialSignatureDatabasePath={
+                                settings.signature_path
+                            }
                             setLogoPreview={setLogoPreview}
                             setStampPreview={setStampPreview}
                             setSignaturePreview={setSignaturePreview}
                             setLogoPreviewFileName={setLogoPreviewFileName}
                             setStampPreviewFileName={setStampPreviewFileName}
-                            setSignaturePreviewFileName={setSignaturePreviewFileName}
+                            setSignaturePreviewFileName={
+                                setSignaturePreviewFileName
+                            }
                             FileUploadField={FileUploadField}
                         />
 
@@ -279,7 +320,9 @@ export default function ReportTemplate({ settings }: { settings: ReportTemplateS
                             activeDefinition={activeDefinition}
                             isBuiltin={isBuiltin}
                             builtinModules={BUILTIN_MODULES}
-                            registeredModules={settings.registered_modules ?? []}
+                            registeredModules={
+                                settings.registered_modules ?? []
+                            }
                             updateModule={updateModule}
                             handleDeleteModule={handleDeleteModule}
                             AddModuleDialog={

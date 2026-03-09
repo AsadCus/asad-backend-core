@@ -21,7 +21,6 @@ interface InvoicePreviewModalProps {
 
 export default function InvoicePreviewModal({
     data,
-    items: _items,
     open: externalOpen,
     onOpenChange: externalOnOpenChange,
 }: InvoicePreviewModalProps) {
@@ -74,7 +73,6 @@ export default function InvoicePreviewModal({
             setIsGenerating(false);
         }
     }, [data.id, data.invoice_number]);
-
 
     return (
         <>

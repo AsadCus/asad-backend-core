@@ -22,7 +22,6 @@ interface ReceiptPreviewModalProps {
 
 export default function ReceiptPreviewModal({
     receipt,
-    items: _items,
     open: externalOpen,
     onOpenChange: externalOnOpenChange,
 }: ReceiptPreviewModalProps) {
@@ -75,7 +74,6 @@ export default function ReceiptPreviewModal({
             setIsGenerating(false);
         }
     }, [receipt.id, receipt.receipt_number]);
-
 
     return (
         <>

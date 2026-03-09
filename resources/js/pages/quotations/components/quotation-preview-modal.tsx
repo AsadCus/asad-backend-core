@@ -22,7 +22,6 @@ interface QuotationPreviewModalProps {
 
 export default function QuotationPreviewModal({
     data,
-    items: _items,
     open: externalOpen,
     onOpenChange: externalOnOpenChange,
 }: QuotationPreviewModalProps) {
@@ -74,7 +73,6 @@ export default function QuotationPreviewModal({
             setIsGenerating(false);
         }
     }, [data.id, data.quotation_number]);
-
 
     return (
         <>
