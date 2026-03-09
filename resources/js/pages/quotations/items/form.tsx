@@ -635,9 +635,10 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                             inputProps={{ step: 'any', min: 0 }}
                             disabled={disabled}
                             size="compact"
+                            debounceMs={500}
                             onCommit={(v) =>
                                 updateItemByKey(item._key, {
-                                    quantity: Number(v),
+                                    quantity: v,
                                 } as Partial<T>)
                             }
                         />
@@ -670,9 +671,10 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                             inputProps={{ step: '1' }}
                             disabled={disabled}
                             size="compact"
+                            debounceMs={500}
                             onCommit={(v) =>
                                 updateItemByKey(item._key, {
-                                    rate: Number(v),
+                                    rate: v,
                                 } as Partial<T>)
                             }
                         />

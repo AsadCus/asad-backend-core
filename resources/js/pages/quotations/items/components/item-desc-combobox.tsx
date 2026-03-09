@@ -21,14 +21,14 @@ import { QuotationItemSchema } from '../schema';
 
 export type ItemSelectionPayload =
     | {
-          type: 'single';
-          item: QuotationItemSchema;
-      }
+        type: 'single';
+        item: QuotationItemSchema;
+    }
     | {
-          type: 'group';
-          parent: QuotationItemSchema;
-          children: QuotationItemSchema[];
-      };
+        type: 'group';
+        parent: QuotationItemSchema;
+        children: QuotationItemSchema[];
+    };
 
 interface ItemDescriptionComboboxProps {
     value: string;
@@ -157,7 +157,19 @@ export default function ItemDescriptionCombobox({
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <div>
+                <div 
+                    onClick={(e) => {
+                        if (!disabled && !open) {
+                            e.preventDefault();
+                            setOpen(true);
+                        }
+                    }}
+                    onMouseDown={(e) => {
+                        if (!disabled && !open) {
+                            e.preventDefault();
+                        }
+                    }}
+                >
                     <ProperInput
                         value={value}
                         disabled={disabled}
@@ -166,8 +178,9 @@ export default function ItemDescriptionCombobox({
                         className={cn(isHeader && 'font-semibold', className)}
                         placeholder="Select item or type..."
                         onCommit={(v) => {
-                            onChange(v);
-                            setOpen(true);
+                            if (v !== value) {
+                                onChange(v);
+                            }
                         }}
                     />
                 </div>
@@ -250,20 +263,20 @@ export default function ItemDescriptionCombobox({
 
                                                                 {(parent.quantity ||
                                                                     parent.rate) && (
-                                                                    <span className="text-sm text-muted-foreground">
-                                                                        Qty:{' '}
-                                                                        {parent.quantity ||
-                                                                            '-'}{' '}
-                                                                        | Cost:
-                                                                        $
-                                                                        {parent.rate ||
-                                                                            '-'}
-                                                                        {parent.is_header &&
-                                                                            ' | Header'}
-                                                                        {parent.is_optional &&
-                                                                            ' | Optional'}
-                                                                    </span>
-                                                                )}
+                                                                        <span className="text-sm text-muted-foreground">
+                                                                            Qty:{' '}
+                                                                            {parent.quantity ||
+                                                                                '-'}{' '}
+                                                                            | Cost:
+                                                                            $
+                                                                            {parent.rate ||
+                                                                                '-'}
+                                                                            {parent.is_header &&
+                                                                                ' | Header'}
+                                                                            {parent.is_optional &&
+                                                                                ' | Optional'}
+                                                                        </span>
+                                                                    )}
                                                             </div>
                                                             <Check
                                                                 className={cn(
@@ -314,19 +327,19 @@ export default function ItemDescriptionCombobox({
                                                                     </span>
                                                                     {(child.quantity ||
                                                                         child.rate) && (
-                                                                        <span className="text-sm text-muted-foreground">
-                                                                            Qty:{' '}
-                                                                            {child.quantity ||
-                                                                                '-'}{' '}
-                                                                            |
-                                                                            Cost:
-                                                                            $
-                                                                            {child.rate ||
-                                                                                '-'}
-                                                                            {child.is_optional &&
-                                                                                ' | Optional'}
-                                                                        </span>
-                                                                    )}
+                                                                            <span className="text-sm text-muted-foreground">
+                                                                                Qty:{' '}
+                                                                                {child.quantity ||
+                                                                                    '-'}{' '}
+                                                                                |
+                                                                                Cost:
+                                                                                $
+                                                                                {child.rate ||
+                                                                                    '-'}
+                                                                                {child.is_optional &&
+                                                                                    ' | Optional'}
+                                                                            </span>
+                                                                        )}
                                                                 </div>
                                                                 <Check
                                                                     className={cn(
@@ -366,18 +379,18 @@ export default function ItemDescriptionCombobox({
                                                                 </span>
                                                                 {(parent.quantity ||
                                                                     parent.rate) && (
-                                                                    <span className="text-sm text-muted-foreground">
-                                                                        Qty:{' '}
-                                                                        {parent.quantity ||
-                                                                            '-'}{' '}
-                                                                        | Cost:
-                                                                        $
-                                                                        {parent.rate ||
-                                                                            '-'}
-                                                                        {parent.is_optional &&
-                                                                            ' | Optional'}
-                                                                    </span>
-                                                                )}
+                                                                        <span className="text-sm text-muted-foreground">
+                                                                            Qty:{' '}
+                                                                            {parent.quantity ||
+                                                                                '-'}{' '}
+                                                                            | Cost:
+                                                                            $
+                                                                            {parent.rate ||
+                                                                                '-'}
+                                                                            {parent.is_optional &&
+                                                                                ' | Optional'}
+                                                                        </span>
+                                                                    )}
                                                             </div>
                                                             <Check
                                                                 className={cn(

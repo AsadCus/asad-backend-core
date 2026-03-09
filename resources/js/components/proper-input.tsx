@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export function ProperInput({
     id,
@@ -14,6 +14,8 @@ export function ProperInput({
     size = 'default',
     className,
     inputProps,
+    onFocus,
+    debounceMs = 0,
 }: {
     id?: string;
     value: string | number | null;
@@ -25,17 +27,62 @@ export function ProperInput({
     size?: 'compact' | 'default';
     className?: string;
     inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+    onFocus?: () => void;
     rows?: number;
+    debounceMs?: number;
 }) {
     const [local, setLocal] = useState(String(value ?? ''));
+    const [isFocused, setIsFocused] = useState(false);
+    const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        setLocal(String(value ?? ''));
-    }, [value]);
+        if (!isFocused) {
+            setLocal(String(value ?? ''));
+        }
+    }, [value, isFocused]);
+
+    useEffect(() => {
+        return () => {
+            if (debounceTimer.current) {
+                clearTimeout(debounceTimer.current);
+            }
+        };
+    }, []);
 
     const handleChange = (newValue: string) => {
         setLocal(newValue);
-        onCommit(newValue);
+        
+        if (debounceMs > 0) {
+            if (debounceTimer.current) {
+                clearTimeout(debounceTimer.current);
+            }
+            debounceTimer.current = setTimeout(() => {
+                onCommit(newValue);
+            }, debounceMs);
+        }
+    };
+
+    const handleBlur = () => {
+        setIsFocused(false);
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+        onCommit(local);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            setIsFocused(false);
+            if (debounceTimer.current) {
+                clearTimeout(debounceTimer.current);
+            }
+            onCommit(local);
+        }
+    };
+
+    const handleFocus = () => {
+        setIsFocused(true);
+        onFocus?.();
     };
 
     if (textarea) {
@@ -53,6 +100,8 @@ export function ProperInput({
                     className,
                 )}
                 onChange={(e) => handleChange(e.target.value)}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
             />
         );
     }
@@ -71,6 +120,9 @@ export function ProperInput({
             )}
             inputMode={type === 'number' ? 'decimal' : undefined}
             onChange={(e) => handleChange(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            onFocus={handleFocus}
             {...inputProps}
         />
     );
