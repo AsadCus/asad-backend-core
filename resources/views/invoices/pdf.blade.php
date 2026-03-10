@@ -7,199 +7,257 @@
     <style>
         @page {
             size: A4;
-            margin: 1.2cm 1.5cm;
+            margin: 1.5cm 1.8cm;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 11px;
-            line-height: 1.4;
-            color: #000;
+            font-size: 10px;
+            line-height: 1.45;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 0;
         }
 
-        /* Header & Logo */
+        /* ── Header ── */
         .header-table {
             width: 100%;
-            margin-bottom: 20px;
             border-collapse: collapse;
+            margin-bottom: 14px;
         }
 
         .logo-cell {
-            width: 45%;
-            vertical-align: top;
+            width: 42%;
+            vertical-align: middle;
         }
 
         .info-cell {
-            width: 55%;
+            width: 58%;
             text-align: right;
-            vertical-align: top;
+            vertical-align: middle;
         }
 
+        /* Fix: explicit height in px, no object-fit (not supported in PDF renderers) */
         .logo-cell img {
-            width: 240px;
-            max-width: 240px;
-            max-height: 90px;
-            height: auto;
-            object-fit: contain;
             display: block;
+            width: auto;
+            height: 52px;
+            max-width: 180px;
             margin: 0;
         }
 
-        /* Title Bar */
+        .company-name {
+            font-size: 12px;
+            font-weight: bold;
+            color: #222;
+            margin-bottom: 2px;
+            display: block;
+        }
+
+        .company-details {
+            font-size: 9px;
+            color: #444;
+            line-height: 1.5;
+        }
+
+        .company-reg {
+            font-size: 9px;
+            font-weight: bold;
+            margin-top: 3px;
+        }
+
+        /* ── Title Bar ── */
         .title-bar {
             background-color: {{ $branding['title_color'] ?? '#40A09D' }};
-            color: white;
+            color: #fff;
             text-align: center;
             font-weight: bold;
-            font-size: 14px;
-            padding: 6px;
-            letter-spacing: 3px;
-            margin-bottom: 15px;
+            font-size: 13px;
+            padding: 5px 0;
+            letter-spacing: 4px;
+            margin-bottom: 12px;
         }
 
-        /* Content Wrapper */
+        /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 40px;
+            padding: 0 30px;
         }
 
-        /* Order Info Grid */
-        .order-info-section {
-            margin-bottom: 16px;
-        }
-
+        /* ── Order Info ── */
         .order-info-grid {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .order-info-grid td {
             vertical-align: top;
-            padding: 0px;
+            padding: 1px 0;
+            font-size: 10px;
         }
 
-        .order-info-grid .label-cell {
+        .lbl {
+            font-weight: bold;
             white-space: nowrap;
+            width: 105px;
+        }
+
+        .sep {
+            width: 12px;
+        }
+
+        .lbl-r {
+            font-weight: bold;
+            white-space: nowrap;
+            width: 90px;
+        }
+
+        /* ── Due Date highlight ── */
+        .due-date-urgent {
+            color: #c0392b;
             font-weight: bold;
         }
 
-        /* Helper Name */
+        /* ── Helper Name ── */
         .helper-name {
             font-weight: bold;
-            margin-bottom: 10px;
+            font-size: 10px;
+            border-top: 1px solid #d0d0d0;
+            padding-top: 6px;
+            margin-bottom: 8px;
         }
 
-        /* Items Section */
+        /* ── Items Table ── */
         .items-section {
-            border-bottom: 1px solid gray;
-            padding: 10px 0;
+            border-top: 1.5px solid #333;
+            border-bottom: 1.5px solid #333;
+            padding: 6px 0;
+            margin-bottom: 12px;
         }
 
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
         }
 
         .items-table thead th {
-            border-bottom: 1px solid #000;
-            padding: 4px 0;
+            border-bottom: 1px solid #333;
+            padding: 3px 0;
             font-weight: bold;
+            font-size: 10px;
             text-align: left;
         }
 
-        .items-table thead th.col-qty {
-            width: 60px;
-            text-align: right;
-        }
-
-        .items-table thead th.col-rate {
-            width: 80px;
-            text-align: right;
-        }
-
+        .items-table thead th.col-rate,
         .items-table thead th.col-total {
-            width: 100px;
             text-align: right;
         }
 
         .items-table td {
-            padding: 2px 0;
+            padding: 2.5px 0;
             vertical-align: top;
+            font-size: 10px;
         }
 
         .col-desc {
             width: auto;
         }
 
-        .col-qty,
-        .col-rate,
-        .col-total {
+        .col-rate {
+            width: 80px;
             text-align: right;
             white-space: nowrap;
         }
 
-        /* Sub-item indentation */
+        .col-total {
+            width: 90px;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        /* Sub-item indent */
         .sub-item .col-desc {
-            padding-left: 24px;
+            padding-left: 20px;
         }
 
-        /* Item row border */
         .item-row {
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid #ebebeb;
         }
 
-        /* Spacing after parent items */
         .parent-item-end td {
-            height: 8px;
-            line-height: 8px;
+            height: 5px;
+            line-height: 5px;
             border: none;
         }
 
-        /* Totals */
+        /* ── Totals ── */
         .totals-wrapper {
-            width: 100%;
-            margin-top: 15px;
             text-align: right;
+            padding: 5px 0 2px;
+            border-top: 1px solid #ccc;
+            margin-top: 4px;
+        }
+
+        .total-label {
+            font-size: 10px;
+            color: #555;
         }
 
         .total-amount {
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
         }
 
-        /* Footer */
+        /* ── Footer ── */
         .footer-section {
-            clear: both;
-            padding: 15px 0 0;
-            font-size: 10px;
+            font-size: 9px;
+            padding-top: 8px;
+            border-top: 1px solid #d0d0d0;
         }
 
         .footer-note {
             text-align: center;
-            margin-bottom: 10px;
-            line-height: 1.4;
+            margin-bottom: 6px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .stamp-sig-row {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        .stamp-sig-row td {
+            vertical-align: bottom;
         }
 
         .updated-date {
-            text-align: center;
+            text-align: right;
             font-weight: bold;
-            margin-top: 20px;
+            font-size: 9px;
+            margin-top: 12px;
+            color: #333;
         }
     </style>
 </head>
 
 <body>
-    <!-- Header -->
+
+    {{-- ── HEADER ── --}}
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                @if(($is_pdf ?? false) && !empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
+                @if (($is_pdf ?? false) && !empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
                     <img src="{{ $branding['logo_path_absolute'] }}" alt="Company Logo">
                 @elseif(!empty($branding['logo_url']))
                     <img src="{{ $branding['logo_url'] }}" alt="Company Logo">
                 @else
-                    @if($is_pdf ?? false)
+                    @if ($is_pdf ?? false)
                         <img src="{{ public_path('logo-primary.png') }}" alt="Company Logo">
                     @else
                         <img src="/logo-primary.png" alt="Company Logo">
@@ -207,95 +265,100 @@
                 @endif
             </td>
             <td class="info-cell">
-                <div>
-                    <b style="margin-bottom: 4px; font-size: 13px; color: #333;">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</b><br>
-                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}<br>
+                <span class="company-name">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</span>
+                <div class="company-details">
+                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}
                     @if (!empty($branding['company_phone']))
-                        <div style="margin-top: 2px;">Tel: {{ $branding['company_phone'] }}</div>
+                        <br>Tel: {{ $branding['company_phone'] }}
                     @endif
                     @if (!empty($branding['company_email']))
-                        <div>Email: {{ $branding['company_email'] }}</div>
+                        <br>Email: {{ $branding['company_email'] }}
                     @endif
-                    <div style="margin-top: 4px;">
-                        @if ($data['sales_registration_number'] ?? false)
-                            <b>REGISTRATION NO. {{ $data['sales_registration_number'] }}</b><br>
-                        @endif
-                        <b>LICENCE NO. 25C2708</b>
-                    </div>
+                </div>
+                <div class="company-reg">
+                    @if ($data['sales_registration_number'] ?? false)
+                        REGISTRATION NO. {{ $data['sales_registration_number'] }}&nbsp;&nbsp;
+                    @endif
+                    LICENCE NO. 25C2708
                 </div>
             </td>
         </tr>
     </table>
 
-    <!-- Title Bar -->
+    {{-- ── TITLE BAR ── --}}
     <div class="title-bar">INVOICE</div>
 
     <div class="content-wrapper">
-        <!-- Order Information -->
-        <div class="order-info-section">
-            <table class="order-info-grid">
-                <tr>
-                    <td width="65%">
-                        <table style="width: 100%;">
-                            <tr>
-                                <td class="label-cell">Customer Number</td>
-                                <td>: {{ $data['customer_number'] ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell">Customer</td>
-                                <td>: {{ $data['customer_name'] ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell" style="vertical-align: top;">Address</td>
-                                <td style="vertical-align: top;">
-                                    <table style="width: 100%; border-collapse: collapse;">
-                                        <tr>
-                                            <td style="width: fit-content; vertical-align: top; padding: 0;">:</td>
-                                            <td style="vertical-align: top; padding: 0;">{!! $data['customer_address'] ?? '-' !!}</td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell">Contact</td>
-                                <td>: {{ $data['customer_contact'] ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell">Email</td>
-                                <td>: {{ $data['customer_email'] ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell">Description</td>
-                                <td>: {{ $data['description'] ?? '-' }}</td>
-                            </tr>
-                        </table>
-                    </td>
-                    <td width="35%">
-                        <table style="width: 100%;">
-                            <tr>
-                                <td class="label-cell">Order Number</td>
-                                <td>: {{ $data['order_number'] ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell">Invoice Number</td>
-                                <td>: {{ $data['invoice_number'] ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell">Invoice Date</td>
-                                <td>: {{ $data['invoice_date'] ?? date('d/m/Y') }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label-cell">Due Date</td>
-                                <td>: {{ $data['due_date'] ?? '-' }}</td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-        </div>
+
+        {{-- ── ORDER INFO ── --}}
+        <table class="order-info-grid">
+            <tr>
+                {{-- Left: Customer details --}}
+                <td width="58%">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td class="lbl">Customer No.</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_number'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Customer</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_name'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl" style="vertical-align:top;">Address</td>
+                            <td class="sep" style="vertical-align:top;">:</td>
+                            <td>{!! $data['customer_address'] ?? '-' !!}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Contact</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_contact'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Email</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_email'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Description</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['description'] ?? '-' }}</td>
+                        </tr>
+                    </table>
+                </td>
+                {{-- Right: Invoice meta --}}
+                <td width="42%">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td class="lbl-r">Order No.</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['order_number'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl-r">Invoice No.</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['invoice_number'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl-r">Invoice Date</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['invoice_date'] ?? date('d/m/Y') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl-r">Due Date</td>
+                            <td class="sep">:</td>
+                            <td class="{{ !empty($data['due_date']) ? 'due-date-urgent' : '' }}">
+                                {{ $data['due_date'] ?? '-' }}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
 
         @php
-            // Helper functions
             function formatCurrency($value)
             {
                 return \App\Helpers\FormatService::formatCurrency($value);
@@ -328,7 +391,6 @@
 
             function renderItem($item, $allItems, $level = 0, &$counter, &$subtotal, $subCounter = 0)
             {
-                // Generate item number
                 $itemNumber = '';
                 if ($level === 0) {
                     $counter++;
@@ -339,7 +401,6 @@
 
                 $indentClass = $level > 0 ? 'sub-item' : '';
 
-                // Calculate amount
                 $rate = floatval($item['rate'] ?? 0);
                 $qty = floatval($item['quantity'] ?? 1);
                 $itemTotal = $rate * $qty;
@@ -348,10 +409,8 @@
                     $subtotal += $itemTotal;
                 }
 
-                // Build description
                 $descriptionText = e($item['description']);
 
-                // Check if this item has children
                 $children = collect($allItems)
                     ->filter(function ($child) use ($item) {
                         $parentIdMatch = !empty($child['parent_id']) && $child['parent_id'] == $item['id'];
@@ -363,113 +422,107 @@
                     })
                     ->sortBy('sort_order');
 
-                $hasChildren = $children->isNotEmpty();
-
-                // Display values
-                $qtyDisplay = !$item['is_header'] ? number_format($qty, 0) : '';
                 $rateDisplay = !$item['is_header'] && $rate ? formatCurrency($rate) : '';
                 $totalDisplay = !$item['is_header'] && $itemTotal ? formatCurrency($itemTotal) : '';
 
-                // Render row
                 echo '<tr class="item-row ' . $indentClass . '">';
                 echo '<td class="col-desc">' . $itemNumber . ' ' . $descriptionText . '</td>';
-                // echo '<td class="col-qty">' . $qtyDisplay . '</td>';
                 echo '<td class="col-rate">' . $rateDisplay . '</td>';
                 echo '<td class="col-total">' . $totalDisplay . '</td>';
                 echo '</tr>';
 
-                // Render children
                 $childSubCounter = 0;
                 foreach ($children as $child) {
                     $childSubCounter++;
                     renderItem($child, $allItems, $level + 1, $counter, $subtotal, $childSubCounter);
                 }
 
-                // Add spacing after parent items (only at level 0)
                 if ($level === 0) {
                     echo '<tr class="parent-item-end"><td colspan="3"></td></tr>';
                 }
             }
 
-            // Initialize counters
             $counter = 0;
             $subtotal = 0;
 
-            // Get root items
             $rootItems = collect($items ?? [])
-                ->filter(function ($item) {
-                    return empty($item['parent_id']) && empty($item['parent_key']);
-                })
+                ->filter(fn($item) => empty($item['parent_id']) && empty($item['parent_key']))
                 ->sortBy('sort_order');
         @endphp
 
-        <!-- Helper Name -->
-        <div class="helper-name">
-            Name of Helper Deployed : {{ strtoupper($data['maid_name'] ?? '-') }}
-        </div>
+        {{-- ── HELPER NAME ── --}}
+        <div class="helper-name">Name of Helper Deployed : {{ strtoupper($data['maid_name'] ?? '-') }}</div>
 
-        <!-- Items Table -->
+        {{-- ── ITEMS ── --}}
         <div class="items-section">
             <table class="items-table">
                 <thead>
                     <tr>
                         <th class="col-desc">Item Description</th>
-                        {{-- <th class="col-qty">Qty</th> --}}
                         <th class="col-rate">Cost</th>
                         <th class="col-total">Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($rootItems as $item)
-                        @php
-                            renderItem($item, $items, 0, $counter, $subtotal, 0);
-                        @endphp
+                        @php renderItem($item, $items, 0, $counter, $subtotal, 0); @endphp
                     @endforeach
                 </tbody>
             </table>
 
             <div class="totals-wrapper">
-                <div class="total-amount">
-                    Total Amount: {{ formatCurrency($subtotal) }}
-                </div>
+                <span class="total-label">Total Amount:&nbsp;</span>
+                <span class="total-amount">{{ formatCurrency($subtotal) }}</span>
             </div>
         </div>
 
-        <!-- Footer -->
+        {{-- ── FOOTER ── --}}
         <div class="footer-section">
-            @if(!empty($branding['footer_text']))
+            @if (!empty($branding['footer_text']))
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @else
                 <div class="footer-note">
-                    Paynow to UEN 53496387X or Bank Transfer to DBS Business Multi Currency Account 072-131956-0.
-                    <br>
+                    Paynow to UEN 53496387X or Bank Transfer to DBS Business Multi Currency Account 072-131956-0.<br>
                     For further assistance, please contact us at 8785 5651.
                 </div>
             @endif
 
-            @if(!empty($branding['show_stamp']))
-                <div style="margin-top: 15px; margin-bottom: 0;">
-                    @if(($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
-                        <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp" style="max-height: 80px; width: auto; display: block;">
-                    @elseif(!empty($branding['stamp_url']))
-                        <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 80px; width: auto; display: block;">
-                    @endif
-                </div>
+            @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
+                <table class="stamp-sig-row">
+                    <tr>
+                        <td>
+                            @if (!empty($branding['show_stamp']))
+                                @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
+                                    <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
+                                        style="height:70px; width:auto; display:block;">
+                                @elseif(!empty($branding['stamp_url']))
+                                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
+                                        style="height:70px; width:auto; display:block;">
+                                @endif
+                            @endif
+                        </td>
+                        <td style="text-align:right;">
+                            @if (!empty($branding['show_signature']))
+                                <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
+                                @if (
+                                    ($is_pdf ?? false) &&
+                                        !empty($branding['signature_path_absolute']) &&
+                                        file_exists($branding['signature_path_absolute']))
+                                    <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
+                                        style="height:52px; width:auto; display:block; margin-left:auto;">
+                                @elseif(!empty($branding['signature_url']))
+                                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
+                                        style="height:52px; width:auto; display:block; margin-left:auto;">
+                                @endif
+                            @endif
+                        </td>
+                    </tr>
+                </table>
             @endif
 
-            @if(!empty($branding['show_signature']))
-                <div style="margin-top: 15px;">
-                    <p style="font-size: 9px; margin: 0 0 5px 0;">Authorised Signature</p>
-                    @if(($is_pdf ?? false) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
-                        <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto; display: block;">
-                    @elseif(!empty($branding['signature_url']))
-                        <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto; display: block;">
-                    @endif
-                </div>
-            @endif
-
-            <div class="updated-date">UPDATE: {{ date('d/m/Y') }}</div>
+            <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
         </div>
+
     </div>
 </body>
 

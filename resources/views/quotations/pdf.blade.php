@@ -22,90 +22,138 @@
     <title>Quotation</title>
     <style>
         @page {
-            margin: 1.2cm 1.5cm;
+            size: A4;
+            margin: 1.5cm 1.8cm;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 11px;
-            line-height: 1.4;
-            color: #000;
+            font-size: 10px;
+            line-height: 1.45;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 0;
         }
 
-        /* Header & Logo */
+        /* ── Header ── */
         .header-table {
             width: 100%;
-            margin-bottom: 20px;
             border-collapse: collapse;
+            margin-bottom: 14px;
         }
 
         .logo-cell {
-            width: 45%;
-            vertical-align: top;
+            width: 42%;
+            vertical-align: middle;
         }
 
         .info-cell {
-            width: 55%;
+            width: 58%;
             text-align: right;
-            vertical-align: top;
+            vertical-align: middle;
         }
 
+        /* Fix: explicit px dimensions, no object-fit (not supported in PDF renderers) */
         .logo-cell img {
-            width: 240px;
-            max-width: 240px;
-            max-height: 90px;
-            height: auto;
-            object-fit: contain;
             display: block;
+            width: auto;
+            height: 52px;
+            max-width: 180px;
             margin: 0;
         }
 
-        /* Quotation Bar */
-        .quotation-bar {
-            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
-            color: white;
-            text-align: center;
+        .company-name {
+            font-size: 12px;
             font-weight: bold;
-            font-size: 14px;
-            padding: 6px;
-            letter-spacing: 3px;
-            margin-bottom: 15px;
+            color: #222;
+            margin-bottom: 2px;
+            display: block;
         }
 
-        /* Order Info */
+        .company-details {
+            font-size: 9px;
+            color: #444;
+            line-height: 1.5;
+        }
+
+        .company-reg {
+            font-size: 9px;
+            font-weight: bold;
+            margin-top: 3px;
+        }
+
+        /* ── Title Bar ── */
+        .title-bar {
+            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
+            color: #fff;
+            text-align: center;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 5px 0;
+            letter-spacing: 4px;
+            margin-bottom: 12px;
+        }
+
+        /* ── Divider ── */
+        .section-divider {
+            border: none;
+            border-top: 1px solid #d0d0d0;
+            margin: 10px 0;
+        }
+
+        /* ── Order Info ── */
         .order-info-section {
-            padding: 0 40px;
-            margin-bottom: 15px;
+            padding: 0 30px;
+            margin-bottom: 12px;
         }
 
         .order-info {
             width: 100%;
-            margin-bottom: 15px;
+            border-collapse: collapse;
         }
 
         .order-info td {
             vertical-align: top;
-            padding: 0px;
+            padding: 1px 0;
+            font-size: 10px;
         }
 
-        /* Content Wrapper */
+        .order-info .lbl {
+            white-space: nowrap;
+            font-weight: bold;
+            width: 90px;
+        }
+
+        .order-info .sep {
+            width: 12px;
+        }
+
+        /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 40px;
+            padding: 0 30px;
         }
 
-        /* Main Table */
+        /* ── Items Table ── */
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
-            border-top: 1px solid #000;
-            border-bottom: 1px solid #000;
-            padding: 10px 0;
+            margin-bottom: 8px;
+        }
+
+        .items-table-wrap {
+            border-top: 1.5px solid #333;
+            border-bottom: 1.5px solid #333;
+            padding: 6px 0;
         }
 
         .items-table td {
-            padding: 4px 0;
+            padding: 3px 0;
             vertical-align: top;
+            font-size: 10px;
         }
 
         .col-desc {
@@ -113,90 +161,113 @@
         }
 
         .col-price {
-            width: auto;
+            width: 90px;
             text-align: right;
+            white-space: nowrap;
         }
 
-        /* Indentation Logic */
-
+        /* Sub-item indent */
         .sub-item .col-desc {
-            padding-left: 24px;
+            padding-left: 20px;
         }
 
-        /* Header rows */
-        .header-row {
-            border-top: 1px solid #dee2e6;
-            border-bottom: 1px solid #dee2e6;
-        }
-
+        /* Header rows (section headers within items) */
         .header-row td {
             font-weight: bold;
-            padding: 4px 0;
+            padding: 4px 0 2px;
+            border-bottom: 1px solid #ccc;
+            font-size: 10px;
         }
 
         .item-row {
-            border-bottom: 1px solid #e9ecef;
+            border-bottom: 1px solid #ebebeb;
         }
 
         .item-row.root .col-desc {
             font-weight: bold;
         }
 
-        /* Totals */
+        /* ── Totals ── */
         .totals-wrapper {
-            width: 100%;
-            margin-top: 15px;
             text-align: right;
+            padding: 6px 0 4px;
+            border-top: 1px solid #ccc;
+            margin-top: 4px;
+        }
+
+        .total-label {
+            font-size: 10px;
+            color: #555;
         }
 
         .total-amount {
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
         }
 
-        /* Footer */
+        /* ── Footer ── */
         .footer-section {
-            clear: both;
-            padding: 15px 40px 0;
-            font-size: 10px;
+            padding: 12px 30px 0;
+            font-size: 9px;
         }
 
         .footer-note {
             text-align: center;
-            margin-bottom: 10px;
-            line-height: 1.4;
+            margin-bottom: 8px;
+            line-height: 1.5;
+            color: #333;
         }
 
         .replacement-box {
             text-align: center;
             font-weight: bold;
-            margin: 15px 0;
+            margin: 10px 0;
+            font-size: 10px;
+            border: 1px solid #333;
+            padding: 4px;
+            display: inline-block;
+            width: 100%;
         }
 
         .terms-note {
             text-align: center;
-            font-size: 9px;
-            line-height: 1.4;
+            font-size: 8.5px;
+            line-height: 1.5;
+            color: #555;
         }
 
         .updated-date {
-            text-align: center;
+            text-align: right;
             font-weight: bold;
-            margin-top: 20px;
+            font-size: 9px;
+            margin-top: 16px;
+            color: #333;
+        }
+
+        .stamp-sig-row {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+        }
+
+        .stamp-sig-row td {
+            vertical-align: bottom;
         }
     </style>
 </head>
 
 <body>
+
+    {{-- ── HEADER ── --}}
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                @if(($is_pdf ?? false) && !empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
+                @if (($is_pdf ?? false) && !empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
                     <img src="{{ $branding['logo_path_absolute'] }}" alt="Company Logo">
                 @elseif(!empty($branding['logo_url']))
                     <img src="{{ $branding['logo_url'] }}" alt="Company Logo">
                 @else
-                    @if($is_pdf ?? false)
+                    @if ($is_pdf ?? false)
                         <img src="{{ public_path('logo-primary.png') }}" alt="Company Logo">
                     @else
                         <img src="/logo-primary.png" alt="Company Logo">
@@ -204,63 +275,65 @@
                 @endif
             </td>
             <td class="info-cell">
-                <div>
-                    <b style="margin-bottom: 4px; font-size: 13px; color: #333;">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</b><br>
-                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}<br>
+                <span class="company-name">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</span>
+                <div class="company-details">
+                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}
                     @if (!empty($branding['company_phone']))
-                        <div style="margin-top: 2px;">Tel: {{ $branding['company_phone'] }}</div>
+                        <br>Tel: {{ $branding['company_phone'] }}
                     @endif
                     @if (!empty($branding['company_email']))
-                        <div>Email: {{ $branding['company_email'] }}</div>
+                        <br>Email: {{ $branding['company_email'] }}
                     @endif
-                    <div style="margin-top: 4px;">
-                        @if ($data['sales_registration_number'])
-                            <b>REGISTRATION NO. {{ $data['sales_registration_number'] }}</b><br>
-                        @endif
-                        <b>LICENCE NO. 25C2708</b>
-                    </div>
+                </div>
+                <div class="company-reg">
+                    @if ($data['sales_registration_number'])
+                        REGISTRATION NO. {{ $data['sales_registration_number'] }}&nbsp;&nbsp;
+                    @endif
+                    LICENCE NO. 25C2708
                 </div>
             </td>
         </tr>
     </table>
 
-    <div class="quotation-bar">QUOTATION</div>
+    {{-- ── TITLE BAR ── --}}
+    <div class="title-bar">QUOTATION</div>
 
+    {{-- ── ORDER INFO ── --}}
     <div class="order-info-section">
         <table class="order-info">
             <tr>
-                <td width="65%">
-                    <table>
+                {{-- Left column --}}
+                <td width="60%">
+                    <table style="width:100%; border-collapse:collapse;">
                         <tr>
-                            <td style="white-space: nowrap;"><b>Name</b></td>
-                            <td>: {{ $data['customer_name'] ?? '-' }}</td>
+                            <td class="lbl">Name</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_name'] ?? '-' }}</td>
                         </tr>
                         <tr>
-                            <td style="white-space: nowrap; vertical-align: top;"><b>Address</b></td>
-                            <td style="vertical-align: top;">
-                                <table style="width: 100%; border-collapse: collapse;">
-                                    <tr>
-                                        <td style="width: fit-content; vertical-align: top; padding: 0;">:</td>
-                                        <td style="vertical-align: top; padding: 0;">{!! $data['customer_address'] ?? '-' !!}</td>
-                                    </tr>
-                                </table>
-                            </td>
+                            <td class="lbl" style="vertical-align:top;">Address</td>
+                            <td class="sep" style="vertical-align:top;">:</td>
+                            <td>{!! $data['customer_address'] ?? '-' !!}</td>
                         </tr>
                         <tr>
-                            <td style="white-space: nowrap;"><b>Description</b></td>
-                            <td>: {{ $data['description'] ?? 'New / Fresh Helper' }}</td>
+                            <td class="lbl">Description</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['description'] ?? 'New / Fresh Helper' }}</td>
                         </tr>
                     </table>
                 </td>
-                <td width="35%">
-                    <table>
+                {{-- Right column --}}
+                <td width="40%">
+                    <table style="width:100%; border-collapse:collapse;">
                         <tr>
-                            <td style="white-space: nowrap;"><b>Quotation Number</b></td>
-                            <td>: {{ $data['quotation_number'] ?? '-' }}</td>
+                            <td class="lbl" style="width:115px;">Quotation No.</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['quotation_number'] ?? '-' }}</td>
                         </tr>
                         <tr>
-                            <td style="white-space: nowrap;"><b>Placement Fee</b></td>
-                            <td>: {{ $data['payment_plan_label'] ?? '-' }}</td>
+                            <td class="lbl">Placement Fee</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['payment_plan_label'] ?? '-' }}</td>
                         </tr>
                     </table>
                 </td>
@@ -268,109 +341,117 @@
         </table>
     </div>
 
+    {{-- ── ITEMS ── --}}
     <div class="content-wrapper">
-        <table class="items-table">
-            <tbody>
-                @foreach ($items as $item)
-                    @php
-                        $isRoot = empty($item['parent_id']) && empty($item['parent_key']);
+        <div class="items-table-wrap">
+            <table class="items-table">
+                <tbody>
+                    @foreach ($items as $item)
+                        @php
+                            $isRoot = empty($item['parent_id']) && empty($item['parent_key']);
 
-                        if ($isRoot) {
-                            $rootCounter++;
-                            $label = "{$rootCounter}.";
-                            $pid = $item['id'] ?? ($item['parent_key'] ?? $rootCounter);
-                            $childCounters[$pid] = 0;
-                            $indentClass = '';
-                            $parentKey = $item['id'] ?? $rootCounter;
-                        } else {
-                            $parentKey = $item['parent_id'] ?? $item['parent_key'];
-                            $idx = $childCounters[$parentKey] ?? 0;
-                            $label = alphabetIndex($idx) . '.';
-                            $childCounters[$parentKey] = $idx + 1;
-                            $indentClass = 'sub-item';
-                        }
+                            if ($isRoot) {
+                                $rootCounter++;
+                                $label = "{$rootCounter}.";
+                                $pid = $item['id'] ?? ($item['parent_key'] ?? $rootCounter);
+                                $childCounters[$pid] = 0;
+                                $indentClass = '';
+                                $parentKey = $item['id'] ?? $rootCounter;
+                            } else {
+                                $parentKey = $item['parent_id'] ?? $item['parent_key'];
+                                $idx = $childCounters[$parentKey] ?? 0;
+                                $label = alphabetIndex($idx) . '.';
+                                $childCounters[$parentKey] = $idx + 1;
+                                $indentClass = 'sub-item';
+                            }
 
-                        $amount = null;
-                        if (empty($item['is_header'])) {
-                            $amount = (float) ($item['quantity'] ?? 0) * (float) ($item['rate'] ?? 0);
+                            $amount = null;
+                            if (empty($item['is_header'])) {
+                                $amount = (float) ($item['quantity'] ?? 0) * (float) ($item['rate'] ?? 0);
+                                $subtotal += $amount;
+                            }
 
-                            $subtotal += $amount;
-                        }
+                            $description = $item['description'];
+                        @endphp
 
-                        $description = $item['description'];
-                    @endphp
+                        @if (!empty($item['is_header']))
+                            <tr class="header-row">
+                                <td colspan="2">{{ $label }} {{ $description }}</td>
+                            </tr>
+                        @else
+                            <tr class="item-row {{ $isRoot ? 'root' : '' }} {{ $indentClass }}">
+                                <td class="col-desc">{{ $label }} {{ $description }}</td>
+                                <td class="col-price">{{ formatCurrency($amount) }}</td>
+                            </tr>
+                        @endif
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
 
-                    @if (!empty($item['is_header']))
-                        <tr class="header-row">
-                            <td colspan="3">
-                                {{ $label }} {{ $description }}
-                            </td>
-                        </tr>
-                    @else
-                        <tr class="item-row {{ $isRoot ? 'root' : '' }} {{ $indentClass }}">
-                            <td colspan="2" class="col-desc">{{ $label }} {{ $description }}</td>
-                            <td colspan="1" class="col-price">{{ formatCurrency($amount) }}</td>
-                        </tr>
-                    @endif
-                @endforeach
-            </tbody>
-        </table>
-
+        {{-- Totals --}}
         <div class="totals-wrapper">
-            <div class="total-amount">
-                Total Amount: {{ formatCurrency($subtotal) }}
-            </div>
+            <span class="total-label">Total Amount:&nbsp;</span>
+            <span class="total-amount">{{ formatCurrency($subtotal) }}</span>
         </div>
     </div>
 
-    <!-- Footer Notes -->
+    {{-- ── FOOTER ── --}}
     <div class="footer-section">
-        @if(!empty($branding['footer_text']))
+        @if (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @else
             @forelse($data['notes'] ?? [] as $note)
-                <div class="footer-note">
-                    {!! $note['description'] ?? '' !!}
-                </div>
+                <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
             @empty
                 <div class="footer-note">
-                    50 % refund of Service Fee within 6 months if employer decided to terminate the contract & MDW must
-                    return
-                    to<br>
-                    agency for Transfer (Employer to sign/authorise the consent of transfer online)
+                    50% refund of Service Fee within 6 months if employer decided to terminate the contract &amp; MDW
+                    must
+                    return to agency for Transfer (Employer to sign/authorise the consent of transfer online)
                 </div>
-
                 <div class="replacement-box">2 Free Replacements within 6 months</div>
-
                 <div class="terms-note">
-                    For every replacement, the employer will need to pay: Top Up difference in Agency Fee + Processing Fee
-                    +<br>
-                    Documentation Fee + WPOL Filing Fee + SIP (if needed) + Transport & Facilitation Fee + Insurance Fee +
-                    Any<br>
-                    Placement Fee Top Up + Embassy Contract Fee (if needed) * Loan/Placement Fee (Upfront Payment)
+                    For every replacement, the employer will need to pay: Top Up difference in Agency Fee + Processing
+                    Fee +
+                    Documentation Fee + WPOL Filing Fee + SIP (if needed) + Transport &amp; Facilitation Fee + Insurance
+                    Fee +
+                    Any Placement Fee Top Up + Embassy Contract Fee (if needed) * Loan/Placement Fee (Upfront Payment)
                 </div>
             @endforelse
         @endif
 
-        @if(!empty($branding['show_stamp']))
-            <div style="margin-top: 20px; margin-bottom: 0;">
-                @if(($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
-                    <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp" style="max-height: 80px; width: auto; display: block;">
-                @elseif(!empty($branding['stamp_url']))
-                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp" style="max-height: 80px; width: auto; display: block;">
-                @endif
-            </div>
-        @endif
-
-        @if(!empty($branding['show_signature']))
-            <div style="margin-top: 15px;">
-                <p style="font-size: 9px; margin: 0 0 5px 0;">Authorised Signature</p>
-                @if(($is_pdf ?? false) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
-                    <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto; display: block;">
-                @elseif(!empty($branding['signature_url']))
-                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature" style="max-height: 60px; width: auto; display: block;">
-                @endif
-            </div>
+        {{-- Stamp & Signature --}}
+        @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
+            <table class="stamp-sig-row">
+                <tr>
+                    <td>
+                        @if (!empty($branding['show_stamp']))
+                            @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
+                                <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
+                                    style="height:70px; width:auto; display:block;">
+                            @elseif(!empty($branding['stamp_url']))
+                                <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
+                                    style="height:70px; width:auto; display:block;">
+                            @endif
+                        @endif
+                    </td>
+                    <td style="text-align:right;">
+                        @if (!empty($branding['show_signature']))
+                            <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
+                            @if (
+                                ($is_pdf ?? false) &&
+                                    !empty($branding['signature_path_absolute']) &&
+                                    file_exists($branding['signature_path_absolute']))
+                                <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
+                                    style="height:52px; width:auto; display:block; margin-left:auto;">
+                            @elseif(!empty($branding['signature_url']))
+                                <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
+                                    style="height:52px; width:auto; display:block; margin-left:auto;">
+                            @endif
+                        @endif
+                    </td>
+                </tr>
+            </table>
         @endif
 
         <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
