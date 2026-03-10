@@ -155,11 +155,11 @@ export default function OrderIndex({ data }: QuotationsProps) {
         }
     };
 
-    const getRowActions = (row: OrderSchema): ActionType[] => {
+    const getRowActions = (): ActionType[] => {
         const rowActions: ActionType[] = [];
 
         if (userPermissions.includes('order view')) rowActions.push('view');
-        if (userPermissions.includes('order edit') && !row.has_receipts) {
+        if (userPermissions.includes('order edit')) {
             rowActions.push('edit');
         }
         // if (userPermissions.includes('order delete')) rowActions.push('delete');

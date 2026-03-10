@@ -53,13 +53,6 @@ import { statusColors, typeColors } from '../enquiries/schema';
 import { sharingPlanOptions } from '../packages/schema';
 import CustomerConfirmationForm from './form';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Confirmed Customers',
-        href: confirmedCustomerIndex().url,
-    },
-];
-
 const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-SG', {
         style: 'currency',
@@ -75,11 +68,6 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         accessorKey: 'number',
         header: 'CC No',
         meta: { exportable: true },
-        cell: ({ row }) => (
-            <Badge variant="outline" className="font-mono text-xs">
-                {row.original.number}
-            </Badge>
-        ),
     },
     {
         accessorKey: 'customer_name',
@@ -334,11 +322,15 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
 interface ConfirmedCustomerProps {
     dataGroups: CustomerConfirmationDatatableSchema[];
     packageOptions?: OptionType[];
+    pageTitle?: string;
+    indexUrl?: string;
 }
 
 export default function ConfirmedCustomerIndex({
     dataGroups,
     packageOptions = [],
+    pageTitle = 'Confirmed Customers',
+    indexUrl = confirmedCustomerIndex().url,
 }: ConfirmedCustomerProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
@@ -397,6 +389,13 @@ export default function ConfirmedCustomerIndex({
     const [isGeneratingQuotations, setIsGeneratingQuotations] = useState(false);
 
     const isMemberView = memberDialogMode === 'view';
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: pageTitle,
+            href: indexUrl,
+        },
+    ];
 
     const buildSharingPlanOptions = (
         packageData:
@@ -502,7 +501,7 @@ export default function ConfirmedCustomerIndex({
 
             toast.success('Members moved to holding confirmation.');
             setMoveDialogOpen(false);
-            router.visit(confirmedCustomerIndex().url, {
+            router.visit(indexUrl, {
                 preserveScroll: true,
                 preserveState: false,
             });
@@ -672,7 +671,7 @@ export default function ConfirmedCustomerIndex({
             }
 
             toast.success('Member cancelled successfully.');
-            router.visit(confirmedCustomerIndex().url, {
+            router.visit(indexUrl, {
                 preserveScroll: true,
                 preserveState: true,
             });
@@ -820,7 +819,7 @@ export default function ConfirmedCustomerIndex({
 
             toast.success('Member updated successfully.');
             setMemberDialogOpen(false);
-            router.visit(confirmedCustomerIndex().url, {
+            router.visit(indexUrl, {
                 preserveScroll: true,
                 preserveState: true,
             });
@@ -909,7 +908,7 @@ export default function ConfirmedCustomerIndex({
             };
             toast.success(data.message);
             setQuotationDialogOpen(false);
-            router.visit(confirmedCustomerIndex().url, {
+            router.visit(indexUrl, {
                 preserveScroll: true,
                 preserveState: false,
             });
@@ -1009,12 +1008,10 @@ export default function ConfirmedCustomerIndex({
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Confirmed Customers" />
+                <Head title={pageTitle} />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">
-                            Confirmed Customers
-                        </h2>
+                        <h2 className="text-lg font-semibold">{pageTitle}</h2>
                     </div>
 
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
@@ -1037,7 +1034,7 @@ export default function ConfirmedCustomerIndex({
                                 return rowActions;
                             }}
                             renderSubComponent={renderGroupSubComponent}
-                            url={confirmedCustomerIndex().url}
+                            url={indexUrl}
                             onAction={(action, row) => {
                                 if (action === 'add') {
                                     setGroupDialogMode('create');

@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Helpers\FormatService;
+use App\Helpers\NumberGenerator;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OrderService
 {
@@ -124,7 +126,10 @@ class OrderService
 
     public function getForEditShow($id)
     {
-        $o = Order::with(['quotation', 'invoices.quotationItems'])->findOrFail($id);
+        $o = Order::with([
+            'quotation',
+            'invoices.quotationItems.confirmationMember',
+        ])->findOrFail($id);
 
         return [
             'id' => $o->id,
@@ -146,6 +151,8 @@ class OrderService
                     'id' => $item->id,
                     'quotation_id' => $item->quotation_id,
                     'parent_id' => $item->parent_id,
+                    'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
+                    'sharing_plan' => $item->confirmationMember?->sharing_plan,
                     'type' => $item->type,
                     'description' => $item->description,
                     'is_header' => $item->is_header,
@@ -160,31 +167,131 @@ class OrderService
     public function update(array $data, int $id): Order
     {
         return DB::transaction(function () use ($data, $id) {
-            $order = Order::with('invoices')->findOrFail($id);
+            $order = Order::with(['invoices.receipt', 'quotation'])->findOrFail($id);
             $order->quotation()->where('is_locked', false)->update(['is_locked' => true]);
             $order->update([
                 'payment_plan' => $data['payment_plan'],
             ]);
 
             $incomingInvoiceIds = [];
+            $seenInvoiceIds = [];
+            $incomingInvoices = array_values($data['invoices'] ?? []);
+            $existingInvoicesByNumber = $order->invoices
+                ->filter(fn ($invoice) => ! empty($invoice->invoice_number))
+                ->keyBy('invoice_number');
+            $existingInvoicesByIndex = $order->invoices
+                ->sortBy('id')
+                ->values();
 
-            foreach ($data['invoices'] ?? [] as $invoiceData) {
-                if (! empty($invoiceData['id'])) {
+            foreach ($incomingInvoices as $index => $invoiceData) {
+                $existingInvoiceId = $invoiceData['id'] ?? null;
+
+                if (
+                    empty($existingInvoiceId) &&
+                    ! empty($invoiceData['invoice_number']) &&
+                    $existingInvoicesByNumber->has($invoiceData['invoice_number'])
+                ) {
+                    $existingInvoiceId = $existingInvoicesByNumber
+                        ->get($invoiceData['invoice_number'])
+                        ?->id;
+                }
+
+                // Frontend fallback: if IDs are missing but invoice count is unchanged,
+                // map by stable position to avoid recreating invoices.
+                if (
+                    empty($existingInvoiceId) &&
+                    count($incomingInvoices) === $existingInvoicesByIndex->count() &&
+                    $existingInvoicesByIndex->has($index)
+                ) {
+                    $candidateInvoiceId = (int) $existingInvoicesByIndex->get($index)->id;
+
+                    if (! in_array($candidateInvoiceId, $seenInvoiceIds, true)) {
+                        $existingInvoiceId = $candidateInvoiceId;
+                    }
+                }
+
+                if (! empty($existingInvoiceId)) {
+                    $existingInvoiceId = (int) $existingInvoiceId;
+
+                    if (in_array($existingInvoiceId, $seenInvoiceIds, true)) {
+                        throw ValidationException::withMessages([
+                            'invoices' => 'Duplicate invoice rows detected. Please refresh and try again.',
+                        ]);
+                    }
+
+                    if (! $order->invoices->contains('id', $existingInvoiceId)) {
+                        throw ValidationException::withMessages([
+                            'invoices' => 'One or more invoices do not belong to this order.',
+                        ]);
+                    }
+
                     $invoice = $this->invoiceService->update(
-                        $invoiceData,
-                        $invoiceData['id']
+                        [
+                            ...$invoiceData,
+                            'delete_missing_quotation_items' => false,
+                        ],
+                        $existingInvoiceId
                     );
+
+                    $seenInvoiceIds[] = $existingInvoiceId;
                 } else {
                     $invoice = $this->invoiceService->store([
                         ...$invoiceData,
                         'order_id' => $order->id,
+                        'delete_missing_quotation_items' => false,
                     ]);
                 }
 
                 $incomingInvoiceIds[] = $invoice->id;
             }
 
-            $order->invoices()->whereNotIn('id', $incomingInvoiceIds)->delete();
+            $removableInvoices = $order->invoices()
+                ->whereNotIn('id', $incomingInvoiceIds)
+                ->get();
+
+            $invoicesWithReceipts = $removableInvoices
+                ->filter(fn ($invoice) => $invoice->receipt()->exists())
+                ->values();
+
+            if ($invoicesWithReceipts->isNotEmpty()) {
+                $invoiceNumbers = $invoicesWithReceipts
+                    ->pluck('invoice_number')
+                    ->filter()
+                    ->implode(', ');
+
+                throw ValidationException::withMessages([
+                    'invoices' => $invoiceNumbers
+                        ? "Cannot remove invoice(s) with receipt: {$invoiceNumbers}."
+                        : 'Cannot remove invoice(s) with receipt.',
+                ]);
+            }
+
+            NumberGenerator::rollbackByNumbers(
+                'invoice',
+                $removableInvoices->pluck('invoice_number')->filter()->all(),
+            );
+
+            foreach ($removableInvoices as $invoice) {
+                $invoice->delete();
+            }
+
+            $order->load('invoices.quotationItems', 'quotation');
+            $this->quotationService->syncQuotationItemsToRelevantInvoicesBySortOrder(
+                $order->quotation,
+                $incomingInvoiceIds,
+            );
+
+            $linkedQuotationItemIds = $order->invoices
+                ->flatMap(fn ($invoice) => $invoice->quotationItems->pluck('id'))
+                ->map(fn ($itemId) => (int) $itemId)
+                ->unique()
+                ->values()
+                ->all();
+
+            $this->quotationItemService->deleteUnusedQuotationItems(
+                (int) $order->quotation_id,
+                $linkedQuotationItemIds,
+            );
 
             return $order->fresh('invoices.quotationItems');
         });

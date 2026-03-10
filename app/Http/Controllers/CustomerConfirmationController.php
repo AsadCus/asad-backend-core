@@ -28,12 +28,30 @@ class CustomerConfirmationController extends Controller
      */
     public function index()
     {
-        $dataGroups = $this->customerConfirmationService->getForGroupedIndex();
+        $dataGroups = $this->customerConfirmationService->getForGroupedIndex(true);
         $packageOptions = $this->packageService->getForFilter();
 
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'pageTitle' => 'Confirmed Customers',
+            'indexUrl' => route('confirmed-customer.index'),
+        ]);
+    }
+
+    /**
+     * Display a listing of holding customer confirmations.
+     */
+    public function holdingIndex()
+    {
+        $dataGroups = $this->customerConfirmationService->getForGroupedIndex(false);
+        $packageOptions = $this->packageService->getForFilter();
+
+        return Inertia::render('confirmed-customer/index', [
+            'dataGroups' => $dataGroups,
+            'packageOptions' => $packageOptions,
+            'pageTitle' => 'Customer Holding',
+            'indexUrl' => route('customer-holding.index'),
         ]);
     }
 

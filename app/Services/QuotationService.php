@@ -10,6 +10,7 @@ use App\Models\FinancialTransaction;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class QuotationService
@@ -239,8 +240,240 @@ class QuotationService
 
             $this->syncLinkedMemberStatuses($currentLinkedMemberIds, $removedLinkedMemberIds);
 
+            $this->syncQuotationItemsToRelevantInvoicesBySortOrder($quotation);
+
             return $quotation->fresh();
         });
+    }
+
+    public function syncQuotationItemsToRelevantInvoicesBySortOrder(
+        Quotation $quotation,
+        ?array $preferredInvoiceOrderIds = null
+    ): void {
+        $order = $quotation->order()->with('invoices.quotationItems')->first();
+
+        if (! $order || $order->invoices->isEmpty()) {
+            return;
+        }
+
+        $orderedInvoices = $this->orderInvoicesForSync($order->invoices, $preferredInvoiceOrderIds);
+        $invoiceIds = $orderedInvoices
+            ->pluck('id')
+            ->map(fn ($invoiceId) => (int) $invoiceId)
+            ->values()
+            ->all();
+
+        if (empty($invoiceIds)) {
+            return;
+        }
+
+        $invoicePosition = array_flip($invoiceIds);
+        $invoicesById = $orderedInvoices->keyBy('id');
+
+        $currentInvoiceByItemId = [];
+        foreach ($orderedInvoices as $invoice) {
+            foreach ($invoice->quotationItems as $item) {
+                if ((int) $item->quotation_id !== (int) $quotation->id) {
+                    continue;
+                }
+
+                $itemId = (int) $item->id;
+                if (! isset($currentInvoiceByItemId[$itemId])) {
+                    $currentInvoiceByItemId[$itemId] = (int) $invoice->id;
+                }
+            }
+        }
+
+        $quotationItems = $quotation->quotationItems()
+            ->select('id', 'parent_id', 'sort_order')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        if ($quotationItems->isEmpty()) {
+            foreach ($orderedInvoices as $invoice) {
+                $invoice->quotationItems()->sync([]);
+            }
+
+            return;
+        }
+
+        $itemsById = $quotationItems->keyBy('id');
+        $childrenByParentId = $quotationItems
+            ->filter(fn ($item) => ! empty($item->parent_id))
+            ->groupBy('parent_id')
+            ->map(function (Collection $children) {
+                return $children
+                    ->sort(function ($left, $right) {
+                        $leftSort = (int) ($left->sort_order ?? 0);
+                        $rightSort = (int) ($right->sort_order ?? 0);
+
+                        if ($leftSort === $rightSort) {
+                            return (int) $left->id <=> (int) $right->id;
+                        }
+
+                        return $leftSort <=> $rightSort;
+                    })
+                    ->values();
+            });
+
+        $orderedItemIds = [];
+        $visited = [];
+
+        $appendTree = function ($item) use (&$appendTree, &$orderedItemIds, &$visited, $childrenByParentId): void {
+            $itemId = (int) $item->id;
+
+            if (isset($visited[$itemId])) {
+                return;
+            }
+
+            $visited[$itemId] = true;
+            $orderedItemIds[] = $itemId;
+
+            $children = $childrenByParentId->get($itemId, collect());
+            foreach ($children as $child) {
+                $appendTree($child);
+            }
+        };
+
+        $rootItems = $quotationItems
+            ->filter(function ($item) use ($itemsById) {
+                if (empty($item->parent_id)) {
+                    return true;
+                }
+
+                return ! $itemsById->has((int) $item->parent_id);
+            })
+            ->sort(function ($left, $right) {
+                $leftSort = (int) ($left->sort_order ?? 0);
+                $rightSort = (int) ($right->sort_order ?? 0);
+
+                if ($leftSort === $rightSort) {
+                    return (int) $left->id <=> (int) $right->id;
+                }
+
+                return $leftSort <=> $rightSort;
+            })
+            ->values();
+
+        foreach ($rootItems as $rootItem) {
+            $appendTree($rootItem);
+        }
+
+        foreach ($quotationItems as $item) {
+            $itemId = (int) $item->id;
+            if (! isset($visited[$itemId])) {
+                $appendTree($item);
+            }
+        }
+
+        $invoiceByItemId = [];
+        $defaultInvoiceId = (int) $invoiceIds[0];
+        $lastInvoiceId = $defaultInvoiceId;
+
+        foreach ($orderedItemIds as $itemId) {
+            $item = $itemsById->get($itemId);
+            if (! $item) {
+                continue;
+            }
+
+            $parentId = ! empty($item->parent_id) ? (int) $item->parent_id : null;
+            $targetInvoiceId = null;
+
+            if ($parentId && isset($invoiceByItemId[$parentId])) {
+                $targetInvoiceId = (int) $invoiceByItemId[$parentId];
+            } elseif (isset($currentInvoiceByItemId[$itemId])) {
+                $candidateInvoiceId = (int) $currentInvoiceByItemId[$itemId];
+                if (isset($invoicePosition[$candidateInvoiceId])) {
+                    $targetInvoiceId = $candidateInvoiceId;
+                }
+            }
+
+            if (! $targetInvoiceId) {
+                $targetInvoiceId = $lastInvoiceId;
+            }
+
+            if (! isset($invoicePosition[$targetInvoiceId])) {
+                $targetInvoiceId = $defaultInvoiceId;
+            }
+
+            $invoiceByItemId[$itemId] = $targetInvoiceId;
+            $lastInvoiceId = $targetInvoiceId;
+        }
+
+        $invoiceItemIds = [];
+        foreach ($invoiceIds as $invoiceId) {
+            $invoiceItemIds[$invoiceId] = [];
+        }
+
+        foreach ($orderedItemIds as $itemId) {
+            $assignedInvoiceId = $invoiceByItemId[$itemId] ?? $defaultInvoiceId;
+
+            if (! isset($invoiceItemIds[$assignedInvoiceId])) {
+                $invoiceItemIds[$assignedInvoiceId] = [];
+            }
+
+            $invoiceItemIds[$assignedInvoiceId][] = $itemId;
+        }
+
+        foreach (array_values($invoiceIds) as $invoiceIndex => $invoiceId) {
+            $itemIds = $invoiceItemIds[$invoiceId] ?? [];
+            foreach (array_values($itemIds) as $itemIndex => $itemId) {
+                $encodedSortOrder = (($invoiceIndex + 1) * 1000) + ($itemIndex + 1);
+
+                QuotationItem::query()
+                    ->where('id', $itemId)
+                    ->where('quotation_id', $quotation->id)
+                    ->update(['sort_order' => $encodedSortOrder]);
+            }
+        }
+
+        foreach ($invoiceItemIds as $invoiceId => $itemIds) {
+            $invoice = $invoicesById->get((int) $invoiceId);
+            if (! $invoice) {
+                continue;
+            }
+
+            $invoice->quotationItems()->sync($itemIds);
+        }
+    }
+
+    private function orderInvoicesForSync(Collection $invoices, ?array $preferredInvoiceOrderIds): Collection
+    {
+        if (! empty($preferredInvoiceOrderIds)) {
+            $positions = [];
+            foreach (array_values($preferredInvoiceOrderIds) as $index => $invoiceId) {
+                $positions[(int) $invoiceId] = $index;
+            }
+
+            return $invoices
+                ->sort(function ($left, $right) use ($positions) {
+                    $leftId = (int) $left->id;
+                    $rightId = (int) $right->id;
+                    $leftPos = $positions[$leftId] ?? PHP_INT_MAX;
+                    $rightPos = $positions[$rightId] ?? PHP_INT_MAX;
+
+                    if ($leftPos === $rightPos) {
+                        return $leftId <=> $rightId;
+                    }
+
+                    return $leftPos <=> $rightPos;
+                })
+                ->values();
+        }
+
+        return $invoices
+            ->sort(function ($left, $right) {
+                $leftDueDate = $left->due_date ? $left->due_date->timestamp : PHP_INT_MAX;
+                $rightDueDate = $right->due_date ? $right->due_date->timestamp : PHP_INT_MAX;
+
+                if ($leftDueDate === $rightDueDate) {
+                    return (int) $left->id <=> (int) $right->id;
+                }
+
+                return $leftDueDate <=> $rightDueDate;
+            })
+            ->values();
     }
 
     private function syncLinkedMemberStatuses(array $currentMemberIds, array $removedMemberIds): void
@@ -421,11 +654,11 @@ class QuotationService
         $quotation->update(['status' => QuotationStatus::Expired->value]);
 
         return activity()
-                ->performedOn($quotation)
-                ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id ?? null])
-                ->log('Quotation deleted successfully #'.($quotation->id ?? null));
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id ?? null])
+            ->log('Quotation deleted successfully #'.($quotation->id ?? null));
 
-            $quotation->delete();
+        $quotation->delete();
     }
 
     /**

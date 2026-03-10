@@ -42,6 +42,7 @@ export const invoiceSchema = z.object({
     due_date: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
     has_receipt: z.boolean().optional(),
+    receipt_id: z.number().nullable().optional(),
     description: z.string().nullable().optional(),
     items: z.array(invoiceItemSchema),
 });

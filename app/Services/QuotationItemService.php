@@ -158,14 +158,23 @@ class QuotationItemService
         });
     }
 
-    public function replaceQuotationItems(int $quotationId, array $items = []): array
+    public function replaceQuotationItems(int $quotationId, array $items = [], bool $deleteMissing = true): array
     {
-        return DB::transaction(function () use ($quotationId, $items) {
+        return DB::transaction(function () use ($quotationId, $items, $deleteMissing) {
             $keyToId = [];
             $masterIdToQuotationId = [];
             $incomingIds = [];
+            $usedIds = [];
             $existingMemberIds = QuotationItem::where('quotation_id', $quotationId)
                 ->pluck('customer_confirmation_member_id', 'id');
+            $existingSortOrders = QuotationItem::query()
+                ->where('quotation_id', $quotationId)
+                ->pluck('sort_order', 'id')
+                ->map(fn ($sortOrder) => (int) $sortOrder)
+                ->all();
+            $nextSortOrder = ! empty($existingSortOrders)
+                ? (max($existingSortOrders) + 1)
+                : 1;
 
             // pass 1 — root items
             foreach ($items as $row) {
@@ -175,7 +184,11 @@ class QuotationItemService
                     continue;
                 }
 
-                $id = $item['id'] ?? null;
+                $id = isset($item['id']) ? (int) $item['id'] : null;
+                if ($id && in_array($id, $usedIds, true)) {
+                    $id = null;
+                }
+
                 $customerConfirmationMemberId = array_key_exists('customer_confirmation_member_id', $item)
                     ? $item['customer_confirmation_member_id']
                     : ($id ? $existingMemberIds->get($id) : null);
@@ -188,7 +201,12 @@ class QuotationItemService
                     'is_header' => $item['is_header'] ?? false,
                     'quantity' => $item['quantity'] ?? null,
                     'rate' => $item['rate'] ?? null,
-                    'sort_order' => $item['sort_order'] ?? 0,
+                    'sort_order' => $this->resolveSortOrder(
+                        $item,
+                        $id,
+                        $existingSortOrders,
+                        $nextSortOrder,
+                    ),
                 ];
 
                 $quotationItem = $id
@@ -198,13 +216,17 @@ class QuotationItemService
                     )
                     : QuotationItem::create($payload);
 
+                if ($id) {
+                    $usedIds[] = (int) $id;
+                }
+
                 $incomingIds[] = $quotationItem->id;
 
                 if (! empty($item['_key'])) {
                     $keyToId[$item['_key']] = $quotationItem->id;
                 }
 
-                if (! empty($item['id'])) {
+                if (! empty($item['id']) && ! isset($masterIdToQuotationId[$item['id']])) {
                     $masterIdToQuotationId[$item['id']] = $quotationItem->id;
                 }
             }
@@ -225,7 +247,11 @@ class QuotationItemService
                     continue;
                 }
 
-                $id = $item['id'] ?? null;
+                $id = isset($item['id']) ? (int) $item['id'] : null;
+                if ($id && in_array($id, $usedIds, true)) {
+                    $id = null;
+                }
+
                 $customerConfirmationMemberId = array_key_exists('customer_confirmation_member_id', $item)
                     ? $item['customer_confirmation_member_id']
                     : ($id ? $existingMemberIds->get($id) : null);
@@ -238,7 +264,12 @@ class QuotationItemService
                     'is_header' => $item['is_header'] ?? false,
                     'quantity' => $item['quantity'] ?? null,
                     'rate' => $item['rate'] ?? null,
-                    'sort_order' => $item['sort_order'] ?? 0,
+                    'sort_order' => $this->resolveSortOrder(
+                        $item,
+                        $id,
+                        $existingSortOrders,
+                        $nextSortOrder,
+                    ),
                 ];
 
                 $quotationItem = $id
@@ -248,13 +279,29 @@ class QuotationItemService
                     )
                     : QuotationItem::create($payload);
 
+                if ($id) {
+                    $usedIds[] = (int) $id;
+                }
+
                 $incomingIds[] = $quotationItem->id;
             }
 
-            QuotationItem::where('quotation_id', $quotationId)->whereNotIn('id', $incomingIds)->whereDoesntHave('invoices')->delete();
+            if ($deleteMissing) {
+                $this->deleteUnusedQuotationItems($quotationId, $incomingIds);
+            }
 
             return $incomingIds;
         });
+    }
+
+    public function deleteUnusedQuotationItems(int $quotationId, array $keepIds = []): void
+    {
+        QuotationItem::where('quotation_id', $quotationId)
+            ->when(! empty($keepIds), function ($query) use ($keepIds) {
+                $query->whereNotIn('id', $keepIds);
+            })
+            ->whereDoesntHave('invoices')
+            ->delete();
     }
 
     public function storeQuotationItemMaster(array $data = []): void
@@ -366,5 +413,29 @@ class QuotationItemService
         }
 
         return $item->delete();
+    }
+
+    private function resolveSortOrder(
+        array $item,
+        ?int $itemId,
+        array $existingSortOrders,
+        int &$nextSortOrder
+    ): int {
+        if (isset($item['workflow_sort_order']) && is_numeric($item['workflow_sort_order'])) {
+            return (int) $item['workflow_sort_order'];
+        }
+
+        if (isset($item['sort_order']) && is_numeric($item['sort_order'])) {
+            return (int) $item['sort_order'];
+        }
+
+        if ($itemId && isset($existingSortOrders[$itemId])) {
+            return (int) $existingSortOrders[$itemId];
+        }
+
+        $sortOrder = $nextSortOrder;
+        $nextSortOrder++;
+
+        return $sortOrder;
     }
 }

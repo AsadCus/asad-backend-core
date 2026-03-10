@@ -16,7 +16,10 @@ import {
     index as invoiceIndex,
     show as showInvoice,
 } from '@/routes/invoice';
-import receipt from '@/routes/receipt';
+import {
+    create as createReceipt,
+    getForShow as getReceiptForShow,
+} from '@/routes/receipt';
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -28,6 +31,8 @@ import {
     statusColors,
     statuses,
 } from '../invoices/schema';
+import ReceiptPreviewModal from '../receipts/components/receipt-preview-modal';
+import { ReceiptSchema } from '../receipts/schema';
 import InvoicePreviewModal from './components/invoice-preview-modal';
 
 interface InvoicesProps {
@@ -166,6 +171,29 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: false },
         cell: ({ row }) => {
             const invoice = row.original;
+            // if (
+            //     invoice.status === 'paid' &&
+            //     invoice.has_receipt &&
+            //     invoice.receipt_id
+            // ) {
+            //     return (
+            //         <Button
+            //             variant="outline"
+            //             size="sm"
+            //             onClick={(e) => {
+            //                 e.stopPropagation();
+            //                 window.open(
+            //                     `/receipt/${invoice.receipt_id}/preview`,
+            //                     '_blank',
+            //                 );
+            //             }}
+            //             className="gap-1 bg-transparent"
+            //         >
+            //             View
+            //         </Button>
+            //     );
+            // }
+
             if (
                 invoice.status !== 'paid' &&
                 invoice.status !== 'cancelled' &&
@@ -177,7 +205,7 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
                         size="sm"
                         onClick={(e) => {
                             e.stopPropagation();
-                            router.get(receipt.create.url(), {
+                            router.get(createReceipt.url(), {
                                 invoice_id: invoice.id,
                             });
                         }}
@@ -199,18 +227,18 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
 
     const actions: ActionType[] = [];
 
-    if (userPermissions.includes('invoice view')) {
-        actions.push('preview');
-        actions.push('download');
-    }
-    // if (userPermissions.includes('invoice delete')) actions.push('delete');
-
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
     const [selectedInvoiceForPreview, setSelectedInvoiceForPreview] =
         useState<InvoiceSchema | null>(null);
     const [previewItems, setPreviewItems] = useState<InvoiceItemSchema[]>([]);
+    const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
+    const [selectedReceiptForPreview, setSelectedReceiptForPreview] =
+        useState<ReceiptSchema | null>(null);
+    const [receiptPreviewItems, setReceiptPreviewItems] = useState<
+        InvoiceItemSchema[]
+    >([]);
 
     const handlePreview = async (invoice: InvoiceSchema) => {
         try {
@@ -235,6 +263,48 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
         }
     };
 
+    const handleReceiptPreview = async (invoice: InvoiceSchema) => {
+        try {
+            if (!invoice.receipt_id) {
+                return;
+            }
+
+            const response = await fetch(
+                getReceiptForShow(invoice.receipt_id).url,
+            );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const receipt = await response.json();
+            setSelectedReceiptForPreview(receipt);
+            setReceiptPreviewItems(receipt.items ?? []);
+            setReceiptPreviewOpen(true);
+        } catch (error) {
+            console.error('Error fetching receipt items:', error);
+        }
+    };
+
+    const getRowActions = (invoice: InvoiceSchema): ActionType[] => {
+        const rowActions: ActionType[] = [];
+
+        if (userPermissions.includes('invoice view')) {
+            rowActions.push('preview');
+            rowActions.push('download');
+        }
+
+        if (
+            userPermissions.includes('receipt view') &&
+            invoice.status === 'paid' &&
+            invoice.has_receipt
+        ) {
+            rowActions.push('receipt-preview');
+        }
+
+        return rowActions;
+    };
+
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -252,6 +322,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                             columns={invoiceColumns}
                             data={invoicesForDatatable}
                             actions={actions}
+                            getRowActions={getRowActions}
                             url={invoiceIndex().url}
                             exportFilename="invoice"
                             onAction={(action: ActionType, invoiceRow) => {
@@ -270,6 +341,8 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                     router.get(showInvoice(invoiceId).url);
                                 } else if (action === 'preview') {
                                     handlePreview(invoice);
+                                } else if (action === 'receipt-preview') {
+                                    handleReceiptPreview(invoice);
                                 } else if (action === 'download') {
                                     (async () => {
                                         try {
@@ -397,6 +470,15 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                     items={previewItems}
                     open={previewModalOpen}
                     onOpenChange={setPreviewModalOpen}
+                />
+            )}
+
+            {receiptPreviewOpen && selectedReceiptForPreview && (
+                <ReceiptPreviewModal
+                    receipt={selectedReceiptForPreview}
+                    items={receiptPreviewItems}
+                    open={receiptPreviewOpen}
+                    onOpenChange={setReceiptPreviewOpen}
                 />
             )}
         </>

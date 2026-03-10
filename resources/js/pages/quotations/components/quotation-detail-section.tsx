@@ -28,6 +28,11 @@ interface Props {
     paymentMethods?: OptionType[];
     quotationNotes?: NoteSchema[];
     noteErrors?: string[];
+    availableMembers?: Array<{
+        member_id: number;
+        name: string;
+        sharing_plan: string | null;
+    }>;
     status: 'incomplete' | 'complete' | 'error';
 }
 
@@ -42,6 +47,7 @@ export default function QuotationDetailSection({
     paymentMethods = [],
     quotationNotes = [],
     noteErrors = [],
+    availableMembers = [],
     status,
 }: Props) {
     const sharingPlanCosts = [
@@ -66,6 +72,20 @@ export default function QuotationDetailSection({
             value: Number(data.package_price_quad ?? 0),
         },
     ];
+
+    const memberOptions = availableMembers.map((member) => ({
+        value: String(member.member_id),
+        label: member.sharing_plan
+            ? `${member.name} (${member.sharing_plan})`
+            : member.name,
+    }));
+
+    const memberSharingPlanById = Object.fromEntries(
+        availableMembers.map((member) => [
+            member.member_id,
+            member.sharing_plan,
+        ]),
+    );
 
     return (
         <FormSection
@@ -220,6 +240,9 @@ export default function QuotationDetailSection({
                         renderError={renderError}
                         disabled={isView}
                         showOptionalColumn={false}
+                        showMemberColumn
+                        memberOptions={memberOptions}
+                        memberSharingPlanById={memberSharingPlanById}
                     />
                 </div>
 

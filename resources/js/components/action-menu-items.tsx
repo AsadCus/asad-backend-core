@@ -67,6 +67,12 @@ export function ActionMenuItems<TData>({
                 <Item onClick={() => onAction?.('preview', row)}>Preview</Item>
             )}
 
+            {actions.includes('receipt-preview') && (
+                <Item onClick={() => onAction?.('receipt-preview', row)}>
+                    Receipt Preview
+                </Item>
+            )}
+
             {actions.includes('view') && (
                 <Item onClick={() => onAction?.('view', row)}>View</Item>
             )}
@@ -84,7 +90,10 @@ export function ActionMenuItems<TData>({
                             {actions.includes('quotation-status-ready') && (
                                 <Item
                                     onClick={() =>
-                                        onAction?.('quotation-status-ready', row)
+                                        onAction?.(
+                                            'quotation-status-ready',
+                                            row,
+                                        )
                                     }
                                 >
                                     Mark as Ready

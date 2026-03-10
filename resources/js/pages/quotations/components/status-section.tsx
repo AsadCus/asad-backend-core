@@ -33,9 +33,13 @@ export default function StatusSection({
     statuses = [],
     status,
 }: Props) {
+    const effectiveStatus = String(data.status ?? initialStatus ?? '');
+
     const allowedValues = useMemo(() => {
         if (mode === 'edit' && initialStatus === 'ready') {
             return ['revised'];
+        } else if (initialStatus === 'converted') {
+            return ['converted'];
         } else if (initialStatus === 'accepted') {
             return ['draft', 'ready', 'accepted'];
         } else if (initialStatus === 'rejected') {
@@ -56,15 +60,27 @@ export default function StatusSection({
         }
     }, [mode, initialStatus, setData, data.status]);
 
+    const visibleAllowedValues = useMemo(() => {
+        const values = [...allowedValues];
+
+        if (effectiveStatus && !values.includes(effectiveStatus)) {
+            values.push(effectiveStatus);
+        }
+
+        return values;
+    }, [allowedValues, effectiveStatus]);
+
     const selectOptions =
         statuses && statuses.length > 0
             ? statuses
                   .map((s) => ({ value: String(s.value), label: s.label }))
-                  .filter((s) => allowedValues.includes(s.value))
-            : allowedValues.map((v) => ({ value: v, label: v }));
+                  .filter((s) => visibleAllowedValues.includes(s.value))
+            : visibleAllowedValues.map((v) => ({ value: v, label: v }));
 
     const selectDisabled =
-        isView || (mode === 'edit' && initialStatus === 'ready');
+        isView ||
+        (mode === 'edit' && initialStatus === 'ready') ||
+        effectiveStatus === 'converted';
 
     return (
         <FormSection
@@ -80,7 +96,7 @@ export default function StatusSection({
                     <FormField label="Status">
                         <Select
                             disabled={selectDisabled}
-                            value={String(data.status ?? '')}
+                            value={effectiveStatus}
                             onValueChange={(value) => setData('status', value)}
                         >
                             <SelectTrigger>

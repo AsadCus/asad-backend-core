@@ -44,8 +44,75 @@ class NumberGenerator
         });
     }
 
-    public static function generateCustomerConfirmationNumber(): string
+    public static function rollbackByNumbers(string $type, array $numbers): int
     {
-        return self::generate('customer_confirmation');
+        if (! isset(self::$formats[$type])) {
+            throw new \InvalidArgumentException("Invalid type: {$type}");
+        }
+
+        $year = (int) date('Y');
+        $format = self::$formats[$type];
+
+        return DB::transaction(function () use ($type, $numbers, $year, $format): int {
+            $sequence = NumberSequence::lockForUpdate()
+                ->where('type', $type)
+                ->where('year', $year)
+                ->first();
+
+            if (! $sequence) {
+                return 0;
+            }
+
+            $deletedNumbers = collect($numbers)
+                ->map(fn ($number) => self::extractSequenceNumber(
+                    is_string($number) ? $number : null,
+                    $format['prefix'],
+                    $year,
+                ))
+                ->filter(fn ($number) => $number !== null)
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($deletedNumbers)) {
+                return 0;
+            }
+
+            $deletedLookup = array_fill_keys($deletedNumbers, true);
+            $current = (int) $sequence->current_number;
+            $rollbackCount = 0;
+
+            while ($current > 0 && isset($deletedLookup[$current])) {
+                $rollbackCount++;
+                $current--;
+            }
+
+            if ($rollbackCount === 0) {
+                return 0;
+            }
+
+            $sequence->update([
+                'current_number' => max(0, (int) $sequence->current_number - $rollbackCount),
+            ]);
+
+            return $rollbackCount;
+        });
+    }
+
+    private static function extractSequenceNumber(?string $number, string $prefix, int $year): ?int
+    {
+        if (! $number) {
+            return null;
+        }
+
+        $pattern = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+
+        if (! preg_match($pattern, $number, $matches)) {
+            return null;
+        }
+
+        $sequenceNumber = (int) $matches[1];
+
+        return $sequenceNumber > 0 ? $sequenceNumber : null;
     }
 }

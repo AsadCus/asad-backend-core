@@ -239,7 +239,7 @@ class CustomerConfirmationService
     }
 
     /** Get grouped customer data for index listing. */
-    public function getForGroupedIndex(): array
+    public function getForGroupedIndex(?bool $withPackage = null): array
     {
         return CustomerConfirmation::with([
             'members.customer.user',
@@ -248,6 +248,12 @@ class CustomerConfirmationService
             'enquiry',
             'package',
         ])
+            ->when($withPackage === true, function ($query) {
+                $query->whereNotNull('package_id');
+            })
+            ->when($withPackage === false, function ($query) {
+                $query->whereNull('package_id');
+            })
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function (CustomerConfirmation $group) {
