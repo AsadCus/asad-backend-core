@@ -131,8 +131,8 @@ export default function SchedulePreviewModal({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-auto rounded-md border bg-gray-50 dark:bg-gray-900">
-                        <div className="flex justify-center p-4">
+                    <div className="flex-1 overflow-auto bg-gray-100 p-4">
+                        <div className="mx-auto max-w-[794px] shadow-md">
                             <SchedulePreview
                                 ref={previewRef}
                                 schedule={schedule}

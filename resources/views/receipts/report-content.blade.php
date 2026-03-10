@@ -1,297 +1,126 @@
-<!DOCTYPE html>
-<html>
+@extends('layout-report')
 
-<head>
-    <meta charset="utf-8">
-    <title>Official Receipt - {{ $data['receipt_number'] ?? 'OR-2025-0001' }}</title>
-    <style>
-        @page {
-            size: A4;
-            margin: 1.5cm 1.8cm;
-        }
+@section('document-title', 'Official Receipt - ' . ($data['receipt_number'] ?? 'OR-2025-0001'))
 
-        * {
-            box-sizing: border-box;
-        }
+@section('extra-company-reg')
+    @if ($data['sales_registration_number'] ?? false)
+        REGISTRATION NO. {{ $data['sales_registration_number'] }}&nbsp;&nbsp;
+    @endif
+@endsection
 
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 10px;
-            line-height: 1.45;
-            color: #1a1a1a;
-            margin: 0;
-            padding: 0;
-        }
+@section('title-bar')
+OFFICIAL RECEIPT
+@endsection
 
-        /* ── Header ── */
-        .header-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 14px;
-        }
 
-        .logo-cell {
-            width: 42%;
-            vertical-align: middle;
-        }
+@push('styles')
+    /* ── Content Wrapper ── */
+    .content-wrapper {
+        padding: 0 30px;
+    }
 
-        .info-cell {
-            width: 58%;
-            text-align: right;
-            vertical-align: middle;
-        }
+    /* ── Order Info ── */
+    .order-info-grid {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 12px;
+    }
 
-        /* Fix: explicit height in px, no object-fit */
-        .logo-cell img {
-            display: block;
-            width: auto;
-            height: 52px;
-            max-width: 180px;
-            margin: 0;
-        }
+    .order-info-grid td {
+        vertical-align: top;
+        padding: 1px 0;
+        font-size: 10px;
+    }
 
-        .company-name {
-            font-size: 12px;
-            font-weight: bold;
-            color: #222;
-            margin-bottom: 2px;
-            display: block;
-        }
+    .lbl {
+        font-weight: bold;
+        white-space: nowrap;
+        width: 90px;
+    }
 
-        .company-details {
-            font-size: 9px;
-            color: #444;
-            line-height: 1.5;
-        }
+    .sep {
+        width: 12px;
+    }
 
-        .company-reg {
-            font-size: 9px;
-            font-weight: bold;
-            margin-top: 3px;
-        }
+    .lbl-r {
+        font-weight: bold;
+        white-space: nowrap;
+        width: 100px;
+    }
 
-        /* ── Title Bar ── */
-        .title-bar {
-            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
-            color: #fff;
-            text-align: center;
-            font-weight: bold;
-            font-size: 13px;
-            padding: 5px 0;
-            letter-spacing: 4px;
-            margin-bottom: 12px;
-        }
+    /* ── Helper Name ── */
+    .helper-name {
+        font-weight: bold;
+        font-size: 10px;
+        margin-bottom: 8px;
+        border-top: 1px solid #d0d0d0;
+        padding-top: 6px;
+    }
 
-        /* ── Content Wrapper ── */
-        .content-wrapper {
-            padding: 0 30px;
-        }
+    /* ── Items Table ── */
+    .items-section {
+        border-top: 1.5px solid #333;
+        border-bottom: 1.5px solid #333;
+        padding: 6px 0;
+        margin-bottom: 12px;
+    }
 
-        /* ── Order Info ── */
-        .order-info-grid {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 12px;
-        }
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
 
-        .order-info-grid td {
-            vertical-align: top;
-            padding: 1px 0;
-            font-size: 10px;
-        }
+    .items-table thead th {
+        border-bottom: 1px solid #333;
+        padding: 3px 0;
+        font-weight: bold;
+        font-size: 10px;
+        text-align: left;
+    }
 
-        .lbl {
-            font-weight: bold;
-            white-space: nowrap;
-            width: 90px;
-        }
+    .items-table thead th.col-rate,
+    .items-table thead th.col-total {
+        text-align: right;
+    }
 
-        .sep {
-            width: 12px;
-        }
+    .items-table td {
+        padding: 2.5px 0;
+        vertical-align: top;
+        font-size: 10px;
+    }
 
-        .lbl-r {
-            font-weight: bold;
-            white-space: nowrap;
-            width: 100px;
-        }
+    .col-desc { width: auto; }
+    .col-rate { width: 80px; text-align: right; white-space: nowrap; }
+    .col-total { width: 90px; text-align: right; white-space: nowrap; }
 
-        /* ── Helper Name ── */
-        .helper-name {
-            font-weight: bold;
-            font-size: 10px;
-            margin-bottom: 8px;
-            padding-top: 2px;
-            border-top: 1px solid #d0d0d0;
-            padding-top: 6px;
-        }
+    .sub-item .col-desc { padding-left: 20px; }
 
-        /* ── Items Table ── */
-        .items-section {
-            border-top: 1.5px solid #333;
-            border-bottom: 1.5px solid #333;
-            padding: 6px 0;
-            margin-bottom: 12px;
-        }
+    .item-row { border-bottom: 1px solid #ebebeb; }
 
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+    .parent-item-end td {
+        height: 5px;
+        line-height: 5px;
+        border: none;
+    }
 
-        .items-table thead th {
-            border-bottom: 1px solid #333;
-            padding: 3px 0;
-            font-weight: bold;
-            font-size: 10px;
-            text-align: left;
-        }
+    /* ── Totals ── */
+    .totals-wrapper {
+        text-align: right;
+        padding: 5px 0 2px;
+        border-top: 1px solid #ccc;
+        margin-top: 4px;
+    }
 
-        .items-table thead th.col-rate,
-        .items-table thead th.col-total {
-            text-align: right;
-        }
+    .total-label { font-size: 10px; color: #555; }
+    .total-amount { font-weight: bold; font-size: 11px; }
 
-        .items-table td {
-            padding: 2.5px 0;
-            vertical-align: top;
-            font-size: 10px;
-        }
+    /* ── Remarks ── */
+    .remarks-section { margin-bottom: 14px; }
+    .remarks-label { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
+    .remarks-box { border: 1px solid #999; min-height: 52px; padding: 6px 8px; font-size: 10px; color: #333; }
+@endpush
 
-        .col-desc {
-            width: auto;
-        }
-
-        .col-rate {
-            width: 80px;
-            text-align: right;
-            white-space: nowrap;
-        }
-
-        .col-total {
-            width: 90px;
-            text-align: right;
-            white-space: nowrap;
-        }
-
-        .sub-item .col-desc {
-            padding-left: 20px;
-        }
-
-        .item-row {
-            border-bottom: 1px solid #ebebeb;
-        }
-
-        .parent-item-end td {
-            height: 5px;
-            line-height: 5px;
-            border: none;
-        }
-
-        /* ── Totals ── */
-        .totals-wrapper {
-            text-align: right;
-            padding: 5px 0 2px;
-            border-top: 1px solid #ccc;
-            margin-top: 4px;
-        }
-
-        .total-label {
-            font-size: 10px;
-            color: #555;
-        }
-
-        .total-amount {
-            font-weight: bold;
-            font-size: 11px;
-        }
-
-        /* ── Remarks ── */
-        .remarks-section {
-            margin-bottom: 14px;
-        }
-
-        .remarks-label {
-            font-weight: bold;
-            font-size: 10px;
-            margin-bottom: 4px;
-        }
-
-        .remarks-box {
-            border: 1px solid #999;
-            min-height: 52px;
-            padding: 6px 8px;
-            font-size: 10px;
-            color: #333;
-        }
-
-        /* ── Footer ── */
-        .footer-section {
-            font-size: 9px;
-            padding-top: 8px;
-            border-top: 1px solid #d0d0d0;
-        }
-
-        .footer-note {
-            text-align: center;
-            margin-bottom: 6px;
-            line-height: 1.5;
-            color: #333;
-        }
-
-        .stamp-sig-row {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-        }
-
-        .stamp-sig-row td {
-            vertical-align: bottom;
-        }
-    </style>
-</head>
-
-<body>
-
-    {{-- ── HEADER ── --}}
-    <table class="header-table">
-        <tr>
-            <td class="logo-cell">
-                @if (($is_pdf ?? false) && !empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
-                    <img src="{{ $branding['logo_path_absolute'] }}" alt="Company Logo">
-                @elseif(!empty($branding['logo_url']))
-                    <img src="{{ $branding['logo_url'] }}" alt="Company Logo">
-                @else
-                    @if ($is_pdf ?? false)
-                        <img src="{{ public_path('logo-primary.png') }}" alt="Company Logo">
-                    @else
-                        <img src="/logo-primary.png" alt="Company Logo">
-                    @endif
-                @endif
-            </td>
-            <td class="info-cell">
-                <span class="company-name">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</span>
-                <div class="company-details">
-                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}
-                    @if (!empty($branding['company_phone']))
-                        <br>Tel: {{ $branding['company_phone'] }}
-                    @endif
-                    @if (!empty($branding['company_email']))
-                        <br>Email: {{ $branding['company_email'] }}
-                    @endif
-                </div>
-                <div class="company-reg">
-                    @if ($data['sales_registration_number'] ?? false)
-                        REGISTRATION NO. {{ $data['sales_registration_number'] }}&nbsp;&nbsp;
-                    @endif
-                    LICENCE NO. 25C2708
-                </div>
-            </td>
-        </tr>
-    </table>
-
-    {{-- ── TITLE BAR ── --}}
-    <div class="title-bar">OFFICIAL RECEIPT</div>
+@section('report-content')
 
     <div class="content-wrapper">
 
@@ -369,7 +198,6 @@
                 }
 
                 $indentClass = $level > 0 ? 'sub-item' : '';
-
                 $rate = floatval($item['rate'] ?? 0);
                 $qty = floatval($item['quantity'] ?? 1);
                 $itemTotal = $rate * $qty;
@@ -379,14 +207,10 @@
                 }
 
                 $descriptionText = e($item['description'] ?? '');
-
                 $children = collect($allItems)
                     ->filter(function ($child) use ($item) {
                         $parentIdMatch = !empty($child['parent_id']) && $child['parent_id'] == $item['id'];
-                        $parentKeyMatch =
-                            !empty($child['parent_key']) &&
-                            !empty($item['_key']) &&
-                            $child['parent_key'] == $item['_key'];
+                        $parentKeyMatch = !empty($child['parent_key']) && !empty($item['_key']) && $child['parent_key'] == $item['_key'];
                         return $parentIdMatch || $parentKeyMatch;
                     })
                     ->sortBy('sort_order');
@@ -413,7 +237,6 @@
 
             $counter = 0;
             $subtotal = 0;
-
             $rootItems = collect($items ?? [])
                 ->filter(fn($item) => empty($item['parent_id']) && empty($item['parent_key']))
                 ->sortBy('sort_order');
@@ -479,10 +302,7 @@
                         <td style="text-align:right;">
                             @if (!empty($branding['show_signature']))
                                 <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
-                                @if (
-                                    ($is_pdf ?? false) &&
-                                        !empty($branding['signature_path_absolute']) &&
-                                        file_exists($branding['signature_path_absolute']))
+                                @if (($is_pdf ?? false) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
                                     <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
                                         style="height:52px; width:auto; display:block; margin-left:auto;">
                                 @elseif(!empty($branding['signature_url']))
@@ -497,6 +317,5 @@
         </div>
 
     </div>
-</body>
 
-</html>
+@endsection

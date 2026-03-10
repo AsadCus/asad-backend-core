@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\FormatService;
 use App\Models\Quotation;
 use App\Services\PaymentScheduleService;
+use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -13,9 +14,12 @@ class ScheduleController extends Controller
 {
     protected $formatService;
 
-    public function __construct(FormatService $formatService)
+    protected ReportTemplateService $reportTemplateService;
+
+    public function __construct(FormatService $formatService, ReportTemplateService $reportTemplateService)
     {
         $this->formatService = $formatService;
+        $this->reportTemplateService = $reportTemplateService;
     }
 
     public function index()
@@ -25,7 +29,7 @@ class ScheduleController extends Controller
             ->whereNotNull('customer_id')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn ($q) => $this->mapQuotationToSchedule($q))
+            ->map(fn($q) => $this->mapQuotationToSchedule($q))
             ->filter()
             ->values();
 
@@ -45,15 +49,16 @@ class ScheduleController extends Controller
 
             $schedule = $this->mapQuotationToSchedule($quotation);
 
-            if (! $schedule) {
+            if (!$schedule) {
                 abort(404, 'Invalid schedule data');
             }
 
-            $html = view('schedules.pdf', [
+            $reportData = $this->reportTemplateService->build('schedule', []);
+
+            $html = view('schedules.report-content', [
                 'schedule' => $schedule,
-                'company_address' => config('app.company_address', '931 Yishun Central 1'),
-                'registration_no' => config('app.company_registration_no', 'R25128539'),
-                'license_no' => config('app.company_license_no', '25C2708'),
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
             ])->render();
 
             return Pdf::loadHTML($html)
@@ -61,19 +66,19 @@ class ScheduleController extends Controller
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96)
-                ->stream(($schedule['schedule_number'] ?? 'schedule').'.pdf');
+                ->stream(($schedule['schedule_number'] ?? 'schedule') . '.pdf');
         } catch (\Throwable $e) {
             Log::error('Schedule PDF error', ['error' => $e->getMessage()]);
 
-            return response()->json(['error' => 'Failed to generate schedule PDF: '.$e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate schedule PDF: ' . $e->getMessage()], 500);
         }
     }
 
     private function mapQuotationToSchedule(Quotation $quotation): ?array
     {
         if (
-            ! $quotation->customer ||
-            ! $quotation->customer->user
+            !$quotation->customer ||
+            !$quotation->customer->user
         ) {
             return null;
         }
@@ -90,7 +95,7 @@ class ScheduleController extends Controller
         return [
             'id' => $quotation->id,
             'quotation_id' => $quotation->id,
-            'schedule_number' => "SCH-{$quotation->id}-".$quotation->created_at->format('Ymd'),
+            'schedule_number' => "SCH-{$quotation->id}-" . $quotation->created_at->format('Ymd'),
             'sales_registration_number' => $quotation->sales_registration_number,
 
             'quotation' => [

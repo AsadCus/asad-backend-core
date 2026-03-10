@@ -1,8 +1,179 @@
-<!DOCTYPE html>
-<html>
+@extends('layout-report')
 
-<head>
-    <meta charset="UTF-8">
+@section('document-title', 'Quotation')
+
+@section('extra-company-reg')
+    @if ($data['sales_registration_number'] ?? false)
+        REGISTRATION NO. {{ $data['sales_registration_number'] }}&nbsp;&nbsp;
+    @endif
+@endsection
+
+@section('title-bar')
+QUOTATION
+@endsection
+
+
+@push('styles')
+    /* ── Divider ── */
+    .section-divider {
+        border: none;
+        border-top: 1px solid #d0d0d0;
+        margin: 10px 0;
+    }
+
+    /* ── Order Info ── */
+    .order-info-section {
+        padding: 0 30px;
+        margin-bottom: 12px;
+    }
+
+    .order-info {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .order-info td {
+        vertical-align: top;
+        padding: 1px 0;
+        font-size: 10px;
+    }
+
+    .order-info .lbl {
+        white-space: nowrap;
+        font-weight: bold;
+        width: 90px;
+    }
+
+    .order-info .sep {
+        width: 12px;
+    }
+
+    /* ── Content Wrapper ── */
+    .content-wrapper {
+        padding: 0 30px;
+    }
+
+    /* ── Items Table ── */
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 8px;
+    }
+
+    .items-table-wrap {
+        border-top: 1.5px solid #333;
+        border-bottom: 1.5px solid #333;
+        padding: 6px 0;
+    }
+
+    .items-table td {
+        padding: 3px 0;
+        vertical-align: top;
+        font-size: 10px;
+    }
+
+    .col-desc {
+        width: auto;
+    }
+
+    .col-price {
+        width: 90px;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    /* Sub-item indent */
+    .sub-item .col-desc {
+        padding-left: 20px;
+    }
+
+    /* Header rows (section headers within items) */
+    .header-row td {
+        font-weight: bold;
+        padding: 4px 0 2px;
+        border-bottom: 1px solid #ccc;
+        font-size: 10px;
+    }
+
+    .item-row {
+        border-bottom: 1px solid #ebebeb;
+    }
+
+    .item-row.root .col-desc {
+        font-weight: bold;
+    }
+
+    /* ── Totals ── */
+    .totals-wrapper {
+        text-align: right;
+        padding: 6px 0 4px;
+        border-top: 1px solid #ccc;
+        margin-top: 4px;
+    }
+
+    .total-label {
+        font-size: 10px;
+        color: #555;
+    }
+
+    .total-amount {
+        font-weight: bold;
+        font-size: 11px;
+    }
+
+    /* ── Footer ── */
+    .footer-section {
+        padding: 12px 30px 0;
+        font-size: 9px;
+        border-top: none;
+    }
+
+    .footer-note {
+        text-align: center;
+        margin-bottom: 8px;
+        line-height: 1.5;
+        color: #333;
+    }
+
+    .replacement-box {
+        text-align: center;
+        font-weight: bold;
+        margin: 10px 0;
+        font-size: 10px;
+        border: 1px solid #333;
+        padding: 4px;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .terms-note {
+        text-align: center;
+        font-size: 8.5px;
+        line-height: 1.5;
+        color: #555;
+    }
+
+    .updated-date {
+        text-align: right;
+        font-weight: bold;
+        font-size: 9px;
+        margin-top: 16px;
+        color: #333;
+    }
+
+    .stamp-sig-row {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+    }
+
+    .stamp-sig-row td {
+        vertical-align: bottom;
+    }
+@endpush
+
+@section('report-content')
+
     @php
         $rootCounter = 0;
         $childCounters = [];
@@ -19,284 +190,6 @@
             return \App\Helpers\FormatService::formatCurrency($value);
         }
     @endphp
-    <title>Quotation</title>
-    <style>
-        @page {
-            size: A4;
-            margin: 1.5cm 1.8cm;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 10px;
-            line-height: 1.45;
-            color: #1a1a1a;
-            margin: 0;
-            padding: 0;
-        }
-
-        /* ── Header ── */
-        .header-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 14px;
-        }
-
-        .logo-cell {
-            width: 42%;
-            vertical-align: middle;
-        }
-
-        .info-cell {
-            width: 58%;
-            text-align: right;
-            vertical-align: middle;
-        }
-
-        /* Fix: explicit px dimensions, no object-fit (not supported in PDF renderers) */
-        .logo-cell img {
-            display: block;
-            width: auto;
-            height: 52px;
-            max-width: 180px;
-            margin: 0;
-        }
-
-        .company-name {
-            font-size: 12px;
-            font-weight: bold;
-            color: #222;
-            margin-bottom: 2px;
-            display: block;
-        }
-
-        .company-details {
-            font-size: 9px;
-            color: #444;
-            line-height: 1.5;
-        }
-
-        .company-reg {
-            font-size: 9px;
-            font-weight: bold;
-            margin-top: 3px;
-        }
-
-        /* ── Title Bar ── */
-        .title-bar {
-            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
-            color: #fff;
-            text-align: center;
-            font-weight: bold;
-            font-size: 13px;
-            padding: 5px 0;
-            letter-spacing: 4px;
-            margin-bottom: 12px;
-        }
-
-        /* ── Divider ── */
-        .section-divider {
-            border: none;
-            border-top: 1px solid #d0d0d0;
-            margin: 10px 0;
-        }
-
-        /* ── Order Info ── */
-        .order-info-section {
-            padding: 0 30px;
-            margin-bottom: 12px;
-        }
-
-        .order-info {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .order-info td {
-            vertical-align: top;
-            padding: 1px 0;
-            font-size: 10px;
-        }
-
-        .order-info .lbl {
-            white-space: nowrap;
-            font-weight: bold;
-            width: 90px;
-        }
-
-        .order-info .sep {
-            width: 12px;
-        }
-
-        /* ── Content Wrapper ── */
-        .content-wrapper {
-            padding: 0 30px;
-        }
-
-        /* ── Items Table ── */
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-        }
-
-        .items-table-wrap {
-            border-top: 1.5px solid #333;
-            border-bottom: 1.5px solid #333;
-            padding: 6px 0;
-        }
-
-        .items-table td {
-            padding: 3px 0;
-            vertical-align: top;
-            font-size: 10px;
-        }
-
-        .col-desc {
-            width: auto;
-        }
-
-        .col-price {
-            width: 90px;
-            text-align: right;
-            white-space: nowrap;
-        }
-
-        /* Sub-item indent */
-        .sub-item .col-desc {
-            padding-left: 20px;
-        }
-
-        /* Header rows (section headers within items) */
-        .header-row td {
-            font-weight: bold;
-            padding: 4px 0 2px;
-            border-bottom: 1px solid #ccc;
-            font-size: 10px;
-        }
-
-        .item-row {
-            border-bottom: 1px solid #ebebeb;
-        }
-
-        .item-row.root .col-desc {
-            font-weight: bold;
-        }
-
-        /* ── Totals ── */
-        .totals-wrapper {
-            text-align: right;
-            padding: 6px 0 4px;
-            border-top: 1px solid #ccc;
-            margin-top: 4px;
-        }
-
-        .total-label {
-            font-size: 10px;
-            color: #555;
-        }
-
-        .total-amount {
-            font-weight: bold;
-            font-size: 11px;
-        }
-
-        /* ── Footer ── */
-        .footer-section {
-            padding: 12px 30px 0;
-            font-size: 9px;
-        }
-
-        .footer-note {
-            text-align: center;
-            margin-bottom: 8px;
-            line-height: 1.5;
-            color: #333;
-        }
-
-        .replacement-box {
-            text-align: center;
-            font-weight: bold;
-            margin: 10px 0;
-            font-size: 10px;
-            border: 1px solid #333;
-            padding: 4px;
-            display: inline-block;
-            width: 100%;
-        }
-
-        .terms-note {
-            text-align: center;
-            font-size: 8.5px;
-            line-height: 1.5;
-            color: #555;
-        }
-
-        .updated-date {
-            text-align: right;
-            font-weight: bold;
-            font-size: 9px;
-            margin-top: 16px;
-            color: #333;
-        }
-
-        .stamp-sig-row {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 14px;
-        }
-
-        .stamp-sig-row td {
-            vertical-align: bottom;
-        }
-    </style>
-</head>
-
-<body>
-
-    {{-- ── HEADER ── --}}
-    <table class="header-table">
-        <tr>
-            <td class="logo-cell">
-                @if (($is_pdf ?? false) && !empty($branding['logo_path_absolute']) && file_exists($branding['logo_path_absolute']))
-                    <img src="{{ $branding['logo_path_absolute'] }}" alt="Company Logo">
-                @elseif(!empty($branding['logo_url']))
-                    <img src="{{ $branding['logo_url'] }}" alt="Company Logo">
-                @else
-                    @if ($is_pdf ?? false)
-                        <img src="{{ public_path('logo-primary.png') }}" alt="Company Logo">
-                    @else
-                        <img src="/logo-primary.png" alt="Company Logo">
-                    @endif
-                @endif
-            </td>
-            <td class="info-cell">
-                <span class="company-name">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</span>
-                <div class="company-details">
-                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}
-                    @if (!empty($branding['company_phone']))
-                        <br>Tel: {{ $branding['company_phone'] }}
-                    @endif
-                    @if (!empty($branding['company_email']))
-                        <br>Email: {{ $branding['company_email'] }}
-                    @endif
-                </div>
-                <div class="company-reg">
-                    @if ($data['sales_registration_number'])
-                        REGISTRATION NO. {{ $data['sales_registration_number'] }}&nbsp;&nbsp;
-                    @endif
-                    LICENCE NO. 25C2708
-                </div>
-            </td>
-        </tr>
-    </table>
-
-    {{-- ── TITLE BAR ── --}}
-    <div class="title-bar">QUOTATION</div>
 
     {{-- ── ORDER INFO ── --}}
     <div class="order-info-section">
@@ -457,6 +350,4 @@
         <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
     </div>
 
-</body>
-
-</html>
+@endsection

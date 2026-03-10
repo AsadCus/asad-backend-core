@@ -156,7 +156,7 @@ class InvoiceController extends Controller
         $invoice = $this->invoiceService->getForEditShow($id);
         $reportData = $this->reportTemplateService->build('invoice', $invoice);
 
-        return view('invoices.pdf', [
+        return view('invoices.report-content', [
             'data' => $invoice,
             'items' => $invoice['items'],
             'branding' => $reportData['branding'],
@@ -173,7 +173,7 @@ class InvoiceController extends Controller
             $invoice = $this->invoiceService->getForEditShow($id);
             $reportData = $this->reportTemplateService->build('invoice', $invoice);
 
-            $html = view('invoices.pdf', [
+            $html = view('invoices.report-content', [
                 'data' => $invoice,
                 'items' => $invoice['items'],
                 'branding' => $reportData['branding'],
@@ -186,11 +186,11 @@ class InvoiceController extends Controller
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96);
 
-            return $pdf->stream($invoice['invoice_number'].'.pdf');
+            return $pdf->stream($invoice['invoice_number'] . '.pdf');
         } catch (\Exception $e) {
-            Log::error('Invoice PDF Generation Error: '.$e->getMessage());
+            Log::error('Invoice PDF Generation Error: ' . $e->getMessage());
 
-            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
         }
     }
 }
