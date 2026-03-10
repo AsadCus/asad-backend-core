@@ -35,7 +35,7 @@ class CustomerConfirmation extends Model
 
         static::creating(function (self $model) {
             if (empty($model->number)) {
-                $model->number = NumberGenerator::generateCustomerConfirmationNumber();
+                $model->number = NumberGenerator::generate('customer_confirmation');
             }
         });
     }

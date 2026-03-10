@@ -11,6 +11,7 @@ import { ActionMenuItems } from './action-menu-items';
 export type ActionType =
     | 'add'
     | 'preview'
+    | 'receipt-preview'
     | 'view'
     | 'edit'
     | 'delete'

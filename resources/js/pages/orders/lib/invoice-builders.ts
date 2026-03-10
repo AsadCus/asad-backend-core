@@ -22,6 +22,104 @@ function roundToCents(value: number): number {
     return Math.round(value * 100) / 100;
 }
 
+function stripInstallmentSuffix(description?: string | null): string {
+    if (!description) {
+        return '';
+    }
+
+    return description.replace(/\s*\((Deposit|50%|Balance)\)$/i, '').trim();
+}
+
+function mergeSplitInstallmentItems(
+    items: InvoiceItemSchema[],
+): InvoiceItemSchema[] {
+    const grouped = new Map<
+        string,
+        {
+            baseItem: InvoiceItemSchema;
+            quantity: number;
+            totalAmount: number;
+            sortOrder: number;
+        }
+    >();
+
+    const untouchedItems: InvoiceItemSchema[] = [];
+
+    items.forEach((item) => {
+        const memberId = Number(item.customer_confirmation_member_id ?? 0);
+        const originalDescription = (item.description ?? '').trim();
+        const baseDescription = stripInstallmentSuffix(item.description);
+        const hasInstallmentSuffix =
+            originalDescription.length > 0 &&
+            originalDescription !== baseDescription;
+
+        if (
+            item.is_header ||
+            memberId <= 0 ||
+            !baseDescription ||
+            !hasInstallmentSuffix
+        ) {
+            untouchedItems.push(item);
+            return;
+        }
+
+        const groupKey = [
+            memberId,
+            item.parent_id ?? '',
+            item.parent_key ?? '',
+            baseDescription,
+        ].join('|');
+
+        const quantity = Number(item.quantity ?? 0) || 1;
+        const itemAmount = roundToCents(
+            Number(item.amount ?? Number(item.rate ?? 0) * quantity),
+        );
+
+        if (!grouped.has(groupKey)) {
+            grouped.set(groupKey, {
+                baseItem: item,
+                quantity,
+                totalAmount: itemAmount,
+                sortOrder: Number(item.sort_order ?? 0),
+            });
+            return;
+        }
+
+        const current = grouped.get(groupKey);
+
+        if (!current) {
+            return;
+        }
+
+        current.totalAmount = roundToCents(current.totalAmount + itemAmount);
+        current.sortOrder = Math.min(
+            current.sortOrder || Number(item.sort_order ?? 0),
+            Number(item.sort_order ?? 0) || current.sortOrder,
+        );
+    });
+
+    const mergedItems = Array.from(grouped.values()).map((group) => {
+        const normalizedQuantity = group.quantity || 1;
+        const normalizedRate =
+            normalizedQuantity > 0
+                ? roundToCents(group.totalAmount / normalizedQuantity)
+                : 0;
+
+        return {
+            ...group.baseItem,
+            description: stripInstallmentSuffix(group.baseItem.description),
+            quantity: normalizedQuantity,
+            rate: normalizedRate,
+            amount: group.totalAmount,
+            sort_order: group.sortOrder || group.baseItem.sort_order,
+        };
+    });
+
+    return [...untouchedItems, ...mergedItems].sort(
+        (a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0),
+    );
+}
+
 function buildInstallmentItems(
     items: InvoiceItemSchema[],
     depositType?: string | null,
@@ -31,7 +129,9 @@ function buildInstallmentItems(
     fiftyPercentItems: InvoiceItemSchema[];
     balanceItems: InvoiceItemSchema[];
 } {
-    const packageItems = items.filter(
+    const normalizedSourceItems = mergeSplitInstallmentItems(items);
+
+    const packageItems = normalizedSourceItems.filter(
         (item) =>
             !item.is_header &&
             Number(item.customer_confirmation_member_id ?? 0) > 0,
@@ -39,7 +139,7 @@ function buildInstallmentItems(
 
     if (!packageItems.length) {
         return {
-            depositItems: items,
+            depositItems: normalizedSourceItems,
             fiftyPercentItems: [],
             balanceItems: [],
         };
@@ -57,7 +157,7 @@ function buildInstallmentItems(
         };
     });
 
-    const nonPackageItems = items.filter(
+    const nonPackageItems = normalizedSourceItems.filter(
         (item) =>
             item.is_header ||
             Number(item.customer_confirmation_member_id ?? 0) <= 0,
@@ -146,14 +246,19 @@ export function buildInvoicesFromItems(
 ): InvoiceSchema[] {
     let invoices: InvoiceSchema[] = [];
 
-    const amount = totalAmount ?? calculateTotal(items);
+    const sourceItems =
+        paymentPlan === 'full' || paymentPlan === 'direct'
+            ? mergeSplitInstallmentItems(items)
+            : items;
+
+    const amount = totalAmount ?? calculateTotal(sourceItems);
 
     if (paymentPlan === 'direct') {
         invoices = [
             {
                 _key: nanoid(),
                 description: null,
-                items,
+                items: sourceItems,
                 amount,
             },
         ];
@@ -162,7 +267,7 @@ export function buildInvoicesFromItems(
             {
                 _key: nanoid(),
                 description: 'Invoice For Full Payment',
-                items,
+                items: sourceItems,
                 amount,
             },
         ];

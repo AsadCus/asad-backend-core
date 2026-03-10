@@ -8,6 +8,7 @@ use App\Models\CustomerConfirmation;
 use App\Models\Enquiry;
 use App\Models\EnquiryRemark;
 use App\Models\GeneralEnquiry;
+use App\Models\Package;
 use App\Models\PrivateEnquiry;
 use App\Models\User;
 use App\Services\GeneralEnquiryService;
@@ -949,6 +950,60 @@ class EnquiryWorkflowTest extends TestCase
                 ->component('confirmed-customer/index')
                 ->has('dataGroups')
                 ->has('packageOptions')
+        );
+    }
+
+    public function test_confirmed_and_holding_customer_indexes_are_split_by_package_assignment(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        Permission::findOrCreate('customer view', 'web');
+        $this->adminUser->givePermissionTo(['customer view']);
+
+        $package = Package::create([
+            'package_number' => 'PKG-HOLDING-001',
+            'name' => 'Holding Split Package',
+            'status' => 'active',
+        ]);
+
+        $withPackage = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'created_by' => $this->adminUser->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $withoutPackage = CustomerConfirmation::create([
+            'package_id' => null,
+            'created_by' => $this->adminUser->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $confirmedResponse = $this->get(route('confirmed-customer.index'));
+        $confirmedResponse->assertStatus(200);
+        $confirmedResponse->assertInertia(
+            fn ($page) => $page
+                ->component('confirmed-customer/index')
+                ->where('pageTitle', 'Confirmed Customers')
+                ->where('dataGroups', function ($groups) use ($withPackage, $withoutPackage) {
+                    $ids = collect($groups)->pluck('id')->all();
+
+                    return in_array($withPackage->id, $ids, true)
+                        && ! in_array($withoutPackage->id, $ids, true);
+                })
+        );
+
+        $holdingResponse = $this->get(route('customer-holding.index'));
+        $holdingResponse->assertStatus(200);
+        $holdingResponse->assertInertia(
+            fn ($page) => $page
+                ->component('confirmed-customer/index')
+                ->where('pageTitle', 'Customer Holding')
+                ->where('dataGroups', function ($groups) use ($withPackage, $withoutPackage) {
+                    $ids = collect($groups)->pluck('id')->all();
+
+                    return in_array($withoutPackage->id, $ids, true)
+                        && ! in_array($withPackage->id, $ids, true);
+                })
         );
     }
 }

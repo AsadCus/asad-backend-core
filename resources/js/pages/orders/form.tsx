@@ -1,5 +1,6 @@
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
@@ -22,7 +24,7 @@ import {
     collectWithChildren,
     normalizeItems,
 } from '../invoices/lib/utils';
-import { InvoiceSchema } from '../invoices/schema';
+import { InvoiceSchema, statusColors, statuses } from '../invoices/schema';
 import QuotationItemTableForm from '../quotations/items/form';
 import { QuotationSchema } from '../quotations/schema';
 import { PaymentPlanSection } from './components/payment-plan-section';
@@ -158,7 +160,7 @@ export default function OrderForm({
             currentInvoices: InvoiceSchema[] = [],
         ): InvoiceSchema[] => {
             if (quotation) {
-                return normalizeInvoices(
+                const rebuiltInvoices = normalizeInvoices(
                     autoFillInvoiceDates(
                         buildInvoicesFromItems(
                             paymentPlan,
@@ -169,6 +171,33 @@ export default function OrderForm({
                         ),
                         quotation.quotation_date ?? '',
                     ),
+                );
+
+                return normalizeInvoices(
+                    rebuiltInvoices.map((invoice, index) => {
+                        const existingInvoice = currentInvoices[index];
+
+                        if (!existingInvoice) {
+                            return invoice;
+                        }
+
+                        return {
+                            ...invoice,
+                            id: existingInvoice.id ?? invoice.id,
+                            invoice_number:
+                                existingInvoice.invoice_number ??
+                                invoice.invoice_number,
+                            status:
+                                existingInvoice.status ??
+                                invoice.status ??
+                                'issued',
+                            invoice_date:
+                                existingInvoice.invoice_date ??
+                                invoice.invoice_date,
+                            due_date:
+                                existingInvoice.due_date ?? invoice.due_date,
+                        };
+                    }),
                 );
             }
 
@@ -417,6 +446,82 @@ export default function OrderForm({
     const [collapsedInvoices, setCollapsedInvoices] = useState<
         Record<string, boolean>
     >({});
+    const [memberOptions, setMemberOptions] = useState<OptionType[]>([]);
+    const [memberSharingPlanById, setMemberSharingPlanById] = useState<
+        Record<number, string | null>
+    >({});
+
+    useEffect(() => {
+        const confirmationId = Number(quotation?.customer_confirmation_id ?? 0);
+
+        if (!quotation || confirmationId <= 0) {
+            setMemberOptions([]);
+            setMemberSharingPlanById({});
+            return;
+        }
+
+        let isUnmounted = false;
+
+        const loadMembers = async () => {
+            try {
+                const response = await fetch(
+                    showCustomerConfirmation(confirmationId).url,
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to load customer confirmation');
+                }
+
+                const confirmation = await response.json();
+                const members = (confirmation.members ?? []) as Array<{
+                    member_id?: number;
+                    id?: number;
+                    name?: string;
+                    sharing_plan?: string | null;
+                }>;
+
+                const normalizedMembers = members
+                    .map((member) => ({
+                        id: Number(member.member_id ?? member.id ?? 0),
+                        name: member.name ?? `Member #${member.id ?? '-'}`,
+                        sharing_plan: member.sharing_plan ?? null,
+                    }))
+                    .filter((member) => member.id > 0);
+
+                if (isUnmounted) {
+                    return;
+                }
+
+                setMemberOptions(
+                    normalizedMembers.map((member) => ({
+                        value: String(member.id),
+                        label: member.name,
+                    })),
+                );
+                setMemberSharingPlanById(
+                    Object.fromEntries(
+                        normalizedMembers.map((member) => [
+                            member.id,
+                            member.sharing_plan,
+                        ]),
+                    ),
+                );
+            } catch {
+                if (isUnmounted) {
+                    return;
+                }
+
+                setMemberOptions([]);
+                setMemberSharingPlanById({});
+            }
+        };
+
+        loadMembers();
+
+        return () => {
+            isUnmounted = true;
+        };
+    }, [quotation]);
 
     useEffect(() => {
         if (!data.invoices.length) return;
@@ -758,14 +863,32 @@ export default function OrderForm({
                                                         </p>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <div className="rounded-md bg-emerald-50 px-3 py-1 text-base font-semibold text-emerald-700">
+                                                        <Badge className="rounded-md bg-emerald-50 px-3 py-1 text-base font-semibold text-emerald-700">
                                                             <span className="tabular-nums">
                                                                 $
                                                                 {calculateTotal(
                                                                     invoice.items,
                                                                 )}
                                                             </span>
-                                                        </div>
+                                                        </Badge>
+
+                                                        <Badge
+                                                            className={`${
+                                                                statusColors[
+                                                                    (invoice.status ??
+                                                                        'draft') as keyof typeof statusColors
+                                                                ]
+                                                            } px-3 py-1 text-base`}
+                                                        >
+                                                            {statuses.find(
+                                                                (s) =>
+                                                                    s.value ===
+                                                                    (invoice.status ??
+                                                                        'draft'),
+                                                            )?.label ??
+                                                                invoice.status ??
+                                                                'draft'}
+                                                        </Badge>
                                                     </div>
                                                 </div>
 
@@ -889,6 +1012,13 @@ export default function OrderForm({
                                                         }
                                                         showOptionalColumn={
                                                             false
+                                                        }
+                                                        showMemberColumn
+                                                        memberOptions={
+                                                            memberOptions
+                                                        }
+                                                        memberSharingPlanById={
+                                                            memberSharingPlanById
                                                         }
                                                     />
                                                 </>
@@ -1025,6 +1155,11 @@ export default function OrderForm({
                                                     setData('items', next)
                                                 }
                                                 disabled
+                                                showMemberColumn
+                                                memberOptions={memberOptions}
+                                                memberSharingPlanById={
+                                                    memberSharingPlanById
+                                                }
                                             />
                                         </>
                                     )}

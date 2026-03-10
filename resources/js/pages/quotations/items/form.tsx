@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn, formatCurrency } from '@/lib/utils';
 import { InvoiceSchema } from '@/pages/invoices/schema';
+import { OptionType } from '@/types';
 import {
     closestCenter,
     DndContext,
@@ -57,6 +58,7 @@ import {
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProperInput } from '../../../components/proper-input';
+import { ProperInputSelect } from '../../../components/proper-input-select';
 import { QuotationSchema } from '../schema';
 import ItemDescriptionCombobox from './components/item-desc-combobox';
 import { QuotationItemSchema } from './schema';
@@ -88,6 +90,9 @@ interface QuotationItemTableFormProps<T extends QuotationItemSchema> {
         itemKeys: string[],
     ) => void;
     showOptionalColumn?: boolean;
+    showMemberColumn?: boolean;
+    memberOptions?: OptionType[];
+    memberSharingPlanById?: Record<number, string | null | undefined>;
 }
 
 export default function QuotationItemTableForm<T extends QuotationItemSchema>({
@@ -101,6 +106,9 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     currentInvoiceIndex,
     onMoveItem,
     showOptionalColumn = false,
+    showMemberColumn = false,
+    memberOptions = [],
+    memberSharingPlanById = {},
 }: QuotationItemTableFormProps<T>) {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -589,6 +597,60 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                       } as Partial<T>)
                                   }
                               />
+                          );
+                      },
+                  },
+              ]
+            : []),
+        ...(showMemberColumn
+            ? [
+                  {
+                      id: 'member',
+                      header: 'Member',
+                      meta: { className: 'sm:table-cell w-[18%]' },
+                      cell: ({
+                          row,
+                      }: {
+                          row: { original: VisibleItem<T> };
+                      }) => {
+                          const { item } = row.original;
+                          const index = getSourceIndex(item._key);
+
+                          return (
+                              <div className="relative flex w-full flex-col gap-1">
+                                  <ProperInputSelect
+                                      options={memberOptions}
+                                      disabled={disabled}
+                                      size="compact"
+                                      truncate={16}
+                                      value={
+                                          item.customer_confirmation_member_id ??
+                                          ''
+                                      }
+                                      onValueChange={(value) => {
+                                          const numericValue = Number(value);
+                                          const nextMemberId = Number.isNaN(
+                                              numericValue,
+                                          )
+                                              ? null
+                                              : numericValue;
+
+                                          updateItemByKey(item._key, {
+                                              customer_confirmation_member_id:
+                                                  nextMemberId,
+                                              sharing_plan: nextMemberId
+                                                  ? (memberSharingPlanById[
+                                                        nextMemberId
+                                                    ] ?? null)
+                                                  : null,
+                                          } as Partial<T>);
+                                      }}
+                                      placeholder="Select member"
+                                  />
+                                  {renderError?.(
+                                      `items.${index}.customer_confirmation_member_id`,
+                                  )}
+                              </div>
                           );
                       },
                   },

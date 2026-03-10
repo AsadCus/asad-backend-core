@@ -919,6 +919,7 @@ export function QuotationForm({
                         noteErrors={noteErrors}
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
+                        availableMembers={availableMembers}
                         status={getQuotationSectionStatus('quotation_details')}
                     />
 

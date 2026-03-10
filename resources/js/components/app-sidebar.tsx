@@ -14,6 +14,7 @@ import { dashboard } from '@/routes';
 // import agreement from '@/routes/agreement';
 import confirmedCustomer from '@/routes/confirmed-customer';
 import customer from '@/routes/customer';
+import customerHolding from '@/routes/customer-holding';
 import enquiries from '@/routes/enquiries';
 import generalEnquiries from '@/routes/general-enquiries';
 import invoice from '@/routes/invoice';
@@ -265,6 +266,11 @@ export function AppSidebar() {
                   {
                       title: 'Confirmed Customer',
                       href: confirmedCustomer.index.url(),
+                      icon: UserCheck,
+                  },
+                  {
+                      title: 'Customer Holding',
+                      href: customerHolding.index.url(),
                       icon: UserCheck,
                   },
               ]

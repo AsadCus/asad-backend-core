@@ -26,6 +26,7 @@ class InvoiceService
     public function getForDataTable(array $filters = [])
     {
         return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy'])
+            ->with('receipt:id,invoice_id')
             ->withCount('receipt')
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('order.quotation.customer', function ($cq) use ($value) {
@@ -52,6 +53,7 @@ class InvoiceService
                     'due_date' => $i->due_date_formatted,
                     'status' => $i->status,
                     'has_receipt' => (int) ($i->receipt_count ?? 0) > 0,
+                    'receipt_id' => $i->receipt->first()?->id,
                     'created_at' => $i->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
                 ];
@@ -80,10 +82,12 @@ class InvoiceService
             ]);
 
             if (! empty($data['items'])) {
-                $quotationItemIds = $this->quotationItemService->replaceQuotationItems($invoice->order->quotation->id, $data['items']);
-                if (! empty($quotationItemIds)) {
-                    $invoice->quotationItems()->sync($quotationItemIds);
-                }
+                $quotationItemIds = $this->quotationItemService->replaceQuotationItems(
+                    $invoice->order->quotation->id,
+                    $data['items'],
+                    $data['delete_missing_quotation_items'] ?? true,
+                );
+                $invoice->quotationItems()->sync($quotationItemIds);
             }
 
             activity()
@@ -154,14 +158,22 @@ class InvoiceService
                 'amount' => $data['amount'],
                 'invoice_date' => $data['invoice_date'],
                 'due_date' => $data['due_date'] ?? null,
-                'status' => $data['status'] ?? 'issued',
+                'status' => $data['status'] ?? $invoice->status,
             ]);
 
             if (array_key_exists('items', $data)) {
-                $quotationItemIds = $this->quotationItemService->replaceQuotationItems($invoice->order->quotation->id, $data['items']);
-                if (! empty($quotationItemIds)) {
-                    $invoice->quotationItems()->sync($quotationItemIds);
-                }
+                $quotationItemIds = $this->quotationItemService->replaceQuotationItems(
+                    $invoice->order->quotation->id,
+                    $data['items'],
+                    $data['delete_missing_quotation_items'] ?? true,
+                );
+                $invoice->quotationItems()->sync($quotationItemIds);
+            }
+
+            if ($invoice->receipt()->exists()) {
+                $invoice->receipt()->update([
+                    'amount' => $invoice->amount,
+                ]);
             }
 
             activity()
