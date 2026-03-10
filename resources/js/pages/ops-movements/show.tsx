@@ -44,10 +44,8 @@ interface OpsMovementData {
     child_with_bed_price: number;
     child_no_bed_price: number;
     infant_price: number;
-    airline: string | null;
-    pnr: string | null;
     departure_date: string | null;
-    arrival_date: string | null;
+    return_date: string | null;
     total_seats: number | null;
     seats_left: number | null;
     visa_type: string | null;
@@ -151,15 +149,13 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                                <InfoRow label="Airline" value={data.airline} />
-                                <InfoRow label="PNR" value={data.pnr} />
                                 <InfoRow
                                     label="Departure"
                                     value={data.departure_date}
                                 />
                                 <InfoRow
-                                    label="Arrival"
-                                    value={data.arrival_date}
+                                    label="Return"
+                                    value={data.return_date}
                                 />
                                 <InfoRow
                                     label="Total Seats"

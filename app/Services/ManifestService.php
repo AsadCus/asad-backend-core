@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\NumberGenerator;
 use App\Models\CustomerConfirmation;
 use App\Models\Manifest;
 use App\Models\ManifestAccommodationAssignment;
@@ -30,7 +31,7 @@ class ManifestService
             ])
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
-                    $query->where('reference_number', 'like', "%{$value}%")
+                    $query->where('manifest_number', 'like', "%{$value}%")
                         ->orWhereHas('package', function ($pq) use ($value) {
                             $pq->where('name', 'like', "%{$value}%");
                         });
@@ -39,19 +40,16 @@ class ManifestService
             ->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
             })
-            ->orderBy('departure_date', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($q) {
                 return [
                     'id' => $q->id,
                     'package_id' => $q->package_id,
                     'package_name' => $q->package?->name,
-                    'reference_number' => $q->reference_number,
-                    'departure_date' => $q->departure_date_formatted,
-                    'return_date' => $q->return_date_formatted,
-                    'duration' => $q->duration,
-                    'makkah_hotel' => $q->makkah_hotel,
-                    'madinah_hotel' => $q->madinah_hotel,
+                    'manifest_number' => $q->manifest_number,
+                    'departure_date' => $q->package?->departure_date_formatted,
+                    'return_date' => $q->package?->return_date_formatted,
                     'status' => $q->status,
                     'travelers_count' => $q->travelers_count,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),
@@ -66,7 +64,7 @@ class ManifestService
         $data = Manifest::get()->map(function ($q) {
             return [
                 'value' => $q->id,
-                'label' => $q->reference_number,
+                'label' => $q->manifest_number,
             ];
         });
 
@@ -77,8 +75,8 @@ class ManifestService
     {
         $data = Manifest::get()->map(function ($q) {
             return [
-                'value' => $q->reference_number,
-                'label' => $q->reference_number,
+                'value' => $q->manifest_number,
+                'label' => $q->manifest_number,
             ];
         });
 
@@ -88,33 +86,17 @@ class ManifestService
     public function store(array $data): Manifest
     {
         return DB::transaction(function () use ($data) {
-            $this->parseDateFields($data);
-
             $manifest = Manifest::create([
                 'package_id' => $data['package_id'],
-                'reference_number' => $data['reference_number'],
-                'company_address' => $data['company_address'] ?? null,
-                'company_phone' => $data['company_phone'] ?? null,
-                'departure_date' => $data['departure_date'],
-                'return_date' => $data['return_date'],
-                'duration' => $data['duration'] ?? null,
-                'makkah_hotel' => $data['makkah_hotel'] ?? null,
-                'makkah_check_in' => $data['makkah_check_in'] ?? null,
-                'makkah_check_out' => $data['makkah_check_out'] ?? null,
-                'madinah_hotel' => $data['madinah_hotel'] ?? null,
-                'madinah_check_in' => $data['madinah_check_in'] ?? null,
-                'madinah_check_out' => $data['madinah_check_out'] ?? null,
-                'flight_details' => $data['flight_details'] ?? null,
+                'manifest_number' => NumberGenerator::generate('manifest'),
                 'notes' => $data['notes'] ?? null,
-                'first_meal' => $data['first_meal'] ?? null,
-                'last_meal' => $data['last_meal'] ?? null,
                 'status' => $data['status'] ?? 'draft',
             ]);
 
             $this->syncTravelers($manifest, $data['travelers'] ?? []);
             $this->syncAccommodationAssignments(
                 $manifest,
-                data_get($data, 'flight_details.ui_room_lists', []),
+                data_get($data, 'roomLists', []),
             );
             $this->syncRooms($manifest, $data['rooms'] ?? []);
             $this->syncPayments($manifest, $data['payments'] ?? []);
@@ -133,6 +115,7 @@ class ManifestService
     {
         $manifest = Manifest::with([
             'package.accommodations',
+            'package.flights',
             'travelers.customer',
             'travelers.confirmationMember',
             'accommodationAssignments',
@@ -173,39 +156,26 @@ class ManifestService
             })
             ->toArray();
 
-        $flightDetails = is_array($manifest->flight_details) ? $manifest->flight_details : [];
         $roomLists = $this->buildRoomListsFromAssignments($manifest, $travelers);
 
         if ($roomLists === []) {
             $roomLists = $this->ensureRoomLists(
-                $flightDetails['ui_room_lists'] ?? null,
-                $flightDetails,
+                null,
+                [],
                 $travelers,
                 $manifest->package?->accommodations?->toArray() ?? [],
             );
         }
-        $airlineList = $this->ensureFlatList($flightDetails['ui_airline_list'] ?? null, $travelers);
+        $airlineList = $this->ensureFlatList(null, $travelers);
 
         return [
             'id' => $manifest->id,
             'package_id' => $manifest->package_id,
             'package_name' => $manifest->package?->name,
-            'reference_number' => $manifest->reference_number,
-            'company_address' => $manifest->company_address,
-            'company_phone' => $manifest->company_phone,
-            'departure_date' => $manifest->departure_date_formatted,
-            'return_date' => $manifest->return_date_formatted,
-            'duration' => $manifest->duration,
-            'makkah_hotel' => $manifest->makkah_hotel,
-            'makkah_check_in' => $manifest->makkah_check_in_formatted,
-            'makkah_check_out' => $manifest->makkah_check_out_formatted,
-            'madinah_hotel' => $manifest->madinah_hotel,
-            'madinah_check_in' => $manifest->madinah_check_in_formatted,
-            'madinah_check_out' => $manifest->madinah_check_out_formatted,
-            'flight_details' => $manifest->flight_details ?? [],
+            'manifest_number' => $manifest->manifest_number,
+            'departure_date' => $manifest->package?->departure_date_formatted,
+            'return_date' => $manifest->package?->return_date_formatted,
             'notes' => $manifest->notes,
-            'first_meal' => $manifest->first_meal,
-            'last_meal' => $manifest->last_meal,
             'status' => $manifest->status,
             'travelers' => $travelers,
             'roomLists' => $roomLists,
@@ -289,26 +259,9 @@ class ManifestService
         return DB::transaction(function () use ($data, $id) {
             $manifest = Manifest::findOrFail($id);
 
-            $this->parseDateFields($data);
-
             $manifest->update([
                 'package_id' => $data['package_id'] ?? $manifest->package_id,
-                'reference_number' => $data['reference_number'] ?? $manifest->reference_number,
-                'company_address' => $data['company_address'] ?? $manifest->company_address,
-                'company_phone' => $data['company_phone'] ?? $manifest->company_phone,
-                'departure_date' => $data['departure_date'] ?? $manifest->departure_date,
-                'return_date' => $data['return_date'] ?? $manifest->return_date,
-                'duration' => $data['duration'] ?? $manifest->duration,
-                'makkah_hotel' => $data['makkah_hotel'] ?? $manifest->makkah_hotel,
-                'makkah_check_in' => $data['makkah_check_in'] ?? $manifest->makkah_check_in,
-                'makkah_check_out' => $data['makkah_check_out'] ?? $manifest->makkah_check_out,
-                'madinah_hotel' => $data['madinah_hotel'] ?? $manifest->madinah_hotel,
-                'madinah_check_in' => $data['madinah_check_in'] ?? $manifest->madinah_check_in,
-                'madinah_check_out' => $data['madinah_check_out'] ?? $manifest->madinah_check_out,
-                'flight_details' => $data['flight_details'] ?? $manifest->flight_details,
                 'notes' => $data['notes'] ?? $manifest->notes,
-                'first_meal' => $data['first_meal'] ?? $manifest->first_meal,
-                'last_meal' => $data['last_meal'] ?? $manifest->last_meal,
                 'status' => $data['status'] ?? $manifest->status,
             ]);
 
@@ -318,7 +271,7 @@ class ManifestService
 
             $this->syncAccommodationAssignments(
                 $manifest,
-                data_get($data, 'flight_details.ui_room_lists', []),
+                data_get($data, 'roomLists', []),
             );
 
             if (isset($data['rooms'])) {
@@ -672,16 +625,6 @@ class ManifestService
     /**
      * Parse date fields in-place from various formats to Y-m-d.
      */
-    private function parseDateFields(array &$data): void
-    {
-        $dateFields = ['departure_date', 'return_date', 'makkah_check_in', 'makkah_check_out', 'madinah_check_in', 'madinah_check_out'];
-        foreach ($dateFields as $field) {
-            if (! empty($data[$field])) {
-                $data[$field] = Carbon::parse($data[$field])->format('Y-m-d');
-            }
-        }
-    }
-
     /**
      * Sync travelers for a manifest (delete-and-recreate strategy).
      *

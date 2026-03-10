@@ -24,10 +24,8 @@ class PackageSeeder extends Seeder
             'child_with_bed_price' => 2200.00,
             'child_no_bed_price' => 1800.00,
             'infant_price' => 500.00,
-            'airline' => 'Saudi Airlines',
-            'pnr' => 'ABC123',
             'departure_date' => '2026-01-15',
-            'arrival_date' => '2026-01-29',
+            'return_date' => '2026-01-29',
             'total_seats' => 45,
             'seats_left' => 45,
             'visa_type' => 'Umrah Visa',
@@ -44,6 +42,29 @@ class PackageSeeder extends Seeder
             ['location' => 'Madinah', 'hotel_name' => 'Dar Al Taqwa Hotel', 'type_of_meal' => 'Breakfast & Dinner', 'check_in' => '2026-01-23', 'check_out' => '2026-01-28'],
         ]);
 
+        $package1->flights()->createMany([
+            [
+                'from' => 'KUL',
+                'to' => 'JED',
+                'description' => 'Outbound',
+                'airline' => 'Saudi Airlines',
+                'pnr' => 'ABC123',
+                'departure_datetime' => '2026-01-15 09:00:00',
+                'arrival_datetime' => '2026-01-15 15:30:00',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'MED',
+                'to' => 'KUL',
+                'description' => 'Return',
+                'airline' => 'Saudi Airlines',
+                'pnr' => 'ABC123',
+                'departure_datetime' => '2026-01-29 10:00:00',
+                'arrival_datetime' => '2026-01-29 22:30:00',
+                'sort_order' => 2,
+            ],
+        ]);
+
         $package2 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Premium 10 Days',
@@ -55,10 +76,8 @@ class PackageSeeder extends Seeder
             'child_with_bed_price' => 3000.00,
             'child_no_bed_price' => 2500.00,
             'infant_price' => 800.00,
-            'airline' => 'Emirates',
-            'pnr' => 'EMR456',
             'departure_date' => '2026-02-10',
-            'arrival_date' => '2026-02-20',
+            'return_date' => '2026-02-20',
             'total_seats' => 30,
             'seats_left' => 30,
             'visa_type' => 'Umrah Visa',
@@ -75,6 +94,29 @@ class PackageSeeder extends Seeder
             ['location' => 'Madinah', 'hotel_name' => 'The Oberoi Madina', 'type_of_meal' => 'Full Board', 'check_in' => '2026-02-16', 'check_out' => '2026-02-19'],
         ]);
 
+        $package2->flights()->createMany([
+            [
+                'from' => 'KUL',
+                'to' => 'JED',
+                'description' => 'Outbound',
+                'airline' => 'Emirates',
+                'pnr' => 'EMR456',
+                'departure_datetime' => '2026-02-10 08:00:00',
+                'arrival_datetime' => '2026-02-10 14:00:00',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'MED',
+                'to' => 'KUL',
+                'description' => 'Return',
+                'airline' => 'Emirates',
+                'pnr' => 'EMR456',
+                'departure_datetime' => '2026-02-20 11:00:00',
+                'arrival_datetime' => '2026-02-20 23:00:00',
+                'sort_order' => 2,
+            ],
+        ]);
+
         $package3 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Hajj Standard 2026',
@@ -86,10 +128,8 @@ class PackageSeeder extends Seeder
             'child_with_bed_price' => 7000.00,
             'child_no_bed_price' => 5500.00,
             'infant_price' => 2000.00,
-            'airline' => 'Saudi Airlines',
-            'pnr' => 'HJJ789',
             'departure_date' => '2026-06-01',
-            'arrival_date' => '2026-06-21',
+            'return_date' => '2026-06-21',
             'total_seats' => 50,
             'seats_left' => 50,
             'visa_type' => 'Hajj Visa',
@@ -107,6 +147,29 @@ class PackageSeeder extends Seeder
             ['location' => 'Taif', 'hotel_name' => 'InterContinental Taif', 'type_of_meal' => 'Breakfast', 'check_in' => '2026-06-10', 'check_out' => '2026-06-14'],
         ]);
 
+        $package3->flights()->createMany([
+            [
+                'from' => 'KUL',
+                'to' => 'JED',
+                'description' => 'Outbound',
+                'airline' => 'Saudi Airlines',
+                'pnr' => 'HJJ789',
+                'departure_datetime' => '2026-06-01 07:30:00',
+                'arrival_datetime' => '2026-06-01 13:45:00',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'MED',
+                'to' => 'KUL',
+                'description' => 'Return',
+                'airline' => 'Saudi Airlines',
+                'pnr' => 'HJJ789',
+                'departure_datetime' => '2026-06-21 09:15:00',
+                'arrival_datetime' => '2026-06-21 21:45:00',
+                'sort_order' => 2,
+            ],
+        ]);
+
         $package4 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Ramadan Special',
@@ -118,10 +181,8 @@ class PackageSeeder extends Seeder
             'child_with_bed_price' => 4000.00,
             'child_no_bed_price' => 3200.00,
             'infant_price' => 1000.00,
-            'airline' => 'Qatar Airways',
-            'pnr' => 'QTR321',
             'departure_date' => '2026-03-01',
-            'arrival_date' => '2026-03-15',
+            'return_date' => '2026-03-15',
             'total_seats' => 40,
             'seats_left' => 40,
             'visa_type' => 'Umrah Visa',
@@ -138,6 +199,29 @@ class PackageSeeder extends Seeder
             ['location' => 'Madinah', 'hotel_name' => 'Anwar Al Madinah Movenpick', 'type_of_meal' => 'Iftar & Suhoor', 'check_in' => '2026-03-12', 'check_out' => '2026-03-14'],
         ]);
 
+        $package4->flights()->createMany([
+            [
+                'from' => 'KUL',
+                'to' => 'JED',
+                'description' => 'Outbound',
+                'airline' => 'Qatar Airways',
+                'pnr' => 'QTR321',
+                'departure_datetime' => '2026-03-01 10:00:00',
+                'arrival_datetime' => '2026-03-01 16:00:00',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'MED',
+                'to' => 'KUL',
+                'description' => 'Return',
+                'airline' => 'Qatar Airways',
+                'pnr' => 'QTR321',
+                'departure_datetime' => '2026-03-15 12:00:00',
+                'arrival_datetime' => '2026-03-15 23:30:00',
+                'sort_order' => 2,
+            ],
+        ]);
+
         $package5 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Budget 7 Days',
@@ -149,10 +233,8 @@ class PackageSeeder extends Seeder
             'child_with_bed_price' => 1300.00,
             'child_no_bed_price' => 1000.00,
             'infant_price' => 400.00,
-            'airline' => 'AirAsia X',
-            'pnr' => 'AAX654',
             'departure_date' => '2025-12-01',
-            'arrival_date' => '2025-12-08',
+            'return_date' => '2025-12-08',
             'total_seats' => 35,
             'seats_left' => 0,
             'visa_type' => 'Umrah Visa',
@@ -167,6 +249,29 @@ class PackageSeeder extends Seeder
         $package5->accommodations()->createMany([
             ['location' => 'Mekkah', 'hotel_name' => 'Al Marwa Rayhaan', 'type_of_meal' => 'No Meals', 'check_in' => '2025-12-02', 'check_out' => '2025-12-05'],
             ['location' => 'Madinah', 'hotel_name' => 'Grand Mercure Madinah', 'type_of_meal' => 'No Meals', 'check_in' => '2025-12-05', 'check_out' => '2025-12-07'],
+        ]);
+
+        $package5->flights()->createMany([
+            [
+                'from' => 'KUL',
+                'to' => 'JED',
+                'description' => 'Outbound',
+                'airline' => 'AirAsia X',
+                'pnr' => 'AAX654',
+                'departure_datetime' => '2025-12-01 06:45:00',
+                'arrival_datetime' => '2025-12-01 13:00:00',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'MED',
+                'to' => 'KUL',
+                'description' => 'Return',
+                'airline' => 'AirAsia X',
+                'pnr' => 'AAX654',
+                'departure_datetime' => '2025-12-08 08:00:00',
+                'arrival_datetime' => '2025-12-08 19:30:00',
+                'sort_order' => 2,
+            ],
         ]);
     }
 }

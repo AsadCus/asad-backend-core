@@ -77,6 +77,8 @@ class OrderService
                             'invoice_date' => $i->invoice_date_formatted,
                             'due_date' => $i->due_date_formatted,
                             'status' => $i->status,
+                            'has_receipt' => $i->receipt->isNotEmpty(),
+                            'receipt_id' => $i->receipt->first()?->id,
                             'created_at' => $i->created_at?->translatedFormat('d F Y'),
                             'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
                         ];

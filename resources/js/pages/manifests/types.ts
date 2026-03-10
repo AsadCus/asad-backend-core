@@ -10,6 +10,7 @@ export interface CustomerMemberData {
         | 'pending_payment'
         | 'partially_paid'
         | 'confirmed'
+        | 'unavailable'
         | 'cancelled';
     sharing_plan?: string | null;
     role?: string | null;
@@ -62,10 +63,8 @@ export interface PackageAccommodationOption {
 }
 
 export interface PackageForManifestOption extends ValueNumberOptionType {
-    airline?: string;
-    pnr?: string;
     departure_date?: string;
-    arrival_date?: string;
+    return_date?: string;
     accommodations?: PackageAccommodationOption[];
 }
 
@@ -77,7 +76,6 @@ export interface ManifestFormData
     travelers?: TravelerSchema[];
     roomLists?: Record<string, TravelerSchema[]>;
     airlineList?: TravelerSchema[];
-    selected_confirmation_ids?: number[];
     roomListMakkah?: Record<number, TravelerSchema[]>;
     roomListMadinah?: Record<number, TravelerSchema[]>;
     roomListOthers?: Record<number, TravelerSchema[]>;
@@ -87,7 +85,6 @@ export interface ManifestFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: ManifestFormData;
     dataPackage?: ValueNumberOptionType[];
-    customerConfirmations?: CustomerConfirmationData[];
     onCancel: () => void;
 }
 

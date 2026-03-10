@@ -29,15 +29,7 @@ class ManifestWorkflowTest extends TestCase
 
         $payload = [
             'package_id' => $package->id,
-            'reference_number' => 'MAN-1001',
-            'company_address' => 'HQ Address',
-            'company_phone' => '0123456789',
-            'departure_date' => '2026-03-10',
-            'return_date' => '2026-03-20',
-            'duration' => '10D9N',
             'status' => 'draft',
-            'first_meal' => 'Breakfast',
-            'last_meal' => 'Dinner',
             'travelers' => [
                 [
                     'sn' => 1,
@@ -89,10 +81,6 @@ class ManifestWorkflowTest extends TestCase
             'bed_type' => 'SINGLE',
         ]);
 
-        $this->assertIsArray($manifest->flight_details);
-        $this->assertArrayHasKey('ui_room_lists', $manifest->flight_details);
-        $this->assertArrayHasKey('ui_airline_list', $manifest->flight_details);
-
         $this->assertDatabaseHas('manifest_accommodation_assignments', [
             'manifest_id' => $manifest->id,
             'accommodation_key' => 'makkah',
@@ -111,9 +99,7 @@ class ManifestWorkflowTest extends TestCase
 
         $manifest = Manifest::create([
             'package_id' => $package->id,
-            'reference_number' => 'MAN-2002',
-            'departure_date' => '2026-04-01',
-            'return_date' => '2026-04-12',
+            'manifest_number' => 'MAN-2002',
             'status' => 'draft',
         ]);
 
@@ -148,9 +134,6 @@ class ManifestWorkflowTest extends TestCase
 
         $payload = [
             'package_id' => $package->id,
-            'reference_number' => 'MAN-3003',
-            'departure_date' => '2026-05-01',
-            'return_date' => '2026-05-10',
             'status' => 'draft',
             'travelers' => [
                 [
@@ -200,9 +183,6 @@ class ManifestWorkflowTest extends TestCase
 
         $payload = [
             'package_id' => $package->id,
-            'reference_number' => 'MAN-4004',
-            'departure_date' => '2026-06-01',
-            'return_date' => '2026-06-10',
             'status' => 'draft',
             'travelers' => [
                 [
@@ -306,9 +286,6 @@ class ManifestWorkflowTest extends TestCase
 
         $payload = [
             'package_id' => $manifestPackage->id,
-            'reference_number' => 'MAN-PACKAGE-MISMATCH',
-            'departure_date' => '2026-07-01',
-            'return_date' => '2026-07-10',
             'status' => 'draft',
             'travelers' => [
                 [
@@ -322,9 +299,7 @@ class ManifestWorkflowTest extends TestCase
         $this->post(route('manifests.store'), $payload)
             ->assertSessionHasErrors('travelers');
 
-        $this->assertDatabaseMissing('manifests', [
-            'reference_number' => 'MAN-PACKAGE-MISMATCH',
-        ]);
+        $this->assertSame(0, Manifest::count());
     }
 
     public function test_manifest_traveler_can_be_moved_to_holding_confirmation(): void
@@ -367,9 +342,7 @@ class ManifestWorkflowTest extends TestCase
 
         $manifest = Manifest::create([
             'package_id' => $sourcePackage->id,
-            'reference_number' => 'MNF-HOLD-001',
-            'departure_date' => '2026-08-01',
-            'return_date' => '2026-08-10',
+            'manifest_number' => 'MNF-HOLD-001',
             'status' => 'confirmed',
         ]);
 

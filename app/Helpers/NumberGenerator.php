@@ -15,7 +15,8 @@ class NumberGenerator
         'receipt' => ['prefix' => 'R', 'padding' => 4],
         'schedule' => ['prefix' => 'SCH', 'padding' => 4],
         'agreement' => ['prefix' => 'AGR', 'padding' => 4],
-        'package' => ['prefix' => 'PKG', 'padding' => 4],
+        'package' => ['prefix' => 'KTG', 'padding' => 3],
+        'manifest' => ['prefix' => 'KTG-UMR', 'padding' => 3],
         'customer_confirmation' => ['prefix' => 'CC', 'padding' => 4],
     ];
 

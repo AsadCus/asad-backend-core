@@ -167,6 +167,7 @@ export const confirmationMemberStatusColors: Record<string, string> = {
     pending_payment: 'bg-amber-100 text-amber-800',
     partially_paid: 'bg-blue-100 text-blue-800',
     confirmed: 'bg-green-100 text-green-800',
+    unavailable: 'bg-orange-100 text-orange-800',
     cancelled: 'bg-red-100 text-red-800',
 };
 
@@ -175,6 +176,7 @@ export const confirmationMemberStatusLabels: Record<string, string> = {
     pending_payment: 'Pending Payment',
     partially_paid: 'Partially Paid',
     confirmed: 'Confirmed',
+    unavailable: 'Unavailable',
     cancelled: 'Cancelled',
 };
 

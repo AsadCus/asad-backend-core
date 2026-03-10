@@ -440,7 +440,9 @@ class EnquirySeeder extends Seeder
     {
         $basePrice = fake()->randomFloat(2, 3000, 7000);
         $departureDate = now()->addDays(fake()->numberBetween(20, 180));
-        $arrivalDate = (clone $departureDate)->addDays(fake()->numberBetween(8, 14));
+        $returnDate = (clone $departureDate)->addDays(fake()->numberBetween(8, 14));
+        $airline = fake()->randomElement(['Saudia Airlines', 'Emirates', 'Qatar Airways']);
+        $pnr = strtoupper(fake()->bothify('??###'));
 
         $package = Package::create([
             'package_number' => NumberGenerator::generate('package'),
@@ -453,10 +455,8 @@ class EnquirySeeder extends Seeder
             'child_with_bed_price' => max($basePrice - 1800, 700),
             'child_no_bed_price' => max($basePrice - 2200, 600),
             'infant_price' => 450,
-            'airline' => fake()->randomElement(['Saudia Airlines', 'Emirates', 'Qatar Airways']),
-            'pnr' => strtoupper(fake()->bothify('??###')),
             'departure_date' => $departureDate->toDateString(),
-            'arrival_date' => $arrivalDate->toDateString(),
+            'return_date' => $returnDate->toDateString(),
             'total_seats' => fake()->numberBetween(8, 20),
             'seats_left' => fake()->numberBetween(2, 8),
             'visa_type' => 'Umrah Visa',
@@ -481,7 +481,30 @@ class EnquirySeeder extends Seeder
                 'hotel_name' => fake()->company().' Madinah',
                 'type_of_meal' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
                 'check_in' => $departureDate->copy()->addDays(6)->toDateString(),
-                'check_out' => $arrivalDate->copy()->subDay()->toDateString(),
+                'check_out' => $returnDate->copy()->subDay()->toDateString(),
+            ],
+        ]);
+
+        $package->flights()->createMany([
+            [
+                'from' => 'KUL',
+                'to' => 'JED',
+                'description' => 'Outbound',
+                'airline' => $airline,
+                'pnr' => $pnr,
+                'departure_datetime' => $departureDate->copy()->setTime(9, 0)->toDateTimeString(),
+                'arrival_datetime' => $departureDate->copy()->setTime(15, 0)->toDateTimeString(),
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'MED',
+                'to' => 'KUL',
+                'description' => 'Return',
+                'airline' => $airline,
+                'pnr' => $pnr,
+                'departure_datetime' => $returnDate->copy()->setTime(10, 30)->toDateTimeString(),
+                'arrival_datetime' => $returnDate->copy()->setTime(22, 30)->toDateTimeString(),
+                'sort_order' => 2,
             ],
         ]);
 

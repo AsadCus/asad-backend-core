@@ -5,6 +5,38 @@ import { Button } from './ui/button';
 import { Calendar } from './ui/calendar';
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from './ui/select';
+
+function formatWithTime(dateStr: string, h: number, m: number): string {
+    if (!dateStr) return '';
+    return `${dateStr} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function parseTimeFromValue(value?: string): {
+    datePart: string;
+    hours: number;
+    minutes: number;
+} {
+    if (!value) return { datePart: '', hours: 0, minutes: 0 };
+    const match = value.match(/\s(\d{1,2}):(\d{1,2})\s*$/);
+    if (match) {
+        return {
+            datePart: value.slice(0, match.index).trim(),
+            hours: parseInt(match[1], 10),
+            minutes: parseInt(match[2], 10),
+        };
+    }
+    return { datePart: value, hours: 0, minutes: 0 };
+}
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => i);
 
 export function DatePickerField({
     id,
@@ -14,6 +46,7 @@ export function DatePickerField({
     disabled,
     disabledDates,
     quickDate = false,
+    useTime = false,
     onChange,
 }: {
     id: string;
@@ -23,13 +56,23 @@ export function DatePickerField({
     disabled: boolean;
     disabledDates?: (date: Date) => boolean;
     quickDate?: boolean;
+    useTime?: boolean;
     onChange: (value: string) => void;
 }) {
+    const initialTime = parseTimeFromValue(value);
+
     const [open, setOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(() =>
-        parseDisplayDate(value),
+        parseDisplayDate(useTime ? initialTime.datePart : value),
     );
     const [month, setMonth] = useState<Date | undefined>(selectedDate);
+    const [hours, setHours] = useState(initialTime.hours);
+    const [minutes, setMinutes] = useState(initialTime.minutes);
+
+    function emitDateTime(date: Date | undefined, h: number, m: number) {
+        const dateStr = formatDateForDisplay(date);
+        onChange(dateStr ? formatWithTime(dateStr, h, m) : '');
+    }
 
     function getQuickDate(type: string) {
         const date = new Date();
@@ -63,14 +106,27 @@ export function DatePickerField({
             <Input
                 id={id}
                 value={value ?? ''}
-                placeholder={formatDateForDisplay(new Date())}
+                placeholder={
+                    useTime
+                        ? `${formatDateForDisplay(new Date())} 00:00`
+                        : formatDateForDisplay(new Date())
+                }
                 className="pr-10"
                 disabled={disabled}
                 onChange={(e) => {
                     onChange(e.target.value);
-                    const parsed = parseDisplayDate(e.target.value);
-                    setSelectedDate(parsed);
-                    setMonth(parsed);
+                    if (useTime) {
+                        const parsed = parseTimeFromValue(e.target.value);
+                        const d = parseDisplayDate(parsed.datePart);
+                        setSelectedDate(d);
+                        setMonth(d);
+                        setHours(parsed.hours);
+                        setMinutes(parsed.minutes);
+                    } else {
+                        const parsed = parseDisplayDate(e.target.value);
+                        setSelectedDate(parsed);
+                        setMonth(parsed);
+                    }
                 }}
                 onKeyDown={(e) => {
                     if (e.key === 'ArrowDown') {
@@ -98,23 +154,103 @@ export function DatePickerField({
                         sideOffset={10}
                     >
                         <div className="flex justify-between">
-                            <Calendar
-                                mode="single"
-                                selected={selectedDate}
-                                captionLayout="dropdown"
-                                month={month}
-                                fromYear={fromYear}
-                                toYear={toYear}
-                                disabled={disabledDates}
-                                onMonthChange={setMonth}
-                                onSelect={(date) => {
-                                    setSelectedDate(date ?? undefined);
-                                    onChange(
-                                        formatDateForDisplay(date ?? undefined),
-                                    );
-                                    setOpen(false);
-                                }}
-                            />
+                            <div>
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedDate}
+                                    captionLayout="dropdown"
+                                    month={month}
+                                    fromYear={fromYear}
+                                    toYear={toYear}
+                                    disabled={disabledDates}
+                                    onMonthChange={setMonth}
+                                    onSelect={(date) => {
+                                        setSelectedDate(date ?? undefined);
+                                        if (useTime) {
+                                            emitDateTime(
+                                                date ?? undefined,
+                                                hours,
+                                                minutes,
+                                            );
+                                        } else {
+                                            onChange(
+                                                formatDateForDisplay(
+                                                    date ?? undefined,
+                                                ),
+                                            );
+                                            setOpen(false);
+                                        }
+                                    }}
+                                />
+                                {useTime && (
+                                    <div className="flex items-center gap-2 border-t px-3 py-2">
+                                        <span className="text-sm font-medium text-muted-foreground">
+                                            Time
+                                        </span>
+                                        <Select
+                                            value={String(hours)}
+                                            onValueChange={(v) => {
+                                                const h = Number(v);
+                                                setHours(h);
+                                                emitDateTime(
+                                                    selectedDate,
+                                                    h,
+                                                    minutes,
+                                                );
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-[70px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {HOUR_OPTIONS.map((i) => (
+                                                    <SelectItem
+                                                        key={i}
+                                                        value={String(i)}
+                                                    >
+                                                        {String(i).padStart(
+                                                            2,
+                                                            '0',
+                                                        )}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <span className="text-sm font-medium">
+                                            :
+                                        </span>
+                                        <Select
+                                            value={String(minutes)}
+                                            onValueChange={(v) => {
+                                                const m = Number(v);
+                                                setMinutes(m);
+                                                emitDateTime(
+                                                    selectedDate,
+                                                    hours,
+                                                    m,
+                                                );
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-[70px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {MINUTE_OPTIONS.map((i) => (
+                                                    <SelectItem
+                                                        key={i}
+                                                        value={String(i)}
+                                                    >
+                                                        {String(i).padStart(
+                                                            2,
+                                                            '0',
+                                                        )}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
                             {quickDate && (
                                 <div className="flex min-w-[160px] flex-col gap-1 border-l p-3">
                                     <p className="mb-2 text-sm font-medium">

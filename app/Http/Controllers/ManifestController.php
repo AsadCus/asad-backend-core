@@ -41,11 +41,9 @@ class ManifestController extends Controller
     public function create(): \Inertia\Response
     {
         $dataPackage = $this->packageService->getForFilter();
-        $customerConfirmations = $this->manifestService->getCustomerConfirmationsForManifest();
 
         return Inertia::render('manifests/create', [
             'dataPackage' => $dataPackage,
-            'customerConfirmations' => $customerConfirmations,
         ]);
     }
 
@@ -56,6 +54,7 @@ class ManifestController extends Controller
     {
         $normalizedPayload = $this->normalizeManifestPayload($request->all());
         $validated = validator($normalizedPayload, $this->manifestRule->rules())->validate();
+        $validated['roomLists'] = $normalizedPayload['roomLists'] ?? [];
         $this->ensureTravelerPackageMatchesManifestPackage($validated);
         $this->manifestService->store($validated);
 
@@ -70,12 +69,10 @@ class ManifestController extends Controller
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
-        $customerConfirmations = $this->manifestService->getCustomerConfirmationsForManifest();
 
         return Inertia::render('manifests/show', [
             'data' => $manifest,
             'dataPackage' => $dataPackage,
-            'customerConfirmations' => $customerConfirmations,
         ]);
     }
 
@@ -86,12 +83,10 @@ class ManifestController extends Controller
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
-        $customerConfirmations = $this->manifestService->getCustomerConfirmationsForManifest();
 
         return Inertia::render('manifests/edit', [
             'data' => $manifest,
             'dataPackage' => $dataPackage,
-            'customerConfirmations' => $customerConfirmations,
         ]);
     }
 
@@ -102,6 +97,7 @@ class ManifestController extends Controller
     {
         $normalizedPayload = $this->normalizeManifestPayload($request->all());
         $validated = validator($normalizedPayload, $this->manifestRule->rules((int) $id))->validate();
+        $validated['roomLists'] = $normalizedPayload['roomLists'] ?? [];
         $this->ensureTravelerPackageMatchesManifestPackage($validated);
         $this->manifestService->update($validated, (int) $id);
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Helpers\NumberGenerator;
+use App\Models\Manifest;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
 use Illuminate\Support\Facades\DB;
@@ -12,9 +13,12 @@ class PackageService
 {
     protected $formatService;
 
-    public function __construct(FormatService $formatService)
+    protected PackageSeatService $packageSeatService;
+
+    public function __construct(FormatService $formatService, PackageSeatService $packageSeatService)
     {
         $this->formatService = $formatService;
+        $this->packageSeatService = $packageSeatService;
     }
 
     public function get()
@@ -29,8 +33,7 @@ class PackageService
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('name', 'like', "%{$value}%")
-                        ->orWhere('package_number', 'like', "%{$value}%")
-                        ->orWhere('airline', 'like', "%{$value}%");
+                        ->orWhere('package_number', 'like', "%{$value}%");
                 });
             })
             ->when($filters['status'] ?? null, function ($q, $value) {
@@ -45,14 +48,10 @@ class PackageService
                     'name' => $q->name,
                     'status' => $q->status,
                     'launched' => $q->launched,
-                    'airline' => $q->airline,
                     'departure_date' => $q->departure_date_formatted,
-                    'arrival_date' => $q->arrival_date_formatted,
+                    'return_date' => $q->return_date_formatted,
                     'total_seats' => $q->total_seats,
                     'seats_left' => $q->seats_left,
-                    'price_quad' => $this->formatService->formatCurrency($q->price_quad),
-                    'manifests_count' => $q->manifests_count,
-                    'created_at' => $q->created_at?->translatedFormat('d F Y'),
                 ];
             });
 
@@ -61,14 +60,12 @@ class PackageService
 
     public function getForFilter()
     {
-        return Package::with('accommodations')->get()->map(function ($q) {
+        return Package::with(['accommodations', 'flights'])->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => $q->name,
-                'airline' => $q->airline,
-                'pnr' => $q->pnr,
                 'departure_date' => $q->departure_date_formatted,
-                'arrival_date' => $q->arrival_date_formatted,
+                'return_date' => $q->return_date_formatted,
                 'accommodations' => $q->accommodations->map(function ($accommodation) {
                     return [
                         'id' => $accommodation->id,
@@ -99,12 +96,10 @@ class PackageService
                 'child_with_bed_price' => $data['child_with_bed_price'] ?? 0,
                 'child_no_bed_price' => $data['child_no_bed_price'] ?? 0,
                 'infant_price' => $data['infant_price'] ?? 0,
-                'airline' => $data['airline'] ?? null,
-                'pnr' => $data['pnr'] ?? null,
                 'departure_date' => $data['departure_date'] ?? null,
-                'arrival_date' => $data['arrival_date'] ?? null,
+                'return_date' => $data['return_date'] ?? null,
                 'total_seats' => $data['total_seats'] ?? null,
-                'seats_left' => $data['seats_left'] ?? null,
+                'seats_left' => $data['total_seats'] ?? null,
                 'visa_type' => $data['visa_type'] ?? null,
                 'vehicle_type' => $data['vehicle_type'] ?? null,
                 'ticket_type' => $data['ticket_type'] ?? null,
@@ -126,6 +121,20 @@ class PackageService
                 }
             }
 
+            $this->syncFlights($package, $data['flights'] ?? []);
+            $this->syncOfficials($package, $data['officials'] ?? []);
+
+            // Auto-create manifest for this package
+            $manifestNumber = NumberGenerator::generate('manifest');
+            $manifest = Manifest::create([
+                'package_id' => $package->id,
+                'manifest_number' => $manifestNumber,
+                'status' => 'draft',
+            ]);
+
+            $this->syncManifestOfficialTravelers($manifest, $package);
+            $this->packageSeatService->recalculateForPackageId((int) $package->id);
+
             activity()
                 ->performedOn($package)
                 ->withProperties(['subject_type' => 'Package', 'subject_id' => $package->id])
@@ -137,7 +146,7 @@ class PackageService
 
     public function getForEditShow($id): array
     {
-        $package = Package::with('accommodations')->findOrFail($id);
+        $package = Package::with(['accommodations', 'flights', 'officials'])->findOrFail($id);
 
         return [
             'id' => $package->id,
@@ -152,12 +161,11 @@ class PackageService
             'child_with_bed_price' => $this->formatService->cleanDecimal($package->child_with_bed_price),
             'child_no_bed_price' => $this->formatService->cleanDecimal($package->child_no_bed_price),
             'infant_price' => $this->formatService->cleanDecimal($package->infant_price),
-            'airline' => $package->airline,
-            'pnr' => $package->pnr,
             'departure_date' => $package->departure_date_formatted,
-            'arrival_date' => $package->arrival_date_formatted,
+            'return_date' => $package->return_date_formatted,
             'total_seats' => $package->total_seats,
             'seats_left' => $package->seats_left,
+            'occupied_seats' => $this->packageSeatService->occupiedSeatsCount((int) $package->id),
             'visa_type' => $package->visa_type,
             'vehicle_type' => $package->vehicle_type,
             'ticket_type' => $package->ticket_type,
@@ -173,6 +181,26 @@ class PackageService
                     'type_of_meal' => $a->type_of_meal,
                     'check_in' => $a->check_in_formatted,
                     'check_out' => $a->check_out_formatted,
+                ];
+            })->toArray(),
+            'flights' => $package->flights->map(function ($f) {
+                return [
+                    'id' => $f->id,
+                    'from' => $f->from,
+                    'to' => $f->to,
+                    'description' => $f->description,
+                    'airline' => $f->airline,
+                    'pnr' => $f->pnr,
+                    'departure_datetime' => $f->departure_datetime_formatted,
+                    'arrival_datetime' => $f->arrival_datetime_formatted,
+                ];
+            })->toArray(),
+            'officials' => $package->officials->map(function ($o) {
+                return [
+                    'id' => $o->id,
+                    'type' => $o->type,
+                    'name' => $o->name,
+                    'contact_number' => $o->contact_number,
                 ];
             })->toArray(),
         ];
@@ -193,12 +221,9 @@ class PackageService
                 'child_with_bed_price' => $data['child_with_bed_price'] ?? $package->child_with_bed_price,
                 'child_no_bed_price' => $data['child_no_bed_price'] ?? $package->child_no_bed_price,
                 'infant_price' => $data['infant_price'] ?? $package->infant_price,
-                'airline' => $data['airline'] ?? $package->airline,
-                'pnr' => $data['pnr'] ?? $package->pnr,
                 'departure_date' => $data['departure_date'] ?? $package->departure_date,
-                'arrival_date' => $data['arrival_date'] ?? $package->arrival_date,
+                'return_date' => $data['return_date'] ?? $package->return_date,
                 'total_seats' => $data['total_seats'] ?? $package->total_seats,
-                'seats_left' => $data['seats_left'] ?? $package->seats_left,
                 'visa_type' => $data['visa_type'] ?? $package->visa_type,
                 'vehicle_type' => $data['vehicle_type'] ?? $package->vehicle_type,
                 'ticket_type' => $data['ticket_type'] ?? $package->ticket_type,
@@ -220,6 +245,17 @@ class PackageService
                     ]);
                 }
             }
+
+            if (isset($data['flights'])) {
+                $this->syncFlights($package, $data['flights']);
+            }
+
+            if (isset($data['officials'])) {
+                $this->syncOfficials($package, $data['officials']);
+                $this->syncPackageOfficialsIntoManifests($package);
+            }
+
+            $this->packageSeatService->recalculateForPackageId((int) $package->id);
 
             $package = $package->fresh();
 
@@ -265,13 +301,36 @@ class PackageService
             'total_seats' => $totalSeats,
             'seats_left' => $totalSeats,
             'accommodations' => [],
+            'flights' => [],
+            'officials' => [],
         ];
 
-        $this->setIfNotEmpty($payload, 'airline', $privateEnquiry->airline);
         $this->setIfNotEmpty($payload, 'departure_date', $privateEnquiry->departure_date_formatted);
-        $this->setIfNotEmpty($payload, 'arrival_date', $privateEnquiry->return_date_formatted);
+        $this->setIfNotEmpty($payload, 'return_date', $privateEnquiry->return_date_formatted);
         $this->setIfNotEmpty($payload, 'vehicle_type', $privateEnquiry->land_transfer);
         $this->setIfNotEmpty($payload, 'ticket_type', $privateEnquiry->add_on_speed_train ? 'speed_train' : null);
+
+        // Build default flight from enquiry airline info
+        if (! empty($privateEnquiry->airline)) {
+            $payload['flights'][] = [
+                'from' => null,
+                'to' => null,
+                'description' => 'Departure',
+                'airline' => $privateEnquiry->airline,
+                'pnr' => null,
+                'departure_datetime' => null,
+                'arrival_datetime' => null,
+            ];
+            $payload['flights'][] = [
+                'from' => null,
+                'to' => null,
+                'description' => 'Return',
+                'airline' => $privateEnquiry->airline,
+                'pnr' => null,
+                'departure_datetime' => null,
+                'arrival_datetime' => null,
+            ];
+        }
 
         $included = [];
         $notIncluded = [];
@@ -385,7 +444,9 @@ class PackageService
             $packageNumber = NumberGenerator::generate('package');
 
             $payload = $this->privateEnquiryToPackagePayload($privateEnquiry);
-            unset($payload['accommodations']);
+            $flights = $payload['flights'] ?? [];
+            $officials = $payload['officials'] ?? [];
+            unset($payload['accommodations'], $payload['flights'], $payload['officials']);
 
             $package = Package::create(array_merge(
                 [
@@ -436,6 +497,26 @@ class PackageService
                 ]);
             }
 
+            // Sync flights and officials from payload
+            if (! empty($flights)) {
+                $this->syncFlights($package, $flights);
+            }
+
+            if (! empty($officials)) {
+                $this->syncOfficials($package, $officials);
+            }
+
+            // Auto-create manifest for this package
+            $manifestNumber = NumberGenerator::generate('manifest');
+            $manifest = Manifest::create([
+                'package_id' => $package->id,
+                'manifest_number' => $manifestNumber,
+                'status' => 'draft',
+            ]);
+
+            $this->syncManifestOfficialTravelers($manifest, $package);
+            $this->packageSeatService->recalculateForPackageId((int) $package->id);
+
             activity()
                 ->performedOn($package)
                 ->withProperties([
@@ -453,6 +534,88 @@ class PackageService
 
             return $package;
         });
+    }
+
+    /**
+     * Sync flight details for a package (delete + recreate).
+     *
+     * @param  array<int, array<string, mixed>>  $flights
+     */
+    private function syncFlights(Package $package, array $flights): void
+    {
+        $package->flights()->delete();
+
+        foreach ($flights as $index => $flight) {
+            $package->flights()->create([
+                'from' => $flight['from'] ?? null,
+                'to' => $flight['to'] ?? null,
+                'description' => $flight['description'] ?? null,
+                'airline' => $flight['airline'] ?? null,
+                'pnr' => $flight['pnr'] ?? null,
+                'departure_datetime' => $flight['departure_datetime'] ?? null,
+                'arrival_datetime' => $flight['arrival_datetime'] ?? null,
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    /**
+     * Sync officials for a package (delete + recreate).
+     *
+     * @param  array<int, array<string, mixed>>  $officials
+     */
+    private function syncOfficials(Package $package, array $officials): void
+    {
+        $package->officials()->delete();
+
+        foreach ($officials as $index => $official) {
+            $package->officials()->create([
+                'type' => $official['type'] ?? null,
+                'name' => $official['name'] ?? null,
+                'contact_number' => $official['contact_number'] ?? null,
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    private function syncPackageOfficialsIntoManifests(Package $package): void
+    {
+        $package->loadMissing(['officials', 'manifests']);
+
+        foreach ($package->manifests as $manifest) {
+            $this->syncManifestOfficialTravelers($manifest, $package);
+        }
+    }
+
+    private function syncManifestOfficialTravelers(Manifest $manifest, Package $package): void
+    {
+        $officialTravelerMarker = '[package-official]';
+
+        $manifest->travelers()
+            ->whereNull('customer_id')
+            ->whereNull('customer_confirmation_member_id')
+            ->where('remarks', 'like', $officialTravelerMarker.'%')
+            ->delete();
+
+        $nextSn = ((int) $manifest->travelers()->max('sn')) + 1;
+
+        $package->loadMissing('officials');
+
+        foreach ($package->officials as $official) {
+            $displayName = trim((string) ($official->name ?? ''));
+
+            if ($displayName === '') {
+                $displayName = ucfirst((string) ($official->type ?? 'Official'));
+            }
+
+            $manifest->travelers()->create([
+                'sn' => $nextSn++,
+                'name_as_per_passport' => $displayName,
+                'relationship' => 'official',
+                'status' => 'assigned',
+                'remarks' => $officialTravelerMarker.' '.($official->type ?? 'official'),
+            ]);
+        }
     }
 
     /**

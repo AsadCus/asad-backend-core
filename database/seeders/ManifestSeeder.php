@@ -2,8 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Helpers\NumberGenerator;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\Package;
+use App\Models\QuotationItem;
+use App\Models\ReceiptAllocation;
 use Illuminate\Database\Seeder;
 
 class ManifestSeeder extends Seeder
@@ -22,49 +26,62 @@ class ManifestSeeder extends Seeder
         }
 
         foreach ($packages as $package) {
-            $manifestExists = Manifest::query()->where('package_id', $package->id)->exists();
-            if ($manifestExists) {
-                continue;
+            $manifest = Manifest::query()->firstOrCreate(
+                ['package_id' => $package->id],
+                [
+                    'manifest_number' => NumberGenerator::generate('manifest'),
+                    'notes' => 'Seeded manifest for package workflow validation.',
+                    'status' => 'draft',
+                ]
+            );
+
+            $paidMembers = CustomerConfirmationMember::query()
+                ->whereHas('confirmation', function ($query) use ($package): void {
+                    $query->where('package_id', $package->id);
+                })
+                ->whereHas('receiptAllocations', function ($query): void {
+                    $query->where('allocated_amount', '>', 0);
+                })
+                ->with(['customer.user'])
+                ->orderBy('id')
+                ->get();
+
+            foreach ($paidMembers as $member) {
+                $alreadyLinked = $manifest->travelers()
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->exists();
+
+                if ($alreadyLinked) {
+                    continue;
+                }
+
+                $nextSn = ($manifest->travelers()->max('sn') ?? 0) + 1;
+
+                $totalCost = (float) QuotationItem::query()
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->where('is_header', false)
+                    ->get()
+                    ->sum(function (QuotationItem $item): float {
+                        return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                    });
+
+                $totalPaid = (float) ReceiptAllocation::query()
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->sum('allocated_amount');
+
+                $manifest->travelers()->create([
+                    'sn' => $nextSn,
+                    'customer_id' => $member->customer_id,
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => $member->customer?->user?->name ?? 'Member #'.$member->id,
+                    'total_cost' => round($totalCost, 2),
+                    'total_paid' => round($totalPaid, 2),
+                    'outstanding_amount' => round(max(0, $totalCost - $totalPaid), 2),
+                    'status' => 'assigned',
+                ]);
             }
-
-            $firstAccommodation = $package->accommodations->first();
-            $lastAccommodation = $package->accommodations->last();
-            $departureDate = $package->departure_date ?? now()->addDays(30);
-            $returnDate = $package->arrival_date ?? $departureDate->copy()->addDays(10);
-
-            Manifest::query()->create([
-                'package_id' => $package->id,
-                'reference_number' => 'MNF-'.now()->format('Y').'-'.str_pad((string) $package->id, 4, '0', STR_PAD_LEFT),
-                'company_address' => 'Seeded company address',
-                'company_phone' => '+60 3-0000 0000',
-                'departure_date' => $departureDate->toDateString(),
-                'return_date' => $returnDate->toDateString(),
-                'duration' => $departureDate->diffInDays($returnDate).' Days',
-                'makkah_hotel' => $firstAccommodation?->hotel_name,
-                'makkah_check_in' => $firstAccommodation?->check_in?->toDateString(),
-                'makkah_check_out' => $firstAccommodation?->check_out?->toDateString(),
-                'madinah_hotel' => $lastAccommodation?->hotel_name,
-                'madinah_check_in' => $lastAccommodation?->check_in?->toDateString(),
-                'madinah_check_out' => $lastAccommodation?->check_out?->toDateString(),
-                'flight_details' => [
-                    [
-                        'type' => 'Departure',
-                        'airline' => $package->airline,
-                        'date' => $departureDate->toDateString(),
-                    ],
-                    [
-                        'type' => 'Return',
-                        'airline' => $package->airline,
-                        'date' => $returnDate->toDateString(),
-                    ],
-                ],
-                'notes' => 'Seeded empty manifest for package workflow validation.',
-                'first_meal' => $firstAccommodation?->type_of_meal,
-                'last_meal' => $lastAccommodation?->type_of_meal,
-                'status' => 'draft',
-            ]);
         }
 
-        $this->command->info('Manifests seeded successfully (without traveler assignments).');
+        $this->command->info('Manifests seeded successfully (with paid traveler assignments).');
     }
 }

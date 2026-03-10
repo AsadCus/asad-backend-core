@@ -82,9 +82,8 @@ interface LinkedPackageInfo {
     id: number;
     name: string;
     status?: string;
-    airline?: string | null;
     departure_date?: string | null;
-    arrival_date?: string | null;
+    return_date?: string | null;
     total_seats?: number | null;
     seats_left?: number | null;
     visa_type?: string | null;
@@ -175,9 +174,8 @@ export default function CustomerConfirmationForm({
                 id: pkg.id,
                 name: pkg.name,
                 status: pkg.status,
-                airline: pkg.airline,
                 departure_date: pkg.departure_date,
-                arrival_date: pkg.arrival_date,
+                return_date: pkg.return_date,
                 total_seats: pkg.total_seats,
                 seats_left: pkg.seats_left,
                 visa_type: pkg.visa_type,
@@ -301,9 +299,8 @@ export default function CustomerConfirmationForm({
                 id: packageData.id,
                 name: packageData.name ?? '-',
                 status: packageData.status,
-                airline: packageData.airline,
                 departure_date: packageData.departure_date,
-                arrival_date: packageData.arrival_date,
+                return_date: packageData.return_date,
                 total_seats: packageData.total_seats,
                 seats_left: packageData.seats_left,
                 visa_type: packageData.visa_type,
@@ -332,9 +329,8 @@ export default function CustomerConfirmationForm({
                 id: Number(packageId),
                 name: selectedOption.label,
                 status: current?.status,
-                airline: current?.airline,
                 departure_date: current?.departure_date,
-                arrival_date: current?.arrival_date,
+                return_date: current?.return_date,
                 total_seats: current?.total_seats,
                 seats_left: current?.seats_left,
                 visa_type: current?.visa_type,
@@ -965,7 +961,9 @@ export default function CustomerConfirmationForm({
                     <CardContent>
                         {data.number && (
                             <div className="mb-4 flex items-center gap-2">
-                                <Label className="font-semibold">Confirmation Number:</Label>
+                                <Label className="font-semibold">
+                                    Confirmation Number:
+                                </Label>
                                 <Badge variant="outline" className="font-mono">
                                     {data.number}
                                 </Badge>

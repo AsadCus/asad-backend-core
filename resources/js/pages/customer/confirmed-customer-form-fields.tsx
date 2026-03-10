@@ -30,6 +30,7 @@ const statusOptions = [
     { value: 'pending_payment', label: 'Pending Payment' },
     { value: 'partially_paid', label: 'Partially Paid' },
     { value: 'confirmed', label: 'Confirmed' },
+    { value: 'unavailable', label: 'Unavailable' },
     { value: 'cancelled', label: 'Cancelled' },
 ] as const;
 

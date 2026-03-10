@@ -88,18 +88,19 @@ class CustomerConfirmationController extends Controller
     public function destroy(Request $request, string $id)
     {
         $ids = $request->input('ids');
+        $redirectTarget = $this->resolveIndexRedirectTarget();
 
         if ($ids && is_array($ids)) {
             foreach ($ids as $groupId) {
                 $this->customerConfirmationService->deleteGroup((int) $groupId);
             }
 
-            return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Selected customer confirmations deleted successfully.');
+            return back(fallback: $redirectTarget)->with('success', 'Selected customer confirmations deleted successfully.');
         }
 
         $this->customerConfirmationService->deleteGroup((int) $id);
 
-        return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Customer confirmation deleted successfully.');
+        return back(fallback: $redirectTarget)->with('success', 'Customer confirmation deleted successfully.');
     }
 
     /**
@@ -154,7 +155,7 @@ class CustomerConfirmationController extends Controller
             'photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
             'passport_path' => ['nullable', 'string'],
             'photo_path' => ['nullable', 'string'],
-            'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled'],
+            'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled,unavailable'],
             'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'role' => ['nullable', 'string', 'max:255'],
         ]);
@@ -416,5 +417,16 @@ class CustomerConfirmationController extends Controller
         }
 
         return $token;
+    }
+
+    private function resolveIndexRedirectTarget(): string
+    {
+        $previousPath = parse_url(url()->previous(), PHP_URL_PATH);
+
+        if (is_string($previousPath) && Str::startsWith($previousPath, '/customer-holding')) {
+            return route('customer-holding.index');
+        }
+
+        return route('confirmed-customer.index');
     }
 }

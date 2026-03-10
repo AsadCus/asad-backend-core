@@ -435,7 +435,8 @@ class CustomerConfirmationService
 
             $isPrivateEnquiry = strtolower((string) ($group->enquiry?->type ?? '')) === 'private';
             $hasExistingPackage = ! empty($group->package_id);
-            $requestedPackageId = $data['package_id'] ?? $group->package_id;
+            // $requestedPackageId = $data['package_id'] ?? $group->package_id;
+            $requestedPackageId = $data['package_id'] ?? null;
 
             if (
                 $isPrivateEnquiry
@@ -446,7 +447,8 @@ class CustomerConfirmationService
             }
 
             $group->update([
-                'package_id' => $data['package_id'] ?? $group->package_id,
+                // 'package_id' => $data['package_id'] ?? $group->package_id,
+                'package_id' => $data['package_id'] ?? null,
                 'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
                 'package_category' => $data['package_category'] ?? $group->package_category,
                 'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
@@ -660,6 +662,16 @@ class CustomerConfirmationService
                 'role' => $data['role'] ?? $member->role,
             ]);
 
+            if (in_array($member->status, ['cancelled', 'unavailable'], true)) {
+                ManifestTraveler::query()
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->update(['status' => 'cancelled']);
+            }
+
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($member->confirmation?->package_id ?? 0),
+            );
+
             $member->refresh();
             $member->load('customer.user');
 
@@ -702,6 +714,14 @@ class CustomerConfirmationService
             $member->update([
                 'status' => 'cancelled',
             ]);
+
+            ManifestTraveler::query()
+                ->where('customer_confirmation_member_id', $member->id)
+                ->update(['status' => 'cancelled']);
+
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($member->confirmation?->package_id ?? 0),
+            );
         });
     }
 
@@ -804,6 +824,13 @@ class CustomerConfirmationService
                     'new_member_ids' => array_values($memberIdMap),
                 ])
                 ->log('Customer members moved to holding confirmation #'.$newGroup->id);
+
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($sourceGroup->package_id ?? 0),
+            );
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($newGroup->package_id ?? 0),
+            );
 
             return $newGroup;
         });

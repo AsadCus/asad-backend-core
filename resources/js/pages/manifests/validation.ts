@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { manifestSchema, travelerSchema } from './schema';
-import { type TravelerSchema } from './schema';
+import { manifestSchema, travelerSchema, type TravelerSchema } from './schema';
 
 export const travelerValidationSchema = travelerSchema.superRefine(
     (data, ctx) => {
@@ -29,43 +28,14 @@ export const travelerValidationSchema = travelerSchema.superRefine(
 
 export const manifestValidationSchema = manifestSchema.superRefine(
     (data, ctx) => {
-        const travelers = (data.travelers as TravelerSchema[] | undefined) ?? [];
+        const travelers =
+            (data.travelers as TravelerSchema[] | undefined) ?? [];
 
         // package_id
         if (!data.package_id || data.package_id < 1) {
             ctx.addIssue({
                 path: ['package_id'],
                 message: 'Package is required.',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // reference_number
-        if (
-            !data.reference_number ||
-            data.reference_number.trim().length === 0
-        ) {
-            ctx.addIssue({
-                path: ['reference_number'],
-                message: 'Reference number is required.',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // departure_date
-        if (!data.departure_date || data.departure_date.trim().length === 0) {
-            ctx.addIssue({
-                path: ['departure_date'],
-                message: 'Departure date is required.',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
-        // return_date
-        if (!data.return_date || data.return_date.trim().length === 0) {
-            ctx.addIssue({
-                path: ['return_date'],
-                message: 'Return date is required.',
                 code: z.ZodIssueCode.custom,
             });
         }

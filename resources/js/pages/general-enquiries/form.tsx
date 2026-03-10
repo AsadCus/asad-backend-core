@@ -73,9 +73,8 @@ export default function GeneralEnquiryForm({
         id: number;
         name: string;
         status?: string;
-        airline?: string | null;
         departure_date?: string | null;
-        arrival_date?: string | null;
+        return_date?: string | null;
     } | null>(null);
     const [linkedPackageData, setLinkedPackageData] =
         useState<PackageSchema | null>(null);
@@ -98,9 +97,8 @@ export default function GeneralEnquiryForm({
                 id: pkg.id,
                 name: pkg.name,
                 status: pkg.status,
-                airline: pkg.airline,
                 departure_date: pkg.departure_date,
-                arrival_date: pkg.arrival_date,
+                return_date: pkg.return_date,
             });
             setLinkedPackageData(pkg);
         } finally {
@@ -126,9 +124,8 @@ export default function GeneralEnquiryForm({
             id: Number(packageId),
             name: selected?.label ?? current?.name ?? '-',
             status: current?.status,
-            airline: current?.airline,
             departure_date: current?.departure_date,
-            arrival_date: current?.arrival_date,
+            return_date: current?.return_date,
         }));
 
         loadPackageInfo(Number(packageId));

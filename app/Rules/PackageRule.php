@@ -19,11 +19,9 @@ class PackageRule
             'child_no_bed_price' => ['nullable', 'numeric', 'min:0'],
             'infant_price' => ['nullable', 'numeric', 'min:0'],
 
-            // Flight Details
-            'airline' => ['nullable', 'string', 'max:255'],
-            'pnr' => ['nullable', 'string', 'max:255'],
+            // Dates & Seats
             'departure_date' => ['nullable', 'date'],
-            'arrival_date' => ['nullable', 'date'],
+            'return_date' => ['nullable', 'date'],
             'total_seats' => ['nullable', 'integer', 'min:0'],
             'seats_left' => ['nullable', 'integer', 'min:0'],
 
@@ -51,6 +49,22 @@ class PackageRule
             'accommodations.*.type_of_meal' => ['nullable', 'string', 'max:255'],
             'accommodations.*.check_in' => ['nullable', 'date'],
             'accommodations.*.check_out' => ['nullable', 'date'],
+
+            // Flights (dynamic)
+            'flights' => ['nullable', 'array'],
+            'flights.*.from' => ['nullable', 'string', 'max:255'],
+            'flights.*.to' => ['nullable', 'string', 'max:255'],
+            'flights.*.description' => ['nullable', 'string', 'max:255'],
+            'flights.*.airline' => ['nullable', 'string', 'max:255'],
+            'flights.*.pnr' => ['nullable', 'string', 'max:255'],
+            'flights.*.departure_datetime' => ['nullable', 'date'],
+            'flights.*.arrival_datetime' => ['nullable', 'date'],
+
+            // Officials (dynamic)
+            'officials' => ['nullable', 'array'],
+            'officials.*.type' => ['nullable', 'string', 'max:255'],
+            'officials.*.name' => ['nullable', 'string', 'max:255'],
+            'officials.*.contact_number' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

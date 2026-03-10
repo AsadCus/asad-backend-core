@@ -38,8 +38,8 @@ import { toast } from 'sonner';
 import { type TravelerWithUI } from '../types';
 
 const ROOM_TYPE_OPTIONS = ['Quad', 'Triple', 'Double', 'Single'];
-const BED_TYPE_OPTIONS = ['Single', 'King'];
-const MEAL_OPTIONS = ['Breakfast', 'Lunch', 'Dinner', 'None'];
+const BED_TYPE_OPTIONS = ['Single', 'King', 'Twin'];
+const MEAL_OPTIONS = ['Breakfast Only', 'Half Board', 'Full Board'];
 const GENDER_OPTIONS = ['male', 'female', 'other'];
 
 const ROOM_TYPE_CAPACITY: Record<string, number> = {
@@ -85,10 +85,7 @@ interface ManifestCustomerDatatableProps {
     onMoveToHolding?: (traveler: TravelerWithUI) => void;
 }
 
-function toMemberId(
-    traveler: TravelerWithUI,
-    flatIndex: number,
-): string {
+function toMemberId(traveler: TravelerWithUI, flatIndex: number): string {
     if (traveler.row_key && traveler.row_key.trim().length > 0) {
         return traveler.row_key;
     }
@@ -122,7 +119,8 @@ export default function ManifestCustomerDatatable({
     onRowsChange,
     onMoveToHolding,
 }: ManifestCustomerDatatableProps) {
-    const isGrouped = mode === 'travelers' || mode === 'room';
+    const isGrouped =
+        mode === 'travelers' || mode === 'room' || mode === 'airline';
 
     // ──── Group computation ────
     const groups = useMemo<GroupData[]>(() => {
@@ -317,9 +315,7 @@ export default function ManifestCustomerDatatable({
             const activeGroupKey = activeId.slice(2);
             if (activeGroupKey === overGroupKey) return;
 
-            const activeIdx = groups.findIndex(
-                (g) => g.key === activeGroupKey,
-            );
+            const activeIdx = groups.findIndex((g) => g.key === activeGroupKey);
             const overIdx = groups.findIndex((g) => g.key === overGroupKey);
 
             if (activeIdx < 0 || overIdx < 0) return;
@@ -328,9 +324,7 @@ export default function ManifestCustomerDatatable({
             emitReorderedRows(reordered);
         } else {
             // ── Move a member ──
-            const activeItem = visibleItems.find(
-                (vi) => vi.dndId === activeId,
-            );
+            const activeItem = visibleItems.find((vi) => vi.dndId === activeId);
 
             if (!activeItem || !activeItem.traveler) return;
 
@@ -339,9 +333,7 @@ export default function ManifestCustomerDatatable({
             if (sourceGroupKey === overGroupKey) {
                 reorderWithinGroup(sourceGroupKey, activeId, overId);
             } else {
-                const targetGroup = groups.find(
-                    (g) => g.key === overGroupKey,
-                );
+                const targetGroup = groups.find((g) => g.key === overGroupKey);
 
                 if (!targetGroup) return;
 
@@ -351,10 +343,7 @@ export default function ManifestCustomerDatatable({
                     const capacity = getCapacityForRoomType(roomType);
                     const currentCount = targetGroup.members.length;
 
-                    if (
-                        Number.isFinite(capacity) &&
-                        currentCount >= capacity
-                    ) {
+                    if (Number.isFinite(capacity) && currentCount >= capacity) {
                         toast.error(
                             `Cannot move: ${roomType || 'this'} room is at full capacity (${capacity} pax)`,
                         );
@@ -391,11 +380,7 @@ export default function ManifestCustomerDatatable({
 
         if (activeIdx < 0 || overIdx < 0) return;
 
-        const reorderedMembers = arrayMove(
-            group.members,
-            activeIdx,
-            overIdx,
-        );
+        const reorderedMembers = arrayMove(group.members, activeIdx, overIdx);
         const newGroups = groups.map((g) =>
             g.key === groupKey ? { ...g, members: reorderedMembers } : g,
         );
@@ -438,8 +423,7 @@ export default function ManifestCustomerDatatable({
 
         if (!overId.startsWith('g-')) {
             const overIdx = targetGroup.members.findIndex(
-                (m) =>
-                    `m-${toMemberId(m.traveler, m.flatIndex)}` === overId,
+                (m) => `m-${toMemberId(m.traveler, m.flatIndex)}` === overId,
             );
             if (overIdx >= 0) insertPos = overIdx;
         }
@@ -480,7 +464,7 @@ export default function ManifestCustomerDatatable({
         const drag = allowReorder ? 1 : 0;
         if (mode === 'travelers') return drag + 7;
         if (mode === 'room') return drag + 8;
-        return 10;
+        return drag + 10;
     };
 
     // ──── Room group info helper ────
@@ -615,6 +599,18 @@ export default function ManifestCustomerDatatable({
                     </>
                 )}
 
+                {mode === 'airline' && (
+                    <>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                    </>
+                )}
+
                 {mode === 'room' && (
                     <>
                         <TableCell />
@@ -649,10 +645,7 @@ export default function ManifestCustomerDatatable({
                                 </SelectTrigger>
                                 <SelectContent>
                                     {ROOM_TYPE_OPTIONS.map((option) => (
-                                        <SelectItem
-                                            key={option}
-                                            value={option}
-                                        >
+                                        <SelectItem key={option} value={option}>
                                             {option}
                                         </SelectItem>
                                     ))}
@@ -676,10 +669,7 @@ export default function ManifestCustomerDatatable({
                                 </SelectTrigger>
                                 <SelectContent>
                                     {BED_TYPE_OPTIONS.map((option) => (
-                                        <SelectItem
-                                            key={option}
-                                            value={option}
-                                        >
+                                        <SelectItem key={option} value={option}>
                                             {option}
                                         </SelectItem>
                                     ))}
@@ -703,10 +693,7 @@ export default function ManifestCustomerDatatable({
                                 </SelectTrigger>
                                 <SelectContent>
                                     {MEAL_OPTIONS.map((option) => (
-                                        <SelectItem
-                                            key={option}
-                                            value={option}
-                                        >
+                                        <SelectItem key={option} value={option}>
                                             {option}
                                         </SelectItem>
                                     ))}
@@ -800,9 +787,7 @@ export default function ManifestCustomerDatatable({
                     <TableCell>
                         <Input
                             value={
-                                traveler.passport_no ??
-                                traveler.ppt_no ??
-                                ''
+                                traveler.passport_no ?? traveler.ppt_no ?? ''
                             }
                             onChange={(e) =>
                                 updateMemberField(
@@ -857,6 +842,117 @@ export default function ManifestCustomerDatatable({
                         <TableCell />
                         <TableCell />
                         <TableCell />
+                    </>
+                )}
+
+                {mode === 'airline' && (
+                    <>
+                        <TableCell>
+                            <Input
+                                value={
+                                    traveler.passport_no ??
+                                    traveler.ppt_no ??
+                                    ''
+                                }
+                                onChange={(e) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'passport_no',
+                                        e.target.value,
+                                    )
+                                }
+                                disabled={disabled}
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <Input
+                                value={traveler.nationality ?? ''}
+                                onChange={(e) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'nationality',
+                                        e.target.value,
+                                    )
+                                }
+                                disabled={disabled}
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <Select
+                                value={traveler.gender ?? ''}
+                                onValueChange={(value) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'gender',
+                                        value,
+                                    )
+                                }
+                                disabled={disabled}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Gender" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {GENDER_OPTIONS.map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                            {option}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </TableCell>
+                        <TableCell>
+                            <Input
+                                value={traveler.date_of_birth ?? ''}
+                                onChange={(e) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'date_of_birth',
+                                        e.target.value,
+                                    )
+                                }
+                                disabled={disabled}
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <Input
+                                value={traveler.date_of_issue ?? ''}
+                                onChange={(e) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'date_of_issue',
+                                        e.target.value,
+                                    )
+                                }
+                                disabled={disabled}
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <Input
+                                value={traveler.date_of_expiry ?? ''}
+                                onChange={(e) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'date_of_expiry',
+                                        e.target.value,
+                                    )
+                                }
+                                disabled={disabled}
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <Input
+                                value={traveler.issue_place ?? ''}
+                                onChange={(e) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'issue_place',
+                                        e.target.value,
+                                    )
+                                }
+                                disabled={disabled}
+                            />
+                        </TableCell>
                     </>
                 )}
 
@@ -939,11 +1035,7 @@ export default function ManifestCustomerDatatable({
                 <Input
                     value={row.date_of_birth ?? ''}
                     onChange={(e) =>
-                        updateFlatRow(
-                            index,
-                            'date_of_birth',
-                            e.target.value,
-                        )
+                        updateFlatRow(index, 'date_of_birth', e.target.value)
                     }
                     disabled={disabled}
                 />
@@ -952,11 +1044,7 @@ export default function ManifestCustomerDatatable({
                 <Input
                     value={row.date_of_issue ?? ''}
                     onChange={(e) =>
-                        updateFlatRow(
-                            index,
-                            'date_of_issue',
-                            e.target.value,
-                        )
+                        updateFlatRow(index, 'date_of_issue', e.target.value)
                     }
                     disabled={disabled}
                 />
@@ -965,11 +1053,7 @@ export default function ManifestCustomerDatatable({
                 <Input
                     value={row.date_of_expiry ?? ''}
                     onChange={(e) =>
-                        updateFlatRow(
-                            index,
-                            'date_of_expiry',
-                            e.target.value,
-                        )
+                        updateFlatRow(index, 'date_of_expiry', e.target.value)
                     }
                     disabled={disabled}
                 />
@@ -978,11 +1062,7 @@ export default function ManifestCustomerDatatable({
                 <Input
                     value={row.issue_place ?? ''}
                     onChange={(e) =>
-                        updateFlatRow(
-                            index,
-                            'issue_place',
-                            e.target.value,
-                        )
+                        updateFlatRow(index, 'issue_place', e.target.value)
                     }
                     disabled={disabled}
                 />
@@ -1024,9 +1104,7 @@ export default function ManifestCustomerDatatable({
                                       <SortableRow
                                           key={item.dndId}
                                           id={item.dndId}
-                                          disabled={
-                                              !allowReorder || disabled
-                                          }
+                                          disabled={!allowReorder || disabled}
                                       >
                                           {(sortableProps) =>
                                               item.isGroupHeader

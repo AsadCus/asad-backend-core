@@ -119,22 +119,8 @@ export const manifestSharingGroupSchema = z.object({
 export const manifestSchema = z.object({
     id: z.number().optional(),
     package_id: z.coerce.number().optional(),
-    reference_number: z.string().optional(),
-    company_address: z.string().optional(),
-    company_phone: z.string().optional(),
-    departure_date: z.string().optional(),
-    return_date: z.string().optional(),
-    duration: z.string().optional(),
-    makkah_hotel: z.string().optional(),
-    makkah_check_in: z.string().optional(),
-    makkah_check_out: z.string().optional(),
-    madinah_hotel: z.string().optional(),
-    madinah_check_in: z.string().optional(),
-    madinah_check_out: z.string().optional(),
-    flight_details: z.any().optional(),
+    manifest_number: z.string().optional(),
     notes: z.string().optional(),
-    first_meal: z.string().optional(),
-    last_meal: z.string().optional(),
     status: z.string().optional(),
     travelers: z.array(travelerSchema).optional(),
     rooms: z.array(roomSchema).optional(),
@@ -170,28 +156,18 @@ export const hotelDetailsSchema = z.object({
         .optional(),
 });
 
-export const mealsNotesSchema = z.object({
-    firstMeal: z.string().optional(),
-    lastMeal: z.string().optional(),
-    notes: z.string().optional(),
-});
-
 export const manifestInformationSchema = z.object({
     id: z.number().optional(),
     package_id: z.coerce.number().optional(),
-    reference_number: z.string().optional(),
+    manifest_number: z.string().optional(),
     status: z.string().optional(),
-    company_address: z.string().optional(),
-    company_phone: z.string().optional(),
     departure_date: z.string().optional(),
     return_date: z.string().optional(),
-    duration: z.string().optional(),
 });
 
 export const manifestApiResponseSchema = z.object({
     manifestInformation: manifestInformationSchema.optional(),
     hotelDetails: hotelDetailsSchema.optional(),
-    mealsNotes: mealsNotesSchema.optional(),
     travelers: z.record(z.string(), z.array(travelerSchema)).optional(),
     roomListMakkah: z.record(z.string(), z.array(roomSchema)).optional(),
     roomListMadinah: z.record(z.string(), z.array(roomSchema)).optional(),
@@ -218,7 +194,6 @@ export const manifestApiResponseSchema = z.object({
 });
 
 export type HotelDetailsSchema = z.infer<typeof hotelDetailsSchema>;
-export type MealsNotesSchema = z.infer<typeof mealsNotesSchema>;
 export type ManifestInformationSchema = z.infer<
     typeof manifestInformationSchema
 >;
@@ -233,14 +208,14 @@ export const manifestStatusOptions = [
     { label: 'Cancelled', value: 'cancelled' },
 ];
 
-export const manifestStatusColors = {
+export const manifestStatusColors: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-800',
     confirmed: 'bg-blue-100 text-blue-800',
     completed: 'bg-green-100 text-green-800',
     cancelled: 'bg-red-100 text-red-800',
 };
 
-export const manifestStatusLabels = {
+export const manifestStatusLabels: Record<string, string> = {
     draft: 'Draft',
     confirmed: 'Confirmed',
     completed: 'Completed',

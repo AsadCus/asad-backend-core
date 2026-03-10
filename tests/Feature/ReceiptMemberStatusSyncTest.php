@@ -6,12 +6,14 @@ use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
+use App\Models\Manifest;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
+use App\Services\CustomerConfirmationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,6 +32,8 @@ class ReceiptMemberStatusSyncTest extends TestCase
             'status' => 'open',
             'price_single' => 5000,
             'price_double' => 3500,
+            'total_seats' => 10,
+            'seats_left' => 10,
         ]);
 
         $customer = Customer::create([
@@ -277,5 +281,75 @@ class ReceiptMemberStatusSyncTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('receipts', ['id' => $receipt->id]);
+    }
+
+    public function test_when_package_is_full_paid_member_becomes_unavailable_and_not_linked_to_manifest(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['package']->update([
+            'total_seats' => 0,
+            'seats_left' => 0,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $data['package']->id,
+            'manifest_number' => 'MNF-SEAT-CAP-001',
+            'status' => 'draft',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $data['package']->refresh();
+
+        $this->assertEquals('unavailable', $data['member']->status);
+        $this->assertEquals(0, $data['package']->seats_left);
+        $this->assertFalse($manifest->travelers()->where('customer_confirmation_member_id', $data['member']->id)->exists());
+    }
+
+    public function test_cancelling_paid_member_releases_package_seat_and_cancels_manifest_traveler(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['package']->update([
+            'total_seats' => 2,
+            'seats_left' => 2,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $data['package']->id,
+            'manifest_number' => 'MNF-SEAT-CAP-002',
+            'status' => 'draft',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $traveler = $manifest->travelers()->where('customer_confirmation_member_id', $data['member']->id)->first();
+
+        $this->assertNotNull($traveler);
+
+        $data['package']->refresh();
+        $this->assertEquals(1, $data['package']->seats_left);
+
+        app(CustomerConfirmationService::class)->cancelMember((int) $data['member']->id);
+
+        $data['member']->refresh();
+        $data['package']->refresh();
+        $traveler?->refresh();
+
+        $this->assertEquals('cancelled', $data['member']->status);
+        $this->assertEquals(2, $data['package']->seats_left);
+        $this->assertEquals('cancelled', $traveler?->status);
     }
 }

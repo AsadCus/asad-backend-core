@@ -13,10 +13,8 @@ interface OpsMovementDataTableSchema {
     name: string;
     status: string;
     launched: boolean;
-    airline: string | null;
-    pnr: string | null;
     departure_date: string | null;
-    arrival_date: string | null;
+    return_date: string | null;
     total_seats: number | null;
     seats_left: number | null;
     visa_type: string | null;
@@ -79,12 +77,6 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         ),
     },
     {
-        accessorKey: 'airline',
-        header: 'Airline',
-        meta: { exportable: true },
-        cell: ({ row }) => row.original.airline || '-',
-    },
-    {
         accessorKey: 'departure_date',
         header: 'Departure',
         meta: { exportable: true },
@@ -92,10 +84,10 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         filterFn: 'dateRangeFilter',
     },
     {
-        accessorKey: 'arrival_date',
-        header: 'Arrival',
+        accessorKey: 'return_date',
+        header: 'Return',
         meta: { exportable: true },
-        cell: ({ row }) => row.original.arrival_date || '-',
+        cell: ({ row }) => row.original.return_date || '-',
     },
     {
         accessorKey: 'total_seats',
@@ -176,7 +168,7 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                             },
                             columnVisibility: {
                                 id: false,
-                                arrival_date: false,
+                                return_date: false,
                                 ticket_type: false,
                             },
                         }}

@@ -16,9 +16,8 @@ export interface PackageInformationSectionData {
     id: number;
     name: string;
     status?: string;
-    airline?: string | null;
     departure_date?: string | null;
-    arrival_date?: string | null;
+    return_date?: string | null;
 }
 
 interface PackageInformationSectionProps {
@@ -89,19 +88,14 @@ export default function PackageInformationSection({
                                     </Badge>
                                 </div>
                             </FormField>
-                            <FormField label="Airline">
-                                <div className="rounded-md border bg-muted/30 px-3 py-1.25 text-base select-text">
-                                    {packageInfo.airline || '-'}
-                                </div>
-                            </FormField>
                             <FormField label="Departure Date">
                                 <div className="rounded-md border bg-muted/30 px-3 py-1.25 text-base select-text">
                                     {packageInfo.departure_date || '-'}
                                 </div>
                             </FormField>
-                            <FormField label="Arrival Date">
+                            <FormField label="Return Date">
                                 <div className="rounded-md border bg-muted/30 px-3 py-1.25 text-base select-text">
-                                    {packageInfo.arrival_date || '-'}
+                                    {packageInfo.return_date || '-'}
                                 </div>
                             </FormField>
                         </div>

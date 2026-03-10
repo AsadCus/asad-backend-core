@@ -953,6 +953,39 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertEquals(EnquiryStatus::Negotiating, $secondEnquiry->status);
     }
 
+    public function test_destroy_from_holding_menu_redirects_back_to_holding_index(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Holding Redirect Test',
+            'contact_number' => '03333',
+            'email' => 'holding-redirect@test.com',
+            'created_by' => $this->adminUser->id,
+            'package_id' => null,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-11-01',
+            'members' => [$this->memberPayload([
+                'name' => 'Holding Redirect Leader',
+                'email' => 'holding-redirect-leader@test.com',
+                'is_leader' => true,
+            ])],
+        ]);
+
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
+
+        $response = $this->from(route('customer-holding.index'))
+            ->delete(route('confirmed-customer.destroy', $group->id));
+
+        $response->assertRedirect(route('customer-holding.index'));
+        $this->assertDatabaseMissing('customer_confirmations', ['id' => $group->id]);
+    }
+
     public function test_public_form_requires_valid_signature(): void
     {
         // The edit form requires a valid signature (to protect private group data)

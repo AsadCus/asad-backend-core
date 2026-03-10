@@ -34,7 +34,6 @@ class DatabaseSeeder extends Seeder
             // Travel Management
             PackageSeeder::class,
             EnquirySeeder::class,
-            ManifestSeeder::class,
             CustomerConfirmationSeeder::class,
 
             // Transactions
@@ -42,6 +41,7 @@ class DatabaseSeeder extends Seeder
             OrderSeeder::class,
             InvoiceSeeder::class,
             ReceiptSeeder::class,
+            ManifestSeeder::class,
         ]);
     }
 }
