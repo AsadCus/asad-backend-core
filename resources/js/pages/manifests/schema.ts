@@ -39,6 +39,8 @@ export const travelerSchema = z.object({
     no_of_beds_checked: z.coerce.number().optional(),
     meal: z.string().optional(),
     relationship: z.string().optional(),
+    role: z.string().optional(),
+    sharing_plan: z.string().optional(),
     status: z.string().optional(),
 });
 

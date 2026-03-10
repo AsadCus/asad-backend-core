@@ -3,15 +3,6 @@ import { manifestSchema, travelerSchema, type TravelerSchema } from './schema';
 
 export const travelerValidationSchema = travelerSchema.superRefine(
     (data, ctx) => {
-        // sn
-        if (!data.sn || data.sn < 1) {
-            ctx.addIssue({
-                path: ['sn'],
-                message: 'S/N is required.',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
         // name_as_per_passport
         if (
             !data.name_as_per_passport ||
@@ -43,14 +34,6 @@ export const manifestValidationSchema = manifestSchema.superRefine(
         // Travelers validation
         if (travelers.length > 0) {
             travelers.forEach((traveler, index) => {
-                if (!traveler.sn || traveler.sn < 1) {
-                    ctx.addIssue({
-                        path: ['travelers', index, 'sn'],
-                        message: 'S/N is required.',
-                        code: z.ZodIssueCode.custom,
-                    });
-                }
-
                 if (
                     !traveler.name_as_per_passport ||
                     traveler.name_as_per_passport.trim().length === 0

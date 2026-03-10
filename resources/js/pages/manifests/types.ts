@@ -96,5 +96,14 @@ export type TravelerWithUI = TravelerSchema & {
     sharing_group_key?: string;
     accommodation_key?: string;
     sort_order?: number;
-    status?: 'assigned' | 'cancelled';
+    status?:
+        | 'draft'
+        | 'pending_payment'
+        | 'partially_paid'
+        | 'confirmed'
+        | 'unavailable'
+        | 'cancelled'
+        | string;
+    role?: string;
+    sharing_plan?: string;
 };

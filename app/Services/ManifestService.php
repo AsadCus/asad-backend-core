@@ -129,6 +129,20 @@ class ManifestService
             ->sortBy('sn')
             ->values()
             ->map(function ($traveler) {
+                $isOfficialTraveler = $traveler->customer_confirmation_member_id === null
+                    && ($traveler->relationship === 'official'
+                        || str_starts_with((string) ($traveler->remarks ?? ''), '[package-official]'));
+
+                $memberStatus = $traveler->confirmationMember?->status;
+
+                $resolvedStatus = $traveler->status ?? 'confirmed';
+
+                if ($traveler->customer_confirmation_member_id !== null) {
+                    $resolvedStatus = $memberStatus ?? $resolvedStatus;
+                } elseif ($isOfficialTraveler && $resolvedStatus !== 'cancelled') {
+                    $resolvedStatus = 'confirmed';
+                }
+
                 return [
                     'id' => $traveler->id,
                     'sn' => $traveler->sn,
@@ -137,13 +151,20 @@ class ManifestService
                     'customer_confirmation_id' => $traveler->confirmationMember?->customer_confirmation_id,
                     'customer_name' => $traveler->customer?->name,
                     'name_as_per_passport' => $traveler->name_as_per_passport,
+                    'role' => $traveler->confirmationMember?->role ?? $traveler->relationship,
                     'relationship' => $traveler->relationship,
-                    'passport_no' => $traveler->passport_no,
-                    'ppt_no' => $traveler->passport_no,
+                    'sharing_plan' => $traveler->confirmationMember?->sharing_plan ?? ($isOfficialTraveler ? 'single' : null),
+                    'passport_no' => $traveler->passport_no ?? $traveler->confirmationMember?->customer?->passport_number,
+                    'ppt_no' => $traveler->passport_no ?? $traveler->confirmationMember?->customer?->passport_number,
+                    'nationality' => $traveler->confirmationMember?->customer?->nationality,
+                    'gender' => $traveler->confirmationMember?->customer?->gender,
+                    'date_of_issue' => $traveler->confirmationMember?->customer?->passport_issue_date_formatted,
+                    'date_of_expiry' => $traveler->confirmationMember?->customer?->passport_expiry_date_formatted,
+                    'issue_place' => $traveler->confirmationMember?->customer?->passport_place_of_issue,
                     'room_no' => $traveler->room_no,
                     'room_type' => $traveler->room_type,
                     'bed_type' => $traveler->bed_type,
-                    'date_of_birth' => $traveler->date_of_birth_formatted,
+                    'date_of_birth' => $traveler->date_of_birth_formatted ?? $traveler->confirmationMember?->customer?->date_of_birth_formatted,
                     'age' => $traveler->age,
                     'no_of_beds_checked' => $traveler->no_of_beds_checked,
                     'meal' => $traveler->meal,
@@ -151,7 +172,7 @@ class ManifestService
                     'total_cost' => $traveler->total_cost,
                     'total_paid' => $traveler->total_paid,
                     'outstanding_amount' => $traveler->outstanding_amount,
-                    'status' => $traveler->status ?? 'assigned',
+                    'status' => $resolvedStatus,
                 ];
             })
             ->toArray();
@@ -642,7 +663,7 @@ class ManifestService
                 'customer_id' => $traveler['customer_id'] ?? null,
                 'customer_confirmation_member_id' => $traveler['customer_confirmation_member_id'] ?? null,
                 'name_as_per_passport' => $traveler['name_as_per_passport'] ?? null,
-                'relationship' => $traveler['relationship'] ?? null,
+                'relationship' => $traveler['role'] ?? $traveler['relationship'] ?? null,
                 'passport_no' => $traveler['passport_no'] ?? null,
                 'room_no' => $traveler['room_no'] ?? null,
                 'room_type' => $traveler['room_type'] ?? null,
@@ -655,7 +676,8 @@ class ManifestService
                 'total_cost' => $traveler['total_cost'] ?? 0,
                 'total_paid' => $traveler['total_paid'] ?? 0,
                 'outstanding_amount' => $traveler['outstanding_amount'] ?? 0,
-                'status' => $traveler['status'] ?? 'assigned',
+                'status' => $traveler['status']
+                    ?? (! empty($traveler['customer_confirmation_member_id']) ? 'pending_payment' : 'confirmed'),
             ]);
         }
     }

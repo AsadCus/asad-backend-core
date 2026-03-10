@@ -1,6 +1,7 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +28,7 @@ import { useEffect, useRef } from 'react';
 import {
     infantAndChildPriceLabels,
     officialTypeOptions,
+    packageMealPlanOptions,
     sharingPlanPriceLabels,
     type AccommodationSchema,
     type FlightSchema,
@@ -1032,22 +1034,25 @@ export default function PackageForm({
                                                     `accommodations.${index}.type_of_meal`,
                                                 )}
                                             >
-                                                <ProperInput
+                                                <ProperInputSelect
+                                                    options={
+                                                        packageMealPlanOptions
+                                                    }
                                                     value={
-                                                        accommodation.type_of_meal ||
+                                                        accommodation.type_of_meal ??
                                                         ''
                                                     }
                                                     disabled={
                                                         isView || processing
                                                     }
-                                                    onCommit={(v) =>
+                                                    onValueChange={(v) =>
                                                         updateAccommodation(
                                                             index,
                                                             'type_of_meal',
-                                                            v || '',
+                                                            String(v || ''),
                                                         )
                                                     }
-                                                    placeholder="e.g., Full Board"
+                                                    placeholder="Select meal plan"
                                                 />
                                             </FormField>
                                             </div>

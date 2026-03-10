@@ -45,20 +45,34 @@ function toTravelerWithUI(
     row: Record<string, unknown>,
     index: number,
 ): TravelerWithUI {
-    const memberId = Number(row.customer_confirmation_member_id);
-    const customerId = Number(row.customer_id);
-    const travelerId = Number(row.id);
+    const toPositiveIntegerOrNull = (value: unknown): number | null => {
+        const parsed =
+            typeof value === 'number'
+                ? value
+                : Number.parseInt(String(value ?? ''), 10);
+
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            return null;
+        }
+
+        return parsed;
+    };
+
+    const memberId = toPositiveIntegerOrNull(row.customer_confirmation_member_id);
+    const customerId = toPositiveIntegerOrNull(row.customer_id);
+    const travelerId = toPositiveIntegerOrNull(row.id);
 
     return {
         ...(row as TravelerWithUI),
+        role: String(row.role ?? row.relationship ?? ''),
         row_key:
             typeof row.row_key === 'string' && row.row_key.trim().length > 0
                 ? row.row_key
-                : Number.isFinite(memberId)
+                : memberId !== null
                   ? `traveler-member-${memberId}`
-                  : Number.isFinite(customerId)
+                  : customerId !== null
                     ? `traveler-customer-${customerId}`
-                    : Number.isFinite(travelerId)
+                    : travelerId !== null
                       ? `traveler-id-${travelerId}`
                       : `traveler-temp-${nanoid()}`,
         sn: Number(row.sn ?? index + 1),
@@ -92,6 +106,29 @@ function flattenGroupedRows(rows: unknown): TravelerWithUI[] {
                 !!item && typeof item === 'object',
         )
         .map((item, index) => toTravelerWithUI(item, index));
+}
+
+function travelerIdentityKey(traveler: TravelerWithUI, index: number): string {
+    if (
+        traveler.customer_confirmation_member_id !== undefined &&
+        traveler.customer_confirmation_member_id !== null
+    ) {
+        return `member-${traveler.customer_confirmation_member_id}`;
+    }
+
+    if (traveler.customer_id !== undefined && traveler.customer_id !== null) {
+        return `customer-${traveler.customer_id}`;
+    }
+
+    if (traveler.id !== undefined && traveler.id !== null) {
+        return `traveler-${traveler.id}`;
+    }
+
+    if (traveler.row_key && traveler.row_key.trim().length > 0) {
+        return `row-${traveler.row_key}`;
+    }
+
+    return `index-${index}`;
 }
 
 function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
@@ -131,23 +168,83 @@ function buildRoomRowsFromTravelers(
     travelers: TravelerWithUI[],
     existingRows: TravelerWithUI[] = [],
     accommodationKey: string,
+    defaultMealPlan: string,
 ): TravelerWithUI[] {
+    const toRoomTypeFromSharingPlan = (
+        sharingPlan?: string,
+    ): string | undefined => {
+        const value = String(sharingPlan ?? '').toLowerCase();
+
+        if (value === 'single') {
+            return 'Single';
+        }
+
+        if (value === 'double') {
+            return 'Double';
+        }
+
+        if (value === 'triple') {
+            return 'Triple';
+        }
+
+        if (value === 'quad') {
+            return 'Quad';
+        }
+
+        return undefined;
+    };
+
+    const toBedTypeFromSharingPlan = (sharingPlan?: string): string | undefined => {
+        const value = String(sharingPlan ?? '').toLowerCase();
+
+        if (value === 'single') {
+            return 'Single';
+        }
+
+        return undefined;
+    };
+
     return travelers.map((traveler, index) => {
+        const travelerIdentity = travelerIdentityKey(traveler, index);
         const existing = existingRows.find(
-            (row) =>
-                row.customer_confirmation_member_id ===
-                traveler.customer_confirmation_member_id,
+            (row, rowIndex) =>
+                travelerIdentityKey(row, rowIndex) === travelerIdentity,
         );
+
+        const sharingPlan = traveler.sharing_plan;
+        const fallbackRoomType = toRoomTypeFromSharingPlan(sharingPlan);
+        const fallbackBedType = toBedTypeFromSharingPlan(sharingPlan);
 
         return {
             ...traveler,
             ...existing,
+            role: traveler.role ?? traveler.relationship ?? existing?.role,
+            relationship:
+                traveler.relationship ??
+                traveler.role ??
+                existing?.relationship ??
+                existing?.role,
             row_key:
                 existing?.row_key ??
                 traveler.row_key ??
                 `room-${accommodationKey}-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index}`,
             sn: index + 1,
             accommodation_key: accommodationKey,
+            room_type:
+                existing?.room_type ??
+                traveler.room_type ??
+                fallbackRoomType ??
+                '',
+            bed_type:
+                existing?.bed_type ??
+                traveler.bed_type ??
+                fallbackBedType ??
+                '',
+            meal:
+                existing?.meal ??
+                traveler.meal ??
+                defaultMealPlan ??
+                '',
             sharing_group_key:
                 traveler.sharing_group_key ??
                 existing?.sharing_group_key ??
@@ -229,6 +326,7 @@ export default function ManifestForm({
                     currentTravelers,
                     (currentRoomLists[tab.key] ?? []) as TravelerWithUI[],
                     tab.key,
+                    tab.accommodation.type_of_meal ?? '',
                 ),
             ]),
         );
@@ -255,7 +353,13 @@ export default function ManifestForm({
             const travelersWithSn = nextTravelers.map((row, index) => ({
                 ...row,
                 sn: index + 1,
-                status: row.status ?? 'assigned',
+                role: row.role ?? row.relationship,
+                relationship: row.relationship ?? row.role,
+                status:
+                    row.status ??
+                    (row.customer_confirmation_member_id
+                        ? 'pending_payment'
+                        : 'confirmed'),
             }));
 
             const activeTravelersWithSn = travelersWithSn.filter(
@@ -263,45 +367,77 @@ export default function ManifestForm({
             );
 
             const travelerMap = new Map(
-                activeTravelersWithSn.map((row) => [
-                    row.customer_confirmation_member_id,
+                activeTravelersWithSn.map((row, index) => [
+                    travelerIdentityKey(row, index),
                     row,
                 ]),
             );
 
             const nextRoomLists = Object.fromEntries(
-                Object.entries(data.roomLists ?? {}).map(([key, rows]) => [
-                    key,
-                    buildRoomRowsFromTravelers(
-                        activeTravelersWithSn,
-                        (rows as TravelerWithUI[]).map((row) => ({
-                            ...row,
-                            name_as_per_passport:
-                                travelerMap.get(
-                                    row.customer_confirmation_member_id,
-                                )?.name_as_per_passport ??
-                                row.name_as_per_passport,
-                            passport_no:
-                                travelerMap.get(
-                                    row.customer_confirmation_member_id,
-                                )?.passport_no ?? row.passport_no,
-                        })),
+                roomTabs.map((tab) => {
+                    const key = tab.key;
+                    const rows = (data.roomLists ?? {})[key] ?? [];
+
+                    return [
                         key,
-                    ),
-                ]),
+                        buildRoomRowsFromTravelers(
+                            activeTravelersWithSn,
+                            (rows as TravelerWithUI[]).map((row, rowIndex) => ({
+                                ...row,
+                                name_as_per_passport:
+                                    travelerMap.get(
+                                        travelerIdentityKey(row, rowIndex),
+                                    )?.name_as_per_passport ??
+                                    row.name_as_per_passport,
+                                passport_no:
+                                    travelerMap.get(
+                                        travelerIdentityKey(row, rowIndex),
+                                    )?.passport_no ?? row.passport_no,
+                                role:
+                                    travelerMap.get(
+                                        travelerIdentityKey(row, rowIndex),
+                                    )?.role ?? row.role,
+                                relationship:
+                                    travelerMap.get(
+                                        travelerIdentityKey(row, rowIndex),
+                                    )?.relationship ?? row.relationship,
+                            })),
+                            key,
+                            tab.accommodation.type_of_meal ?? '',
+                        ),
+                    ];
+                }),
             );
 
             const nextAirline = travelersWithSn
-                .map((traveler) => {
+                .map((traveler, travelerIndex) => {
+                    const travelerIdentity = travelerIdentityKey(
+                        traveler,
+                        travelerIndex,
+                    );
+
                     const existing = (data.airlineList ?? []).find(
-                        (row) =>
-                            row.customer_confirmation_member_id ===
-                            traveler.customer_confirmation_member_id,
+                        (row, existingIndex) =>
+                            travelerIdentityKey(row as TravelerWithUI, existingIndex) ===
+                            travelerIdentity,
                     ) as TravelerWithUI | undefined;
 
                     return {
-                        ...traveler,
                         ...existing,
+                        ...traveler,
+                        passport_no:
+                            traveler.passport_no ?? existing?.passport_no,
+                        nationality:
+                            traveler.nationality ?? existing?.nationality,
+                        gender: traveler.gender ?? existing?.gender,
+                        date_of_birth:
+                            traveler.date_of_birth ?? existing?.date_of_birth,
+                        date_of_issue:
+                            traveler.date_of_issue ?? existing?.date_of_issue,
+                        date_of_expiry:
+                            traveler.date_of_expiry ?? existing?.date_of_expiry,
+                        issue_place:
+                            traveler.issue_place ?? existing?.issue_place,
                         row_key:
                             existing?.row_key ??
                             traveler.row_key ??

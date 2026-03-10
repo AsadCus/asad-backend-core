@@ -612,6 +612,8 @@ class PackageService
                 'sn' => $nextSn++,
                 'name_as_per_passport' => $displayName,
                 'relationship' => 'official',
+                'room_type' => 'Single',
+                'bed_type' => 'Single',
                 'status' => 'assigned',
                 'remarks' => $officialTravelerMarker.' '.($official->type ?? 'official'),
             ]);

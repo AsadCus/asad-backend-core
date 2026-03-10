@@ -9,7 +9,7 @@ class ManifestRule
         return [
             'package_id' => ['required', 'exists:packages,id'],
             'notes' => ['nullable', 'string'],
-            'status' => ['required', 'string', 'in:draft,confirmed,completed,cancelled'],
+            'status' => ['nullable', 'string', 'in:draft,confirmed,completed,cancelled'],
 
             // Travelers
             'travelers' => ['nullable', 'array'],
@@ -28,7 +28,7 @@ class ManifestRule
             'travelers.*.total_cost' => ['nullable', 'numeric', 'min:0'],
             'travelers.*.total_paid' => ['nullable', 'numeric', 'min:0'],
             'travelers.*.outstanding_amount' => ['nullable', 'numeric', 'min:0'],
-            'travelers.*.status' => ['nullable', 'string', 'in:assigned,cancelled'],
+            'travelers.*.status' => ['nullable', 'string', 'in:draft,pending_payment,partially_paid,confirmed,unavailable,assigned,cancelled'],
 
             // Rooms
             'rooms' => ['nullable', 'array'],

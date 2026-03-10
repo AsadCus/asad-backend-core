@@ -1,3 +1,4 @@
+import { ProperInput } from '@/components/proper-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,6 +99,10 @@ function toMemberId(traveler: TravelerWithUI, flatIndex: number): string {
     );
 }
 
+function toMemberDndId(traveler: TravelerWithUI, flatIndex: number): string {
+    return `m-${toMemberId(traveler, flatIndex)}-${flatIndex}`;
+}
+
 function SortableRow({
     id,
     disabled,
@@ -183,7 +188,7 @@ export default function ManifestCustomerDatatable({
             if (expanded[group.key] !== false) {
                 group.members.forEach((m) => {
                     items.push({
-                        dndId: `m-${toMemberId(m.traveler, m.flatIndex)}`,
+                        dndId: toMemberDndId(m.traveler, m.flatIndex),
                         isGroupHeader: false,
                         groupKey: group.key,
                         groupIndex,
@@ -372,10 +377,10 @@ export default function ManifestCustomerDatatable({
         if (overId.startsWith('g-')) return;
 
         const activeIdx = group.members.findIndex(
-            (m) => `m-${toMemberId(m.traveler, m.flatIndex)}` === activeId,
+            (m) => toMemberDndId(m.traveler, m.flatIndex) === activeId,
         );
         const overIdx = group.members.findIndex(
-            (m) => `m-${toMemberId(m.traveler, m.flatIndex)}` === overId,
+            (m) => toMemberDndId(m.traveler, m.flatIndex) === overId,
         );
 
         if (activeIdx < 0 || overIdx < 0) return;
@@ -423,7 +428,7 @@ export default function ManifestCustomerDatatable({
 
         if (!overId.startsWith('g-')) {
             const overIdx = targetGroup.members.findIndex(
-                (m) => `m-${toMemberId(m.traveler, m.flatIndex)}` === overId,
+                (m) => toMemberDndId(m.traveler, m.flatIndex) === overId,
             );
             if (overIdx >= 0) insertPos = overIdx;
         }
@@ -434,12 +439,7 @@ export default function ManifestCustomerDatatable({
                     return {
                         ...g,
                         members: g.members.filter(
-                            (m) =>
-                                toMemberId(m.traveler, m.flatIndex) !==
-                                toMemberId(
-                                    activeItem.traveler!,
-                                    activeItem.flatIndex,
-                                ),
+                            (m) => m.flatIndex !== activeItem.flatIndex,
                         ),
                     };
                 }
@@ -488,14 +488,12 @@ export default function ManifestCustomerDatatable({
             </TableHead>
             <TableHead>Name as per passport</TableHead>
             {(mode === 'travelers' || mode === 'room') && (
-                <TableHead>Relationship</TableHead>
+                <TableHead>Role</TableHead>
             )}
+            {mode === 'airline' && <TableHead>Nationality</TableHead>}
             {(mode === 'travelers' || mode === 'airline') && (
                 <TableHead>Passport No</TableHead>
             )}
-            {mode === 'travelers' && <TableHead>Status</TableHead>}
-            {mode === 'travelers' && <TableHead>Action</TableHead>}
-            {mode === 'airline' && <TableHead>Nationality</TableHead>}
             {mode === 'airline' && <TableHead>Gender</TableHead>}
             {mode === 'airline' && <TableHead>Date of Birth</TableHead>}
             {mode === 'airline' && <TableHead>Date of Issue</TableHead>}
@@ -505,7 +503,9 @@ export default function ManifestCustomerDatatable({
             {mode === 'room' && <TableHead>Room Type</TableHead>}
             {mode === 'room' && <TableHead>Bed Type</TableHead>}
             {mode === 'room' && <TableHead>Meal</TableHead>}
+            {mode === 'travelers' && <TableHead>Status</TableHead>}
             <TableHead>Remarks</TableHead>
+            {mode === 'travelers' && <TableHead>Action</TableHead>}
         </TableRow>
     );
 
@@ -770,11 +770,11 @@ export default function ManifestCustomerDatatable({
                 {(mode === 'travelers' || mode === 'room') && (
                     <TableCell>
                         <Input
-                            value={traveler.relationship ?? ''}
+                            value={traveler.role ?? traveler.relationship ?? ''}
                             onChange={(e) =>
                                 updateMemberField(
                                     flatIndex,
-                                    'relationship',
+                                    'role',
                                     e.target.value,
                                 )
                             }
@@ -808,12 +808,16 @@ export default function ManifestCustomerDatatable({
                             className={cn(
                                 traveler.status === 'cancelled'
                                     ? 'border-red-300 bg-red-50 text-red-700'
-                                    : 'border-green-300 bg-green-50 text-green-700',
+                                    : traveler.status === 'unavailable'
+                                      ? 'border-amber-300 bg-amber-50 text-amber-700'
+                                      : 'border-green-300 bg-green-50 text-green-700',
                             )}
                         >
-                            {traveler.status === 'cancelled'
-                                ? 'Cancelled'
-                                : 'Assigned'}
+                            {traveler.status
+                                ? traveler.status
+                                      .replace('_', ' ')
+                                      .replace(/\b\w/g, (c) => c.toUpperCase())
+                                : 'Confirmed'}
                         </Badge>
                     </TableCell>
                 )}
@@ -957,16 +961,15 @@ export default function ManifestCustomerDatatable({
                 )}
 
                 <TableCell>
-                    <Input
+                    <ProperInput
                         value={traveler.remarks ?? ''}
-                        onChange={(e) =>
-                            updateMemberField(
-                                flatIndex,
-                                'remarks',
-                                e.target.value,
-                            )
+                        onCommit={(value) =>
+                            updateMemberField(flatIndex, 'remarks', value)
                         }
                         disabled={disabled}
+                        textarea
+                        size="compact"
+                        className="min-h-[70px]"
                     />
                 </TableCell>
             </TableRow>
@@ -1068,12 +1071,13 @@ export default function ManifestCustomerDatatable({
                 />
             </TableCell>
             <TableCell>
-                <Input
+                <ProperInput
                     value={row.remarks ?? ''}
-                    onChange={(e) =>
-                        updateFlatRow(index, 'remarks', e.target.value)
-                    }
+                    onCommit={(value) => updateFlatRow(index, 'remarks', value)}
                     disabled={disabled}
+                    textarea
+                    size="compact"
+                    className="min-h-[70px]"
                 />
             </TableCell>
         </TableRow>

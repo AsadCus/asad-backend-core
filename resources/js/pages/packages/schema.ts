@@ -163,3 +163,9 @@ export const officialTypeOptions = [
     { label: 'Mutawifah', value: 'mutawifah' },
     { label: 'Official', value: 'official' },
 ];
+
+export const packageMealPlanOptions = [
+    { value: 'Breakfast Only', label: 'Breakfast Only' },
+    { value: 'Half Board', label: 'Half Board (Breakfast & Dinner)' },
+    { value: 'Full Board', label: 'Full Board (3 Meals)' },
+];

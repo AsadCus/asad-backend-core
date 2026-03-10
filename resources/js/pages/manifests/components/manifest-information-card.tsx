@@ -62,7 +62,7 @@ export default function ManifestInformationCard({
                             onValueChange={(value) =>
                                 setData('package_id', Number(value))
                             }
-                            disabled={isView}
+                            disabled={isView || !!data.id}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select package" />
