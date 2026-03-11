@@ -99,8 +99,8 @@ class CustomerConfirmationService
             if ($existingUser) {
                 $customer = Customer::create(array_merge([
                     'user_id' => $existingUser->id,
-                    'nric_number' => $customerData['nric_number'] ?? null,
-                    'address' => $customerData['address'] ?? null,
+                    'nric_number' => $this->normalizeNullableString($customerData['nric_number'] ?? null),
+                    'address' => $this->normalizeNullableString($customerData['address'] ?? null),
                 ], $biodata));
 
                 return $customer;
@@ -118,8 +118,8 @@ class CustomerConfirmationService
 
         $customer = Customer::create(array_merge([
             'user_id' => $user->id,
-            'nric_number' => $customerData['nric_number'] ?? null,
-            'address' => $customerData['address'] ?? null,
+            'nric_number' => $this->normalizeNullableString($customerData['nric_number'] ?? null),
+            'address' => $this->normalizeNullableString($customerData['address'] ?? null),
         ], $biodata));
 
         return $customer;
@@ -148,7 +148,7 @@ class CustomerConfirmationService
         $biodata = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
-                $biodata[$field] = $data[$field];
+                $biodata[$field] = $this->normalizeNullableFieldValue($data[$field]);
             }
         }
 
@@ -179,8 +179,8 @@ class CustomerConfirmationService
         ];
 
         foreach ($customerFields as $field) {
-            if (array_key_exists($field, $data) && $data[$field] !== null && $data[$field] !== '') {
-                $customerUpdates[$field] = $data[$field];
+            if (array_key_exists($field, $data)) {
+                $customerUpdates[$field] = $this->normalizeNullableFieldValue($data[$field]);
             }
         }
 
@@ -200,6 +200,30 @@ class CustomerConfirmationService
                 $customer->user->update($userUpdates);
             }
         }
+    }
+
+    private function normalizeNullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function normalizeNullableFieldValue(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            return $this->normalizeNullableString($value);
+        }
+
+        return $value;
     }
 
     /** Search customers for autocomplete options. */

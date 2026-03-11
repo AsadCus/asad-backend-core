@@ -143,7 +143,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="NRIC Number"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'National Registration Identity Card number',
                             format: '123456-12-1234',
                         }}
@@ -162,7 +162,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Gender"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Select gender as per official documents',
                         }}
                         htmlFor={fieldPath('gender')}
@@ -183,7 +183,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Marital Status"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Current marital status',
                         }}
                         htmlFor={fieldPath('marital_status')}
@@ -204,7 +204,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Date of Birth"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Birth date as per passport or IC',
                         }}
                         htmlFor={fieldPath('date_of_birth')}
@@ -225,7 +225,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Place of Birth"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'City or country where you were born',
                             example: 'Singapore',
                         }}
@@ -246,7 +246,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Nationality"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Citizenship as per passport',
                             example: 'Singaporean, Malaysian, etc.',
                         }}
@@ -265,7 +265,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Residential Address"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Full address including street, city, and postal code',
                             example:
                                 '111 Orchard Road #10-05, Orchard Towers, Singapore 238858',
@@ -293,7 +293,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Passport Number"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Passport number exactly as shown on passport',
                         }}
                         htmlFor={fieldPath('passport_number')}
@@ -313,7 +313,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Place of Issue"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'City or country where passport was issued',
                             example: 'Singapore',
                         }}
@@ -334,7 +334,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Issue Date"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Date when passport was issued',
                         }}
                         htmlFor={fieldPath('passport_issue_date')}
@@ -355,7 +355,7 @@ export default function CustomerFormFields({
                     <FormField
                         label="Expiry Date"
                         fieldRequirementsProps={{
-                            required: true,
+                            required: false,
                             hint: 'Passport must be valid for at least 6 months from travel date',
                         }}
                         htmlFor={fieldPath('passport_expiry_date')}
