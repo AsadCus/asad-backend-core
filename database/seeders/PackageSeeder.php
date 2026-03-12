@@ -90,7 +90,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package2->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Fairmont Makkah Clock Royal Tower', 'type_of_meal' => 'Full Board', 'check_in' => '2026-02-11', 'check_out' => '2026-02-16'],
+            ['location' => 'Mekkah', 'hotel_name' => 'Fairmont Mekkah Clock Royal Tower', 'type_of_meal' => 'Full Board', 'check_in' => '2026-02-11', 'check_out' => '2026-02-16'],
             ['location' => 'Madinah', 'hotel_name' => 'The Oberoi Madina', 'type_of_meal' => 'Full Board', 'check_in' => '2026-02-16', 'check_out' => '2026-02-19'],
         ]);
 
@@ -142,7 +142,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package3->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Hilton Makkah Convention', 'type_of_meal' => 'Full Board', 'check_in' => '2026-06-02', 'check_out' => '2026-06-10'],
+            ['location' => 'Mekkah', 'hotel_name' => 'Hilton Mekkah Convention', 'type_of_meal' => 'Full Board', 'check_in' => '2026-06-02', 'check_out' => '2026-06-10'],
             ['location' => 'Madinah', 'hotel_name' => 'Pullman Zamzam Madina', 'type_of_meal' => 'Full Board', 'check_in' => '2026-06-14', 'check_out' => '2026-06-20'],
             ['location' => 'Taif', 'hotel_name' => 'InterContinental Taif', 'type_of_meal' => 'Breakfast', 'check_in' => '2026-06-10', 'check_out' => '2026-06-14'],
         ]);
@@ -195,7 +195,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package4->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Swissotel Makkah', 'type_of_meal' => 'Iftar & Suhoor', 'check_in' => '2026-03-02', 'check_out' => '2026-03-12'],
+            ['location' => 'Mekkah', 'hotel_name' => 'Swissotel Mekkah', 'type_of_meal' => 'Iftar & Suhoor', 'check_in' => '2026-03-02', 'check_out' => '2026-03-12'],
             ['location' => 'Madinah', 'hotel_name' => 'Anwar Al Madinah Movenpick', 'type_of_meal' => 'Iftar & Suhoor', 'check_in' => '2026-03-12', 'check_out' => '2026-03-14'],
         ]);
 

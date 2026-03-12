@@ -76,9 +76,6 @@ export interface ManifestFormData
     travelers?: TravelerSchema[];
     roomLists?: Record<string, TravelerSchema[]>;
     airlineList?: TravelerSchema[];
-    roomListMakkah?: Record<number, TravelerSchema[]>;
-    roomListMadinah?: Record<number, TravelerSchema[]>;
-    roomListOthers?: Record<number, TravelerSchema[]>;
 }
 
 export interface ManifestFormProps {
@@ -97,8 +94,13 @@ export type TravelerWithUI = TravelerSchema & {
     sharing_group_key?: string;
     accommodation_key?: string;
     sort_order?: number;
+    room_relationship?: string | null;
     room_label?: string;
+    room_number?: string;
     room_remarks?: string;
+    package_category?: string | null;
+    date_of_sign_up?: string | null;
+    is_first_time_umrah?: boolean | null;
     status?:
         | 'draft'
         | 'pending_payment'
@@ -107,6 +109,7 @@ export type TravelerWithUI = TravelerSchema & {
         | 'unavailable'
         | 'cancelled'
         | string;
-    role?: string;
-    sharing_plan?: string;
+    role?: string | null;
+    relationship?: string | null;
+    sharing_plan?: string | null;
 };

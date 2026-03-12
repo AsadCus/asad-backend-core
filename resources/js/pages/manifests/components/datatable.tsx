@@ -48,6 +48,10 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import {
+    confirmationMemberStatusColors,
+    confirmationMemberStatusLabels,
+} from '../../customer/schema';
 import { type TravelerWithUI } from '../types';
 
 type TableMode = 'travelers' | 'room' | 'airline';
@@ -146,6 +150,28 @@ function getBedTypeFromRoomType(roomType?: string): string {
 
     if (value === 'single' || value === 'twin' || value === 'triple') {
         return 'single';
+    }
+
+    return '';
+}
+
+function getRoomTypeFromSharingPlan(sharingPlan?: string): string {
+    const value = String(sharingPlan ?? '').toLowerCase();
+
+    if (value === 'single') {
+        return 'single';
+    }
+
+    if (value === 'double') {
+        return 'double';
+    }
+
+    if (value === 'triple') {
+        return 'triple';
+    }
+
+    if (value === 'quad') {
+        return 'quad';
     }
 
     return '';
@@ -422,7 +448,55 @@ export default function ManifestDatatable({
         field: keyof TravelerWithUI,
         value: string | number,
     ) => {
+        if (
+            mode === 'room' &&
+            field === 'sharing_plan' &&
+            typeof value === 'string'
+        ) {
+            const source = rows[flatIndex];
+            const groupKey =
+                source.sharing_group_key ??
+                `solo-${source.customer_confirmation_member_id ?? flatIndex}`;
+            const normalizedSharingPlan = value.toLowerCase();
+            const roomType = getRoomTypeFromSharingPlan(normalizedSharingPlan);
+
+            const next = rows.map((row, index) => {
+                const rowKey =
+                    row.sharing_group_key ??
+                    `solo-${row.customer_confirmation_member_id ?? index}`;
+
+                if (rowKey !== groupKey) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    sharing_plan: normalizedSharingPlan,
+                    room_type: roomType || row.room_type,
+                    bed_type: getBedTypeFromRoomType(roomType) || row.bed_type,
+                };
+            });
+
+            onRowsChange(next);
+
+            return;
+        }
+
         const next = [...rows];
+
+        if (field === 'date_of_birth' && typeof value === 'string') {
+            const ageValue = getAgeFromDate(value);
+
+            next[flatIndex] = {
+                ...next[flatIndex],
+                date_of_birth: value,
+                age: ageValue === '' ? null : Number(ageValue),
+            };
+            onRowsChange(next);
+
+            return;
+        }
+
         next[flatIndex] = { ...next[flatIndex], [field]: value };
         onRowsChange(next);
     };
@@ -440,6 +514,19 @@ export default function ManifestDatatable({
             typeof value === 'string'
         ) {
             patch.bed_type = getBedTypeFromRoomType(value);
+        }
+
+        if (
+            mode === 'room' &&
+            field === 'sharing_plan' &&
+            typeof value === 'string'
+        ) {
+            const normalizedSharingPlan = value.toLowerCase();
+            const roomType = getRoomTypeFromSharingPlan(normalizedSharingPlan);
+
+            patch.sharing_plan = normalizedSharingPlan;
+            patch.room_type = roomType;
+            patch.bed_type = getBedTypeFromRoomType(roomType);
         }
 
         const next = rows.map((row) => {
@@ -463,6 +550,20 @@ export default function ManifestDatatable({
         value: string | number,
     ) => {
         const next = [...rows];
+
+        if (field === 'date_of_birth' && typeof value === 'string') {
+            const ageValue = getAgeFromDate(value);
+
+            next[index] = {
+                ...next[index],
+                date_of_birth: value,
+                age: ageValue === '' ? null : Number(ageValue),
+            };
+            onRowsChange(next);
+
+            return;
+        }
+
         next[index] = { ...next[index], [field]: value };
         onRowsChange(next);
     };
@@ -555,6 +656,7 @@ export default function ManifestDatatable({
             sharing_group_key: targetGroupKey,
             ...(mode === 'room' && targetShared
                 ? {
+                      room_relationship: targetShared.room_relationship,
                       room_label: targetShared.room_label,
                       room_no: targetShared.room_no,
                       sharing_plan: targetShared.sharing_plan,
@@ -689,6 +791,22 @@ export default function ManifestDatatable({
         if (mode === 'room') {
             const sharingPlan =
                 targetGroup.members[0]?.traveler.sharing_plan ?? '';
+            const targetSharingPlan = sharingPlan.toLowerCase();
+            const activeSharingPlan =
+                activeItem.traveler.sharing_plan?.toLowerCase() ?? '';
+
+            if (
+                activeSharingPlan !== '' &&
+                targetSharingPlan !== '' &&
+                activeSharingPlan !== targetSharingPlan
+            ) {
+                toast.error(
+                    `Cannot move: traveler sharing plan (${activeSharingPlan}) must match target room sharing plan (${targetSharingPlan}).`,
+                );
+
+                return;
+            }
+
             const capacity = getCapacityForSharingPlan(sharingPlan);
             const currentCount = targetGroup.members.length;
 
@@ -731,11 +849,11 @@ export default function ManifestDatatable({
         const drag = allowReorder ? 1 : 0;
 
         if (mode === 'travelers') {
-            return drag + 7;
+            return drag + 14;
         }
 
         if (mode === 'room') {
-            return drag + 13;
+            return drag + 15;
         }
 
         return drag + 11;
@@ -746,6 +864,7 @@ export default function ManifestDatatable({
         const first = group?.members[0]?.traveler;
 
         return {
+            room_relationship: first?.room_relationship ?? '',
             room_label: first?.room_label ?? '',
             room_no: first?.room_no ?? '',
             sharing_plan: first?.sharing_plan ?? '',
@@ -761,28 +880,85 @@ export default function ManifestDatatable({
             <TableHead className="w-[72px]">
                 {isGrouped ? '#' : 'S/N'}
             </TableHead>
-            <TableHead>Name as per passport</TableHead>
+            <TableHead className="min-w-60">Name as per passport</TableHead>
             {(mode === 'travelers' || mode === 'room') && (
-                <TableHead>Role</TableHead>
+                <TableHead className="min-w-40">Role</TableHead>
             )}
-            {mode === 'airline' && <TableHead>Passport No</TableHead>}
-            {mode === 'airline' && <TableHead>Nationality</TableHead>}
-            {mode === 'airline' && <TableHead>Gender</TableHead>}
-            {mode === 'airline' && <TableHead>Date of Birth</TableHead>}
-            {mode === 'airline' && <TableHead>Date of Issue</TableHead>}
-            {mode === 'airline' && <TableHead>Date of Expiry</TableHead>}
-            {mode === 'airline' && <TableHead>Issue Place</TableHead>}
-            {mode === 'room' && <TableHead>Room Label</TableHead>}
-            {mode === 'room' && <TableHead>Room No</TableHead>}
-            {mode === 'room' && <TableHead>Sharing Plan</TableHead>}
-            {mode === 'room' && <TableHead>Room Type</TableHead>}
-            {mode === 'room' && <TableHead>Bed Type</TableHead>}
-            {mode === 'room' && <TableHead>Date of Birth</TableHead>}
-            {mode === 'room' && <TableHead>Age</TableHead>}
-            {mode === 'room' && <TableHead>Meal</TableHead>}
-            {mode === 'travelers' && <TableHead>Passport No</TableHead>}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-40">Package Category</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-55">Date of Sign Up</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-40">1st Time Umrah</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-40">Room Type</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-40">Passport No</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-40">Gender</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-55">Date of Birth</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-20">Age</TableHead>
+            )}
+            {mode === 'airline' && (
+                <TableHead className="min-w-40">Passport No</TableHead>
+            )}
+            {mode === 'airline' && (
+                <TableHead className="min-w-50">Nationality</TableHead>
+            )}
+            {mode === 'airline' && (
+                <TableHead className="min-w-40">Gender</TableHead>
+            )}
+            {mode === 'airline' && (
+                <TableHead className="min-w-55">Date of Birth</TableHead>
+            )}
+            {mode === 'airline' && (
+                <TableHead className="min-w-55">Date of Issue</TableHead>
+            )}
+            {mode === 'airline' && (
+                <TableHead className="min-w-55">Date of Expiry</TableHead>
+            )}
+            {mode === 'airline' && (
+                <TableHead className="min-w-40">Issue Place</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-60">Relationship</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-40">Passport No</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-40">Room Label</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-40">Room No</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-40">Sharing Plan</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-40">Room Type</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-40">Bed Type</TableHead>
+            )}
+            {mode === 'room' && (
+                <TableHead className="min-w-55">Date of Birth</TableHead>
+            )}
+            {mode === 'room' && <TableHead className="min-w-20">Age</TableHead>}
+            {mode === 'room' && (
+                <TableHead className="min-w-40">Meal</TableHead>
+            )}
             {mode === 'travelers' && <TableHead>Status</TableHead>}
-            <TableHead>Remarks</TableHead>
+            <TableHead className="min-w-60">Remarks</TableHead>
             <TableHead>Action</TableHead>
         </TableRow>
     );
@@ -852,7 +1028,7 @@ export default function ManifestDatatable({
 
                 <TableCell>
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">
+                        <span className="text-base font-medium">
                             {mode === 'room'
                                 ? (roomInfo?.room_label?.trim() ?? '') ||
                                   `Room ${item.groupIndex + 1}`
@@ -884,6 +1060,15 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell />
                         <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
                     </>
                 )}
 
@@ -896,11 +1081,28 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell />
                         <TableCell />
+                        <TableCell />
                     </>
                 )}
 
                 {mode === 'room' && (
                     <>
+                        <TableCell />
+                        <TableCell>
+                            <ProperInput
+                                value={roomInfo?.room_relationship ?? ''}
+                                onCommit={(value) =>
+                                    updateGroupField(
+                                        item.groupKey,
+                                        'room_relationship',
+                                        value,
+                                    )
+                                }
+                                disabled={disabled}
+                                placeholder="Relationship"
+                                size="default"
+                            />
+                        </TableCell>
                         <TableCell />
                         <TableCell>
                             <ProperInput
@@ -1156,56 +1358,205 @@ export default function ManifestDatatable({
                 {mode === 'travelers' && (
                     <TableCell>
                         <ProperInput
+                            value={traveler.package_category ?? ''}
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={traveler.date_of_sign_up ?? ''}
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                traveler.is_first_time_umrah === null ||
+                                traveler.is_first_time_umrah === undefined
+                                    ? ''
+                                    : traveler.is_first_time_umrah
+                                      ? 'Yes'
+                                      : 'No'
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <SelectCell
+                            value={traveler.sharing_plan ?? ''}
+                            placeholder="Room type"
+                            onValueChange={(value) =>
+                                updateMemberField(
+                                    flatIndex,
+                                    'sharing_plan',
+                                    value,
+                                )
+                            }
+                            disabled={disabled}
+                            options={SHARING_PLAN_OPTIONS}
+                        />
+                        {renderCellError(flatIndex, 'sharing_plan')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
                             id={
                                 errorPrefix
-                                    ? getErrorPath(flatIndex, 'passport_no')
+                                    ? getErrorPath(flatIndex, 'passport_number')
                                     : undefined
                             }
-                            value={
-                                traveler.passport_no ?? traveler.ppt_no ?? ''
-                            }
+                            value={traveler.passport_number ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(
                                     flatIndex,
-                                    'passport_no',
+                                    'passport_number',
                                     value,
                                 )
                             }
                             disabled={disabled}
                             size="default"
                         />
-                        {renderCellError(flatIndex, 'passport_no')}
+                        {renderCellError(flatIndex, 'passport_number')}
                     </TableCell>
                 )}
 
                 {mode === 'travelers' && (
                     <TableCell>
-                        <Badge
-                            variant="outline"
-                            className={cn(
-                                traveler.status === 'cancelled'
-                                    ? 'border-red-300 bg-red-50 text-red-700'
-                                    : traveler.status === 'unavailable'
-                                      ? 'border-amber-300 bg-amber-50 text-amber-700'
-                                      : 'border-green-300 bg-green-50 text-green-700',
-                            )}
-                        >
-                            {traveler.status
-                                ? traveler.status
-                                      .replace('_', ' ')
-                                      .replace(/\b\w/g, (char) =>
-                                          char.toUpperCase(),
-                                      )
-                                : 'Confirmed'}
-                        </Badge>
+                        <SelectCell
+                            value={traveler.gender ?? ''}
+                            placeholder="Gender"
+                            onValueChange={(value) =>
+                                updateMemberField(flatIndex, 'gender', value)
+                            }
+                            disabled={disabled}
+                            options={GENDER_OPTIONS}
+                        />
+                        {renderCellError(flatIndex, 'gender')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <DatePickerField
+                            id={
+                                errorPrefix
+                                    ? getErrorPath(flatIndex, 'date_of_birth')
+                                    : `main-date-of-birth-${flatIndex}`
+                            }
+                            value={traveler.date_of_birth ?? ''}
+                            fromYear={new Date().getFullYear() - 100}
+                            onChange={(value) =>
+                                updateMemberField(
+                                    flatIndex,
+                                    'date_of_birth',
+                                    value,
+                                )
+                            }
+                            disabled={disabled}
+                        />
+                        {renderCellError(flatIndex, 'date_of_birth')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                traveler.age !== null &&
+                                traveler.age !== undefined
+                                    ? String(traveler.age)
+                                    : getAgeFromDate(traveler.date_of_birth)
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        {(() => {
+                            const status = traveler.status ?? 'draft';
+                            const statusColor =
+                                confirmationMemberStatusColors[status] ??
+                                'bg-gray-100 text-gray-800';
+                            const statusLabel =
+                                confirmationMemberStatusLabels[status] ??
+                                status;
+
+                            return (
+                                <Badge
+                                    className={`${statusColor} rounded-full px-3 py-1 text-base`}
+                                >
+                                    {statusLabel}
+                                </Badge>
+                            );
+                        })()}
                     </TableCell>
                 )}
 
                 {mode === 'room' && (
                     <>
                         <TableCell />
+                        <TableCell>
+                            <ProperInput
+                                id={
+                                    errorPrefix
+                                        ? getErrorPath(
+                                              flatIndex,
+                                              'passport_number',
+                                          )
+                                        : undefined
+                                }
+                                value={traveler.passport_number ?? ''}
+                                onCommit={(value) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'passport_number',
+                                        value,
+                                    )
+                                }
+                                disabled={disabled}
+                                size="default"
+                            />
+                            {renderCellError(flatIndex, 'passport_number')}
+                        </TableCell>
                         <TableCell />
                         <TableCell />
+                        <TableCell>
+                            <SelectCell
+                                value={traveler.sharing_plan ?? ''}
+                                placeholder="Sharing plan"
+                                onValueChange={(value) =>
+                                    updateMemberField(
+                                        flatIndex,
+                                        'sharing_plan',
+                                        value,
+                                    )
+                                }
+                                disabled={disabled}
+                                options={SHARING_PLAN_OPTIONS}
+                            />
+                            {renderCellError(flatIndex, 'sharing_plan')}
+                        </TableCell>
                         <TableCell />
                         <TableCell />
                         <TableCell>
@@ -1216,7 +1567,7 @@ export default function ManifestDatatable({
                                               flatIndex,
                                               'date_of_birth',
                                           )
-                                        : undefined
+                                        : `room-date-of-birth-${flatIndex}`
                                 }
                                 value={traveler.date_of_birth ?? ''}
                                 fromYear={new Date().getFullYear() - 100}
@@ -1254,25 +1605,28 @@ export default function ManifestDatatable({
                             <ProperInput
                                 id={
                                     errorPrefix
-                                        ? getErrorPath(flatIndex, 'passport_no')
+                                        ? getErrorPath(
+                                              flatIndex,
+                                              'passport_number',
+                                          )
                                         : undefined
                                 }
                                 value={
-                                    traveler.passport_no ??
-                                    traveler.ppt_no ??
+                                    traveler.passport_number ??
+                                    traveler.passport_number ??
                                     ''
                                 }
                                 onCommit={(value) =>
                                     updateMemberField(
                                         flatIndex,
-                                        'passport_no',
+                                        'passport_number',
                                         value,
                                     )
                                 }
                                 disabled={disabled}
                                 size="default"
                             />
-                            {renderCellError(flatIndex, 'passport_no')}
+                            {renderCellError(flatIndex, 'passport_number')}
                         </TableCell>
                         <TableCell>
                             <ProperInput
@@ -1318,7 +1672,7 @@ export default function ManifestDatatable({
                                               flatIndex,
                                               'date_of_birth',
                                           )
-                                        : undefined
+                                        : `airline-date-of-birth-${flatIndex}`
                                 }
                                 value={traveler.date_of_birth ?? ''}
                                 fromYear={new Date().getFullYear() - 100}
@@ -1341,9 +1695,10 @@ export default function ManifestDatatable({
                                               flatIndex,
                                               'date_of_issue',
                                           )
-                                        : undefined
+                                        : `airline-date-of-issue-${flatIndex}`
                                 }
                                 value={traveler.date_of_issue ?? ''}
+                                fromYear={new Date().getFullYear() - 10}
                                 onChange={(value) =>
                                     updateMemberField(
                                         flatIndex,
@@ -1363,9 +1718,10 @@ export default function ManifestDatatable({
                                               flatIndex,
                                               'date_of_expiry',
                                           )
-                                        : undefined
+                                        : `airline-date-of-expiry-${flatIndex}`
                                 }
                                 value={traveler.date_of_expiry ?? ''}
+                                toYear={new Date().getFullYear() + 10}
                                 onChange={(value) =>
                                     updateMemberField(
                                         flatIndex,
@@ -1498,17 +1854,17 @@ export default function ManifestDatatable({
                 <ProperInput
                     id={
                         errorPrefix
-                            ? getErrorPath(index, 'passport_no')
+                            ? getErrorPath(index, 'passport_number')
                             : undefined
                     }
-                    value={row.passport_no ?? row.ppt_no ?? ''}
+                    value={row.passport_number ?? ''}
                     onCommit={(value) =>
-                        updateFlatRow(index, 'passport_no', value)
+                        updateFlatRow(index, 'passport_number', value)
                     }
                     disabled={disabled}
                     size="default"
                 />
-                {renderCellError(index, 'passport_no')}
+                {renderCellError(index, 'passport_number')}
             </TableCell>
             <TableCell>
                 <ProperInput
@@ -1543,7 +1899,7 @@ export default function ManifestDatatable({
                     id={
                         errorPrefix
                             ? getErrorPath(index, 'date_of_birth')
-                            : undefined
+                            : `airline-flat-date-of-birth-${index}`
                     }
                     value={row.date_of_birth ?? ''}
                     fromYear={new Date().getFullYear() - 100}
@@ -1559,7 +1915,7 @@ export default function ManifestDatatable({
                     id={
                         errorPrefix
                             ? getErrorPath(index, 'date_of_issue')
-                            : undefined
+                            : `airline-flat-date-of-issue-${index}`
                     }
                     value={row.date_of_issue ?? ''}
                     onChange={(value) =>
@@ -1574,7 +1930,7 @@ export default function ManifestDatatable({
                     id={
                         errorPrefix
                             ? getErrorPath(index, 'date_of_expiry')
-                            : undefined
+                            : `airline-flat-date-of-expiry-${index}`
                     }
                     value={row.date_of_expiry ?? ''}
                     onChange={(value) =>
@@ -1635,7 +1991,14 @@ export default function ManifestDatatable({
                     items={dndIds}
                     strategy={verticalListSortingStrategy}
                 >
-                    <Table>
+                    <Table
+                        className={cn(
+                            'min-w-[1600px]',
+                            '[&_td]:align-top [&_th]:align-middle',
+                            // '[&_td]:p-1 [&_th]:px-1 [&_th]:py-2',
+                            // '[&_tfoot_td]:p-2',
+                        )}
+                    >
                         <TableHeader>{renderTableHeaders()}</TableHeader>
 
                         <TableBody>

@@ -283,12 +283,8 @@ class ManifestController extends Controller
 
         $roomLists = Arr::get($payload, 'roomLists', []);
 
-        if (! is_array($roomLists) || $roomLists === []) {
-            $roomLists = array_filter([
-                'makkah' => Arr::get($payload, 'roomListMakkah', []),
-                'madinah' => Arr::get($payload, 'roomListMadinah', []),
-                'others' => Arr::get($payload, 'roomListOthers', []),
-            ], fn (mixed $rows) => is_array($rows) && $rows !== []);
+        if (! is_array($roomLists)) {
+            $roomLists = [];
         }
 
         $roomLists = $this->normalizeRoomListsForUi($roomLists);
@@ -308,11 +304,6 @@ class ManifestController extends Controller
 
         $flightDetails['ui_room_lists'] = $roomLists;
         $flightDetails['ui_airline_list'] = $airlineList;
-
-        // backward compatibility for existing payload readers
-        $flightDetails['ui_room_list_makkah'] = $roomLists['makkah'] ?? [];
-        $flightDetails['ui_room_list_madinah'] = $roomLists['madinah'] ?? [];
-        $flightDetails['ui_room_list_others'] = $roomLists['others'] ?? [];
 
         $payload['flight_details'] = $flightDetails;
         $payload['airlineList'] = $airlineList;
@@ -422,6 +413,7 @@ class ManifestController extends Controller
 
                 $normalizedRooms[] = [
                     'location' => is_string($location) ? $location : null,
+                    'relationship' => $first['room_relationship'] ?? $first['relationship'] ?? null,
                     'room_label' => $first['room_label'] ?? null,
                     'room_number' => $first['room_number'] ?? $first['room_no'] ?? null,
                     'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
@@ -438,6 +430,9 @@ class ManifestController extends Controller
                                 : null,
                             'customer_confirmation_member_id' => isset($member['customer_confirmation_member_id'])
                                 ? (int) $member['customer_confirmation_member_id']
+                                : null,
+                            'sharing_plan' => isset($member['sharing_plan']) && is_string($member['sharing_plan'])
+                                ? strtolower(trim($member['sharing_plan']))
                                 : null,
                             'sort_order' => (int) ($member['sort_order'] ?? $member['sn'] ?? ($index + 1)),
                             'remarks' => $member['remarks'] ?? null,

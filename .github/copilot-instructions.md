@@ -52,6 +52,15 @@ This application is a Laravel application and its main Laravel ecosystems packag
 ## Documentation Files
 
 - You must only create documentation files if explicitly requested by the user.
+- Manifest behavior specification is defined in `.github/manifest-form-behavior.md` and must be followed for manifest form changes.
+- Date formatting standard is defined in `.github/date-formatting-standard.md` and must be followed for service/model date responses.
+
+## Project-Specific Enforcement
+
+- Manifest module changes must keep traveler shared fields synchronized across tabs from one canonical source.
+- For manifest room data shape, use dynamic `roomLists` and do not introduce fixed room-list keys.
+- Use `passport_number` as the only passport field in manifest schema/mapping/sync logic.
+- For date output used by frontend display, provide model/service `*_formatted` values using `translatedFormat('d F Y')`.
 
 ## Protected Files (AsadCus Approval Gate)
 
@@ -378,6 +387,7 @@ import { Link } from '@inertiajs/react'
 import { Form } from '@inertiajs/react'
 
 export default () => (
+
 <Form action="/users" method="post">
 {({
 errors,
@@ -420,13 +430,13 @@ defaults
 
 - When listing items, use gap utilities for spacing, don't use margins.
 
-      <code-snippet name="Valid Flex Gap Spacing Example" lang="html">
-          <div class="flex gap-8">
-              <div>Superior</div>
-              <div>Michigan</div>
-              <div>Erie</div>
-          </div>
-      </code-snippet>
+        <code-snippet name="Valid Flex Gap Spacing Example" lang="html">
+            <div class="flex gap-8">
+                <div>Superior</div>
+                <div>Michigan</div>
+                <div>Erie</div>
+            </div>
+        </code-snippet>
 
 ### Dark Mode
 

@@ -16,7 +16,7 @@ class ManifestRule
             'travelers.*.name_as_per_passport' => ['nullable', 'string', 'max:255'],
             'travelers.*.customer_confirmation_member_id' => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
             'travelers.*.relationship' => ['nullable', 'string', 'max:100'],
-            'travelers.*.passport_no' => ['nullable', 'string', 'max:50'],
+            'travelers.*.passport_number' => ['nullable', 'string', 'max:50'],
             'travelers.*.date_of_birth' => ['nullable', 'date'],
             'travelers.*.remarks' => ['nullable', 'string'],
             'travelers.*.status' => ['nullable', 'string', 'in:draft,pending_payment,partially_paid,confirmed,unavailable,assigned,cancelled'],
@@ -24,6 +24,7 @@ class ManifestRule
             // Rooms
             'rooms' => ['nullable', 'array'],
             'rooms.*.location' => ['nullable', 'string', 'max:255'],
+            'rooms.*.relationship' => ['nullable', 'string', 'max:100'],
             'rooms.*.room_number' => ['nullable', 'string', 'max:50'],
             'rooms.*.room_type' => ['nullable', 'string', 'in:single,twin,double,triple,quad'],
             'rooms.*.bed_type' => ['nullable', 'string', 'in:single,king,queen'],
@@ -36,6 +37,7 @@ class ManifestRule
             'rooms.*.members' => ['nullable', 'array'],
             'rooms.*.members.*.manifest_traveler_id' => ['nullable', 'integer', 'exists:manifest_travelers,id'],
             'rooms.*.members.*.customer_confirmation_member_id' => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
+            'rooms.*.members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'rooms.*.members.*.sort_order' => ['nullable', 'integer', 'min:1'],
             'rooms.*.members.*.remarks' => ['nullable', 'string'],
 
@@ -63,6 +65,7 @@ class ManifestRule
     {
         return [
             'location' => ['nullable', 'string', 'max:255'],
+            'relationship' => ['nullable', 'string', 'max:100'],
             'room_number' => ['nullable', 'string', 'max:50'],
             'room_type' => ['nullable', 'string', 'in:single,twin,double,triple,quad'],
             'bed_type' => ['nullable', 'string', 'in:single,king,queen'],
@@ -75,6 +78,7 @@ class ManifestRule
             'members' => ['nullable', 'array'],
             'members.*.manifest_traveler_id' => ['nullable', 'integer', 'exists:manifest_travelers,id'],
             'members.*.customer_confirmation_member_id' => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
+            'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'members.*.sort_order' => ['nullable', 'integer', 'min:1'],
             'members.*.remarks' => ['nullable', 'string'],
         ];

@@ -133,10 +133,10 @@ class EnquiryWorkflowTest extends TestCase
             'require_mutawif' => false,
             'require_umrah_course' => false,
             'require_umrah_official' => false,
-            'makkah_or_madinah_first' => 'Makkah',
-            'no_of_nights_makkah' => '5',
-            'hotel_makkah' => 'Grand Hotel',
-            'meals_makkah' => 'Full Board',
+            'mekkah_or_madinah_first' => 'Mekkah',
+            'no_of_nights_mekkah' => '5',
+            'hotel_mekkah' => 'Grand Hotel',
+            'meals_mekkah' => 'Full Board',
             'no_of_nights_madinah' => '5',
             'hotel_madinah' => 'Madinah Hotel',
             'meals_madinah' => 'Half Board',
@@ -145,7 +145,7 @@ class EnquiryWorkflowTest extends TestCase
             'require_meet_greet' => false,
             'require_mutawiffah_ustazah_rawdah' => false,
             'madinah_tour_with_mutawif' => false,
-            'makkah_tour_with_mutawif' => false,
+            'mekkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
             'need_wheelchair' => 'No',
         ]);
@@ -702,10 +702,10 @@ class EnquiryWorkflowTest extends TestCase
             'require_mutawif' => false,
             'require_umrah_course' => false,
             'require_umrah_official' => false,
-            'makkah_or_madinah_first' => 'makkah',
-            'no_of_nights_makkah' => '4',
-            'hotel_makkah' => 'Makkah Grand',
-            'meals_makkah' => 'Full Board',
+            'mekkah_or_madinah_first' => 'mekkah',
+            'no_of_nights_mekkah' => '4',
+            'hotel_mekkah' => 'Mekkah Grand',
+            'meals_mekkah' => 'Full Board',
             'no_of_nights_madinah' => '3',
             'hotel_madinah' => '',
             'meals_madinah' => '',
@@ -714,7 +714,7 @@ class EnquiryWorkflowTest extends TestCase
             'require_meet_greet' => false,
             'require_mutawiffah_ustazah_rawdah' => false,
             'madinah_tour_with_mutawif' => false,
-            'makkah_tour_with_mutawif' => false,
+            'mekkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
             'need_wheelchair' => 'No',
             'other_remarks' => '',
@@ -732,8 +732,8 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertJsonMissingPath('airline');
         $response->assertJsonMissingPath('vehicle_type');
         $response->assertJsonPath('not_included', "Mutawif service not requested\nUmrah course not requested\nUmrah official not requested\nMeet & greet not requested\nMutawiffah/Ustazah Rawdah not requested");
-        $response->assertJsonPath('remarks', "Private enquiry details:\nClass: Economy\nMakkah/Madinah first: makkah\nNights in Makkah: 4\nNights in Madinah: 3\nWheelchair support: No");
-        $response->assertJsonPath('accommodations.0.location', 'Makkah');
+        $response->assertJsonPath('remarks', "Private enquiry details:\nClass: Economy\nMekkah/Madinah first: mekkah\nNights in Mekkah: 4\nNights in Madinah: 3\nWheelchair support: No");
+        $response->assertJsonPath('accommodations.0.location', 'Mekkah');
     }
 
     public function test_search_customers_returns_results(): void

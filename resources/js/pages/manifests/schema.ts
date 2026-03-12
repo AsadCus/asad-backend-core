@@ -8,9 +8,9 @@ export const travelerSchema = z.object({
     sn: z.coerce.number().nullable().optional(),
     name_as_per_passport: z.string().nullable().optional(),
     date_of_sign_up: z.string().nullable().optional(),
+    package_category: z.string().nullable().optional(),
     is_first_time_umrah: z.boolean().nullable().optional(),
-    ppt_no: z.string().nullable().optional(),
-    passport_no: z.string().nullable().optional(),
+    passport_number: z.string().nullable().optional(),
     gender: z.string().nullable().optional(),
     date_of_birth: z.string().nullable().optional(),
     age: z.coerce.number().nullable().optional(),
@@ -34,6 +34,7 @@ export const travelerSchema = z.object({
     remarks: z.string().nullable().optional(),
     nationality: z.string().nullable().optional(),
     room_no: z.string().nullable().optional(),
+    room_relationship: z.string().nullable().optional(),
     room_type: z.string().nullable().optional(),
     bed_type: z.string().nullable().optional(),
     no_of_beds_checked: z.coerce.number().nullable().optional(),
@@ -75,7 +76,7 @@ export const roomSchema = z.object({
     customer_id: z.number().optional(),
     name_as_per_passport: z.string().optional(),
     relationship: z.string().optional(),
-    passport_no: z.string().optional(),
+    passport_number: z.string().optional(),
     room_no: z.string().optional(),
     date_of_birth: z.string().optional(),
     age: z.coerce.number().optional(),
@@ -142,7 +143,7 @@ export type ManifestSharingGroupSchema = z.infer<
 
 // Nested structure types for API responses from ManifestService
 export const hotelDetailsSchema = z.object({
-    makkah: z
+    mekkah: z
         .object({
             hotel: z.string().optional(),
             checkIn: z.string().optional(),
@@ -171,9 +172,7 @@ export const manifestApiResponseSchema = z.object({
     manifestInformation: manifestInformationSchema.optional(),
     hotelDetails: hotelDetailsSchema.optional(),
     travelers: z.record(z.string(), z.array(travelerSchema)).optional(),
-    roomListMakkah: z.record(z.string(), z.array(roomSchema)).optional(),
-    roomListMadinah: z.record(z.string(), z.array(roomSchema)).optional(),
-    roomListOthers: z.record(z.string(), z.array(roomSchema)).optional(),
+    roomLists: z.record(z.string(), z.array(roomSchema)).optional(),
     airlinesNameList: z
         .record(
             z.string(),

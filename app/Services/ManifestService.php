@@ -11,6 +11,7 @@ use App\Models\ManifestRoom;
 use App\Models\ManifestSharingGroup;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ManifestService
 {
@@ -110,6 +111,7 @@ class ManifestService
         $manifest = Manifest::with([
             'package.accommodations',
             'package.flights',
+            'travelers.confirmationMember.confirmation.enquiry',
             'travelers.confirmationMember.customer.user',
             'rooms.roomMembers.traveler',
             'rooms.manifestSharingGroups.sharingGroup',
@@ -122,6 +124,8 @@ class ManifestService
             ->values()
             ->map(function ($traveler, $index) {
                 $member = $traveler->confirmationMember;
+                $confirmation = $member?->confirmation;
+                $enquiryCreatedAt = $confirmation?->enquiry?->created_at;
                 $customer = $member?->customer;
                 $user = $customer?->user;
 
@@ -136,8 +140,10 @@ class ManifestService
                     'role' => $member?->role,
                     'relationship' => $member?->role,
                     'sharing_plan' => $member?->sharing_plan,
-                    'passport_no' => $customer?->passport_number,
-                    'ppt_no' => $customer?->passport_number,
+                    'package_category' => $confirmation?->package_category,
+                    'date_of_sign_up' => ($enquiryCreatedAt ?? $confirmation?->created_at)?->translatedFormat('d F Y'),
+                    'is_first_time_umrah' => $customer?->first_time_umrah,
+                    'passport_number' => $customer?->passport_number,
                     'nationality' => $customer?->nationality,
                     'gender' => $customer?->gender,
                     'date_of_issue' => $customer?->passport_issue_date_formatted,
@@ -174,14 +180,12 @@ class ManifestService
             'status' => $manifest->status,
             'travelers' => $travelers,
             'roomLists' => $roomLists,
-            'roomListMakkah' => $roomLists['makkah'] ?? [],
-            'roomListMadinah' => $roomLists['madinah'] ?? [],
-            'roomListOthers' => $roomLists['others'] ?? [],
             'airlineList' => $airlineList,
             'rooms' => $manifest->rooms->map(function ($r) {
                 return [
                     'id' => $r->id,
                     'location' => $r->location,
+                    'relationship' => $r->relationship,
                     'room_label' => $r->room_label,
                     'room_number' => $r->room_number,
                     'room_type' => $r->room_type,
@@ -321,6 +325,7 @@ class ManifestService
 
             $room = $manifest->rooms()->create([
                 'location' => $data['location'] ?? null,
+                'relationship' => $data['relationship'] ?? null,
                 'room_label' => $data['room_label'] ?? null,
                 'room_number' => $data['room_number'] ?? null,
                 'room_type' => $data['room_type'] ?? null,
@@ -361,6 +366,7 @@ class ManifestService
 
             $room->update([
                 'location' => $data['location'] ?? $room->location,
+                'relationship' => $data['relationship'] ?? $room->relationship,
                 'room_label' => $data['room_label'] ?? $room->room_label,
                 'room_number' => $data['room_number'] ?? $room->room_number,
                 'room_type' => $data['room_type'] ?? $room->room_type,
@@ -594,10 +600,10 @@ class ManifestService
                             'customer_number' => $customer?->customer_number ?? '-',
                             'nric_number' => $customer?->nric_number ?? '-',
                             'passport_number' => $customer?->passport_number ?? '-',
-                            'passport_issue_date' => $customer?->passport_issue_date?->format('d/m/Y') ?? '',
-                            'passport_expiry_date' => $customer?->passport_expiry_date?->format('d/m/Y') ?? '',
+                            'passport_issue_date' => $customer?->passport_issue_date_formatted ?? '',
+                            'passport_expiry_date' => $customer?->passport_expiry_date_formatted ?? '',
                             'passport_place_of_issue' => $customer?->passport_place_of_issue ?? '',
-                            'date_of_birth' => $customer?->date_of_birth?->format('d/m/Y') ?? '',
+                            'date_of_birth' => $customer?->date_of_birth_formatted ?? '',
                             'age' => $customer?->date_of_birth ? $customer->date_of_birth->age : null,
                         ];
                     })->values()->all(),
@@ -690,6 +696,7 @@ class ManifestService
 
             $createdRoom = $manifest->rooms()->create([
                 'location' => $room['location'] ?? null,
+                'relationship' => $room['relationship'] ?? null,
                 'room_label' => $room['room_label'] ?? null,
                 'room_number' => $room['room_number'] ?? $room['room_no'] ?? null,
                 'room_type' => $roomType,
@@ -707,6 +714,16 @@ class ManifestService
 
                     if (! $manifestTravelerId) {
                         continue;
+                    }
+
+                    if (! empty($member['customer_confirmation_member_id']) && array_key_exists('sharing_plan', $member)) {
+                        $confirmationMember = CustomerConfirmationMember::query()->find((int) $member['customer_confirmation_member_id']);
+
+                        if ($confirmationMember) {
+                            $this->syncMemberData($confirmationMember, [
+                                'sharing_plan' => $member['sharing_plan'],
+                            ]);
+                        }
                     }
 
                     $createdRoom->roomMembers()->create([
@@ -819,7 +836,7 @@ class ManifestService
         }
 
         $legacyLists = [
-            'makkah' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_makkah'] ?? null) ? $flightDetails['ui_room_list_makkah'] : []),
+            'mekkah' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_mekkah'] ?? null) ? $flightDetails['ui_room_list_mekkah'] : []),
             'madinah' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_madinah'] ?? null) ? $flightDetails['ui_room_list_madinah'] : []),
             'others' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_others'] ?? null) ? $flightDetails['ui_room_list_others'] : []),
         ];
@@ -833,12 +850,16 @@ class ManifestService
             ->values();
 
         if ($hotelAccommodations->isEmpty()) {
-            return ['makkah' => $travelers];
+            return ['mekkah' => $travelers];
         }
 
         return $hotelAccommodations
             ->mapWithKeys(function (array $accommodation) use ($travelers) {
-                $key = strtolower((string) ($accommodation['location'] ?? $accommodation['hotel_name'] ?? 'hotel'));
+                $key = Str::slug((string) ($accommodation['location'] ?? $accommodation['hotel_name'] ?? 'hotel'));
+
+                if ($key === '') {
+                    $key = 'hotel';
+                }
 
                 return [$key => $travelers];
             })
@@ -858,7 +879,7 @@ class ManifestService
         $travelerById = collect($travelers)->keyBy('id');
 
         return $manifest->rooms
-            ->groupBy(fn ($room) => (string) ($room->location ?? 'makkah'))
+            ->groupBy(fn ($room) => (string) ($room->location ?? 'mekkah'))
             ->map(function ($rooms) use ($travelerById) {
                 return $rooms
                     ->values()
@@ -874,6 +895,7 @@ class ManifestService
                                     'sort_order' => $member->sort_order,
                                     'sharing_group_key' => 'room-'.$room->id,
                                     'manifest_traveler_id' => $member->manifest_traveler_id,
+                                    'room_relationship' => $room->relationship,
                                     'room_label' => $room->room_label,
                                     'room_number' => $room->room_number,
                                     'room_no' => $room->room_number,
@@ -956,8 +978,8 @@ class ManifestService
 
         $customerUpdates = [];
 
-        if (array_key_exists('passport_no', $traveler) || array_key_exists('ppt_no', $traveler)) {
-            $customerUpdates['passport_number'] = $traveler['passport_no'] ?? $traveler['ppt_no'] ?? null;
+        if (array_key_exists('passport_number', $traveler) || array_key_exists('passport_no', $traveler)) {
+            $customerUpdates['passport_number'] = $traveler['passport_number'] ?? $traveler['passport_no'] ?? null;
         }
 
         if (array_key_exists('nationality', $traveler)) {
@@ -974,19 +996,19 @@ class ManifestService
 
         if (array_key_exists('date_of_issue', $traveler)) {
             $customerUpdates['passport_issue_date'] = ! empty($traveler['date_of_issue'])
-                ? Carbon::parse($traveler['date_of_issue'])->format('Y-m-d')
+                ? Carbon::parse($traveler['date_of_issue'])->translatedFormat('d F Y')
                 : null;
         }
 
         if (array_key_exists('date_of_expiry', $traveler)) {
             $customerUpdates['passport_expiry_date'] = ! empty($traveler['date_of_expiry'])
-                ? Carbon::parse($traveler['date_of_expiry'])->format('Y-m-d')
+                ? Carbon::parse($traveler['date_of_expiry'])->translatedFormat('d F Y')
                 : null;
         }
 
         if (array_key_exists('date_of_birth', $traveler)) {
             $customerUpdates['date_of_birth'] = ! empty($traveler['date_of_birth'])
-                ? Carbon::parse($traveler['date_of_birth'])->format('Y-m-d')
+                ? Carbon::parse($traveler['date_of_birth'])->translatedFormat('d F Y')
                 : null;
         }
 

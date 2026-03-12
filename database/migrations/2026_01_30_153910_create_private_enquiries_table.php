@@ -24,10 +24,10 @@ return new class extends Migration
             $table->boolean('require_mutawif');
             $table->boolean('require_umrah_course');
             $table->boolean('require_umrah_official');
-            $table->string('makkah_or_madinah_first');
-            $table->string('no_of_nights_makkah');
-            $table->string('hotel_makkah');
-            $table->string('meals_makkah');
+            $table->string('mekkah_or_madinah_first');
+            $table->string('no_of_nights_mekkah');
+            $table->string('hotel_mekkah');
+            $table->string('meals_mekkah');
             $table->string('no_of_nights_madinah');
             $table->string('hotel_madinah');
             $table->string('meals_madinah');
@@ -36,7 +36,7 @@ return new class extends Migration
             $table->boolean('require_meet_greet');
             $table->boolean('require_mutawiffah_ustazah_rawdah');
             $table->boolean('madinah_tour_with_mutawif');
-            $table->boolean('makkah_tour_with_mutawif');
+            $table->boolean('mekkah_tour_with_mutawif');
             $table->boolean('has_chronic_disease');
             $table->text('chronic_disease_details')->nullable();
             $table->string('need_wheelchair');

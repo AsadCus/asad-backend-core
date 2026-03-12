@@ -201,7 +201,7 @@ export default function GeneralEnquiryFormFields({
                         disabled={isView || processing}
                         textarea
                         onCommit={(v) => setData('preferred_destinations', v)}
-                        placeholder="e.g., Makkah, Madinah, Taif"
+                        placeholder="e.g., Mekkah, Madinah, Taif"
                     />
                     {renderError('preferred_destinations')}
                 </div>

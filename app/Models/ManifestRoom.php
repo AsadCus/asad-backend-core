@@ -12,6 +12,7 @@ class ManifestRoom extends Model
     protected $fillable = [
         'manifest_id',
         'location',
+        'relationship',
         'room_label',
         'room_number',
         'room_type',

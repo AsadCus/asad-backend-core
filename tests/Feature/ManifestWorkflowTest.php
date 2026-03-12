@@ -60,15 +60,16 @@ class ManifestWorkflowTest extends TestCase
                     'sn' => 1,
                     'customer_confirmation_member_id' => $member->id,
                     'name_as_per_passport' => 'Ahmad Example',
-                    'passport_no' => 'A9999999',
+                    'passport_number' => 'A9999999',
                     'date_of_birth' => '1996-02-20',
                 ],
             ],
             'roomLists' => [
-                'makkah' => [
+                'mekkah' => [
                     [
                         'name_as_per_passport' => 'Ahmad Example',
                         'customer_confirmation_member_id' => $member->id,
+                        'room_relationship' => 'Family',
                         'room_no' => 'M-101',
                         'room_type' => 'Quad',
                         'bed_type' => 'Single',
@@ -97,7 +98,8 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
-            'location' => 'makkah',
+            'location' => 'mekkah',
+            'relationship' => 'Family',
             'room_number' => 'M-101',
             'room_type' => 'quad',
             'bed_type' => 'single',
@@ -198,7 +200,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'makkah' => [
+                'mekkah' => [
                     [
                         'customer_confirmation_member_id' => $memberOne->id,
                         'name_as_per_passport' => 'Traveler One',
@@ -251,7 +253,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'makkah' => [
+                'mekkah' => [
                     [
                         'customer_confirmation_member_id' => $memberA->id,
                         'name_as_per_passport' => 'Traveler A',
@@ -289,7 +291,7 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
-            'location' => 'makkah',
+            'location' => 'mekkah',
             'room_number' => 'MK-01',
         ]);
 
@@ -402,7 +404,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'makkah' => [
+                'mekkah' => [
                     [
                         'id' => $travelerOne->id,
                         'manifest_traveler_id' => $travelerOne->id,
@@ -634,7 +636,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'makkah' => [
+                'mekkah' => [
                     [
                         'manifest_traveler_id' => $travelerOne->id,
                         'customer_confirmation_member_id' => $memberOne->id,
@@ -685,10 +687,83 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame([1, 2], $manifest->rooms->pluck('roomMembers')->map->count()->sort()->values()->all());
 
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
-        $roomRows = $rehydrated['roomLists']['makkah'] ?? [];
+        $roomRows = $rehydrated['roomLists']['mekkah'] ?? [];
 
         $this->assertCount(3, $roomRows);
         $this->assertSame(2, collect($roomRows)->pluck('sharing_group_key')->filter()->unique()->count());
+    }
+
+    public function test_room_member_sharing_plan_and_room_relationship_are_synced_on_update(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-ROOM-SHARING-001',
+            'name' => 'Umrah Room Sharing Sync',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-ROOM-SHARING-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Sharing Member', $actingUser->id);
+        $member->update([
+            'sharing_plan' => 'single',
+            'role' => 'Spouse',
+        ]);
+
+        $traveler = ManifestTraveler::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+        ]);
+
+        $payload = [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'id' => $traveler->id,
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Sharing Member',
+                    'sharing_plan' => 'double',
+                ],
+            ],
+            'roomLists' => [
+                'mekkah' => [
+                    [
+                        'manifest_traveler_id' => $traveler->id,
+                        'customer_confirmation_member_id' => $member->id,
+                        'name_as_per_passport' => 'Sharing Member',
+                        'sharing_group_key' => 'room-relationship-a',
+                        'room_relationship' => 'Family',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_label' => 'Room A',
+                        'room_no' => 'MK-700',
+                        'sort_order' => 1,
+                    ],
+                ],
+            ],
+        ];
+
+        $this->put(route('manifests.update', $manifest->id), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $member->refresh();
+
+        $this->assertSame('double', $member->sharing_plan);
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'location' => 'mekkah',
+            'relationship' => 'Family',
+            'sharing_plan' => 'double',
+            'room_label' => 'Room A',
+        ]);
     }
 
     private function createMemberForPackage(int $packageId, string $customerName, int $createdBy): CustomerConfirmationMember

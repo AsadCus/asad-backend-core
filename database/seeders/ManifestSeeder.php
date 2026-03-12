@@ -70,7 +70,7 @@ class ManifestSeeder extends Seeder
                 ->filter(fn ($traveler) => ! empty($traveler->customer_confirmation_member_id))
                 ->keyBy('customer_confirmation_member_id');
 
-            $defaultLocation = optional($package->accommodations->first())->location ?? 'makkah';
+            $defaultLocation = optional($package->accommodations->first())->location ?? 'mekkah';
             $defaultMeal = optional($package->accommodations->first())->type_of_meal;
             $roomCounter = 1;
 
