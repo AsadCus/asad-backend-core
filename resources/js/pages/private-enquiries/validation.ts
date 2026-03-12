@@ -106,44 +106,44 @@ export const privateEnquiryValidationSchema = privateEnquirySchema.superRefine(
             });
         }
 
-        // makkah_or_madinah_first
+        // mekkah_or_madinah_first
         if (
-            !data.makkah_or_madinah_first ||
-            data.makkah_or_madinah_first.trim().length === 0
+            !data.mekkah_or_madinah_first ||
+            data.mekkah_or_madinah_first.trim().length === 0
         ) {
             ctx.addIssue({
-                path: ['makkah_or_madinah_first'],
+                path: ['mekkah_or_madinah_first'],
                 message: 'This field is required',
                 code: z.ZodIssueCode.custom,
             });
         }
 
-        // no_of_nights_makkah
+        // no_of_nights_mekkah
         if (
-            !data.no_of_nights_makkah ||
-            data.no_of_nights_makkah.trim().length === 0
+            !data.no_of_nights_mekkah ||
+            data.no_of_nights_mekkah.trim().length === 0
         ) {
             ctx.addIssue({
-                path: ['no_of_nights_makkah'],
-                message: 'Number of nights in Makkah is required',
+                path: ['no_of_nights_mekkah'],
+                message: 'Number of nights in Mekkah is required',
                 code: z.ZodIssueCode.custom,
             });
         }
 
-        // hotel_makkah
-        if (!data.hotel_makkah || data.hotel_makkah.trim().length === 0) {
+        // hotel_mekkah
+        if (!data.hotel_mekkah || data.hotel_mekkah.trim().length === 0) {
             ctx.addIssue({
-                path: ['hotel_makkah'],
-                message: 'Hotel in Makkah is required',
+                path: ['hotel_mekkah'],
+                message: 'Hotel in Mekkah is required',
                 code: z.ZodIssueCode.custom,
             });
         }
 
-        // meals_makkah
-        if (!data.meals_makkah || data.meals_makkah.trim().length === 0) {
+        // meals_mekkah
+        if (!data.meals_mekkah || data.meals_mekkah.trim().length === 0) {
             ctx.addIssue({
-                path: ['meals_makkah'],
-                message: 'Meals in Makkah is required',
+                path: ['meals_mekkah'],
+                message: 'Meals in Mekkah is required',
                 code: z.ZodIssueCode.custom,
             });
         }

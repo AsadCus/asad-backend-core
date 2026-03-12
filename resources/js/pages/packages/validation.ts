@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { accommodationSchema, packageSchema } from './schema';
+import {
+    accommodationSchema,
+    flightSchema,
+    officialSchema,
+    packageSchema,
+} from './schema';
 
 export const accommodationValidationSchema = accommodationSchema.superRefine(
     (data, ctx) => {
@@ -17,6 +22,35 @@ export const accommodationValidationSchema = accommodationSchema.superRefine(
             ctx.addIssue({
                 path: ['hotel_name'],
                 message: 'Hotel name is required',
+                code: z.ZodIssueCode.custom,
+            });
+        }
+    },
+);
+
+export const flightValidationSchema = flightSchema.superRefine((data, ctx) => {
+    if (!data.from || data.from.trim().length === 0) {
+        ctx.addIssue({
+            path: ['from'],
+            message: 'From is required',
+            code: z.ZodIssueCode.custom,
+        });
+    }
+    if (!data.to || data.to.trim().length === 0) {
+        ctx.addIssue({
+            path: ['to'],
+            message: 'To is required',
+            code: z.ZodIssueCode.custom,
+        });
+    }
+});
+
+export const officialValidationSchema = officialSchema.superRefine(
+    (data, ctx) => {
+        if (!data.type || data.type.trim().length === 0) {
+            ctx.addIssue({
+                path: ['type'],
+                message: 'Type is required',
                 code: z.ZodIssueCode.custom,
             });
         }
@@ -92,6 +126,39 @@ export const packageValidationSchema = packageSchema.superRefine(
                     ctx.addIssue({
                         path: ['accommodations', index, 'hotel_name'],
                         message: 'Hotel name is required',
+                        code: z.ZodIssueCode.custom,
+                    });
+                }
+            });
+        }
+
+        // Flights validation
+        if (data.flights && data.flights.length > 0) {
+            data.flights.forEach((flight, index) => {
+                if (!flight.from || flight.from.trim().length === 0) {
+                    ctx.addIssue({
+                        path: ['flights', index, 'from'],
+                        message: 'From is required',
+                        code: z.ZodIssueCode.custom,
+                    });
+                }
+                if (!flight.to || flight.to.trim().length === 0) {
+                    ctx.addIssue({
+                        path: ['flights', index, 'to'],
+                        message: 'To is required',
+                        code: z.ZodIssueCode.custom,
+                    });
+                }
+            });
+        }
+
+        // Officials validation
+        if (data.officials && data.officials.length > 0) {
+            data.officials.forEach((official, index) => {
+                if (!official.type || official.type.trim().length === 0) {
+                    ctx.addIssue({
+                        path: ['officials', index, 'type'],
+                        message: 'Type is required',
                         code: z.ZodIssueCode.custom,
                     });
                 }

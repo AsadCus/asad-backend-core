@@ -16,8 +16,7 @@ class OpsMovementService
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('package_number', 'like', "%{$value}%")
-                        ->orWhere('name', 'like', "%{$value}%")
-                        ->orWhere('airline', 'like', "%{$value}%");
+                        ->orWhere('name', 'like', "%{$value}%");
                 });
             })
             ->when($filters['status'] ?? null, function ($q, $value) {
@@ -36,10 +35,8 @@ class OpsMovementService
                     'name' => $package->name,
                     'status' => $package->status,
                     'launched' => $package->launched,
-                    'airline' => $package->airline,
-                    'pnr' => $package->pnr,
                     'departure_date' => $package->departure_date_formatted,
-                    'arrival_date' => $package->arrival_date_formatted,
+                    'return_date' => $package->return_date_formatted,
                     'total_seats' => $package->total_seats,
                     'seats_left' => $package->seats_left,
                     'visa_type' => $package->visa_type,
@@ -82,10 +79,8 @@ class OpsMovementService
             'child_with_bed_price' => $package->child_with_bed_price,
             'child_no_bed_price' => $package->child_no_bed_price,
             'infant_price' => $package->infant_price,
-            'airline' => $package->airline,
-            'pnr' => $package->pnr,
             'departure_date' => $package->departure_date_formatted,
-            'arrival_date' => $package->arrival_date_formatted,
+            'return_date' => $package->return_date_formatted,
             'total_seats' => $package->total_seats,
             'seats_left' => $package->seats_left,
             'visa_type' => $package->visa_type,

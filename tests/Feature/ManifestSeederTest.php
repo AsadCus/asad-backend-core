@@ -2,10 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Models\Customer;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
+use App\Models\Invoice;
 use App\Models\Manifest;
-use App\Models\ManifestTraveler;
-use App\Models\ManifestAccommodationAssignment;
+use App\Models\Order;
 use App\Models\Package;
+use App\Models\Quotation;
+use App\Models\QuotationItem;
+use App\Models\Receipt;
+use App\Models\ReceiptAllocation;
+use App\Models\User;
 use Database\Seeders\ManifestSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,7 +22,7 @@ class ManifestSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_manifest_seeder_creates_accommodation_assignments_and_room_list_metadata(): void
+    public function test_manifest_seeder_creates_manifests_for_each_package(): void
     {
         Package::create([
             'package_number' => 'PKG-ECO',
@@ -32,7 +40,10 @@ class ManifestSeederTest extends TestCase
 
         $this->assertSame(2, Manifest::count());
 
-        $manifest = Manifest::where('reference_number', 'MNF-2026-0001')->firstOrFail();
+        $manifest = Manifest::first();
+
+        $this->assertNotNull($manifest->manifest_number);
+        $this->assertSame('draft', $manifest->status);
 
         // If travelers exist, they should have customer_confirmation_member_id
         if ($manifest->travelers()->count() > 0) {
@@ -42,61 +53,197 @@ class ManifestSeederTest extends TestCase
             );
         }
 
-        // Create test accommodation assignments
-        ManifestAccommodationAssignment::create([
-            'manifest_id' => $manifest->id,
-            'accommodation_key' => 'makkah',
-            'sort_order' => 1,
-            'room_no' => '101',
+        $this->assertNotNull($manifest->id);
+    }
+
+    public function test_manifest_seeder_attaches_paid_members_as_travelers(): void
+    {
+        $user = User::factory()->create();
+
+        $package = Package::create([
+            'package_number' => 'PKG-PAID',
+            'name' => 'Umrah Paid Travelers',
+            'status' => 'open',
         ]);
 
-        ManifestAccommodationAssignment::create([
-            'manifest_id' => $manifest->id,
-            'accommodation_key' => 'madinah',
-            'sort_order' => 1,
-            'room_no' => '201',
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-PAID-001',
         ]);
 
-        // Verify accommodation assignments exist
-        $this->assertGreaterThan(0, $manifest->accommodationAssignments()->count());
-        $this->assertDatabaseHas('manifest_accommodation_assignments', [
-            'manifest_id' => $manifest->id,
-            'accommodation_key' => 'makkah',
-            'sort_order' => 1,
-            'room_no' => '101',
-        ]);
-        $this->assertDatabaseHas('manifest_accommodation_assignments', [
-            'manifest_id' => $manifest->id,
-            'accommodation_key' => 'madinah',
-            'sort_order' => 1,
-            'room_no' => '201',
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
         ]);
 
-        // Verify flight_details structure
-        $this->assertIsArray($manifest->flight_details);
-        $this->assertIsArray($manifest->flight_details);
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'double',
+        ]);
 
-        // Set up the expected room list metadata structure
-        $flightDetails = $manifest->flight_details;
-        if (!is_array($flightDetails)) {
-            $flightDetails = [];
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->toDateString(),
+            'expiry_date' => now()->addDays(14)->toDateString(),
+            'payment_plan' => 'installment',
+            'payment_method' => 'transfer',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Paid Member Package',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'type' => 'deposit',
+            'description' => 'Invoice For Deposit',
+            'amount' => 500,
+            'invoice_date' => now()->toDateString(),
+            'due_date' => now()->addDays(7)->toDateString(),
+            'status' => 'paid',
+        ]);
+
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        $receipt = Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 500,
+            'receipt_date' => now()->toDateString(),
+            'payment_method' => 'transfer',
+            'reference' => 'TEST-PAID-MEMBER',
+        ]);
+
+        ReceiptAllocation::create([
+            'receipt_id' => $receipt->id,
+            'customer_confirmation_member_id' => $member->id,
+            'allocated_amount' => 500,
+            'notes' => 'Seeder test allocation',
+        ]);
+
+        $this->seed(ManifestSeeder::class);
+
+        $manifest = Manifest::query()->where('package_id', $package->id)->firstOrFail();
+
+        $this->assertDatabaseHas('manifest_travelers', [
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+        ]);
+    }
+
+    public function test_manifest_seeder_groups_rooms_by_confirmation_and_sharing_plan_with_capacity_split(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-RM-001',
+            'name' => 'Room Grouping Package',
+            'status' => 'open',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $members = collect();
+
+        foreach (['double', 'double', 'double', 'double', 'single'] as $index => $sharingPlan) {
+            $user = User::factory()->create();
+            $customer = Customer::create([
+                'user_id' => $user->id,
+                'customer_number' => 'CUST-RM-'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+            ]);
+
+            $member = CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'is_leader' => $index === 0,
+                'status' => 'partially_paid',
+                'sharing_plan' => $sharingPlan,
+            ]);
+
+            $quotation = Quotation::create([
+                'customer_id' => $customer->id,
+                'customer_confirmation_id' => $confirmation->id,
+                'quotation_date' => now()->toDateString(),
+                'expiry_date' => now()->addDays(14)->toDateString(),
+                'payment_plan' => 'installment',
+                'payment_method' => 'transfer',
+                'status' => 'converted',
+            ]);
+
+            $quotationItem = QuotationItem::create([
+                'quotation_id' => $quotation->id,
+                'customer_confirmation_member_id' => $member->id,
+                'description' => 'Seeder room split test',
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => 4000,
+                'sort_order' => 1,
+            ]);
+
+            $order = Order::create([
+                'quotation_id' => $quotation->id,
+                'payment_plan' => 'installment',
+            ]);
+
+            $invoice = Invoice::create([
+                'order_id' => $order->id,
+                'type' => 'deposit',
+                'description' => 'Invoice For Deposit',
+                'amount' => 500,
+                'invoice_date' => now()->toDateString(),
+                'due_date' => now()->addDays(7)->toDateString(),
+                'status' => 'paid',
+            ]);
+
+            $invoice->quotationItems()->sync([$quotationItem->id]);
+
+            $receipt = Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => 500,
+                'receipt_date' => now()->toDateString(),
+                'payment_method' => 'transfer',
+                'reference' => 'TEST-RM-SPLIT-'.($index + 1),
+            ]);
+
+            ReceiptAllocation::create([
+                'receipt_id' => $receipt->id,
+                'customer_confirmation_member_id' => $member->id,
+                'allocated_amount' => 500,
+                'notes' => 'Seeder room split allocation',
+            ]);
+
+            $members->push($member);
         }
-        if (!isset($flightDetails['ui_room_lists'])) {
-            $flightDetails['ui_room_lists'] = [];
-        }
-        if (!isset($flightDetails['ui_room_move_modes'])) {
-            $flightDetails['ui_room_move_modes'] = [
-                'makkah' => 'individual',
-                'madinah' => 'individual',
-            ];
-        }
 
-        $manifest->update(['flight_details' => $flightDetails]);
-        $manifest->refresh();
+        $this->seed(ManifestSeeder::class);
 
-        $this->assertArrayHasKey('ui_room_lists', $manifest->flight_details);
-        $this->assertArrayHasKey('ui_room_move_modes', $manifest->flight_details);
-        $this->assertSame('individual', $manifest->flight_details['ui_room_move_modes']['makkah']);
-        $this->assertSame('individual', $manifest->flight_details['ui_room_move_modes']['madinah']);
+        $manifest = Manifest::query()->where('package_id', $package->id)->firstOrFail();
+
+        $this->assertSame(3, $manifest->rooms()->count());
+        $this->assertSame(5, $manifest->rooms()->withCount('roomMembers')->get()->sum('room_members_count'));
+
+        $doubleRooms = $manifest->rooms()->where('sharing_plan', 'double')->orderBy('id')->get();
+        $singleRooms = $manifest->rooms()->where('sharing_plan', 'single')->orderBy('id')->get();
+
+        $this->assertCount(2, $doubleRooms);
+        $this->assertCount(1, $singleRooms);
+        $this->assertSame([2, 2], $doubleRooms->map(fn ($room) => $room->roomMembers()->count())->all());
+        $this->assertSame(1, $singleRooms->first()->roomMembers()->count());
     }
 }

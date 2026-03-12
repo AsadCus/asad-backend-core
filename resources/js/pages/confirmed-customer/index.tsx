@@ -127,6 +127,7 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         meta: { exportable: true },
         cell: ({ row }) => {
             const type = row.original.enquiry_type;
+
             if (!type) {
                 return <span className="text-muted-foreground">-</span>;
             }
@@ -929,79 +930,69 @@ export default function ConfirmedCustomerIndex({
         const data = row.original.members;
 
         return (
-            <div className="bg-muted/20 p-4">
-                <DataTable
-                    columns={memberColumns}
-                    data={data}
-                    actions={['view']}
-                    getRowActions={(member) => {
-                        const rowActions: ActionType[] = ['edit'];
+            <DataTable
+                columns={memberColumns}
+                data={data}
+                actions={['view']}
+                getRowActions={(member) => {
+                    const rowActions: ActionType[] = ['edit'];
 
-                        if (member.status !== 'cancelled') {
-                            rowActions.push('move-members', 'cancel-member');
-                        }
+                    if (member.status !== 'cancelled') {
+                        rowActions.push('move-members', 'cancel-member');
+                    }
 
-                        return rowActions;
-                    }}
-                    addButtonText=""
-                    onAction={(action, payload) => {
-                        if (!payload) {
-                            return;
-                        }
+                    return rowActions;
+                }}
+                addButtonText=""
+                onAction={(action, payload) => {
+                    if (!payload) {
+                        return;
+                    }
 
-                        const tableRow =
-                            payload as Row<CustomerConfirmationMemberDatatableSchema>;
-                        const member = tableRow.original;
+                    const tableRow =
+                        payload as Row<CustomerConfirmationMemberDatatableSchema>;
+                    const member = tableRow.original;
 
-                        if (action === 'view') {
-                            openMemberDialog(
-                                member.group_id,
-                                member.id,
-                                'view',
-                            );
-                            return;
-                        }
+                    if (action === 'view') {
+                        openMemberDialog(member.group_id, member.id, 'view');
+                        return;
+                    }
 
-                        if (action === 'edit') {
-                            openMemberDialog(
-                                member.group_id,
-                                member.id,
-                                'edit',
-                            );
-                            return;
-                        }
+                    if (action === 'edit') {
+                        openMemberDialog(member.group_id, member.id, 'edit');
+                        return;
+                    }
 
-                        if (action === 'move-members') {
-                            openMoveDialog(row.original, [member.id]);
-                            return;
-                        }
+                    if (action === 'move-members') {
+                        openMoveDialog(row.original, [member.id]);
+                        return;
+                    }
 
-                        if (action === 'cancel-member') {
-                            confirm({
-                                title: 'Cancel Member',
-                                message: `Cancel ${member.name}?`,
-                                confirmText: 'Cancel Member',
-                                cancelText: 'Back',
-                                onConfirm: () => cancelMember(member.id),
-                            });
-                        }
-                    }}
-                    initialState={{
-                        columnVisibility: {
-                            nric_number: false,
-                            nationality: false,
-                            passport_number: false,
-                            customer_number: false,
-                            contact: false,
-                            email: false,
-                        },
-                        pagination: {
-                            pageIndex: 0,
-                            pageSize: 10,
-                        },
-                    }}
-                />
-            </div>
+                    if (action === 'cancel-member') {
+                        confirm({
+                            title: 'Cancel Member',
+                            message: `Cancel ${member.name}?`,
+                            confirmText: 'Cancel Member',
+                            cancelText: 'Back',
+                            onConfirm: () => cancelMember(member.id),
+                        });
+                    }
+                }}
+                initialState={{
+                    columnVisibility: {
+                        nric_number: false,
+                        nationality: false,
+                        passport_number: false,
+                        customer_number: false,
+                        contact: false,
+                        email: false,
+                    },
+                    pagination: {
+                        pageIndex: 0,
+                        pageSize: 10,
+                    },
+                }}
+            />
         );
     };
 

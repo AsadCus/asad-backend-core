@@ -30,6 +30,7 @@ const statusOptions = [
     { value: 'pending_payment', label: 'Pending Payment' },
     { value: 'partially_paid', label: 'Partially Paid' },
     { value: 'confirmed', label: 'Confirmed' },
+    { value: 'unavailable', label: 'Unavailable' },
     { value: 'cancelled', label: 'Cancelled' },
 ] as const;
 
@@ -57,6 +58,12 @@ export default function ConfirmedCustomerFormFields({
                     label="Status"
                     htmlFor={fieldPath('status')}
                     error={getError(fieldPath('status'))}
+                    fieldRequirementsProps={{
+                        required: true,
+                        hint: 'Current booking status',
+                        example: 'confirmed',
+                        format: 'draft, pending payment, partially paid, confirmed, unavailable, or cancelled',
+                    }}
                 >
                     <Select
                         value={customer.status ?? 'draft'}
@@ -85,6 +92,12 @@ export default function ConfirmedCustomerFormFields({
                     label="Sharing Plan"
                     htmlFor={fieldPath('sharing_plan')}
                     error={getError(fieldPath('sharing_plan'))}
+                    fieldRequirementsProps={{
+                        required: false,
+                        hint: 'Room sharing arrangement',
+                        example: 'double',
+                        format: 'single, double, triple, or quad',
+                    }}
                 >
                     <ProperInputSelect
                         options={
@@ -111,6 +124,12 @@ export default function ConfirmedCustomerFormFields({
                     htmlFor={fieldPath('role')}
                     error={getError(fieldPath('role'))}
                     className="md:col-span-2"
+                    fieldRequirementsProps={{
+                        required: false,
+                        hint: "Customer's role in the booking",
+                        example: 'Parent, Child, or Family Member',
+                        format: 'Up to 255 characters',
+                    }}
                 >
                     <ProperInput
                         id={fieldPath('role')}

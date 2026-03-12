@@ -10,49 +10,17 @@ class ManifestTraveler extends Model
 {
     protected $fillable = [
         'manifest_id',
-        'sn',
-        'name_as_per_passport',
-        'relationship',
-        'passport_no',
-        'room_no',
-        'room_type',
-        'bed_type',
-        'date_of_birth',
-        'age',
-        'no_of_beds_checked',
-        'meal',
-        'remarks',
-        'total_cost',
-        'total_paid',
-        'outstanding_amount',
-        'customer_id',
         'customer_confirmation_member_id',
-        'status',
+        'remarks',
     ];
 
     protected $casts = [
-        'date_of_birth' => 'date',
-        'age' => 'integer',
-        'no_of_beds_checked' => 'integer',
-        'total_cost' => 'decimal:2',
-        'total_paid' => 'decimal:2',
-        'outstanding_amount' => 'decimal:2',
-        'status' => 'string',
+        'customer_confirmation_member_id' => 'integer',
     ];
-
-    public function getDateOfBirthFormattedAttribute(): ?string
-    {
-        return $this->date_of_birth?->format('d/m/Y');
-    }
 
     public function manifest(): BelongsTo
     {
         return $this->belongsTo(Manifest::class);
-    }
-
-    public function customer(): BelongsTo
-    {
-        return $this->belongsTo(Customer::class);
     }
 
     public function confirmationMember(): BelongsTo
@@ -68,10 +36,5 @@ class ManifestTraveler extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(ManifestPayment::class, 'manifest_traveler_id');
-    }
-
-    public function accommodationAssignments(): HasMany
-    {
-        return $this->hasMany(ManifestAccommodationAssignment::class, 'manifest_traveler_id');
     }
 }

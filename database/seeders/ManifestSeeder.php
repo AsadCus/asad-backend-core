@@ -2,9 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Helpers\NumberGenerator;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\Package;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 
 class ManifestSeeder extends Seeder
 {
@@ -22,49 +25,133 @@ class ManifestSeeder extends Seeder
         }
 
         foreach ($packages as $package) {
-            $manifestExists = Manifest::query()->where('package_id', $package->id)->exists();
-            if ($manifestExists) {
-                continue;
+            $manifest = Manifest::query()->firstOrCreate(
+                ['package_id' => $package->id],
+                [
+                    'manifest_number' => NumberGenerator::generate('manifest'),
+                    'notes' => 'Seeded manifest for package workflow validation.',
+                    'status' => 'draft',
+                ]
+            );
+
+            $paidMembers = CustomerConfirmationMember::query()
+                ->whereHas('confirmation', function ($query) use ($package): void {
+                    $query->where('package_id', $package->id);
+                })
+                ->whereHas('receiptAllocations', function ($query): void {
+                    $query->where('allocated_amount', '>', 0);
+                })
+                ->with(['customer.user'])
+                ->orderBy('id')
+                ->get();
+
+            foreach ($paidMembers as $member) {
+                $alreadyLinked = $manifest->travelers()
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->exists();
+
+                if ($alreadyLinked) {
+                    continue;
+                }
+
+                $manifest->travelers()->create([
+                    'customer_confirmation_member_id' => $member->id,
+                ]);
             }
 
-            $firstAccommodation = $package->accommodations->first();
-            $lastAccommodation = $package->accommodations->last();
-            $departureDate = $package->departure_date ?? now()->addDays(30);
-            $returnDate = $package->arrival_date ?? $departureDate->copy()->addDays(10);
+            $manifest->load(['travelers', 'rooms.roomMembers']);
 
-            Manifest::query()->create([
-                'package_id' => $package->id,
-                'reference_number' => 'MNF-'.now()->format('Y').'-'.str_pad((string) $package->id, 4, '0', STR_PAD_LEFT),
-                'company_address' => 'Seeded company address',
-                'company_phone' => '+60 3-0000 0000',
-                'departure_date' => $departureDate->toDateString(),
-                'return_date' => $returnDate->toDateString(),
-                'duration' => $departureDate->diffInDays($returnDate).' Days',
-                'makkah_hotel' => $firstAccommodation?->hotel_name,
-                'makkah_check_in' => $firstAccommodation?->check_in?->toDateString(),
-                'makkah_check_out' => $firstAccommodation?->check_out?->toDateString(),
-                'madinah_hotel' => $lastAccommodation?->hotel_name,
-                'madinah_check_in' => $lastAccommodation?->check_in?->toDateString(),
-                'madinah_check_out' => $lastAccommodation?->check_out?->toDateString(),
-                'flight_details' => [
-                    [
-                        'type' => 'Departure',
-                        'airline' => $package->airline,
-                        'date' => $departureDate->toDateString(),
-                    ],
-                    [
-                        'type' => 'Return',
-                        'airline' => $package->airline,
-                        'date' => $returnDate->toDateString(),
-                    ],
-                ],
-                'notes' => 'Seeded empty manifest for package workflow validation.',
-                'first_meal' => $firstAccommodation?->type_of_meal,
-                'last_meal' => $lastAccommodation?->type_of_meal,
-                'status' => 'draft',
-            ]);
+            foreach ($manifest->rooms as $room) {
+                $room->roomMembers()->delete();
+            }
+            $manifest->rooms()->delete();
+
+            $travelersByMember = $manifest->travelers
+                ->filter(fn ($traveler) => ! empty($traveler->customer_confirmation_member_id))
+                ->keyBy('customer_confirmation_member_id');
+
+            $defaultLocation = optional($package->accommodations->first())->location ?? 'mekkah';
+            $defaultMeal = optional($package->accommodations->first())->type_of_meal;
+            $roomCounter = 1;
+
+            $membersByConfirmationAndPlan = $paidMembers
+                ->groupBy(function ($member): string {
+                    $sharingPlan = strtolower(trim((string) ($member->sharing_plan ?: 'single')));
+
+                    return $member->customer_confirmation_id.'|'.$sharingPlan;
+                });
+
+            foreach ($membersByConfirmationAndPlan as $members) {
+                /** @var Collection<int, CustomerConfirmationMember> $members */
+                $firstMember = $members->first();
+                if (! $firstMember) {
+                    continue;
+                }
+
+                $sharingPlan = strtolower(trim((string) ($firstMember->sharing_plan ?: 'single')));
+                $capacity = $this->capacityFromSharingPlan($sharingPlan);
+
+                if ($capacity < 1) {
+                    continue;
+                }
+
+                $chunks = $members->chunk($capacity);
+
+                foreach ($chunks as $chunk) {
+                    if ($sharingPlan === 'single' && $chunk->count() !== 1) {
+                        continue;
+                    }
+
+                    $room = $manifest->rooms()->create([
+                        'location' => $defaultLocation,
+                        'room_label' => 'Room '.$roomCounter,
+                        'room_number' => null,
+                        'room_type' => $sharingPlan,
+                        'bed_type' => $this->bedTypeFromRoomType($sharingPlan),
+                        'capacity' => $capacity,
+                        'sharing_plan' => $sharingPlan,
+                        'status' => 'pending',
+                        'meal' => $defaultMeal,
+                        'remarks' => null,
+                    ]);
+
+                    foreach ($chunk->values() as $index => $member) {
+                        $traveler = $travelersByMember->get($member->id);
+
+                        if (! $traveler) {
+                            continue;
+                        }
+
+                        $room->roomMembers()->create([
+                            'manifest_traveler_id' => $traveler->id,
+                            'sort_order' => $index + 1,
+                            'remarks' => null,
+                        ]);
+                    }
+
+                    $roomCounter++;
+                }
+            }
         }
 
-        $this->command->info('Manifests seeded successfully (without traveler assignments).');
+        $this->command->info('Manifests seeded successfully (with paid traveler assignments).');
+    }
+
+    private function capacityFromSharingPlan(string $sharingPlan): int
+    {
+        return match ($sharingPlan) {
+            'quad' => 4,
+            'triple' => 3,
+            'double' => 2,
+            default => 1,
+        };
+    }
+
+    private function bedTypeFromRoomType(string $roomType): string
+    {
+        return match ($roomType) {
+            'double', 'quad' => 'king',
+            default => 'single',
+        };
     }
 }

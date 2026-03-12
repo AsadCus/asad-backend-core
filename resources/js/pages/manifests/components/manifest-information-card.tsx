@@ -1,7 +1,12 @@
-import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
-import { ProperInput } from '@/components/proper-input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -29,13 +34,21 @@ export default function ManifestInformationCard({
     setData,
     renderError,
 }: ManifestInformationCardProps) {
+    const selectedPackage = dataPackage.find(
+        (p) => Number(p.value) === Number(data.package_id),
+    );
+
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Manifest Information</CardTitle>
+            <CardHeader className="gap-0">
+                <CardTitle className="text-xl">Manifest Information</CardTitle>
+                <CardDescription>
+                    Provide the necessary details for the manifest, including
+                    package selection, status, and any additional notes.
+                </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                     <FormField
                         label="Package"
                         htmlFor="package_id"
@@ -49,7 +62,7 @@ export default function ManifestInformationCard({
                             onValueChange={(value) =>
                                 setData('package_id', Number(value))
                             }
-                            disabled={isView}
+                            disabled={isView || !!data.id}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select package" />
@@ -68,21 +81,23 @@ export default function ManifestInformationCard({
                         {renderError('package_id')}
                     </FormField>
 
-                    <FormField
-                        label="Reference Number"
-                        htmlFor="reference_number"
-                        fieldRequirementsProps={{ required: true }}
-                    >
-                        <ProperInput
-                            id="reference_number"
-                            value={data.reference_number ?? ''}
-                            onCommit={(value) =>
-                                setData('reference_number', value)
-                            }
-                            disabled={isView}
-                        />
-                        {renderError('reference_number')}
-                    </FormField>
+                    {data.manifest_number && (
+                        <FormField
+                            label="Manifest Number"
+                            htmlFor="manifest_number"
+                            fieldRequirementsProps={{
+                                hint: 'Auto-generated manifest identifier',
+                            }}
+                        >
+                            <Input
+                                id="manifest_number"
+                                type="text"
+                                value={data.manifest_number}
+                                disabled={true}
+                                className="bg-muted"
+                            />
+                        </FormField>
+                    )}
 
                     <FormField label="Status" htmlFor="status">
                         <Select
@@ -106,95 +121,44 @@ export default function ManifestInformationCard({
                     </FormField>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                     <FormField
                         label="Departure Date"
                         htmlFor="departure_date"
-                        fieldRequirementsProps={{ required: true }}
+                        fieldRequirementsProps={{
+                            hint: 'From package',
+                        }}
                     >
-                        <DatePickerField
+                        <Input
                             id="departure_date"
-                            value={data.departure_date}
-                            onChange={(value) =>
-                                setData('departure_date', value)
-                            }
-                            disabled={isView}
+                            value={selectedPackage?.departure_date || '-'}
+                            disabled={true}
+                            className="bg-muted"
                         />
-                        {renderError('departure_date')}
                     </FormField>
 
                     <FormField
                         label="Return Date"
                         htmlFor="return_date"
-                        fieldRequirementsProps={{ required: true }}
+                        fieldRequirementsProps={{
+                            hint: 'From package',
+                        }}
                     >
-                        <DatePickerField
+                        <Input
                             id="return_date"
-                            value={data.return_date}
-                            onChange={(value) => setData('return_date', value)}
-                            disabled={isView}
+                            value={selectedPackage?.return_date || '-'}
+                            disabled={true}
+                            className="bg-muted"
                         />
-                        {renderError('return_date')}
                     </FormField>
 
-                    <FormField label="Duration" htmlFor="duration">
-                        <ProperInput
-                            id="duration"
-                            value={data.duration ?? ''}
-                            onCommit={(value) => setData('duration', value)}
-                            disabled={isView}
-                            placeholder="e.g. 14 Days / 13 Nights"
-                        />
-                        {renderError('duration')}
-                    </FormField>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <FormField
-                        label="Company Address"
-                        htmlFor="company_address"
+                        label="Notes"
+                        htmlFor="notes"
+                        fieldRequirementsProps={{
+                            hint: 'Enter any additional information or remarks about the manifest',
+                        }}
                     >
-                        <ProperInput
-                            id="company_address"
-                            value={data.company_address ?? ''}
-                            onCommit={(value) =>
-                                setData('company_address', value)
-                            }
-                            disabled={isView}
-                        />
-                    </FormField>
-
-                    <FormField label="Company Phone" htmlFor="company_phone">
-                        <ProperInput
-                            id="company_phone"
-                            value={data.company_phone ?? ''}
-                            onCommit={(value) =>
-                                setData('company_phone', value)
-                            }
-                            disabled={isView}
-                        />
-                    </FormField>
-
-                    <FormField label="First Meal" htmlFor="first_meal">
-                        <ProperInput
-                            id="first_meal"
-                            value={data.first_meal ?? ''}
-                            onCommit={(value) => setData('first_meal', value)}
-                            disabled={isView}
-                        />
-                    </FormField>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField label="Last Meal" htmlFor="last_meal">
-                        <ProperInput
-                            id="last_meal"
-                            value={data.last_meal ?? ''}
-                            onCommit={(value) => setData('last_meal', value)}
-                            disabled={isView}
-                        />
-                    </FormField>
-                    <FormField label="Notes" htmlFor="notes">
                         <Textarea
                             id="notes"
                             value={data.notes ?? ''}

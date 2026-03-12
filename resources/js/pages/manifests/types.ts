@@ -10,6 +10,7 @@ export interface CustomerMemberData {
         | 'pending_payment'
         | 'partially_paid'
         | 'confirmed'
+        | 'unavailable'
         | 'cancelled';
     sharing_plan?: string | null;
     role?: string | null;
@@ -62,10 +63,8 @@ export interface PackageAccommodationOption {
 }
 
 export interface PackageForManifestOption extends ValueNumberOptionType {
-    airline?: string;
-    pnr?: string;
     departure_date?: string;
-    arrival_date?: string;
+    return_date?: string;
     accommodations?: PackageAccommodationOption[];
 }
 
@@ -77,27 +76,40 @@ export interface ManifestFormData
     travelers?: TravelerSchema[];
     roomLists?: Record<string, TravelerSchema[]>;
     airlineList?: TravelerSchema[];
-    selected_confirmation_ids?: number[];
-    roomListMakkah?: Record<number, TravelerSchema[]>;
-    roomListMadinah?: Record<number, TravelerSchema[]>;
-    roomListOthers?: Record<number, TravelerSchema[]>;
 }
 
 export interface ManifestFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: ManifestFormData;
     dataPackage?: ValueNumberOptionType[];
-    customerConfirmations?: CustomerConfirmationData[];
     onCancel: () => void;
 }
 
 export type TravelerWithUI = TravelerSchema & {
     row_key?: string;
+    manifest_traveler_id?: number;
     customer_confirmation_id?: number;
     customer_name?: string;
     sharing_group_id?: number;
     sharing_group_key?: string;
     accommodation_key?: string;
     sort_order?: number;
-    status?: 'assigned' | 'cancelled';
+    room_relationship?: string | null;
+    room_label?: string;
+    room_number?: string;
+    room_remarks?: string;
+    package_category?: string | null;
+    date_of_sign_up?: string | null;
+    is_first_time_umrah?: boolean | null;
+    status?:
+        | 'draft'
+        | 'pending_payment'
+        | 'partially_paid'
+        | 'confirmed'
+        | 'unavailable'
+        | 'cancelled'
+        | string;
+    role?: string | null;
+    relationship?: string | null;
+    sharing_plan?: string | null;
 };

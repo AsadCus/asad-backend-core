@@ -10,7 +10,12 @@ class ManifestRoomMember extends Model
     protected $fillable = [
         'manifest_room_id',
         'manifest_traveler_id',
-        'role_in_room',
+        'sort_order',
+        'remarks',
+    ];
+
+    protected $casts = [
+        'sort_order' => 'integer',
     ];
 
     public function room(): BelongsTo

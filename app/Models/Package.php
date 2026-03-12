@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\NumberGenerator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,11 +23,9 @@ class Package extends Model
         'child_no_bed_price',
         'infant_price',
 
-        // Flight Details
-        'airline',
-        'pnr',
+        // Dates & Seats
         'departure_date',
-        'arrival_date',
+        'return_date',
         'total_seats',
         'seats_left',
 
@@ -50,7 +49,7 @@ class Package extends Model
 
     protected $casts = [
         'departure_date' => 'date',
-        'arrival_date' => 'date',
+        'return_date' => 'date',
         'price_single' => 'decimal:2',
         'price_double' => 'decimal:2',
         'price_triple' => 'decimal:2',
@@ -65,6 +64,16 @@ class Package extends Model
     public function accommodations(): HasMany
     {
         return $this->hasMany(PackageAccommodation::class);
+    }
+
+    public function flights(): HasMany
+    {
+        return $this->hasMany(PackageFlight::class)->orderBy('sort_order');
+    }
+
+    public function officials(): HasMany
+    {
+        return $this->hasMany(PackageOfficial::class)->orderBy('sort_order');
     }
 
     public function manifests(): HasMany
@@ -84,9 +93,9 @@ class Package extends Model
         return $this->departure_date ? Carbon::parse($this->departure_date)->translatedFormat('d F Y') : null;
     }
 
-    public function getArrivalDateFormattedAttribute(): ?string
+    public function getReturnDateFormattedAttribute(): ?string
     {
-        return $this->arrival_date ? Carbon::parse($this->arrival_date)->translatedFormat('d F Y') : null;
+        return $this->return_date ? Carbon::parse($this->return_date)->translatedFormat('d F Y') : null;
     }
 
     public function setDepartureDateAttribute(mixed $value): void
@@ -96,10 +105,21 @@ class Package extends Model
             : null;
     }
 
-    public function setArrivalDateAttribute(mixed $value): void
+    public function setReturnDateAttribute(mixed $value): void
     {
-        $this->attributes['arrival_date'] = ! empty($value)
+        $this->attributes['return_date'] = ! empty($value)
             ? Carbon::parse($value)->format('Y-m-d')
             : null;
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($package) {
+            if (empty($package->package_number)) {
+                $package->package_number = NumberGenerator::generate('package');
+            }
+        });
     }
 }

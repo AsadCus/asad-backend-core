@@ -88,18 +88,19 @@ class CustomerConfirmationController extends Controller
     public function destroy(Request $request, string $id)
     {
         $ids = $request->input('ids');
+        $redirectTarget = $this->resolveIndexRedirectTarget();
 
         if ($ids && is_array($ids)) {
             foreach ($ids as $groupId) {
                 $this->customerConfirmationService->deleteGroup((int) $groupId);
             }
 
-            return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Selected customer confirmations deleted successfully.');
+            return back(fallback: $redirectTarget)->with('success', 'Selected customer confirmations deleted successfully.');
         }
 
         $this->customerConfirmationService->deleteGroup((int) $id);
 
-        return redirect()->intended(route('confirmed-customer.index'))->with('success', 'Customer confirmation deleted successfully.');
+        return back(fallback: $redirectTarget)->with('success', 'Customer confirmation deleted successfully.');
     }
 
     /**
@@ -136,17 +137,17 @@ class CustomerConfirmationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
             'contact_number' => ['required', 'string', 'max:30'],
-            'nric_number' => ['required', 'string', 'max:50'],
-            'address' => ['required', 'string', 'max:500'],
-            'nationality' => ['required', 'string', 'max:100'],
-            'passport_number' => ['required', 'string', 'max:50'],
-            'passport_issue_date' => ['required', 'date'],
-            'passport_expiry_date' => ['required', 'date'],
-            'passport_place_of_issue' => ['required', 'string', 'max:255'],
-            'gender' => ['required', 'string', 'in:male,female'],
-            'marital_status' => ['required', 'string', 'in:single,married,divorced,widowed'],
-            'date_of_birth' => ['required', 'date'],
-            'place_of_birth' => ['required', 'string', 'max:255'],
+            'nric_number' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'nationality' => ['nullable', 'string', 'max:100'],
+            'passport_number' => ['nullable', 'string', 'max:50'],
+            'passport_issue_date' => ['nullable', 'date'],
+            'passport_expiry_date' => ['nullable', 'date'],
+            'passport_place_of_issue' => ['nullable', 'string', 'max:255'],
+            'gender' => ['nullable', 'string', 'in:male,female'],
+            'marital_status' => ['nullable', 'string', 'in:single,married,divorced,widowed'],
+            'date_of_birth' => ['nullable', 'date'],
+            'place_of_birth' => ['nullable', 'string', 'max:255'],
             'first_time_umrah' => ['nullable', 'boolean'],
             'has_chronic_disease' => ['nullable', 'boolean'],
             'chronic_disease_details' => ['nullable', 'string', 'max:1000'],
@@ -154,7 +155,7 @@ class CustomerConfirmationController extends Controller
             'photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
             'passport_path' => ['nullable', 'string'],
             'photo_path' => ['nullable', 'string'],
-            'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled'],
+            'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled,unavailable'],
             'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'role' => ['nullable', 'string', 'max:255'],
         ]);
@@ -416,5 +417,16 @@ class CustomerConfirmationController extends Controller
         }
 
         return $token;
+    }
+
+    private function resolveIndexRedirectTarget(): string
+    {
+        $previousPath = parse_url(url()->previous(), PHP_URL_PATH);
+
+        if (is_string($previousPath) && Str::startsWith($previousPath, '/customer-holding')) {
+            return route('customer-holding.index');
+        }
+
+        return route('confirmed-customer.index');
     }
 }

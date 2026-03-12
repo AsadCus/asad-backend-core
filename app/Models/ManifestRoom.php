@@ -12,13 +12,16 @@ class ManifestRoom extends Model
     protected $fillable = [
         'manifest_id',
         'location',
+        'relationship',
+        'room_label',
         'room_number',
         'room_type',
         'bed_type',
         'capacity',
         'sharing_plan',
         'status',
-        'room_label',
+        'meal',
+        'remarks',
     ];
 
     protected $casts = [
@@ -42,7 +45,7 @@ class ManifestRoom extends Model
             'manifest_room_members',
             'manifest_room_id',
             'manifest_traveler_id',
-        )->withPivot('role_in_room')
+        )->withPivot(['sort_order', 'remarks'])
             ->withTimestamps();
     }
 

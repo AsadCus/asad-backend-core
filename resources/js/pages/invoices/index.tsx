@@ -171,28 +171,6 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: false },
         cell: ({ row }) => {
             const invoice = row.original;
-            // if (
-            //     invoice.status === 'paid' &&
-            //     invoice.has_receipt &&
-            //     invoice.receipt_id
-            // ) {
-            //     return (
-            //         <Button
-            //             variant="outline"
-            //             size="sm"
-            //             onClick={(e) => {
-            //                 e.stopPropagation();
-            //                 window.open(
-            //                     `/receipt/${invoice.receipt_id}/preview`,
-            //                     '_blank',
-            //                 );
-            //             }}
-            //             className="gap-1 bg-transparent"
-            //         >
-            //             View
-            //         </Button>
-            //     );
-            // }
 
             if (
                 invoice.status !== 'paid' &&

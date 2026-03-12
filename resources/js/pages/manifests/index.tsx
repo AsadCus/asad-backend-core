@@ -3,10 +3,11 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { create, destroy, edit, index, show } from '@/routes/manifests';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { SharedData, type BreadcrumbItem } from '@/types';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import {
     ManifestSchema,
@@ -35,8 +36,8 @@ const columns: ColumnDef<ManifestSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'reference_number',
-        header: 'Reference No.',
+        accessorKey: 'manifest_number',
+        header: 'Manifest No.',
         meta: { exportable: true },
     },
     {
@@ -46,30 +47,15 @@ const columns: ColumnDef<ManifestSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
-        header: 'Departure',
+        header: 'Departure Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'return_date',
-        header: 'Return',
+        header: 'Return Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-    },
-    {
-        accessorKey: 'duration',
-        header: 'Duration',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'makkah_hotel',
-        header: 'Makkah Hotel',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'madinah_hotel',
-        header: 'Madinah Hotel',
-        meta: { exportable: true },
     },
     {
         accessorKey: 'travelers_count',
@@ -81,18 +67,21 @@ const columns: ColumnDef<ManifestSchema>[] = [
         header: 'Status',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const status = row.original
-                .status as keyof typeof manifestStatusColors;
-            const color = manifestStatusColors[status];
-            const label = manifestStatusLabels[status];
+            const status = row.original.status;
+
+            if (!status) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
             return (
-                <span
-                    className={`inline-flex rounded-full px-2 py-1 text-sm font-semibold ${color}`}
+                <Badge
+                    className={`${manifestStatusColors[status] ?? ''} rounded-full px-3 py-1 text-base`}
                 >
-                    {label}
-                </span>
+                    {manifestStatusLabels[status]}
+                </Badge>
             );
         },
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'created_at',
@@ -102,8 +91,17 @@ const columns: ColumnDef<ManifestSchema>[] = [
 ];
 
 export default function ManifestsIndex({ data }: ManifestsProps) {
-    const actions: ActionType[] = ['add', 'view', 'edit', 'delete'];
     const { manifestsForDatatable } = data;
+
+    const { auth } = usePage<SharedData>().props;
+    const userPermissions = auth.permissions || [];
+    const actions: ActionType[] = [];
+
+    // if (userPermissions.includes('manifest create')) actions.push('add');
+    if (userPermissions.includes('manifest view')) actions.push('view');
+    if (userPermissions.includes('manifest edit')) actions.push('edit');
+    if (userPermissions.includes('manifest delete')) actions.push('delete');
+
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     return (
@@ -137,7 +135,7 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Manifest',
-                                            message: `Are you sure you want to delete manifest "${row?.original.reference_number}"?`,
+                                            message: `Are you sure you want to delete manifest "${row?.original.manifest_number}"?`,
                                             confirmText: 'Delete',
                                             cancelText: 'Cancel',
                                             onConfirm: () => {
@@ -156,7 +154,6 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
-                                    madinah_hotel: false,
                                     created_at: false,
                                 },
                             }}

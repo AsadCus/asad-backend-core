@@ -14,14 +14,17 @@ import {
     show as showInvoice,
 } from '@/routes/invoice';
 import { destroy, edit, index, show } from '@/routes/order';
+import { getForShow as getReceiptForShow } from '@/routes/receipt';
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { invoiceColumns } from '../invoices';
 import InvoicePreviewModal from '../invoices/components/invoice-preview-modal';
-import { InvoiceSchema, statuses } from '../invoices/schema';
+import { InvoiceItemSchema, InvoiceSchema, statuses } from '../invoices/schema';
 import { paymentPlans } from '../quotations/schema';
+import ReceiptPreviewModal from '../receipts/components/receipt-preview-modal';
+import { ReceiptSchema } from '../receipts/schema';
 import OrderCreateDialog from './components/order-create-dialog';
 import { OrderSchema } from './schema';
 
@@ -131,6 +134,12 @@ export default function OrderIndex({ data }: QuotationsProps) {
     const [selectedInvoiceForPreview, setSelectedInvoiceForPreview] =
         useState<InvoiceSchema | null>(null);
     const [previewItems, setPreviewItems] = useState([]);
+    const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
+    const [selectedReceiptForPreview, setSelectedReceiptForPreview] =
+        useState<ReceiptSchema | null>(null);
+    const [receiptPreviewItems, setReceiptPreviewItems] = useState<
+        InvoiceItemSchema[]
+    >([]);
 
     const handlePreview = async (invoice: InvoiceSchema) => {
         try {
@@ -155,6 +164,29 @@ export default function OrderIndex({ data }: QuotationsProps) {
         }
     };
 
+    const handleReceiptPreview = async (invoice: InvoiceSchema) => {
+        try {
+            if (!invoice.receipt_id) {
+                return;
+            }
+
+            const response = await fetch(
+                getReceiptForShow(invoice.receipt_id).url,
+            );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const receipt = await response.json();
+            setSelectedReceiptForPreview(receipt);
+            setReceiptPreviewItems(receipt.items ?? []);
+            setReceiptPreviewOpen(true);
+        } catch (error) {
+            console.error('Error fetching receipt items:', error);
+        }
+    };
+
     const getRowActions = (): ActionType[] => {
         const rowActions: ActionType[] = [];
 
@@ -166,13 +198,6 @@ export default function OrderIndex({ data }: QuotationsProps) {
 
         return rowActions;
     };
-
-    const invoiceActions: ActionType[] = [];
-
-    if (userPermissions.includes('invoice view'))
-        invoiceActions.push('preview');
-    if (userPermissions.includes('invoice delete'))
-        invoiceActions.push('delete');
 
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -278,7 +303,41 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                 enableExpand={false}
                                                 columns={invoiceColumns}
                                                 data={invoices}
-                                                actions={invoiceActions}
+                                                actions={[]}
+                                                getRowActions={(
+                                                    invoice: InvoiceSchema,
+                                                ) => {
+                                                    const rowActions: ActionType[] =
+                                                        [];
+
+                                                    if (
+                                                        userPermissions.includes(
+                                                            'invoice view',
+                                                        )
+                                                    ) {
+                                                        rowActions.push(
+                                                            'preview',
+                                                        );
+                                                        rowActions.push(
+                                                            'download',
+                                                        );
+                                                    }
+
+                                                    if (
+                                                        userPermissions.includes(
+                                                            'receipt view',
+                                                        ) &&
+                                                        invoice.status ===
+                                                            'paid' &&
+                                                        invoice.has_receipt
+                                                    ) {
+                                                        rowActions.push(
+                                                            'receipt-preview',
+                                                        );
+                                                    }
+
+                                                    return rowActions;
+                                                }}
                                                 url={invoiceIndex().url}
                                                 exportFilename="order"
                                                 onAction={(
@@ -310,6 +369,62 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                         action === 'preview'
                                                     ) {
                                                         handlePreview(invoice);
+                                                    } else if (
+                                                        action ===
+                                                        'receipt-preview'
+                                                    ) {
+                                                        handleReceiptPreview(
+                                                            invoice,
+                                                        );
+                                                    } else if (
+                                                        action === 'download'
+                                                    ) {
+                                                        (async () => {
+                                                            try {
+                                                                const response =
+                                                                    await fetch(
+                                                                        `/invoice/${invoiceId}/generate-pdf`,
+                                                                    );
+                                                                if (
+                                                                    !response.ok
+                                                                ) {
+                                                                    throw new Error(
+                                                                        'Failed to generate PDF',
+                                                                    );
+                                                                }
+
+                                                                const blob =
+                                                                    await response.blob();
+                                                                const url =
+                                                                    window.URL.createObjectURL(
+                                                                        blob,
+                                                                    );
+
+                                                                window.open(
+                                                                    url,
+                                                                    '_blank',
+                                                                );
+
+                                                                const link =
+                                                                    document.createElement(
+                                                                        'a',
+                                                                    );
+                                                                link.href = url;
+                                                                link.download = `invoice-${invoice.invoice_number}.pdf`;
+                                                                document.body.appendChild(
+                                                                    link,
+                                                                );
+                                                                link.click();
+                                                                document.body.removeChild(
+                                                                    link,
+                                                                );
+                                                            } catch (error) {
+                                                                console.error(
+                                                                    'Error opening PDF:',
+                                                                    error,
+                                                                );
+                                                            }
+                                                        })();
                                                     } else if (
                                                         action === 'edit'
                                                     ) {
@@ -407,6 +522,15 @@ export default function OrderIndex({ data }: QuotationsProps) {
                     items={previewItems}
                     open={previewModalOpen}
                     onOpenChange={setPreviewModalOpen}
+                />
+            )}
+
+            {receiptPreviewOpen && selectedReceiptForPreview && (
+                <ReceiptPreviewModal
+                    receipt={selectedReceiptForPreview}
+                    items={receiptPreviewItems}
+                    open={receiptPreviewOpen}
+                    onOpenChange={setReceiptPreviewOpen}
                 />
             )}
         </>

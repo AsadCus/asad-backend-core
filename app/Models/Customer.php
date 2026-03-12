@@ -9,6 +9,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Customer extends Model
 {
+    private const NULLABLE_STRING_FIELDS = [
+        'nric_number',
+        'address',
+        'nationality',
+        'passport_number',
+        'passport_place_of_issue',
+        'gender',
+        'marital_status',
+        'place_of_birth',
+        'chronic_disease_details',
+        'passport_path',
+        'photo_path',
+    ];
+
     protected $fillable = [
         'customer_number',
         'nric_number',
@@ -92,5 +106,15 @@ class Customer extends Model
                 $customer->customer_number = NumberGenerator::generate('customer');
             }
         });
+    }
+
+    public function setAttribute($key, $value)
+    {
+        if (in_array($key, self::NULLABLE_STRING_FIELDS, true) && is_string($value)) {
+            $trimmed = trim($value);
+            $value = $trimmed === '' ? null : $trimmed;
+        }
+
+        return parent::setAttribute($key, $value);
     }
 }

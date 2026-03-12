@@ -3,6 +3,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { create, destroy, edit, index, show } from '@/routes/packages';
 import { type BreadcrumbItem } from '@/types';
@@ -16,9 +17,8 @@ interface PackageDataTableSchema {
     name: string;
     status: string;
     launched: boolean;
-    airline: string | null;
     departure_date: string | null;
-    arrival_date: string | null;
+    return_date: string | null;
     total_seats: number | null;
     seats_left: number | null;
     price_quad: number;
@@ -61,27 +61,21 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         header: 'Status',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const status = row.original.status ?? 'open';
-            const label = packageStatusLabels[status] ?? status;
-            const color =
-                packageStatusColors[
-                    status as keyof typeof packageStatusColors
-                ] ?? '';
+            const status = row.original.status;
+
+            if (!status) {
+                return <span className="text-muted-foreground">-</span>;
+            }
 
             return (
-                <span
-                    className={`inline-flex rounded-full px-2 py-1 text-sm font-semibold ${color}`}
+                <Badge
+                    className={`${packageStatusColors[status] ?? ''} rounded-full px-3 py-1 text-base`}
                 >
-                    {label}
-                </span>
+                    {packageStatusLabels[status]}
+                </Badge>
             );
         },
-    },
-    {
-        accessorKey: 'airline',
-        header: 'Airline',
-        meta: { exportable: true },
-        cell: ({ row }) => row.original.airline || '-',
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'departure_date',
@@ -91,10 +85,10 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         filterFn: 'dateRangeFilter',
     },
     {
-        accessorKey: 'arrival_date',
-        header: 'Arrival',
+        accessorKey: 'return_date',
+        header: 'Return',
         meta: { exportable: true },
-        cell: ({ row }) => row.original.arrival_date,
+        cell: ({ row }) => row.original.return_date,
         filterFn: 'dateRangeFilter',
     },
     {
@@ -181,8 +175,7 @@ export default function PackagesIndex({ data }: PackagesProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
-                                    airline: false,
-                                    arrival_date: false,
+                                    return_date: false,
                                     price_quad: false,
                                     manifests_count: false,
                                     created_at: false,

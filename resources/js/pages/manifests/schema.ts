@@ -2,44 +2,47 @@ import { z } from 'zod';
 
 export const travelerSchema = z.object({
     id: z.number().optional(),
-    customer_id: z.number().optional(),
-    customer_confirmation_member_id: z.number().optional(),
-    customer_name: z.string().optional(),
-    sn: z.coerce.number().optional(),
-    name_as_per_passport: z.string().optional(),
-    date_of_sign_up: z.string().optional(),
-    is_first_time_umrah: z.boolean().optional(),
-    ppt_no: z.string().optional(),
-    passport_no: z.string().optional(),
-    gender: z.string().optional(),
-    date_of_birth: z.string().optional(),
-    age: z.coerce.number().optional(),
-    contact_no: z.string().optional(),
-    date_of_issue: z.string().optional(),
-    date_of_expiry: z.string().optional(),
-    issue_place: z.string().optional(),
-    birth_place: z.string().optional(),
-    package_price: z.coerce.number().optional(),
-    discount: z.coerce.number().optional(),
-    date_of_deposit_payment: z.string().optional(),
-    deposit_payment: z.coerce.number().optional(),
-    date_of_second_payment: z.string().optional(),
-    second_payment: z.coerce.number().optional(),
-    balance_due: z.coerce.number().optional(),
-    total_cost: z.coerce.number().optional(),
-    total_paid: z.coerce.number().optional(),
-    outstanding_amount: z.coerce.number().optional(),
-    is_fully_paid: z.boolean().optional(),
-    receipt_no: z.string().optional(),
-    remarks: z.string().optional(),
-    nationality: z.string().optional(),
-    room_no: z.string().optional(),
-    room_type: z.string().optional(),
-    bed_type: z.string().optional(),
-    no_of_beds_checked: z.coerce.number().optional(),
-    meal: z.string().optional(),
-    relationship: z.string().optional(),
-    status: z.string().optional(),
+    customer_id: z.number().nullable().optional(),
+    customer_confirmation_member_id: z.number().nullable().optional(),
+    customer_name: z.string().nullable().optional(),
+    sn: z.coerce.number().nullable().optional(),
+    name_as_per_passport: z.string().nullable().optional(),
+    date_of_sign_up: z.string().nullable().optional(),
+    package_category: z.string().nullable().optional(),
+    is_first_time_umrah: z.boolean().nullable().optional(),
+    passport_number: z.string().nullable().optional(),
+    gender: z.string().nullable().optional(),
+    date_of_birth: z.string().nullable().optional(),
+    age: z.coerce.number().nullable().optional(),
+    contact_no: z.string().nullable().optional(),
+    date_of_issue: z.string().nullable().optional(),
+    date_of_expiry: z.string().nullable().optional(),
+    issue_place: z.string().nullable().optional(),
+    birth_place: z.string().nullable().optional(),
+    package_price: z.coerce.number().nullable().optional(),
+    discount: z.coerce.number().nullable().optional(),
+    date_of_deposit_payment: z.string().nullable().optional(),
+    deposit_payment: z.coerce.number().nullable().optional(),
+    date_of_second_payment: z.string().nullable().optional(),
+    second_payment: z.coerce.number().nullable().optional(),
+    balance_due: z.coerce.number().nullable().optional(),
+    total_cost: z.coerce.number().nullable().optional(),
+    total_paid: z.coerce.number().nullable().optional(),
+    outstanding_amount: z.coerce.number().nullable().optional(),
+    is_fully_paid: z.boolean().nullable().optional(),
+    receipt_no: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
+    nationality: z.string().nullable().optional(),
+    room_no: z.string().nullable().optional(),
+    room_relationship: z.string().nullable().optional(),
+    room_type: z.string().nullable().optional(),
+    bed_type: z.string().nullable().optional(),
+    no_of_beds_checked: z.coerce.number().nullable().optional(),
+    meal: z.string().nullable().optional(),
+    relationship: z.string().nullable().optional(),
+    role: z.string().nullable().optional(),
+    sharing_plan: z.string().nullable().optional(),
+    status: z.string().nullable().optional(),
 });
 
 export const roomMemberSchema = z.object({
@@ -73,7 +76,7 @@ export const roomSchema = z.object({
     customer_id: z.number().optional(),
     name_as_per_passport: z.string().optional(),
     relationship: z.string().optional(),
-    passport_no: z.string().optional(),
+    passport_number: z.string().optional(),
     room_no: z.string().optional(),
     date_of_birth: z.string().optional(),
     age: z.coerce.number().optional(),
@@ -119,22 +122,8 @@ export const manifestSharingGroupSchema = z.object({
 export const manifestSchema = z.object({
     id: z.number().optional(),
     package_id: z.coerce.number().optional(),
-    reference_number: z.string().optional(),
-    company_address: z.string().optional(),
-    company_phone: z.string().optional(),
-    departure_date: z.string().optional(),
-    return_date: z.string().optional(),
-    duration: z.string().optional(),
-    makkah_hotel: z.string().optional(),
-    makkah_check_in: z.string().optional(),
-    makkah_check_out: z.string().optional(),
-    madinah_hotel: z.string().optional(),
-    madinah_check_in: z.string().optional(),
-    madinah_check_out: z.string().optional(),
-    flight_details: z.any().optional(),
+    manifest_number: z.string().optional(),
     notes: z.string().optional(),
-    first_meal: z.string().optional(),
-    last_meal: z.string().optional(),
     status: z.string().optional(),
     travelers: z.array(travelerSchema).optional(),
     rooms: z.array(roomSchema).optional(),
@@ -154,7 +143,7 @@ export type ManifestSharingGroupSchema = z.infer<
 
 // Nested structure types for API responses from ManifestService
 export const hotelDetailsSchema = z.object({
-    makkah: z
+    mekkah: z
         .object({
             hotel: z.string().optional(),
             checkIn: z.string().optional(),
@@ -170,32 +159,20 @@ export const hotelDetailsSchema = z.object({
         .optional(),
 });
 
-export const mealsNotesSchema = z.object({
-    firstMeal: z.string().optional(),
-    lastMeal: z.string().optional(),
-    notes: z.string().optional(),
-});
-
 export const manifestInformationSchema = z.object({
     id: z.number().optional(),
     package_id: z.coerce.number().optional(),
-    reference_number: z.string().optional(),
+    manifest_number: z.string().optional(),
     status: z.string().optional(),
-    company_address: z.string().optional(),
-    company_phone: z.string().optional(),
     departure_date: z.string().optional(),
     return_date: z.string().optional(),
-    duration: z.string().optional(),
 });
 
 export const manifestApiResponseSchema = z.object({
     manifestInformation: manifestInformationSchema.optional(),
     hotelDetails: hotelDetailsSchema.optional(),
-    mealsNotes: mealsNotesSchema.optional(),
     travelers: z.record(z.string(), z.array(travelerSchema)).optional(),
-    roomListMakkah: z.record(z.string(), z.array(roomSchema)).optional(),
-    roomListMadinah: z.record(z.string(), z.array(roomSchema)).optional(),
-    roomListOthers: z.record(z.string(), z.array(roomSchema)).optional(),
+    roomLists: z.record(z.string(), z.array(roomSchema)).optional(),
     airlinesNameList: z
         .record(
             z.string(),
@@ -218,7 +195,6 @@ export const manifestApiResponseSchema = z.object({
 });
 
 export type HotelDetailsSchema = z.infer<typeof hotelDetailsSchema>;
-export type MealsNotesSchema = z.infer<typeof mealsNotesSchema>;
 export type ManifestInformationSchema = z.infer<
     typeof manifestInformationSchema
 >;
@@ -233,14 +209,14 @@ export const manifestStatusOptions = [
     { label: 'Cancelled', value: 'cancelled' },
 ];
 
-export const manifestStatusColors = {
+export const manifestStatusColors: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-800',
     confirmed: 'bg-blue-100 text-blue-800',
     completed: 'bg-green-100 text-green-800',
     cancelled: 'bg-red-100 text-red-800',
 };
 
-export const manifestStatusLabels = {
+export const manifestStatusLabels: Record<string, string> = {
     draft: 'Draft',
     confirmed: 'Confirmed',
     completed: 'Completed',

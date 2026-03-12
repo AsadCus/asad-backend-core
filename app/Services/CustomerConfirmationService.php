@@ -99,8 +99,8 @@ class CustomerConfirmationService
             if ($existingUser) {
                 $customer = Customer::create(array_merge([
                     'user_id' => $existingUser->id,
-                    'nric_number' => $customerData['nric_number'] ?? null,
-                    'address' => $customerData['address'] ?? null,
+                    'nric_number' => $this->normalizeNullableString($customerData['nric_number'] ?? null),
+                    'address' => $this->normalizeNullableString($customerData['address'] ?? null),
                 ], $biodata));
 
                 return $customer;
@@ -118,8 +118,8 @@ class CustomerConfirmationService
 
         $customer = Customer::create(array_merge([
             'user_id' => $user->id,
-            'nric_number' => $customerData['nric_number'] ?? null,
-            'address' => $customerData['address'] ?? null,
+            'nric_number' => $this->normalizeNullableString($customerData['nric_number'] ?? null),
+            'address' => $this->normalizeNullableString($customerData['address'] ?? null),
         ], $biodata));
 
         return $customer;
@@ -148,7 +148,7 @@ class CustomerConfirmationService
         $biodata = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
-                $biodata[$field] = $data[$field];
+                $biodata[$field] = $this->normalizeNullableFieldValue($data[$field]);
             }
         }
 
@@ -179,8 +179,8 @@ class CustomerConfirmationService
         ];
 
         foreach ($customerFields as $field) {
-            if (array_key_exists($field, $data) && $data[$field] !== null && $data[$field] !== '') {
-                $customerUpdates[$field] = $data[$field];
+            if (array_key_exists($field, $data)) {
+                $customerUpdates[$field] = $this->normalizeNullableFieldValue($data[$field]);
             }
         }
 
@@ -200,6 +200,30 @@ class CustomerConfirmationService
                 $customer->user->update($userUpdates);
             }
         }
+    }
+
+    private function normalizeNullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function normalizeNullableFieldValue(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            return $this->normalizeNullableString($value);
+        }
+
+        return $value;
     }
 
     /** Search customers for autocomplete options. */
@@ -435,7 +459,8 @@ class CustomerConfirmationService
 
             $isPrivateEnquiry = strtolower((string) ($group->enquiry?->type ?? '')) === 'private';
             $hasExistingPackage = ! empty($group->package_id);
-            $requestedPackageId = $data['package_id'] ?? $group->package_id;
+            // $requestedPackageId = $data['package_id'] ?? $group->package_id;
+            $requestedPackageId = $data['package_id'] ?? null;
 
             if (
                 $isPrivateEnquiry
@@ -446,7 +471,8 @@ class CustomerConfirmationService
             }
 
             $group->update([
-                'package_id' => $data['package_id'] ?? $group->package_id,
+                // 'package_id' => $data['package_id'] ?? $group->package_id,
+                'package_id' => $data['package_id'] ?? null,
                 'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
                 'package_category' => $data['package_category'] ?? $group->package_category,
                 'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
@@ -660,6 +686,16 @@ class CustomerConfirmationService
                 'role' => $data['role'] ?? $member->role,
             ]);
 
+            if (in_array($member->status, ['cancelled', 'unavailable'], true)) {
+                ManifestTraveler::query()
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->delete();
+            }
+
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($member->confirmation?->package_id ?? 0),
+            );
+
             $member->refresh();
             $member->load('customer.user');
 
@@ -702,6 +738,14 @@ class CustomerConfirmationService
             $member->update([
                 'status' => 'cancelled',
             ]);
+
+            ManifestTraveler::query()
+                ->where('customer_confirmation_member_id', $member->id)
+                ->delete();
+
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($member->confirmation?->package_id ?? 0),
+            );
         });
     }
 
@@ -741,7 +785,7 @@ class CustomerConfirmationService
                 ->when($sourceManifestId, function ($query) use ($sourceManifestId) {
                     $query->where('manifest_id', $sourceManifestId);
                 })
-                ->update(['status' => 'cancelled']);
+                ->delete();
 
             $newGroup = CustomerConfirmation::create([
                 'enquiry_id' => $sourceGroup->enquiry_id,
@@ -804,6 +848,13 @@ class CustomerConfirmationService
                     'new_member_ids' => array_values($memberIdMap),
                 ])
                 ->log('Customer members moved to holding confirmation #'.$newGroup->id);
+
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($sourceGroup->package_id ?? 0),
+            );
+            app(PackageSeatService::class)->recalculateForPackageId(
+                (int) ($newGroup->package_id ?? 0),
+            );
 
             return $newGroup;
         });
