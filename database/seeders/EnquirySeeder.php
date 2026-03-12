@@ -22,6 +22,80 @@ use Illuminate\Support\Facades\Hash;
 
 class EnquirySeeder extends Seeder
 {
+    private const GENERAL_ENQUIRY_COUNT = 24;
+
+    private const PRIVATE_ENQUIRY_COUNT = 24;
+
+    /** @var array<int, EnquiryStatus> */
+    private const NON_CONFIRMED_STATUSES = [
+        EnquiryStatus::NewLead,
+        EnquiryStatus::Contacted,
+        EnquiryStatus::Negotiating,
+    ];
+
+    /** @var string[] */
+    private const PRIVATE_AIRLINES = [
+        'Saudia Airlines',
+        'Emirates',
+        'Qatar Airways',
+    ];
+
+    /** @var string[] */
+    private const PRIVATE_FLIGHT_CLASSES = [
+        'Business',
+        'Economy',
+    ];
+
+    /** @var string[] */
+    private const PRIVATE_HOTELS_MAKKAH = [
+        'Makkah Hotel & Towers',
+        'Swissotel Makkah',
+        'Hilton Suites Makkah',
+        'Jumeirah Jabal Omar Makkah',
+        'Fairmont Makkah Clock Royal Tower Hotel',
+        'Address Jabal Omar Makkah',
+        'Swissotel Maqam',
+        'Hyatt Jabal Omar',
+        'InterContinental Dar Al Tawhid Makkah',
+        'Hilton Convention Makkah',
+        'Conrad Jabal Omar',
+        'Al Ghufran Safwa Hotel',
+    ];
+
+    /** @var string[] */
+    private const PRIVATE_HOTELS_MADINAH = [
+        'The Oberoi',
+        'Intercontinental Dar Al Iman',
+        'Sofitel Shahd Al Madinah',
+        'Madinah Hilton Hotel',
+        'Dar Al Eiman Al Haram Madinah',
+        'Dar Al Taqwa Madinah',
+    ];
+
+    /** @var string[] */
+    private const PRIVATE_MEAL_OPTIONS = [
+        'Breakfast Only',
+        'Half Board',
+        'Full Board (3 Meals)',
+    ];
+
+    /** @var string[] */
+    private const PRIVATE_NIGHTS_MAKKAH = ['4', '5'];
+
+    /** @var string[] */
+    private const PRIVATE_NIGHTS_MADINAH = ['3', '4', '5'];
+
+    /** @var string[] */
+    private const PRIVATE_LAND_TRANSFERS = [
+        'Sedan (2 Pax)',
+        'Starex (4 Pax)',
+        'GMC (4 Pax)',
+        'Hi-Ace (8 Pax)',
+        'Coaster (12 Pax)',
+    ];
+
+    private int $confirmedCustomerGroupCounter = 0;
+
     /**
      * Run the database seeds.
      */
@@ -45,6 +119,7 @@ class EnquirySeeder extends Seeder
         $remaining = $minimum - $currentCount;
 
         $candidateEnquiries = Enquiry::query()
+            ->where('status', EnquiryStatus::Confirmed->value)
             ->whereDoesntHave('customerConfirmation')
             ->orderBy('id')
             ->limit($remaining)
@@ -80,14 +155,8 @@ class EnquirySeeder extends Seeder
 
         $generalEnquiries = [];
 
-        for ($index = 0; $index < 8; $index++) {
-            $status = $index < 4
-                ? EnquiryStatus::Confirmed
-                : fake()->randomElement([
-                    EnquiryStatus::NewLead,
-                    EnquiryStatus::Contacted,
-                    EnquiryStatus::Negotiating,
-                ]);
+        for ($index = 0; $index < self::GENERAL_ENQUIRY_COUNT; $index++) {
+            $status = $this->resolveEnquiryStatus($index, self::GENERAL_ENQUIRY_COUNT);
 
             $selectedPackage = $openPackages->random();
             $travelDate = now()->addDays(fake()->numberBetween(10, 120));
@@ -172,14 +241,8 @@ class EnquirySeeder extends Seeder
 
         $privateEnquiries = [];
 
-        for ($index = 0; $index < 6; $index++) {
-            $status = $index < 3
-                ? EnquiryStatus::Confirmed
-                : fake()->randomElement([
-                    EnquiryStatus::NewLead,
-                    EnquiryStatus::Contacted,
-                    EnquiryStatus::Negotiating,
-                ]);
+        for ($index = 0; $index < self::PRIVATE_ENQUIRY_COUNT; $index++) {
+            $status = $this->resolveEnquiryStatus($index, self::PRIVATE_ENQUIRY_COUNT);
 
             $departureDate = now()->addDays(fake()->numberBetween(20, 140));
             $returnDate = (clone $departureDate)->addDays(fake()->numberBetween(8, 14));
@@ -193,19 +256,19 @@ class EnquirySeeder extends Seeder
                 'return_date' => $returnDate->toDateString(),
                 'no_of_pax' => fake()->numberBetween(2, 6),
                 'no_of_children' => fake()->numberBetween(0, 2),
-                'airline' => fake()->randomElement(['Saudia Airlines', 'Emirates', 'Qatar Airways']),
-                'class' => fake()->randomElement(['Economy', 'Business']),
+                'airline' => fake()->randomElement(self::PRIVATE_AIRLINES),
+                'class' => fake()->randomElement(self::PRIVATE_FLIGHT_CLASSES),
                 'require_mutawif' => fake()->boolean(),
                 'require_umrah_course' => fake()->boolean(),
                 'require_umrah_official' => fake()->boolean(),
                 'makkah_or_madinah_first' => fake()->randomElement(['Makkah', 'Madinah']),
-                'no_of_nights_makkah' => (string) fake()->numberBetween(4, 7),
-                'hotel_makkah' => fake()->company().' Makkah Hotel',
-                'meals_makkah' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
-                'no_of_nights_madinah' => (string) fake()->numberBetween(3, 6),
-                'hotel_madinah' => fake()->company().' Madinah Hotel',
-                'meals_madinah' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
-                'land_transfer' => fake()->randomElement(['Sedan (2 Pax)', 'Hi-Ace (8 Pax)', 'GMC (4 Pax)']),
+                'no_of_nights_makkah' => fake()->randomElement(self::PRIVATE_NIGHTS_MAKKAH),
+                'hotel_makkah' => fake()->randomElement(self::PRIVATE_HOTELS_MAKKAH),
+                'meals_makkah' => fake()->randomElement(self::PRIVATE_MEAL_OPTIONS),
+                'no_of_nights_madinah' => fake()->randomElement(self::PRIVATE_NIGHTS_MADINAH),
+                'hotel_madinah' => fake()->randomElement(self::PRIVATE_HOTELS_MADINAH),
+                'meals_madinah' => fake()->randomElement(self::PRIVATE_MEAL_OPTIONS),
+                'land_transfer' => fake()->randomElement(self::PRIVATE_LAND_TRANSFERS),
                 'add_on_speed_train' => fake()->boolean(),
                 'require_meet_greet' => fake()->boolean(),
                 'require_mutawiffah_ustazah_rawdah' => fake()->boolean(),
@@ -310,23 +373,26 @@ class EnquirySeeder extends Seeder
 
         if (! $existingGroup) {
             $selectedPackage = $this->getPackageSelectionForConfirmedEnquiry($enquiry);
-            $statusScenario = ((int) $enquiry->id) % 5;
+            $this->confirmedCustomerGroupCounter++;
 
-            $resolveLeaderStatus = match ($statusScenario) {
-                0 => 'draft',
-                1 => 'pending_payment',
-                2 => 'pending_payment',
-                3 => 'partially_paid',
-                default => 'confirmed',
-            };
+            $withoutQuotation = $this->confirmedCustomerGroupCounter % 2 === 0;
 
-            $resolveMemberStatus = match ($statusScenario) {
-                0 => 'draft',
-                1 => 'pending_payment',
-                2 => 'pending_payment',
-                3 => 'pending_payment',
-                default => 'confirmed',
-            };
+            $statusScenario = ((int) $enquiry->id) % 3;
+
+            $resolveLeaderStatus = $withoutQuotation
+                ? 'draft'
+                : match ($statusScenario) {
+                    0 => 'confirmed',
+                    1 => 'partially_paid',
+                    default => 'pending_payment',
+                };
+
+            $resolveMemberStatus = $withoutQuotation
+                ? 'draft'
+                : match ($statusScenario) {
+                    0 => 'confirmed',
+                    default => 'pending_payment',
+                };
 
             // Create customer confirmation with the customer as leader
             $group = CustomerConfirmation::create([
@@ -441,7 +507,7 @@ class EnquirySeeder extends Seeder
         $basePrice = fake()->randomFloat(2, 3000, 7000);
         $departureDate = now()->addDays(fake()->numberBetween(20, 180));
         $returnDate = (clone $departureDate)->addDays(fake()->numberBetween(8, 14));
-        $airline = fake()->randomElement(['Saudia Airlines', 'Emirates', 'Qatar Airways']);
+        $airline = fake()->randomElement(self::PRIVATE_AIRLINES);
         $pnr = strtoupper(fake()->bothify('??###'));
 
         $package = Package::create([
@@ -460,8 +526,8 @@ class EnquirySeeder extends Seeder
             'total_seats' => fake()->numberBetween(8, 20),
             'seats_left' => fake()->numberBetween(2, 8),
             'visa_type' => 'Umrah Visa',
-            'vehicle_type' => fake()->randomElement(['Sedan', 'SUV', 'Van']),
-            'ticket_type' => fake()->randomElement(['Economy', 'Business']),
+            'vehicle_type' => fake()->randomElement(self::PRIVATE_LAND_TRANSFERS),
+            'ticket_type' => fake()->boolean() ? 'speed_train' : null,
             'included' => "Flight Tickets\nHotel Accommodation\nGround Transport",
             'not_included' => "Personal Expenses\nTips & Gratuities",
             'offer' => null,
@@ -470,16 +536,16 @@ class EnquirySeeder extends Seeder
 
         $package->accommodations()->createMany([
             [
-                'location' => 'Mekkah',
-                'hotel_name' => fake()->company().' Makkah',
-                'type_of_meal' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
+                'location' => 'Makkah',
+                'hotel_name' => fake()->randomElement(self::PRIVATE_HOTELS_MAKKAH),
+                'type_of_meal' => fake()->randomElement(self::PRIVATE_MEAL_OPTIONS),
                 'check_in' => $departureDate->copy()->addDay()->toDateString(),
                 'check_out' => $departureDate->copy()->addDays(6)->toDateString(),
             ],
             [
                 'location' => 'Madinah',
-                'hotel_name' => fake()->company().' Madinah',
-                'type_of_meal' => fake()->randomElement(['Breakfast Only', 'Half Board', 'Full Board']),
+                'hotel_name' => fake()->randomElement(self::PRIVATE_HOTELS_MADINAH),
+                'type_of_meal' => fake()->randomElement(self::PRIVATE_MEAL_OPTIONS),
                 'check_in' => $departureDate->copy()->addDays(6)->toDateString(),
                 'check_out' => $returnDate->copy()->subDay()->toDateString(),
             ],
@@ -926,6 +992,19 @@ class EnquirySeeder extends Seeder
         }
 
         return $transitions;
+    }
+
+    private function resolveEnquiryStatus(int $index, int $total): EnquiryStatus
+    {
+        $confirmedCount = (int) floor($total / 2);
+
+        if ($index < $confirmedCount) {
+            return EnquiryStatus::Confirmed;
+        }
+
+        $offset = ($index - $confirmedCount) % count(self::NON_CONFIRMED_STATUSES);
+
+        return self::NON_CONFIRMED_STATUSES[$offset];
     }
 
     /**

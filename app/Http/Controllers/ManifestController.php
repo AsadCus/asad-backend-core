@@ -398,14 +398,21 @@ class ManifestController extends Controller
 
             $grouped = [];
 
-            foreach ($flatRows as $row) {
-                $groupKey = (string) (
-                    $row['sharing_group_key']
-                    ?? $row['sharing_group_id']
-                    ?? $row['customer_confirmation_member_id']
-                    ?? $row['customer_id']
-                    ?? uniqid('room_', true)
-                );
+            foreach ($flatRows as $rowIndex => $row) {
+                $groupKey = isset($row['sharing_group_key']) && is_string($row['sharing_group_key'])
+                    ? trim($row['sharing_group_key'])
+                    : '';
+
+                if ($groupKey === '') {
+                    $memberId = isset($row['customer_confirmation_member_id'])
+                        ? (int) $row['customer_confirmation_member_id']
+                        : null;
+                    $customerId = isset($row['customer_id'])
+                        ? (int) $row['customer_id']
+                        : null;
+
+                    $groupKey = 'solo-'.($memberId ?: $customerId ?: ($rowIndex + 1));
+                }
 
                 $grouped[$groupKey][] = $row;
             }
@@ -415,12 +422,27 @@ class ManifestController extends Controller
 
                 $normalizedRooms[] = [
                     'location' => is_string($location) ? $location : null,
+                    'room_label' => $first['room_label'] ?? null,
                     'room_number' => $first['room_number'] ?? $first['room_no'] ?? null,
                     'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
                     'bed_type' => $this->normalizeBedType($first['bed_type'] ?? null),
-                    'capacity' => $first['no_of_beds_checked'] ?? count($members),
+                    'sharing_plan' => $first['sharing_plan'] ?? null,
+                    'capacity' => count($members),
+                    'meal' => $first['meal'] ?? null,
+                    'remarks' => $first['room_remarks'] ?? null,
                     'status' => 'pending',
-                    'room_label' => $first['name_as_per_passport'] ?? null,
+                    'members' => array_values(array_map(function (array $member, int $index): array {
+                        return [
+                            'manifest_traveler_id' => isset($member['manifest_traveler_id'])
+                                ? (int) $member['manifest_traveler_id']
+                                : null,
+                            'customer_confirmation_member_id' => isset($member['customer_confirmation_member_id'])
+                                ? (int) $member['customer_confirmation_member_id']
+                                : null,
+                            'sort_order' => (int) ($member['sort_order'] ?? $member['sn'] ?? ($index + 1)),
+                            'remarks' => $member['remarks'] ?? null,
+                        ];
+                    }, $members, array_keys($members))),
                 ];
             }
         }
@@ -437,11 +459,11 @@ class ManifestController extends Controller
         $mapped = strtolower(trim($roomType));
 
         return match ($mapped) {
-            'quad' => 'QUAD',
-            'triple' => 'TRIPLE',
-            'double' => 'DOUBLE',
-            'single' => 'SINGLE',
-            'twin' => 'TWIN',
+            'single' => 'single',
+            'twin' => 'twin',
+            'double' => 'double',
+            'triple' => 'triple',
+            'quad' => 'quad',
             default => null,
         };
     }
@@ -455,9 +477,9 @@ class ManifestController extends Controller
         $mapped = strtolower(trim($bedType));
 
         return match ($mapped) {
-            'single' => 'SINGLE',
-            'king' => 'KING',
-            'queen' => 'QUEEN',
+            'single' => 'single',
+            'king' => 'king',
+            'queen' => 'queen',
             default => null,
         };
     }

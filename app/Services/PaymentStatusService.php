@@ -132,7 +132,7 @@ class PaymentStatusService
 
                     ManifestTraveler::query()
                         ->where('customer_confirmation_member_id', $memberId)
-                        ->update(['status' => 'cancelled']);
+                        ->delete();
 
                     $this->packageSeatService->recalculateForPackageId($packageId);
 
@@ -205,14 +205,8 @@ class PaymentStatusService
             return;
         }
 
-        $nextSn = ($manifest->travelers()->max('sn') ?? 0) + 1;
-
         $manifest->travelers()->create([
-            'sn' => $nextSn,
-            'customer_id' => $member->customer_id,
             'customer_confirmation_member_id' => $memberId,
-            'name_as_per_passport' => $member->customer?->name ?? '',
-            'status' => 'assigned',
         ]);
     }
 }

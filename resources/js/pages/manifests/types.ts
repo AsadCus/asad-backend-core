@@ -90,12 +90,15 @@ export interface ManifestFormProps {
 
 export type TravelerWithUI = TravelerSchema & {
     row_key?: string;
+    manifest_traveler_id?: number;
     customer_confirmation_id?: number;
     customer_name?: string;
     sharing_group_id?: number;
     sharing_group_key?: string;
     accommodation_key?: string;
     sort_order?: number;
+    room_label?: string;
+    room_remarks?: string;
     status?:
         | 'draft'
         | 'pending_payment'

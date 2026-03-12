@@ -689,7 +689,7 @@ class CustomerConfirmationService
             if (in_array($member->status, ['cancelled', 'unavailable'], true)) {
                 ManifestTraveler::query()
                     ->where('customer_confirmation_member_id', $member->id)
-                    ->update(['status' => 'cancelled']);
+                    ->delete();
             }
 
             app(PackageSeatService::class)->recalculateForPackageId(
@@ -741,7 +741,7 @@ class CustomerConfirmationService
 
             ManifestTraveler::query()
                 ->where('customer_confirmation_member_id', $member->id)
-                ->update(['status' => 'cancelled']);
+                ->delete();
 
             app(PackageSeatService::class)->recalculateForPackageId(
                 (int) ($member->confirmation?->package_id ?? 0),
@@ -785,7 +785,7 @@ class CustomerConfirmationService
                 ->when($sourceManifestId, function ($query) use ($sourceManifestId) {
                     $query->where('manifest_id', $sourceManifestId);
                 })
-                ->update(['status' => 'cancelled']);
+                ->delete();
 
             $newGroup = CustomerConfirmation::create([
                 'enquiry_id' => $sourceGroup->enquiry_id,

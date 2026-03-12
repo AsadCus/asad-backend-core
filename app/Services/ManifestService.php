@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Helpers\NumberGenerator;
 use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
-use App\Models\ManifestAccommodationAssignment;
 use App\Models\ManifestPayment;
 use App\Models\ManifestRoom;
 use App\Models\ManifestSharingGroup;
@@ -25,9 +25,7 @@ class ManifestService
     {
         $data = Manifest::with('package')
             ->withCount([
-                'travelers as travelers_count' => function ($query) {
-                    $query->where('status', '!=', 'cancelled');
-                },
+                'travelers as travelers_count',
             ])
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
@@ -94,10 +92,6 @@ class ManifestService
             ]);
 
             $this->syncTravelers($manifest, $data['travelers'] ?? []);
-            $this->syncAccommodationAssignments(
-                $manifest,
-                data_get($data, 'roomLists', []),
-            );
             $this->syncRooms($manifest, $data['rooms'] ?? []);
             $this->syncPayments($manifest, $data['payments'] ?? []);
             $this->syncSharingGroups($manifest, $data['sharing_group_ids'] ?? []);
@@ -116,9 +110,7 @@ class ManifestService
         $manifest = Manifest::with([
             'package.accommodations',
             'package.flights',
-            'travelers.customer',
-            'travelers.confirmationMember',
-            'accommodationAssignments',
+            'travelers.confirmationMember.customer.user',
             'rooms.roomMembers.traveler',
             'rooms.manifestSharingGroups.sharingGroup',
             'payments.traveler',
@@ -126,58 +118,40 @@ class ManifestService
         ])->findOrFail($id);
 
         $travelers = $manifest->travelers
-            ->sortBy('sn')
+            ->sortBy('id')
             ->values()
-            ->map(function ($traveler) {
-                $isOfficialTraveler = $traveler->customer_confirmation_member_id === null
-                    && ($traveler->relationship === 'official'
-                        || str_starts_with((string) ($traveler->remarks ?? ''), '[package-official]'));
-
-                $memberStatus = $traveler->confirmationMember?->status;
-
-                $resolvedStatus = $traveler->status ?? 'confirmed';
-
-                if ($traveler->customer_confirmation_member_id !== null) {
-                    $resolvedStatus = $memberStatus ?? $resolvedStatus;
-                } elseif ($isOfficialTraveler && $resolvedStatus !== 'cancelled') {
-                    $resolvedStatus = 'confirmed';
-                }
+            ->map(function ($traveler, $index) {
+                $member = $traveler->confirmationMember;
+                $customer = $member?->customer;
+                $user = $customer?->user;
 
                 return [
                     'id' => $traveler->id,
-                    'sn' => $traveler->sn,
-                    'customer_id' => $traveler->customer_id,
+                    'sn' => $index + 1,
+                    'customer_id' => $customer?->id,
                     'customer_confirmation_member_id' => $traveler->customer_confirmation_member_id,
-                    'customer_confirmation_id' => $traveler->confirmationMember?->customer_confirmation_id,
-                    'customer_name' => $traveler->customer?->name,
-                    'name_as_per_passport' => $traveler->name_as_per_passport,
-                    'role' => $traveler->confirmationMember?->role ?? $traveler->relationship,
-                    'relationship' => $traveler->relationship,
-                    'sharing_plan' => $traveler->confirmationMember?->sharing_plan ?? ($isOfficialTraveler ? 'single' : null),
-                    'passport_no' => $traveler->passport_no ?? $traveler->confirmationMember?->customer?->passport_number,
-                    'ppt_no' => $traveler->passport_no ?? $traveler->confirmationMember?->customer?->passport_number,
-                    'nationality' => $traveler->confirmationMember?->customer?->nationality,
-                    'gender' => $traveler->confirmationMember?->customer?->gender,
-                    'date_of_issue' => $traveler->confirmationMember?->customer?->passport_issue_date_formatted,
-                    'date_of_expiry' => $traveler->confirmationMember?->customer?->passport_expiry_date_formatted,
-                    'issue_place' => $traveler->confirmationMember?->customer?->passport_place_of_issue,
-                    'room_no' => $traveler->room_no,
-                    'room_type' => $traveler->room_type,
-                    'bed_type' => $traveler->bed_type,
-                    'date_of_birth' => $traveler->date_of_birth_formatted ?? $traveler->confirmationMember?->customer?->date_of_birth_formatted,
-                    'age' => $traveler->age,
-                    'no_of_beds_checked' => $traveler->no_of_beds_checked,
-                    'meal' => $traveler->meal,
+                    'customer_confirmation_id' => $member?->customer_confirmation_id,
+                    'customer_name' => $user?->name,
+                    'name_as_per_passport' => $user?->name,
+                    'role' => $member?->role,
+                    'relationship' => $member?->role,
+                    'sharing_plan' => $member?->sharing_plan,
+                    'passport_no' => $customer?->passport_number,
+                    'ppt_no' => $customer?->passport_number,
+                    'nationality' => $customer?->nationality,
+                    'gender' => $customer?->gender,
+                    'date_of_issue' => $customer?->passport_issue_date_formatted,
+                    'date_of_expiry' => $customer?->passport_expiry_date_formatted,
+                    'issue_place' => $customer?->passport_place_of_issue,
+                    'date_of_birth' => $customer?->date_of_birth_formatted,
+                    'age' => $customer?->date_of_birth?->age,
                     'remarks' => $traveler->remarks,
-                    'total_cost' => $traveler->total_cost,
-                    'total_paid' => $traveler->total_paid,
-                    'outstanding_amount' => $traveler->outstanding_amount,
-                    'status' => $resolvedStatus,
+                    'status' => $member?->status ?? 'draft',
                 ];
             })
             ->toArray();
 
-        $roomLists = $this->buildRoomListsFromAssignments($manifest, $travelers);
+        $roomLists = $this->buildRoomListsFromRooms($manifest, $travelers);
 
         if ($roomLists === []) {
             $roomLists = $this->ensureRoomLists(
@@ -208,19 +182,28 @@ class ManifestService
                 return [
                     'id' => $r->id,
                     'location' => $r->location,
+                    'room_label' => $r->room_label,
                     'room_number' => $r->room_number,
                     'room_type' => $r->room_type,
                     'bed_type' => $r->bed_type,
                     'capacity' => $r->capacity,
                     'sharing_plan' => $r->sharing_plan,
                     'status' => $r->status,
-                    'room_label' => $r->room_label,
+                    'meal' => $r->meal,
+                    'remarks' => $r->remarks,
                     'members' => $r->roomMembers->map(function ($rm) {
+                        $member = $rm->traveler?->confirmationMember;
+                        $customer = $member?->customer;
+
                         return [
                             'id' => $rm->id,
                             'manifest_traveler_id' => $rm->manifest_traveler_id,
-                            'traveler_name' => $rm->traveler?->name_as_per_passport,
-                            'role_in_room' => $rm->role_in_room,
+                            'traveler_name' => $customer?->user?->name,
+                            'role_in_room' => $member?->role,
+                            'sort_order' => $rm->sort_order,
+                            'remarks' => $rm->remarks,
+                            'customer_confirmation_member_id' => $member?->id,
+                            'customer_id' => $customer?->id,
                         ];
                     })->toArray(),
                     'sharing_groups' => $r->manifestSharingGroups->map(function ($msg) {
@@ -237,7 +220,7 @@ class ManifestService
                     'id' => $p->id,
                     'manifest_traveler_id' => $p->manifest_traveler_id,
                     'traveler_name' => $p->traveler_name,
-                    'linked_traveler_name' => $p->traveler?->name_as_per_passport,
+                    'linked_traveler_name' => $p->traveler?->confirmationMember?->customer?->user?->name,
                     'description' => $p->description,
                     'amount' => $p->amount,
                     'paid_amount' => $p->paid_amount,
@@ -290,11 +273,6 @@ class ManifestService
                 $this->syncTravelers($manifest, $data['travelers']);
             }
 
-            $this->syncAccommodationAssignments(
-                $manifest,
-                data_get($data, 'roomLists', []),
-            );
-
             if (isset($data['rooms'])) {
                 $this->syncRooms($manifest, $data['rooms']);
             }
@@ -343,20 +321,23 @@ class ManifestService
 
             $room = $manifest->rooms()->create([
                 'location' => $data['location'] ?? null,
+                'room_label' => $data['room_label'] ?? null,
                 'room_number' => $data['room_number'] ?? null,
                 'room_type' => $data['room_type'] ?? null,
                 'bed_type' => $data['bed_type'] ?? null,
                 'capacity' => $data['capacity'] ?? null,
                 'sharing_plan' => $data['sharing_plan'] ?? null,
                 'status' => $data['status'] ?? 'pending',
-                'room_label' => $data['room_label'] ?? null,
+                'meal' => $data['meal'] ?? null,
+                'remarks' => $data['remarks'] ?? null,
             ]);
 
             if (! empty($data['members'])) {
-                foreach ($data['members'] as $member) {
+                foreach ($data['members'] as $index => $member) {
                     $room->roomMembers()->create([
                         'manifest_traveler_id' => $member['manifest_traveler_id'],
-                        'role_in_room' => $member['role_in_room'] ?? null,
+                        'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
+                        'remarks' => $member['remarks'] ?? null,
                     ]);
                 }
             }
@@ -380,21 +361,24 @@ class ManifestService
 
             $room->update([
                 'location' => $data['location'] ?? $room->location,
+                'room_label' => $data['room_label'] ?? $room->room_label,
                 'room_number' => $data['room_number'] ?? $room->room_number,
                 'room_type' => $data['room_type'] ?? $room->room_type,
                 'bed_type' => $data['bed_type'] ?? $room->bed_type,
                 'capacity' => $data['capacity'] ?? $room->capacity,
                 'sharing_plan' => $data['sharing_plan'] ?? $room->sharing_plan,
                 'status' => $data['status'] ?? $room->status,
-                'room_label' => $data['room_label'] ?? $room->room_label,
+                'meal' => $data['meal'] ?? $room->meal,
+                'remarks' => $data['remarks'] ?? $room->remarks,
             ]);
 
             if (isset($data['members'])) {
                 $room->roomMembers()->delete();
-                foreach ($data['members'] as $member) {
+                foreach ($data['members'] as $index => $member) {
                     $room->roomMembers()->create([
                         'manifest_traveler_id' => $member['manifest_traveler_id'],
-                        'role_in_room' => $member['role_in_room'] ?? null,
+                        'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
+                        'remarks' => $member['remarks'] ?? null,
                     ]);
                 }
             }
@@ -657,27 +641,23 @@ class ManifestService
 
         $flatTravelers = $this->flattenGroupedData($travelers);
 
-        foreach ($flatTravelers as $index => $traveler) {
+        foreach ($flatTravelers as $traveler) {
+            $memberId = isset($traveler['customer_confirmation_member_id'])
+                ? (int) $traveler['customer_confirmation_member_id']
+                : null;
+
+            $member = $memberId
+                ? CustomerConfirmationMember::query()->with(['customer.user'])->find($memberId)
+                : null;
+
+            if ($member) {
+                $this->syncMemberData($member, $traveler);
+                $this->syncCustomerData($member, $traveler);
+            }
+
             $manifest->travelers()->create([
-                'sn' => $traveler['sn'] ?? ($index + 1),
-                'customer_id' => $traveler['customer_id'] ?? null,
-                'customer_confirmation_member_id' => $traveler['customer_confirmation_member_id'] ?? null,
-                'name_as_per_passport' => $traveler['name_as_per_passport'] ?? null,
-                'relationship' => $traveler['role'] ?? $traveler['relationship'] ?? null,
-                'passport_no' => $traveler['passport_no'] ?? null,
-                'room_no' => $traveler['room_no'] ?? null,
-                'room_type' => $traveler['room_type'] ?? null,
-                'bed_type' => $traveler['bed_type'] ?? null,
-                'date_of_birth' => ! empty($traveler['date_of_birth']) ? Carbon::parse($traveler['date_of_birth'])->format('Y-m-d') : null,
-                'age' => $traveler['age'] ?? null,
-                'no_of_beds_checked' => $traveler['no_of_beds_checked'] ?? null,
-                'meal' => $traveler['meal'] ?? null,
+                'customer_confirmation_member_id' => $member?->id,
                 'remarks' => $traveler['remarks'] ?? null,
-                'total_cost' => $traveler['total_cost'] ?? 0,
-                'total_paid' => $traveler['total_paid'] ?? 0,
-                'outstanding_amount' => $traveler['outstanding_amount'] ?? 0,
-                'status' => $traveler['status']
-                    ?? (! empty($traveler['customer_confirmation_member_id']) ? 'pending_payment' : 'confirmed'),
             ]);
         }
     }
@@ -696,22 +676,43 @@ class ManifestService
         $flatRooms = $this->flattenGroupedData($rooms);
 
         foreach ($flatRooms as $room) {
+            $sharingPlan = isset($room['sharing_plan']) && is_string($room['sharing_plan'])
+                ? strtolower(trim($room['sharing_plan']))
+                : null;
+
+            $roomType = isset($room['room_type']) && is_string($room['room_type'])
+                ? strtolower(trim($room['room_type']))
+                : null;
+
+            $bedType = isset($room['bed_type']) && is_string($room['bed_type'])
+                ? strtolower(trim($room['bed_type']))
+                : null;
+
             $createdRoom = $manifest->rooms()->create([
                 'location' => $room['location'] ?? null,
-                'room_number' => $room['room_number'] ?? null,
-                'room_type' => $room['room_type'] ?? null,
-                'bed_type' => $room['bed_type'] ?? null,
-                'capacity' => $room['capacity'] ?? null,
-                'sharing_plan' => $room['sharing_plan'] ?? null,
-                'status' => $room['status'] ?? 'pending',
                 'room_label' => $room['room_label'] ?? null,
+                'room_number' => $room['room_number'] ?? $room['room_no'] ?? null,
+                'room_type' => $roomType,
+                'bed_type' => $bedType,
+                'capacity' => $room['capacity'] ?? (isset($room['members']) && is_array($room['members']) ? count($room['members']) : null),
+                'sharing_plan' => $sharingPlan,
+                'status' => $room['status'] ?? 'pending',
+                'meal' => $room['meal'] ?? null,
+                'remarks' => $room['remarks'] ?? null,
             ]);
 
             if (! empty($room['members'])) {
-                foreach ($room['members'] as $member) {
+                foreach ($room['members'] as $index => $member) {
+                    $manifestTravelerId = $this->resolveManifestTravelerId($manifest, $member);
+
+                    if (! $manifestTravelerId) {
+                        continue;
+                    }
+
                     $createdRoom->roomMembers()->create([
-                        'manifest_traveler_id' => $member['manifest_traveler_id'],
-                        'role_in_room' => $member['role_in_room'] ?? null,
+                        'manifest_traveler_id' => $manifestTravelerId,
+                        'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
+                        'remarks' => $member['remarks'] ?? null,
                     ]);
                 }
             }
@@ -754,57 +755,6 @@ class ManifestService
                 'sharing_group_id' => $sgId,
                 'manifest_room_id' => null,
             ]);
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $roomLists
-     */
-    private function syncAccommodationAssignments(Manifest $manifest, array $roomLists): void
-    {
-        $manifest->accommodationAssignments()->delete();
-
-        if ($roomLists === []) {
-            return;
-        }
-
-        $travelers = $manifest->travelers()->get();
-        $travelerByMemberId = $travelers
-            ->filter(fn ($traveler) => ! empty($traveler->customer_confirmation_member_id))
-            ->keyBy('customer_confirmation_member_id');
-        $travelerByCustomerId = $travelers
-            ->filter(fn ($traveler) => ! empty($traveler->customer_id))
-            ->keyBy('customer_id');
-
-        foreach ($roomLists as $accommodationKey => $rows) {
-            $flatRows = $this->flattenGroupedData(is_array($rows) ? $rows : []);
-
-            foreach ($flatRows as $index => $row) {
-                $memberId = $row['customer_confirmation_member_id'] ?? null;
-                $customerId = $row['customer_id'] ?? null;
-
-                $matchedTraveler = null;
-                if ($memberId && $travelerByMemberId->has($memberId)) {
-                    $matchedTraveler = $travelerByMemberId->get($memberId);
-                } elseif ($customerId && $travelerByCustomerId->has($customerId)) {
-                    $matchedTraveler = $travelerByCustomerId->get($customerId);
-                }
-
-                ManifestAccommodationAssignment::create([
-                    'manifest_id' => $manifest->id,
-                    'manifest_traveler_id' => $matchedTraveler?->id,
-                    'customer_id' => $customerId,
-                    'customer_confirmation_member_id' => $memberId,
-                    'accommodation_key' => (string) $accommodationKey,
-                    'sort_order' => (int) ($row['sort_order'] ?? $row['sn'] ?? ($index + 1)),
-                    'sharing_group_key' => $row['sharing_group_key'] ?? null,
-                    'room_no' => $row['room_no'] ?? null,
-                    'room_type' => $row['room_type'] ?? null,
-                    'bed_type' => $row['bed_type'] ?? null,
-                    'meal' => $row['meal'] ?? null,
-                    'remarks' => $row['remarks'] ?? null,
-                ]);
-            }
         }
     }
 
@@ -899,49 +849,154 @@ class ManifestService
      * @param  array<int, array<string, mixed>>  $travelers
      * @return array<string, array<int, array<string, mixed>>>
      */
-    private function buildRoomListsFromAssignments(Manifest $manifest, array $travelers): array
+    private function buildRoomListsFromRooms(Manifest $manifest, array $travelers): array
     {
-        if ($manifest->accommodationAssignments->isEmpty()) {
+        if ($manifest->rooms->isEmpty()) {
             return [];
         }
 
         $travelerById = collect($travelers)->keyBy('id');
-        $travelerByMemberId = collect($travelers)
-            ->filter(fn (array $traveler) => ! empty($traveler['customer_confirmation_member_id']))
-            ->keyBy('customer_confirmation_member_id');
-        $travelerByCustomerId = collect($travelers)
-            ->filter(fn (array $traveler) => ! empty($traveler['customer_id']))
-            ->keyBy('customer_id');
 
-        return $manifest->accommodationAssignments
-            ->sortBy('sort_order')
-            ->groupBy('accommodation_key')
-            ->map(function ($assignments) use ($travelerById, $travelerByMemberId, $travelerByCustomerId) {
-                return $assignments
-                    ->sortBy('sort_order')
+        return $manifest->rooms
+            ->groupBy(fn ($room) => (string) ($room->location ?? 'makkah'))
+            ->map(function ($rooms) use ($travelerById) {
+                return $rooms
                     ->values()
-                    ->map(function (ManifestAccommodationAssignment $assignment, int $index) use ($travelerById, $travelerByMemberId, $travelerByCustomerId) {
-                        $traveler = $travelerById->get($assignment->manifest_traveler_id)
-                            ?? $travelerByMemberId->get($assignment->customer_confirmation_member_id)
-                            ?? $travelerByCustomerId->get($assignment->customer_id)
-                            ?? [];
+                    ->flatMap(function (ManifestRoom $room) use ($travelerById) {
+                        return $room->roomMembers
+                            ->sortBy('sort_order')
+                            ->values()
+                            ->map(function ($member, int $index) use ($room, $travelerById) {
+                                $traveler = $travelerById->get($member->manifest_traveler_id, []);
 
-                        return array_merge($traveler, [
-                            'sn' => $assignment->sort_order ?: ($index + 1),
-                            'sort_order' => $assignment->sort_order,
-                            'sharing_group_key' => $assignment->sharing_group_key,
-                            'room_no' => $assignment->room_no,
-                            'room_type' => $assignment->room_type,
-                            'bed_type' => $assignment->bed_type,
-                            'meal' => $assignment->meal,
-                            'remarks' => $assignment->remarks,
-                            'customer_id' => $assignment->customer_id ?? ($traveler['customer_id'] ?? null),
-                            'customer_confirmation_member_id' => $assignment->customer_confirmation_member_id
-                                ?? ($traveler['customer_confirmation_member_id'] ?? null),
-                        ]);
+                                return array_merge($traveler, [
+                                    'sn' => $member->sort_order ?: ($index + 1),
+                                    'sort_order' => $member->sort_order,
+                                    'sharing_group_key' => 'room-'.$room->id,
+                                    'manifest_traveler_id' => $member->manifest_traveler_id,
+                                    'room_label' => $room->room_label,
+                                    'room_number' => $room->room_number,
+                                    'room_no' => $room->room_number,
+                                    'sharing_plan' => $room->sharing_plan,
+                                    'room_type' => $room->room_type,
+                                    'bed_type' => $room->bed_type,
+                                    'meal' => $room->meal,
+                                    'room_remarks' => $room->remarks,
+                                    'remarks' => $member->remarks,
+                                ]);
+                            });
                     })
                     ->toArray();
             })
             ->toArray();
+    }
+
+    /**
+     * @param  array<string, mixed>  $memberPayload
+     */
+    private function resolveManifestTravelerId(Manifest $manifest, array $memberPayload): ?int
+    {
+        if (! empty($memberPayload['customer_confirmation_member_id'])) {
+            $travelerId = $manifest->travelers()
+                ->where('customer_confirmation_member_id', (int) $memberPayload['customer_confirmation_member_id'])
+                ->value('id');
+
+            if ($travelerId) {
+                return (int) $travelerId;
+            }
+        }
+
+        if (! empty($memberPayload['manifest_traveler_id'])) {
+            $travelerId = (int) $memberPayload['manifest_traveler_id'];
+
+            $exists = $manifest->travelers()
+                ->whereKey($travelerId)
+                ->exists();
+
+            return $exists ? $travelerId : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $traveler
+     */
+    private function syncMemberData(CustomerConfirmationMember $member, array $traveler): void
+    {
+        $memberUpdates = [];
+
+        if (array_key_exists('role', $traveler) || array_key_exists('relationship', $traveler)) {
+            $memberUpdates['role'] = $traveler['role'] ?? $traveler['relationship'] ?? null;
+        }
+
+        if (array_key_exists('sharing_plan', $traveler)) {
+            $memberUpdates['sharing_plan'] = $traveler['sharing_plan'] ?: null;
+        }
+
+        if (array_key_exists('status', $traveler)) {
+            $memberUpdates['status'] = $traveler['status'] ?: $member->status;
+        }
+
+        if ($memberUpdates !== []) {
+            $member->update($memberUpdates);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $traveler
+     */
+    private function syncCustomerData(CustomerConfirmationMember $member, array $traveler): void
+    {
+        $customer = $member->customer;
+
+        if (! $customer) {
+            return;
+        }
+
+        $customerUpdates = [];
+
+        if (array_key_exists('passport_no', $traveler) || array_key_exists('ppt_no', $traveler)) {
+            $customerUpdates['passport_number'] = $traveler['passport_no'] ?? $traveler['ppt_no'] ?? null;
+        }
+
+        if (array_key_exists('nationality', $traveler)) {
+            $customerUpdates['nationality'] = $traveler['nationality'] ?: null;
+        }
+
+        if (array_key_exists('gender', $traveler)) {
+            $customerUpdates['gender'] = $traveler['gender'] ?: null;
+        }
+
+        if (array_key_exists('issue_place', $traveler)) {
+            $customerUpdates['passport_place_of_issue'] = $traveler['issue_place'] ?: null;
+        }
+
+        if (array_key_exists('date_of_issue', $traveler)) {
+            $customerUpdates['passport_issue_date'] = ! empty($traveler['date_of_issue'])
+                ? Carbon::parse($traveler['date_of_issue'])->format('Y-m-d')
+                : null;
+        }
+
+        if (array_key_exists('date_of_expiry', $traveler)) {
+            $customerUpdates['passport_expiry_date'] = ! empty($traveler['date_of_expiry'])
+                ? Carbon::parse($traveler['date_of_expiry'])->format('Y-m-d')
+                : null;
+        }
+
+        if (array_key_exists('date_of_birth', $traveler)) {
+            $customerUpdates['date_of_birth'] = ! empty($traveler['date_of_birth'])
+                ? Carbon::parse($traveler['date_of_birth'])->format('Y-m-d')
+                : null;
+        }
+
+        if ($customerUpdates !== []) {
+            $customer->update($customerUpdates);
+        }
+
+        $name = trim((string) ($traveler['name_as_per_passport'] ?? ''));
+        if ($name !== '' && $customer->user) {
+            $customer->user->update(['name' => $name]);
+        }
     }
 }

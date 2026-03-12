@@ -8,8 +8,8 @@ import { store, update } from '@/routes/manifests';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, ArrowLeft, RotateCcw } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import ManifestCustomerDatatable from './components/manifest-customer-datatable';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ManifestDatatable from './components/datatable';
 import ManifestInformationCard from './components/manifest-information-card';
 import {
     type ManifestFormData,
@@ -30,8 +30,8 @@ interface ManifestFormStore {
     setError: (field: string, value: string) => void;
     clearErrors: () => void;
     reset: () => void;
-    post: (url: string) => void;
-    put: (url: string) => void;
+    post: (url: string, options?: Record<string, unknown>) => void;
+    put: (url: string, options?: Record<string, unknown>) => void;
 }
 
 function slugifyTab(value: string): string {
@@ -58,7 +58,9 @@ function toTravelerWithUI(
         return parsed;
     };
 
-    const memberId = toPositiveIntegerOrNull(row.customer_confirmation_member_id);
+    const memberId = toPositiveIntegerOrNull(
+        row.customer_confirmation_member_id,
+    );
     const customerId = toPositiveIntegerOrNull(row.customer_id);
     const travelerId = toPositiveIntegerOrNull(row.id);
 
@@ -176,29 +178,35 @@ function buildRoomRowsFromTravelers(
         const value = String(sharingPlan ?? '').toLowerCase();
 
         if (value === 'single') {
-            return 'Single';
+            return 'single';
         }
 
         if (value === 'double') {
-            return 'Double';
+            return 'double';
         }
 
         if (value === 'triple') {
-            return 'Triple';
+            return 'triple';
         }
 
         if (value === 'quad') {
-            return 'Quad';
+            return 'quad';
         }
 
         return undefined;
     };
 
-    const toBedTypeFromSharingPlan = (sharingPlan?: string): string | undefined => {
+    const toBedTypeFromSharingPlan = (
+        sharingPlan?: string,
+    ): string | undefined => {
         const value = String(sharingPlan ?? '').toLowerCase();
 
-        if (value === 'single') {
-            return 'Single';
+        if (value === 'double' || value === 'quad') {
+            return 'king';
+        }
+
+        if (value === 'single' || value === 'triple') {
+            return 'single';
         }
 
         return undefined;
@@ -230,6 +238,8 @@ function buildRoomRowsFromTravelers(
                 `room-${accommodationKey}-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index}`,
             sn: index + 1,
             accommodation_key: accommodationKey,
+            sharing_plan:
+                existing?.sharing_plan ?? traveler.sharing_plan ?? 'single',
             room_type:
                 existing?.room_type ??
                 traveler.room_type ??
@@ -240,17 +250,33 @@ function buildRoomRowsFromTravelers(
                 traveler.bed_type ??
                 fallbackBedType ??
                 '',
-            meal:
-                existing?.meal ??
-                traveler.meal ??
-                defaultMealPlan ??
-                '',
+            room_label: existing?.room_label ?? traveler.room_label ?? '',
+            meal: existing?.meal ?? traveler.meal ?? defaultMealPlan ?? '',
             sharing_group_key:
                 traveler.sharing_group_key ??
                 existing?.sharing_group_key ??
                 `solo-${traveler.customer_confirmation_member_id ?? index}`,
         };
     });
+}
+
+function countRoomGroups(rows: TravelerWithUI[]): number {
+    const groupKeys = new Set<string>();
+
+    rows.forEach((row, index) => {
+        const key =
+            row.sharing_group_key ??
+            String(
+                row.sharing_group_id ??
+                    row.customer_confirmation_member_id ??
+                    row.customer_id ??
+                    `solo-${index}`,
+            );
+
+        groupKeys.add(key);
+    });
+
+    return groupKeys.size;
 }
 
 export default function ManifestForm({
@@ -270,6 +296,16 @@ export default function ManifestForm({
     const data = form.data;
     const { setData } = form;
     const errorAlertRef = useRef<HTMLDivElement | null>(null);
+    const [activeTab, setActiveTab] = useState('travelers');
+
+    const scrollToErrorBanner = useCallback(() => {
+        setTimeout(() => {
+            errorAlertRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }, 0);
+    }, []);
 
     const isCancelledTraveler = useCallback((traveler: TravelerWithUI) => {
         return traveler.status === 'cancelled';
@@ -313,6 +349,89 @@ export default function ManifestForm({
         }));
     }, [hotelAccommodations]);
 
+    const roomErrorRanges = useMemo(() => {
+        let runningIndex = 0;
+
+        return roomTabs.map((tab) => {
+            const tabRows =
+                ((data.roomLists ?? {})[tab.key] as TravelerWithUI[]) ?? [];
+            const groupCount = countRoomGroups(tabRows);
+            const range = {
+                tabKey: tab.key,
+                start: runningIndex,
+                end: runningIndex + Math.max(groupCount - 1, 0),
+            };
+
+            runningIndex += groupCount;
+
+            return range;
+        });
+    }, [data.roomLists, roomTabs]);
+
+    const resolveErrorTab = useCallback(
+        (path: string): string => {
+            if (path.startsWith('travelers.')) {
+                return 'travelers';
+            }
+
+            if (path.startsWith('roomLists.')) {
+                const roomMatch = path.match(/^roomLists\.([^.]+)\./);
+                if (roomMatch?.[1]) {
+                    return `room-${roomMatch[1]}`;
+                }
+            }
+
+            if (path.startsWith('rooms.')) {
+                const roomIndexMatch = path.match(/^rooms\.(\d+)\./);
+                const roomIndex = roomIndexMatch?.[1]
+                    ? Number(roomIndexMatch[1])
+                    : null;
+
+                if (roomIndex !== null && Number.isFinite(roomIndex)) {
+                    const matchedRange = roomErrorRanges.find(
+                        (range) =>
+                            roomIndex >= range.start && roomIndex <= range.end,
+                    );
+
+                    if (matchedRange) {
+                        return `room-${matchedRange.tabKey}`;
+                    }
+                }
+            }
+
+            if (path.startsWith('airlineList.')) {
+                return 'airline';
+            }
+
+            return activeTab;
+        },
+        [activeTab, roomErrorRanges],
+    );
+
+    const navigateToErrorField = useCallback(
+        (path: string) => {
+            setActiveTab(resolveErrorTab(path));
+
+            setTimeout(() => {
+                const target = document.getElementById(path);
+
+                if (!target) {
+                    return;
+                }
+
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+
+                if (target instanceof HTMLElement) {
+                    target.focus();
+                }
+            }, 120);
+        },
+        [resolveErrorTab],
+    );
+
     useEffect(() => {
         const currentTravelers = (
             (data.travelers ?? []) as TravelerWithUI[]
@@ -347,6 +466,16 @@ export default function ManifestForm({
         isCancelledTraveler,
         setData,
     ]);
+
+    useEffect(() => {
+        if (isView) {
+            return;
+        }
+
+        if (Object.keys(form.errors).length > 0) {
+            scrollToErrorBanner();
+        }
+    }, [form.errors, isView, scrollToErrorBanner]);
 
     const updateFromTravelers = useCallback(
         (nextTravelers: TravelerWithUI[]) => {
@@ -418,8 +547,10 @@ export default function ManifestForm({
 
                     const existing = (data.airlineList ?? []).find(
                         (row, existingIndex) =>
-                            travelerIdentityKey(row as TravelerWithUI, existingIndex) ===
-                            travelerIdentity,
+                            travelerIdentityKey(
+                                row as TravelerWithUI,
+                                existingIndex,
+                            ) === travelerIdentity,
                     ) as TravelerWithUI | undefined;
 
                     return {
@@ -451,7 +582,7 @@ export default function ManifestForm({
             form.setData('roomLists', nextRoomLists);
             form.setData('airlineList', nextAirline);
         },
-        [data.airlineList, data.roomLists, form, isCancelledTraveler],
+        [data.airlineList, data.roomLists, form, isCancelledTraveler, roomTabs],
     );
 
     const submit = (event: React.FormEvent) => {
@@ -468,22 +599,27 @@ export default function ManifestForm({
                 );
             });
 
-            setTimeout(() => {
-                errorAlertRef.current?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                });
-            }, 0);
+            scrollToErrorBanner();
 
             return;
         }
 
         if (isCreate) {
-            form.post(store().url);
+            form.post(store().url, {
+                preserveScroll: 'errors',
+                onError: () => {
+                    scrollToErrorBanner();
+                },
+            });
         }
 
         if (isEdit && data.id) {
-            form.put(update(data.id).url);
+            form.put(update(data.id).url, {
+                preserveScroll: 'errors',
+                onError: () => {
+                    scrollToErrorBanner();
+                },
+            });
         }
     };
 
@@ -613,9 +749,16 @@ export default function ManifestForm({
                             </p>
                             {groupedErrorSummary.globalErrors.map(
                                 ({ path, message }) => (
-                                    <p key={path} className="text-sm">
+                                    <button
+                                        key={path}
+                                        type="button"
+                                        className="block text-left text-sm underline"
+                                        onClick={() =>
+                                            navigateToErrorField(path)
+                                        }
+                                    >
                                         {path}: {message}
-                                    </p>
+                                    </button>
                                 ),
                             )}
                             {groupedErrorSummary.travelerGroups.map(
@@ -628,10 +771,17 @@ export default function ManifestForm({
                                             {travelerName}
                                         </p>
                                         {issues.map(({ path, message }) => (
-                                            <p key={path} className="text-sm">
+                                            <button
+                                                key={path}
+                                                type="button"
+                                                className="block text-left text-sm underline"
+                                                onClick={() =>
+                                                    navigateToErrorField(path)
+                                                }
+                                            >
                                                 {path.split('.').slice(-1)[0]}:{' '}
                                                 {message}
-                                            </p>
+                                            </button>
                                         ))}
                                     </div>
                                 ),
@@ -649,7 +799,11 @@ export default function ManifestForm({
                 renderError={renderError}
             />
 
-            <Tabs defaultValue="travelers" className="w-full">
+            <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="w-full"
+            >
                 <TabsList className="flex w-full flex-wrap">
                     <TabsTrigger value="travelers">Travelers</TabsTrigger>
                     {roomTabs.map((tab) => (
@@ -661,11 +815,13 @@ export default function ManifestForm({
                 </TabsList>
 
                 <TabsContent value="travelers" className="space-y-4">
-                    <ManifestCustomerDatatable
+                    <ManifestDatatable
                         mode="travelers"
                         rows={(data.travelers ?? []) as TravelerWithUI[]}
                         disabled={isView}
                         allowReorder
+                        errorPrefix="travelers"
+                        errors={form.errors}
                         onMoveToHolding={moveTravelerToHolding}
                         onRowsChange={updateFromTravelers}
                     />
@@ -676,8 +832,8 @@ export default function ManifestForm({
                         ((data.roomLists ?? {})[tab.key] as
                             | TravelerWithUI[]
                             | undefined) ?? [];
-                    const visibleRoomRows = roomRows.filter(
-                        (row) => !isCancelledTraveler(row),
+                    const roomRange = roomErrorRanges.find(
+                        (range) => range.tabKey === tab.key,
                     );
 
                     return (
@@ -739,27 +895,121 @@ export default function ManifestForm({
                                 </CardContent>
                             </Card>
 
-                            <ManifestCustomerDatatable
+                            <ManifestDatatable
                                 mode="room"
-                                rows={visibleRoomRows}
+                                rows={roomRows}
                                 disabled={isView}
                                 allowReorder
-                                onRowsChange={(rows: TravelerWithUI[]) =>
-                                    form.setData('roomLists', {
-                                        ...(data.roomLists ?? {}),
-                                        [tab.key]: rows.map((row, index) => ({
+                                errorPrefix={`roomLists.${tab.key}`}
+                                roomGroupErrorPrefix="rooms"
+                                roomGroupStartIndex={roomRange?.start ?? 0}
+                                errors={form.errors}
+                                onRowsChange={(rows: TravelerWithUI[]) => {
+                                    const normalizedRows = rows.map(
+                                        (row, index) => ({
                                             ...row,
                                             sort_order: index + 1,
-                                        })),
-                                    })
-                                }
+                                            sharing_group_key:
+                                                row.sharing_group_key ??
+                                                `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`,
+                                        }),
+                                    );
+
+                                    form.setData('roomLists', {
+                                        ...(data.roomLists ?? {}),
+                                        [tab.key]: normalizedRows,
+                                    });
+
+                                    const roomTravelerMap = new Map(
+                                        normalizedRows.map((row, index) => [
+                                            travelerIdentityKey(row, index),
+                                            row,
+                                        ]),
+                                    );
+
+                                    const nextTravelers = (
+                                        (data.travelers ?? []) as
+                                            | TravelerWithUI[]
+                                            | undefined
+                                    )?.map((traveler, travelerIndex) => {
+                                        const updated = roomTravelerMap.get(
+                                            travelerIdentityKey(
+                                                traveler,
+                                                travelerIndex,
+                                            ),
+                                        );
+
+                                        if (!updated) {
+                                            return traveler;
+                                        }
+
+                                        return {
+                                            ...traveler,
+                                            name_as_per_passport:
+                                                updated.name_as_per_passport ??
+                                                traveler.name_as_per_passport,
+                                            role: updated.role ?? traveler.role,
+                                            relationship:
+                                                updated.relationship ??
+                                                updated.role ??
+                                                traveler.relationship,
+                                            date_of_birth:
+                                                updated.date_of_birth ??
+                                                traveler.date_of_birth,
+                                        };
+                                    });
+
+                                    if (nextTravelers) {
+                                        form.setData(
+                                            'travelers',
+                                            nextTravelers,
+                                        );
+
+                                        const nextAirline = (
+                                            (data.airlineList ??
+                                                []) as TravelerWithUI[]
+                                        ).map((airlineRow, airlineIndex) => {
+                                            const travelerUpdate =
+                                                nextTravelers.find(
+                                                    (traveler, travelerIndex) =>
+                                                        travelerIdentityKey(
+                                                            traveler,
+                                                            travelerIndex,
+                                                        ) ===
+                                                        travelerIdentityKey(
+                                                            airlineRow,
+                                                            airlineIndex,
+                                                        ),
+                                                );
+
+                                            if (!travelerUpdate) {
+                                                return airlineRow;
+                                            }
+
+                                            return {
+                                                ...airlineRow,
+                                                name_as_per_passport:
+                                                    travelerUpdate.name_as_per_passport ??
+                                                    airlineRow.name_as_per_passport,
+                                                date_of_birth:
+                                                    travelerUpdate.date_of_birth ??
+                                                    airlineRow.date_of_birth,
+                                            };
+                                        });
+
+                                        form.setData(
+                                            'airlineList',
+                                            nextAirline,
+                                        );
+                                    }
+                                }}
                             />
                         </TabsContent>
                     );
                 })}
 
                 <TabsContent value="airline" className="space-y-4">
-                    <ManifestCustomerDatatable
+                    <ManifestDatatable
                         mode="airline"
                         rows={((data.airlineList ?? []) as TravelerWithUI[])
                             .filter((row) => !isCancelledTraveler(row))
@@ -780,6 +1030,8 @@ export default function ManifestForm({
                             })}
                         disabled={isView}
                         allowReorder
+                        errorPrefix="airlineList"
+                        errors={form.errors}
                         onRowsChange={(rows: TravelerWithUI[]) =>
                             form.setData('airlineList', rows)
                         }

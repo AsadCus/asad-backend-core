@@ -31,15 +31,15 @@ class PackageSeeder extends Seeder
             'visa_type' => 'Umrah Visa',
             'vehicle_type' => 'Bus',
             'ticket_type' => 'Economy',
-            'included' => "Flight Tickets\nHotel Accommodation\nVisa Processing\nGround Transport\nMeals (Breakfast & Dinner)\nZiyarah Tours\nTravel Insurance",
+            'included' => "Flight Tickets\nHotel Accommodation\nVisa Processing\nGround Transport\nMeals \nZiyarah Tours\nTravel Insurance",
             'not_included' => "Personal Expenses\nLaundry\nTips & Gratuities",
             'offer' => "Early bird discount 10% off for bookings before Dec 2025\nFree airport transfer",
             'remarks' => 'Economy package with comfortable 4-star hotels near Haram.',
         ]);
 
         $package1->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Elaf Ajyad Hotel', 'type_of_meal' => 'Breakfast & Dinner', 'check_in' => '2026-01-16', 'check_out' => '2026-01-23'],
-            ['location' => 'Madinah', 'hotel_name' => 'Dar Al Taqwa Hotel', 'type_of_meal' => 'Breakfast & Dinner', 'check_in' => '2026-01-23', 'check_out' => '2026-01-28'],
+            ['location' => 'Mekkah', 'hotel_name' => 'Elaf Ajyad Hotel', 'type_of_meal' => 'Half Board', 'check_in' => '2026-01-16', 'check_out' => '2026-01-23'],
+            ['location' => 'Madinah', 'hotel_name' => 'Dar Al Taqwa Hotel', 'type_of_meal' => 'Half Board', 'check_in' => '2026-01-23', 'check_out' => '2026-01-28'],
         ]);
 
         $package1->flights()->createMany([

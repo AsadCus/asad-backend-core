@@ -35,9 +35,7 @@ class PackageOfficialManifestSyncTest extends TestCase
         $this->assertNotNull($manifest);
 
         $officialTravelers = $manifest->travelers()
-            ->whereNull('customer_id')
             ->whereNull('customer_confirmation_member_id')
-            ->where('relationship', 'official')
             ->where('remarks', 'like', '[package-official]%')
             ->get();
 

@@ -36,7 +36,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('manifest_room_id')->constrained()->cascadeOnDelete();
             $table->foreignId('manifest_traveler_id')->constrained()->cascadeOnDelete();
-            $table->string('role_in_room')->nullable();
+            $table->unsignedInteger('sort_order')->default(1);
+            $table->text('remarks')->nullable();
             $table->timestamps();
         });
 

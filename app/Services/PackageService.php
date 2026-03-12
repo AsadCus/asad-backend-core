@@ -592,29 +592,14 @@ class PackageService
         $officialTravelerMarker = '[package-official]';
 
         $manifest->travelers()
-            ->whereNull('customer_id')
             ->whereNull('customer_confirmation_member_id')
             ->where('remarks', 'like', $officialTravelerMarker.'%')
             ->delete();
 
-        $nextSn = ((int) $manifest->travelers()->max('sn')) + 1;
-
         $package->loadMissing('officials');
 
         foreach ($package->officials as $official) {
-            $displayName = trim((string) ($official->name ?? ''));
-
-            if ($displayName === '') {
-                $displayName = ucfirst((string) ($official->type ?? 'Official'));
-            }
-
             $manifest->travelers()->create([
-                'sn' => $nextSn++,
-                'name_as_per_passport' => $displayName,
-                'relationship' => 'official',
-                'room_type' => 'Single',
-                'bed_type' => 'Single',
-                'status' => 'assigned',
                 'remarks' => $officialTravelerMarker.' '.($official->type ?? 'official'),
             ]);
         }

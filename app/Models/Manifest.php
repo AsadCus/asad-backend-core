@@ -42,11 +42,6 @@ class Manifest extends Model
         return $this->hasMany(ManifestSharingGroup::class);
     }
 
-    public function accommodationAssignments(): HasMany
-    {
-        return $this->hasMany(ManifestAccommodationAssignment::class);
-    }
-
     public function sharingGroups(): BelongsToMany
     {
         return $this->belongsToMany(
