@@ -469,48 +469,34 @@ export default function ConfirmedCustomerIndex({
         setMoveDialogOpen(true);
     };
 
-    const submitMoveMembers = async () => {
+    const submitMoveMembers = () => {
         if (!selectedMoveGroup || selectedMoveMemberIds.length === 0) {
             return;
         }
 
         setMovingMembers(true);
 
-        try {
-            const csrfToken = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content');
-
-            const response = await fetch(
-                `/customer-confirmations/${selectedMoveGroup.id}/move-members`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
-                    },
-                    body: JSON.stringify({
-                        member_ids: selectedMoveMemberIds,
-                        target_package_id: targetPackageId,
-                    }),
-                },
-            );
-
-            if (!response.ok) {
-                throw new Error('Unable to move selected members.');
-            }
-
-            toast.success('Members moved to holding confirmation.');
-            setMoveDialogOpen(false);
-            router.visit(indexUrl, {
+        router.post(
+            `/customer-confirmations/${selectedMoveGroup.id}/move-members`,
+            {
+                member_ids: selectedMoveMemberIds,
+                target_package_id: targetPackageId,
+            },
+            {
                 preserveScroll: true,
                 preserveState: false,
-            });
-        } catch {
-            toast.error('Failed to move selected members.');
-        } finally {
-            setMovingMembers(false);
-        }
+                onSuccess: () => {
+                    toast.success('Members moved to holding confirmation.');
+                    setMoveDialogOpen(false);
+                },
+                onError: () => {
+                    toast.error('Failed to move selected members.');
+                },
+                onFinish: () => {
+                    setMovingMembers(false);
+                },
+            },
+        );
     };
 
     const handleOpenGroupDialog = async (
@@ -651,34 +637,21 @@ export default function ConfirmedCustomerIndex({
         });
     };
 
-    const cancelMember = async (memberId: number) => {
-        try {
-            const csrfToken = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content');
-
-            const response = await fetch(
-                `/customer-confirmations/members/${memberId}/cancel`,
-                {
-                    method: 'POST',
-                    headers: {
-                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
-                    },
-                },
-            );
-
-            if (!response.ok) {
-                throw new Error('Failed to cancel member');
-            }
-
-            toast.success('Member cancelled successfully.');
-            router.visit(indexUrl, {
+    const cancelMember = (memberId: number) => {
+        router.post(
+            `/customer-confirmations/members/${memberId}/cancel`,
+            {},
+            {
                 preserveScroll: true,
-                preserveState: true,
-            });
-        } catch {
-            toast.error('Failed to cancel member.');
-        }
+                preserveState: false,
+                onSuccess: () => {
+                    toast.success('Member cancelled successfully.');
+                },
+                onError: () => {
+                    toast.error('Failed to cancel member.');
+                },
+            },
+        );
     };
 
     const validateMemberDraft = (): boolean => {
@@ -710,7 +683,7 @@ export default function ConfirmedCustomerIndex({
         return Object.keys(errors).length === 0;
     };
 
-    const submitMemberUpdate = async () => {
+    const submitMemberUpdate = () => {
         if (!memberDialogData || !memberDialogMemberId) {
             return;
         }
@@ -721,114 +694,73 @@ export default function ConfirmedCustomerIndex({
 
         setIsSavingMember(true);
 
-        try {
-            const csrfToken = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content');
-
-            const formData = new FormData();
-            formData.append('_method', 'PUT');
-            formData.append('name', memberDialogData.name ?? '');
-            formData.append('email', memberDialogData.email ?? '');
-            formData.append(
-                'contact_number',
-                memberDialogData.contact_number ?? '',
-            );
-            formData.append('nric_number', memberDialogData.nric_number ?? '');
-            formData.append('address', memberDialogData.address ?? '');
-            formData.append('nationality', memberDialogData.nationality ?? '');
-            formData.append(
-                'passport_number',
-                memberDialogData.passport_number ?? '',
-            );
-            formData.append(
-                'passport_issue_date',
-                memberDialogData.passport_issue_date ?? '',
-            );
-            formData.append(
-                'passport_expiry_date',
-                memberDialogData.passport_expiry_date ?? '',
-            );
-            formData.append(
-                'passport_place_of_issue',
+        const payload: Record<string, string | boolean | File | undefined> = {
+            _method: 'PUT',
+            name: memberDialogData.name ?? '',
+            email: memberDialogData.email ?? '',
+            contact_number: memberDialogData.contact_number ?? '',
+            nric_number: memberDialogData.nric_number ?? '',
+            address: memberDialogData.address ?? '',
+            nationality: memberDialogData.nationality ?? '',
+            passport_number: memberDialogData.passport_number ?? '',
+            passport_issue_date: memberDialogData.passport_issue_date ?? '',
+            passport_expiry_date: memberDialogData.passport_expiry_date ?? '',
+            passport_place_of_issue:
                 memberDialogData.passport_place_of_issue ?? '',
-            );
-            formData.append('gender', memberDialogData.gender ?? '');
-            formData.append(
-                'marital_status',
-                memberDialogData.marital_status ?? '',
-            );
-            formData.append(
-                'date_of_birth',
-                memberDialogData.date_of_birth ?? '',
-            );
-            formData.append(
-                'place_of_birth',
-                memberDialogData.place_of_birth ?? '',
-            );
-            formData.append(
-                'first_time_umrah',
-                String(Boolean(memberDialogData.first_time_umrah)),
-            );
-            formData.append(
-                'has_chronic_disease',
-                String(Boolean(memberDialogData.has_chronic_disease)),
-            );
-            formData.append(
-                'chronic_disease_details',
+            gender: memberDialogData.gender ?? '',
+            marital_status: memberDialogData.marital_status ?? '',
+            date_of_birth: memberDialogData.date_of_birth ?? '',
+            place_of_birth: memberDialogData.place_of_birth ?? '',
+            first_time_umrah: Boolean(memberDialogData.first_time_umrah),
+            has_chronic_disease: Boolean(memberDialogData.has_chronic_disease),
+            chronic_disease_details:
                 memberDialogData.chronic_disease_details ?? '',
-            );
-            formData.append(
-                'status',
-                String((memberDialogData as { status?: string }).status ?? ''),
-            );
-            formData.append(
-                'sharing_plan',
-                String(memberDialogData.sharing_plan ?? ''),
-            );
-            formData.append('role', String(memberDialogData.role ?? ''));
+            status: String(
+                (memberDialogData as { status?: string }).status ?? '',
+            ),
+            sharing_plan: String(memberDialogData.sharing_plan ?? ''),
+            role: String(memberDialogData.role ?? ''),
+            passport_file:
+                memberDialogData.passport_file instanceof File
+                    ? memberDialogData.passport_file
+                    : undefined,
+            photo_file:
+                memberDialogData.photo_file instanceof File
+                    ? memberDialogData.photo_file
+                    : undefined,
+            passport_path:
+                memberDialogData.passport_file instanceof File
+                    ? undefined
+                    : memberDialogData.passport_path === null
+                      ? ''
+                      : undefined,
+            photo_path:
+                memberDialogData.photo_file instanceof File
+                    ? undefined
+                    : memberDialogData.photo_path === null
+                      ? ''
+                      : undefined,
+        };
 
-            if (memberDialogData.passport_file instanceof File) {
-                formData.append(
-                    'passport_file',
-                    memberDialogData.passport_file,
-                );
-            } else if (memberDialogData.passport_path === null) {
-                formData.append('passport_path', '');
-            }
-
-            if (memberDialogData.photo_file instanceof File) {
-                formData.append('photo_file', memberDialogData.photo_file);
-            } else if (memberDialogData.photo_path === null) {
-                formData.append('photo_path', '');
-            }
-
-            const response = await fetch(
-                `/customer-confirmations/members/${memberDialogMemberId}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
-                    },
-                    body: formData,
-                },
-            );
-
-            if (!response.ok) {
-                throw new Error('Failed to update member');
-            }
-
-            toast.success('Member updated successfully.');
-            setMemberDialogOpen(false);
-            router.visit(indexUrl, {
+        router.post(
+            `/customer-confirmations/members/${memberDialogMemberId}`,
+            payload,
+            {
+                forceFormData: true,
                 preserveScroll: true,
-                preserveState: true,
-            });
-        } catch {
-            toast.error('Failed to update member.');
-        } finally {
-            setIsSavingMember(false);
-        }
+                preserveState: false,
+                onSuccess: () => {
+                    toast.success('Member updated successfully.');
+                    setMemberDialogOpen(false);
+                },
+                onError: () => {
+                    toast.error('Failed to update member.');
+                },
+                onFinish: () => {
+                    setIsSavingMember(false);
+                },
+            },
+        );
     };
 
     const openQuotationDialog = (
@@ -856,7 +788,7 @@ export default function ConfirmedCustomerIndex({
         setQuotationDialogOpen(true);
     };
 
-    const submitGenerateQuotations = async () => {
+    const submitGenerateQuotations = () => {
         if (!quotationGroup) return;
 
         const payerToMembers: Record<number, number[]> = {};
@@ -875,53 +807,28 @@ export default function ConfirmedCustomerIndex({
 
         setIsGeneratingQuotations(true);
 
-        try {
-            const csrfToken = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content');
+        const route = generateQuotations(quotationGroup.id);
 
-            const route = generateQuotations(quotationGroup.id);
-
-            const response = await fetch(route.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
-                },
-                body: JSON.stringify({
-                    payer_to_members: payerToMembers,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = (await response.json().catch(() => null)) as {
-                    message?: string;
-                } | null;
-                throw new Error(
-                    errorData?.message ?? 'Failed to generate quotations.',
-                );
-            }
-
-            const data = (await response.json()) as {
-                message: string;
-                quotation_ids: number[];
-            };
-            toast.success(data.message);
-            setQuotationDialogOpen(false);
-            router.visit(indexUrl, {
+        router.post(
+            route.url,
+            {
+                payer_to_members: payerToMembers,
+            },
+            {
                 preserveScroll: true,
                 preserveState: false,
-            });
-        } catch (error) {
-            toast.error(
-                error instanceof Error
-                    ? error.message
-                    : 'Failed to generate quotations.',
-            );
-        } finally {
-            setIsGeneratingQuotations(false);
-        }
+                onSuccess: () => {
+                    toast.success('Quotation created successfully.');
+                    setQuotationDialogOpen(false);
+                },
+                onError: () => {
+                    toast.error('Failed to generate quotations.');
+                },
+                onFinish: () => {
+                    setIsGeneratingQuotations(false);
+                },
+            },
+        );
     };
 
     const renderGroupSubComponent = (

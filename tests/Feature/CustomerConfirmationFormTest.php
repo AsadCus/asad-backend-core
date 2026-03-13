@@ -1365,4 +1365,51 @@ class CustomerConfirmationFormTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('payer_to_members');
     }
+
+    public function test_generate_quotations_with_inertia_request_redirects_to_quotation_index(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-GEN-002',
+            'name' => 'Generate Quotation Redirect Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $payerUser = User::factory()->create(['email' => 'payer-redirect@test.com']);
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-PAYER-002',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'is_leader' => true,
+            'status' => 'draft',
+            'sharing_plan' => 'single',
+        ]);
+
+        $response = $this
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ])
+            ->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+                'payer_to_members' => [
+                    (string) $payerMember->id => [$payerMember->id],
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('quotation.index'))
+            ->assertSessionHas('success', '1 quotation(s) created successfully.');
+    }
 }

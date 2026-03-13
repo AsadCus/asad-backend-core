@@ -7,7 +7,7 @@ use App\Models\CustomerConfirmation;
 use App\Rules\CustomerConfirmationRule;
 use App\Services\CustomerConfirmationService;
 use App\Services\PackageService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -106,7 +106,7 @@ class CustomerConfirmationController extends Controller
     /**
      * Move selected members from an existing confirmation into a new holding confirmation.
      */
-    public function moveMembers(Request $request, string $id): JsonResponse
+    public function moveMembers(Request $request, string $id): RedirectResponse
     {
         $validated = $request->validate([
             'member_ids' => ['required', 'array', 'min:1'],
@@ -122,16 +122,13 @@ class CustomerConfirmationController extends Controller
             $validated['source_manifest_id'] ?? null,
         );
 
-        return response()->json([
-            'message' => 'Customer members moved to holding confirmation successfully.',
-            'new_confirmation_id' => $newConfirmation->id,
-        ]);
+            return back()->with('success', 'Customer members moved to holding confirmation successfully.');
     }
 
     /**
      * Update one customer confirmation member profile/status/sharing plan.
      */
-    public function updateMember(Request $request, string $memberId): JsonResponse
+    public function updateMember(Request $request, string $memberId): RedirectResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -162,22 +159,17 @@ class CustomerConfirmationController extends Controller
 
         $member = $this->customerConfirmationService->updateMemberDetails((int) $memberId, $validated);
 
-        return response()->json([
-            'message' => 'Member updated successfully.',
-            'member' => $member,
-        ]);
+            return back()->with('success', 'Member updated successfully.');
     }
 
     /**
      * Mark one confirmation member as cancelled.
      */
-    public function cancelMember(string $memberId): JsonResponse
+    public function cancelMember(Request $request, string $memberId): RedirectResponse
     {
         $this->customerConfirmationService->cancelMember((int) $memberId);
 
-        return response()->json([
-            'message' => 'Member cancelled successfully.',
-        ]);
+            return back()->with('success', 'Member cancelled successfully.');
     }
 
     /**
@@ -185,7 +177,7 @@ class CustomerConfirmationController extends Controller
      *
      * Accepts a payer-to-members mapping and creates one quotation per payer.
      */
-    public function generateQuotations(GenerateQuotationsRequest $request, string $id): JsonResponse
+    public function generateQuotations(GenerateQuotationsRequest $request, string $id): RedirectResponse
     {
         CustomerConfirmation::query()->findOrFail((int) $id);
 
@@ -196,10 +188,9 @@ class CustomerConfirmationController extends Controller
             $validated['payer_to_members'],
         );
 
-        return response()->json([
-            'message' => count($quotations).' quotation(s) created successfully.',
-            'quotation_ids' => array_map(fn ($q) => $q->id, $quotations),
-        ]);
+        $successMessage = count($quotations).' quotation(s) created successfully.';
+
+            return redirect()->route('quotation.index')->with('success', $successMessage);
     }
 
     /**
