@@ -20,6 +20,7 @@ interface PackageDataTableSchema {
     departure_date: string | null;
     return_date: string | null;
     total_seats: number | null;
+    occupied_seats: number;
     seats_left: number | null;
     price_quad: number;
     manifests_count: number;
@@ -97,8 +98,11 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         meta: { exportable: true },
         cell: ({ row }) => {
             const total = row.original.total_seats;
-            const left = row.original.seats_left;
+            const occupied = Number(row.original.occupied_seats ?? 0);
             if (total === null) return '-';
+
+            const left = Math.max(0, total - occupied);
+
             return `${left ?? 0} / ${total}`;
         },
     },

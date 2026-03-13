@@ -80,10 +80,50 @@ const defaultTrainTickets: TrainTicketSchema[] = [
 ];
 
 const defaultOfficials: OfficialSchema[] = [
-    { type: 'mutawif', name: '', contact_number: '' },
-    { type: 'mutawifah', name: '', contact_number: '' },
-    { type: 'official', name: '', contact_number: '' },
+    {
+        type: 'mutawif',
+        name: '',
+        contact_number: '',
+        nationality: '',
+        passport_number: '',
+        gender: '',
+        date_of_birth: '',
+        passport_issue_date: '',
+        passport_expiry_date: '',
+        passport_place_of_issue: '',
+        place_of_birth: '',
+    },
+    {
+        type: 'mutawifah',
+        name: '',
+        contact_number: '',
+        nationality: '',
+        passport_number: '',
+        gender: '',
+        date_of_birth: '',
+        passport_issue_date: '',
+        passport_expiry_date: '',
+        passport_place_of_issue: '',
+        place_of_birth: '',
+    },
+    {
+        type: 'official',
+        name: '',
+        contact_number: '',
+        nationality: '',
+        passport_number: '',
+        gender: '',
+        date_of_birth: '',
+        passport_issue_date: '',
+        passport_expiry_date: '',
+        passport_place_of_issue: '',
+        place_of_birth: '',
+    },
 ];
+
+const officialTypeLabels = Object.fromEntries(
+    officialTypeOptions.map((option) => [option.value, option.label]),
+) as Record<string, string>;
 
 interface PackageFormProps {
     mode: 'create' | 'edit' | 'view';
@@ -398,7 +438,19 @@ export default function PackageForm({
         const current = data.officials || [];
         setData('officials', [
             ...current,
-            { type: '', name: '', contact_number: '' },
+            {
+                type: '',
+                name: '',
+                contact_number: '',
+                nationality: '',
+                passport_number: '',
+                gender: '',
+                date_of_birth: '',
+                passport_issue_date: '',
+                passport_expiry_date: '',
+                passport_place_of_issue: '',
+                place_of_birth: '',
+            },
         ]);
     };
 
@@ -2077,7 +2129,7 @@ export default function PackageForm({
                                                 <span className="font-semibold">
                                                     Official {index + 1}
                                                     {official.type
-                                                        ? ` - ${official.type}`
+                                                        ? ` - ${officialTypeLabels[official.type] ?? official.type}`
                                                         : ''}
                                                 </span>
                                                 {!isView && (
@@ -2197,6 +2249,255 @@ export default function PackageForm({
                                                             )
                                                         }
                                                         placeholder="Enter contact number"
+                                                    />
+                                                </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                <FormField
+                                                    label="Nationality"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter nationality',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.nationality`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.nationality ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'nationality',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Malaysian"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Passport Number"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter passport number',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.passport_number`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.passport_number ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'passport_number',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="Enter passport number"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Gender"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Select gender',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.gender`,
+                                                    )}
+                                                >
+                                                    <Select
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        value={
+                                                            official.gender || ''
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'gender',
+                                                                v,
+                                                            )
+                                                        }
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select gender" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="male">
+                                                                Male
+                                                            </SelectItem>
+                                                            <SelectItem value="female">
+                                                                Female
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                <FormField
+                                                    label="Date of Birth"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Official date of birth',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.date_of_birth`,
+                                                    )}
+                                                >
+                                                    <DatePickerField
+                                                        id={`official_dob_${index}`}
+                                                        value={
+                                                            official.date_of_birth ||
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        fromYear={1900}
+                                                        toYear={
+                                                            new Date().getFullYear()
+                                                        }
+                                                        onChange={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'date_of_birth',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Passport Issue Date"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Issue date in passport',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.passport_issue_date`,
+                                                    )}
+                                                >
+                                                    <DatePickerField
+                                                        id={`official_issue_${index}`}
+                                                        value={
+                                                            official.passport_issue_date ||
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        fromYear={1900}
+                                                        toYear={
+                                                            new Date().getFullYear() +
+                                                            10
+                                                        }
+                                                        onChange={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'passport_issue_date',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Passport Expiry Date"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Expiry date in passport',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.passport_expiry_date`,
+                                                    )}
+                                                >
+                                                    <DatePickerField
+                                                        id={`official_expiry_${index}`}
+                                                        value={
+                                                            official.passport_expiry_date ||
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        fromYear={1900}
+                                                        toYear={
+                                                            new Date().getFullYear() +
+                                                            20
+                                                        }
+                                                        onChange={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'passport_expiry_date',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <FormField
+                                                    label="Passport Place of Issue"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'City or office of issue',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.passport_place_of_issue`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.passport_place_of_issue ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'passport_place_of_issue',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Kuala Lumpur"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Place of Birth"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'City of birth',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.place_of_birth`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.place_of_birth ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'place_of_birth',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Johor Bahru"
                                                     />
                                                 </FormField>
                                             </div>

@@ -194,18 +194,110 @@ class ManifestSeeder extends Seeder
     private function syncPackageOfficialsIntoManifest(Manifest $manifest, Package $package): void
     {
         $officialTravelerMarker = '[package-official]';
+        $officialGroupMarker = '[package-official-group]';
+        $officialRoomMarker = '[package-official-room]';
 
         $manifest->travelers()
             ->whereNull('customer_confirmation_member_id')
             ->where('remarks', 'like', $officialTravelerMarker.'%')
             ->delete();
 
-        $package->loadMissing('officials');
+        $manifest->manifestSharingGroups()
+            ->where('remarks', 'like', $officialGroupMarker.'%')
+            ->delete();
+
+        $manifest->rooms()
+            ->where('remarks', 'like', $officialRoomMarker.'%')
+            ->each(function ($room): void {
+                $room->roomMembers()->delete();
+                $room->delete();
+            });
+
+        $package->loadMissing(['officials', 'accommodations']);
+
+        $createdOfficialTravelers = collect();
+
+        $groupSortOrder = ((int) $manifest->manifestSharingGroups()->max('sort_order')) + 1;
 
         foreach ($package->officials as $official) {
-            $manifest->travelers()->create([
-                'remarks' => $officialTravelerMarker.' '.($official->type ?? 'official'),
+            $officialGroup = $manifest->manifestSharingGroups()->create([
+                'customer_confirmation_id' => null,
+                'sort_order' => $groupSortOrder,
+                'relation' => 'official',
+                'remarks' => $officialGroupMarker,
             ]);
+
+            $createdOfficialTravelers->push($manifest->travelers()->create([
+                'manifest_sharing_group_id' => $officialGroup->id,
+                'package_official_id' => $official->id,
+                'role' => $official->type,
+                'sharing_plan' => 'single',
+                'name' => $official->name,
+                'contact_number' => $official->contact_number,
+                'nationality' => $official->nationality,
+                'passport_number' => $official->passport_number,
+                'gender' => $official->gender,
+                'date_of_birth' => $official->date_of_birth,
+                'passport_issue_date' => $official->passport_issue_date,
+                'passport_expiry_date' => $official->passport_expiry_date,
+                'passport_place_of_issue' => $official->passport_place_of_issue,
+                'place_of_birth' => $official->place_of_birth,
+                'remarks' => $officialTravelerMarker.' '.($official->type ?? 'official'),
+            ]));
+
+            $groupSortOrder++;
+        }
+
+        if ($createdOfficialTravelers->isEmpty()) {
+            return;
+        }
+
+        $locations = $package->accommodations
+            ->filter(fn ($accommodation) => ! empty($accommodation->hotel_name))
+            ->map(function ($accommodation) {
+                $location = (string) ($accommodation->location ?? $accommodation->hotel_name ?? 'mekkah');
+
+                return [
+                    'key' => \Illuminate\Support\Str::slug($location) ?: 'mekkah',
+                    'meal' => $accommodation->type_of_meal,
+                ];
+            })
+            ->unique('key')
+            ->values();
+
+        if ($locations->isEmpty()) {
+            $locations = collect([
+                ['key' => 'mekkah', 'meal' => null],
+            ]);
+        }
+
+        $roomSortOrder = 1;
+
+        foreach ($locations as $location) {
+            foreach ($createdOfficialTravelers as $index => $officialTraveler) {
+                $room = $manifest->rooms()->create([
+                    'sort_order' => $roomSortOrder,
+                    'location' => $location['key'],
+                    'relationship' => 'official',
+                    'room_label' => 'Official Room '.($index + 1),
+                    'room_type' => 'single',
+                    'bed_type' => 'single',
+                    'capacity' => 1,
+                    'sharing_plan' => 'single',
+                    'status' => 'pending',
+                    'meal' => $location['meal'],
+                    'number_of_beds_checked' => false,
+                    'remarks' => $officialRoomMarker,
+                ]);
+
+                $room->roomMembers()->create([
+                    'manifest_traveler_id' => $officialTraveler->id,
+                    'sort_order' => 1,
+                    'is_assigned' => true,
+                ]);
+
+                $roomSortOrder++;
+            }
         }
     }
 

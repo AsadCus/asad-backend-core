@@ -3,6 +3,7 @@ import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -55,7 +56,7 @@ import {
 } from '../../customer/schema';
 import { type TravelerWithUI } from '../types';
 
-type TableMode = 'travelers' | 'room' | 'airline';
+type TableMode = 'travelers' | 'room' | 'room_check' | 'airline';
 
 type SelectOption = {
     value: string;
@@ -182,6 +183,46 @@ function getRoomTypeFromSharingPlan(sharingPlan?: string): string {
     return '';
 }
 
+function getBedsCountByRoomTypeAndBedType(
+    roomType?: string | null,
+    bedType?: string | null,
+): number {
+    const normalizedRoomType = String(roomType ?? '').toLowerCase();
+    const normalizedBedType = String(bedType ?? '').toLowerCase();
+
+    if (normalizedRoomType === 'single') {
+        return 1;
+    }
+
+    if (normalizedRoomType === 'twin' && normalizedBedType === 'single') {
+        return 2;
+    }
+
+    if (normalizedRoomType === 'triple' && normalizedBedType === 'single') {
+        return 3;
+    }
+
+    if (normalizedRoomType === 'quad' && normalizedBedType === 'single') {
+        return 4;
+    }
+
+    if (normalizedRoomType === 'double') {
+        if (normalizedBedType === 'single') {
+            return 2;
+        }
+
+        if (normalizedBedType === 'king' || normalizedBedType === 'queen') {
+            return 1;
+        }
+    }
+
+    return 1;
+}
+
+function isOfficialTraveler(traveler: TravelerWithUI): boolean {
+    return !!traveler.package_official_id;
+}
+
 function getAgeFromDate(dateValue?: string | null): string {
     if (!dateValue) {
         return '';
@@ -268,14 +309,33 @@ function SelectCell({
 }
 
 function TravelerActionItems({
+    mode,
     disabled,
     canMoveToHolding,
     onMoveToHolding,
+    canToggleRoomAssignment,
+    isRoomAssigned,
+    onToggleRoomAssignment,
 }: {
+    mode: TableMode;
     disabled: boolean;
     canMoveToHolding: boolean;
     onMoveToHolding: () => void;
+    canToggleRoomAssignment: boolean;
+    isRoomAssigned: boolean;
+    onToggleRoomAssignment: () => void;
 }) {
+    if (mode === 'room') {
+        return (
+            <DropdownMenuItem
+                disabled={!canToggleRoomAssignment || disabled}
+                onClick={onToggleRoomAssignment}
+            >
+                {isRoomAssigned ? 'Dont Assign Room' : 'Assign Room'}
+            </DropdownMenuItem>
+        );
+    }
+
     return (
         <>
             <DropdownMenuItem
@@ -301,7 +361,10 @@ export default function ManifestDatatable({
     onMoveToHolding,
 }: ManifestDatatableProps) {
     const isGrouped =
-        mode === 'travelers' || mode === 'room' || mode === 'airline';
+        mode === 'travelers' ||
+        mode === 'room' ||
+        mode === 'room_check' ||
+        mode === 'airline';
 
     const getErrorPath = useCallback(
         (flatIndex: number, field: keyof TravelerWithUI | string): string => {
@@ -454,7 +517,7 @@ export default function ManifestDatatable({
         value: string | number,
     ) => {
         if (
-            mode === 'room' &&
+            (mode === 'room' || mode === 'room_check') &&
             field === 'sharing_plan' &&
             typeof value === 'string'
         ) {
@@ -514,7 +577,7 @@ export default function ManifestDatatable({
         const patch: Partial<TravelerWithUI> = { [field]: value };
 
         if (
-            mode === 'room' &&
+            (mode === 'room' || mode === 'room_check') &&
             field === 'room_type' &&
             typeof value === 'string'
         ) {
@@ -522,7 +585,7 @@ export default function ManifestDatatable({
         }
 
         if (
-            mode === 'room' &&
+            (mode === 'room' || mode === 'room_check') &&
             field === 'sharing_plan' &&
             typeof value === 'string'
         ) {
@@ -576,12 +639,14 @@ export default function ManifestDatatable({
     const emitReorderedRows = (reorderedGroups: GroupData[]) => {
         let counter = 0;
 
-        const result: TravelerWithUI[] = reorderedGroups.flatMap((group) =>
-            group.members.map((member) => ({
-                ...member.traveler,
-                sn: ++counter,
-                sort_order: counter,
-            })),
+        const result: TravelerWithUI[] = reorderedGroups.flatMap(
+            (group, groupIndex) =>
+                group.members.map((member, memberIndex) => ({
+                    ...member.traveler,
+                    sn: ++counter,
+                    group_sort_order: groupIndex + 1,
+                    sort_order: memberIndex + 1,
+                })),
         );
 
         onRowsChange(result);
@@ -654,6 +719,21 @@ export default function ManifestDatatable({
             return;
         }
 
+        if (mode === 'room' || mode === 'room_check') {
+            const sourceIsOfficial = isOfficialTraveler(activeItem.traveler);
+            const targetIsOfficial = isOfficialTraveler(
+                targetGroup.members[0]?.traveler ?? ({} as TravelerWithUI),
+            );
+
+            if (sourceIsOfficial !== targetIsOfficial) {
+                toast.error(
+                    'Official members cannot be grouped with non-official members.',
+                );
+
+                return;
+            }
+        }
+
         const targetShared = targetGroup.members[0]?.traveler;
 
         const movedTraveler: TravelerWithUI = {
@@ -720,6 +800,79 @@ export default function ManifestDatatable({
         setExpanded((prev) => ({ ...prev, [targetGroupKey]: true }));
 
         emitReorderedRows(newGroups);
+    };
+
+    const splitGroupInMainTab = (groupKey: string) => {
+        if (mode !== 'travelers') {
+            return;
+        }
+
+        const group = groups.find((item) => item.key === groupKey);
+
+        if (!group || group.members.length < 2) {
+            return;
+        }
+
+        const planBuckets = new Map<string, GroupMember[]>();
+
+        group.members.forEach((member) => {
+            const sharingPlan = String(
+                member.traveler.sharing_plan ?? 'single',
+            ).toLowerCase();
+
+            if (!planBuckets.has(sharingPlan)) {
+                planBuckets.set(sharingPlan, []);
+            }
+
+            planBuckets.get(sharingPlan)?.push(member);
+        });
+
+        const splitGroups: GroupData[] = [];
+        let splitIndex = 1;
+
+        planBuckets.forEach((members, sharingPlan) => {
+            const capacity = Math.max(getCapacityForSharingPlan(sharingPlan), 1);
+
+            for (let index = 0; index < members.length; index += capacity) {
+                const chunk = members.slice(index, index + capacity);
+
+                const nextKey =
+                    splitGroups.length === 0
+                        ? group.key
+                        : `split-${group.key}-${splitIndex++}`;
+
+                splitGroups.push({
+                    key: nextKey,
+                    members: chunk.map((member) => ({
+                        ...member,
+                        traveler: {
+                            ...member.traveler,
+                            sharing_group_key: nextKey,
+                            sharing_plan: sharingPlan,
+                        },
+                    })),
+                });
+            }
+        });
+
+        if (splitGroups.length <= 1) {
+            toast.error('No split needed for this group.');
+
+            return;
+        }
+
+        const rebuiltGroups = groups.flatMap((item) =>
+            item.key === groupKey ? splitGroups : [item],
+        );
+
+        splitGroups.forEach((item) => {
+            setExpanded((prev) => ({
+                ...prev,
+                [item.key]: true,
+            }));
+        });
+
+        emitReorderedRows(rebuiltGroups);
     };
 
     const handleFlatDrag = (activeId: string, overId: string) => {
@@ -880,6 +1033,10 @@ export default function ManifestDatatable({
             return drag + 15;
         }
 
+        if (mode === 'room_check') {
+            return drag + 16;
+        }
+
         return drag + 11;
     };
 
@@ -894,6 +1051,7 @@ export default function ManifestDatatable({
             sharing_plan: first?.sharing_plan ?? '',
             room_type: first?.room_type ?? '',
             bed_type: first?.bed_type ?? '',
+            number_of_beds_checked: !!first?.number_of_beds_checked,
             meal: first?.meal ?? '',
         };
     };
@@ -905,7 +1063,9 @@ export default function ManifestDatatable({
                 {isGrouped ? '#' : 'S/N'}
             </TableHead>
             <TableHead className="min-w-60">Name as per passport</TableHead>
-            {(mode === 'travelers' || mode === 'room') && (
+            {(mode === 'travelers' ||
+                mode === 'room' ||
+                mode === 'room_check') && (
                 <TableHead className="min-w-40">Role</TableHead>
             )}
             {mode === 'travelers' && (
@@ -974,32 +1134,37 @@ export default function ManifestDatatable({
             {mode === 'airline' && (
                 <TableHead className="min-w-60">Issue Place</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-60">Relationship</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Passport No</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Room Label</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Room No</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Sharing Plan</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Room Type</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Bed Type</TableHead>
             )}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-55">Date of Birth</TableHead>
             )}
-            {mode === 'room' && <TableHead className="min-w-20">Age</TableHead>}
-            {mode === 'room' && (
+            {(mode === 'room' || mode === 'room_check') && (
+                <TableHead className="min-w-20">Age</TableHead>
+            )}
+            {mode === 'room_check' && (
+                <TableHead className="min-w-52">No. Of Beds Checked</TableHead>
+            )}
+            {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Meal</TableHead>
             )}
             {mode === 'travelers' && <TableHead>Status</TableHead>}
@@ -1014,24 +1179,35 @@ export default function ManifestDatatable({
     ) => {
         const { setNodeRef, transform, transition, attributes, listeners } =
             sortableProps;
+        const isRoomMode = mode === 'room' || mode === 'room_check';
+        const isRoomCheckMode = mode === 'room_check';
         const isExpanded = expanded[item.groupKey] !== false;
-        const roomInfo =
-            mode === 'room' ? getGroupRoomInfo(item.groupKey) : null;
-        const groupConfirmationNumber =
-            mode !== 'room'
-                ? groups
-                      .find((group) => group.key === item.groupKey)
-                      ?.members?.at(0)?.traveler.customer_confirmation_number
-                : null;
-        const capacity =
-            mode === 'room'
-                ? getCapacityForSharingPlan(roomInfo?.sharing_plan)
-                : Infinity;
+        const groupLeadTraveler = groups.find(
+            (group) => group.key === item.groupKey,
+        )?.members?.[0]?.traveler;
+        const roomInfo = isRoomMode ? getGroupRoomInfo(item.groupKey) : null;
+        const groupConfirmationNumber = !isRoomMode
+            ? groupLeadTraveler?.customer_confirmation_number
+            : null;
+        const capacity = isRoomMode
+            ? getCapacityForSharingPlan(roomInfo?.sharing_plan)
+            : Infinity;
         const capacityLabel = Number.isFinite(capacity)
             ? `${item.memberCount}/${capacity}`
             : `${item.memberCount}`;
         const isAtCapacity =
             Number.isFinite(capacity) && item.memberCount >= capacity;
+        const roomGroupMembers = groups.find(
+            (g) => g.key === item.groupKey,
+        )?.members;
+        const disableRoomFields =
+            isRoomCheckMode ||
+            disabled ||
+            (!!roomGroupMembers &&
+                roomGroupMembers.length > 0 &&
+                roomGroupMembers.every(
+                    (member) => member.traveler.is_assigned === false,
+                ));
 
         return (
             <TableRow
@@ -1080,12 +1256,12 @@ export default function ManifestDatatable({
                 <TableCell>
                     <div className="flex items-center gap-2">
                         <span className="text-base font-medium">
-                            {mode === 'room'
+                            {isRoomMode
                                 ? (roomInfo?.room_label?.trim() ?? '') ||
                                   `Room ${item.groupIndex + 1}`
                                 : `Group ${item.groupIndex + 1}`}
                         </span>
-                        {mode === 'room' && (
+                        {isRoomMode && (
                             <Badge
                                 variant="secondary"
                                 className="text-sm uppercase"
@@ -1103,7 +1279,7 @@ export default function ManifestDatatable({
                         >
                             {capacityLabel} pax
                         </Badge>
-                        {mode !== 'room' && groupConfirmationNumber && (
+                        {!isRoomMode && groupConfirmationNumber && (
                             <Badge variant="secondary" className="text-sm">
                                 {groupConfirmationNumber}
                             </Badge>
@@ -1117,9 +1293,7 @@ export default function ManifestDatatable({
                         <TableCell>
                             <ProperInput
                                 value={
-                                    groups.find((g) => g.key === item.groupKey)
-                                        ?.members?.[0]?.traveler.relationship ??
-                                    ''
+                                    groupLeadTraveler?.relationship ?? ''
                                 }
                                 onCommit={(value) =>
                                     updateGroupField(
@@ -1147,7 +1321,23 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell />
                         <TableCell />
-                        <TableCell />
+                        <TableCell>
+                            <ProperInput
+                                value={
+                                    groupLeadTraveler?.group_remarks ?? ''
+                                }
+                                onCommit={(value) =>
+                                    updateGroupField(
+                                        item.groupKey,
+                                        'group_remarks',
+                                        value,
+                                    )
+                                }
+                                disabled={disabled}
+                                textarea
+                                size="default"
+                            />
+                        </TableCell>
                     </>
                 )}
 
@@ -1160,11 +1350,27 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell />
                         <TableCell />
-                        <TableCell />
+                        <TableCell>
+                            <ProperInput
+                                value={
+                                    groupLeadTraveler?.group_remarks ?? ''
+                                }
+                                onCommit={(value) =>
+                                    updateGroupField(
+                                        item.groupKey,
+                                        'group_remarks',
+                                        value,
+                                    )
+                                }
+                                disabled={disabled}
+                                textarea
+                                size="default"
+                            />
+                        </TableCell>
                     </>
                 )}
 
-                {mode === 'room' && (
+                {isRoomMode && (
                     <>
                         <TableCell />
                         <TableCell>
@@ -1177,7 +1383,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={disableRoomFields}
                                 placeholder="Relationship"
                                 size="default"
                             />
@@ -1196,7 +1402,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={disableRoomFields}
                                 placeholder={`Room ${item.groupIndex + 1}`}
                                 size="default"
                             />
@@ -1211,7 +1417,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={disableRoomFields}
                                 placeholder="Room no"
                                 size="default"
                             />
@@ -1227,7 +1433,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={disableRoomFields}
                                 options={SHARING_PLAN_OPTIONS}
                             />
                         </TableCell>
@@ -1242,7 +1448,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={disableRoomFields}
                                 options={ROOM_TYPE_OPTIONS}
                             />
                         </TableCell>
@@ -1257,7 +1463,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={disableRoomFields}
                                 options={BED_TYPE_OPTIONS}
                             />
                         </TableCell>
@@ -1267,6 +1473,32 @@ export default function ManifestDatatable({
                         <TableCell>
                             <span className="text-muted-foreground">-</span>
                         </TableCell>
+                        {mode === 'room_check' && (
+                            <TableCell>
+                                <div className="inline-flex items-center gap-2 text-base">
+                                    <span>
+                                        {getBedsCountByRoomTypeAndBedType(
+                                            roomInfo?.room_type,
+                                            roomInfo?.bed_type,
+                                        )}
+                                    </span>
+                                    <Checkbox
+                                        checked={
+                                            !!roomInfo?.number_of_beds_checked
+                                        }
+                                        onCheckedChange={(checked) =>
+                                            updateGroupField(
+                                                item.groupKey,
+                                                'number_of_beds_checked',
+                                                checked ? 1 : 0,
+                                            )
+                                        }
+                                        disabled={disabled}
+                                        aria-label="Mark number of beds checked"
+                                    />
+                                </div>
+                            </TableCell>
+                        )}
                         <TableCell>
                             <SelectCell
                                 value={roomInfo?.meal ?? ''}
@@ -1278,7 +1510,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={disableRoomFields}
                                 options={MEAL_OPTIONS}
                             />
                         </TableCell>
@@ -1295,13 +1527,7 @@ export default function ManifestDatatable({
                                     <>
                                         <ProperInput
                                             id={roomRemarksPath}
-                                            value={
-                                                groups.find(
-                                                    (g) =>
-                                                        g.key === item.groupKey,
-                                                )?.members?.[0]?.traveler
-                                                    ?.room_remarks ?? ''
-                                            }
+                                            value={groupLeadTraveler?.room_remarks ?? ''}
                                             onCommit={(value) =>
                                                 updateGroupField(
                                                     item.groupKey,
@@ -1329,7 +1555,38 @@ export default function ManifestDatatable({
                     </>
                 )}
 
-                <TableCell />
+                <TableCell>
+                    {mode === 'travelers' ? (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 p-0"
+                                    disabled={disabled || item.memberCount < 2}
+                                >
+                                    <span className="sr-only">
+                                        Open group actions
+                                    </span>
+                                    <EllipsisVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    disabled={disabled || item.memberCount < 2}
+                                    onClick={() =>
+                                        splitGroupInMainTab(item.groupKey)
+                                    }
+                                >
+                                    Split Up Group
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ) : (
+                        <span className="text-muted-foreground">-</span>
+                    )}
+                </TableCell>
             </TableRow>
         );
     };
@@ -1351,6 +1608,17 @@ export default function ManifestDatatable({
             !disabled &&
             traveler.status !== 'cancelled' &&
             !!traveler.customer_confirmation_member_id;
+
+        const isRoomMode = mode === 'room' || mode === 'room_check';
+        const isOfficialRoomTraveler = isOfficialTraveler(traveler);
+        const isRoomAssigned = traveler.is_assigned !== false;
+
+        const memberDisabled =
+            mode === 'room_check' ||
+            disabled ||
+            (isRoomMode &&
+                isOfficialRoomTraveler &&
+                traveler.is_assigned === false);
 
         const rowContent = (
             <TableRow
@@ -1409,13 +1677,15 @@ export default function ManifestDatatable({
                                 value,
                             )
                         }
-                        disabled={disabled}
+                        disabled={memberDisabled}
                         size="default"
                     />
                     {renderCellError(flatIndex, 'name_as_per_passport')}
                 </TableCell>
 
-                {(mode === 'travelers' || mode === 'room') && (
+                {(mode === 'travelers' ||
+                    mode === 'room' ||
+                    mode === 'room_check') && (
                     <TableCell>
                         <ProperInput
                             id={
@@ -1427,7 +1697,7 @@ export default function ManifestDatatable({
                             onCommit={(value) =>
                                 updateMemberField(flatIndex, 'role', value)
                             }
-                            disabled={disabled}
+                            disabled={memberDisabled}
                             size="default"
                         />
                         {renderCellError(flatIndex, 'role')}
@@ -1720,7 +1990,7 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'room' && (
+                {(mode === 'room' || mode === 'room_check') && (
                     <>
                         <TableCell />
                         <TableCell>
@@ -1741,7 +2011,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={memberDisabled}
                                 size="default"
                             />
                             {renderCellError(flatIndex, 'passport_number')}
@@ -1759,7 +2029,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={memberDisabled}
                                 options={SHARING_PLAN_OPTIONS}
                             />
                             {renderCellError(flatIndex, 'sharing_plan')}
@@ -1785,7 +2055,7 @@ export default function ManifestDatatable({
                                         value,
                                     )
                                 }
-                                disabled={disabled}
+                                disabled={memberDisabled}
                             />
                             {renderCellError(flatIndex, 'date_of_birth')}
                         </TableCell>
@@ -1802,6 +2072,13 @@ export default function ManifestDatatable({
                                 size="default"
                             />
                         </TableCell>
+                        {mode === 'room_check' && (
+                            <TableCell>
+                                <span className="text-muted-foreground">
+                                    -
+                                </span>
+                            </TableCell>
+                        )}
                         <TableCell />
                     </>
                 )}
@@ -1974,7 +2251,7 @@ export default function ManifestDatatable({
                         onCommit={(value) =>
                             updateMemberField(flatIndex, 'remarks', value)
                         }
-                        disabled={disabled}
+                        disabled={memberDisabled}
                         textarea
                         size="default"
                         className="min-h-[70px]"
@@ -1983,7 +2260,7 @@ export default function ManifestDatatable({
                 </TableCell>
 
                 <TableCell>
-                    {mode === 'travelers' ? (
+                    {mode === 'travelers' || mode === 'room' ? (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -2001,11 +2278,40 @@ export default function ManifestDatatable({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 <TravelerActionItems
+                                    mode={mode}
                                     disabled={disabled}
                                     canMoveToHolding={canMoveToHolding}
                                     onMoveToHolding={() =>
                                         onMoveToHolding?.(traveler)
                                     }
+                                    canToggleRoomAssignment={
+                                        mode === 'room' &&
+                                        isOfficialRoomTraveler
+                                    }
+                                    isRoomAssigned={isRoomAssigned}
+                                    onToggleRoomAssignment={() => {
+                                        if (mode !== 'room') {
+                                            return;
+                                        }
+
+                                        updateMemberField(
+                                            flatIndex,
+                                            'is_assigned',
+                                            isRoomAssigned ? 0 : 1,
+                                        );
+
+                                        if (isRoomAssigned) {
+                                            updateMemberField(
+                                                flatIndex,
+                                                'remarks',
+                                                traveler.remarks &&
+                                                    traveler.remarks.trim() !==
+                                                        ''
+                                                    ? traveler.remarks
+                                                    : 'Lives in different accommodation',
+                                            );
+                                        }
+                                    }}
                                 />
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -2016,7 +2322,7 @@ export default function ManifestDatatable({
             </TableRow>
         );
 
-        if (mode !== 'travelers') {
+        if (mode !== 'travelers' && mode !== 'room') {
             return rowContent;
         }
 
@@ -2024,12 +2330,44 @@ export default function ManifestDatatable({
             <ContextMenu>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                    <ContextMenuItem
-                        disabled={!canMoveToHolding || disabled}
-                        onClick={() => onMoveToHolding?.(traveler)}
-                    >
-                        Move to Holding
-                    </ContextMenuItem>
+                    {mode === 'travelers' ? (
+                        <ContextMenuItem
+                            disabled={!canMoveToHolding || disabled}
+                            onClick={() => onMoveToHolding?.(traveler)}
+                        >
+                            Move to Holding
+                        </ContextMenuItem>
+                    ) : (
+                        <ContextMenuItem
+                            disabled={
+                                disabled ||
+                                !isOfficialRoomTraveler ||
+                                mode !== 'room'
+                            }
+                            onClick={() => {
+                                updateMemberField(
+                                    flatIndex,
+                                    'is_assigned',
+                                    isRoomAssigned ? 0 : 1,
+                                );
+
+                                if (isRoomAssigned) {
+                                    updateMemberField(
+                                        flatIndex,
+                                        'remarks',
+                                        traveler.remarks &&
+                                            traveler.remarks.trim() !== ''
+                                            ? traveler.remarks
+                                            : 'Lives in different accommodation',
+                                    );
+                                }
+                            }}
+                        >
+                            {isRoomAssigned
+                                ? 'Dont Assign Room'
+                                : 'Assign Room'}
+                        </ContextMenuItem>
+                    )}
                 </ContextMenuContent>
             </ContextMenu>
         );
@@ -2241,7 +2579,7 @@ export default function ManifestDatatable({
                                         colSpan={getColumnCount()}
                                         className="py-8 text-center text-muted-foreground"
                                     >
-                                        No travelers added yet
+                                        No members added yet
                                     </TableCell>
                                 </TableRow>
                             )}

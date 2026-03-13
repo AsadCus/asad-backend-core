@@ -11,11 +11,13 @@ class ManifestRoomMember extends Model
         'manifest_room_id',
         'manifest_traveler_id',
         'sort_order',
+        'is_assigned',
         'remarks',
     ];
 
     protected $casts = [
         'sort_order' => 'integer',
+        'is_assigned' => 'boolean',
     ];
 
     public function room(): BelongsTo

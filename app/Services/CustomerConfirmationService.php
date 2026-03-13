@@ -269,6 +269,7 @@ class CustomerConfirmationService
             'members.customer.user',
             'members.receiptAllocations',
             'members.quotationItems',
+            'members.quotationItems.invoices.receipt',
             'enquiry',
             'package',
         ])
@@ -294,7 +295,7 @@ class CustomerConfirmationService
                 });
 
                 $groupPaidAmount = $activeMembers->sum(
-                    fn (CustomerConfirmationMember $member) => (float) $member->receiptAllocations->sum('allocated_amount')
+                    fn (CustomerConfirmationMember $member) => $this->resolveMemberPaidAmount($member)
                 );
 
                 $quotedMemberCount = $activeMembers->filter(
@@ -328,7 +329,7 @@ class CustomerConfirmationService
                             ? 0
                             : $this->getPackagePriceForSharingPlan($group->package, $member->sharing_plan);
 
-                        $paidAmount = (float) $member->receiptAllocations->sum('allocated_amount');
+                        $paidAmount = $this->resolveMemberPaidAmount($member);
 
                         return [
                             'id' => $member->id,
@@ -353,6 +354,32 @@ class CustomerConfirmationService
                 ];
             })
             ->all();
+    }
+
+    private function resolveMemberPaidAmount(CustomerConfirmationMember $member): float
+    {
+        $allocatedAmount = (float) $member->receiptAllocations->sum('allocated_amount');
+
+        if ($allocatedAmount > 0) {
+            return $allocatedAmount;
+        }
+
+        $fallbackAmount = (float) $member->quotationItems->sum(function ($item): float {
+            $hasPaidInvoice = $item->invoices->contains(function ($invoice): bool {
+                $status = strtolower((string) ($invoice->status ?? ''));
+                $hasReceipt = $invoice->receipt->isNotEmpty();
+
+                return $status === 'paid' || $hasReceipt;
+            });
+
+            if (! $hasPaidInvoice) {
+                return 0.0;
+            }
+
+            return (float) $item->quantity * (float) $item->rate;
+        });
+
+        return $fallbackAmount;
     }
 
     /** List active customers for selection. */

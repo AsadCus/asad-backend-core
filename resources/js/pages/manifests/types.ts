@@ -64,10 +64,22 @@ export interface PackageAccommodationOption {
     check_out?: string;
 }
 
+export interface PackageFlightOption {
+    id?: number;
+    from?: string;
+    to?: string;
+    description?: string;
+    airline?: string;
+    pnr?: string;
+    departure_datetime?: string;
+    arrival_datetime?: string;
+}
+
 export interface PackageForManifestOption extends ValueNumberOptionType {
     departure_date?: string;
     return_date?: string;
     accommodations?: PackageAccommodationOption[];
+    flights?: PackageFlightOption[];
 }
 
 export interface ManifestFormData
@@ -96,6 +108,7 @@ export type TravelerWithUI = TravelerSchema & {
     manifest_sharing_group_id?: number;
     sharing_group_id?: number;
     sharing_group_key?: string;
+    group_sort_order?: number;
     accommodation_key?: string;
     sort_order?: number;
     room_relationship?: string | null;

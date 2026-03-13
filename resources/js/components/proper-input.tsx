@@ -21,7 +21,7 @@ export function ProperInput({
     placeholder?: string;
     disabled?: boolean;
     textarea?: boolean;
-    type?: 'text' | 'number';
+    type?: 'text' | 'number' | 'time';
     size?: 'compact' | 'default';
     className?: string;
     inputProps?: React.InputHTMLAttributes<HTMLInputElement>;

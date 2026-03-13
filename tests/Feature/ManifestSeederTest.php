@@ -7,6 +7,7 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\Manifest;
+use App\Models\ManifestRoomMember;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
@@ -15,6 +16,7 @@ use App\Models\Receipt;
 use App\Models\ReceiptAllocation;
 use App\Models\User;
 use Database\Seeders\ManifestSeeder;
+use Database\Seeders\PackageSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -245,5 +247,34 @@ class ManifestSeederTest extends TestCase
         $this->assertCount(1, $singleRooms);
         $this->assertSame([2, 2], $doubleRooms->map(fn ($room) => $room->roomMembers()->count())->all());
         $this->assertSame(1, $singleRooms->first()->roomMembers()->count());
+    }
+
+    public function test_manifest_seeder_populates_official_sharing_groups_and_room_members(): void
+    {
+        $this->seed(PackageSeeder::class);
+        $this->seed(ManifestSeeder::class);
+
+        $manifest = Manifest::query()
+            ->whereHas('package.officials')
+            ->with(['package.officials', 'travelers', 'rooms.roomMembers'])
+            ->firstOrFail();
+
+        $officialTravelers = $manifest->travelers->whereNotNull('package_official_id')->values();
+
+        $this->assertTrue($officialTravelers->isNotEmpty());
+
+        $this->assertTrue($officialTravelers->every(function ($traveler): bool {
+            return $traveler->manifest_sharing_group_id !== null
+                && $traveler->role !== null
+                && $traveler->sharing_plan === 'single';
+        }));
+
+        $officialTravelerIds = $officialTravelers->pluck('id')->all();
+
+        $officialRoomMembers = ManifestRoomMember::query()
+            ->whereIn('manifest_traveler_id', $officialTravelerIds)
+            ->get();
+
+        $this->assertTrue($officialRoomMembers->isNotEmpty());
     }
 }

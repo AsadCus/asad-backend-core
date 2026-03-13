@@ -22,12 +22,14 @@ class ManifestRoom extends Model
         'sharing_plan',
         'status',
         'meal',
+        'number_of_beds_checked',
         'remarks',
     ];
 
     protected $casts = [
         'sort_order' => 'integer',
         'capacity' => 'integer',
+        'number_of_beds_checked' => 'boolean',
     ];
 
     public function manifest(): BelongsTo

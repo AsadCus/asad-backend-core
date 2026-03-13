@@ -8,6 +8,7 @@ use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
 use App\Models\Package;
+use App\Models\PackageOfficial;
 use App\Models\User;
 use App\Services\ManifestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,7 +21,10 @@ class ManifestWorkflowTest extends TestCase
     public function test_store_accepts_grouped_manifest_payload_and_normalizes_values(): void
     {
         $actingUser = User::factory()->create();
-        $customerUser = User::factory()->create(['name' => 'Ahmad Example']);
+        $customerUser = User::factory()->create([
+            'name' => 'Ahmad Example',
+            'contact' => '0199988877',
+        ]);
 
         $this->actingAs($actingUser);
 
@@ -34,6 +38,11 @@ class ManifestWorkflowTest extends TestCase
             'user_id' => $customerUser->id,
             'passport_number' => 'A1234567',
             'date_of_birth' => '1995-01-10',
+            'address' => 'Jalan Bukit Bintang, Kuala Lumpur',
+            'first_time_umrah' => true,
+            'has_chronic_disease' => false,
+            'passport_path' => 'passports/customer-001.pdf',
+            'photo_path' => 'photos/customer-001.jpg',
             'is_active' => true,
         ]);
 
@@ -90,7 +99,22 @@ class ManifestWorkflowTest extends TestCase
         $this->assertDatabaseHas('manifest_members', [
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
+            'name' => 'Ahmad Example',
+            'contact_number' => '0199988877',
+            'passport_number' => 'A9999999',
+            'address' => 'Jalan Bukit Bintang, Kuala Lumpur',
+            'first_time_umrah' => 1,
+            'has_chronic_disease' => 0,
+            'passport_path' => 'passports/customer-001.pdf',
+            'photo_path' => 'photos/customer-001.jpg',
         ]);
+
+        $manifestMemberDob = ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->value('date_of_birth');
+
+        $this->assertNotNull($manifestMemberDob);
 
         $customer->refresh();
         $this->assertSame('A9999999', $customer->passport_number);
@@ -170,6 +194,66 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame('Siti Example', $result['travelers'][0]['name_as_per_passport']);
         $this->assertArrayHasKey('roomLists', $result);
         $this->assertArrayHasKey('airlineList', $result);
+    }
+
+    public function test_update_persists_and_rehydrates_manifest_sharing_group_remarks(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-GROUP-REMARK-001',
+            'name' => 'Umrah Group Remark',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-GROUP-REMARK-001',
+            'status' => 'draft',
+        ]);
+
+        $memberOne = $this->createMemberForPackage($package->id, 'Remark One', $actingUser->id);
+        $memberTwo = $this->createMemberForPackage($package->id, 'Remark Two', $actingUser->id);
+
+        $payload = [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'sn' => 1,
+                    'customer_confirmation_member_id' => $memberOne->id,
+                    'name_as_per_passport' => 'Remark One',
+                    'sharing_group_key' => 'group-remarks-a',
+                    'sharing_plan' => 'double',
+                    'group_remarks' => 'Shared group note from main tab',
+                ],
+                [
+                    'sn' => 2,
+                    'customer_confirmation_member_id' => $memberTwo->id,
+                    'name_as_per_passport' => 'Remark Two',
+                    'sharing_group_key' => 'group-remarks-a',
+                    'sharing_plan' => 'double',
+                    'group_remarks' => 'Shared group note from main tab',
+                ],
+            ],
+        ];
+
+        $this->put(route('manifests.update', $manifest->id), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $manifest->refresh();
+
+        $this->assertDatabaseHas('manifest_sharing_groups', [
+            'manifest_id' => $manifest->id,
+            'remarks' => 'Shared group note from main tab',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+        $this->assertSame(
+            'Shared group note from main tab',
+            $rehydrated['travelers'][0]['group_remarks'] ?? null,
+        );
     }
 
     public function test_room_grouping_falls_back_to_each_customer_when_no_sharing_group_exists(): void
@@ -764,6 +848,398 @@ class ManifestWorkflowTest extends TestCase
             'sharing_plan' => 'double',
             'room_label' => 'Room A',
         ]);
+    }
+
+    public function test_relationship_update_does_not_override_member_role(): void
+    {
+        $actingUser = User::factory()->create();
+
+        $package = Package::create([
+            'package_number' => 'PKG-ROLE-REL-001',
+            'name' => 'Role Relation Package',
+            'status' => 'open',
+        ]);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Traveler Role Relation',
+            'contact' => '0198877665',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'is_active' => true,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'status' => 'confirmed',
+            'role' => 'wife',
+            'sharing_plan' => 'double',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-ROLE-REL-001',
+            'status' => 'draft',
+        ]);
+
+        app(ManifestService::class)->update([
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Traveler Role Relation',
+                    'relationship' => 'family',
+                    'sharing_group_key' => 'group-role-rel-1',
+                ],
+            ],
+        ], (int) $manifest->id);
+
+        $member->refresh();
+        $manifest->refresh();
+
+        $this->assertSame('wife', $member->role);
+        $this->assertSame('family', $manifest->manifestSharingGroups()->value('relation'));
+    }
+
+    public function test_update_adds_new_member_into_existing_confirmation_room_capacity_before_creating_new_group(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-CAPACITY-001',
+            'name' => 'Umrah Capacity Assignment',
+            'status' => 'open',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $members = collect();
+
+        foreach (range(1, 4) as $index) {
+            $user = User::factory()->create(['name' => 'Capacity Member '.$index]);
+            $customer = Customer::create([
+                'user_id' => $user->id,
+                'is_active' => true,
+            ]);
+
+            $members->push(CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'is_leader' => $index === 1,
+                'status' => 'confirmed',
+                'role' => 'member',
+                'sharing_plan' => 'double',
+            ]));
+        }
+
+        $first = $members->get(0);
+        $second = $members->get(1);
+        $third = $members->get(2);
+        $fourth = $members->get(3);
+
+        $this->post(route('manifests.store'), [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $first->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Capacity Member 1',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'group-double-a',
+                ],
+                [
+                    'customer_confirmation_member_id' => $second->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Capacity Member 2',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'group-double-a',
+                ],
+                [
+                    'customer_confirmation_member_id' => $third->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Capacity Member 3',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'group-double-b',
+                ],
+            ],
+            'roomLists' => [
+                'mekkah' => [
+                    [
+                        'customer_confirmation_member_id' => $first->id,
+                        'customer_confirmation_id' => $confirmation->id,
+                        'name_as_per_passport' => 'Capacity Member 1',
+                        'sharing_plan' => 'double',
+                        'sharing_group_key' => 'room-double-a',
+                        'room_type' => 'double',
+                    ],
+                    [
+                        'customer_confirmation_member_id' => $second->id,
+                        'customer_confirmation_id' => $confirmation->id,
+                        'name_as_per_passport' => 'Capacity Member 2',
+                        'sharing_plan' => 'double',
+                        'sharing_group_key' => 'room-double-a',
+                        'room_type' => 'double',
+                    ],
+                    [
+                        'customer_confirmation_member_id' => $third->id,
+                        'customer_confirmation_id' => $confirmation->id,
+                        'name_as_per_passport' => 'Capacity Member 3',
+                        'sharing_plan' => 'double',
+                        'sharing_group_key' => 'room-double-b',
+                        'room_type' => 'double',
+                    ],
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $manifest = Manifest::query()->firstOrFail();
+        $payload = app(ManifestService::class)->getForEditShow((int) $manifest->id);
+
+        $payload['travelers'][] = [
+            'customer_confirmation_member_id' => $fourth->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'name_as_per_passport' => 'Capacity Member 4',
+            'sharing_plan' => 'double',
+            'sharing_group_key' => 'solo-'.$fourth->id,
+        ];
+
+        $payload['roomLists']['mekkah'][] = [
+            'customer_confirmation_member_id' => $fourth->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'name_as_per_passport' => 'Capacity Member 4',
+            'sharing_plan' => 'double',
+            'sharing_group_key' => 'solo-'.$fourth->id,
+            'room_type' => 'double',
+        ];
+
+        $this->put(route('manifests.update', $manifest->id), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $manifest->refresh();
+
+        $groupMemberCounts = $manifest->manifestSharingGroups()
+            ->where('customer_confirmation_id', $confirmation->id)
+            ->withCount('members')
+            ->orderBy('id')
+            ->get()
+            ->pluck('members_count')
+            ->sort()
+            ->values()
+            ->all();
+
+        $roomMemberCounts = $manifest->rooms()
+            ->withCount('roomMembers')
+            ->orderBy('id')
+            ->get()
+            ->pluck('room_members_count')
+            ->sort()
+            ->values()
+            ->all();
+
+        $this->assertSame([2, 2], $groupMemberCounts);
+        $this->assertSame([2, 2], $roomMemberCounts);
+    }
+
+    public function test_update_persists_group_member_sort_order_and_keeps_official_groups_last(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-ORDER-001',
+            'name' => 'Ordering Package',
+            'status' => 'open',
+        ]);
+
+        $customerUser = User::factory()->create(['name' => 'Sorted Member']);
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'is_active' => true,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'confirmed',
+            'role' => 'member',
+            'sharing_plan' => 'double',
+        ]);
+
+        $official = PackageOfficial::create([
+            'package_id' => $package->id,
+            'name' => 'Official Member',
+            'type' => 'mutawwif',
+            'passport_number' => 'OFF-0001',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-ORDER-001',
+            'status' => 'draft',
+        ]);
+
+        app(ManifestService::class)->update([
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'package_official_id' => $official->id,
+                    'name_as_per_passport' => 'Official Member',
+                    'sharing_group_key' => 'official-group',
+                    'group_sort_order' => 1,
+                    'sort_order' => 1,
+                ],
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Sorted Member',
+                    'sharing_group_key' => 'member-group',
+                    'group_sort_order' => 2,
+                    'sort_order' => 1,
+                ],
+            ],
+        ], (int) $manifest->id);
+
+        $manifest->refresh();
+        $orderedGroups = $manifest->manifestSharingGroups()
+            ->orderBy('sort_order')
+            ->with('members')
+            ->get();
+
+        $this->assertCount(2, $orderedGroups);
+        $this->assertNotNull($orderedGroups[0]->customer_confirmation_id);
+        $this->assertNull($orderedGroups[1]->customer_confirmation_id);
+
+        $result = app(ManifestService::class)->getForEditShow((int) $manifest->id);
+        $travelers = $result['travelers'];
+
+        $this->assertCount(2, $travelers);
+        $this->assertSame($member->id, $travelers[0]['customer_confirmation_member_id']);
+        $this->assertSame($official->id, $travelers[1]['package_official_id']);
+        $this->assertSame(1, (int) ($travelers[0]['group_sort_order'] ?? 0));
+        $this->assertSame(2, (int) ($travelers[1]['group_sort_order'] ?? 0));
+    }
+
+    public function test_update_keeps_member_order_stable_inside_same_sharing_group_across_repeated_updates(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MEMBER-ORDER-001',
+            'name' => 'Member Order Stability',
+            'status' => 'open',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'triple',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $makeMember = function (string $name) use ($confirmation): CustomerConfirmationMember {
+            $user = User::factory()->create(['name' => $name]);
+            $customer = Customer::create([
+                'user_id' => $user->id,
+                'is_active' => true,
+            ]);
+
+            return CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'status' => 'confirmed',
+                'role' => 'member',
+                'sharing_plan' => 'triple',
+            ]);
+        };
+
+        $memberA = $makeMember('Order A');
+        $memberB = $makeMember('Order B');
+        $memberC = $makeMember('Order C');
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-MEMBER-ORDER-001',
+            'status' => 'draft',
+        ]);
+
+        $sharedGroupKey = 'stable-group-1';
+
+        app(ManifestService::class)->update([
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $memberA->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Order A',
+                    'sharing_group_key' => $sharedGroupKey,
+                    'group_sort_order' => 1,
+                    'sort_order' => 1,
+                ],
+                [
+                    'customer_confirmation_member_id' => $memberB->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Order B',
+                    'sharing_group_key' => $sharedGroupKey,
+                    'group_sort_order' => 1,
+                    'sort_order' => 2,
+                ],
+                [
+                    'customer_confirmation_member_id' => $memberC->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Order C',
+                    'sharing_group_key' => $sharedGroupKey,
+                    'group_sort_order' => 1,
+                    'sort_order' => 3,
+                ],
+            ],
+        ], (int) $manifest->id);
+
+        $service = app(ManifestService::class);
+        $payload = $service->getForEditShow((int) $manifest->id);
+
+        $this->assertSame($memberA->id, $payload['travelers'][0]['customer_confirmation_member_id']);
+        $this->assertSame($memberB->id, $payload['travelers'][1]['customer_confirmation_member_id']);
+        $this->assertSame($memberC->id, $payload['travelers'][2]['customer_confirmation_member_id']);
+
+        app(ManifestService::class)->update([
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => $payload['travelers'],
+        ], (int) $manifest->id);
+
+        $payloadAfterSecondUpdate = $service->getForEditShow((int) $manifest->id);
+
+        $this->assertSame($memberA->id, $payloadAfterSecondUpdate['travelers'][0]['customer_confirmation_member_id']);
+        $this->assertSame($memberB->id, $payloadAfterSecondUpdate['travelers'][1]['customer_confirmation_member_id']);
+        $this->assertSame($memberC->id, $payloadAfterSecondUpdate['travelers'][2]['customer_confirmation_member_id']);
     }
 
     private function createMemberForPackage(int $packageId, string $customerName, int $createdBy): CustomerConfirmationMember

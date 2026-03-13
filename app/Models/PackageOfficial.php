@@ -12,12 +12,23 @@ class PackageOfficial extends Model
         'type',
         'name',
         'contact_number',
+        'nationality',
+        'passport_number',
+        'gender',
+        'date_of_birth',
+        'passport_issue_date',
+        'passport_expiry_date',
+        'passport_place_of_issue',
+        'place_of_birth',
         'sort_order',
     ];
 
     protected function casts(): array
     {
         return [
+            'date_of_birth' => 'date',
+            'passport_issue_date' => 'date',
+            'passport_expiry_date' => 'date',
             'sort_order' => 'integer',
         ];
     }

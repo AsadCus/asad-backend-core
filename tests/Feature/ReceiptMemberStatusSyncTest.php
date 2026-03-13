@@ -283,6 +283,26 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertDatabaseHas('receipts', ['id' => $receipt->id]);
     }
 
+    public function test_grouped_index_paid_amount_reflects_paid_invoice_even_without_receipt_allocation_rows(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['depositInvoice']->update([
+            'status' => 'paid',
+            'amount' => 5000,
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+        $this->assertNotNull($group);
+        $this->assertSame(5000.0, (float) ($group['paid_amount'] ?? 0));
+
+        $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+        $this->assertNotNull($memberRow);
+        $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
+    }
+
     public function test_when_package_is_full_paid_member_becomes_unavailable_and_not_linked_to_manifest(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();

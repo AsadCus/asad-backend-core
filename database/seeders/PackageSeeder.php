@@ -127,9 +127,9 @@ class PackageSeeder extends Seeder
         ]);
 
         $package1->officials()->createMany([
-            ['type' => 'mutawif', 'name' => 'Ustaz Hadi', 'contact_number' => '0101001001', 'sort_order' => 1],
-            ['type' => 'mutawifah', 'name' => 'Ustazah Aisyah', 'contact_number' => '0101001002', 'sort_order' => 2],
-            ['type' => 'official', 'name' => 'Ops Lead A', 'contact_number' => '0101001003', 'sort_order' => 3],
+            ['type' => 'mutawif', 'name' => 'Ustaz Hadi', 'contact_number' => '0101001001', 'nationality' => 'Malaysian', 'passport_number' => 'P0010001', 'gender' => 'male', 'date_of_birth' => '1980-05-10', 'passport_issue_date' => '2022-01-10', 'passport_expiry_date' => '2032-01-09', 'passport_place_of_issue' => 'Kuala Lumpur', 'place_of_birth' => 'Kuala Lumpur', 'sort_order' => 1],
+            ['type' => 'mutawifah', 'name' => 'Ustazah Aisyah', 'contact_number' => '0101001002', 'nationality' => 'Malaysian', 'passport_number' => 'P0010002', 'gender' => 'female', 'date_of_birth' => '1985-09-20', 'passport_issue_date' => '2021-03-15', 'passport_expiry_date' => '2031-03-14', 'passport_place_of_issue' => 'Shah Alam', 'place_of_birth' => 'Shah Alam', 'sort_order' => 2],
+            ['type' => 'official', 'name' => 'Ops Lead A', 'contact_number' => '0101001003', 'nationality' => 'Malaysian', 'passport_number' => 'P0010003', 'gender' => 'male', 'date_of_birth' => '1990-11-02', 'passport_issue_date' => '2020-07-01', 'passport_expiry_date' => '2030-06-30', 'passport_place_of_issue' => 'Johor Bahru', 'place_of_birth' => 'Johor Bahru', 'sort_order' => 3],
         ]);
 
         $package2 = Package::create([
@@ -238,8 +238,8 @@ class PackageSeeder extends Seeder
         ]);
 
         $package2->officials()->createMany([
-            ['type' => 'mutawif', 'name' => 'Ustaz Rahman', 'contact_number' => '0111111111', 'sort_order' => 1],
-            ['type' => 'official', 'name' => 'Ops Lead B', 'contact_number' => '0111111112', 'sort_order' => 2],
+            ['type' => 'mutawif', 'name' => 'Ustaz Rahman', 'contact_number' => '0111111111', 'nationality' => 'Malaysian', 'passport_number' => 'P0020001', 'gender' => 'male', 'date_of_birth' => '1978-04-18', 'passport_issue_date' => '2019-06-12', 'passport_expiry_date' => '2029-06-11', 'passport_place_of_issue' => 'Kota Bharu', 'place_of_birth' => 'Kota Bharu', 'sort_order' => 1],
+            ['type' => 'official', 'name' => 'Ops Lead B', 'contact_number' => '0111111112', 'nationality' => 'Malaysian', 'passport_number' => 'P0020002', 'gender' => 'male', 'date_of_birth' => '1988-12-05', 'passport_issue_date' => '2021-02-20', 'passport_expiry_date' => '2031-02-19', 'passport_place_of_issue' => 'Penang', 'place_of_birth' => 'Penang', 'sort_order' => 2],
         ]);
 
         $package3 = Package::create([
@@ -365,9 +365,9 @@ class PackageSeeder extends Seeder
         ]);
 
         $package3->officials()->createMany([
-            ['type' => 'mutawif', 'name' => 'Ustaz Hakim', 'contact_number' => '0144003300', 'sort_order' => 1],
-            ['type' => 'mutawifah', 'name' => 'Ustazah Siti', 'contact_number' => '0144003301', 'sort_order' => 2],
-            ['type' => 'official', 'name' => 'Hajj Ops Lead', 'contact_number' => '0144003302', 'sort_order' => 3],
+            ['type' => 'mutawif', 'name' => 'Ustaz Hakim', 'contact_number' => '0144003300', 'nationality' => 'Malaysian', 'passport_number' => 'P0030001', 'gender' => 'male', 'date_of_birth' => '1975-01-25', 'passport_issue_date' => '2018-10-10', 'passport_expiry_date' => '2028-10-09', 'passport_place_of_issue' => 'Kuantan', 'place_of_birth' => 'Kuantan', 'sort_order' => 1],
+            ['type' => 'mutawifah', 'name' => 'Ustazah Siti', 'contact_number' => '0144003301', 'nationality' => 'Malaysian', 'passport_number' => 'P0030002', 'gender' => 'female', 'date_of_birth' => '1983-07-30', 'passport_issue_date' => '2020-12-05', 'passport_expiry_date' => '2030-12-04', 'passport_place_of_issue' => 'Seremban', 'place_of_birth' => 'Seremban', 'sort_order' => 2],
+            ['type' => 'official', 'name' => 'Hajj Ops Lead', 'contact_number' => '0144003302', 'nationality' => 'Malaysian', 'passport_number' => 'P0030003', 'gender' => 'male', 'date_of_birth' => '1986-08-14', 'passport_issue_date' => '2022-05-21', 'passport_expiry_date' => '2032-05-20', 'passport_place_of_issue' => 'Ipoh', 'place_of_birth' => 'Ipoh', 'sort_order' => 3],
         ]);
 
         $package4 = Package::create([
@@ -476,8 +476,8 @@ class PackageSeeder extends Seeder
         ]);
 
         $package4->officials()->createMany([
-            ['type' => 'mutawif', 'name' => 'Ustaz Faiz', 'contact_number' => '0177005500', 'sort_order' => 1],
-            ['type' => 'official', 'name' => 'Ramadan Ops', 'contact_number' => '0177005501', 'sort_order' => 2],
+            ['type' => 'mutawif', 'name' => 'Ustaz Faiz', 'contact_number' => '0177005500', 'nationality' => 'Malaysian', 'passport_number' => 'P0040001', 'gender' => 'male', 'date_of_birth' => '1981-02-13', 'passport_issue_date' => '2019-01-01', 'passport_expiry_date' => '2028-12-31', 'passport_place_of_issue' => 'Melaka', 'place_of_birth' => 'Melaka', 'sort_order' => 1],
+            ['type' => 'official', 'name' => 'Ramadan Ops', 'contact_number' => '0177005501', 'nationality' => 'Malaysian', 'passport_number' => 'P0040002', 'gender' => 'female', 'date_of_birth' => '1992-06-19', 'passport_issue_date' => '2023-04-15', 'passport_expiry_date' => '2033-04-14', 'passport_place_of_issue' => 'Putrajaya', 'place_of_birth' => 'Putrajaya', 'sort_order' => 2],
         ]);
 
         $package5 = Package::create([
@@ -586,8 +586,8 @@ class PackageSeeder extends Seeder
         ]);
 
         $package5->officials()->createMany([
-            ['type' => 'mutawif', 'name' => 'Ustaz Farid', 'contact_number' => '0191007700', 'sort_order' => 1],
-            ['type' => 'official', 'name' => 'Budget Ops', 'contact_number' => '0191007701', 'sort_order' => 2],
+            ['type' => 'mutawif', 'name' => 'Ustaz Farid', 'contact_number' => '0191007700', 'nationality' => 'Malaysian', 'passport_number' => 'P0050001', 'gender' => 'male', 'date_of_birth' => '1979-03-17', 'passport_issue_date' => '2017-09-25', 'passport_expiry_date' => '2027-09-24', 'passport_place_of_issue' => 'Alor Setar', 'place_of_birth' => 'Alor Setar', 'sort_order' => 1],
+            ['type' => 'official', 'name' => 'Budget Ops', 'contact_number' => '0191007701', 'nationality' => 'Malaysian', 'passport_number' => 'P0050002', 'gender' => 'male', 'date_of_birth' => '1991-10-09', 'passport_issue_date' => '2022-11-11', 'passport_expiry_date' => '2032-11-10', 'passport_place_of_issue' => 'Kangar', 'place_of_birth' => 'Kangar', 'sort_order' => 2],
         ]);
     }
 }

@@ -386,11 +386,50 @@ class ManifestController extends Controller
             }
 
             $grouped = [];
+            $groupSizes = [];
+            $groupBuckets = [];
+            $groupCounters = [];
 
             foreach ($flatRows as $rowIndex => $row) {
                 $groupKey = isset($row['sharing_group_key']) && is_string($row['sharing_group_key'])
                     ? trim($row['sharing_group_key'])
                     : '';
+
+                $sharingPlan = isset($row['sharing_plan']) && is_string($row['sharing_plan'])
+                    ? strtolower(trim($row['sharing_plan']))
+                    : '';
+
+                $confirmationId = isset($row['customer_confirmation_id'])
+                    ? (int) $row['customer_confirmation_id']
+                    : 0;
+
+                $isOfficial = ! empty($row['package_official_id']) || ! empty($row['is_official']);
+                $capacity = $this->capacityFromSharingPlan($sharingPlan !== '' ? $sharingPlan : null);
+                $bucketKey = $confirmationId > 0 && $sharingPlan !== ''
+                    ? $confirmationId.'|'.$sharingPlan.'|'.($isOfficial ? 'official' : 'member')
+                    : null;
+
+                $isExplicitKey = $groupKey !== '' && ! str_starts_with($groupKey, 'solo-');
+
+                if (! $isExplicitKey && $bucketKey !== null) {
+                    $candidateKeys = $groupBuckets[$bucketKey] ?? [];
+                    $selectedKey = null;
+
+                    foreach ($candidateKeys as $candidateKey) {
+                        if (($groupSizes[$candidateKey] ?? 0) < $capacity) {
+                            $selectedKey = $candidateKey;
+                            break;
+                        }
+                    }
+
+                    if ($selectedKey === null) {
+                        $groupCounters[$bucketKey] = ($groupCounters[$bucketKey] ?? 0) + 1;
+                        $selectedKey = 'room-auto-'.$bucketKey.'-'.$groupCounters[$bucketKey];
+                        $groupBuckets[$bucketKey][] = $selectedKey;
+                    }
+
+                    $groupKey = $selectedKey;
+                }
 
                 if ($groupKey === '') {
                     $memberId = isset($row['customer_confirmation_member_id'])
@@ -403,6 +442,12 @@ class ManifestController extends Controller
                     $groupKey = 'solo-'.($memberId ?: $customerId ?: ($rowIndex + 1));
                 }
 
+                if ($bucketKey !== null && ! in_array($groupKey, $groupBuckets[$bucketKey] ?? [], true)) {
+                    $groupBuckets[$bucketKey][] = $groupKey;
+                }
+
+                $groupSizes[$groupKey] = ($groupSizes[$groupKey] ?? 0) + 1;
+
                 $grouped[$groupKey][] = $row;
             }
 
@@ -414,27 +459,35 @@ class ManifestController extends Controller
                 $normalizedRooms[] = [
                     'sort_order' => $roomGroupSortOrder,
                     'location' => is_string($location) ? $location : null,
-                    'relationship' => $first['room_relationship'] ?? $first['relationship'] ?? null,
+                    'relationship' => $first['room_relationship'] ?? null,
                     'room_label' => $first['room_label'] ?? null,
                     'room_number' => $first['room_number'] ?? $first['room_no'] ?? null,
                     'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
                     'bed_type' => $this->normalizeBedType($first['bed_type'] ?? null),
                     'sharing_plan' => $first['sharing_plan'] ?? null,
-                    'capacity' => count($members),
+                    'capacity' => count(array_filter($members, fn (array $member) => ($member['is_assigned'] ?? true) !== false)),
                     'meal' => $first['meal'] ?? null,
+                    'number_of_beds_checked' => (bool) ($first['number_of_beds_checked'] ?? false),
                     'remarks' => $first['room_remarks'] ?? null,
                     'status' => 'pending',
                     'members' => array_values(array_map(function (array $member, int $index): array {
+                        $manifestTravelerId = isset($member['manifest_traveler_id'])
+                            ? (int) $member['manifest_traveler_id']
+                            : (isset($member['id']) ? (int) $member['id'] : null);
+
                         return [
-                            'manifest_traveler_id' => isset($member['manifest_traveler_id'])
-                                ? (int) $member['manifest_traveler_id']
-                                : null,
+                            'manifest_traveler_id' => $manifestTravelerId,
+                            'id' => isset($member['id']) ? (int) $member['id'] : null,
                             'customer_confirmation_member_id' => isset($member['customer_confirmation_member_id'])
                                 ? (int) $member['customer_confirmation_member_id']
+                                : null,
+                            'package_official_id' => isset($member['package_official_id'])
+                                ? (int) $member['package_official_id']
                                 : null,
                             'sharing_plan' => isset($member['sharing_plan']) && is_string($member['sharing_plan'])
                                 ? strtolower(trim($member['sharing_plan']))
                                 : null,
+                            'is_assigned' => (bool) ($member['is_assigned'] ?? true),
                             'sort_order' => (int) ($member['sort_order'] ?? $member['sn'] ?? ($index + 1)),
                             'remarks' => $member['remarks'] ?? null,
                         ];
@@ -446,6 +499,16 @@ class ManifestController extends Controller
         }
 
         return $normalizedRooms;
+    }
+
+    private function capacityFromSharingPlan(?string $sharingPlan): int
+    {
+        return match (strtolower((string) $sharingPlan)) {
+            'quad' => 4,
+            'triple' => 3,
+            'double' => 2,
+            default => 1,
+        };
     }
 
     private function normalizeRoomType(mixed $roomType): ?string

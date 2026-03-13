@@ -58,8 +58,8 @@ const columns: ColumnDef<ManifestSchema>[] = [
         filterFn: 'dateRangeFilter',
     },
     {
-        accessorKey: 'travelers_count',
-        header: 'Travelers',
+        accessorKey: 'members_count',
+        header: 'Members',
         meta: { exportable: true },
     },
     {

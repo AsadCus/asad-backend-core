@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CustomerConfirmationMember;
+use App\Models\ManifestMember;
 use App\Models\Package;
 
 class PackageSeatService
@@ -16,11 +17,11 @@ class PackageSeatService
 
     public function occupiedSeatsCount(int $packageId): int
     {
-        return CustomerConfirmationMember::query()
-            ->whereHas('confirmation', function ($query) use ($packageId) {
+        return ManifestMember::query()
+            ->whereNull('package_official_id')
+            ->whereHas('manifest', function ($query) use ($packageId) {
                 $query->where('package_id', $packageId);
             })
-            ->whereIn('status', self::OCCUPYING_STATUSES)
             ->count();
     }
 
