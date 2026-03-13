@@ -349,7 +349,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
 
         $this->assertEquals('cancelled', $data['member']->status);
         $this->assertEquals(2, $data['package']->seats_left);
-        $this->assertDatabaseMissing('manifest_travelers', [
+        $this->assertDatabaseMissing('manifest_members', [
             'id' => $traveler?->id,
         ]);
     }

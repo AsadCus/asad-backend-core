@@ -51,6 +51,7 @@ import { toast } from 'sonner';
 import {
     confirmationMemberStatusColors,
     confirmationMemberStatusLabels,
+    packageCategoryOptions,
 } from '../../customer/schema';
 import { type TravelerWithUI } from '../types';
 
@@ -99,6 +100,10 @@ const SHARING_PLAN_CAPACITY: Record<string, number> = {
     double: 2,
     single: 1,
 };
+
+const PACKAGE_CATEGORY_LABELS = Object.fromEntries(
+    packageCategoryOptions.map((option) => [option.value, option.label]),
+) as Record<string, string>;
 
 interface GroupMember {
     traveler: TravelerWithUI;
@@ -788,6 +793,25 @@ export default function ManifestDatatable({
             return;
         }
 
+        if (mode !== 'room') {
+            const sourceConfirmationId =
+                activeItem.traveler.customer_confirmation_id;
+            const targetConfirmationId =
+                targetGroup.members[0]?.traveler.customer_confirmation_id;
+
+            if (
+                sourceConfirmationId &&
+                targetConfirmationId &&
+                sourceConfirmationId !== targetConfirmationId
+            ) {
+                toast.error(
+                    'Cannot move: traveler must stay within the same customer confirmation group.',
+                );
+
+                return;
+            }
+        }
+
         if (mode === 'room') {
             const sharingPlan =
                 targetGroup.members[0]?.traveler.sharing_plan ?? '';
@@ -849,7 +873,7 @@ export default function ManifestDatatable({
         const drag = allowReorder ? 1 : 0;
 
         if (mode === 'travelers') {
-            return drag + 14;
+            return drag + 21;
         }
 
         if (mode === 'room') {
@@ -885,6 +909,9 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-40">Role</TableHead>
             )}
             {mode === 'travelers' && (
+                <TableHead className="min-w-40">Relation</TableHead>
+            )}
+            {mode === 'travelers' && (
                 <TableHead className="min-w-40">Package Category</TableHead>
             )}
             {mode === 'travelers' && (
@@ -908,6 +935,24 @@ export default function ManifestDatatable({
             {mode === 'travelers' && (
                 <TableHead className="min-w-20">Age</TableHead>
             )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-45">Contact No</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-55">Date of Issue</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-55">Date of Expiry</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-60">Issue Place</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-40">Birth Place</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-35">Package Price</TableHead>
+            )}
             {mode === 'airline' && (
                 <TableHead className="min-w-40">Passport No</TableHead>
             )}
@@ -927,7 +972,7 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-55">Date of Expiry</TableHead>
             )}
             {mode === 'airline' && (
-                <TableHead className="min-w-40">Issue Place</TableHead>
+                <TableHead className="min-w-60">Issue Place</TableHead>
             )}
             {mode === 'room' && (
                 <TableHead className="min-w-60">Relationship</TableHead>
@@ -972,6 +1017,12 @@ export default function ManifestDatatable({
         const isExpanded = expanded[item.groupKey] !== false;
         const roomInfo =
             mode === 'room' ? getGroupRoomInfo(item.groupKey) : null;
+        const groupConfirmationNumber =
+            mode !== 'room'
+                ? groups
+                      .find((group) => group.key === item.groupKey)
+                      ?.members?.at(0)?.traveler.customer_confirmation_number
+                : null;
         const capacity =
             mode === 'room'
                 ? getCapacityForSharingPlan(roomInfo?.sharing_plan)
@@ -1037,7 +1088,7 @@ export default function ManifestDatatable({
                         {mode === 'room' && (
                             <Badge
                                 variant="secondary"
-                                className="text-xs uppercase"
+                                className="text-sm uppercase"
                             >
                                 Room Row
                             </Badge>
@@ -1045,18 +1096,46 @@ export default function ManifestDatatable({
                         <Badge
                             variant="outline"
                             className={cn(
-                                'text-xs',
+                                'text-sm',
                                 isAtCapacity &&
                                     'border-red-300 bg-red-50 text-red-700',
                             )}
                         >
                             {capacityLabel} pax
                         </Badge>
+                        {mode !== 'room' && groupConfirmationNumber && (
+                            <Badge variant="secondary" className="text-sm">
+                                {groupConfirmationNumber}
+                            </Badge>
+                        )}
                     </div>
                 </TableCell>
 
                 {mode === 'travelers' && (
                     <>
+                        <TableCell />
+                        <TableCell>
+                            <ProperInput
+                                value={
+                                    groups.find((g) => g.key === item.groupKey)
+                                        ?.members?.[0]?.traveler.relationship ??
+                                    ''
+                                }
+                                onCommit={(value) =>
+                                    updateGroupField(
+                                        item.groupKey,
+                                        'relationship',
+                                        value,
+                                    )
+                                }
+                                disabled={disabled}
+                                size="default"
+                            />
+                        </TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
                         <TableCell />
                         <TableCell />
                         <TableCell />
@@ -1357,8 +1436,20 @@ export default function ManifestDatatable({
 
                 {mode === 'travelers' && (
                     <TableCell>
+                        <span className="text-muted-foreground">-</span>
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
                         <ProperInput
-                            value={traveler.package_category ?? ''}
+                            value={
+                                PACKAGE_CATEGORY_LABELS[
+                                    traveler.package_category ?? ''
+                                ] ??
+                                traveler.package_category ??
+                                ''
+                            }
                             disabled={true}
                             onCommit={() => {}}
                             size="default"
@@ -1483,6 +1574,122 @@ export default function ManifestDatatable({
                                 traveler.age !== undefined
                                     ? String(traveler.age)
                                     : getAgeFromDate(traveler.date_of_birth)
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={traveler.contact_no ?? ''}
+                            onCommit={(value) =>
+                                updateMemberField(
+                                    flatIndex,
+                                    'contact_no',
+                                    value,
+                                )
+                            }
+                            disabled={disabled}
+                            size="default"
+                        />
+                        {renderCellError(flatIndex, 'contact_no')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <DatePickerField
+                            id={
+                                errorPrefix
+                                    ? getErrorPath(flatIndex, 'date_of_issue')
+                                    : `main-date-of-issue-${flatIndex}`
+                            }
+                            value={traveler.date_of_issue ?? ''}
+                            fromYear={new Date().getFullYear() - 10}
+                            onChange={(value) =>
+                                updateMemberField(
+                                    flatIndex,
+                                    'date_of_issue',
+                                    value,
+                                )
+                            }
+                            disabled={disabled}
+                        />
+                        {renderCellError(flatIndex, 'date_of_issue')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <DatePickerField
+                            id={
+                                errorPrefix
+                                    ? getErrorPath(flatIndex, 'date_of_expiry')
+                                    : `main-date-of-expiry-${flatIndex}`
+                            }
+                            value={traveler.date_of_expiry ?? ''}
+                            toYear={new Date().getFullYear() + 10}
+                            onChange={(value) =>
+                                updateMemberField(
+                                    flatIndex,
+                                    'date_of_expiry',
+                                    value,
+                                )
+                            }
+                            disabled={disabled}
+                        />
+                        {renderCellError(flatIndex, 'date_of_expiry')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={traveler.issue_place ?? ''}
+                            onCommit={(value) =>
+                                updateMemberField(
+                                    flatIndex,
+                                    'issue_place',
+                                    value,
+                                )
+                            }
+                            disabled={disabled}
+                            size="default"
+                        />
+                        {renderCellError(flatIndex, 'issue_place')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={traveler.birth_place ?? ''}
+                            onCommit={(value) =>
+                                updateMemberField(
+                                    flatIndex,
+                                    'birth_place',
+                                    value,
+                                )
+                            }
+                            disabled={disabled}
+                            size="default"
+                        />
+                        {renderCellError(flatIndex, 'birth_place')}
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                traveler.package_price !== null &&
+                                traveler.package_price !== undefined
+                                    ? String(traveler.package_price)
+                                    : ''
                             }
                             disabled={true}
                             onCommit={() => {}}

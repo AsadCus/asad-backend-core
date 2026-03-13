@@ -20,6 +20,34 @@ export const flightSchema = z.object({
     arrival_datetime: z.string().nullable().optional(),
 });
 
+export const trainTicketSchema = z.object({
+    id: z.number().optional(),
+    from: z.string().nullable().optional(),
+    to: z.string().nullable().optional(),
+    travel_date: z.string().nullable().optional(),
+    travel_time: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
+});
+
+export const transportationPlanSchema = z.object({
+    id: z.number().optional(),
+    from: z.string().nullable().optional(),
+    to: z.string().nullable().optional(),
+    travel_date: z.string().nullable().optional(),
+    travel_time: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
+});
+
+export const rawdahTasreehSchema = z.object({
+    id: z.number().optional(),
+    date: z.string().nullable().optional(),
+    women_passengers: z.coerce.number().nullable().optional(),
+    women_time: z.string().nullable().optional(),
+    men_passengers: z.coerce.number().nullable().optional(),
+    men_time: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
+});
+
 export const officialSchema = z.object({
     id: z.number().optional(),
     type: z.string().nullable().optional(),
@@ -56,6 +84,8 @@ export const packageSchema = z.object({
 
     // Vehicle
     vehicle_type: z.string().nullable().optional(),
+    vehicle_driver_name: z.string().nullable().optional(),
+    vehicle_driver_contact_number: z.string().nullable().optional(),
 
     // Train
     ticket_type: z.string().nullable().optional(),
@@ -74,6 +104,15 @@ export const packageSchema = z.object({
     // Flight Details
     flights: z.array(flightSchema).optional(),
 
+    // Train Tickets
+    train_tickets: z.array(trainTicketSchema).optional(),
+
+    // Transportation Plans
+    transportation_plans: z.array(transportationPlanSchema).optional(),
+
+    // Rawdah Tasreeh
+    rawdah_tasreehs: z.array(rawdahTasreehSchema).optional(),
+
     // Officials
     officials: z.array(officialSchema).optional(),
 });
@@ -81,6 +120,9 @@ export const packageSchema = z.object({
 export type PackageSchema = z.infer<typeof packageSchema>;
 export type AccommodationSchema = z.infer<typeof accommodationSchema>;
 export type FlightSchema = z.infer<typeof flightSchema>;
+export type TrainTicketSchema = z.infer<typeof trainTicketSchema>;
+export type TransportationPlanSchema = z.infer<typeof transportationPlanSchema>;
+export type RawdahTasreehSchema = z.infer<typeof rawdahTasreehSchema>;
 export type OfficialSchema = z.infer<typeof officialSchema>;
 
 export const packageStatusOptions = [
@@ -99,8 +141,14 @@ export const packageStatusLabels: Record<string, string> = {
 };
 
 export const packageTicketTypeLabels: Record<string, string> = {
-    speed_train: 'Speed Train',
+    one_way: 'One Way',
+    two_way: 'Two Way',
 };
+
+export const packageTrainTicketTypeOptions = [
+    { label: 'One Way', value: 'one_way' },
+    { label: 'Two Way', value: 'two_way' },
+];
 
 export const sharingPlanOptions = [
     { label: 'Single', value: 'single' },

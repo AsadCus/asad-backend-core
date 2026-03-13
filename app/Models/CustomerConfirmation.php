@@ -65,11 +65,6 @@ class CustomerConfirmation extends Model
         return $this->belongsTo(Package::class, 'package_id');
     }
 
-    public function sharingGroups(): HasMany
-    {
-        return $this->hasMany(SharingGroup::class, 'customer_confirmation_id');
-    }
-
     public function quotations(): HasMany
     {
         return $this->hasMany(Quotation::class, 'customer_confirmation_id');

@@ -11,31 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sharing_groups', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('customer_confirmation_id')->constrained('customer_confirmations')->cascadeOnDelete();
-            $table->string('sharing_plan');
-            $table->unsignedTinyInteger('expected_capacity')->default(1);
-            $table->string('status')->default('draft');
-            $table->unsignedSmallInteger('sort_order')->default(0);
-            $table->text('remarks')->nullable();
-            $table->timestamps();
-        });
-
-        Schema::create('sharing_group_members', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('sharing_group_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('customer_confirmation_member_id')->constrained('customer_confirmation_members')->cascadeOnDelete();
-            $table->string('role_in_group')->nullable();
-            $table->unsignedSmallInteger('sort_order')->default(0);
-            $table->text('remarks')->nullable();
-            $table->timestamps();
-        });
-
         Schema::create('manifest_room_members', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_room_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('manifest_traveler_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('manifest_traveler_id')->constrained('manifest_members')->cascadeOnDelete();
             $table->unsignedInteger('sort_order')->default(1);
             $table->text('remarks')->nullable();
             $table->timestamps();
@@ -44,11 +23,11 @@ return new class extends Migration
         Schema::create('manifest_sharing_groups', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('sharing_group_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('manifest_room_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('customer_confirmation_id')->nullable()->constrained('customer_confirmations')->nullOnDelete();
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->string('relation')->nullable();
+            $table->text('remarks')->nullable();
             $table->timestamps();
-
-            $table->unique(['manifest_id', 'sharing_group_id']);
         });
 
         Schema::create('receipt_allocations', function (Blueprint $table) {
@@ -69,7 +48,5 @@ return new class extends Migration
         Schema::dropIfExists('receipt_allocations');
         Schema::dropIfExists('manifest_sharing_groups');
         Schema::dropIfExists('manifest_room_members');
-        Schema::dropIfExists('sharing_group_members');
-        Schema::dropIfExists('sharing_groups');
     }
 };

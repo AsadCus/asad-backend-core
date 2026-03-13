@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerConfirmationMember;
-use App\Models\ManifestTraveler;
+use App\Models\ManifestMember;
 use App\Rules\ManifestRule;
 use App\Services\CustomerConfirmationService;
 use App\Services\ManifestService;
@@ -196,14 +196,12 @@ class ManifestController extends Controller
     public function attachSharingGroup(Request $request, string $manifestId): JsonResponse
     {
         $validated = $request->validate([
-            'sharing_group_id' => ['required', 'integer', 'exists:sharing_groups,id'],
-            'manifest_room_id' => ['nullable', 'integer', 'exists:manifest_rooms,id'],
+            'customer_confirmation_id' => ['required', 'integer', 'exists:customer_confirmations,id'],
         ]);
 
         $msg = $this->manifestService->attachSharingGroup(
             (int) $manifestId,
-            $validated['sharing_group_id'],
-            $validated['manifest_room_id'] ?? null,
+            $validated['customer_confirmation_id'],
         );
 
         return response()->json(['manifest_sharing_group' => $msg], 201);
@@ -238,7 +236,7 @@ class ManifestController extends Controller
             'target_package_id' => ['nullable', 'integer', 'exists:packages,id'],
         ]);
 
-        $traveler = ManifestTraveler::query()
+        $traveler = ManifestMember::query()
             ->where('manifest_id', (int) $manifestId)
             ->where('id', (int) $travelerId)
             ->firstOrFail();
@@ -408,10 +406,13 @@ class ManifestController extends Controller
                 $grouped[$groupKey][] = $row;
             }
 
+            $roomGroupSortOrder = 1;
+
             foreach ($grouped as $members) {
                 $first = $members[0];
 
                 $normalizedRooms[] = [
+                    'sort_order' => $roomGroupSortOrder,
                     'location' => is_string($location) ? $location : null,
                     'relationship' => $first['room_relationship'] ?? $first['relationship'] ?? null,
                     'room_label' => $first['room_label'] ?? null,
@@ -439,6 +440,8 @@ class ManifestController extends Controller
                         ];
                     }, $members, array_keys($members))),
                 ];
+
+                $roomGroupSortOrder++;
             }
         }
 

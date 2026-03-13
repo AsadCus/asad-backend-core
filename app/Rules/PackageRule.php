@@ -30,6 +30,8 @@ class PackageRule
 
             // Vehicle
             'vehicle_type' => ['nullable', 'string', 'max:255'],
+            'vehicle_driver_name' => ['nullable', 'string', 'max:255'],
+            'vehicle_driver_contact_number' => ['nullable', 'string', 'max:255'],
 
             // Train Ticket
             'ticket_type' => ['nullable', 'string', 'max:255'],
@@ -59,6 +61,31 @@ class PackageRule
             'flights.*.pnr' => ['nullable', 'string', 'max:255'],
             'flights.*.departure_datetime' => ['nullable', 'date'],
             'flights.*.arrival_datetime' => ['nullable', 'date'],
+
+            // Train Tickets (dynamic)
+            'train_tickets' => ['nullable', 'array'],
+            'train_tickets.*.from' => ['nullable', 'string', 'max:255'],
+            'train_tickets.*.to' => ['nullable', 'string', 'max:255'],
+            'train_tickets.*.travel_date' => ['nullable', 'date'],
+            'train_tickets.*.travel_time' => ['nullable', 'string', 'max:50'],
+            'train_tickets.*.remarks' => ['nullable', 'string'],
+
+            // Transportation Plans (dynamic)
+            'transportation_plans' => ['nullable', 'array'],
+            'transportation_plans.*.from' => ['nullable', 'string', 'max:255'],
+            'transportation_plans.*.to' => ['nullable', 'string', 'max:255'],
+            'transportation_plans.*.travel_date' => ['nullable', 'date'],
+            'transportation_plans.*.travel_time' => ['nullable', 'string', 'max:50'],
+            'transportation_plans.*.remarks' => ['nullable', 'string'],
+
+            // Rawdah Tasreeh (dynamic)
+            'rawdah_tasreehs' => ['nullable', 'array'],
+            'rawdah_tasreehs.*.date' => ['nullable', 'date'],
+            'rawdah_tasreehs.*.women_passengers' => ['nullable', 'integer', 'min:0'],
+            'rawdah_tasreehs.*.women_time' => ['nullable', 'string', 'max:50'],
+            'rawdah_tasreehs.*.men_passengers' => ['nullable', 'integer', 'min:0'],
+            'rawdah_tasreehs.*.men_time' => ['nullable', 'string', 'max:50'],
+            'rawdah_tasreehs.*.remarks' => ['nullable', 'string'],
 
             // Officials (dynamic)
             'officials' => ['nullable', 'array'],

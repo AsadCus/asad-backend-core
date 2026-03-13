@@ -8,7 +8,7 @@ use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
-use App\Models\ManifestTraveler;
+use App\Models\ManifestMember;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
@@ -687,7 +687,7 @@ class CustomerConfirmationService
             ]);
 
             if (in_array($member->status, ['cancelled', 'unavailable'], true)) {
-                ManifestTraveler::query()
+                ManifestMember::query()
                     ->where('customer_confirmation_member_id', $member->id)
                     ->delete();
             }
@@ -739,7 +739,7 @@ class CustomerConfirmationService
                 'status' => 'cancelled',
             ]);
 
-            ManifestTraveler::query()
+            ManifestMember::query()
                 ->where('customer_confirmation_member_id', $member->id)
                 ->delete();
 
@@ -780,7 +780,7 @@ class CustomerConfirmationService
                 ->whereIn('id', $selectedMemberIds)
                 ->update(['status' => 'cancelled']);
 
-            ManifestTraveler::query()
+            ManifestMember::query()
                 ->whereIn('customer_confirmation_member_id', $selectedMemberIds)
                 ->when($sourceManifestId, function ($query) use ($sourceManifestId) {
                     $query->where('manifest_id', $sourceManifestId);

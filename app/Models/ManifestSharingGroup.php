@@ -4,27 +4,37 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ManifestSharingGroup extends Model
 {
     protected $fillable = [
         'manifest_id',
-        'sharing_group_id',
-        'manifest_room_id',
+        'customer_confirmation_id',
+        'sort_order',
+        'relation',
+        'remarks',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'sort_order' => 'integer',
+        ];
+    }
 
     public function manifest(): BelongsTo
     {
         return $this->belongsTo(Manifest::class);
     }
 
-    public function sharingGroup(): BelongsTo
+    public function customerConfirmation(): BelongsTo
     {
-        return $this->belongsTo(SharingGroup::class);
+        return $this->belongsTo(CustomerConfirmation::class, 'customer_confirmation_id');
     }
 
-    public function room(): BelongsTo
+    public function members(): HasMany
     {
-        return $this->belongsTo(ManifestRoom::class, 'manifest_room_id');
+        return $this->hasMany(ManifestMember::class, 'manifest_sharing_group_id')->orderBy('sort_order')->orderBy('id');
     }
 }

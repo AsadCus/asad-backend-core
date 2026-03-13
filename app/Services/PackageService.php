@@ -102,6 +102,8 @@ class PackageService
                 'seats_left' => $data['total_seats'] ?? null,
                 'visa_type' => $data['visa_type'] ?? null,
                 'vehicle_type' => $data['vehicle_type'] ?? null,
+                'vehicle_driver_name' => $data['vehicle_driver_name'] ?? null,
+                'vehicle_driver_contact_number' => $data['vehicle_driver_contact_number'] ?? null,
                 'ticket_type' => $data['ticket_type'] ?? null,
                 'included' => $data['included'] ?? null,
                 'not_included' => $data['not_included'] ?? null,
@@ -122,6 +124,9 @@ class PackageService
             }
 
             $this->syncFlights($package, $data['flights'] ?? []);
+            $this->syncTrainTickets($package, $data['train_tickets'] ?? []);
+            $this->syncTransportationPlans($package, $data['transportation_plans'] ?? []);
+            $this->syncRawdahTasreehs($package, $data['rawdah_tasreehs'] ?? []);
             $this->syncOfficials($package, $data['officials'] ?? []);
 
             // Auto-create manifest for this package
@@ -146,7 +151,14 @@ class PackageService
 
     public function getForEditShow($id): array
     {
-        $package = Package::with(['accommodations', 'flights', 'officials'])->findOrFail($id);
+        $package = Package::with([
+            'accommodations',
+            'flights',
+            'trainTickets',
+            'transportationPlans',
+            'rawdahTasreehs',
+            'officials',
+        ])->findOrFail($id);
 
         return [
             'id' => $package->id,
@@ -168,6 +180,8 @@ class PackageService
             'occupied_seats' => $this->packageSeatService->occupiedSeatsCount((int) $package->id),
             'visa_type' => $package->visa_type,
             'vehicle_type' => $package->vehicle_type,
+            'vehicle_driver_name' => $package->vehicle_driver_name,
+            'vehicle_driver_contact_number' => $package->vehicle_driver_contact_number,
             'ticket_type' => $package->ticket_type,
             'included' => $package->included,
             'not_included' => $package->not_included,
@@ -193,6 +207,37 @@ class PackageService
                     'pnr' => $f->pnr,
                     'departure_datetime' => $f->departure_datetime_formatted,
                     'arrival_datetime' => $f->arrival_datetime_formatted,
+                ];
+            })->toArray(),
+            'train_tickets' => $package->trainTickets->map(function ($ticket) {
+                return [
+                    'id' => $ticket->id,
+                    'from' => $ticket->from,
+                    'to' => $ticket->to,
+                    'travel_date' => $ticket->travel_date_formatted,
+                    'travel_time' => $ticket->travel_time,
+                    'remarks' => $ticket->remarks,
+                ];
+            })->toArray(),
+            'transportation_plans' => $package->transportationPlans->map(function ($plan) {
+                return [
+                    'id' => $plan->id,
+                    'from' => $plan->from,
+                    'to' => $plan->to,
+                    'travel_date' => $plan->travel_date_formatted,
+                    'travel_time' => $plan->travel_time,
+                    'remarks' => $plan->remarks,
+                ];
+            })->toArray(),
+            'rawdah_tasreehs' => $package->rawdahTasreehs->map(function ($tasreeh) {
+                return [
+                    'id' => $tasreeh->id,
+                    'date' => $tasreeh->date_formatted,
+                    'women_passengers' => $tasreeh->women_passengers,
+                    'women_time' => $tasreeh->women_time,
+                    'men_passengers' => $tasreeh->men_passengers,
+                    'men_time' => $tasreeh->men_time,
+                    'remarks' => $tasreeh->remarks,
                 ];
             })->toArray(),
             'officials' => $package->officials->map(function ($o) {
@@ -226,6 +271,8 @@ class PackageService
                 'total_seats' => $data['total_seats'] ?? $package->total_seats,
                 'visa_type' => $data['visa_type'] ?? $package->visa_type,
                 'vehicle_type' => $data['vehicle_type'] ?? $package->vehicle_type,
+                'vehicle_driver_name' => $data['vehicle_driver_name'] ?? $package->vehicle_driver_name,
+                'vehicle_driver_contact_number' => $data['vehicle_driver_contact_number'] ?? $package->vehicle_driver_contact_number,
                 'ticket_type' => $data['ticket_type'] ?? $package->ticket_type,
                 'included' => $data['included'] ?? $package->included,
                 'not_included' => $data['not_included'] ?? $package->not_included,
@@ -248,6 +295,18 @@ class PackageService
 
             if (isset($data['flights'])) {
                 $this->syncFlights($package, $data['flights']);
+            }
+
+            if (isset($data['train_tickets'])) {
+                $this->syncTrainTickets($package, $data['train_tickets']);
+            }
+
+            if (isset($data['transportation_plans'])) {
+                $this->syncTransportationPlans($package, $data['transportation_plans']);
+            }
+
+            if (isset($data['rawdah_tasreehs'])) {
+                $this->syncRawdahTasreehs($package, $data['rawdah_tasreehs']);
             }
 
             if (isset($data['officials'])) {
@@ -308,7 +367,7 @@ class PackageService
         $this->setIfNotEmpty($payload, 'departure_date', $privateEnquiry->departure_date_formatted);
         $this->setIfNotEmpty($payload, 'return_date', $privateEnquiry->return_date_formatted);
         $this->setIfNotEmpty($payload, 'vehicle_type', $privateEnquiry->land_transfer);
-        $this->setIfNotEmpty($payload, 'ticket_type', $privateEnquiry->add_on_speed_train ? 'speed_train' : null);
+        $this->setIfNotEmpty($payload, 'ticket_type', $privateEnquiry->add_on_speed_train ? 'one_way' : null);
 
         // Build default flight from enquiry airline info
         if (! empty($privateEnquiry->airline)) {
@@ -554,6 +613,70 @@ class PackageService
                 'pnr' => $flight['pnr'] ?? null,
                 'departure_datetime' => $flight['departure_datetime'] ?? null,
                 'arrival_datetime' => $flight['arrival_datetime'] ?? null,
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    /**
+     * Sync train tickets for a package (delete + recreate).
+     *
+     * @param  array<int, array<string, mixed>>  $tickets
+     */
+    private function syncTrainTickets(Package $package, array $tickets): void
+    {
+        $package->trainTickets()->delete();
+
+        foreach ($tickets as $index => $ticket) {
+            $package->trainTickets()->create([
+                'from' => $ticket['from'] ?? null,
+                'to' => $ticket['to'] ?? null,
+                'travel_date' => $ticket['travel_date'] ?? null,
+                'travel_time' => $ticket['travel_time'] ?? null,
+                'remarks' => $ticket['remarks'] ?? null,
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    /**
+     * Sync transportation plans for a package (delete + recreate).
+     *
+     * @param  array<int, array<string, mixed>>  $plans
+     */
+    private function syncTransportationPlans(Package $package, array $plans): void
+    {
+        $package->transportationPlans()->delete();
+
+        foreach ($plans as $index => $plan) {
+            $package->transportationPlans()->create([
+                'from' => $plan['from'] ?? null,
+                'to' => $plan['to'] ?? null,
+                'travel_date' => $plan['travel_date'] ?? null,
+                'travel_time' => $plan['travel_time'] ?? null,
+                'remarks' => $plan['remarks'] ?? null,
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    /**
+     * Sync rawdah tasreehs for a package (delete + recreate).
+     *
+     * @param  array<int, array<string, mixed>>  $tasreehs
+     */
+    private function syncRawdahTasreehs(Package $package, array $tasreehs): void
+    {
+        $package->rawdahTasreehs()->delete();
+
+        foreach ($tasreehs as $index => $tasreeh) {
+            $package->rawdahTasreehs()->create([
+                'date' => $tasreeh['date'] ?? null,
+                'women_passengers' => $tasreeh['women_passengers'] ?? null,
+                'women_time' => $tasreeh['women_time'] ?? null,
+                'men_passengers' => $tasreeh['men_passengers'] ?? null,
+                'men_time' => $tasreeh['men_time'] ?? null,
+                'remarks' => $tasreeh['remarks'] ?? null,
                 'sort_order' => $index,
             ]);
         }

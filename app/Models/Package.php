@@ -34,6 +34,8 @@ class Package extends Model
 
         // Vehicle
         'vehicle_type',
+        'vehicle_driver_name',
+        'vehicle_driver_contact_number',
 
         // Train Ticket
         'ticket_type',
@@ -69,6 +71,21 @@ class Package extends Model
     public function flights(): HasMany
     {
         return $this->hasMany(PackageFlight::class)->orderBy('sort_order');
+    }
+
+    public function trainTickets(): HasMany
+    {
+        return $this->hasMany(PackageTrainTicket::class)->orderBy('sort_order');
+    }
+
+    public function transportationPlans(): HasMany
+    {
+        return $this->hasMany(PackageTransportationPlan::class)->orderBy('sort_order');
+    }
+
+    public function rawdahTasreehs(): HasMany
+    {
+        return $this->hasMany(PackageRawdahTasreeh::class)->orderBy('sort_order');
     }
 
     public function officials(): HasMany

@@ -18,6 +18,7 @@ export interface CustomerMemberData {
     email?: string;
     contact?: string;
     customer_number?: string;
+    customer_confirmation_number?: string;
     nric_number?: string;
     passport_number?: string;
     passport_issue_date?: string;
@@ -38,6 +39,7 @@ export interface SharingGroupData {
 
 export interface CustomerConfirmationData {
     id: number;
+    customer_confirmation_number?: string;
     package_id?: number;
     package_room_type?: string;
     enquiry_id?: number;
@@ -89,7 +91,9 @@ export type TravelerWithUI = TravelerSchema & {
     row_key?: string;
     manifest_traveler_id?: number;
     customer_confirmation_id?: number;
+    customer_confirmation_number?: string | null;
     customer_name?: string;
+    manifest_sharing_group_id?: number;
     sharing_group_id?: number;
     sharing_group_key?: string;
     accommodation_key?: string;

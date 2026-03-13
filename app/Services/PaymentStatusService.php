@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\Manifest;
-use App\Models\ManifestTraveler;
+use App\Models\ManifestMember;
 
 class PaymentStatusService
 {
@@ -130,7 +130,7 @@ class PaymentStatusService
                         ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed', 'unavailable'])
                         ->update(['status' => 'unavailable']);
 
-                    ManifestTraveler::query()
+                    ManifestMember::query()
                         ->where('customer_confirmation_member_id', $memberId)
                         ->delete();
 

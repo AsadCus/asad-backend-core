@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Helpers\NumberGenerator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Manifest extends Model
@@ -24,7 +23,12 @@ class Manifest extends Model
 
     public function travelers(): HasMany
     {
-        return $this->hasMany(ManifestTraveler::class);
+        return $this->hasMany(ManifestMember::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function members(): HasMany
+    {
+        return $this->travelers();
     }
 
     public function rooms(): HasMany
@@ -39,18 +43,7 @@ class Manifest extends Model
 
     public function manifestSharingGroups(): HasMany
     {
-        return $this->hasMany(ManifestSharingGroup::class);
-    }
-
-    public function sharingGroups(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            SharingGroup::class,
-            'manifest_sharing_groups',
-            'manifest_id',
-            'sharing_group_id',
-        )->withPivot('manifest_room_id')
-            ->withTimestamps();
+        return $this->hasMany(ManifestSharingGroup::class)->orderBy('sort_order')->orderBy('id');
     }
 
     protected static function boot()

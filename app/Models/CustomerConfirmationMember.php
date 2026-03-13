@@ -38,14 +38,9 @@ class CustomerConfirmationMember extends Model
         return $this->belongsTo(Customer::class, 'customer_id');
     }
 
-    public function sharingGroupMembers(): HasMany
+    public function manifestMembers(): HasMany
     {
-        return $this->hasMany(SharingGroupMember::class, 'customer_confirmation_member_id');
-    }
-
-    public function manifestTravelers(): HasMany
-    {
-        return $this->hasMany(ManifestTraveler::class, 'customer_confirmation_member_id');
+        return $this->hasMany(ManifestMember::class, 'customer_confirmation_member_id');
     }
 
     public function receiptAllocations(): HasMany

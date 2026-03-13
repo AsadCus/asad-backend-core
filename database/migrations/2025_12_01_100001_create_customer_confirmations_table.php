@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('customer_confirmations', function (Blueprint $table) {
             $table->id();
+            $table->string('number')->nullable()->unique();
             $table->foreignId('enquiry_id')->nullable()->constrained('enquiries')->cascadeOnDelete();
             $table->foreignId('package_id')->nullable()->constrained('packages')->nullOnDelete();
             $table->string('package_room_type')->nullable();

@@ -11,6 +11,7 @@ class ManifestRoom extends Model
 {
     protected $fillable = [
         'manifest_id',
+        'sort_order',
         'location',
         'relationship',
         'room_label',
@@ -25,6 +26,7 @@ class ManifestRoom extends Model
     ];
 
     protected $casts = [
+        'sort_order' => 'integer',
         'capacity' => 'integer',
     ];
 
@@ -35,22 +37,17 @@ class ManifestRoom extends Model
 
     public function roomMembers(): HasMany
     {
-        return $this->hasMany(ManifestRoomMember::class, 'manifest_room_id');
+        return $this->hasMany(ManifestRoomMember::class, 'manifest_room_id')->orderBy('sort_order')->orderBy('id');
     }
 
     public function travelers(): BelongsToMany
     {
         return $this->belongsToMany(
-            ManifestTraveler::class,
+            ManifestMember::class,
             'manifest_room_members',
             'manifest_room_id',
             'manifest_traveler_id',
         )->withPivot(['sort_order', 'remarks'])
             ->withTimestamps();
-    }
-
-    public function manifestSharingGroups(): HasMany
-    {
-        return $this->hasMany(ManifestSharingGroup::class, 'manifest_room_id');
     }
 }

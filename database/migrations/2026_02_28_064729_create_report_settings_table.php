@@ -21,6 +21,9 @@ return new class extends Migration
             $table->text('footer_text')->nullable();
             $table->string('stamp_path')->nullable();
             $table->string('signature_path')->nullable();
+            $table->string('brand_color', 7)->default('#c05427');
+            $table->json('module_templates')->nullable();
+            $table->json('registered_modules')->nullable();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

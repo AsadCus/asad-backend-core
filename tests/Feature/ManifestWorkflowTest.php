@@ -6,7 +6,7 @@ use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
-use App\Models\ManifestTraveler;
+use App\Models\ManifestMember;
 use App\Models\Package;
 use App\Models\User;
 use App\Services\ManifestService;
@@ -87,7 +87,7 @@ class ManifestWorkflowTest extends TestCase
         $manifest = Manifest::first();
 
         $this->assertNotNull($manifest);
-        $this->assertDatabaseHas('manifest_travelers', [
+        $this->assertDatabaseHas('manifest_members', [
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
         ]);
@@ -107,7 +107,7 @@ class ManifestWorkflowTest extends TestCase
             'remarks' => 'Room-level note',
         ]);
 
-        $createdTravelerId = (int) ManifestTraveler::query()
+        $createdTravelerId = (int) ManifestMember::query()
             ->where('manifest_id', $manifest->id)
             ->where('customer_confirmation_member_id', $member->id)
             ->value('id');
@@ -156,7 +156,7 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'confirmed',
         ]);
 
-        ManifestTraveler::create([
+        ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
         ]);
@@ -378,12 +378,12 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $travelerOne = ManifestTraveler::create([
+        $travelerOne = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberOne->id,
         ]);
 
-        $travelerTwo = ManifestTraveler::create([
+        $travelerTwo = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberTwo->id,
         ]);
@@ -489,7 +489,7 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'confirmed',
         ]);
 
-        $traveler = ManifestTraveler::create([
+        $traveler = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
         ]);
@@ -501,7 +501,7 @@ class ManifestWorkflowTest extends TestCase
             'target_package_id' => $targetPackage->id,
         ])->assertOk();
 
-        $this->assertDatabaseMissing('manifest_travelers', [
+        $this->assertDatabaseMissing('manifest_members', [
             'id' => $traveler->id,
         ]);
 
@@ -602,15 +602,15 @@ class ManifestWorkflowTest extends TestCase
         $memberTwo = $this->createMemberForPackage($package->id, 'Regroup Two', $actingUser->id);
         $memberThree = $this->createMemberForPackage($package->id, 'Regroup Three', $actingUser->id);
 
-        $travelerOne = ManifestTraveler::create([
+        $travelerOne = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberOne->id,
         ]);
-        $travelerTwo = ManifestTraveler::create([
+        $travelerTwo = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberTwo->id,
         ]);
-        $travelerThree = ManifestTraveler::create([
+        $travelerThree = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberThree->id,
         ]);
@@ -716,7 +716,7 @@ class ManifestWorkflowTest extends TestCase
             'role' => 'Spouse',
         ]);
 
-        $traveler = ManifestTraveler::create([
+        $traveler = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
         ]);

@@ -28,7 +28,7 @@ class ManifestPayment extends Model
 
     public function getPaymentDateFormattedAttribute(): ?string
     {
-        return $this->payment_date?->format('d/m/Y');
+        return $this->payment_date?->translatedFormat('d F Y');
     }
 
     public function manifest(): BelongsTo
@@ -38,6 +38,6 @@ class ManifestPayment extends Model
 
     public function traveler(): BelongsTo
     {
-        return $this->belongsTo(ManifestTraveler::class, 'manifest_traveler_id');
+        return $this->belongsTo(ManifestMember::class, 'manifest_traveler_id');
     }
 }

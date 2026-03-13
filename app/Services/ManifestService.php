@@ -95,7 +95,6 @@ class ManifestService
             $this->syncTravelers($manifest, $data['travelers'] ?? []);
             $this->syncRooms($manifest, $data['rooms'] ?? []);
             $this->syncPayments($manifest, $data['payments'] ?? []);
-            $this->syncSharingGroups($manifest, $data['sharing_group_ids'] ?? []);
 
             activity()
                 ->performedOn($manifest)
@@ -111,23 +110,30 @@ class ManifestService
         $manifest = Manifest::with([
             'package.accommodations',
             'package.flights',
+            'travelers.sharingGroup',
             'travelers.confirmationMember.confirmation.enquiry',
             'travelers.confirmationMember.customer.user',
             'rooms.roomMembers.traveler',
-            'rooms.manifestSharingGroups.sharingGroup',
             'payments.traveler',
-            'manifestSharingGroups.sharingGroup.members.confirmationMember.customer',
+            'manifestSharingGroups.customerConfirmation',
+            'manifestSharingGroups.members.confirmationMember.confirmation.enquiry',
+            'manifestSharingGroups.members.confirmationMember.customer.user',
         ])->findOrFail($id);
 
         $travelers = $manifest->travelers
-            ->sortBy('id')
+            ->sortBy([
+                fn ($traveler) => $traveler->sharingGroup?->sort_order ?? PHP_INT_MAX,
+                fn ($traveler) => $traveler->sort_order ?? PHP_INT_MAX,
+                fn ($traveler) => $traveler->id,
+            ])
             ->values()
-            ->map(function ($traveler, $index) {
+            ->map(function ($traveler, $index) use ($manifest) {
                 $member = $traveler->confirmationMember;
                 $confirmation = $member?->confirmation;
                 $enquiryCreatedAt = $confirmation?->enquiry?->created_at;
                 $customer = $member?->customer;
                 $user = $customer?->user;
+                $sharingPlan = $member?->sharing_plan;
 
                 return [
                     'id' => $traveler->id,
@@ -135,13 +141,21 @@ class ManifestService
                     'customer_id' => $customer?->id,
                     'customer_confirmation_member_id' => $traveler->customer_confirmation_member_id,
                     'customer_confirmation_id' => $member?->customer_confirmation_id,
+                    'customer_confirmation_number' => $confirmation?->number,
                     'customer_name' => $user?->name,
                     'name_as_per_passport' => $user?->name,
+                    'contact_no' => $user?->contact,
                     'role' => $member?->role,
-                    'relationship' => $member?->role,
+                    'relationship' => $traveler->sharingGroup?->relation ?? $member?->role,
                     'sharing_plan' => $member?->sharing_plan,
+                    'manifest_sharing_group_id' => $traveler->manifest_sharing_group_id,
+                    'sharing_group_id' => $traveler->manifest_sharing_group_id,
+                    'sharing_group_key' => $traveler->manifest_sharing_group_id
+                        ? 'group-'.$traveler->manifest_sharing_group_id
+                        : 'group-'.$traveler->id,
                     'package_category' => $confirmation?->package_category,
                     'date_of_sign_up' => ($enquiryCreatedAt ?? $confirmation?->created_at)?->translatedFormat('d F Y'),
+                    'package_price' => $this->getPackagePriceForSharingPlan($manifest->package, $sharingPlan),
                     'is_first_time_umrah' => $customer?->first_time_umrah,
                     'passport_number' => $customer?->passport_number,
                     'nationality' => $customer?->nationality,
@@ -149,6 +163,7 @@ class ManifestService
                     'date_of_issue' => $customer?->passport_issue_date_formatted,
                     'date_of_expiry' => $customer?->passport_expiry_date_formatted,
                     'issue_place' => $customer?->passport_place_of_issue,
+                    'birth_place' => $customer?->place_of_birth,
                     'date_of_birth' => $customer?->date_of_birth_formatted,
                     'age' => $customer?->date_of_birth?->age,
                     'remarks' => $traveler->remarks,
@@ -184,6 +199,7 @@ class ManifestService
             'rooms' => $manifest->rooms->map(function ($r) {
                 return [
                     'id' => $r->id,
+                    'sort_order' => $r->sort_order,
                     'location' => $r->location,
                     'relationship' => $r->relationship,
                     'room_label' => $r->room_label,
@@ -210,13 +226,6 @@ class ManifestService
                             'customer_id' => $customer?->id,
                         ];
                     })->toArray(),
-                    'sharing_groups' => $r->manifestSharingGroups->map(function ($msg) {
-                        return [
-                            'id' => $msg->id,
-                            'sharing_group_id' => $msg->sharing_group_id,
-                            'sharing_plan' => $msg->sharingGroup?->sharing_plan,
-                        ];
-                    })->toArray(),
                 ];
             })->toArray(),
             'payments' => $manifest->payments->map(function ($p) {
@@ -234,29 +243,24 @@ class ManifestService
                 ];
             })->toArray(),
             'sharing_groups' => $manifest->manifestSharingGroups->map(function ($msg) {
-                $sg = $msg->sharingGroup;
-
                 return [
                     'id' => $msg->id,
-                    'sharing_group_id' => $sg?->id,
-                    'manifest_room_id' => $msg->manifest_room_id,
-                    'sharing_plan' => $sg?->sharing_plan,
-                    'expected_capacity' => $sg?->expected_capacity,
-                    'status' => $sg?->status,
-                    'customer_confirmation_id' => $sg?->customer_confirmation_id,
-                    'remarks' => $sg?->remarks,
-                    'members' => $sg?->members->map(function ($m) {
+                    'customer_confirmation_id' => $msg->customer_confirmation_id,
+                    'sort_order' => $msg->sort_order,
+                    'relation' => $msg->relation,
+                    'remarks' => $msg->remarks,
+                    'members' => $msg->members->map(function ($m) {
                         $cm = $m->confirmationMember;
 
                         return [
                             'id' => $m->id,
                             'customer_confirmation_member_id' => $m->customer_confirmation_member_id,
-                            'role_in_group' => $m->role_in_group,
+                            'role_in_group' => $cm?->role,
                             'sort_order' => $m->sort_order,
-                            'customer_name' => $cm?->customer?->name,
+                            'customer_name' => $cm?->customer?->user?->name,
                             'customer_id' => $cm?->customer_id,
                         ];
-                    })->toArray() ?? [],
+                    })->toArray(),
                 ];
             })->toArray(),
         ];
@@ -283,10 +287,6 @@ class ManifestService
 
             if (isset($data['payments'])) {
                 $this->syncPayments($manifest, $data['payments']);
-            }
-
-            if (isset($data['sharing_group_ids'])) {
-                $this->syncSharingGroups($manifest, $data['sharing_group_ids']);
             }
 
             $manifest = $manifest->fresh();
@@ -324,6 +324,7 @@ class ManifestService
             $manifest = Manifest::findOrFail($manifestId);
 
             $room = $manifest->rooms()->create([
+                'sort_order' => $data['sort_order'] ?? (((int) $manifest->rooms()->max('sort_order')) + 1),
                 'location' => $data['location'] ?? null,
                 'relationship' => $data['relationship'] ?? null,
                 'room_label' => $data['room_label'] ?? null,
@@ -365,6 +366,7 @@ class ManifestService
             $room = ManifestRoom::findOrFail($roomId);
 
             $room->update([
+                'sort_order' => $data['sort_order'] ?? $room->sort_order,
                 'location' => $data['location'] ?? $room->location,
                 'relationship' => $data['relationship'] ?? $room->relationship,
                 'room_label' => $data['room_label'] ?? $room->room_label,
@@ -410,7 +412,6 @@ class ManifestService
 
         $manifestId = $room->manifest_id;
         $room->roomMembers()->delete();
-        $room->manifestSharingGroups()->update(['manifest_room_id' => null]);
         $room->delete();
 
         activity()
@@ -501,25 +502,23 @@ class ManifestService
     /**
      * Attach sharing groups to a manifest from customer confirmations.
      */
-    public function attachSharingGroup(int $manifestId, int $sharingGroupId, ?int $manifestRoomId = null): ManifestSharingGroup
+    public function attachSharingGroup(int $manifestId, int $customerConfirmationId): ManifestSharingGroup
     {
         $manifest = Manifest::findOrFail($manifestId);
 
         $msg = ManifestSharingGroup::firstOrCreate([
             'manifest_id' => $manifestId,
-            'sharing_group_id' => $sharingGroupId,
+            'customer_confirmation_id' => $customerConfirmationId,
         ], [
-            'manifest_room_id' => $manifestRoomId,
+            'sort_order' => ((int) ManifestSharingGroup::query()->where('manifest_id', $manifestId)->max('sort_order')) + 1,
+            'relation' => null,
+            'remarks' => null,
         ]);
-
-        if ($manifestRoomId && $msg->manifest_room_id !== $manifestRoomId) {
-            $msg->update(['manifest_room_id' => $manifestRoomId]);
-        }
 
         activity()
             ->performedOn($manifest)
             ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $manifestId])
-            ->log('Sharing group #'.$sharingGroupId.' attached to manifest #'.$manifestId);
+            ->log('Confirmation #'.$customerConfirmationId.' attached to manifest #'.$manifestId);
 
         return $msg;
     }
@@ -527,17 +526,17 @@ class ManifestService
     /**
      * Detach a sharing group from a manifest.
      */
-    public function detachSharingGroup(int $manifestId, int $sharingGroupId): bool
+    public function detachSharingGroup(int $manifestId, int $manifestSharingGroupId): bool
     {
         $deleted = ManifestSharingGroup::where('manifest_id', $manifestId)
-            ->where('sharing_group_id', $sharingGroupId)
+            ->where('id', $manifestSharingGroupId)
             ->delete();
 
         if ($deleted) {
             activity()
                 ->performedOn(Manifest::find($manifestId))
                 ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $manifestId])
-                ->log('Sharing group #'.$sharingGroupId.' detached from manifest #'.$manifestId);
+                ->log('Manifest sharing group #'.$manifestSharingGroupId.' detached from manifest #'.$manifestId);
         }
 
         return $deleted > 0;
@@ -555,7 +554,6 @@ class ManifestService
             'members.customer.user',
             'enquiry',
             'package',
-            'sharingGroups.members.confirmationMember.customer.user',
         ])
             ->whereNotNull('package_id')
             ->when($packageId, function ($q) use ($packageId) {
@@ -572,6 +570,7 @@ class ManifestService
 
                 return [
                     'id' => $confirmation->id,
+                    'customer_confirmation_number' => $confirmation->number,
                     'package_id' => $confirmation->package_id,
                     'package_room_type' => $confirmation->package?->room_type ?? null,
                     'enquiry_id' => $confirmation->enquiry_id,
@@ -590,6 +589,7 @@ class ManifestService
                         return [
                             'id' => $member->id,
                             'customer_id' => $member->customer_id,
+                            'customer_confirmation_number' => $confirmation->number,
                             'is_leader' => $member->is_leader,
                             'status' => $member->status ?? 'draft',
                             'sharing_plan' => $member->sharing_plan,
@@ -607,25 +607,6 @@ class ManifestService
                             'age' => $customer?->date_of_birth ? $customer->date_of_birth->age : null,
                         ];
                     })->values()->all(),
-                    'sharing_groups' => $confirmation->sharingGroups->map(function ($sg) {
-                        return [
-                            'id' => $sg->id,
-                            'sharing_plan' => $sg->sharing_plan,
-                            'expected_capacity' => $sg->expected_capacity,
-                            'status' => $sg->status,
-                            'sort_order' => $sg->sort_order,
-                            'remarks' => $sg->remarks,
-                            'members' => $sg->members->map(function ($m) {
-                                return [
-                                    'id' => $m->id,
-                                    'customer_confirmation_member_id' => $m->customer_confirmation_member_id,
-                                    'role_in_group' => $m->role_in_group,
-                                    'sort_order' => $m->sort_order,
-                                    'customer_name' => $m->confirmationMember?->customer?->user?->name ?? '-',
-                                ];
-                            })->all(),
-                        ];
-                    })->all(),
                 ];
             })
             ->filter(fn (array $confirmation) => ($confirmation['member_count'] ?? 0) > 0)
@@ -643,28 +624,78 @@ class ManifestService
      */
     private function syncTravelers(Manifest $manifest, array $travelers): void
     {
+        $manifest->manifestSharingGroups()->delete();
         $manifest->travelers()->delete();
 
         $flatTravelers = $this->flattenGroupedData($travelers);
 
-        foreach ($flatTravelers as $traveler) {
-            $memberId = isset($traveler['customer_confirmation_member_id'])
-                ? (int) $traveler['customer_confirmation_member_id']
-                : null;
+        $groupedTravelers = [];
 
-            $member = $memberId
-                ? CustomerConfirmationMember::query()->with(['customer.user'])->find($memberId)
-                : null;
+        foreach ($flatTravelers as $index => $traveler) {
+            $groupKey = isset($traveler['sharing_group_key']) && is_string($traveler['sharing_group_key'])
+                ? trim($traveler['sharing_group_key'])
+                : '';
 
-            if ($member) {
-                $this->syncMemberData($member, $traveler);
-                $this->syncCustomerData($member, $traveler);
+            if ($groupKey === '') {
+                $groupId = $traveler['manifest_sharing_group_id']
+                    ?? $traveler['sharing_group_id']
+                    ?? null;
+
+                if (! empty($groupId)) {
+                    $groupKey = 'group-'.((int) $groupId);
+                } else {
+                    $groupKey = 'solo-'.((int) ($traveler['customer_confirmation_member_id'] ?? $traveler['customer_id'] ?? ($index + 1)));
+                }
             }
 
-            $manifest->travelers()->create([
-                'customer_confirmation_member_id' => $member?->id,
-                'remarks' => $traveler['remarks'] ?? null,
+            $groupedTravelers[$groupKey][] = $traveler;
+        }
+
+        $groupSortOrder = 1;
+
+        foreach ($groupedTravelers as $groupTravelers) {
+            $firstTraveler = $groupTravelers[0] ?? [];
+
+            $groupCustomerConfirmationId = null;
+
+            if (! empty($firstTraveler['customer_confirmation_id'])) {
+                $groupCustomerConfirmationId = (int) $firstTraveler['customer_confirmation_id'];
+            } elseif (! empty($firstTraveler['customer_confirmation_member_id'])) {
+                $groupCustomerConfirmationId = CustomerConfirmationMember::query()
+                    ->whereKey((int) $firstTraveler['customer_confirmation_member_id'])
+                    ->value('customer_confirmation_id');
+            }
+
+            $manifestSharingGroup = $manifest->manifestSharingGroups()->create([
+                'customer_confirmation_id' => $groupCustomerConfirmationId,
+                'sort_order' => $groupSortOrder,
+                'relation' => $firstTraveler['relationship'] ?? $firstTraveler['role'] ?? null,
+                'remarks' => $firstTraveler['group_remarks'] ?? null,
             ]);
+
+            foreach (array_values($groupTravelers) as $memberSortOrder => $traveler) {
+                $memberId = isset($traveler['customer_confirmation_member_id'])
+                    ? (int) $traveler['customer_confirmation_member_id']
+                    : null;
+
+                $member = $memberId
+                    ? CustomerConfirmationMember::query()->with(['customer.user'])->find($memberId)
+                    : null;
+
+                if ($member) {
+                    $this->syncMemberData($member, $traveler);
+                    $this->syncCustomerData($member, $traveler);
+                }
+
+                $manifest->travelers()->create([
+                    'manifest_sharing_group_id' => $manifestSharingGroup->id,
+                    'customer_confirmation_member_id' => $member?->id,
+                    'sort_order' => $memberSortOrder + 1,
+                    'remarks' => $traveler['remarks'] ?? null,
+                ]);
+            }
+
+            $groupSortOrder++;
         }
     }
 
@@ -681,7 +712,7 @@ class ManifestService
 
         $flatRooms = $this->flattenGroupedData($rooms);
 
-        foreach ($flatRooms as $room) {
+        foreach ($flatRooms as $roomIndex => $room) {
             $sharingPlan = isset($room['sharing_plan']) && is_string($room['sharing_plan'])
                 ? strtolower(trim($room['sharing_plan']))
                 : null;
@@ -695,6 +726,7 @@ class ManifestService
                 : null;
 
             $createdRoom = $manifest->rooms()->create([
+                'sort_order' => (int) ($room['sort_order'] ?? ($roomIndex + 1)),
                 'location' => $room['location'] ?? null,
                 'relationship' => $room['relationship'] ?? null,
                 'room_label' => $room['room_label'] ?? null,
@@ -753,24 +785,6 @@ class ManifestService
                 'outstanding_amount' => $payment['outstanding_amount'] ?? 0,
                 'payment_date' => ! empty($payment['payment_date']) ? Carbon::parse($payment['payment_date'])->format('Y-m-d') : null,
                 'status' => $payment['status'] ?? 'pending',
-            ]);
-        }
-    }
-
-    /**
-     * Sync sharing groups attached to a manifest.
-     *
-     * @param  array<int>  $sharingGroupIds
-     */
-    private function syncSharingGroups(Manifest $manifest, array $sharingGroupIds): void
-    {
-        $manifest->manifestSharingGroups()->delete();
-
-        foreach ($sharingGroupIds as $sgId) {
-            ManifestSharingGroup::create([
-                'manifest_id' => $manifest->id,
-                'sharing_group_id' => $sgId,
-                'manifest_room_id' => null,
             ]);
         }
     }
@@ -879,6 +893,7 @@ class ManifestService
         $travelerById = collect($travelers)->keyBy('id');
 
         return $manifest->rooms
+            ->sortBy('sort_order')
             ->groupBy(fn ($room) => (string) ($room->location ?? 'mekkah'))
             ->map(function ($rooms) use ($travelerById) {
                 return $rooms
@@ -979,7 +994,7 @@ class ManifestService
         $customerUpdates = [];
 
         if (array_key_exists('passport_number', $traveler) || array_key_exists('passport_no', $traveler)) {
-            $customerUpdates['passport_number'] = $traveler['passport_number'] ?? $traveler['passport_no'] ?? null;
+            $customerUpdates['passport_number'] = $traveler['passport_number'] ?? null;
         }
 
         if (array_key_exists('nationality', $traveler)) {
@@ -1012,13 +1027,37 @@ class ManifestService
                 : null;
         }
 
+        if (array_key_exists('birth_place', $traveler)) {
+            $customerUpdates['place_of_birth'] = $traveler['birth_place'] ?: null;
+        }
+
         if ($customerUpdates !== []) {
             $customer->update($customerUpdates);
         }
 
         $name = trim((string) ($traveler['name_as_per_passport'] ?? ''));
-        if ($name !== '' && $customer->user) {
-            $customer->user->update(['name' => $name]);
+        $contactNo = trim((string) ($traveler['contact_no'] ?? ''));
+
+        if ($customer->user && ($name !== '' || $contactNo !== '')) {
+            $customer->user->update([
+                'name' => $name !== '' ? $name : $customer->user->name,
+                'contact' => $contactNo !== '' ? $contactNo : $customer->user->contact,
+            ]);
         }
+    }
+
+    private function getPackagePriceForSharingPlan(?\App\Models\Package $package, ?string $sharingPlan): float
+    {
+        if (! $package) {
+            return 0.0;
+        }
+
+        return match (strtolower((string) $sharingPlan)) {
+            'single' => (float) ($package->price_single ?? 0),
+            'double' => (float) ($package->price_double ?? 0),
+            'triple' => (float) ($package->price_triple ?? 0),
+            'quad' => (float) ($package->price_quad ?? 0),
+            default => 0.0,
+        };
     }
 }

@@ -57,10 +57,14 @@ function toTravelerWithUI(
     );
     const customerId = toPositiveIntegerOrNull(row.customer_id);
     const travelerId = toPositiveIntegerOrNull(row.id);
+    const sharingGroupId = toPositiveIntegerOrNull(
+        row.manifest_sharing_group_id ?? row.sharing_group_id,
+    );
 
     return {
         ...(row as TravelerWithUI),
         role: String(row.role ?? row.relationship ?? ''),
+        relationship: String(row.relationship ?? row.role ?? ''),
         row_key:
             typeof row.row_key === 'string' && row.row_key.trim().length > 0
                 ? row.row_key
@@ -74,6 +78,7 @@ function toTravelerWithUI(
         sn: Number(row.sn ?? index + 1),
         sharing_group_key: String(
             row.sharing_group_key ??
+                (sharingGroupId !== null ? `group-${sharingGroupId}` : null) ??
                 row.sharing_group_id ??
                 row.customer_confirmation_member_id ??
                 `solo-${index}`,
@@ -592,6 +597,18 @@ export default function ManifestForm({
                                     travelerMap.get(
                                         travelerIdentityKey(row, rowIndex),
                                     )?.issue_place ?? row.issue_place,
+                                birth_place:
+                                    travelerMap.get(
+                                        travelerIdentityKey(row, rowIndex),
+                                    )?.birth_place ?? row.birth_place,
+                                contact_no:
+                                    travelerMap.get(
+                                        travelerIdentityKey(row, rowIndex),
+                                    )?.contact_no ?? row.contact_no,
+                                package_price:
+                                    travelerMap.get(
+                                        travelerIdentityKey(row, rowIndex),
+                                    )?.package_price ?? row.package_price,
                                 room_relationship:
                                     row.room_relationship ??
                                     travelerMap.get(
@@ -645,6 +662,11 @@ export default function ManifestForm({
                             traveler.date_of_expiry ?? existing?.date_of_expiry,
                         issue_place:
                             traveler.issue_place ?? existing?.issue_place,
+                        birth_place:
+                            traveler.birth_place ?? existing?.birth_place,
+                        contact_no: traveler.contact_no ?? existing?.contact_no,
+                        package_price:
+                            traveler.package_price ?? existing?.package_price,
                         role: traveler.role ?? existing?.role,
                         relationship:
                             traveler.relationship ?? existing?.relationship,
@@ -664,6 +686,43 @@ export default function ManifestForm({
             form.setData('airlineList', nextAirline);
         },
         [data.airlineList, data.roomLists, form, isCancelledTraveler, roomTabs],
+    );
+
+    const resetRoomListTab = useCallback(
+        (tabKey: string) => {
+            const targetTab = roomTabs.find((tab) => tab.key === tabKey);
+
+            if (!targetTab) {
+                return;
+            }
+
+            const currentNonCancelledTravelers = (
+                (data.travelers ?? []) as TravelerWithUI[]
+            ).filter((traveler) => !isCancelledTraveler(traveler));
+
+            const baseRows = buildRoomRowsFromTravelers(
+                currentNonCancelledTravelers,
+                [],
+                targetTab.key,
+                targetTab.accommodation.type_of_meal ?? '',
+            ).map((row, index) => ({
+                ...row,
+                sn: index + 1,
+                sort_order: index + 1,
+            }));
+
+            setData('roomLists', {
+                ...(data.roomLists ?? {}),
+                [tabKey]: baseRows,
+            });
+        },
+        [
+            data.roomLists,
+            data.travelers,
+            isCancelledTraveler,
+            roomTabs,
+            setData,
+        ],
     );
 
     const submit = (event: React.FormEvent) => {
@@ -1078,6 +1137,15 @@ export default function ManifestForm({
                                             issue_place:
                                                 updated.issue_place ??
                                                 traveler.issue_place,
+                                            birth_place:
+                                                updated.birth_place ??
+                                                traveler.birth_place,
+                                            contact_no:
+                                                updated.contact_no ??
+                                                traveler.contact_no,
+                                            package_price:
+                                                updated.package_price ??
+                                                traveler.package_price,
                                             age:
                                                 calculateAgeFromDob(
                                                     updated.date_of_birth ??
@@ -1163,6 +1231,15 @@ export default function ManifestForm({
                                                                 issue_place:
                                                                     travelerUpdate.issue_place ??
                                                                     roomRow.issue_place,
+                                                                birth_place:
+                                                                    travelerUpdate.birth_place ??
+                                                                    roomRow.birth_place,
+                                                                contact_no:
+                                                                    travelerUpdate.contact_no ??
+                                                                    roomRow.contact_no,
+                                                                package_price:
+                                                                    travelerUpdate.package_price ??
+                                                                    roomRow.package_price,
                                                                 age:
                                                                     calculateAgeFromDob(
                                                                         travelerUpdate.date_of_birth ??
@@ -1217,6 +1294,15 @@ export default function ManifestForm({
                                                 issue_place:
                                                     travelerUpdate.issue_place ??
                                                     airlineRow.issue_place,
+                                                birth_place:
+                                                    travelerUpdate.birth_place ??
+                                                    airlineRow.birth_place,
+                                                contact_no:
+                                                    travelerUpdate.contact_no ??
+                                                    airlineRow.contact_no,
+                                                package_price:
+                                                    travelerUpdate.package_price ??
+                                                    airlineRow.package_price,
                                                 age:
                                                     calculateAgeFromDob(
                                                         travelerUpdate.date_of_birth ??
@@ -1241,6 +1327,20 @@ export default function ManifestForm({
                                     }
                                 }}
                             />
+
+                            {!isView && (
+                                <div className="flex justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            resetRoomListTab(tab.key)
+                                        }
+                                    >
+                                        Reset This Room List to Main Structure
+                                    </Button>
+                                </div>
+                            )}
                         </TabsContent>
                     );
                 })}
@@ -1333,6 +1433,15 @@ export default function ManifestForm({
                                     issue_place:
                                         updated.issue_place ??
                                         traveler.issue_place,
+                                    birth_place:
+                                        updated.birth_place ??
+                                        traveler.birth_place,
+                                    contact_no:
+                                        updated.contact_no ??
+                                        traveler.contact_no,
+                                    package_price:
+                                        updated.package_price ??
+                                        traveler.package_price,
                                     age:
                                         calculateAgeFromDob(
                                             updated.date_of_birth ??
@@ -1402,6 +1511,15 @@ export default function ManifestForm({
                                                     issue_place:
                                                         travelerUpdate.issue_place ??
                                                         roomRow.issue_place,
+                                                    birth_place:
+                                                        travelerUpdate.birth_place ??
+                                                        roomRow.birth_place,
+                                                    contact_no:
+                                                        travelerUpdate.contact_no ??
+                                                        roomRow.contact_no,
+                                                    package_price:
+                                                        travelerUpdate.package_price ??
+                                                        roomRow.package_price,
                                                     age:
                                                         calculateAgeFromDob(
                                                             travelerUpdate.date_of_birth ??

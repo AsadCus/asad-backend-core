@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('packages', function (Blueprint $table) {
-            $table->renameColumn('arrival_date', 'return_date');
-            $table->dropColumn(['airline', 'pnr']);
+            $table->string('vehicle_driver_name')->nullable()->after('vehicle_type');
+            $table->string('vehicle_driver_contact_number')->nullable()->after('vehicle_driver_name');
         });
     }
 
@@ -23,9 +23,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('packages', function (Blueprint $table) {
-            $table->renameColumn('return_date', 'arrival_date');
-            $table->string('airline')->nullable()->after('infant_price');
-            $table->string('pnr')->nullable()->after('airline');
+            $table->dropColumn(['vehicle_driver_name', 'vehicle_driver_contact_number']);
         });
     }
 };

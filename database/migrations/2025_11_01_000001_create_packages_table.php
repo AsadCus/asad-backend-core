@@ -27,10 +27,8 @@ return new class extends Migration
             $table->decimal('infant_price', 10, 2)->default(0);
 
             // Flight Details
-            $table->string('airline')->nullable();
-            $table->string('pnr')->nullable();
             $table->date('departure_date')->nullable();
-            $table->date('arrival_date')->nullable();
+            $table->date('return_date')->nullable();
             $table->unsignedInteger('total_seats')->default(0);
             $table->unsignedInteger('seats_left')->default(0);
 

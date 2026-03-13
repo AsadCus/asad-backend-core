@@ -13,8 +13,6 @@ use App\Models\GeneralEnquiry;
 use App\Models\Notification;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
-use App\Models\SharingGroup;
-use App\Models\SharingGroupMember;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Database\Seeder;
@@ -445,8 +443,6 @@ class EnquirySeeder extends Seeder
                     'sharing_plan' => $selectedPackage['package_room_type'] ?? 'double',
                 ]);
             }
-
-            $this->seedSharingGroupsForConfirmation($group);
         }
     }
 
@@ -664,93 +660,6 @@ class EnquirySeeder extends Seeder
         }
 
         return 'classic_umrah';
-    }
-
-    /**
-     * Seed draft sharing groups for a customer confirmation.
-     */
-    private function seedSharingGroupsForConfirmation(CustomerConfirmation $confirmation): void
-    {
-        $confirmation->loadMissing('members.customer.user');
-
-        if ($confirmation->sharingGroups()->exists()) {
-            return;
-        }
-
-        $members = $confirmation->members
-            ->sortByDesc(fn (CustomerConfirmationMember $member) => $member->is_leader)
-            ->values();
-
-        $memberCount = $members->count();
-        if ($memberCount === 0) {
-            return;
-        }
-
-        if ($memberCount === 1) {
-            $this->createSharingGroup($confirmation, $members->all(), 'single', 0);
-
-            return;
-        }
-
-        if ($memberCount === 2) {
-            $this->createSharingGroup($confirmation, $members->all(), 'double', 0);
-
-            return;
-        }
-
-        $this->createSharingGroup($confirmation, $members->slice(0, 2)->all(), 'double', 0);
-        $this->createSharingGroup($confirmation, $members->slice(2)->all(), 'single', 1);
-    }
-
-    /**
-     * Create one sharing group and its pivot members.
-     *
-     * @param  array<int, CustomerConfirmationMember>  $members
-     */
-    private function createSharingGroup(CustomerConfirmation $confirmation, array $members, string $sharingPlan, int $sortOrder): void
-    {
-        $expectedCapacity = match ($sharingPlan) {
-            'single' => 1,
-            'double' => 2,
-            'triple' => 3,
-            'quad' => 4,
-            default => 1,
-        };
-
-        $status = count($members) >= $expectedCapacity ? 'ready' : 'pending_merge';
-
-        $sharingGroup = SharingGroup::create([
-            'customer_confirmation_id' => $confirmation->id,
-            'sharing_plan' => $sharingPlan,
-            'expected_capacity' => $expectedCapacity,
-            'status' => $status,
-            'sort_order' => $sortOrder,
-            'remarks' => 'Seeded from confirmed enquiry workflow',
-        ]);
-
-        foreach (array_values($members) as $index => $member) {
-            SharingGroupMember::create([
-                'sharing_group_id' => $sharingGroup->id,
-                'customer_confirmation_member_id' => $member->id,
-                'role_in_group' => $this->determineRoleInGroup($member, $index),
-                'sort_order' => $index,
-                'remarks' => null,
-            ]);
-        }
-    }
-
-    private function determineRoleInGroup(CustomerConfirmationMember $member, int $index): string
-    {
-        if ($member->is_leader || $index === 0) {
-            return 'leader';
-        }
-
-        $age = $member->customer?->date_of_birth?->age;
-        if (is_int($age) && $age < 18) {
-            return 'child';
-        }
-
-        return 'friend';
     }
 
     /**

@@ -25,6 +25,6 @@ class ManifestRoomMember extends Model
 
     public function traveler(): BelongsTo
     {
-        return $this->belongsTo(ManifestTraveler::class, 'manifest_traveler_id');
+        return $this->belongsTo(ManifestMember::class, 'manifest_traveler_id');
     }
 }

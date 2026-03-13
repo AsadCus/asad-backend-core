@@ -140,7 +140,7 @@ class ManifestSeederTest extends TestCase
 
         $manifest = Manifest::query()->where('package_id', $package->id)->firstOrFail();
 
-        $this->assertDatabaseHas('manifest_travelers', [
+        $this->assertDatabaseHas('manifest_members', [
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
         ]);

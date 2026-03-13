@@ -29,11 +29,15 @@ import {
     infantAndChildPriceLabels,
     officialTypeOptions,
     packageMealPlanOptions,
+    packageTrainTicketTypeOptions,
     sharingPlanPriceLabels,
     type AccommodationSchema,
     type FlightSchema,
     type OfficialSchema,
     type PackageSchema,
+    type RawdahTasreehSchema,
+    type TrainTicketSchema,
+    type TransportationPlanSchema,
 } from './schema';
 import { packageValidationSchema } from './validation';
 
@@ -55,6 +59,23 @@ const defaultFlights: FlightSchema[] = [
         pnr: '',
         departure_datetime: '',
         arrival_datetime: '',
+    },
+];
+
+const defaultTrainTickets: TrainTicketSchema[] = [
+    {
+        from: '',
+        to: '',
+        travel_date: '',
+        travel_time: '',
+        remarks: '',
+    },
+    {
+        from: '',
+        to: '',
+        travel_date: '',
+        travel_time: '',
+        remarks: '',
     },
 ];
 
@@ -100,6 +121,8 @@ export default function PackageForm({
         occupied_seats: 0,
         visa_type: '',
         vehicle_type: '',
+        vehicle_driver_name: '',
+        vehicle_driver_contact_number: '',
         ticket_type: '',
         included: '',
         not_included: '',
@@ -107,6 +130,9 @@ export default function PackageForm({
         remarks: '',
         accommodations: [],
         flights: [...defaultFlights],
+        train_tickets: [],
+        transportation_plans: [],
+        rawdah_tasreehs: [],
         officials: [...defaultOfficials],
         ...prefillData,
     };
@@ -142,6 +168,41 @@ export default function PackageForm({
         }));
         lastAppliedPrefillRef.current = prefillSignature;
     }, [isCreate, prefillData, setData]);
+
+    useEffect(() => {
+        const ticketType = data.ticket_type;
+
+        if (ticketType !== 'one_way' && ticketType !== 'two_way') {
+            if ((data.train_tickets ?? []).length > 0) {
+                setData('train_tickets', []);
+            }
+
+            return;
+        }
+
+        const desiredCount = ticketType === 'two_way' ? 2 : 1;
+
+        setData((currentData) => {
+            const currentTickets = currentData.train_tickets ?? [];
+
+            if (currentTickets.length === desiredCount) {
+                return currentData;
+            }
+
+            const nextTickets =
+                desiredCount === 1
+                    ? [currentTickets[0] ?? defaultTrainTickets[0]]
+                    : [
+                          currentTickets[0] ?? defaultTrainTickets[0],
+                          currentTickets[1] ?? defaultTrainTickets[1],
+                      ];
+
+            return {
+                ...currentData,
+                train_tickets: nextTickets,
+            };
+        });
+    }, [data.ticket_type, data.train_tickets, setData]);
 
     function validateClientSide(): boolean {
         clearErrors();
@@ -252,6 +313,84 @@ export default function PackageForm({
         const current = [...(data.flights || [])];
         current[index] = { ...current[index], [field]: value };
         setData('flights', current);
+    };
+
+    // --- Train ticket helpers ---
+    const updateTrainTicket = (
+        index: number,
+        field: keyof TrainTicketSchema,
+        value: string | number | null,
+    ) => {
+        const current = [...(data.train_tickets || [])];
+        current[index] = { ...current[index], [field]: value };
+        setData('train_tickets', current);
+    };
+
+    // --- Transportation plan helpers ---
+    const addTransportationPlan = () => {
+        const current = data.transportation_plans || [];
+        setData('transportation_plans', [
+            ...current,
+            {
+                from: '',
+                to: '',
+                travel_date: '',
+                travel_time: '',
+                remarks: '',
+            },
+        ]);
+    };
+
+    const removeTransportationPlan = (index: number) => {
+        const current = data.transportation_plans || [];
+        setData(
+            'transportation_plans',
+            current.filter((_, i) => i !== index),
+        );
+    };
+
+    const updateTransportationPlan = (
+        index: number,
+        field: keyof TransportationPlanSchema,
+        value: string | number | null,
+    ) => {
+        const current = [...(data.transportation_plans || [])];
+        current[index] = { ...current[index], [field]: value };
+        setData('transportation_plans', current);
+    };
+
+    // --- Rawdah tasreeh helpers ---
+    const addRawdahTasreeh = () => {
+        const current = data.rawdah_tasreehs || [];
+        setData('rawdah_tasreehs', [
+            ...current,
+            {
+                date: '',
+                women_passengers: null,
+                women_time: '',
+                men_passengers: null,
+                men_time: '',
+                remarks: '',
+            },
+        ]);
+    };
+
+    const removeRawdahTasreeh = (index: number) => {
+        const current = data.rawdah_tasreehs || [];
+        setData(
+            'rawdah_tasreehs',
+            current.filter((_, i) => i !== index),
+        );
+    };
+
+    const updateRawdahTasreeh = (
+        index: number,
+        field: keyof RawdahTasreehSchema,
+        value: string | number | null,
+    ) => {
+        const current = [...(data.rawdah_tasreehs || [])];
+        current[index] = { ...current[index], [field]: value };
+        setData('rawdah_tasreehs', current);
     };
 
     // --- Official helpers ---
@@ -463,7 +602,10 @@ export default function PackageForm({
                                         const seatsLeft =
                                             val === null
                                                 ? null
-                                                : Math.max(0, val - occupiedSeats);
+                                                : Math.max(
+                                                      0,
+                                                      val - occupiedSeats,
+                                                  );
 
                                         setData((prev) => ({
                                             ...prev,
@@ -835,6 +977,210 @@ export default function PackageForm({
                     </CardContent>
                 </Card>
 
+                {/* Transportation Plan */}
+                <Card>
+                    <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle className="text-xl">
+                                Transportation Plan
+                            </CardTitle>
+                            <CardDescription>
+                                Add transportation arrangements for this
+                                package.
+                            </CardDescription>
+                        </div>
+                        {!isView && (
+                            <Button
+                                type="button"
+                                variant="default"
+                                className="w-full sm:w-auto"
+                                onClick={addTransportationPlan}
+                                disabled={processing}
+                            >
+                                <Plus className="mr-1 h-4 w-4" />
+                                Add Transportation
+                            </Button>
+                        )}
+                    </CardHeader>
+                    <CardContent>
+                        {(data.transportation_plans || []).length === 0 ? (
+                            <p className="text-base text-muted-foreground">
+                                No transportation plans added yet. Click "Add
+                                Transportation" to add details.
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {(data.transportation_plans || []).map(
+                                    (plan, index) => (
+                                        <div
+                                            key={index}
+                                            className="space-y-4 rounded-lg border p-4"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold">
+                                                    Transportation {index + 1}
+                                                </span>
+                                                {!isView && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            removeTransportationPlan(
+                                                                index,
+                                                            )
+                                                        }
+                                                        disabled={processing}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                <FormField
+                                                    label="From"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Departure location',
+                                                    }}
+                                                    error={getError(
+                                                        `transportation_plans.${index}.from`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={plan.from ?? ''}
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateTransportationPlan(
+                                                                index,
+                                                                'from',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Airport"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="To"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Arrival location',
+                                                    }}
+                                                    error={getError(
+                                                        `transportation_plans.${index}.to`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={plan.to ?? ''}
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateTransportationPlan(
+                                                                index,
+                                                                'to',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Hotel"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Date"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Travel date',
+                                                    }}
+                                                    error={getError(
+                                                        `transportation_plans.${index}.travel_date`,
+                                                    )}
+                                                >
+                                                    <DatePickerField
+                                                        id={`transport_date_${index}`}
+                                                        value={
+                                                            plan.travel_date ||
+                                                            ''
+                                                        }
+                                                        fromYear={new Date().getFullYear()}
+                                                        toYear={
+                                                            new Date().getFullYear() +
+                                                            5
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onChange={(v) =>
+                                                            updateTransportationPlan(
+                                                                index,
+                                                                'travel_date',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <FormField
+                                                    label="Time"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Travel time',
+                                                    }}
+                                                    error={getError(
+                                                        `transportation_plans.${index}.travel_time`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        type="time"
+                                                        value={
+                                                            plan.travel_time ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateTransportationPlan(
+                                                                index,
+                                                                'travel_time',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Remarks"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Optional notes',
+                                                    }}
+                                                    error={getError(
+                                                        `transportation_plans.${index}.remarks`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            plan.remarks ?? ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateTransportationPlan(
+                                                                index,
+                                                                'remarks',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="Optional remarks"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 {/* Visa, Vehicle & Train */}
                 <Card>
                     <CardHeader className="gap-0">
@@ -846,7 +1192,7 @@ export default function PackageForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                             <FormField
                                 label="Visa Type"
                                 htmlFor="visa_type"
@@ -884,26 +1230,259 @@ export default function PackageForm({
                                 />
                             </FormField>
                             <FormField
+                                label="Driver Name"
+                                htmlFor="vehicle_driver_name"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter driver name',
+                                }}
+                                error={getError('vehicle_driver_name')}
+                            >
+                                <ProperInput
+                                    id="vehicle_driver_name"
+                                    value={data.vehicle_driver_name || ''}
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData(
+                                            'vehicle_driver_name',
+                                            v || null,
+                                        )
+                                    }
+                                    placeholder="Enter driver name"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Driver Contact Number"
+                                htmlFor="vehicle_driver_contact_number"
+                                fieldRequirementsProps={{
+                                    hint: 'Enter driver contact number',
+                                }}
+                                error={getError(
+                                    'vehicle_driver_contact_number',
+                                )}
+                            >
+                                <ProperInput
+                                    id="vehicle_driver_contact_number"
+                                    value={
+                                        data.vehicle_driver_contact_number || ''
+                                    }
+                                    disabled={isView || processing}
+                                    onCommit={(v) =>
+                                        setData(
+                                            'vehicle_driver_contact_number',
+                                            v || null,
+                                        )
+                                    }
+                                    placeholder="Enter contact number"
+                                />
+                            </FormField>
+                            <FormField
                                 label="Train Ticket Type"
                                 htmlFor="ticket_type"
                                 fieldRequirementsProps={{
-                                    hint: 'Enter train ticket type',
+                                    hint: 'Select train ticket type',
                                 }}
                                 error={getError('ticket_type')}
                             >
-                                <ProperInput
-                                    id="ticket_type"
+                                <ProperInputSelect
+                                    options={packageTrainTicketTypeOptions}
                                     value={data.ticket_type || ''}
                                     disabled={isView || processing}
-                                    onCommit={(v) =>
-                                        setData('ticket_type', v || null)
+                                    onValueChange={(v) =>
+                                        setData('ticket_type', String(v || ''))
                                     }
-                                    placeholder="e.g., Economy, Business"
+                                    placeholder="Select ticket type"
                                 />
                             </FormField>
                         </div>
                     </CardContent>
                 </Card>
+
+                {(data.ticket_type === 'one_way' ||
+                    data.ticket_type === 'two_way') && (
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Train Ticket Details
+                            </CardTitle>
+                            <CardDescription>
+                                Provide train ticket itinerary details.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {(data.train_tickets || []).length === 0 ? (
+                                <p className="text-base text-muted-foreground">
+                                    Select a train ticket type to add itinerary
+                                    details.
+                                </p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {(data.train_tickets || []).map(
+                                        (ticket, index) => (
+                                            <div
+                                                key={index}
+                                                className="space-y-4 rounded-lg border p-4"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-semibold">
+                                                        Train Trip {index + 1}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                    <FormField
+                                                        label="From"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Departure location',
+                                                        }}
+                                                        error={getError(
+                                                            `train_tickets.${index}.from`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={
+                                                                ticket.from ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateTrainTicket(
+                                                                    index,
+                                                                    'from',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                            placeholder="e.g., Mekkah"
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="To"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Arrival location',
+                                                        }}
+                                                        error={getError(
+                                                            `train_tickets.${index}.to`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={
+                                                                ticket.to ?? ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateTrainTicket(
+                                                                    index,
+                                                                    'to',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                            placeholder="e.g., Madinah"
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Date"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Travel date',
+                                                        }}
+                                                        error={getError(
+                                                            `train_tickets.${index}.travel_date`,
+                                                        )}
+                                                    >
+                                                        <DatePickerField
+                                                            id={`train_date_${index}`}
+                                                            value={
+                                                                ticket.travel_date ||
+                                                                ''
+                                                            }
+                                                            fromYear={new Date().getFullYear()}
+                                                            toYear={
+                                                                new Date().getFullYear() +
+                                                                5
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onChange={(v) =>
+                                                                updateTrainTicket(
+                                                                    index,
+                                                                    'travel_date',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                    <FormField
+                                                        label="Time"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Travel time',
+                                                        }}
+                                                        error={getError(
+                                                            `train_tickets.${index}.travel_time`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            type="time"
+                                                            value={
+                                                                ticket.travel_time ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateTrainTicket(
+                                                                    index,
+                                                                    'travel_time',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Remarks"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Optional notes',
+                                                        }}
+                                                        error={getError(
+                                                            `train_tickets.${index}.remarks`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={
+                                                                ticket.remarks ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateTrainTicket(
+                                                                    index,
+                                                                    'remarks',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                            placeholder="Optional remarks"
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                            </div>
+                                        ),
+                                    )}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Accommodations */}
                 <Card>
@@ -969,195 +1548,489 @@ export default function PackageForm({
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                            <FormField
-                                                label="Location"
-                                                fieldRequirementsProps={{
-                                                    required: true,
-                                                    hint: 'Enter location',
-                                                }}
-                                                error={getError(
-                                                    `accommodations.${index}.location`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={
-                                                        accommodation.location ??
-                                                        ''
-                                                    }
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    onCommit={(v) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'location',
-                                                            v,
-                                                        )
-                                                    }
-                                                    placeholder="e.g., Mekkah"
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Hotel Name"
-                                                fieldRequirementsProps={{
-                                                    required: true,
-                                                    hint: 'Enter hotel name',
-                                                }}
-                                                error={getError(
-                                                    `accommodations.${index}.hotel_name`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={
-                                                        accommodation.hotel_name ??
-                                                        ''
-                                                    }
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    onCommit={(v) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'hotel_name',
-                                                            v,
-                                                        )
-                                                    }
-                                                    placeholder="Hotel name"
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Meal Type"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Enter meal type',
-                                                }}
-                                                error={getError(
-                                                    `accommodations.${index}.type_of_meal`,
-                                                )}
-                                            >
-                                                <ProperInputSelect
-                                                    options={
-                                                        packageMealPlanOptions
-                                                    }
-                                                    value={
-                                                        accommodation.type_of_meal ??
-                                                        ''
-                                                    }
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    onValueChange={(v) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'type_of_meal',
-                                                            String(v || ''),
-                                                        )
-                                                    }
-                                                    placeholder="Select meal plan"
-                                                />
-                                            </FormField>
+                                                <FormField
+                                                    label="Location"
+                                                    fieldRequirementsProps={{
+                                                        required: true,
+                                                        hint: 'Enter location',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.location`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.location ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'location',
+                                                                v,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Mekkah"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Hotel Name"
+                                                    fieldRequirementsProps={{
+                                                        required: true,
+                                                        hint: 'Enter hotel name',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.hotel_name`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.hotel_name ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'hotel_name',
+                                                                v,
+                                                            )
+                                                        }
+                                                        placeholder="Hotel name"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Meal Type"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter meal type',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.type_of_meal`,
+                                                    )}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={
+                                                            packageMealPlanOptions
+                                                        }
+                                                        value={
+                                                            accommodation.type_of_meal ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'type_of_meal',
+                                                                String(v || ''),
+                                                            )
+                                                        }
+                                                        placeholder="Select meal plan"
+                                                    />
+                                                </FormField>
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <FormField
-                                                label="Check In"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Select check-in date',
-                                                }}
-                                                error={getError(
-                                                    `accommodations.${index}.check_in`,
-                                                )}
-                                            >
-                                                <DatePickerField
-                                                    id={`acc_check_in_${index}`}
-                                                    value={
-                                                        accommodation.check_in ||
-                                                        ''
-                                                    }
-                                                    fromYear={new Date().getFullYear()}
-                                                    toYear={
-                                                        new Date().getFullYear() +
-                                                        5
-                                                    }
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    disabledDates={
-                                                        isBeforeToday
-                                                    }
-                                                    onChange={(v) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'check_in',
-                                                            v,
-                                                        )
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Check Out"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Select check-out date',
-                                                }}
-                                                error={getError(
-                                                    `accommodations.${index}.check_out`,
-                                                )}
-                                            >
-                                                <DatePickerField
-                                                    id={`acc_check_out_${index}`}
-                                                    value={
-                                                        accommodation.check_out ||
-                                                        ''
-                                                    }
-                                                    fromYear={new Date().getFullYear()}
-                                                    toYear={
-                                                        new Date().getFullYear() +
-                                                        5
-                                                    }
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    disabledDates={(date) => {
-                                                        if (
-                                                            isBeforeToday(date)
-                                                        ) {
-                                                            return true;
+                                                <FormField
+                                                    label="Check In"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Select check-in date',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.check_in`,
+                                                    )}
+                                                >
+                                                    <DatePickerField
+                                                        id={`acc_check_in_${index}`}
+                                                        value={
+                                                            accommodation.check_in ||
+                                                            ''
                                                         }
+                                                        fromYear={new Date().getFullYear()}
+                                                        toYear={
+                                                            new Date().getFullYear() +
+                                                            5
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        disabledDates={
+                                                            isBeforeToday
+                                                        }
+                                                        onChange={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'check_in',
+                                                                v,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Check Out"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Select check-out date',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.check_out`,
+                                                    )}
+                                                >
+                                                    <DatePickerField
+                                                        id={`acc_check_out_${index}`}
+                                                        value={
+                                                            accommodation.check_out ||
+                                                            ''
+                                                        }
+                                                        fromYear={new Date().getFullYear()}
+                                                        toYear={
+                                                            new Date().getFullYear() +
+                                                            5
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        disabledDates={(
+                                                            date,
+                                                        ) => {
+                                                            if (
+                                                                isBeforeToday(
+                                                                    date,
+                                                                )
+                                                            ) {
+                                                                return true;
+                                                            }
 
-                                                        const checkInDate =
-                                                            toStartOfDay(
-                                                                accommodation.check_in,
+                                                            const checkInDate =
+                                                                toStartOfDay(
+                                                                    accommodation.check_in,
+                                                                );
+
+                                                            if (!checkInDate) {
+                                                                return false;
+                                                            }
+
+                                                            const candidateDate =
+                                                                new Date(date);
+                                                            candidateDate.setHours(
+                                                                0,
+                                                                0,
+                                                                0,
+                                                                0,
                                                             );
 
-                                                        if (!checkInDate) {
-                                                            return false;
+                                                            return (
+                                                                candidateDate <=
+                                                                checkInDate
+                                                            );
+                                                        }}
+                                                        onChange={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'check_out',
+                                                                v,
+                                                            )
                                                         }
-
-                                                        const candidateDate =
-                                                            new Date(date);
-                                                        candidateDate.setHours(
-                                                            0,
-                                                            0,
-                                                            0,
-                                                            0,
-                                                        );
-
-                                                        return (
-                                                            candidateDate <=
-                                                            checkInDate
-                                                        );
-                                                    }}
-                                                    onChange={(v) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'check_out',
-                                                            v,
-                                                        )
-                                                    }
-                                                />
-                                            </FormField>
+                                                    />
+                                                </FormField>
                                             </div>
                                         </div>
                                     ),
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Rawdah Tasreeh */}
+                <Card>
+                    <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle className="text-xl">
+                                Rawdah Tasreeh
+                            </CardTitle>
+                            <CardDescription>
+                                Add Rawdah tasreeh schedules and passenger
+                                counts.
+                            </CardDescription>
+                        </div>
+                        {!isView && (
+                            <Button
+                                type="button"
+                                variant="default"
+                                className="w-full sm:w-auto"
+                                onClick={addRawdahTasreeh}
+                                disabled={processing}
+                            >
+                                <Plus className="mr-1 h-4 w-4" />
+                                Add Rawdah
+                            </Button>
+                        )}
+                    </CardHeader>
+                    <CardContent>
+                        {(data.rawdah_tasreehs || []).length === 0 ? (
+                            <p className="text-base text-muted-foreground">
+                                No Rawdah tasreeh entries yet. Click "Add
+                                Rawdah" to add schedules.
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {(data.rawdah_tasreehs || []).map(
+                                    (tasreeh, index) => {
+                                        const womenCount = Number(
+                                            tasreeh.women_passengers ?? 0,
+                                        );
+                                        const menCount = Number(
+                                            tasreeh.men_passengers ?? 0,
+                                        );
+                                        const totalCount =
+                                            (Number.isFinite(womenCount)
+                                                ? womenCount
+                                                : 0) +
+                                            (Number.isFinite(menCount)
+                                                ? menCount
+                                                : 0);
+
+                                        return (
+                                            <div
+                                                key={index}
+                                                className="space-y-4 rounded-lg border p-4"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-semibold">
+                                                        Rawdah {index + 1}
+                                                    </span>
+                                                    {!isView && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                removeRawdahTasreeh(
+                                                                    index,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                processing
+                                                            }
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                    <FormField
+                                                        label="Date"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Tasreeh date',
+                                                        }}
+                                                        error={getError(
+                                                            `rawdah_tasreehs.${index}.date`,
+                                                        )}
+                                                    >
+                                                        <DatePickerField
+                                                            id={`rawdah_date_${index}`}
+                                                            value={
+                                                                tasreeh.date ||
+                                                                ''
+                                                            }
+                                                            fromYear={new Date().getFullYear()}
+                                                            toYear={
+                                                                new Date().getFullYear() +
+                                                                5
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onChange={(v) =>
+                                                                updateRawdahTasreeh(
+                                                                    index,
+                                                                    'date',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Women Passengers"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Total women passengers',
+                                                        }}
+                                                        error={getError(
+                                                            `rawdah_tasreehs.${index}.women_passengers`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            type="number"
+                                                            value={
+                                                                tasreeh.women_passengers ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateRawdahTasreeh(
+                                                                    index,
+                                                                    'women_passengers',
+                                                                    v === ''
+                                                                        ? null
+                                                                        : Number(
+                                                                              v,
+                                                                          ),
+                                                                )
+                                                            }
+                                                            inputProps={{
+                                                                min: '0',
+                                                            }}
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Women Time"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Women time slot',
+                                                        }}
+                                                        error={getError(
+                                                            `rawdah_tasreehs.${index}.women_time`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            type="time"
+                                                            value={
+                                                                tasreeh.women_time ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateRawdahTasreeh(
+                                                                    index,
+                                                                    'women_time',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                    <FormField
+                                                        label="Men Passengers"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Total men passengers',
+                                                        }}
+                                                        error={getError(
+                                                            `rawdah_tasreehs.${index}.men_passengers`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            type="number"
+                                                            value={
+                                                                tasreeh.men_passengers ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateRawdahTasreeh(
+                                                                    index,
+                                                                    'men_passengers',
+                                                                    v === ''
+                                                                        ? null
+                                                                        : Number(
+                                                                              v,
+                                                                          ),
+                                                                )
+                                                            }
+                                                            inputProps={{
+                                                                min: '0',
+                                                            }}
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Men Time"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Men time slot',
+                                                        }}
+                                                        error={getError(
+                                                            `rawdah_tasreehs.${index}.men_time`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            type="time"
+                                                            value={
+                                                                tasreeh.men_time ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateRawdahTasreeh(
+                                                                    index,
+                                                                    'men_time',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Total Passengers"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Auto-calculated total',
+                                                        }}
+                                                    >
+                                                        <Input
+                                                            value={totalCount}
+                                                            disabled={true}
+                                                            className="bg-muted"
+                                                        />
+                                                    </FormField>
+                                                </div>
+
+                                                <FormField
+                                                    label="Remarks"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Additional notes',
+                                                    }}
+                                                    error={getError(
+                                                        `rawdah_tasreehs.${index}.remarks`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            tasreeh.remarks ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateRawdahTasreeh(
+                                                                index,
+                                                                'remarks',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="Optional remarks"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        );
+                                    },
                                 )}
                             </div>
                         )}
@@ -1225,103 +2098,107 @@ export default function PackageForm({
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                            <FormField
-                                                label="Type"
-                                                fieldRequirementsProps={{
-                                                    required: true,
-                                                    hint: 'Select official type',
-                                                }}
-                                                error={getError(
-                                                    `officials.${index}.type`,
-                                                )}
-                                            >
-                                                <Select
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    value={official.type || ''}
-                                                    onValueChange={(v) =>
-                                                        updateOfficial(
-                                                            index,
-                                                            'type',
-                                                            v,
-                                                        )
-                                                    }
+                                                <FormField
+                                                    label="Type"
+                                                    fieldRequirementsProps={{
+                                                        required: true,
+                                                        hint: 'Select official type',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.type`,
+                                                    )}
                                                 >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select type" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {officialTypeOptions.map(
-                                                            (option) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        option.value
-                                                                    }
-                                                                    value={
-                                                                        option.value
-                                                                    }
-                                                                >
-                                                                    {
-                                                                        option.label
-                                                                    }
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </FormField>
-                                            <FormField
-                                                label="Name"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Enter official name',
-                                                }}
-                                                error={getError(
-                                                    `officials.${index}.name`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={official.name ?? ''}
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    onCommit={(v) =>
-                                                        updateOfficial(
-                                                            index,
-                                                            'name',
-                                                            v || null,
-                                                        )
-                                                    }
-                                                    placeholder="Enter name"
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Contact Number"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Enter contact number',
-                                                }}
-                                                error={getError(
-                                                    `officials.${index}.contact_number`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={
-                                                        official.contact_number ??
-                                                        ''
-                                                    }
-                                                    disabled={
-                                                        isView || processing
-                                                    }
-                                                    onCommit={(v) =>
-                                                        updateOfficial(
-                                                            index,
-                                                            'contact_number',
-                                                            v || null,
-                                                        )
-                                                    }
-                                                    placeholder="Enter contact number"
-                                                />
-                                            </FormField>
+                                                    <Select
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        value={
+                                                            official.type || ''
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'type',
+                                                                v,
+                                                            )
+                                                        }
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {officialTypeOptions.map(
+                                                                (option) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            option.value
+                                                                        }
+                                                                        value={
+                                                                            option.value
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            option.label
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </FormField>
+                                                <FormField
+                                                    label="Name"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter official name',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.name`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.name ?? ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'name',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="Enter name"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Contact Number"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter contact number',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.contact_number`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.contact_number ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'contact_number',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="Enter contact number"
+                                                    />
+                                                </FormField>
                                             </div>
                                         </div>
                                     ),

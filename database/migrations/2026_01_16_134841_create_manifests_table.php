@@ -20,18 +20,24 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('manifest_travelers', function (Blueprint $table) {
+        Schema::create('manifest_members', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('manifest_sharing_group_id')->nullable();
             $table->foreignId('customer_confirmation_member_id')->nullable()->constrained('customer_confirmation_members')->nullOnDelete();
+            $table->unsignedInteger('sort_order')->default(0);
             $table->text('remarks')->nullable();
             $table->timestamps();
+
+            $table->index('manifest_sharing_group_id');
         });
 
         Schema::create('manifest_rooms', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
+            $table->unsignedInteger('sort_order')->default(0);
             $table->string('location')->nullable();
+            $table->string('relationship')->nullable();
             $table->string('room_label')->nullable();
             $table->string('room_number')->nullable();
             $table->string('room_type')->nullable();
@@ -47,7 +53,7 @@ return new class extends Migration
         Schema::create('manifest_payments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('manifest_traveler_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('manifest_traveler_id')->nullable()->constrained('manifest_members')->nullOnDelete();
             $table->string('traveler_name');
             $table->string('description');
             $table->decimal('amount', 10, 2)->default(0);
@@ -66,7 +72,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('manifest_payments');
         Schema::dropIfExists('manifest_rooms');
-        Schema::dropIfExists('manifest_travelers');
+        Schema::dropIfExists('manifest_members');
         Schema::dropIfExists('manifests');
     }
 };

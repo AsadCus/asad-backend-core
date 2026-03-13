@@ -30,7 +30,9 @@ class PackageSeeder extends Seeder
             'seats_left' => 45,
             'visa_type' => 'Umrah Visa',
             'vehicle_type' => 'Bus',
-            'ticket_type' => 'Economy',
+            'vehicle_driver_name' => 'Ahmad Zaki',
+            'vehicle_driver_contact_number' => '0123456789',
+            'ticket_type' => 'two_way',
             'included' => "Flight Tickets\nHotel Accommodation\nVisa Processing\nGround Transport\nMeals \nZiyarah Tours\nTravel Insurance",
             'not_included' => "Personal Expenses\nLaundry\nTips & Gratuities",
             'offer' => "Early bird discount 10% off for bookings before Dec 2025\nFree airport transfer",
@@ -65,6 +67,71 @@ class PackageSeeder extends Seeder
             ],
         ]);
 
+        $package1->trainTickets()->createMany([
+            [
+                'from' => 'Mekkah',
+                'to' => 'Madinah',
+                'travel_date' => '2026-01-23',
+                'travel_time' => '09:30',
+                'remarks' => 'High-speed train (Group A)',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'Madinah',
+                'to' => 'Mekkah',
+                'travel_date' => '2026-01-27',
+                'travel_time' => '16:15',
+                'remarks' => 'High-speed train (Return)',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package1->transportationPlans()->createMany([
+            [
+                'from' => 'Jeddah Airport',
+                'to' => 'Mekkah Hotel',
+                'travel_date' => '2026-01-15',
+                'travel_time' => '17:30',
+                'remarks' => 'Group coach transfer',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'Madinah Hotel',
+                'to' => 'Madinah Airport',
+                'travel_date' => '2026-01-29',
+                'travel_time' => '06:00',
+                'remarks' => 'Check-in assistance included',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package1->rawdahTasreehs()->createMany([
+            [
+                'date' => '2026-01-25',
+                'women_passengers' => 18,
+                'women_time' => '10:00',
+                'men_passengers' => 20,
+                'men_time' => '11:00',
+                'remarks' => 'Batch 1',
+                'sort_order' => 1,
+            ],
+            [
+                'date' => '2026-01-26',
+                'women_passengers' => 12,
+                'women_time' => '14:00',
+                'men_passengers' => 15,
+                'men_time' => '15:00',
+                'remarks' => 'Batch 2',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package1->officials()->createMany([
+            ['type' => 'mutawif', 'name' => 'Ustaz Hadi', 'contact_number' => '0101001001', 'sort_order' => 1],
+            ['type' => 'mutawifah', 'name' => 'Ustazah Aisyah', 'contact_number' => '0101001002', 'sort_order' => 2],
+            ['type' => 'official', 'name' => 'Ops Lead A', 'contact_number' => '0101001003', 'sort_order' => 3],
+        ]);
+
         $package2 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Premium 10 Days',
@@ -82,7 +149,9 @@ class PackageSeeder extends Seeder
             'seats_left' => 30,
             'visa_type' => 'Umrah Visa',
             'vehicle_type' => 'VIP Van',
-            'ticket_type' => 'Business',
+            'vehicle_driver_name' => 'Rizal Osman',
+            'vehicle_driver_contact_number' => '0128887722',
+            'ticket_type' => 'one_way',
             'included' => "Flight Tickets (Business Class)\n5-Star Hotel\nVisa Processing\nVIP Transport\nAll Meals\nPrivate Ziyarah Tours\nTravel Insurance\nLaundry Service\nSim Card",
             'not_included' => "Personal Expenses\nTips & Gratuities",
             'offer' => "Complimentary spa session at hotel\nFree upgrade to suite (subject to availability)",
@@ -117,6 +186,62 @@ class PackageSeeder extends Seeder
             ],
         ]);
 
+        $package2->trainTickets()->createMany([
+            [
+                'from' => 'Mekkah',
+                'to' => 'Madinah',
+                'travel_date' => '2026-02-15',
+                'travel_time' => '08:45',
+                'remarks' => 'VIP cabin booking',
+                'sort_order' => 1,
+            ],
+        ]);
+
+        $package2->transportationPlans()->createMany([
+            [
+                'from' => 'Jeddah Airport',
+                'to' => 'Fairmont Mekkah',
+                'travel_date' => '2026-02-10',
+                'travel_time' => '15:30',
+                'remarks' => 'VIP transfer',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'The Oberoi Madina',
+                'to' => 'Madinah Airport',
+                'travel_date' => '2026-02-20',
+                'travel_time' => '07:00',
+                'remarks' => 'VIP airport lounge access',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package2->rawdahTasreehs()->createMany([
+            [
+                'date' => '2026-02-17',
+                'women_passengers' => 10,
+                'women_time' => '09:00',
+                'men_passengers' => 12,
+                'men_time' => '10:00',
+                'remarks' => 'Premium batch',
+                'sort_order' => 1,
+            ],
+            [
+                'date' => '2026-02-18',
+                'women_passengers' => 8,
+                'women_time' => '13:00',
+                'men_passengers' => 9,
+                'men_time' => '14:00',
+                'remarks' => 'Premium batch 2',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package2->officials()->createMany([
+            ['type' => 'mutawif', 'name' => 'Ustaz Rahman', 'contact_number' => '0111111111', 'sort_order' => 1],
+            ['type' => 'official', 'name' => 'Ops Lead B', 'contact_number' => '0111111112', 'sort_order' => 2],
+        ]);
+
         $package3 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Hajj Standard 2026',
@@ -134,7 +259,9 @@ class PackageSeeder extends Seeder
             'seats_left' => 50,
             'visa_type' => 'Hajj Visa',
             'vehicle_type' => 'Bus',
-            'ticket_type' => 'Economy',
+            'vehicle_driver_name' => 'Azlan Karim',
+            'vehicle_driver_contact_number' => '0137002200',
+            'ticket_type' => 'two_way',
             'included' => "Flight Tickets\nHotel Accommodation\nHajj Visa\nGround Transport\nAll Meals\nZiyarah Tours\nTravel Insurance\nHajj Kit\nPre-Hajj Training",
             'not_included' => "Personal Expenses\nLaundry\nTips & Gratuities\nQurbani (Optional)",
             'offer' => "Group discount: 5% off for groups of 10 or more\nFree Hajj training workshop",
@@ -170,6 +297,79 @@ class PackageSeeder extends Seeder
             ],
         ]);
 
+        $package3->trainTickets()->createMany([
+            [
+                'from' => 'Mekkah',
+                'to' => 'Madinah',
+                'travel_date' => '2026-06-12',
+                'travel_time' => '07:45',
+                'remarks' => 'Hajj group transfer',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'Madinah',
+                'to' => 'Mekkah',
+                'travel_date' => '2026-06-18',
+                'travel_time' => '17:15',
+                'remarks' => 'Return to Mekkah',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package3->transportationPlans()->createMany([
+            [
+                'from' => 'Jeddah Airport',
+                'to' => 'Hilton Mekkah Convention',
+                'travel_date' => '2026-06-01',
+                'travel_time' => '14:30',
+                'remarks' => 'Large group coach',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'Hilton Mekkah Convention',
+                'to' => 'Taif Hotel',
+                'travel_date' => '2026-06-10',
+                'travel_time' => '09:00',
+                'remarks' => 'Optional Taif excursion',
+                'sort_order' => 2,
+            ],
+            [
+                'from' => 'Pullman Zamzam Madina',
+                'to' => 'Madinah Airport',
+                'travel_date' => '2026-06-21',
+                'travel_time' => '06:00',
+                'remarks' => 'Early departure',
+                'sort_order' => 3,
+            ],
+        ]);
+
+        $package3->rawdahTasreehs()->createMany([
+            [
+                'date' => '2026-06-16',
+                'women_passengers' => 22,
+                'women_time' => '10:30',
+                'men_passengers' => 25,
+                'men_time' => '11:30',
+                'remarks' => 'Main batch',
+                'sort_order' => 1,
+            ],
+            [
+                'date' => '2026-06-17',
+                'women_passengers' => 18,
+                'women_time' => '14:30',
+                'men_passengers' => 20,
+                'men_time' => '15:30',
+                'remarks' => 'Secondary batch',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package3->officials()->createMany([
+            ['type' => 'mutawif', 'name' => 'Ustaz Hakim', 'contact_number' => '0144003300', 'sort_order' => 1],
+            ['type' => 'mutawifah', 'name' => 'Ustazah Siti', 'contact_number' => '0144003301', 'sort_order' => 2],
+            ['type' => 'official', 'name' => 'Hajj Ops Lead', 'contact_number' => '0144003302', 'sort_order' => 3],
+        ]);
+
         $package4 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Ramadan Special',
@@ -187,7 +387,9 @@ class PackageSeeder extends Seeder
             'seats_left' => 40,
             'visa_type' => 'Umrah Visa',
             'vehicle_type' => 'Bus',
-            'ticket_type' => 'Economy',
+            'vehicle_driver_name' => 'Suhail Musa',
+            'vehicle_driver_contact_number' => '0168004400',
+            'ticket_type' => 'one_way',
             'included' => "Flight Tickets\nHotel near Haram\nVisa Processing\nGround Transport\nIftar & Suhoor\nZiyarah Tours\nTravel Insurance",
             'not_included' => "Personal Expenses\nLaundry\nTips & Gratuities",
             'offer' => 'Special Ramadan gift pack for all travellers',
@@ -222,6 +424,62 @@ class PackageSeeder extends Seeder
             ],
         ]);
 
+        $package4->trainTickets()->createMany([
+            [
+                'from' => 'Mekkah',
+                'to' => 'Madinah',
+                'travel_date' => '2026-03-08',
+                'travel_time' => '10:15',
+                'remarks' => 'Ramadan schedule',
+                'sort_order' => 1,
+            ],
+        ]);
+
+        $package4->transportationPlans()->createMany([
+            [
+                'from' => 'Jeddah Airport',
+                'to' => 'Swissotel Mekkah',
+                'travel_date' => '2026-03-01',
+                'travel_time' => '18:00',
+                'remarks' => 'Iftar pack on arrival',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'Anwar Al Madinah',
+                'to' => 'Madinah Airport',
+                'travel_date' => '2026-03-15',
+                'travel_time' => '07:30',
+                'remarks' => 'Suhoor before departure',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package4->rawdahTasreehs()->createMany([
+            [
+                'date' => '2026-03-10',
+                'women_passengers' => 16,
+                'women_time' => '09:30',
+                'men_passengers' => 18,
+                'men_time' => '10:30',
+                'remarks' => 'Ramadan batch',
+                'sort_order' => 1,
+            ],
+            [
+                'date' => '2026-03-11',
+                'women_passengers' => 14,
+                'women_time' => '13:30',
+                'men_passengers' => 15,
+                'men_time' => '14:30',
+                'remarks' => 'Ramadan batch 2',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package4->officials()->createMany([
+            ['type' => 'mutawif', 'name' => 'Ustaz Faiz', 'contact_number' => '0177005500', 'sort_order' => 1],
+            ['type' => 'official', 'name' => 'Ramadan Ops', 'contact_number' => '0177005501', 'sort_order' => 2],
+        ]);
+
         $package5 = Package::create([
             'package_number' => NumberGenerator::generate('package'),
             'name' => 'Umrah Budget 7 Days',
@@ -239,7 +497,9 @@ class PackageSeeder extends Seeder
             'seats_left' => 0,
             'visa_type' => 'Umrah Visa',
             'vehicle_type' => 'Bus',
-            'ticket_type' => 'Economy',
+            'vehicle_driver_name' => 'Johan Ismail',
+            'vehicle_driver_contact_number' => '0189006600',
+            'ticket_type' => 'one_way',
             'included' => "Flight Tickets\nHotel Accommodation\nVisa Processing\nGround Transport",
             'not_included' => "Meals\nPersonal Expenses\nLaundry\nTravel Insurance",
             'offer' => null,
@@ -272,6 +532,62 @@ class PackageSeeder extends Seeder
                 'arrival_datetime' => '2025-12-08 19:30:00',
                 'sort_order' => 2,
             ],
+        ]);
+
+        $package5->trainTickets()->createMany([
+            [
+                'from' => 'Mekkah',
+                'to' => 'Madinah',
+                'travel_date' => '2025-12-04',
+                'travel_time' => '09:00',
+                'remarks' => 'Budget train ticket',
+                'sort_order' => 1,
+            ],
+        ]);
+
+        $package5->transportationPlans()->createMany([
+            [
+                'from' => 'Jeddah Airport',
+                'to' => 'Al Marwa Rayhaan',
+                'travel_date' => '2025-12-01',
+                'travel_time' => '14:00',
+                'remarks' => 'Shared coach',
+                'sort_order' => 1,
+            ],
+            [
+                'from' => 'Grand Mercure Madinah',
+                'to' => 'Madinah Airport',
+                'travel_date' => '2025-12-08',
+                'travel_time' => '06:30',
+                'remarks' => 'Budget transfer',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package5->rawdahTasreehs()->createMany([
+            [
+                'date' => '2025-12-05',
+                'women_passengers' => 8,
+                'women_time' => '10:30',
+                'men_passengers' => 9,
+                'men_time' => '11:30',
+                'remarks' => 'Budget batch',
+                'sort_order' => 1,
+            ],
+            [
+                'date' => '2025-12-06',
+                'women_passengers' => 6,
+                'women_time' => '14:30',
+                'men_passengers' => 7,
+                'men_time' => '15:30',
+                'remarks' => 'Budget batch 2',
+                'sort_order' => 2,
+            ],
+        ]);
+
+        $package5->officials()->createMany([
+            ['type' => 'mutawif', 'name' => 'Ustaz Farid', 'contact_number' => '0191007700', 'sort_order' => 1],
+            ['type' => 'official', 'name' => 'Budget Ops', 'contact_number' => '0191007701', 'sort_order' => 2],
         ]);
     }
 }
