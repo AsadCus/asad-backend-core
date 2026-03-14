@@ -1,6 +1,5 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
-import { MultiSelect } from '@/components/multi-select';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -22,13 +21,6 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import { update as updateGroup } from '@/routes/customer-confirmations';
@@ -988,18 +980,25 @@ export default function CustomerConfirmationForm({
                                     </div>
                                 ) : (
                                     <ProperInputSelect
+                                        id="package_id"
                                         options={packageOptions}
                                         value={
                                             data.package_id
                                                 ? String(data.package_id)
                                                 : ''
                                         }
-                                        onValueChange={(v) =>
+                                        onValueChange={(nextValue) => {
+                                            if (Array.isArray(nextValue)) {
+                                                return;
+                                            }
+
                                             setData(
                                                 'package_id',
-                                                v ? Number(v) : null,
-                                            )
-                                        }
+                                                nextValue
+                                                    ? Number(nextValue)
+                                                    : null,
+                                            );
+                                        }}
                                         placeholder="Select package..."
                                         disabled={
                                             isView ||
@@ -1022,29 +1021,24 @@ export default function CustomerConfirmationForm({
                                 htmlFor="package_category"
                                 error={getError('package_category')}
                             >
-                                <Select
+                                <ProperInputSelect
+                                    id="package_category"
+                                    mode="classic"
+                                    options={packageCategoryOptions}
                                     value={data.package_category ?? ''}
-                                    onValueChange={(v) =>
-                                        setData('package_category', v || null)
-                                    }
+                                    onValueChange={(nextValue) => {
+                                        if (Array.isArray(nextValue)) {
+                                            return;
+                                        }
+
+                                        setData(
+                                            'package_category',
+                                            nextValue || null,
+                                        );
+                                    }}
+                                    placeholder="Select category..."
                                     disabled={isView || processing}
-                                >
-                                    <SelectTrigger id="package_category">
-                                        <SelectValue placeholder="Select category..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {packageCategoryOptions.map(
-                                            (option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={String(option.value)}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ),
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                                />
                             </FormField>
 
                             <FormField
@@ -1087,13 +1081,20 @@ export default function CustomerConfirmationForm({
                         {!isView && (
                             <div className="flex flex-col justify-end gap-2 md:flex-row">
                                 {!isPublic && customerOptions.length > 0 && (
-                                    <MultiSelect
+                                    <ProperInputSelect
+                                        mode="multi"
                                         options={customerOptions.map((c) => ({
                                             label: c.label,
                                             value: String(c.value),
                                         }))}
-                                        defaultValue={selectedCustomerValues}
-                                        onValueChange={handleMultiSelectChange}
+                                        value={selectedCustomerValues}
+                                        onValueChange={(nextValue) => {
+                                            if (!Array.isArray(nextValue)) {
+                                                return;
+                                            }
+
+                                            handleMultiSelectChange(nextValue);
+                                        }}
                                         placeholder="Search & select customers..."
                                         maxWidth="300px"
                                         responsive={true}

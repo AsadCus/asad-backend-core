@@ -1,17 +1,10 @@
 import RegisteredUserController from '@/actions/App/Http/Controllers/Auth/RegisteredUserController';
 import InputError from '@/components/input-error';
-import { MultiSelect } from '@/components/multi-select';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import AuthLayout from '@/layouts/auth-layout';
 import { ages, experiences } from '@/lib/utils';
 import { login } from '@/routes';
@@ -40,6 +33,7 @@ export default function Register({ nationalities, branches }: RegisterProps) {
     const [selectedExperiences, setSelectedExperiences] = useState<string[]>(
         [],
     );
+    const [selectedBranchId, setSelectedBranchId] = useState('');
     const [screenSize, setScreenSize] = useState<
         'mobile' | 'tablet' | 'desktop'
     >('desktop');
@@ -195,11 +189,18 @@ export default function Register({ nationalities, branches }: RegisterProps) {
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                     <div className="grid gap-2">
                                         <Label htmlFor="age">Age</Label>
-                                        <MultiSelect
+                                        <ProperInputSelect
+                                            mode="multi"
                                             name="age_preferences"
                                             options={ages}
-                                            onValueChange={setSelectedAges}
-                                            defaultValue={selectedAges}
+                                            value={selectedAges}
+                                            onValueChange={(nextValue) => {
+                                                if (!Array.isArray(nextValue)) {
+                                                    return;
+                                                }
+
+                                                setSelectedAges(nextValue);
+                                            }}
                                             maxCount={
                                                 screenSize === 'mobile' ? 2 : 0
                                             }
@@ -214,13 +215,20 @@ export default function Register({ nationalities, branches }: RegisterProps) {
                                         <Label htmlFor="nationality">
                                             Country
                                         </Label>
-                                        <MultiSelect
+                                        <ProperInputSelect
+                                            mode="multi"
                                             name="country_preferences"
                                             options={nationalities}
-                                            onValueChange={
-                                                setSelectedNationalities
-                                            }
-                                            defaultValue={selectedNationalities}
+                                            value={selectedNationalities}
+                                            onValueChange={(nextValue) => {
+                                                if (!Array.isArray(nextValue)) {
+                                                    return;
+                                                }
+
+                                                setSelectedNationalities(
+                                                    nextValue,
+                                                );
+                                            }}
                                             maxCount={
                                                 screenSize === 'mobile' ? 2 : 0
                                             }
@@ -237,13 +245,20 @@ export default function Register({ nationalities, branches }: RegisterProps) {
                                         <Label htmlFor="experience">
                                             Experience
                                         </Label>
-                                        <MultiSelect
+                                        <ProperInputSelect
+                                            mode="multi"
                                             name="experience_preferences"
                                             options={experiences}
-                                            onValueChange={
-                                                setSelectedExperiences
-                                            }
-                                            defaultValue={selectedExperiences}
+                                            value={selectedExperiences}
+                                            onValueChange={(nextValue) => {
+                                                if (!Array.isArray(nextValue)) {
+                                                    return;
+                                                }
+
+                                                setSelectedExperiences(
+                                                    nextValue,
+                                                );
+                                            }}
                                             maxCount={
                                                 screenSize === 'mobile' ? 2 : 0
                                             }
@@ -261,21 +276,25 @@ export default function Register({ nationalities, branches }: RegisterProps) {
                                     <Label htmlFor="branch_id">
                                         Preferred Service Location
                                     </Label>
-                                    <Select name="branch_id" defaultValue="">
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a branch" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {branches.map((b) => (
-                                                <SelectItem
-                                                    key={b.value}
-                                                    value={String(b.value)}
-                                                >
-                                                    {b.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <ProperInputSelect
+                                        mode="classic"
+                                        name="branch_id"
+                                        options={branches.map((branch) => ({
+                                            label: branch.label,
+                                            value: String(branch.value),
+                                        }))}
+                                        value={selectedBranchId}
+                                        onValueChange={(nextValue) => {
+                                            if (Array.isArray(nextValue)) {
+                                                return;
+                                            }
+
+                                            setSelectedBranchId(
+                                                String(nextValue || ''),
+                                            );
+                                        }}
+                                        placeholder="Select a branch"
+                                    />
                                     <InputError
                                         message={errors.preferred_location}
                                     />

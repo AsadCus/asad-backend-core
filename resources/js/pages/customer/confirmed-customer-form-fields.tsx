@@ -1,13 +1,6 @@
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { sharingPlanOptions } from '@/pages/packages/schema';
 import { type CustomerSchema } from './schema';
 
@@ -65,27 +58,20 @@ export default function ConfirmedCustomerFormFields({
                         format: 'draft, pending payment, partially paid, confirmed, unavailable, or cancelled',
                     }}
                 >
-                    <Select
+                    <ProperInputSelect
+                        id={fieldPath('status')}
+                        mode="classic"
+                        options={statusOptions.map((option) => ({
+                            label: option.label,
+                            value: option.value,
+                        }))}
                         value={customer.status ?? 'draft'}
                         onValueChange={(value) =>
-                            onUpdateCustomer('status', value)
+                            onUpdateCustomer('status', String(value))
                         }
+                        placeholder="Select status"
                         disabled={disabled}
-                    >
-                        <SelectTrigger id={fieldPath('status')}>
-                            <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {statusOptions.map((option) => (
-                                <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                >
-                                    {option.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    />
                 </FormField>
 
                 <FormField
