@@ -320,26 +320,26 @@ export function DataTableExport<TData>({
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline">
-                        <DownloadIcon className="mr-2 h-4 w-4" />
-                        Export
+                        <DownloadIcon className="h-4 w-4" />
+                        <span className="hidden sm:block">Export</span>
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={exportToCSV}>
-                        <FileTextIcon className="mr-2 h-4 w-4" />
+                        <FileTextIcon className="h-4 w-4" />
                         Export as CSV
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={exportToExcel}>
-                        <FileSpreadsheetIcon className="mr-2 h-4 w-4" />
+                        <FileSpreadsheetIcon className="h-4 w-4" />
                         Export as Excel
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={exportToPDF}>
-                        <FileArchiveIcon className="mr-2 h-4 w-4" />
+                        <FileArchiveIcon className="h-4 w-4" />
                         Export as PDF
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={exportToJSON}>
-                        <FileTextIcon className="mr-2 h-4 w-4" />
+                        <FileTextIcon className="h-4 w-4" />
                         Export as JSON
                     </DropdownMenuItem>
                 </DropdownMenuContent>

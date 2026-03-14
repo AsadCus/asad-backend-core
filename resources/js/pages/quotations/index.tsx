@@ -271,6 +271,8 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                             data={quotationsForDatatable}
                             actions={actions}
                             addButtonText="Create New Quotation"
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 

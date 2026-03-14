@@ -301,6 +301,8 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                             data={invoicesForDatatable}
                             actions={actions}
                             getRowActions={getRowActions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url={invoiceIndex().url}
                             exportFilename="invoice"
                             onAction={(action: ActionType, invoiceRow) => {

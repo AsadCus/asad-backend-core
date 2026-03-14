@@ -69,6 +69,8 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     renderSubComponent?: (row: Row<TData>) => React.ReactNode;
     onRowDoubleClick?: (row: TData) => void;
     addButtonText?: string;
+    searchFilterMode?: 'inside' | 'outside';
+    columnFilterMode?: 'inside' | 'outside';
 }
 
 export function DataTable<TData extends RowData, TValue = unknown>({
@@ -86,6 +88,8 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     renderEmptyState,
     onRowDoubleClick,
     addButtonText,
+    searchFilterMode = 'inside',
+    columnFilterMode = 'inside',
 }: DataTableProps<TData, TValue>) {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -303,6 +307,8 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         url={url}
                         exportFilename={exportFilename}
                         addButtonText={addButtonText}
+                        searchFilterMode={searchFilterMode}
+                        columnFilterMode={columnFilterMode}
                     />
                 </div>
             </div>

@@ -1,3 +1,4 @@
+import { ProperInput } from '@/components/proper-input';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -6,7 +7,6 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -34,6 +34,8 @@ interface DataTableSettingsProps<TData> {
     searchQuery: string;
     setSearchQuery: (value: string) => void;
     renderFilter?: (table: Table<TData>) => React.ReactNode;
+    searchFilterMode?: 'inside' | 'outside';
+    columnFilterMode?: 'inside' | 'outside';
 }
 
 export function DataTableSettings<TData>({
@@ -45,13 +47,19 @@ export function DataTableSettings<TData>({
     searchQuery,
     setSearchQuery,
     renderFilter,
+    searchFilterMode = 'inside',
+    columnFilterMode = 'inside',
 }: DataTableSettingsProps<TData>) {
+    const showInsideSearch = searchFilterMode === 'inside';
+    const showInsideColumnFilters =
+        columnFilterMode === 'inside' && Boolean(renderFilter);
+
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2">
                     <Settings2Icon className="h-4 w-4" />
-                    Settings
+                    <span className="hidden sm:block">Settings</span>
                     <ChevronDownIcon className="h-4 w-4" />
                 </Button>
             </DropdownMenuTrigger>
@@ -62,41 +70,48 @@ export function DataTableSettings<TData>({
             >
                 <div
                     className={`grid gap-4 ${
-                        renderFilter
+                        showInsideColumnFilters
                             ? 'grid-cols-1 md:grid-cols-2'
                             : 'grid-cols-1'
                     }`}
                 >
                     <div className="space-y-2">
                         {/* Search */}
-                        <div className="space-y-1">
-                            <DropdownMenuLabel>Search</DropdownMenuLabel>
-                            <div className="relative">
-                                <Input
-                                    placeholder="Search..."
-                                    value={globalFilter ?? ''}
-                                    onChange={(e) =>
-                                        setGlobalFilter(e.target.value)
-                                    }
-                                    className="w-full pl-8"
-                                    onKeyDown={(e) => e.stopPropagation()}
-                                />
-                                <SearchIcon className="absolute inset-y-0 left-2 my-auto h-4 w-4 text-muted-foreground" />
+                        {showInsideSearch && (
+                            <div className="space-y-1">
+                                <DropdownMenuLabel>Search</DropdownMenuLabel>
+                                <div className="relative">
+                                    <ProperInput
+                                        value={globalFilter ?? ''}
+                                        onCommit={setGlobalFilter}
+                                        placeholder="Search..."
+                                        className="w-full pl-8"
+                                        inputProps={{
+                                            onChange: (e) =>
+                                                setGlobalFilter(e.target.value),
+                                            onKeyDown: (e) =>
+                                                e.stopPropagation(),
+                                        }}
+                                    />
+                                    <SearchIcon className="absolute inset-y-0 left-2 my-auto h-4 w-4 text-muted-foreground" />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Columns */}
                         <div className="space-y-1">
                             <DropdownMenuLabel>Columns</DropdownMenuLabel>
                             <div className="relative">
-                                <Input
+                                <ProperInput
                                     value={searchQuery}
-                                    onChange={(e) =>
-                                        setSearchQuery(e.target.value)
-                                    }
+                                    onCommit={setSearchQuery}
                                     className="pl-8"
                                     placeholder="Search columns"
-                                    onKeyDown={(e) => e.stopPropagation()}
+                                    inputProps={{
+                                        onChange: (e) =>
+                                            setSearchQuery(e.target.value),
+                                        onKeyDown: (e) => e.stopPropagation(),
+                                    }}
                                 />
                                 <SearchIcon className="absolute inset-y-0 left-2 my-auto h-4 w-4 text-muted-foreground" />
                             </div>
@@ -183,7 +198,7 @@ export function DataTableSettings<TData>({
                     </div>
 
                     {/* Filters */}
-                    {renderFilter && (
+                    {showInsideColumnFilters && renderFilter && (
                         <div className="space-y-2 md:border-l md:pl-4">
                             {renderFilter(table)}
                         </div>

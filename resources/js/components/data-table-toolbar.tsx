@@ -1,11 +1,12 @@
 import { router } from '@inertiajs/react';
 import { Row, Table } from '@tanstack/react-table';
-import { X } from 'lucide-react';
+import { Plus, Trash, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ActionType } from './action-column';
 import useConfirmDialog from './confirm-popup';
 import { DataTableExport } from './data-table-export';
 import { DataTableSettings } from './data-table-settings';
+import { ProperInput } from './proper-input';
 import { Button } from './ui/button';
 
 interface DataTableToolbarProps<TData> {
@@ -22,6 +23,8 @@ interface DataTableToolbarProps<TData> {
     url?: string;
     exportFilename?: string;
     addButtonText?: string;
+    searchFilterMode?: 'inside' | 'outside';
+    columnFilterMode?: 'inside' | 'outside';
 }
 
 export function DataTableToolbar<TData>({
@@ -38,8 +41,13 @@ export function DataTableToolbar<TData>({
     url,
     exportFilename = 'data',
     addButtonText = 'Add',
+    searchFilterMode = 'inside',
+    columnFilterMode = 'inside',
 }: DataTableToolbarProps<TData>) {
     const isFiltered = table.getState().columnFilters.length > 0;
+    const showOutsideSearch = searchFilterMode === 'outside';
+    const showOutsideColumnFilters =
+        columnFilterMode === 'outside' && Boolean(renderFilter);
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const deleteSelectedRecords = (selectedIds: number[]) => {
@@ -56,70 +64,110 @@ export function DataTableToolbar<TData>({
         });
     };
 
+    console.log(searchQuery);
+
     return (
         <>
-            <div className="flex w-full justify-between">
-                <div className="flex flex-1 items-center gap-2">
-                    <DataTableSettings
-                        table={table}
-                        globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}
-                        density={density}
-                        setDensity={setDensity}
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        renderFilter={renderFilter}
-                    />
+            <div className="flex w-full flex-col gap-3">
+                <div className="flex w-full justify-between">
+                    <div className="flex flex-1 items-center gap-2">
+                        <DataTableSettings
+                            table={table}
+                            globalFilter={globalFilter}
+                            setGlobalFilter={setGlobalFilter}
+                            density={density}
+                            setDensity={setDensity}
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            renderFilter={renderFilter}
+                            searchFilterMode={searchFilterMode}
+                            columnFilterMode={columnFilterMode}
+                        />
 
-                    {(isFiltered || globalFilter) && (
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                table.resetColumnFilters();
-                                setGlobalFilter('');
-                            }}
-                        >
-                            <span className="hidden sm:block">Reset</span>
-                            <X />
-                        </Button>
-                    )}
-
-                    {actions?.includes('delete') &&
-                        table?.getSelectedRowModel().rows.length > 0 && (
+                        {(isFiltered || globalFilter) && (
                             <Button
+                                variant="ghost"
                                 onClick={() => {
-                                    const selectedRows =
-                                        table?.getSelectedRowModel().rows || [];
-
-                                    const selectedIds = selectedRows
-                                        .map(
-                                            (r) =>
-                                                (r.original as { id?: number })
-                                                    .id,
-                                        )
-                                        .filter((id) => id !== undefined);
-
-                                    if (selectedIds.length === 0) {
-                                        toast('No items selected');
-                                        return;
-                                    }
-
-                                    deleteSelectedRecords(selectedIds);
+                                    table.resetColumnFilters();
+                                    setGlobalFilter('');
                                 }}
-                                variant={'destructive'}
                             >
-                                Delete
+                                <span className="hidden sm:block">Reset</span>
+                                <X />
                             </Button>
                         )}
 
-                    {actions?.includes('add') && (
-                        <Button onClick={() => onAction?.('add')}>
-                            {addButtonText}
-                        </Button>
-                    )}
+                        {actions?.includes('delete') &&
+                            table?.getSelectedRowModel().rows.length > 0 && (
+                                <Button
+                                    onClick={() => {
+                                        const selectedRows =
+                                            table?.getSelectedRowModel().rows ||
+                                            [];
+
+                                        const selectedIds = selectedRows
+                                            .map(
+                                                (r) =>
+                                                    (
+                                                        r.original as {
+                                                            id?: number;
+                                                        }
+                                                    ).id,
+                                            )
+                                            .filter((id) => id !== undefined);
+
+                                        if (selectedIds.length === 0) {
+                                            toast('No items selected');
+                                            return;
+                                        }
+
+                                        deleteSelectedRecords(selectedIds);
+                                    }}
+                                    variant={'destructive'}
+                                >
+                                    <Trash className="h-4 w-4" />
+                                    <span className="hidden sm:block">
+                                        Delete
+                                    </span>
+                                </Button>
+                            )}
+
+                        {actions?.includes('add') && (
+                            <Button onClick={() => onAction?.('add')}>
+                                <Plus className="h-4 w-4" />
+                                <span className="hidden sm:block">
+                                    {addButtonText}
+                                </span>
+                            </Button>
+                        )}
+                    </div>
+
+                    <DataTableExport table={table} filename={exportFilename} />
                 </div>
 
-                <DataTableExport table={table} filename={exportFilename} />
+                {(showOutsideSearch || showOutsideColumnFilters) && (
+                    <div className="flex w-full flex-col gap-3">
+                        {showOutsideSearch && (
+                            <div className="w-full max-w-sm">
+                                <ProperInput
+                                    value={globalFilter ?? ''}
+                                    onCommit={setGlobalFilter}
+                                    placeholder="Search..."
+                                    inputProps={{
+                                        onChange: (e) =>
+                                            setGlobalFilter(e.target.value),
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {showOutsideColumnFilters && renderFilter && (
+                            <div className="flex flex-wrap items-center gap-3">
+                                {renderFilter(table)}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
             <ConfirmDialog />
         </>
