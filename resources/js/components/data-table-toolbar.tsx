@@ -64,8 +64,6 @@ export function DataTableToolbar<TData>({
         });
     };
 
-    console.log(searchQuery);
-
     return (
         <>
             <div className="flex w-full flex-col gap-3">

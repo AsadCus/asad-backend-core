@@ -394,6 +394,16 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
         }, [defaultValue, onValueChange]);
 
         const buttonRef = React.useRef<HTMLButtonElement>(null);
+        const [portalContainer, setPortalContainer] =
+            React.useState<HTMLElement | null>(null);
+
+        React.useEffect(() => {
+            const container = buttonRef.current?.closest(
+                '[data-slot="dialog-content"]',
+            );
+
+            setPortalContainer((container as HTMLElement | null) ?? null);
+        }, [isPopoverOpen]);
 
         React.useImperativeHandle(
             ref,
@@ -1112,6 +1122,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                         role="listbox"
                         aria-multiselectable="true"
                         aria-label="Available options"
+                        portalContainer={portalContainer}
                         className={cn(
                             'w-fit p-0',
                             getPopoverAnimationClass(),
