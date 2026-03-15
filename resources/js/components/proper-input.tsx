@@ -145,7 +145,7 @@ export function ProperInput({
         setSelectedHours24(parsed.hours);
         setSelectedMinutes(parsed.minutes);
         setSelectedMeridiem(parsed.meridiem);
-    }, [value]);
+    }, [type, value]);
 
     const commit = (nextValue?: string) => {
         const valueToCommit = nextValue ?? local;
