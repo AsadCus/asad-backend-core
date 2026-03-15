@@ -42,7 +42,7 @@ export function FormProgressHeader({
 
     return (
         <div className="sticky top-0 z-50 mb-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container space-y-4 py-4">
+            <div className="space-y-4 py-4">
                 {/* Header Info */}
                 <div className="flex items-center justify-between">
                     <div className="space-y-1">

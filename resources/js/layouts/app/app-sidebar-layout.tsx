@@ -14,7 +14,7 @@ export default function AppSidebarLayout({
             <AppSidebar />
             <AppContent
                 variant="sidebar"
-                className="overflow-x-hidden not-dark:bg-gradient-to-b not-dark:from-white not-dark:to-orange-100"
+                className="overflow-x-hidden not-dark:bg-gradient-to-b not-dark:from-orange-50 not-dark:to-orange-100"
             >
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
                 {children}

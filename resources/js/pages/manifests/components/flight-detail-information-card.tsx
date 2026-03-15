@@ -17,11 +17,14 @@ export default function FlightDetailInformationCard({
     flights,
 }: FlightDetailInformationCardProps) {
     return (
-        <Card>
+        <Card className="bg-transparent">
             <CardHeader className="gap-0">
-                <CardTitle className="text-xl">Flight Detail Information</CardTitle>
+                <CardTitle className="text-xl">
+                    Flight Detail Information
+                </CardTitle>
                 <CardDescription>
-                    Flight legs from the selected package. Read-only reference for airline list validation.
+                    Flight legs from the selected package. Read-only reference
+                    for airline list validation.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -47,7 +50,10 @@ export default function FlightDetailInformationCard({
                                 <Input value={flight.to ?? ''} disabled />
                             </FormField>
                             <FormField label="Description">
-                                <Input value={flight.description ?? ''} disabled />
+                                <Input
+                                    value={flight.description ?? ''}
+                                    disabled
+                                />
                             </FormField>
                             <FormField label="Airline">
                                 <Input value={flight.airline ?? ''} disabled />
@@ -62,7 +68,10 @@ export default function FlightDetailInformationCard({
                                 />
                             </FormField>
                             <FormField label="Arrival Datetime">
-                                <Input value={flight.arrival_datetime ?? ''} disabled />
+                                <Input
+                                    value={flight.arrival_datetime ?? ''}
+                                    disabled
+                                />
                             </FormField>
                         </div>
                     </div>

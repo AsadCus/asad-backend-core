@@ -1033,7 +1033,9 @@ export default function CustomerConfirmationForm({
 
                                         setData(
                                             'package_category',
-                                            nextValue || null,
+                                            nextValue
+                                                ? String(nextValue)
+                                                : null,
                                         );
                                     }}
                                     placeholder="Select category..."

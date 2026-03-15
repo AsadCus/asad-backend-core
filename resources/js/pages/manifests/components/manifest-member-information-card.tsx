@@ -116,11 +116,14 @@ export default function ManifestMemberInformationCard({
     ];
 
     return (
-        <Card>
+        <Card className="bg-transparent">
             <CardHeader className="gap-0">
-                <CardTitle className="text-xl">Manifest Member Information</CardTitle>
+                <CardTitle className="text-xl">
+                    Manifest Member Information
+                </CardTitle>
                 <CardDescription>
-                    Auto-calculated summary based on active travelers in this manifest.
+                    Auto-calculated summary based on active travelers in this
+                    manifest.
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">

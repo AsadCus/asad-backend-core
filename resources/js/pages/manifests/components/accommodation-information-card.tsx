@@ -21,7 +21,7 @@ export default function AccommodationInformationCard({
     accommodation,
 }: AccommodationInformationCardProps) {
     return (
-        <Card>
+        <Card className="bg-transparent">
             <CardHeader className="gap-0">
                 <CardTitle className="text-xl">{title}</CardTitle>
                 <CardDescription>

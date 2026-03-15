@@ -39,7 +39,7 @@ export default function ManifestInformationCard({
     );
 
     return (
-        <Card>
+        <Card className="bg-transparent">
             <CardHeader className="gap-0">
                 <CardTitle className="text-xl">Manifest Information</CardTitle>
                 <CardDescription>

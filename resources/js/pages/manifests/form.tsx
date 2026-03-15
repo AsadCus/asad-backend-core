@@ -1,5 +1,10 @@
+import { FormProgressHeader } from '@/components/form-progress-header';
+import { FormSection } from '@/components/form-section';
+import { Accordion } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { navigateToSection } from '@/lib/navigation-helper';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { store, update } from '@/routes/manifests';
 import { useForm } from '@inertiajs/react';
@@ -306,7 +311,9 @@ function countRoomGroups(rows: TravelerWithUI[]): number {
 }
 
 function capacityFromSharingPlan(sharingPlan?: string | null): number {
-    const plan = String(sharingPlan ?? '').toLowerCase().trim();
+    const plan = String(sharingPlan ?? '')
+        .toLowerCase()
+        .trim();
 
     if (plan === 'quad') {
         return 4;
@@ -393,8 +400,10 @@ function normalizeMainTabOrdering(rows: TravelerWithUI[]): TravelerWithUI[] {
                 return left._globalOrder - right._globalOrder;
             }
 
-            return (left.id ?? Number.MAX_SAFE_INTEGER) -
-                (right.id ?? Number.MAX_SAFE_INTEGER);
+            return (
+                (left.id ?? Number.MAX_SAFE_INTEGER) -
+                (right.id ?? Number.MAX_SAFE_INTEGER)
+            );
         });
 
         return orderedMembers.map((member, memberIndex) => ({
@@ -441,7 +450,9 @@ function syncTravelerSharingGroups(
         const capacity = capacityFromSharingPlan(sharingPlan);
 
         let groupKey =
-            traveler.sharing_group_key ?? previousTraveler?.sharing_group_key ?? '';
+            traveler.sharing_group_key ??
+            previousTraveler?.sharing_group_key ??
+            '';
 
         const isNewTraveler = !previousTraveler;
         const canAutoAssign =
@@ -506,7 +517,10 @@ function syncRoomRowsWithTravelers(
     );
 
     const existingByIdentity = new Map(
-        existingRows.map((row, index) => [travelerIdentityKey(row, index), row]),
+        existingRows.map((row, index) => [
+            travelerIdentityKey(row, index),
+            row,
+        ]),
     );
 
     const keptRows = existingRows
@@ -529,7 +543,8 @@ function syncRoomRowsWithTravelers(
                     row.sharing_group_key ??
                     traveler.sharing_group_key ??
                     `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index + 1}`,
-                sharing_plan: row.sharing_plan ?? traveler.sharing_plan ?? 'single',
+                sharing_plan:
+                    row.sharing_plan ?? traveler.sharing_plan ?? 'single',
                 room_relationship:
                     row.room_relationship ?? traveler.relationship ?? '',
                 room_label: row.room_label ?? traveler.room_label ?? '',
@@ -662,6 +677,12 @@ export default function ManifestForm({
     const { setData } = form;
     const errorAlertRef = useRef<HTMLDivElement | null>(null);
     const [activeTab, setActiveTab] = useState('main');
+    const [openSections, setOpenSections] = useState<string[]>([
+        'manifest_information',
+        'manifest_member_information',
+        'accommodation_information',
+        'flight_detail_information',
+    ]);
 
     const scrollToErrorBanner = useCallback(() => {
         setTimeout(() => {
@@ -946,8 +967,7 @@ export default function ManifestForm({
                                     nationality:
                                         travelerUpdate.nationality ??
                                         row.nationality,
-                                    gender:
-                                        travelerUpdate.gender ?? row.gender,
+                                    gender: travelerUpdate.gender ?? row.gender,
                                     date_of_birth:
                                         travelerUpdate.date_of_birth ??
                                         row.date_of_birth,
@@ -1041,7 +1061,14 @@ export default function ManifestForm({
             form.setData('roomLists', nextRoomLists);
             form.setData('airlineList', nextAirline);
         },
-        [data.airlineList, data.roomLists, form, isCancelledTraveler, roomTabs],
+        [
+            data.airlineList,
+            data.roomLists,
+            data.travelers,
+            form,
+            isCancelledTraveler,
+            roomTabs,
+        ],
     );
 
     const resetRoomListTab = useCallback(
@@ -1177,6 +1204,100 @@ export default function ManifestForm({
         };
     }, [form.errors, data.travelers]);
 
+    const sectionStatuses = useMemo(() => {
+        const errorEntries = Object.entries(
+            form.errors as Record<string, string | undefined>,
+        ).filter(([, message]) => Boolean(message));
+
+        const hasErrorsForPrefix = (prefixes: string[]): boolean => {
+            return errorEntries.some(([path]) =>
+                prefixes.some(
+                    (prefix) => path === prefix || path.startsWith(`${prefix}.`),
+                ),
+            );
+        };
+
+        const selectedFlights = selectedPackage?.flights ?? [];
+        const activeTravelerCount = (
+            ((data.travelers ?? []) as TravelerWithUI[]).filter(
+                (traveler) => !isCancelledTraveler(traveler),
+            ) ?? []
+        ).length;
+
+        const manifestInformationStatus = hasErrorsForPrefix([
+            'package_id',
+            'status',
+            'notes',
+        ])
+            ? 'error'
+            : data.package_id && data.package_id > 0 && data.status
+              ? 'complete'
+              : 'incomplete';
+
+        const manifestMemberInformationStatus = hasErrorsForPrefix([
+            'travelers',
+        ])
+            ? 'error'
+            : activeTravelerCount > 0
+              ? 'complete'
+              : 'incomplete';
+
+        const accommodationInformationStatus = hotelAccommodations.length > 0
+            ? 'complete'
+            : 'incomplete';
+
+        const flightDetailInformationStatus = selectedFlights.length > 0
+            ? 'complete'
+            : 'incomplete';
+
+        return {
+            manifest_information: manifestInformationStatus,
+            manifest_member_information: manifestMemberInformationStatus,
+            accommodation_information: accommodationInformationStatus,
+            flight_detail_information: flightDetailInformationStatus,
+        } as const;
+    }, [
+        form.errors,
+        data.package_id,
+        data.status,
+        data.travelers,
+        hotelAccommodations.length,
+        isCancelledTraveler,
+        selectedPackage,
+    ]);
+
+    const sections = useMemo(() => {
+        return [
+            {
+                id: 'manifest_information',
+                title: 'Manifest Information',
+                status: sectionStatuses.manifest_information,
+            },
+            {
+                id: 'manifest_member_information',
+                title: 'Manifest Member Information',
+                status: sectionStatuses.manifest_member_information,
+            },
+            {
+                id: 'accommodation_information',
+                title: 'Accommodation Information',
+                status: sectionStatuses.accommodation_information,
+            },
+            {
+                id: 'flight_detail_information',
+                title: 'Flight Detail Information',
+                status: sectionStatuses.flight_detail_information,
+            },
+        ];
+    }, [sectionStatuses]);
+
+    const handleSectionClick = useCallback(
+        (sectionId: string) => {
+            navigateToSection(sectionId, setOpenSections);
+        },
+        [setOpenSections],
+    );
+
     const nonCancelledTravelers = useMemo(() => {
         return ((data.travelers ?? []) as TravelerWithUI[]).filter(
             (traveler) => !isCancelledTraveler(traveler),
@@ -1237,7 +1358,16 @@ export default function ManifestForm({
     };
 
     return (
-        <form onSubmit={submit} className="space-y-6">
+        <div className="mx-auto w-full">
+            {mode !== 'view' && (
+                <FormProgressHeader
+                    title="Manifest"
+                    sections={sections}
+                    onSectionClick={handleSectionClick}
+                />
+            )}
+
+            <form onSubmit={submit} className="space-y-6 py-2">
             {Object.keys(form.errors).length > 0 && !isView && (
                 <Alert variant="destructive" ref={errorAlertRef}>
                     <AlertCircle className="h-4 w-4" />
@@ -1291,50 +1421,107 @@ export default function ManifestForm({
                 </Alert>
             )}
 
-            <ManifestInformationCard
-                isView={isView}
-                data={data}
-                dataPackage={packageOptions}
-                setData={form.setData}
-                renderError={renderError}
-            />
+            <Accordion
+                type="multiple"
+                value={openSections}
+                onValueChange={setOpenSections}
+                className="space-y-4"
+            >
+                <FormSection
+                    value="manifest_information"
+                    title="Manifest Information"
+                    description="Package selection, status, and notes for this manifest."
+                    status={sectionStatuses.manifest_information}
+                >
+                    <ManifestInformationCard
+                        isView={isView}
+                        data={data}
+                        dataPackage={packageOptions}
+                        setData={form.setData}
+                        renderError={renderError}
+                    />
+                </FormSection>
+
+                <FormSection
+                    value="manifest_member_information"
+                    title="Manifest Member Information"
+                    description="Auto-calculated summary from active travelers."
+                    status={sectionStatuses.manifest_member_information}
+                    required={false}
+                >
+                    <ManifestMemberInformationCard
+                        travelers={(data.travelers ?? []) as TravelerWithUI[]}
+                    />
+                </FormSection>
+
+                <FormSection
+                    value="accommodation_information"
+                    title="Accommodation Information"
+                    description="Read-only accommodation details from selected package."
+                    status={sectionStatuses.accommodation_information}
+                    required={false}
+                >
+                    <div className="space-y-4">
+                        {roomTabs.map((tab) => (
+                            <AccommodationInformationCard
+                                key={tab.key}
+                                title={`${tab.label} Accommodation Information`}
+                                description="This section is auto-generated based on the selected package accommodation data."
+                                accommodation={tab.accommodation}
+                            />
+                        ))}
+                    </div>
+                </FormSection>
+
+                <FormSection
+                    value="flight_detail_information"
+                    title="Flight Detail Information"
+                    description="Read-only flight details from selected package."
+                    status={sectionStatuses.flight_detail_information}
+                    required={false}
+                >
+                    <FlightDetailInformationCard
+                        flights={selectedPackage?.flights ?? []}
+                    />
+                </FormSection>
+            </Accordion>
 
             <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
                 className="w-full"
             >
-                <TabsList className="flex w-full flex-wrap group-data-[orientation=horizontal]/tabs:h-11">
-                    <TabsTrigger value="main" className="text-lg">
-                        Main
-                    </TabsTrigger>
-                    {roomTabs.map((tab) => (
-                        <TabsTrigger
-                            key={tab.key}
-                            value={`room-${tab.key}`}
-                            className="text-lg"
-                        >
-                            Room List - {tab.label}
+                <ScrollArea className="w-full whitespace-nowrap">
+                    <TabsList className="w-full group-data-[orientation=horizontal]/tabs:h-11">
+                        <TabsTrigger value="main" className="text-lg">
+                            Main
                         </TabsTrigger>
-                    ))}
-                    {officialCheckTabs.map((tab) => (
-                        <TabsTrigger
-                            key={tab.key}
-                            value={`room-check-${tab.sourceRoomKey}`}
-                            className="text-lg"
-                        >
-                            Room List for Official to Check - {tab.label}
+                        {roomTabs.map((tab) => (
+                            <TabsTrigger
+                                key={tab.key}
+                                value={`room-${tab.key}`}
+                                className="text-lg"
+                            >
+                                Room List - {tab.label}
+                            </TabsTrigger>
+                        ))}
+                        {officialCheckTabs.map((tab) => (
+                            <TabsTrigger
+                                key={tab.key}
+                                value={`room-check-${tab.sourceRoomKey}`}
+                                className="text-lg"
+                            >
+                                Room List for Official to Check - {tab.label}
+                            </TabsTrigger>
+                        ))}
+                        <TabsTrigger value="airline" className="text-lg">
+                            Airline Name List
                         </TabsTrigger>
-                    ))}
-                    <TabsTrigger value="airline" className="text-lg">
-                        Airline Name List
-                    </TabsTrigger>
-                </TabsList>
+                    </TabsList>
+                    <ScrollBar orientation="horizontal" />
+                </ScrollArea>
 
                 <TabsContent value="main" className="space-y-4">
-                    <ManifestMemberInformationCard
-                        travelers={(data.travelers ?? []) as TravelerWithUI[]}
-                    />
                     <ManifestDatatable
                         mode="travelers"
                         rows={(data.travelers ?? []) as TravelerWithUI[]}
@@ -1362,12 +1549,6 @@ export default function ManifestForm({
                             value={`room-${tab.key}`}
                             className="space-y-4"
                         >
-                            <AccommodationInformationCard
-                                title={`${tab.label} Accommodation Information`}
-                                description="This section is auto-generated based on the selected package accommodation data."
-                                accommodation={tab.accommodation}
-                            />
-
                             <ManifestDatatable
                                 mode="room"
                                 rows={roomRows}
@@ -1697,9 +1878,6 @@ export default function ManifestForm({
                 })}
 
                 <TabsContent value="airline" className="space-y-4">
-                    <FlightDetailInformationCard
-                        flights={selectedPackage?.flights ?? []}
-                    />
                     <ManifestDatatable
                         mode="airline"
                         rows={((data.airlineList ?? []) as TravelerWithUI[])
@@ -1913,6 +2091,7 @@ export default function ManifestForm({
                     </>
                 )}
             </div>
-        </form>
+            </form>
+        </div>
     );
 }

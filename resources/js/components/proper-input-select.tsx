@@ -84,10 +84,10 @@ type ProperInputSelectProps =
 
 export function ProperInputSelect(
     props: ProperInputSelectMultiModeProps,
-): JSX.Element;
+): React.JSX.Element;
 export function ProperInputSelect(
     props: ProperInputSelectSingleModeProps,
-): JSX.Element;
+): React.JSX.Element;
 export function ProperInputSelect({
     options,
     value = '',
@@ -157,12 +157,17 @@ export function ProperInputSelect({
         (option) => String(option.value) === String(selectedValue),
     );
 
+    const singleModeOnValueChange =
+        onValueChange as ProperInputSelectSingleModeProps['onValueChange'];
+    const multiModeOnValueChange =
+        onValueChange as ProperInputSelectMultiModeProps['onValueChange'];
+
     const onOptionSelect = (optionValue: string) => {
         const matchedOption = singleOptions.find(
             (option) => option.value === optionValue,
         );
 
-        onValueChange?.(matchedOption?.value ?? optionValue);
+        singleModeOnValueChange(matchedOption?.value ?? optionValue);
 
         if (autoCloseOnSelect) {
             setIsPopoverOpen(false);
@@ -170,7 +175,7 @@ export function ProperInputSelect({
     };
 
     const onClearAllOptions = () => {
-        onValueChange?.('');
+        singleModeOnValueChange('');
     };
 
     const truncateLabel = (label: string, maxLength: number): string => {
@@ -194,7 +199,7 @@ export function ProperInputSelect({
                 name={name}
                 options={multiOptions}
                 defaultValue={selectedValues}
-                onValueChange={(nextValues) => onValueChange(nextValues)}
+                onValueChange={multiModeOnValueChange}
                 placeholder={placeholder}
                 disabled={disabled}
                 className={className}
