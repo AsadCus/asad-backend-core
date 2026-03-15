@@ -9,50 +9,104 @@
 @endsection
 
 @section('title-bar')
-SCHEDULE OF SALARY PAYMENT AND LOAN REPAYMENT
+    SCHEDULE OF SALARY PAYMENT AND LOAN REPAYMENT
 @endsection
 
 @push('styles')
-    @@page {
-        size: A4;
-        margin: 1cm 1.5cm;
-    }
-    /* Schedule overrides header widths */
-    .logo-cell { width: 50%; vertical-align: top; }
-    .info-cell { width: 50%; text-align: right; vertical-align: top; font-size: 9px; line-height: 1.4; }
+    <style>
+        @@page {
+            size: A4;
+            margin: 1cm 1.5cm;
+        }
 
-    .logo-cell img {
-        max-width: 280px;
-        max-height: 100px;
-        height: auto;
-        width: auto;
-        display: block;
-    }
+        /* Schedule overrides header widths */
+        .logo-cell {
+            width: 50%;
+            vertical-align: top;
+        }
 
-    .info-cell b { font-size: 10px; }
+        .info-cell {
+            width: 50%;
+            text-align: right;
+            vertical-align: top;
+            font-size: 9px;
+            line-height: 1.4;
+        }
 
-    body { font-size: 9px; line-height: 1.3; }
+        .logo-cell img {
+            max-width: 280px;
+            max-height: 100px;
+            height: auto;
+            width: auto;
+            display: block;
+        }
 
-    /* Title Bar override for Schedule (no letter-spacing, smaller padding) */
-    .title-bar {
-        font-size: 12px;
-        padding: 4px;
-        margin-bottom: 4px;
-        letter-spacing: 1px;
-    }
+        .info-cell b {
+            font-size: 10px;
+        }
 
-    .employer-info { width: 100%; border-collapse: collapse; }
-    .employer-info td { border: 1px solid #000; padding: 4px 6px; vertical-align: middle; font-size: 8px; }
-    .employer-label { font-weight: bold; background-color: #f3f4f6; width: 40%; }
+        body {
+            font-size: 9px;
+            line-height: 1.3;
+        }
 
-    .schedule-table { width: 100%; border-collapse: collapse; }
-    .schedule-table th,
-    .schedule-table td { border: 1px solid #000; text-align: center; font-size: 8px; }
-    .schedule-table th { background-color: #f3f4f6; font-weight: bold; padding: 4px; }
-    .schedule-table td { padding: 8px 4px; vertical-align: middle; }
-    .schedule-table .signature-col { width: 100px; }
+        /* Title Bar override for Schedule (no letter-spacing, smaller padding) */
+        .title-bar {
+            font-size: 12px;
+            padding: 4px;
+            margin-bottom: 4px;
+            letter-spacing: 1px;
+        }
 
-    .text-right { text-align: right; }
+        .employer-info {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .employer-info td {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            vertical-align: middle;
+            font-size: 8px;
+        }
+
+        .employer-label {
+            font-weight: bold;
+            background-color: #f3f4f6;
+            width: 40%;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .schedule-table th,
+        .schedule-table td {
+            border: 1px solid #000;
+            text-align: center;
+            font-size: 8px;
+        }
+
+        .schedule-table th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+            padding: 4px;
+        }
+
+        .schedule-table td {
+            padding: 8px 4px;
+            vertical-align: middle;
+        }
+
+        .schedule-table .signature-col {
+            width: 100px;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+    </style>
 @endpush
 
 @section('report-content')
@@ -120,7 +174,8 @@ SCHEDULE OF SALARY PAYMENT AND LOAN REPAYMENT
                         </tr>
                         <tr>
                             <td class="employer-label">Compensation Off in Lieu</td>
-                            <td>{{ \App\Helpers\FormatService::formatCurrency($schedule['compensation_off_in_lieu'] ?? 0) }}</td>
+                            <td>{{ \App\Helpers\FormatService::formatCurrency($schedule['compensation_off_in_lieu'] ?? 0) }}
+                            </td>
                         </tr>
                     </table>
                 </td>

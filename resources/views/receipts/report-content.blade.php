@@ -9,115 +9,145 @@
 @endsection
 
 @section('title-bar')
-OFFICIAL RECEIPT
+    OFFICIAL RECEIPT
 @endsection
 
 
 @push('styles')
-    /* ── Content Wrapper ── */
-    .content-wrapper {
-        padding: 0 30px;
-    }
+    <style>
+        /* ── Content Wrapper ── */
+        .content-wrapper {
+            padding: 0 30px;
+        }
 
-    /* ── Order Info ── */
-    .order-info-grid {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 12px;
-    }
+        /* ── Order Info ── */
+        .order-info-grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+        }
 
-    .order-info-grid td {
-        vertical-align: top;
-        padding: 1px 0;
-        font-size: 10px;
-    }
+        .order-info-grid td {
+            vertical-align: top;
+            padding: 1px 0;
+            font-size: 10px;
+        }
 
-    .lbl {
-        font-weight: bold;
-        white-space: nowrap;
-        width: 90px;
-    }
+        .lbl {
+            font-weight: bold;
+            white-space: nowrap;
+            width: 90px;
+        }
 
-    .sep {
-        width: 12px;
-    }
+        .sep {
+            width: 12px;
+        }
 
-    .lbl-r {
-        font-weight: bold;
-        white-space: nowrap;
-        width: 100px;
-    }
+        .lbl-r {
+            font-weight: bold;
+            white-space: nowrap;
+            width: 100px;
+        }
 
-    /* ── Helper Name ── */
-    .helper-name {
-        font-weight: bold;
-        font-size: 10px;
-        margin-bottom: 8px;
-        border-top: 1px solid #d0d0d0;
-        padding-top: 6px;
-    }
+        /* ── Items Table ── */
+        .items-section {
+            border-top: 1.5px solid #333;
+            border-bottom: 1.5px solid #333;
+            padding: 6px 0;
+            margin-bottom: 12px;
+        }
 
-    /* ── Items Table ── */
-    .items-section {
-        border-top: 1.5px solid #333;
-        border-bottom: 1.5px solid #333;
-        padding: 6px 0;
-        margin-bottom: 12px;
-    }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
 
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
+        .items-table thead th {
+            border-bottom: 1px solid #333;
+            padding: 3px 0;
+            font-weight: bold;
+            font-size: 10px;
+            text-align: left;
+        }
 
-    .items-table thead th {
-        border-bottom: 1px solid #333;
-        padding: 3px 0;
-        font-weight: bold;
-        font-size: 10px;
-        text-align: left;
-    }
+        .items-table thead th.col-rate,
+        .items-table thead th.col-total {
+            text-align: right;
+        }
 
-    .items-table thead th.col-rate,
-    .items-table thead th.col-total {
-        text-align: right;
-    }
+        .items-table td {
+            padding: 2.5px 0;
+            vertical-align: top;
+            font-size: 10px;
+        }
 
-    .items-table td {
-        padding: 2.5px 0;
-        vertical-align: top;
-        font-size: 10px;
-    }
+        .col-desc {
+            width: auto;
+        }
 
-    .col-desc { width: auto; }
-    .col-rate { width: 80px; text-align: right; white-space: nowrap; }
-    .col-total { width: 90px; text-align: right; white-space: nowrap; }
+        .col-rate {
+            width: 80px;
+            text-align: right;
+            white-space: nowrap;
+        }
 
-    .sub-item .col-desc { padding-left: 20px; }
+        .col-total {
+            width: 90px;
+            text-align: right;
+            white-space: nowrap;
+        }
 
-    .item-row { border-bottom: 1px solid #ebebeb; }
+        .sub-item .col-desc {
+            padding-left: 20px;
+        }
 
-    .parent-item-end td {
-        height: 5px;
-        line-height: 5px;
-        border: none;
-    }
+        .item-row {
+            border-bottom: 1px solid #ebebeb;
+        }
 
-    /* ── Totals ── */
-    .totals-wrapper {
-        text-align: right;
-        padding: 5px 0 2px;
-        border-top: 1px solid #ccc;
-        margin-top: 4px;
-    }
+        .parent-item-end td {
+            height: 5px;
+            line-height: 5px;
+            border: none;
+        }
 
-    .total-label { font-size: 10px; color: #555; }
-    .total-amount { font-weight: bold; font-size: 11px; }
+        /* ── Totals ── */
+        .totals-wrapper {
+            text-align: right;
+            padding: 5px 0 2px;
+            border-top: 1px solid #ccc;
+            margin-top: 4px;
+        }
 
-    /* ── Remarks ── */
-    .remarks-section { margin-bottom: 14px; }
-    .remarks-label { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
-    .remarks-box { border: 1px solid #999; min-height: 52px; padding: 6px 8px; font-size: 10px; color: #333; }
+        .total-label {
+            font-size: 10px;
+            color: #555;
+        }
+
+        .total-amount {
+            font-weight: bold;
+            font-size: 11px;
+        }
+
+        /* ── Remarks ── */
+        .remarks-section {
+            margin-bottom: 14px;
+        }
+
+        .remarks-label {
+            font-weight: bold;
+            font-size: 10px;
+            margin-bottom: 4px;
+        }
+
+        .remarks-box {
+            border: 1px solid #999;
+            min-height: 52px;
+            padding: 6px 8px;
+            font-size: 10px;
+            color: #333;
+        }
+    </style>
 @endpush
 
 @section('report-content')
@@ -210,7 +240,10 @@ OFFICIAL RECEIPT
                 $children = collect($allItems)
                     ->filter(function ($child) use ($item) {
                         $parentIdMatch = !empty($child['parent_id']) && $child['parent_id'] == $item['id'];
-                        $parentKeyMatch = !empty($child['parent_key']) && !empty($item['_key']) && $child['parent_key'] == $item['_key'];
+                        $parentKeyMatch =
+                            !empty($child['parent_key']) &&
+                            !empty($item['_key']) &&
+                            $child['parent_key'] == $item['_key'];
                         return $parentIdMatch || $parentKeyMatch;
                     })
                     ->sortBy('sort_order');
@@ -241,9 +274,6 @@ OFFICIAL RECEIPT
                 ->filter(fn($item) => empty($item['parent_id']) && empty($item['parent_key']))
                 ->sortBy('sort_order');
         @endphp
-
-        {{-- ── HELPER NAME ── --}}
-        <div class="helper-name">Name of Helper Deployed : {{ strtoupper($data['maid_name'] ?? '-') }}</div>
 
         {{-- ── ITEMS ── --}}
         <div class="items-section">
@@ -279,10 +309,7 @@ OFFICIAL RECEIPT
             @if (!empty($branding['footer_text']))
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @else
-                <div class="footer-note">
-                    Paynow to UEN 53496387X or Bank Transfer to DBS Business Multi Currency Account 072-131956-0.<br>
-                    For further assistance, please contact us at 8785 5651.
-                </div>
+                <div class="footer-note">Thank you for your business!</div>
             @endif
 
             @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
@@ -302,7 +329,10 @@ OFFICIAL RECEIPT
                         <td style="text-align:right;">
                             @if (!empty($branding['show_signature']))
                                 <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
-                                @if (($is_pdf ?? false) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
+                                @if (
+                                    ($is_pdf ?? false) &&
+                                        !empty($branding['signature_path_absolute']) &&
+                                        file_exists($branding['signature_path_absolute']))
                                     <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
                                         style="height:52px; width:auto; display:block; margin-left:auto;">
                                 @elseif(!empty($branding['signature_url']))

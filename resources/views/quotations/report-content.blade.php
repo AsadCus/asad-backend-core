@@ -9,167 +9,151 @@
 @endsection
 
 @section('title-bar')
-QUOTATION
+    QUOTATION
 @endsection
 
 
 @push('styles')
-    /* ── Divider ── */
-    .section-divider {
-        border: none;
-        border-top: 1px solid #d0d0d0;
-        margin: 10px 0;
-    }
+    <style>
+        /* ── Divider ── */
+        .section-divider {
+            border: none;
+            border-top: 1px solid #d0d0d0;
+            margin: 10px 0;
+        }
 
-    /* ── Order Info ── */
-    .order-info-section {
-        padding: 0 30px;
-        margin-bottom: 12px;
-    }
+        /* ── Order Info ── */
+        .order-info-section {
+            padding: 0 30px;
+            margin-bottom: 12px;
+        }
 
-    .order-info {
-        width: 100%;
-        border-collapse: collapse;
-    }
+        .order-info {
+            width: 100%;
+            border-collapse: collapse;
+        }
 
-    .order-info td {
-        vertical-align: top;
-        padding: 1px 0;
-        font-size: 10px;
-    }
+        .order-info td {
+            vertical-align: top;
+            padding: 1px 0;
+            font-size: 10px;
+        }
 
-    .order-info .lbl {
-        white-space: nowrap;
-        font-weight: bold;
-        width: 90px;
-    }
+        .order-info .lbl {
+            white-space: nowrap;
+            font-weight: bold;
+            width: 90px;
+        }
 
-    .order-info .sep {
-        width: 12px;
-    }
+        .order-info .sep {
+            width: 12px;
+        }
 
-    /* ── Content Wrapper ── */
-    .content-wrapper {
-        padding: 0 30px;
-    }
+        /* ── Content Wrapper ── */
+        .content-wrapper {
+            padding: 0 30px;
+        }
 
-    /* ── Items Table ── */
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 8px;
-    }
+        /* ── Items Table ── */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
 
-    .items-table-wrap {
-        border-top: 1.5px solid #333;
-        border-bottom: 1.5px solid #333;
-        padding: 6px 0;
-    }
+        .items-table-wrap {
+            border-top: 1.5px solid #333;
+            border-bottom: 1.5px solid #333;
+            padding: 6px 0;
+        }
 
-    .items-table td {
-        padding: 3px 0;
-        vertical-align: top;
-        font-size: 10px;
-    }
+        .items-table td {
+            padding: 3px 0;
+            vertical-align: top;
+            font-size: 10px;
+        }
 
-    .col-desc {
-        width: auto;
-    }
+        .col-desc {
+            width: auto;
+        }
 
-    .col-price {
-        width: 90px;
-        text-align: right;
-        white-space: nowrap;
-    }
+        .col-price {
+            width: 90px;
+            text-align: right;
+            white-space: nowrap;
+        }
 
-    /* Sub-item indent */
-    .sub-item .col-desc {
-        padding-left: 20px;
-    }
+        /* Sub-item indent */
+        .sub-item .col-desc {
+            padding-left: 20px;
+        }
 
-    /* Header rows (section headers within items) */
-    .header-row td {
-        font-weight: bold;
-        padding: 4px 0 2px;
-        border-bottom: 1px solid #ccc;
-        font-size: 10px;
-    }
+        /* Header rows (section headers within items) */
+        .header-row td {
+            font-weight: bold;
+            padding: 4px 0 2px;
+            border-bottom: 1px solid #ccc;
+            font-size: 10px;
+        }
 
-    .item-row {
-        border-bottom: 1px solid #ebebeb;
-    }
+        .item-row {
+            border-bottom: 1px solid #ebebeb;
+        }
 
-    .item-row.root .col-desc {
-        font-weight: bold;
-    }
+        .item-row.root .col-desc {
+            font-weight: bold;
+        }
 
-    /* ── Totals ── */
-    .totals-wrapper {
-        text-align: right;
-        padding: 6px 0 4px;
-        border-top: 1px solid #ccc;
-        margin-top: 4px;
-    }
+        /* ── Totals ── */
+        .totals-wrapper {
+            text-align: right;
+            padding: 6px 0 4px;
+            border-top: 1px solid #ccc;
+            margin-top: 4px;
+        }
 
-    .total-label {
-        font-size: 10px;
-        color: #555;
-    }
+        .total-label {
+            font-size: 10px;
+            color: #555;
+        }
 
-    .total-amount {
-        font-weight: bold;
-        font-size: 11px;
-    }
+        .total-amount {
+            font-weight: bold;
+            font-size: 11px;
+        }
 
-    /* ── Footer ── */
-    .footer-section {
-        padding: 12px 30px 0;
-        font-size: 9px;
-        border-top: none;
-    }
+        /* ── Footer ── */
+        .footer-section {
+            padding: 12px 30px 0;
+            font-size: 9px;
+            border-top: none;
+        }
 
-    .footer-note {
-        text-align: center;
-        margin-bottom: 8px;
-        line-height: 1.5;
-        color: #333;
-    }
+        .footer-note {
+            text-align: center;
+            margin-bottom: 8px;
+            line-height: 1.5;
+            color: #333;
+        }
 
-    .replacement-box {
-        text-align: center;
-        font-weight: bold;
-        margin: 10px 0;
-        font-size: 10px;
-        border: 1px solid #333;
-        padding: 4px;
-        display: inline-block;
-        width: 100%;
-    }
+        .updated-date {
+            text-align: right;
+            font-weight: bold;
+            font-size: 9px;
+            margin-top: 16px;
+            color: #333;
+        }
 
-    .terms-note {
-        text-align: center;
-        font-size: 8.5px;
-        line-height: 1.5;
-        color: #555;
-    }
+        .stamp-sig-row {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+        }
 
-    .updated-date {
-        text-align: right;
-        font-weight: bold;
-        font-size: 9px;
-        margin-top: 16px;
-        color: #333;
-    }
-
-    .stamp-sig-row {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 14px;
-    }
-
-    .stamp-sig-row td {
-        vertical-align: bottom;
-    }
+        .stamp-sig-row td {
+            vertical-align: bottom;
+        }
+    </style>
 @endpush
 
 @section('report-content')
@@ -297,19 +281,7 @@ QUOTATION
             @forelse($data['notes'] ?? [] as $note)
                 <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
             @empty
-                <div class="footer-note">
-                    50% refund of Service Fee within 6 months if employer decided to terminate the contract &amp; MDW
-                    must
-                    return to agency for Transfer (Employer to sign/authorise the consent of transfer online)
-                </div>
-                <div class="replacement-box">2 Free Replacements within 6 months</div>
-                <div class="terms-note">
-                    For every replacement, the employer will need to pay: Top Up difference in Agency Fee + Processing
-                    Fee +
-                    Documentation Fee + WPOL Filing Fee + SIP (if needed) + Transport &amp; Facilitation Fee + Insurance
-                    Fee +
-                    Any Placement Fee Top Up + Embassy Contract Fee (if needed) * Loan/Placement Fee (Upfront Payment)
-                </div>
+                <div class="footer-note">Thank you for your business!</div>
             @endforelse
         @endif
 

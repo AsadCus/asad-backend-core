@@ -5,7 +5,14 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
-import { create, destroy, edit, index, show } from '@/routes/packages';
+import {
+    create,
+    destroy,
+    download,
+    edit,
+    index,
+    show,
+} from '@/routes/packages';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -125,7 +132,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
 ];
 
 export default function PackagesIndex({ data }: PackagesProps) {
-    const actions: ActionType[] = ['add', 'view', 'edit', 'delete'];
+    const actions: ActionType[] = ['add', 'view', 'edit', 'download', 'delete'];
     const { packagesForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -157,6 +164,11 @@ export default function PackagesIndex({ data }: PackagesProps) {
                                         router.get(show(packageId).url);
                                     } else if (action === 'edit') {
                                         router.get(edit(packageId).url);
+                                    } else if (action === 'download') {
+                                        window.open(
+                                            download(packageId).url,
+                                            '_blank',
+                                        );
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Package',
@@ -170,6 +182,11 @@ export default function PackagesIndex({ data }: PackagesProps) {
                                             },
                                         });
                                     }
+                                }
+                            }}
+                            onRowDoubleClick={(row) => {
+                                if (row.id) {
+                                    router.get(edit(row.id).url);
                                 }
                             }}
                             initialState={{

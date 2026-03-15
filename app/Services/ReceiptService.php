@@ -107,8 +107,6 @@ class ReceiptService
             'customer_id' => $r->invoice?->order->quotation->customer_id,
             'customer_name' => $r->invoice?->order->quotation->customer->user->name,
             'customer_address' => $r->invoice?->order->quotation->customer->address,
-            'maid_id' => $r->invoice?->order->quotation->maid_id,
-            'maid_name' => null,
             'amount' => $this->formatService->cleanDecimal($r->amount),
             'payment_method' => $r->payment_method,
             'reference' => $r->reference,

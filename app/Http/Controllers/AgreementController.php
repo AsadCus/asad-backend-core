@@ -128,8 +128,6 @@ class AgreementController extends Controller
             'agreement_date' => $quotation->quotation_date_formatted,
             'customer_name' => $quotation->customer->user->name,
             'customer_nric' => $quotation->customer->nric_number,
-            'maid_name' => '-',
-            'maid_passport' => '-',
             'monthly_salary' => 0,
             'loan_amount' => 0,
             'loan_duration_months' => 0,

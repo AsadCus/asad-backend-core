@@ -1,6 +1,7 @@
 @extends('layout-report')
 
-@section('document-title', 'Agreement for Installment Payment - ' . ($agreement['quotation']['order']['order_number'] ?? 'Agreement'))
+@section('document-title', 'Agreement for Installment Payment - ' . ($agreement['quotation']['order']['order_number'] ??
+    'Agreement'))
 
 @section('extra-company-reg')
     @if ($agreement['sales_registration_number'] ?? false)
@@ -9,70 +10,151 @@
 @endsection
 
 @section('title-bar')
-Agreement for Installment Payment between Employer &amp; Employment Agency
+    Agreement for Installment Payment between Employer &amp; Employment Agency
 @endsection
 
 @push('styles')
-    @@page {
-        size: A4;
-        margin: 1cm 1.5cm;
-    }
-    /* Agreement uses 50/50 logo/info split */
-    .logo-cell { width: 50%; vertical-align: top; }
-    .info-cell { width: 50%; text-align: right; vertical-align: top; font-size: 10px; line-height: 1.5; }
+    <style>
+        @@page {
+            size: A4;
+            margin: 1cm 1.5cm;
+        }
 
-    .logo-cell img {
-        width: 240px;
-        max-width: 240px;
-        max-height: 90px;
-        height: auto;
-        object-fit: contain;
-        display: block;
-        margin: 0;
-    }
+        /* Agreement uses 50/50 logo/info split */
+        .logo-cell {
+            width: 50%;
+            vertical-align: top;
+        }
 
-    .info-cell b { font-size: 11px; }
+        .info-cell {
+            width: 50%;
+            text-align: right;
+            vertical-align: top;
+            font-size: 10px;
+            line-height: 1.5;
+        }
 
-    .info-section {
-        width: 100%;
-        margin-bottom: 15px;
-        border-collapse: collapse;
-    }
+        .logo-cell img {
+            width: 240px;
+            max-width: 240px;
+            max-height: 90px;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            margin: 0;
+        }
 
-    .info-section td {
-        padding: 8px;
-        border: 1px solid #000;
-        vertical-align: top;
-    }
+        .info-cell b {
+            font-size: 11px;
+        }
 
-    .info-label {
-        font-weight: bold;
-        background-color: #d3d3d3;
-        width: 35%;
-        padding: 8px;
-    }
+        .info-section {
+            width: 100%;
+            margin-bottom: 15px;
+            border-collapse: collapse;
+        }
 
-    .side-by-side { width: 100%; margin-bottom: 15px; }
-    .side-by-side td { width: 50%; vertical-align: top; }
+        .info-section td {
+            padding: 8px;
+            border: 1px solid #000;
+            vertical-align: top;
+        }
 
-    .agreement-text { text-align: justify; margin: 15px 0; line-height: 1.6; }
+        .info-label {
+            font-weight: bold;
+            background-color: #d3d3d3;
+            width: 35%;
+            padding: 8px;
+        }
 
-    .payment-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-    .payment-table th, .payment-table td { border: 1px solid #000; padding: 6px 8px; text-align: center; }
-    .payment-table th { background-color: #d3d3d3; font-weight: bold; font-size: 9px; padding: 8px; }
-    .payment-table td { font-size: 9px; padding: 8px; }
+        .side-by-side {
+            width: 100%;
+            margin-bottom: 15px;
+        }
 
-    .section-title { font-weight: bold; margin-top: 15px; margin-bottom: 8px; }
+        .side-by-side td {
+            width: 50%;
+            vertical-align: top;
+        }
 
-    .consequence-text { text-align: justify; line-height: 1.6; margin-bottom: 10px; }
-    .late-payment { margin: 15px 0; }
+        .agreement-text {
+            text-align: justify;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
 
-    .signature-section { margin-top: 40px; width: 100%; }
-    .signature-section td { width: 50%; vertical-align: top; padding: 0 10px; }
-    .signature-box { min-height: 80px; margin-bottom: 5px; }
-    .signature-line { border-bottom: 1px solid #000; width: 200px; margin-bottom: 3px; }
-    .signature-label { font-weight: bold; margin-top: 10px; }
-    .right-align { text-align: right; }
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .payment-table th,
+        .payment-table td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            text-align: center;
+        }
+
+        .payment-table th {
+            background-color: #d3d3d3;
+            font-weight: bold;
+            font-size: 9px;
+            padding: 8px;
+        }
+
+        .payment-table td {
+            font-size: 9px;
+            padding: 8px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        .consequence-text {
+            text-align: justify;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .late-payment {
+            margin: 15px 0;
+        }
+
+        .signature-section {
+            margin-top: 40px;
+            width: 100%;
+        }
+
+        .signature-section td {
+            width: 50%;
+            vertical-align: top;
+            padding: 0 10px;
+        }
+
+        .signature-box {
+            min-height: 80px;
+            margin-bottom: 5px;
+        }
+
+        .signature-line {
+            border-bottom: 1px solid #000;
+            width: 200px;
+            margin-bottom: 3px;
+        }
+
+        .signature-label {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .right-align {
+            text-align: right;
+        }
+    </style>
 @endpush
 
 @section('report-content')
@@ -89,14 +171,6 @@ Agreement for Installment Payment between Employer &amp; Employment Agency
                     <tr>
                         <td class="info-label">Name of Employer</td>
                         <td>{{ $agreement['customer_name'] }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Name of MDW</td>
-                        <td>{{ $agreement['maid_name'] }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Passport No.</td>
-                        <td>{{ $agreement['maid_passport'] }}</td>
                     </tr>
                 </table>
             </td>
@@ -196,7 +270,10 @@ Agreement for Installment Payment between Employer &amp; Employment Agency
             <td class="right-align">
                 @if (!empty($branding['show_signature']))
                     <div style="text-align: right; margin-bottom: 4px;">
-                        @if (($is_pdf ?? false) && !empty($branding['signature_path_absolute']) && file_exists($branding['signature_path_absolute']))
+                        @if (
+                            ($is_pdf ?? false) &&
+                                !empty($branding['signature_path_absolute']) &&
+                                file_exists($branding['signature_path_absolute']))
                             <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
                                 style="max-height: 60px; width: auto; display: block;">
                         @elseif(!empty($branding['signature_url']))

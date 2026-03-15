@@ -25,6 +25,7 @@ import { store, update } from '@/routes/packages';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { genderOptions } from '../customer/schema';
 import {
     infantAndChildPriceLabels,
     officialTypeOptions,
@@ -147,13 +148,13 @@ export default function PackageForm({
     const defaultData: PackageSchema = initialData || {
         name: '',
         status: 'open',
-        price_single: 0,
-        price_double: 0,
-        price_triple: 0,
-        price_quad: 0,
-        child_with_bed_price: 0,
-        child_no_bed_price: 0,
-        infant_price: 0,
+        price_single: null,
+        price_double: null,
+        price_triple: null,
+        price_quad: null,
+        child_with_bed_price: null,
+        child_no_bed_price: null,
+        infant_price: null,
         departure_date: '',
         return_date: '',
         total_seats: null,
@@ -502,6 +503,8 @@ export default function PackageForm({
     };
 
     const occupiedSeats = Number(data.occupied_seats ?? 0);
+    const showPackageNumberField =
+        (isEdit || isView) && Boolean(data.package_number);
 
     return (
         <div className="mx-auto w-full">
@@ -527,9 +530,15 @@ export default function PackageForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div
+                            className={`grid grid-cols-1 gap-4 ${
+                                showPackageNumberField
+                                    ? 'md:grid-cols-3'
+                                    : 'md:grid-cols-2'
+                            }`}
+                        >
                             {/* Group Number (auto-generated, read-only) */}
-                            {(isEdit || isView) && data.package_number && (
+                            {showPackageNumberField && (
                                 <FormField
                                     label="Package Number"
                                     htmlFor="package_number"
@@ -721,13 +730,14 @@ export default function PackageForm({
                                         onCommit={(v) =>
                                             setData(
                                                 key as keyof PackageSchema,
-                                                parseFloat(v) || 0,
+                                                parseFloat(v),
                                             )
                                         }
                                         inputProps={{
                                             min: '0',
                                             step: '0.01',
                                         }}
+                                        placeholder="0"
                                     />
                                 </FormField>
                             ))}
@@ -756,13 +766,14 @@ export default function PackageForm({
                                         onCommit={(v) =>
                                             setData(
                                                 key as keyof PackageSchema,
-                                                parseFloat(v) || 0,
+                                                parseFloat(v),
                                             )
                                         }
                                         inputProps={{
                                             min: '0',
                                             step: '0.01',
                                         }}
+                                        placeholder="0"
                                     />
                                 </FormField>
                             ))}
@@ -1088,7 +1099,7 @@ export default function PackageForm({
                                                     </Button>
                                                 )}
                                             </div>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="From"
                                                     fieldRequirementsProps={{
@@ -1169,8 +1180,6 @@ export default function PackageForm({
                                                         }
                                                     />
                                                 </FormField>
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="Time"
                                                     fieldRequirementsProps={{
@@ -1182,6 +1191,7 @@ export default function PackageForm({
                                                 >
                                                     <ProperInput
                                                         type="time"
+                                                        timeFormat={24}
                                                         value={
                                                             plan.travel_time ??
                                                             ''
@@ -1198,33 +1208,32 @@ export default function PackageForm({
                                                         }
                                                     />
                                                 </FormField>
-                                                <FormField
-                                                    label="Remarks"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Optional notes',
-                                                    }}
-                                                    error={getError(
-                                                        `transportation_plans.${index}.remarks`,
-                                                    )}
-                                                >
-                                                    <ProperInput
-                                                        value={
-                                                            plan.remarks ?? ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onCommit={(v) =>
-                                                            updateTransportationPlan(
-                                                                index,
-                                                                'remarks',
-                                                                v || null,
-                                                            )
-                                                        }
-                                                        placeholder="Optional remarks"
-                                                    />
-                                                </FormField>
                                             </div>
+                                            <FormField
+                                                label="Remarks"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Optional notes',
+                                                }}
+                                                error={getError(
+                                                    `transportation_plans.${index}.remarks`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={plan.remarks ?? ''}
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    textarea
+                                                    onCommit={(v) =>
+                                                        updateTransportationPlan(
+                                                            index,
+                                                            'remarks',
+                                                            v || null,
+                                                        )
+                                                    }
+                                                    placeholder="Optional remarks"
+                                                />
+                                            </FormField>
                                         </div>
                                     ),
                                 )}
@@ -1233,18 +1242,18 @@ export default function PackageForm({
                     </CardContent>
                 </Card>
 
-                {/* Visa, Vehicle & Train */}
+                {/* Visa & Vehicle */}
                 <Card>
                     <CardHeader className="gap-0">
                         <CardTitle className="text-xl">
-                            Visa, Vehicle & Train
+                            Visa & Vehicle
                         </CardTitle>
                         <CardDescription>
                             Capture travel support and transport setup.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
                             <FormField
                                 label="Visa Type"
                                 htmlFor="visa_type"
@@ -1263,6 +1272,8 @@ export default function PackageForm({
                                     placeholder="e.g., Umrah Visa"
                                 />
                             </FormField>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormField
                                 label="Vehicle Type"
                                 htmlFor="vehicle_type"
@@ -1327,11 +1338,26 @@ export default function PackageForm({
                                     placeholder="Enter contact number"
                                 />
                             </FormField>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">
+                            Train Ticket Details
+                        </CardTitle>
+                        <CardDescription>
+                            Provide train ticket itinerary details.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
                             <FormField
                                 label="Train Ticket Type"
                                 htmlFor="ticket_type"
                                 fieldRequirementsProps={{
-                                    hint: 'Select train ticket type',
+                                    hint: 'Select a train ticket type to add itinerary details.',
                                 }}
                                 error={getError('ticket_type')}
                             >
@@ -1346,195 +1372,171 @@ export default function PackageForm({
                                 />
                             </FormField>
                         </div>
+
+                        {(data.train_tickets || []).length === 0 ? (
+                            <p className="text-base text-muted-foreground">
+                                Select a train ticket type to add itinerary
+                                details.
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {(data.train_tickets || []).map(
+                                    (ticket, index) => (
+                                        <div
+                                            key={index}
+                                            className="space-y-4 rounded-lg border p-4"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold">
+                                                    Train Trip {index + 1}
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField
+                                                    label="From"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Departure location',
+                                                    }}
+                                                    error={getError(
+                                                        `train_tickets.${index}.from`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            ticket.from ?? ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateTrainTicket(
+                                                                index,
+                                                                'from',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Makkah"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="To"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Arrival location',
+                                                    }}
+                                                    error={getError(
+                                                        `train_tickets.${index}.to`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={ticket.to ?? ''}
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateTrainTicket(
+                                                                index,
+                                                                'to',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Madinah"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField
+                                                    label="Date"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Travel date',
+                                                    }}
+                                                    error={getError(
+                                                        `train_tickets.${index}.travel_date`,
+                                                    )}
+                                                >
+                                                    <DatePickerField
+                                                        id={`train_date_${index}`}
+                                                        value={
+                                                            ticket.travel_date ||
+                                                            ''
+                                                        }
+                                                        fromYear={new Date().getFullYear()}
+                                                        toYear={
+                                                            new Date().getFullYear() +
+                                                            5
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onChange={(v) =>
+                                                            updateTrainTicket(
+                                                                index,
+                                                                'travel_date',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Time"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Travel time',
+                                                    }}
+                                                    error={getError(
+                                                        `train_tickets.${index}.travel_time`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        type="time"
+                                                        timeFormat={24}
+                                                        value={
+                                                            ticket.travel_time ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateTrainTicket(
+                                                                index,
+                                                                'travel_time',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <FormField
+                                                label="Remarks"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Optional notes',
+                                                }}
+                                                error={getError(
+                                                    `train_tickets.${index}.remarks`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={ticket.remarks ?? ''}
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    textarea
+                                                    onCommit={(v) =>
+                                                        updateTrainTicket(
+                                                            index,
+                                                            'remarks',
+                                                            v || null,
+                                                        )
+                                                    }
+                                                    placeholder="Optional remarks"
+                                                />
+                                            </FormField>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
-
-                {(data.ticket_type === 'one_way' ||
-                    data.ticket_type === 'two_way') && (
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Train Ticket Details
-                            </CardTitle>
-                            <CardDescription>
-                                Provide train ticket itinerary details.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {(data.train_tickets || []).length === 0 ? (
-                                <p className="text-base text-muted-foreground">
-                                    Select a train ticket type to add itinerary
-                                    details.
-                                </p>
-                            ) : (
-                                <div className="space-y-4">
-                                    {(data.train_tickets || []).map(
-                                        (ticket, index) => (
-                                            <div
-                                                key={index}
-                                                className="space-y-4 rounded-lg border p-4"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-semibold">
-                                                        Train Trip {index + 1}
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                                    <FormField
-                                                        label="From"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Departure location',
-                                                        }}
-                                                        error={getError(
-                                                            `train_tickets.${index}.from`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            value={
-                                                                ticket.from ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateTrainTicket(
-                                                                    index,
-                                                                    'from',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                            placeholder="e.g., Makkah"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="To"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Arrival location',
-                                                        }}
-                                                        error={getError(
-                                                            `train_tickets.${index}.to`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            value={
-                                                                ticket.to ?? ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateTrainTicket(
-                                                                    index,
-                                                                    'to',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                            placeholder="e.g., Madinah"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Date"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Travel date',
-                                                        }}
-                                                        error={getError(
-                                                            `train_tickets.${index}.travel_date`,
-                                                        )}
-                                                    >
-                                                        <DatePickerField
-                                                            id={`train_date_${index}`}
-                                                            value={
-                                                                ticket.travel_date ||
-                                                                ''
-                                                            }
-                                                            fromYear={new Date().getFullYear()}
-                                                            toYear={
-                                                                new Date().getFullYear() +
-                                                                5
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onChange={(v) =>
-                                                                updateTrainTicket(
-                                                                    index,
-                                                                    'travel_date',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                        />
-                                                    </FormField>
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                    <FormField
-                                                        label="Time"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Travel time',
-                                                        }}
-                                                        error={getError(
-                                                            `train_tickets.${index}.travel_time`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            type="time"
-                                                            value={
-                                                                ticket.travel_time ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateTrainTicket(
-                                                                    index,
-                                                                    'travel_time',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Remarks"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Optional notes',
-                                                        }}
-                                                        error={getError(
-                                                            `train_tickets.${index}.remarks`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            value={
-                                                                ticket.remarks ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateTrainTicket(
-                                                                    index,
-                                                                    'remarks',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                            placeholder="Optional remarks"
-                                                        />
-                                                    </FormField>
-                                                </div>
-                                            </div>
-                                        ),
-                                    )}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
 
                 {/* Accommodations */}
                 <Card>
@@ -1876,7 +1878,7 @@ export default function PackageForm({
                                                     )}
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                     <FormField
                                                         label="Date"
                                                         fieldRequirementsProps={{
@@ -1910,6 +1912,21 @@ export default function PackageForm({
                                                             }
                                                         />
                                                     </FormField>
+                                                    <FormField
+                                                        label="Total Passengers"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Auto-calculated total',
+                                                        }}
+                                                    >
+                                                        <Input
+                                                            value={totalCount}
+                                                            disabled={true}
+                                                            className="bg-muted"
+                                                        />
+                                                    </FormField>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                     <FormField
                                                         label="Women Passengers"
                                                         fieldRequirementsProps={{
@@ -1956,6 +1973,7 @@ export default function PackageForm({
                                                     >
                                                         <ProperInput
                                                             type="time"
+                                                            timeFormat={24}
                                                             value={
                                                                 tasreeh.women_time ??
                                                                 ''
@@ -1975,7 +1993,7 @@ export default function PackageForm({
                                                     </FormField>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                     <FormField
                                                         label="Men Passengers"
                                                         fieldRequirementsProps={{
@@ -2022,6 +2040,7 @@ export default function PackageForm({
                                                     >
                                                         <ProperInput
                                                             type="time"
+                                                            timeFormat={24}
                                                             value={
                                                                 tasreeh.men_time ??
                                                                 ''
@@ -2037,18 +2056,6 @@ export default function PackageForm({
                                                                     v || null,
                                                                 )
                                                             }
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Total Passengers"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Auto-calculated total',
-                                                        }}
-                                                    >
-                                                        <Input
-                                                            value={totalCount}
-                                                            disabled={true}
-                                                            className="bg-muted"
                                                         />
                                                     </FormField>
                                                 </div>
@@ -2070,6 +2077,7 @@ export default function PackageForm({
                                                         disabled={
                                                             isView || processing
                                                         }
+                                                        textarea
                                                         onCommit={(v) =>
                                                             updateRawdahTasreeh(
                                                                 index,
@@ -2160,12 +2168,14 @@ export default function PackageForm({
                                                         `officials.${index}.type`,
                                                     )}
                                                 >
-                                                    <Select
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                    <ProperInputSelect
+                                                        id={`officials.${index}.type`}
+                                                        mode="classic"
                                                         value={
                                                             official.type || ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
                                                         }
                                                         onValueChange={(v) =>
                                                             updateOfficial(
@@ -2174,33 +2184,16 @@ export default function PackageForm({
                                                                 v,
                                                             )
                                                         }
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {officialTypeOptions.map(
-                                                                (option) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            option.value
-                                                                        }
-                                                                        value={
-                                                                            option.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            option.label
-                                                                        }
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        options={
+                                                            officialTypeOptions
+                                                        }
+                                                        placeholder="Select type"
+                                                    />
                                                 </FormField>
                                                 <FormField
                                                     label="Name"
                                                     fieldRequirementsProps={{
+                                                        required: true,
                                                         hint: 'Enter official name',
                                                     }}
                                                     error={getError(
@@ -2278,7 +2271,7 @@ export default function PackageForm({
                                                                 v || null,
                                                             )
                                                         }
-                                                        placeholder="e.g., Malaysian"
+                                                        placeholder="e.g., Singaporean"
                                                     />
                                                 </FormField>
                                                 <FormField
@@ -2317,13 +2310,15 @@ export default function PackageForm({
                                                         `officials.${index}.gender`,
                                                     )}
                                                 >
-                                                    <Select
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                    <ProperInputSelect
+                                                        id={`officials.${index}.gender`}
+                                                        mode="classic"
                                                         value={
                                                             official.gender ||
                                                             ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
                                                         }
                                                         onValueChange={(v) =>
                                                             updateOfficial(
@@ -2332,19 +2327,9 @@ export default function PackageForm({
                                                                 v,
                                                             )
                                                         }
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select gender" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="male">
-                                                                Male
-                                                            </SelectItem>
-                                                            <SelectItem value="female">
-                                                                Female
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
+                                                        options={genderOptions}
+                                                        placeholder="Select gender"
+                                                    />
                                                 </FormField>
                                             </div>
 
@@ -2367,7 +2352,10 @@ export default function PackageForm({
                                                         disabled={
                                                             isView || processing
                                                         }
-                                                        fromYear={1900}
+                                                        fromYear={
+                                                            new Date().getFullYear() -
+                                                            100
+                                                        }
                                                         toYear={new Date().getFullYear()}
                                                         onChange={(v) =>
                                                             updateOfficial(
@@ -2396,7 +2384,10 @@ export default function PackageForm({
                                                         disabled={
                                                             isView || processing
                                                         }
-                                                        fromYear={1900}
+                                                        fromYear={
+                                                            new Date().getFullYear() -
+                                                            10
+                                                        }
                                                         toYear={
                                                             new Date().getFullYear() +
                                                             10
@@ -2428,10 +2419,13 @@ export default function PackageForm({
                                                         disabled={
                                                             isView || processing
                                                         }
-                                                        fromYear={1900}
+                                                        fromYear={
+                                                            new Date().getFullYear() -
+                                                            10
+                                                        }
                                                         toYear={
                                                             new Date().getFullYear() +
-                                                            20
+                                                            10
                                                         }
                                                         onChange={(v) =>
                                                             updateOfficial(
@@ -2600,13 +2594,12 @@ export default function PackageForm({
                             }}
                             error={getError('remarks')}
                         >
-                            <Textarea
+                            <ProperInput
                                 id="remarks"
                                 value={data.remarks || ''}
                                 disabled={isView || processing}
-                                onChange={(e) =>
-                                    setData('remarks', e.target.value || null)
-                                }
+                                textarea
+                                onCommit={(v) => setData('remarks', v || null)}
                                 placeholder="Additional remarks or notes"
                                 rows={4}
                             />

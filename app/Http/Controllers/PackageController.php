@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Rules\PackageRule;
+use App\Services\Report\ReportTemplateService;
 use App\Services\PackageService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class PackageController extends Controller
@@ -13,10 +16,13 @@ class PackageController extends Controller
 
     protected $packageRule;
 
-    public function __construct(PackageService $packageService, PackageRule $packageRule)
+    protected $reportTemplateService;
+
+    public function __construct(PackageService $packageService, PackageRule $packageRule, ReportTemplateService $reportTemplateService)
     {
         $this->packageService = $packageService;
         $this->packageRule = $packageRule;
+        $this->reportTemplateService = $reportTemplateService;
     }
 
     /**
@@ -114,5 +120,39 @@ class PackageController extends Controller
 
         return redirect()->route('packages.index')
             ->with('success', 'Package deleted successfully.');
+    }
+
+    /**
+     * Generate package details as PDF.
+     */
+    public function generatePdf(string $id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $package = $this->packageService->getForEditShow($id);
+            $branding = $this->reportTemplateService->getBranding();
+
+            $html = view('packages.report-content', [
+                'data' => $package,
+                'branding' => $branding,
+                'is_pdf' => true,
+            ])->render();
+
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96);
+
+            $fileName = ($package['package_number'] ?? 'package').'.pdf';
+
+            return $pdf->stream($fileName);
+        } catch (\Throwable $e) {
+            Log::error('Package PDF Generation Error', ['error' => $e]);
+
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
+        }
     }
 }

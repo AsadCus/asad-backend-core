@@ -114,8 +114,6 @@ class InvoiceService
             'customer_address' => $i->order->quotation->customer->address,
             'order_id' => $i->order_id,
             'order_number' => $i->order->order_number,
-            'maid_id' => $i->order->quotation->maid_id,
-            'maid_name' => null,
             'type' => $i->type,
             'description' => $i->description,
             'amount' => $this->formatService->cleanDecimal($i->amount),

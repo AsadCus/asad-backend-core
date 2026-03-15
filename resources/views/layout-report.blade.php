@@ -113,13 +113,6 @@
             color: #333;
         }
 
-        @stack('styles')
-
-        /* ──────────────────────────────────────────
-           SCREEN-ONLY STYLES
-           DomPDF ignores @media screen completely —
-           so these rules ONLY affect browser preview.
-        ────────────────────────────────────────── */
         @@media screen {
             html {
                 background: #cacaca;
@@ -142,9 +135,17 @@
             }
 
             /* Scale up text that was sized for 96dpi DomPDF */
-            .company-name  { font-size: 13px; }
-            .company-details { font-size: 10px; }
-            .company-reg   { font-size: 10px; }
+            .company-name {
+                font-size: 13px;
+            }
+
+            .company-details {
+                font-size: 10px;
+            }
+
+            .company-reg {
+                font-size: 10px;
+            }
 
             .title-bar {
                 font-size: 14px;
@@ -152,11 +153,21 @@
                 letter-spacing: 5px;
             }
 
-            .footer-section { font-size: 10px; }
-            .footer-note    { font-size: 10px; }
-            .updated-date   { font-size: 10px; }
+            .footer-section {
+                font-size: 10px;
+            }
+
+            .footer-note {
+                font-size: 10px;
+            }
+
+            .updated-date {
+                font-size: 10px;
+            }
         }
     </style>
+
+    @stack('styles')
 </head>
 
 <body>

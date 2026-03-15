@@ -195,6 +195,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Packages
     Route::resource('packages', PackageController::class);
+    Route::get('packages/{id}/download', [PackageController::class, 'generatePdf'])->name('packages.download');
     Route::get('packages-get-for-show/{id}', [PackageController::class, 'getForShow'])->name('packages.get-for-show');
 
     // Manifests
