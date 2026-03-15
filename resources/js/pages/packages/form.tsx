@@ -1405,7 +1405,7 @@ export default function PackageForm({
                                                                     v || null,
                                                                 )
                                                             }
-                                                            placeholder="e.g., Mekkah"
+                                                            placeholder="e.g., Makkah"
                                                         />
                                                     </FormField>
                                                     <FormField
@@ -1564,7 +1564,7 @@ export default function PackageForm({
                         {(data.accommodations || []).length === 0 ? (
                             <p className="text-base text-muted-foreground">
                                 No accommodations added yet. Click "Add
-                                Accommodation" to add places like Mekkah,
+                                Accommodation" to add places like Makkah,
                                 Madinah, Taif, etc.
                             </p>
                         ) : (
@@ -1625,7 +1625,7 @@ export default function PackageForm({
                                                                 v,
                                                             )
                                                         }
-                                                        placeholder="e.g., Mekkah"
+                                                        placeholder="e.g., Makkah"
                                                     />
                                                 </FormField>
                                                 <FormField
@@ -2322,7 +2322,8 @@ export default function PackageForm({
                                                             isView || processing
                                                         }
                                                         value={
-                                                            official.gender || ''
+                                                            official.gender ||
+                                                            ''
                                                         }
                                                         onValueChange={(v) =>
                                                             updateOfficial(
@@ -2367,9 +2368,7 @@ export default function PackageForm({
                                                             isView || processing
                                                         }
                                                         fromYear={1900}
-                                                        toYear={
-                                                            new Date().getFullYear()
-                                                        }
+                                                        toYear={new Date().getFullYear()}
                                                         onChange={(v) =>
                                                             updateOfficial(
                                                                 index,

@@ -11,7 +11,7 @@ This document defines mandatory behavior for the Manifest form so future changes
 ## Canonical Data Shape
 
 - Use dynamic `roomLists` only as `Record<string, TravelerRow[]>`.
-- Do not introduce or reintroduce fixed keys like `roomListMekkah`, `roomListMadinah`, or `roomListOthers`.
+- Do not introduce or reintroduce fixed keys like `roomListMakkah`, `roomListMadinah`, or `roomListOthers`.
 - Keep `travelers` as the canonical list for shared traveler/customer/member data.
 - `airlineList` and every room list entry are projections of the same traveler entities, not separate independent records.
 

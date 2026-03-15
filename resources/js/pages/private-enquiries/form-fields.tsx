@@ -18,10 +18,10 @@ import { PrivateEnquirySchema } from './schema';
 export interface PrivateEnquiryFieldOptions {
     airlines: OptionType[];
     flightClasses: OptionType[];
-    hotelsMekkah: OptionType[];
+    hotelsMakkah: OptionType[];
     hotelsMadinah: OptionType[];
     mealOptions: OptionType[];
-    nightsMekkah: OptionType[];
+    nightsMakkah: OptionType[];
     nightsMadinah: OptionType[];
     landTransfer: OptionType[];
     wheelchair: OptionType[];
@@ -49,31 +49,31 @@ export const internalFieldOptions: PrivateEnquiryFieldOptions = {
         { value: 'Business', label: 'Business' },
         { value: 'Economy', label: 'Economy' },
     ],
-    hotelsMekkah: [
-        { value: 'Mekkah Hotel & Towers', label: 'Mekkah Hotel & Towers' },
-        { value: 'Swissotel Mekkah', label: 'Swissotel Mekkah' },
-        { value: 'Hilton Suites Mekkah', label: 'Hilton Suites Mekkah' },
+    hotelsMakkah: [
+        { value: 'Makkah Hotel & Towers', label: 'Makkah Hotel & Towers' },
+        { value: 'Swissotel Makkah', label: 'Swissotel Makkah' },
+        { value: 'Hilton Suites Makkah', label: 'Hilton Suites Makkah' },
         {
-            value: 'Jumeirah Jabal Omar Mekkah',
-            label: 'Jumeirah Jabal Omar Mekkah',
+            value: 'Jumeirah Jabal Omar Makkah',
+            label: 'Jumeirah Jabal Omar Makkah',
         },
         {
-            value: 'Fairmont Mekkah Clock Royal Tower Hotel',
-            label: 'Fairmont Mekkah Clock Royal Tower Hotel',
+            value: 'Fairmont Makkah Clock Royal Tower Hotel',
+            label: 'Fairmont Makkah Clock Royal Tower Hotel',
         },
         {
-            value: 'Address Jabal Omar Mekkah',
-            label: 'Address Jabal Omar Mekkah',
+            value: 'Address Jabal Omar Makkah',
+            label: 'Address Jabal Omar Makkah',
         },
         { value: 'Swissotel Maqam', label: 'Swissotel Maqam' },
         { value: 'Hyatt Jabal Omar', label: 'Hyatt Jabal Omar' },
         {
-            value: 'InterContinental Dar Al Tawhid Mekkah',
-            label: 'InterContinental Dar Al Tawhid Mekkah',
+            value: 'InterContinental Dar Al Tawhid Makkah',
+            label: 'InterContinental Dar Al Tawhid Makkah',
         },
         {
-            value: 'Hilton Convention Mekkah',
-            label: 'Hilton Convention Mekkah',
+            value: 'Hilton Convention Makkah',
+            label: 'Hilton Convention Makkah',
         },
         { value: 'Conrad Jabal Omar', label: 'Conrad Jabal Omar' },
         { value: 'Al Ghufran Safwa Hotel', label: 'Al Ghufran Safwa Hotel' },
@@ -103,7 +103,7 @@ export const internalFieldOptions: PrivateEnquiryFieldOptions = {
         { value: 'Half Board', label: 'Half Board (Breakfast & Dinner)' },
         { value: 'Full Board', label: 'Full Board (3 Meals)' },
     ],
-    nightsMekkah: [
+    nightsMakkah: [
         { value: '4', label: '4' },
         { value: '5', label: '5' },
     ],
@@ -135,10 +135,10 @@ export default function PrivateEnquiryFormFields({
 }: PrivateEnquiryFormFieldsProps) {
     const airlines = options.airlines;
     const flightClasses = options.flightClasses;
-    const hotelsMekkah = options.hotelsMekkah;
+    const hotelsMakkah = options.hotelsMakkah;
     const hotelsMadinah = options.hotelsMadinah;
     const mealOptions = options.mealOptions;
-    const nightsMekkah = options.nightsMekkah;
+    const nightsMakkah = options.nightsMakkah;
     const nightsMadinah = options.nightsMadinah;
     const landTransferOpts = options.landTransfer;
     const wheelchairOpts = options.wheelchair;
@@ -485,10 +485,10 @@ export default function PrivateEnquiryFormFields({
             <div className="space-y-4">
                 <h3 className="text-xl font-semibold">Accommodation Details</h3>
 
-                {/* Mekkah or Madinah First */}
+                {/* Makkah or Madinah First */}
                 <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="mekkah_or_madinah_first">
-                        Mekkah or Madinah First?{' '}
+                    <Label htmlFor="makkah_or_madinah_first">
+                        Makkah or Madinah First?{' '}
                         <FieldRequirements
                             required
                             hint="Choose which city to visit first"
@@ -496,53 +496,53 @@ export default function PrivateEnquiryFormFields({
                     </Label>
                     <div className="relative">
                         <Select
-                            value={data.mekkah_or_madinah_first}
+                            value={data.makkah_or_madinah_first}
                             onValueChange={(value) =>
-                                setData('mekkah_or_madinah_first', value)
+                                setData('makkah_or_madinah_first', value)
                             }
                             disabled={disabled}
                         >
-                            <SelectTrigger id="mekkah_or_madinah_first">
+                            <SelectTrigger id="makkah_or_madinah_first">
                                 <SelectValue placeholder="Choose destination order" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="Mekkah">
-                                    Mekkah First
+                                <SelectItem value="Makkah">
+                                    Makkah First
                                 </SelectItem>
                                 <SelectItem value="Madinah">
                                     Madinah First
                                 </SelectItem>
                             </SelectContent>
                         </Select>
-                        {renderError('mekkah_or_madinah_first')}
+                        {renderError('makkah_or_madinah_first')}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
-                    {/* Mekkah Accommodation */}
+                    {/* Makkah Accommodation */}
                     <div className="space-y-3 rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
-                        <h4 className="font-medium">Mekkah</h4>
+                        <h4 className="font-medium">Makkah</h4>
                         <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="no_of_nights_mekkah">
+                            <Label htmlFor="no_of_nights_makkah">
                                 Number of Nights{' '}
                                 <FieldRequirements
                                     required
-                                    hint="Enter number of nights in Mekkah"
+                                    hint="Enter number of nights in Makkah"
                                 />
                             </Label>
                             <div className="relative">
                                 <Select
-                                    value={data.no_of_nights_mekkah}
+                                    value={data.no_of_nights_makkah}
                                     onValueChange={(value) =>
-                                        setData('no_of_nights_mekkah', value)
+                                        setData('no_of_nights_makkah', value)
                                     }
                                     disabled={disabled}
                                 >
-                                    <SelectTrigger id="no_of_nights_mekkah">
+                                    <SelectTrigger id="no_of_nights_makkah">
                                         <SelectValue placeholder="Select nights" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {nightsMekkah.map((opt) => (
+                                        {nightsMakkah.map((opt) => (
                                             <SelectItem
                                                 key={opt.value}
                                                 value={opt.value}
@@ -552,30 +552,30 @@ export default function PrivateEnquiryFormFields({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {renderError('no_of_nights_mekkah')}
+                                {renderError('no_of_nights_makkah')}
                             </div>
                         </div>
                         <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="hotel_mekkah">
+                            <Label htmlFor="hotel_makkah">
                                 Hotel Preference{' '}
                                 <FieldRequirements
                                     required
-                                    hint="Select your preferred hotel in Mekkah"
+                                    hint="Select your preferred hotel in Makkah"
                                 />
                             </Label>
                             <div className="relative">
                                 <Select
-                                    value={data.hotel_mekkah}
+                                    value={data.hotel_makkah}
                                     onValueChange={(value) =>
-                                        setData('hotel_mekkah', value)
+                                        setData('hotel_makkah', value)
                                     }
                                     disabled={disabled}
                                 >
-                                    <SelectTrigger id="hotel_mekkah">
+                                    <SelectTrigger id="hotel_makkah">
                                         <SelectValue placeholder="Select hotel" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {hotelsMekkah.map((opt) => (
+                                        {hotelsMakkah.map((opt) => (
                                             <SelectItem
                                                 key={opt.value}
                                                 value={opt.value}
@@ -585,26 +585,26 @@ export default function PrivateEnquiryFormFields({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {renderError('hotel_mekkah')}
+                                {renderError('hotel_makkah')}
                             </div>
                         </div>
                         <div className="grid w-full items-center gap-3">
-                            <Label htmlFor="meals_mekkah">
+                            <Label htmlFor="meals_makkah">
                                 Meal Plan{' '}
                                 <FieldRequirements
                                     required
-                                    hint="Choose your meal preference in Mekkah"
+                                    hint="Choose your meal preference in Makkah"
                                 />
                             </Label>
                             <div className="relative">
                                 <Select
-                                    value={data.meals_mekkah}
+                                    value={data.meals_makkah}
                                     onValueChange={(value) =>
-                                        setData('meals_mekkah', value)
+                                        setData('meals_makkah', value)
                                     }
                                     disabled={disabled}
                                 >
-                                    <SelectTrigger id="meals_mekkah">
+                                    <SelectTrigger id="meals_makkah">
                                         <SelectValue placeholder="Select meal plan" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -618,7 +618,7 @@ export default function PrivateEnquiryFormFields({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {renderError('meals_mekkah')}
+                                {renderError('meals_makkah')}
                             </div>
                         </div>
                     </div>
@@ -770,9 +770,9 @@ export default function PrivateEnquiryFormFields({
                     </div>
 
                     <FormField
-                        label="Add-on: High Speed Train (Mekkah-Madinah)"
+                        label="Add-on: High Speed Train (Makkah-Madinah)"
                         fieldRequirementsProps={{
-                            hint: 'Add high speed train service between Mekkah and Madinah',
+                            hint: 'Add high speed train service between Makkah and Madinah',
                         }}
                         htmlFor={`add_on_speed_train`}
                     >
@@ -841,17 +841,17 @@ export default function PrivateEnquiryFormFields({
                     </FormField>
 
                     <FormField
-                        label="Mekkah Tour with Mutawif"
+                        label="Makkah Tour with Mutawif"
                         fieldRequirementsProps={{
-                            hint: 'Include guided tour of Mekkah',
+                            hint: 'Include guided tour of Makkah',
                         }}
-                        htmlFor={`mekkah_tour_with_mutawif`}
+                        htmlFor={`makkah_tour_with_mutawif`}
                     >
                         <BooleanSelect
-                            id="mekkah_tour_with_mutawif"
-                            value={!!data.mekkah_tour_with_mutawif}
+                            id="makkah_tour_with_mutawif"
+                            value={!!data.makkah_tour_with_mutawif}
                             onChange={(v) =>
-                                setData('mekkah_tour_with_mutawif', v)
+                                setData('makkah_tour_with_mutawif', v)
                             }
                             disabled={disabled}
                         />

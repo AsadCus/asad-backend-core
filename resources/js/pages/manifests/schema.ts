@@ -158,7 +158,7 @@ export type ManifestSharingGroupSchema = z.infer<
 
 // Nested structure types for API responses from ManifestService
 export const hotelDetailsSchema = z.object({
-    mekkah: z
+    makkah: z
         .object({
             hotel: z.string().optional(),
             checkIn: z.string().optional(),

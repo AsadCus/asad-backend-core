@@ -102,7 +102,7 @@ class ManifestSeeder extends Seeder
                 ->filter(fn ($traveler) => ! empty($traveler->customer_confirmation_member_id))
                 ->keyBy('customer_confirmation_member_id');
 
-            $defaultLocation = optional($package->accommodations->first())->location ?? 'mekkah';
+            $defaultLocation = optional($package->accommodations->first())->location ?? 'makkah';
             $defaultMeal = optional($package->accommodations->first())->type_of_meal;
             $roomCounter = 1;
 
@@ -255,10 +255,10 @@ class ManifestSeeder extends Seeder
         $locations = $package->accommodations
             ->filter(fn ($accommodation) => ! empty($accommodation->hotel_name))
             ->map(function ($accommodation) {
-                $location = (string) ($accommodation->location ?? $accommodation->hotel_name ?? 'mekkah');
+                $location = (string) ($accommodation->location ?? $accommodation->hotel_name ?? 'makkah');
 
                 return [
-                    'key' => \Illuminate\Support\Str::slug($location) ?: 'mekkah',
+                    'key' => \Illuminate\Support\Str::slug($location) ?: 'makkah',
                     'meal' => $accommodation->type_of_meal,
                 ];
             })
@@ -267,7 +267,7 @@ class ManifestSeeder extends Seeder
 
         if ($locations->isEmpty()) {
             $locations = collect([
-                ['key' => 'mekkah', 'meal' => null],
+                ['key' => 'makkah', 'meal' => null],
             ]);
         }
 

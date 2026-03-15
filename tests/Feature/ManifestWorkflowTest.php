@@ -74,7 +74,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'name_as_per_passport' => 'Ahmad Example',
                         'customer_confirmation_member_id' => $member->id,
@@ -122,7 +122,7 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
-            'location' => 'mekkah',
+            'location' => 'makkah',
             'relationship' => 'Family',
             'room_number' => 'M-101',
             'room_type' => 'quad',
@@ -284,7 +284,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'customer_confirmation_member_id' => $memberOne->id,
                         'name_as_per_passport' => 'Traveler One',
@@ -337,7 +337,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'customer_confirmation_member_id' => $memberA->id,
                         'name_as_per_passport' => 'Traveler A',
@@ -375,7 +375,7 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
-            'location' => 'mekkah',
+            'location' => 'makkah',
             'room_number' => 'MK-01',
         ]);
 
@@ -488,7 +488,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'id' => $travelerOne->id,
                         'manifest_traveler_id' => $travelerOne->id,
@@ -639,7 +639,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'sn' => 1,
                         'name_as_per_passport' => 'Nullable Room Traveler',
@@ -659,7 +659,7 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
-            'location' => 'mekkah',
+            'location' => 'makkah',
             'room_number' => null,
             'room_type' => 'double',
         ]);
@@ -720,7 +720,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'manifest_traveler_id' => $travelerOne->id,
                         'customer_confirmation_member_id' => $memberOne->id,
@@ -771,7 +771,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame([1, 2], $manifest->rooms->pluck('roomMembers')->map->count()->sort()->values()->all());
 
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
-        $roomRows = $rehydrated['roomLists']['mekkah'] ?? [];
+        $roomRows = $rehydrated['roomLists']['makkah'] ?? [];
 
         $this->assertCount(3, $roomRows);
         $this->assertSame(2, collect($roomRows)->pluck('sharing_group_key')->filter()->unique()->count());
@@ -817,7 +817,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'manifest_traveler_id' => $traveler->id,
                         'customer_confirmation_member_id' => $member->id,
@@ -843,7 +843,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame('double', $member->sharing_plan);
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
-            'location' => 'mekkah',
+            'location' => 'makkah',
             'relationship' => 'Family',
             'sharing_plan' => 'double',
             'room_label' => 'Room A',
@@ -980,7 +980,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'roomLists' => [
-                'mekkah' => [
+                'makkah' => [
                     [
                         'customer_confirmation_member_id' => $first->id,
                         'customer_confirmation_id' => $confirmation->id,
@@ -1020,7 +1020,7 @@ class ManifestWorkflowTest extends TestCase
             'sharing_group_key' => 'solo-'.$fourth->id,
         ];
 
-        $payload['roomLists']['mekkah'][] = [
+        $payload['roomLists']['makkah'][] = [
             'customer_confirmation_member_id' => $fourth->id,
             'customer_confirmation_id' => $confirmation->id,
             'name_as_per_passport' => 'Capacity Member 4',

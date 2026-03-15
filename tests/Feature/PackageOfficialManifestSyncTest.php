@@ -260,7 +260,7 @@ class PackageOfficialManifestSyncTest extends TestCase
             ],
             'accommodations' => [
                 [
-                    'location' => 'Mekkah',
+                    'location' => 'Makkah',
                     'hotel_name' => 'Hotel A',
                     'type_of_meal' => 'Breakfast Only',
                 ],
@@ -315,7 +315,7 @@ class PackageOfficialManifestSyncTest extends TestCase
             ],
             'accommodations' => [
                 [
-                    'location' => 'Mekkah',
+                    'location' => 'Makkah',
                     'hotel_name' => 'Fallback Hotel',
                     'type_of_meal' => 'Breakfast Only',
                 ],

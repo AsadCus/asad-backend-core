@@ -469,8 +469,8 @@ class PackageService
             $included[] = 'Madinah tour with mutawif requested';
         }
 
-        if ($privateEnquiry->mekkah_tour_with_mutawif) {
-            $included[] = 'Mekkah tour with mutawif requested';
+        if ($privateEnquiry->makkah_tour_with_mutawif) {
+            $included[] = 'Makkah tour with mutawif requested';
         }
 
         if ($privateEnquiry->add_on_speed_train) {
@@ -485,11 +485,11 @@ class PackageService
         if (! empty($privateEnquiry->class)) {
             $remarks[] = 'Class: '.$privateEnquiry->class;
         }
-        if (! empty($privateEnquiry->mekkah_or_madinah_first)) {
-            $remarks[] = 'Mekkah/Madinah first: '.$privateEnquiry->mekkah_or_madinah_first;
+        if (! empty($privateEnquiry->makkah_or_madinah_first)) {
+            $remarks[] = 'Makkah/Madinah first: '.$privateEnquiry->makkah_or_madinah_first;
         }
-        if (! empty($privateEnquiry->no_of_nights_mekkah)) {
-            $remarks[] = 'Nights in Mekkah: '.$privateEnquiry->no_of_nights_mekkah;
+        if (! empty($privateEnquiry->no_of_nights_makkah)) {
+            $remarks[] = 'Nights in Makkah: '.$privateEnquiry->no_of_nights_makkah;
         }
         if (! empty($privateEnquiry->no_of_nights_madinah)) {
             $remarks[] = 'Nights in Madinah: '.$privateEnquiry->no_of_nights_madinah;
@@ -506,11 +506,11 @@ class PackageService
 
         $this->setIfNotEmpty($payload, 'remarks', implode("\n", $remarks));
 
-        if (! empty($privateEnquiry->hotel_mekkah)) {
+        if (! empty($privateEnquiry->hotel_makkah)) {
             $payload['accommodations'][] = [
-                'location' => 'Mekkah',
-                'hotel_name' => $privateEnquiry->hotel_mekkah,
-                'type_of_meal' => $privateEnquiry->meals_mekkah,
+                'location' => 'Makkah',
+                'hotel_name' => $privateEnquiry->hotel_makkah,
+                'type_of_meal' => $privateEnquiry->meals_makkah,
                 'check_in' => null,
                 'check_out' => null,
             ];
@@ -553,34 +553,34 @@ class PackageService
                 $payload,
             ));
 
-            // Mekkah accommodation
-            if ($privateEnquiry->hotel_mekkah) {
-                $mekkahNights = (int) ($privateEnquiry->no_of_nights_mekkah ?? 0);
-                $mekkahCheckIn = $privateEnquiry->mekkah_or_madinah_first === 'mekkah'
+            // Makkah accommodation
+            if ($privateEnquiry->hotel_makkah) {
+                $makkahNights = (int) ($privateEnquiry->no_of_nights_makkah ?? 0);
+                $makkahCheckIn = $privateEnquiry->makkah_or_madinah_first === 'makkah'
                     ? $privateEnquiry->departure_date
                     : ($privateEnquiry->departure_date
                         ? $privateEnquiry->departure_date->copy()->addDays((int) ($privateEnquiry->no_of_nights_madinah ?? 0))
                         : null);
-                $mekkahCheckOut = $mekkahCheckIn && $mekkahNights
-                    ? $mekkahCheckIn->copy()->addDays($mekkahNights)
+                $makkahCheckOut = $makkahCheckIn && $makkahNights
+                    ? $makkahCheckIn->copy()->addDays($makkahNights)
                     : null;
 
                 $package->accommodations()->create([
-                    'location' => 'Mekkah',
-                    'hotel_name' => $privateEnquiry->hotel_mekkah,
-                    'type_of_meal' => $privateEnquiry->meals_mekkah,
-                    'check_in' => $mekkahCheckIn?->format('d F Y'),
-                    'check_out' => $mekkahCheckOut?->format('d F Y'),
+                    'location' => 'Makkah',
+                    'hotel_name' => $privateEnquiry->hotel_makkah,
+                    'type_of_meal' => $privateEnquiry->meals_makkah,
+                    'check_in' => $makkahCheckIn?->format('d F Y'),
+                    'check_out' => $makkahCheckOut?->format('d F Y'),
                 ]);
             }
 
             // Madinah accommodation
             if ($privateEnquiry->hotel_madinah) {
                 $madinahNights = (int) ($privateEnquiry->no_of_nights_madinah ?? 0);
-                $madinahCheckIn = $privateEnquiry->mekkah_or_madinah_first === 'madinah'
+                $madinahCheckIn = $privateEnquiry->makkah_or_madinah_first === 'madinah'
                     ? $privateEnquiry->departure_date
                     : ($privateEnquiry->departure_date
-                        ? $privateEnquiry->departure_date->copy()->addDays((int) ($privateEnquiry->no_of_nights_mekkah ?? 0))
+                        ? $privateEnquiry->departure_date->copy()->addDays((int) ($privateEnquiry->no_of_nights_makkah ?? 0))
                         : null);
                 $madinahCheckOut = $madinahCheckIn && $madinahNights
                     ? $madinahCheckIn->copy()->addDays($madinahNights)
@@ -847,10 +847,10 @@ class PackageService
         $locations = $package->accommodations
             ->filter(fn ($accommodation) => ! empty($accommodation->hotel_name))
             ->map(function ($accommodation) {
-                $location = (string) ($accommodation->location ?? $accommodation->hotel_name ?? 'mekkah');
+                $location = (string) ($accommodation->location ?? $accommodation->hotel_name ?? 'makkah');
 
                 return [
-                    'key' => \Illuminate\Support\Str::slug($location) ?: 'mekkah',
+                    'key' => \Illuminate\Support\Str::slug($location) ?: 'makkah',
                     'meal' => $accommodation->type_of_meal,
                 ];
             })
@@ -859,7 +859,7 @@ class PackageService
 
         if ($locations->isEmpty()) {
             $locations = collect([
-                ['key' => 'mekkah', 'meal' => null],
+                ['key' => 'makkah', 'meal' => null],
             ]);
         }
 
@@ -885,7 +885,7 @@ class PackageService
                 }
 
                 return [
-                    ($room->location ?? 'mekkah').'|'.$officialRoomMember->manifest_traveler_id => $room,
+                    ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_traveler_id => $room,
                 ];
             });
 
@@ -960,7 +960,7 @@ class PackageService
                     return;
                 }
 
-                $comboKey = ($room->location ?? 'mekkah').'|'.$officialRoomMember->manifest_traveler_id;
+                $comboKey = ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_traveler_id;
 
                 if (! in_array($comboKey, $expectedCombos, true)) {
                     $room->roomMembers()->delete();

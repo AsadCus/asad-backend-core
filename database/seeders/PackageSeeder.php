@@ -40,7 +40,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package1->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Elaf Ajyad Hotel', 'type_of_meal' => 'Half Board', 'check_in' => '2026-01-16', 'check_out' => '2026-01-23'],
+            ['location' => 'Makkah', 'hotel_name' => 'Elaf Ajyad Hotel', 'type_of_meal' => 'Half Board', 'check_in' => '2026-01-16', 'check_out' => '2026-01-23'],
             ['location' => 'Madinah', 'hotel_name' => 'Dar Al Taqwa Hotel', 'type_of_meal' => 'Half Board', 'check_in' => '2026-01-23', 'check_out' => '2026-01-28'],
         ]);
 
@@ -69,7 +69,7 @@ class PackageSeeder extends Seeder
 
         $package1->trainTickets()->createMany([
             [
-                'from' => 'Mekkah',
+                'from' => 'Makkah',
                 'to' => 'Madinah',
                 'travel_date' => '2026-01-23',
                 'travel_time' => '09:30',
@@ -78,7 +78,7 @@ class PackageSeeder extends Seeder
             ],
             [
                 'from' => 'Madinah',
-                'to' => 'Mekkah',
+                'to' => 'Makkah',
                 'travel_date' => '2026-01-27',
                 'travel_time' => '16:15',
                 'remarks' => 'High-speed train (Return)',
@@ -89,7 +89,7 @@ class PackageSeeder extends Seeder
         $package1->transportationPlans()->createMany([
             [
                 'from' => 'Jeddah Airport',
-                'to' => 'Mekkah Hotel',
+                'to' => 'Makkah Hotel',
                 'travel_date' => '2026-01-15',
                 'travel_time' => '17:30',
                 'remarks' => 'Group coach transfer',
@@ -159,7 +159,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package2->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Fairmont Mekkah Clock Royal Tower', 'type_of_meal' => 'Full Board', 'check_in' => '2026-02-11', 'check_out' => '2026-02-16'],
+            ['location' => 'Makkah', 'hotel_name' => 'Fairmont Makkah Clock Royal Tower', 'type_of_meal' => 'Full Board', 'check_in' => '2026-02-11', 'check_out' => '2026-02-16'],
             ['location' => 'Madinah', 'hotel_name' => 'The Oberoi Madina', 'type_of_meal' => 'Full Board', 'check_in' => '2026-02-16', 'check_out' => '2026-02-19'],
         ]);
 
@@ -188,7 +188,7 @@ class PackageSeeder extends Seeder
 
         $package2->trainTickets()->createMany([
             [
-                'from' => 'Mekkah',
+                'from' => 'Makkah',
                 'to' => 'Madinah',
                 'travel_date' => '2026-02-15',
                 'travel_time' => '08:45',
@@ -200,7 +200,7 @@ class PackageSeeder extends Seeder
         $package2->transportationPlans()->createMany([
             [
                 'from' => 'Jeddah Airport',
-                'to' => 'Fairmont Mekkah',
+                'to' => 'Fairmont Makkah',
                 'travel_date' => '2026-02-10',
                 'travel_time' => '15:30',
                 'remarks' => 'VIP transfer',
@@ -269,7 +269,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package3->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Hilton Mekkah Convention', 'type_of_meal' => 'Full Board', 'check_in' => '2026-06-02', 'check_out' => '2026-06-10'],
+            ['location' => 'Makkah', 'hotel_name' => 'Hilton Makkah Convention', 'type_of_meal' => 'Full Board', 'check_in' => '2026-06-02', 'check_out' => '2026-06-10'],
             ['location' => 'Madinah', 'hotel_name' => 'Pullman Zamzam Madina', 'type_of_meal' => 'Full Board', 'check_in' => '2026-06-14', 'check_out' => '2026-06-20'],
             ['location' => 'Taif', 'hotel_name' => 'InterContinental Taif', 'type_of_meal' => 'Breakfast', 'check_in' => '2026-06-10', 'check_out' => '2026-06-14'],
         ]);
@@ -299,7 +299,7 @@ class PackageSeeder extends Seeder
 
         $package3->trainTickets()->createMany([
             [
-                'from' => 'Mekkah',
+                'from' => 'Makkah',
                 'to' => 'Madinah',
                 'travel_date' => '2026-06-12',
                 'travel_time' => '07:45',
@@ -308,10 +308,10 @@ class PackageSeeder extends Seeder
             ],
             [
                 'from' => 'Madinah',
-                'to' => 'Mekkah',
+                'to' => 'Makkah',
                 'travel_date' => '2026-06-18',
                 'travel_time' => '17:15',
-                'remarks' => 'Return to Mekkah',
+                'remarks' => 'Return to Makkah',
                 'sort_order' => 2,
             ],
         ]);
@@ -319,14 +319,14 @@ class PackageSeeder extends Seeder
         $package3->transportationPlans()->createMany([
             [
                 'from' => 'Jeddah Airport',
-                'to' => 'Hilton Mekkah Convention',
+                'to' => 'Hilton Makkah Convention',
                 'travel_date' => '2026-06-01',
                 'travel_time' => '14:30',
                 'remarks' => 'Large group coach',
                 'sort_order' => 1,
             ],
             [
-                'from' => 'Hilton Mekkah Convention',
+                'from' => 'Hilton Makkah Convention',
                 'to' => 'Taif Hotel',
                 'travel_date' => '2026-06-10',
                 'travel_time' => '09:00',
@@ -397,7 +397,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package4->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Swissotel Mekkah', 'type_of_meal' => 'Iftar & Suhoor', 'check_in' => '2026-03-02', 'check_out' => '2026-03-12'],
+            ['location' => 'Makkah', 'hotel_name' => 'Swissotel Makkah', 'type_of_meal' => 'Iftar & Suhoor', 'check_in' => '2026-03-02', 'check_out' => '2026-03-12'],
             ['location' => 'Madinah', 'hotel_name' => 'Anwar Al Madinah Movenpick', 'type_of_meal' => 'Iftar & Suhoor', 'check_in' => '2026-03-12', 'check_out' => '2026-03-14'],
         ]);
 
@@ -426,7 +426,7 @@ class PackageSeeder extends Seeder
 
         $package4->trainTickets()->createMany([
             [
-                'from' => 'Mekkah',
+                'from' => 'Makkah',
                 'to' => 'Madinah',
                 'travel_date' => '2026-03-08',
                 'travel_time' => '10:15',
@@ -438,7 +438,7 @@ class PackageSeeder extends Seeder
         $package4->transportationPlans()->createMany([
             [
                 'from' => 'Jeddah Airport',
-                'to' => 'Swissotel Mekkah',
+                'to' => 'Swissotel Makkah',
                 'travel_date' => '2026-03-01',
                 'travel_time' => '18:00',
                 'remarks' => 'Iftar pack on arrival',
@@ -507,7 +507,7 @@ class PackageSeeder extends Seeder
         ]);
 
         $package5->accommodations()->createMany([
-            ['location' => 'Mekkah', 'hotel_name' => 'Al Marwa Rayhaan', 'type_of_meal' => 'No Meals', 'check_in' => '2025-12-02', 'check_out' => '2025-12-05'],
+            ['location' => 'Makkah', 'hotel_name' => 'Al Marwa Rayhaan', 'type_of_meal' => 'No Meals', 'check_in' => '2025-12-02', 'check_out' => '2025-12-05'],
             ['location' => 'Madinah', 'hotel_name' => 'Grand Mercure Madinah', 'type_of_meal' => 'No Meals', 'check_in' => '2025-12-05', 'check_out' => '2025-12-07'],
         ]);
 
@@ -536,7 +536,7 @@ class PackageSeeder extends Seeder
 
         $package5->trainTickets()->createMany([
             [
-                'from' => 'Mekkah',
+                'from' => 'Makkah',
                 'to' => 'Madinah',
                 'travel_date' => '2025-12-04',
                 'travel_time' => '09:00',

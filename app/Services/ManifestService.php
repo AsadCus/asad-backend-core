@@ -1109,7 +1109,7 @@ class ManifestService
         }
 
         $legacyLists = [
-            'mekkah' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_mekkah'] ?? null) ? $flightDetails['ui_room_list_mekkah'] : []),
+            'makkah' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_makkah'] ?? null) ? $flightDetails['ui_room_list_makkah'] : []),
             'madinah' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_madinah'] ?? null) ? $flightDetails['ui_room_list_madinah'] : []),
             'others' => $this->flattenGroupedData(is_array($flightDetails['ui_room_list_others'] ?? null) ? $flightDetails['ui_room_list_others'] : []),
         ];
@@ -1123,7 +1123,7 @@ class ManifestService
             ->values();
 
         if ($hotelAccommodations->isEmpty()) {
-            return ['mekkah' => $travelers];
+            return ['makkah' => $travelers];
         }
 
         return $hotelAccommodations
@@ -1153,7 +1153,7 @@ class ManifestService
 
         return $manifest->rooms
             ->sortBy('sort_order')
-            ->groupBy(fn ($room) => (string) ($room->location ?? 'mekkah'))
+            ->groupBy(fn ($room) => (string) ($room->location ?? 'makkah'))
             ->map(function ($rooms) use ($travelerById) {
                 return $rooms
                     ->values()

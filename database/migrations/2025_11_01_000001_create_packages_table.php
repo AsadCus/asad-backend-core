@@ -55,7 +55,7 @@ return new class extends Migration
         Schema::create('package_accommodations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('package_id')->constrained()->cascadeOnDelete();
-            $table->string('location'); // e.g. Mekkah, Madinah, Taif
+            $table->string('location'); // e.g. Makkah, Madinah, Taif
             $table->string('hotel_name');
             $table->string('type_of_meal')->nullable();
             $table->date('check_in')->nullable();
