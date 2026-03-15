@@ -182,7 +182,7 @@ class SalesController extends Controller
         $data = $this->buildSalesReportData($id);
         $reportData = $this->reportTemplateService->build('sales', $data);
 
-        return view('sales.pdf', [
+        return view('sales.report-content', [
             'data' => $data,
             'branding' => $reportData['branding'],
             'is_pdf' => false,
@@ -202,13 +202,13 @@ class SalesController extends Controller
             $reportData = $this->reportTemplateService->build('sales', $data);
             $branding = $reportData['branding'];
 
-            $html = view('sales.pdf', [
+            $html = view('sales.report-content', [
                 'data' => $data,
                 'branding' => $branding,
                 'is_pdf' => true,
             ])->render();
 
-            $filename = 'sales-profile-'.str()->slug($data['name']).'.pdf';
+            $filename = 'sales-profile-' . str()->slug($data['name']) . '.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4')
@@ -218,7 +218,7 @@ class SalesController extends Controller
         } catch (\Throwable $e) {
             Log::error('Sales PDF error', ['error' => $e->getMessage()]);
 
-            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
         }
     }
 
@@ -227,7 +227,7 @@ class SalesController extends Controller
         $userData = $this->salesUserService->getForEditShow($id);
 
         $branchName = '-';
-        if (! empty($userData['branch_id'])) {
+        if (!empty($userData['branch_id'])) {
             $branch = $this->branchService->getForFilter()
                 ->firstWhere('id', $userData['branch_id']);
             $branchName = $branch['name'] ?? '-';

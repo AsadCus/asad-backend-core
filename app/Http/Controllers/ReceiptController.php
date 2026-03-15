@@ -160,7 +160,7 @@ class ReceiptController extends Controller
 
         $data['payment_method_label'] = $paymentMethodLabel;
 
-        return view('receipts.pdf', [
+        return view('receipts.report-content', [
             'data' => $data,
             'items' => $data['items'],
             'branding' => $reportData['branding'],
@@ -187,7 +187,7 @@ class ReceiptController extends Controller
 
             $data['payment_method_label'] = $paymentMethodLabel;
 
-            $html = view('receipts.pdf', [
+            $html = view('receipts.report-content', [
                 'data' => $data,
                 'items' => $data['items'],
                 'branding' => $reportData['branding'],
@@ -200,11 +200,11 @@ class ReceiptController extends Controller
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96);
 
-            return $pdf->stream($data['receipt_number'].'.pdf');
+            return $pdf->stream($data['receipt_number'] . '.pdf');
         } catch (\Exception $e) {
-            Log::error('Receipt PDF Generation Error: '.$e->getMessage());
+            Log::error('Receipt PDF Generation Error: ' . $e->getMessage());
 
-            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
         }
     }
 }

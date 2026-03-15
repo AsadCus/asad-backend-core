@@ -103,7 +103,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation created successfully #'.$quotation->quotation_number);
+            ->log('Quotation created successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation created successfully.');
@@ -155,7 +155,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation updated successfully #'.$quotation->quotation_number);
+            ->log('Quotation updated successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation updated successfully');
@@ -168,7 +168,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number, 'status' => 'sent'])
-            ->log('Quotation marked as sent successfully #'.$quotation->quotation_number);
+            ->log('Quotation marked as sent successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')->with('success', 'Quotation marked as sent successfully.');
     }
@@ -180,7 +180,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation accepted successfully #'.$quotation->quotation_number);
+            ->log('Quotation accepted successfully #' . $quotation->quotation_number);
 
         return redirect()->route('invoice.create', ['quotation_id' => $request['quotation_id']])->with('success', 'Quotation accepted successfully.');
     }
@@ -192,7 +192,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation rejected successfully #'.$quotation->quotation_number);
+            ->log('Quotation rejected successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation rejected successfully.');
@@ -205,7 +205,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation expired successfully #'.$quotation->quotation_number);
+            ->log('Quotation expired successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation ended successfully.');
@@ -218,7 +218,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation cancelled successfully #'.$quotation->quotation_number);
+            ->log('Quotation cancelled successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')->with('success', 'Quotation voided successfully.');
     }
@@ -234,7 +234,7 @@ class QuotationController extends Controller
             foreach ($ids as $deleteId) {
                 $quotation = Quotation::find($deleteId);
 
-                if (! $quotation) {
+                if (!$quotation) {
                     continue;
                 }
 
@@ -250,7 +250,7 @@ class QuotationController extends Controller
                 activity()
                     ->performedOn($quotation)
                     ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-                    ->log('Quotation deleted successfully #'.$quotation->quotation_number);
+                    ->log('Quotation deleted successfully #' . $quotation->quotation_number);
 
                 $deletedCount++;
             }
@@ -266,7 +266,7 @@ class QuotationController extends Controller
 
         $quotation = Quotation::find($id);
 
-        if (! $quotation) {
+        if (!$quotation) {
             return redirect()->route('quotation.index')
                 ->with('error', 'Quotation not found.');
         }
@@ -274,7 +274,7 @@ class QuotationController extends Controller
         // Prevent deletion of converted or cancelled quotations
         if (in_array($quotation->status, ['converted', 'cancelled'])) {
             return redirect()->route('quotation.index')
-                ->with('error', 'Cannot delete quotation with status: '.$quotation->status);
+                ->with('error', 'Cannot delete quotation with status: ' . $quotation->status);
         }
 
         $this->quotationService->delete($id);
@@ -282,7 +282,7 @@ class QuotationController extends Controller
         activity()
             ->performedOn($quotation)
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
-            ->log('Quotation deleted successfully #'.$quotation->quotation_number);
+            ->log('Quotation deleted successfully #' . $quotation->quotation_number);
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation deleted successfully.');
@@ -303,7 +303,7 @@ class QuotationController extends Controller
 
         $data['payment_plan_label'] = $paymentPlanLabel;
 
-        return view('quotations.pdf', [
+        return view('quotations.report-content', [
             'data' => $data,
             'items' => $this->sortForPdf($data['items'] ?? []),
             'branding' => $reportData['branding'],
@@ -331,7 +331,7 @@ class QuotationController extends Controller
 
             $data['payment_plan_label'] = $paymentPlanLabel;
 
-            $html = view('quotations.pdf', [
+            $html = view('quotations.report-content', [
                 'data' => $data,
                 'items' => $this->sortForPdf($data['items'] ?? []),
                 'branding' => $reportData['branding'],
@@ -343,11 +343,11 @@ class QuotationController extends Controller
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96)
-                ->stream($data['quotation_number'].'.pdf');
+                ->stream($data['quotation_number'] . '.pdf');
         } catch (\Throwable $e) {
             Log::error('PDF Generation Error', ['error' => $e]);
 
-            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
         }
     }
 
@@ -355,8 +355,8 @@ class QuotationController extends Controller
     {
         $collection = collect($items)->sortBy('sort_order')->values();
 
-        $roots = $collection->filter(fn ($i) => empty($i['parent_id']) && empty($i['parent_key']));
-        $children = $collection->filter(fn ($i) => ! empty($i['parent_id']) || ! empty($i['parent_key']));
+        $roots = $collection->filter(fn($i) => empty($i['parent_id']) && empty($i['parent_key']));
+        $children = $collection->filter(fn($i) => !empty($i['parent_id']) || !empty($i['parent_key']));
 
         $result = [];
 
@@ -368,8 +368,8 @@ class QuotationController extends Controller
             if ($pid !== null) {
                 $subs = $children
                     ->filter(
-                        fn ($c) => ($c['parent_id'] ?? null) == $pid ||
-                            ($c['parent_key'] ?? null) == $pid
+                        fn($c) => ($c['parent_id'] ?? null) == $pid ||
+                        ($c['parent_key'] ?? null) == $pid
                     )
                     ->sortBy('sort_order')
                     ->values();

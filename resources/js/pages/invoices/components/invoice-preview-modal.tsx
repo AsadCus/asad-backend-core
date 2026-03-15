@@ -99,18 +99,20 @@ export default function InvoicePreviewModal({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-hidden rounded-md border bg-white">
-                        {previewUrl ? (
-                            <iframe
-                                src={previewUrl}
-                                title="Invoice Preview"
-                                className="h-full w-full"
-                            />
-                        ) : (
-                            <div className="flex h-full items-center justify-center p-4 text-sm text-muted-foreground">
-                                Save invoice first to load preview.
-                            </div>
-                        )}
+                    <div className="flex-1 overflow-auto bg-gray-100 p-4">
+                        <div className="mx-auto max-w-[794px] shadow-md">
+                            {previewUrl ? (
+                                <iframe
+                                    src={previewUrl}
+                                    title="Invoice Preview"
+                                    className="h-[1050px] w-full"
+                                />
+                            ) : (
+                                <div className="flex h-64 items-center justify-center rounded-md bg-white p-4 text-sm text-muted-foreground">
+                                    Save invoice first to load preview.
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <DialogFooter className="flex-shrink-0 gap-2 border-t pt-4">
