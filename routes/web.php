@@ -201,6 +201,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Manifests
     Route::resource('manifests', ManifestController::class);
     Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
+    Route::get('manifests/{id}/collection-items-pdf', [ManifestController::class, 'exportCollectionItemsPdf'])->name('manifests.collection-items-pdf');
 
     // Manifest Rooms
     Route::post('manifests/{manifestId}/rooms', [ManifestController::class, 'addRoom'])->name('manifests.rooms.store');

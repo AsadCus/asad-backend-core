@@ -8,9 +8,12 @@ use App\Rules\ManifestRule;
 use App\Services\CustomerConfirmationService;
 use App\Services\ManifestService;
 use App\Services\PackageService;
+use App\Services\Report\ReportTemplateService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -21,6 +24,7 @@ class ManifestController extends Controller
         protected ManifestRule $manifestRule,
         protected PackageService $packageService,
         protected CustomerConfirmationService $customerConfirmationService,
+        protected ReportTemplateService $reportTemplateService,
     ) {}
 
     /**
@@ -225,6 +229,43 @@ class ManifestController extends Controller
         $manifest = $this->manifestService->getForEditShow($id);
 
         return response()->json($manifest);
+    }
+
+    public function exportCollectionItemsPdf(string $id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $manifest = $this->manifestService->getForEditShow((int) $id);
+            $reportData = $this->reportTemplateService->build('manifest', [
+                'manifest' => $manifest,
+            ]);
+
+            $html = view('manifests.report-content', [
+                'manifest' => $manifest,
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $fileName = ($manifest['manifest_number'] ?? 'manifest').'-collection-items.pdf';
+
+            return Pdf::loadHTML($html)
+                ->setPaper('a4', 'landscape')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96)
+                ->stream($fileName);
+        } catch (\Throwable $e) {
+            Log::error('Manifest collection-items PDF generation error', [
+                'manifest_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to generate PDF: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -465,7 +506,7 @@ class ManifestController extends Controller
                     'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
                     'bed_type' => $this->normalizeBedType($first['bed_type'] ?? null),
                     'sharing_plan' => $first['sharing_plan'] ?? null,
-                    'capacity' => count(array_filter($members, fn (array $member) => ($member['is_assigned'] ?? true) !== false)),
+                    'capacity' => count($members),
                     'meal' => $first['meal'] ?? null,
                     'number_of_beds_checked' => (bool) ($first['number_of_beds_checked'] ?? false),
                     'remarks' => $first['room_remarks'] ?? null,
@@ -487,7 +528,6 @@ class ManifestController extends Controller
                             'sharing_plan' => isset($member['sharing_plan']) && is_string($member['sharing_plan'])
                                 ? strtolower(trim($member['sharing_plan']))
                                 : null,
-                            'is_assigned' => (bool) ($member['is_assigned'] ?? true),
                             'sort_order' => (int) ($member['sort_order'] ?? $member['sn'] ?? ($index + 1)),
                             'remarks' => $member['remarks'] ?? null,
                         ];

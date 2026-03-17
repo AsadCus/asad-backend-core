@@ -8,12 +8,18 @@ import {
     ContextMenu,
     ContextMenuContent,
     ContextMenuItem,
+    ContextMenuSub,
+    ContextMenuSubContent,
+    ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -56,7 +62,12 @@ import {
 } from '../../customer/schema';
 import { type TravelerWithUI } from '../types';
 
-type TableMode = 'travelers' | 'room' | 'room_check' | 'airline';
+type TableMode =
+    | 'travelers'
+    | 'room'
+    | 'room_check'
+    | 'airline'
+    | 'course_collection';
 
 type SelectOption = {
     value: string;
@@ -129,14 +140,26 @@ interface VisibleItem {
 interface ManifestDatatableProps {
     mode: TableMode;
     rows: TravelerWithUI[];
+    currentRoomLocationKey?: string;
     disabled?: boolean;
     allowReorder?: boolean;
     errorPrefix?: string;
     roomGroupErrorPrefix?: string;
     roomGroupStartIndex?: number;
     errors?: Record<string, string>;
+    roomAssignmentOptions?: Array<{ key: string; label: string }>;
+    getTravelerAssignedLocations?: (traveler: TravelerWithUI) => string[];
+    onRoomAssignmentChange?: (
+        traveler: TravelerWithUI,
+        action: 'assign' | 'unassign',
+        scope: string,
+    ) => void;
     onRowsChange: (rows: TravelerWithUI[]) => void;
     onMoveToHolding?: (traveler: TravelerWithUI) => void;
+}
+
+function normalizeRoomLocationKey(value: string): string {
+    return value.trim().toLowerCase();
 }
 
 function getCapacityForSharingPlan(sharingPlan?: string): number {
@@ -221,6 +244,22 @@ function getBedsCountByRoomTypeAndBedType(
 
 function isOfficialTraveler(traveler: TravelerWithUI): boolean {
     return !!traveler.package_official_id;
+}
+
+function shouldHideRoomTraveler(
+    mode: TableMode,
+    traveler: TravelerWithUI,
+    _currentLocationKey?: string,
+): boolean {
+    if (mode !== 'room' && mode !== 'room_check') {
+        return false;
+    }
+
+    if (!isOfficialTraveler(traveler)) {
+        return false;
+    }
+
+    return false;
 }
 
 function getAgeFromDate(dateValue?: string | null): string {
@@ -325,14 +364,18 @@ function TravelerActionItems({
     isRoomAssigned: boolean;
     onToggleRoomAssignment: () => void;
 }) {
-    if (mode === 'room') {
+    if (mode === 'room' || mode === 'room_check') {
         return (
-            <DropdownMenuItem
-                disabled={!canToggleRoomAssignment || disabled}
-                onClick={onToggleRoomAssignment}
-            >
-                {isRoomAssigned ? 'Dont Assign Room' : 'Assign Room'}
-            </DropdownMenuItem>
+            <>
+                {canToggleRoomAssignment && (
+                    <DropdownMenuItem
+                        disabled={disabled}
+                        onClick={onToggleRoomAssignment}
+                    >
+                        {isRoomAssigned ? 'Unassign Room' : 'Assign Room'}
+                    </DropdownMenuItem>
+                )}
+            </>
         );
     }
 
@@ -351,12 +394,16 @@ function TravelerActionItems({
 export default function ManifestDatatable({
     mode,
     rows,
+    currentRoomLocationKey,
     disabled = false,
     allowReorder = false,
     errorPrefix,
     roomGroupErrorPrefix,
     roomGroupStartIndex = 0,
     errors = {},
+    roomAssignmentOptions = [],
+    getTravelerAssignedLocations,
+    onRoomAssignmentChange,
     onRowsChange,
     onMoveToHolding,
 }: ManifestDatatableProps) {
@@ -467,34 +514,91 @@ export default function ManifestDatatable({
         }
 
         const items: VisibleItem[] = [];
+        let visibleGroupIndex = 0;
 
-        groups.forEach((group, groupIndex) => {
+        groups.forEach((group) => {
+            const visibleMembers = group.members.filter(
+                (member) =>
+                    !shouldHideRoomTraveler(
+                        mode,
+                        member.traveler,
+                        currentRoomLocationKey,
+                    ),
+            );
+
+            if (visibleMembers.length === 0) {
+                return;
+            }
+
             items.push({
                 dndId: `g-${group.key}`,
                 isGroupHeader: true,
                 groupKey: group.key,
-                groupIndex,
+                groupIndex: visibleGroupIndex,
                 flatIndex: -1,
-                memberCount: group.members.length,
+                memberCount: visibleMembers.length,
             });
 
             if (expanded[group.key] !== false) {
-                group.members.forEach((member) => {
+                visibleMembers.forEach((member) => {
                     items.push({
                         dndId: toMemberDndId(member.traveler, member.flatIndex),
                         isGroupHeader: false,
                         groupKey: group.key,
-                        groupIndex,
+                        groupIndex: visibleGroupIndex,
                         traveler: member.traveler,
                         flatIndex: member.flatIndex,
                         memberCount: 0,
                     });
                 });
             }
+
+            visibleGroupIndex += 1;
         });
 
         return items;
-    }, [groups, expanded, isGrouped]);
+    }, [groups, expanded, isGrouped, mode, currentRoomLocationKey]);
+
+    const roomRowColorByGroupKey = useMemo<Record<string, string>>(() => {
+        if (mode !== 'room' && mode !== 'room_check') {
+            return {};
+        }
+
+        const colorByGroupKey: Record<string, string> = {};
+        const colorClasses = [
+            'bg-orange-50 dark:bg-orange-950/35',
+            'bg-orange-100 dark:bg-orange-900/35',
+        ];
+
+        let activeColorIndex = 0;
+        let previousLabelKey: string | null = null;
+
+        const groupHeaders = visibleItems.filter((item) => item.isGroupHeader);
+
+        groupHeaders.forEach((item, index) => {
+            const groupMembers = groups.find(
+                (group) => group.key === item.groupKey,
+            )?.members;
+            const leadTraveler = groupMembers?.[0]?.traveler;
+
+            const normalizedLabel = String(leadTraveler?.room_label ?? '')
+                .trim()
+                .toLowerCase();
+            const labelKey =
+                normalizedLabel.length > 0
+                    ? normalizedLabel
+                    : `__group-${item.groupKey}`;
+
+            if (index > 0 && previousLabelKey !== labelKey) {
+                activeColorIndex = activeColorIndex === 0 ? 1 : 0;
+            }
+
+            colorByGroupKey[item.groupKey] = colorClasses[activeColorIndex];
+            previousLabelKey = labelKey;
+        });
+
+        return colorByGroupKey;
+    }, [mode, visibleItems, groups]);
 
     const flatRows = useMemo(() => {
         if (isGrouped) {
@@ -514,7 +618,7 @@ export default function ManifestDatatable({
     const updateMemberField = (
         flatIndex: number,
         field: keyof TravelerWithUI,
-        value: string | number,
+        value: string | number | string[],
     ) => {
         if (
             (mode === 'room' || mode === 'room_check') &&
@@ -615,7 +719,7 @@ export default function ManifestDatatable({
     const updateFlatRow = (
         index: number,
         field: keyof TravelerWithUI,
-        value: string | number,
+        value: string | number | boolean,
     ) => {
         const next = [...rows];
 
@@ -719,21 +823,6 @@ export default function ManifestDatatable({
             return;
         }
 
-        if (mode === 'room' || mode === 'room_check') {
-            const sourceIsOfficial = isOfficialTraveler(activeItem.traveler);
-            const targetIsOfficial = isOfficialTraveler(
-                targetGroup.members[0]?.traveler ?? ({} as TravelerWithUI),
-            );
-
-            if (sourceIsOfficial !== targetIsOfficial) {
-                toast.error(
-                    'Official members cannot be grouped with non-official members.',
-                );
-
-                return;
-            }
-        }
-
         const targetShared = targetGroup.members[0]?.traveler;
 
         const movedTraveler: TravelerWithUI = {
@@ -831,7 +920,10 @@ export default function ManifestDatatable({
         let splitIndex = 1;
 
         planBuckets.forEach((members, sharingPlan) => {
-            const capacity = Math.max(getCapacityForSharingPlan(sharingPlan), 1);
+            const capacity = Math.max(
+                getCapacityForSharingPlan(sharingPlan),
+                1,
+            );
 
             for (let index = 0; index < members.length; index += capacity) {
                 const chunk = members.slice(index, index + capacity);
@@ -968,22 +1060,6 @@ export default function ManifestDatatable({
         if (mode === 'room') {
             const sharingPlan =
                 targetGroup.members[0]?.traveler.sharing_plan ?? '';
-            const targetSharingPlan = sharingPlan.toLowerCase();
-            const activeSharingPlan =
-                activeItem.traveler.sharing_plan?.toLowerCase() ?? '';
-
-            if (
-                activeSharingPlan !== '' &&
-                targetSharingPlan !== '' &&
-                activeSharingPlan !== targetSharingPlan
-            ) {
-                toast.error(
-                    `Cannot move: traveler sharing plan (${activeSharingPlan}) must match target room sharing plan (${targetSharingPlan}).`,
-                );
-
-                return;
-            }
-
             const capacity = getCapacityForSharingPlan(sharingPlan);
             const currentCount = targetGroup.members.length;
 
@@ -1030,11 +1106,15 @@ export default function ManifestDatatable({
         }
 
         if (mode === 'room') {
-            return drag + 15;
+            return drag + 14;
         }
 
         if (mode === 'room_check') {
-            return drag + 16;
+            return drag + 15;
+        }
+
+        if (mode === 'course_collection') {
+            return drag + 12;
         }
 
         return drag + 11;
@@ -1134,6 +1214,50 @@ export default function ManifestDatatable({
             {mode === 'airline' && (
                 <TableHead className="min-w-60">Issue Place</TableHead>
             )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">Course 1</TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">Course 2</TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">Lanyard</TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">
+                    Luggage Tag
+                </TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">
+                    Cabin Tag
+                </TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">
+                    Passport Cover
+                </TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">
+                    Umrah Guidebook
+                </TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-40 text-center">
+                    Sling Bag
+                </TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-46 text-center">
+                    Cabin Size Luggage
+                </TableHead>
+            )}
+            {mode === 'course_collection' && (
+                <TableHead className="min-w-44 text-center">
+                    Umrah Essentials
+                </TableHead>
+            )}
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-60">Relationship</TableHead>
             )}
@@ -1145,9 +1269,6 @@ export default function ManifestDatatable({
             )}
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Room No</TableHead>
-            )}
-            {(mode === 'room' || mode === 'room_check') && (
-                <TableHead className="min-w-40">Sharing Plan</TableHead>
             )}
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Room Type</TableHead>
@@ -1168,8 +1289,10 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-40">Meal</TableHead>
             )}
             {mode === 'travelers' && <TableHead>Status</TableHead>}
-            <TableHead className="min-w-60">Remarks</TableHead>
-            <TableHead>Action</TableHead>
+            {mode !== 'course_collection' && (
+                <TableHead className="min-w-60">Remarks</TableHead>
+            )}
+            {mode !== 'course_collection' && <TableHead>Action</TableHead>}
         </TableRow>
     );
 
@@ -1197,17 +1320,7 @@ export default function ManifestDatatable({
             : `${item.memberCount}`;
         const isAtCapacity =
             Number.isFinite(capacity) && item.memberCount >= capacity;
-        const roomGroupMembers = groups.find(
-            (g) => g.key === item.groupKey,
-        )?.members;
-        const disableRoomFields =
-            isRoomCheckMode ||
-            disabled ||
-            (!!roomGroupMembers &&
-                roomGroupMembers.length > 0 &&
-                roomGroupMembers.every(
-                    (member) => member.traveler.is_assigned === false,
-                ));
+        const disableRoomFields = isRoomCheckMode || disabled;
 
         return (
             <TableRow
@@ -1216,10 +1329,11 @@ export default function ManifestDatatable({
                     transform: CSS.Transform.toString(transform),
                     transition,
                 }}
-                className={
-                    (cn('bg-muted/30', isExpanded && 'border-b-0'),
-                    'items-start')
-                }
+                className={cn(
+                    'items-start bg-muted/30',
+                    isExpanded && 'border-b-0',
+                    roomRowColorByGroupKey[item.groupKey],
+                )}
             >
                 {allowReorder && (
                     <TableCell>
@@ -1292,9 +1406,7 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell>
                             <ProperInput
-                                value={
-                                    groupLeadTraveler?.relationship ?? ''
-                                }
+                                value={groupLeadTraveler?.relationship ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
@@ -1323,9 +1435,7 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell>
                             <ProperInput
-                                value={
-                                    groupLeadTraveler?.group_remarks ?? ''
-                                }
+                                value={groupLeadTraveler?.group_remarks ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
@@ -1352,9 +1462,7 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell>
                             <ProperInput
-                                value={
-                                    groupLeadTraveler?.group_remarks ?? ''
-                                }
+                                value={groupLeadTraveler?.group_remarks ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
@@ -1424,21 +1532,6 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell>
                             <SelectCell
-                                value={roomInfo?.sharing_plan ?? ''}
-                                placeholder="Sharing plan"
-                                onValueChange={(value) =>
-                                    updateGroupField(
-                                        item.groupKey,
-                                        'sharing_plan',
-                                        value,
-                                    )
-                                }
-                                disabled={disableRoomFields}
-                                options={SHARING_PLAN_OPTIONS}
-                            />
-                        </TableCell>
-                        <TableCell>
-                            <SelectCell
                                 value={roomInfo?.room_type ?? ''}
                                 placeholder="Room type"
                                 onValueChange={(value) =>
@@ -1475,13 +1568,14 @@ export default function ManifestDatatable({
                         </TableCell>
                         {mode === 'room_check' && (
                             <TableCell>
-                                <div className="inline-flex items-center gap-2 text-base">
+                                <div className="inline-flex items-center gap-3 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2 text-base">
                                     <span>
                                         {getBedsCountByRoomTypeAndBedType(
                                             roomInfo?.room_type,
                                             roomInfo?.bed_type,
                                         )}
                                     </span>
+                                    <span className="h-5 w-px bg-muted-foreground/40" />
                                     <Checkbox
                                         checked={
                                             !!roomInfo?.number_of_beds_checked
@@ -1495,6 +1589,7 @@ export default function ManifestDatatable({
                                         }
                                         disabled={disabled}
                                         aria-label="Mark number of beds checked"
+                                        className="h-6 w-6 border-2"
                                     />
                                 </div>
                             </TableCell>
@@ -1527,7 +1622,10 @@ export default function ManifestDatatable({
                                     <>
                                         <ProperInput
                                             id={roomRemarksPath}
-                                            value={groupLeadTraveler?.room_remarks ?? ''}
+                                            value={
+                                                groupLeadTraveler?.room_remarks ??
+                                                ''
+                                            }
                                             onCommit={(value) =>
                                                 updateGroupField(
                                                     item.groupKey,
@@ -1611,14 +1709,79 @@ export default function ManifestDatatable({
 
         const isRoomMode = mode === 'room' || mode === 'room_check';
         const isOfficialRoomTraveler = isOfficialTraveler(traveler);
-        const isRoomAssigned = traveler.is_assigned !== false;
+        const roomLocationKeys = roomAssignmentOptions
+            .map((option) => normalizeRoomLocationKey(option.key))
+            .filter((value) => value.length > 0);
+        const assignedLocations = Array.from(
+            new Set(
+                (getTravelerAssignedLocations?.(traveler) ?? roomLocationKeys)
+                    .map((location) =>
+                        normalizeRoomLocationKey(String(location)),
+                    )
+                    .filter((location) => location.length > 0),
+            ),
+        );
+        const explicitUnassignedLocations = roomLocationKeys.filter(
+            (location) => !assignedLocations.includes(location),
+        );
+        const canShowUnassignByLocation =
+            mode === 'travelers' &&
+            isOfficialRoomTraveler &&
+            assignedLocations.length > 0;
+        const canShowAssignByLocation =
+            mode === 'travelers' &&
+            isOfficialRoomTraveler &&
+            explicitUnassignedLocations.length > 0;
+        const canShowAssignAllOption = explicitUnassignedLocations.length > 1;
 
-        const memberDisabled =
-            mode === 'room_check' ||
-            disabled ||
-            (isRoomMode &&
-                isOfficialRoomTraveler &&
-                traveler.is_assigned === false);
+        const defaultLocationKey = normalizeRoomLocationKey(
+            String(
+                currentRoomLocationKey ?? roomAssignmentOptions[0]?.key ?? '',
+            ),
+        );
+        const isRoomAssigned =
+            defaultLocationKey.length === 0
+                ? true
+                : assignedLocations.includes(defaultLocationKey);
+
+        const memberDisabled = mode === 'room_check' || disabled;
+
+        const canToggleRoomAssignment =
+            isOfficialRoomTraveler && (mode === 'room' || mode === 'travelers');
+
+        const setTravelerRoomAssignment = (
+            action: 'assign' | 'unassign',
+            scope: string,
+        ) => {
+            if (!canToggleRoomAssignment) {
+                return;
+            }
+
+            if (mode === 'room') {
+                if (action === 'unassign') {
+                    onRowsChange(
+                        rows.filter((_, rowIndex) => rowIndex !== flatIndex),
+                    );
+                }
+
+                return;
+            }
+
+            onRoomAssignmentChange?.(traveler, action, scope);
+        };
+
+        const toggleRoomAssignment = () => {
+            if (!canToggleRoomAssignment) {
+                return;
+            }
+
+            const fallbackScope =
+                defaultLocationKey.length > 0 ? defaultLocationKey : 'all';
+            setTravelerRoomAssignment(
+                isRoomAssigned ? 'unassign' : 'assign',
+                fallbackScope,
+            );
+        };
 
         const rowContent = (
             <TableRow
@@ -1627,7 +1790,10 @@ export default function ManifestDatatable({
                     transform: CSS.Transform.toString(transform),
                     transition,
                 }}
-                className={cn(!isLastChild && 'border-b-0')}
+                className={cn(
+                    !isLastChild && 'border-b-0',
+                    roomRowColorByGroupKey[item.groupKey],
+                )}
             >
                 {allowReorder && (
                     <TableCell>
@@ -2018,22 +2184,6 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell />
                         <TableCell />
-                        <TableCell>
-                            <SelectCell
-                                value={traveler.sharing_plan ?? ''}
-                                placeholder="Sharing plan"
-                                onValueChange={(value) =>
-                                    updateMemberField(
-                                        flatIndex,
-                                        'sharing_plan',
-                                        value,
-                                    )
-                                }
-                                disabled={memberDisabled}
-                                options={SHARING_PLAN_OPTIONS}
-                            />
-                            {renderCellError(flatIndex, 'sharing_plan')}
-                        </TableCell>
                         <TableCell />
                         <TableCell />
                         <TableCell>
@@ -2074,9 +2224,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         {mode === 'room_check' && (
                             <TableCell>
-                                <span className="text-muted-foreground">
-                                    -
-                                </span>
+                                <span className="text-muted-foreground">-</span>
                             </TableCell>
                         )}
                         <TableCell />
@@ -2240,286 +2388,720 @@ export default function ManifestDatatable({
                     </>
                 )}
 
-                <TableCell>
-                    <ProperInput
-                        id={
-                            errorPrefix
-                                ? getErrorPath(flatIndex, 'remarks')
-                                : undefined
-                        }
-                        value={traveler.remarks ?? ''}
-                        onCommit={(value) =>
-                            updateMemberField(flatIndex, 'remarks', value)
-                        }
-                        disabled={memberDisabled}
-                        textarea
-                        size="default"
-                        className="min-h-[70px]"
-                    />
-                    {renderCellError(flatIndex, 'remarks')}
-                </TableCell>
+                {mode === 'course_collection' && (
+                    <>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.course_1}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'course_1',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Course 1"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.course_2}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'course_2',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Course 2"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.lanyard}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'lanyard',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Lanyard"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.luggage_tag}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'luggage_tag',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Luggage Tag"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.cabin_tag}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'cabin_tag',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Cabin Tag"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.passport_cover}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'passport_cover',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Passport Cover"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.umrah_guidebook}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'umrah_guidebook',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Umrah Guidebook"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.sling_bag}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'sling_bag',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Sling Bag"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.cabin_size_luggage}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'cabin_size_luggage',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Cabin Size Luggage"
+                            />
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Checkbox
+                                checked={!!traveler.umrah_essentials}
+                                onCheckedChange={(checked) =>
+                                    updateFlatRow(
+                                        flatIndex,
+                                        'umrah_essentials',
+                                        checked === true,
+                                    )
+                                }
+                                disabled={disabled}
+                                className="mx-auto h-6 w-6 border-2"
+                                aria-label="Umrah Essentials"
+                            />
+                        </TableCell>
+                    </>
+                )}
 
-                <TableCell>
-                    {mode === 'travelers' || mode === 'room' ? (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 p-0"
-                                    disabled={disabled}
-                                >
-                                    <span className="sr-only">
-                                        Open actions
-                                    </span>
-                                    <EllipsisVertical className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <TravelerActionItems
-                                    mode={mode}
-                                    disabled={disabled}
-                                    canMoveToHolding={canMoveToHolding}
-                                    onMoveToHolding={() =>
-                                        onMoveToHolding?.(traveler)
-                                    }
-                                    canToggleRoomAssignment={
-                                        mode === 'room' &&
-                                        isOfficialRoomTraveler
-                                    }
-                                    isRoomAssigned={isRoomAssigned}
-                                    onToggleRoomAssignment={() => {
-                                        if (mode !== 'room') {
-                                            return;
+                {mode !== 'course_collection' && (
+                    <TableCell>
+                        <ProperInput
+                            id={
+                                errorPrefix
+                                    ? getErrorPath(flatIndex, 'remarks')
+                                    : undefined
+                            }
+                            value={traveler.remarks ?? ''}
+                            onCommit={(value) =>
+                                updateMemberField(flatIndex, 'remarks', value)
+                            }
+                            disabled={memberDisabled}
+                            textarea
+                            size="default"
+                            className="min-h-[70px]"
+                        />
+                        {renderCellError(flatIndex, 'remarks')}
+                    </TableCell>
+                )}
+
+                {mode !== 'course_collection' && (
+                    <TableCell>
+                        {mode === 'travelers' ||
+                        mode === 'room' ||
+                        mode === 'room_check' ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 p-0"
+                                        disabled={disabled}
+                                    >
+                                        <span className="sr-only">
+                                            Open actions
+                                        </span>
+                                        <EllipsisVertical className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <TravelerActionItems
+                                        mode={mode}
+                                        disabled={disabled}
+                                        canMoveToHolding={canMoveToHolding}
+                                        onMoveToHolding={() =>
+                                            onMoveToHolding?.(traveler)
                                         }
-
-                                        updateMemberField(
-                                            flatIndex,
-                                            'is_assigned',
-                                            isRoomAssigned ? 0 : 1,
-                                        );
-
-                                        if (isRoomAssigned) {
-                                            updateMemberField(
-                                                flatIndex,
-                                                'remarks',
-                                                traveler.remarks &&
-                                                    traveler.remarks.trim() !==
-                                                        ''
-                                                    ? traveler.remarks
-                                                    : 'Lives in different accommodation',
-                                            );
+                                        canToggleRoomAssignment={
+                                            canToggleRoomAssignment
                                         }
-                                    }}
-                                />
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    ) : (
-                        <span className="text-muted-foreground">-</span>
-                    )}
-                </TableCell>
+                                        isRoomAssigned={isRoomAssigned}
+                                        onToggleRoomAssignment={
+                                            toggleRoomAssignment
+                                        }
+                                    />
+                                    {canShowUnassignByLocation && (
+                                        <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>
+                                                Unassign by Location
+                                            </DropdownMenuSubTrigger>
+                                            <DropdownMenuSubContent>
+                                                {assignedLocations.map(
+                                                    (location) => {
+                                                        const option =
+                                                            roomAssignmentOptions.find(
+                                                                (item) =>
+                                                                    normalizeRoomLocationKey(
+                                                                        item.key,
+                                                                    ) ===
+                                                                    location,
+                                                            );
+
+                                                        return (
+                                                            <DropdownMenuItem
+                                                                key={`unassign-${location}`}
+                                                                onClick={() =>
+                                                                    setTravelerRoomAssignment(
+                                                                        'unassign',
+                                                                        location,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {option?.label ??
+                                                                    location}
+                                                            </DropdownMenuItem>
+                                                        );
+                                                    },
+                                                )}
+                                                <DropdownMenuItem
+                                                    onClick={() =>
+                                                        setTravelerRoomAssignment(
+                                                            'unassign',
+                                                            'all',
+                                                        )
+                                                    }
+                                                >
+                                                    All
+                                                </DropdownMenuItem>
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
+                                    )}
+
+                                    {canShowAssignByLocation && (
+                                        <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>
+                                                Assign by Location
+                                            </DropdownMenuSubTrigger>
+                                            <DropdownMenuSubContent>
+                                                {explicitUnassignedLocations.map(
+                                                    (location) => {
+                                                        const option =
+                                                            roomAssignmentOptions.find(
+                                                                (item) =>
+                                                                    normalizeRoomLocationKey(
+                                                                        item.key,
+                                                                    ) ===
+                                                                    location,
+                                                            );
+
+                                                        return (
+                                                            <DropdownMenuItem
+                                                                key={`assign-${location}`}
+                                                                onClick={() =>
+                                                                    setTravelerRoomAssignment(
+                                                                        'assign',
+                                                                        location,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {option?.label ??
+                                                                    location}
+                                                            </DropdownMenuItem>
+                                                        );
+                                                    },
+                                                )}
+                                                {canShowAssignAllOption && (
+                                                    <DropdownMenuItem
+                                                        onClick={() =>
+                                                            setTravelerRoomAssignment(
+                                                                'assign',
+                                                                'all',
+                                                            )
+                                                        }
+                                                    >
+                                                        All
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <span className="text-muted-foreground">-</span>
+                        )}
+                    </TableCell>
+                )}
             </TableRow>
         );
-
-        if (mode !== 'travelers' && mode !== 'room') {
-            return rowContent;
-        }
 
         return (
             <ContextMenu>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
                     {mode === 'travelers' ? (
-                        <ContextMenuItem
-                            disabled={!canMoveToHolding || disabled}
-                            onClick={() => onMoveToHolding?.(traveler)}
-                        >
-                            Move to Holding
-                        </ContextMenuItem>
-                    ) : (
-                        <ContextMenuItem
-                            disabled={
-                                disabled ||
-                                !isOfficialRoomTraveler ||
-                                mode !== 'room'
-                            }
-                            onClick={() => {
-                                updateMemberField(
-                                    flatIndex,
-                                    'is_assigned',
-                                    isRoomAssigned ? 0 : 1,
-                                );
+                        <>
+                            <ContextMenuItem
+                                disabled={!canMoveToHolding || disabled}
+                                onClick={() => onMoveToHolding?.(traveler)}
+                            >
+                                Move to Holding
+                            </ContextMenuItem>
+                            {canShowUnassignByLocation && (
+                                <>
+                                    <ContextMenuSub>
+                                        <ContextMenuSubTrigger>
+                                            Unassign by Location
+                                        </ContextMenuSubTrigger>
+                                        <ContextMenuSubContent>
+                                            {assignedLocations.map(
+                                                (location) => {
+                                                    const option =
+                                                        roomAssignmentOptions.find(
+                                                            (item) =>
+                                                                normalizeRoomLocationKey(
+                                                                    item.key,
+                                                                ) === location,
+                                                        );
 
-                                if (isRoomAssigned) {
-                                    updateMemberField(
-                                        flatIndex,
-                                        'remarks',
-                                        traveler.remarks &&
-                                            traveler.remarks.trim() !== ''
-                                            ? traveler.remarks
-                                            : 'Lives in different accommodation',
-                                    );
-                                }
-                            }}
-                        >
-                            {isRoomAssigned
-                                ? 'Dont Assign Room'
-                                : 'Assign Room'}
-                        </ContextMenuItem>
+                                                    return (
+                                                        <ContextMenuItem
+                                                            key={`ctx-unassign-${location}`}
+                                                            onClick={() =>
+                                                                setTravelerRoomAssignment(
+                                                                    'unassign',
+                                                                    location,
+                                                                )
+                                                            }
+                                                        >
+                                                            {option?.label ??
+                                                                location}
+                                                        </ContextMenuItem>
+                                                    );
+                                                },
+                                            )}
+                                            <ContextMenuItem
+                                                onClick={() =>
+                                                    setTravelerRoomAssignment(
+                                                        'unassign',
+                                                        'all',
+                                                    )
+                                                }
+                                            >
+                                                All
+                                            </ContextMenuItem>
+                                        </ContextMenuSubContent>
+                                    </ContextMenuSub>
+                                </>
+                            )}
+                            {canShowAssignByLocation && (
+                                <ContextMenuSub>
+                                    <ContextMenuSubTrigger>
+                                        Assign by Location
+                                    </ContextMenuSubTrigger>
+                                    <ContextMenuSubContent>
+                                        {explicitUnassignedLocations.map(
+                                            (location) => {
+                                                const option =
+                                                    roomAssignmentOptions.find(
+                                                        (item) =>
+                                                            normalizeRoomLocationKey(
+                                                                item.key,
+                                                            ) === location,
+                                                    );
+
+                                                return (
+                                                    <ContextMenuItem
+                                                        key={`ctx-assign-${location}`}
+                                                        onClick={() =>
+                                                            setTravelerRoomAssignment(
+                                                                'assign',
+                                                                location,
+                                                            )
+                                                        }
+                                                    >
+                                                        {option?.label ??
+                                                            location}
+                                                    </ContextMenuItem>
+                                                );
+                                            },
+                                        )}
+                                        {canShowAssignAllOption && (
+                                            <ContextMenuItem
+                                                onClick={() =>
+                                                    setTravelerRoomAssignment(
+                                                        'assign',
+                                                        'all',
+                                                    )
+                                                }
+                                            >
+                                                All
+                                            </ContextMenuItem>
+                                        )}
+                                    </ContextMenuSubContent>
+                                </ContextMenuSub>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {canToggleRoomAssignment ? (
+                                <ContextMenuItem
+                                    disabled={disabled}
+                                    onClick={toggleRoomAssignment}
+                                >
+                                    {isRoomAssigned
+                                        ? 'Unassign Room'
+                                        : 'Assign Room'}
+                                </ContextMenuItem>
+                            ) : (
+                                <ContextMenuItem disabled>
+                                    No actions available
+                                </ContextMenuItem>
+                            )}
+                        </>
                     )}
                 </ContextMenuContent>
             </ContextMenu>
         );
     };
 
+    const renderCourseCollectionRow = (
+        row: TravelerWithUI & { _rowId: string },
+        index: number,
+    ) => {
+        const toggleCheck = (field: keyof TravelerWithUI) => {
+            const currentValue = row[field];
+            updateFlatRow(index, field, !Boolean(currentValue));
+        };
+
+        return (
+            <TableRow key={row._rowId} className="odd:bg-muted/35">
+                <TableCell>{row.sn ?? index + 1}</TableCell>
+                <TableCell>
+                    <span className="font-medium">
+                        {row.name_as_per_passport ?? '-'}
+                    </span>
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.course_1}
+                        onCheckedChange={() => toggleCheck('course_1')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.course_2}
+                        onCheckedChange={() => toggleCheck('course_2')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.lanyard}
+                        onCheckedChange={() => toggleCheck('lanyard')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.luggage_tag}
+                        onCheckedChange={() => toggleCheck('luggage_tag')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.cabin_tag}
+                        onCheckedChange={() => toggleCheck('cabin_tag')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.passport_cover}
+                        onCheckedChange={() => toggleCheck('passport_cover')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.umrah_guidebook}
+                        onCheckedChange={() => toggleCheck('umrah_guidebook')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.sling_bag}
+                        onCheckedChange={() => toggleCheck('sling_bag')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.cabin_size_luggage}
+                        onCheckedChange={() =>
+                            toggleCheck('cabin_size_luggage')
+                        }
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Checkbox
+                        checked={!!row.umrah_essentials}
+                        onCheckedChange={() => toggleCheck('umrah_essentials')}
+                        disabled={disabled}
+                        className="mx-auto h-6 w-6 border-2"
+                    />
+                </TableCell>
+            </TableRow>
+        );
+    };
+
     const renderAirlineRow = (
         row: TravelerWithUI & { _rowId: string },
         index: number,
-    ) => (
-        <TableRow key={row._rowId} className="odd:bg-muted/40">
-            <TableCell>{row.sn ?? index + 1}</TableCell>
-            <TableCell>
-                <ProperInput
-                    id={
-                        errorPrefix
-                            ? getErrorPath(index, 'name_as_per_passport')
-                            : undefined
-                    }
-                    value={row.name_as_per_passport ?? ''}
-                    onCommit={(value) =>
-                        updateFlatRow(index, 'name_as_per_passport', value)
-                    }
-                    disabled={disabled}
-                    size="default"
-                />
-                {renderCellError(index, 'name_as_per_passport')}
-            </TableCell>
-            <TableCell>
-                <ProperInput
-                    id={
-                        errorPrefix
-                            ? getErrorPath(index, 'passport_number')
-                            : undefined
-                    }
-                    value={row.passport_number ?? ''}
-                    onCommit={(value) =>
-                        updateFlatRow(index, 'passport_number', value)
-                    }
-                    disabled={disabled}
-                    size="default"
-                />
-                {renderCellError(index, 'passport_number')}
-            </TableCell>
-            <TableCell>
-                <ProperInput
-                    id={
-                        errorPrefix
-                            ? getErrorPath(index, 'nationality')
-                            : undefined
-                    }
-                    value={row.nationality ?? ''}
-                    onCommit={(value) =>
-                        updateFlatRow(index, 'nationality', value)
-                    }
-                    disabled={disabled}
-                    size="default"
-                />
-                {renderCellError(index, 'nationality')}
-            </TableCell>
-            <TableCell>
-                <SelectCell
-                    value={row.gender ?? ''}
-                    placeholder="Gender"
-                    onValueChange={(value) =>
-                        updateFlatRow(index, 'gender', value)
-                    }
-                    disabled={disabled}
-                    options={GENDER_OPTIONS}
-                />
-                {renderCellError(index, 'gender')}
-            </TableCell>
-            <TableCell>
-                <DatePickerField
-                    id={
-                        errorPrefix
-                            ? getErrorPath(index, 'date_of_birth')
-                            : `airline-flat-date-of-birth-${index}`
-                    }
-                    value={row.date_of_birth ?? ''}
-                    fromYear={new Date().getFullYear() - 100}
-                    onChange={(value) =>
-                        updateFlatRow(index, 'date_of_birth', value)
-                    }
-                    disabled={disabled}
-                />
-                {renderCellError(index, 'date_of_birth')}
-            </TableCell>
-            <TableCell>
-                <DatePickerField
-                    id={
-                        errorPrefix
-                            ? getErrorPath(index, 'date_of_issue')
-                            : `airline-flat-date-of-issue-${index}`
-                    }
-                    value={row.date_of_issue ?? ''}
-                    onChange={(value) =>
-                        updateFlatRow(index, 'date_of_issue', value)
-                    }
-                    disabled={disabled}
-                />
-                {renderCellError(index, 'date_of_issue')}
-            </TableCell>
-            <TableCell>
-                <DatePickerField
-                    id={
-                        errorPrefix
-                            ? getErrorPath(index, 'date_of_expiry')
-                            : `airline-flat-date-of-expiry-${index}`
-                    }
-                    value={row.date_of_expiry ?? ''}
-                    onChange={(value) =>
-                        updateFlatRow(index, 'date_of_expiry', value)
-                    }
-                    disabled={disabled}
-                />
-                {renderCellError(index, 'date_of_expiry')}
-            </TableCell>
-            <TableCell>
-                <ProperInput
-                    id={
-                        errorPrefix
-                            ? getErrorPath(index, 'issue_place')
-                            : undefined
-                    }
-                    value={row.issue_place ?? ''}
-                    onCommit={(value) =>
-                        updateFlatRow(index, 'issue_place', value)
-                    }
-                    disabled={disabled}
-                    size="default"
-                />
-                {renderCellError(index, 'issue_place')}
-            </TableCell>
-            <TableCell>
-                <ProperInput
-                    id={
-                        errorPrefix ? getErrorPath(index, 'remarks') : undefined
-                    }
-                    value={row.remarks ?? ''}
-                    onCommit={(value) => updateFlatRow(index, 'remarks', value)}
-                    disabled={disabled}
-                    textarea
-                    size="default"
-                    className="min-h-[70px]"
-                />
-                {renderCellError(index, 'remarks')}
-            </TableCell>
-            <TableCell>
-                <span className="text-muted-foreground">-</span>
-            </TableCell>
-        </TableRow>
-    );
+    ) => {
+        const rowContent = (
+            <TableRow key={row._rowId} className="odd:bg-muted/40">
+                <TableCell>{row.sn ?? index + 1}</TableCell>
+                <TableCell>
+                    <ProperInput
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'name_as_per_passport')
+                                : undefined
+                        }
+                        value={row.name_as_per_passport ?? ''}
+                        onCommit={(value) =>
+                            updateFlatRow(index, 'name_as_per_passport', value)
+                        }
+                        disabled={disabled}
+                        size="default"
+                    />
+                    {renderCellError(index, 'name_as_per_passport')}
+                </TableCell>
+                <TableCell>
+                    <ProperInput
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'passport_number')
+                                : undefined
+                        }
+                        value={row.passport_number ?? ''}
+                        onCommit={(value) =>
+                            updateFlatRow(index, 'passport_number', value)
+                        }
+                        disabled={disabled}
+                        size="default"
+                    />
+                    {renderCellError(index, 'passport_number')}
+                </TableCell>
+                <TableCell>
+                    <ProperInput
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'nationality')
+                                : undefined
+                        }
+                        value={row.nationality ?? ''}
+                        onCommit={(value) =>
+                            updateFlatRow(index, 'nationality', value)
+                        }
+                        disabled={disabled}
+                        size="default"
+                    />
+                    {renderCellError(index, 'nationality')}
+                </TableCell>
+                <TableCell>
+                    <SelectCell
+                        value={row.gender ?? ''}
+                        placeholder="Gender"
+                        onValueChange={(value) =>
+                            updateFlatRow(index, 'gender', value)
+                        }
+                        disabled={disabled}
+                        options={GENDER_OPTIONS}
+                    />
+                    {renderCellError(index, 'gender')}
+                </TableCell>
+                <TableCell>
+                    <DatePickerField
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'date_of_birth')
+                                : `airline-flat-date-of-birth-${index}`
+                        }
+                        value={row.date_of_birth ?? ''}
+                        fromYear={new Date().getFullYear() - 100}
+                        onChange={(value) =>
+                            updateFlatRow(index, 'date_of_birth', value)
+                        }
+                        disabled={disabled}
+                    />
+                    {renderCellError(index, 'date_of_birth')}
+                </TableCell>
+                <TableCell>
+                    <DatePickerField
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'date_of_issue')
+                                : `airline-flat-date-of-issue-${index}`
+                        }
+                        value={row.date_of_issue ?? ''}
+                        onChange={(value) =>
+                            updateFlatRow(index, 'date_of_issue', value)
+                        }
+                        disabled={disabled}
+                    />
+                    {renderCellError(index, 'date_of_issue')}
+                </TableCell>
+                <TableCell>
+                    <DatePickerField
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'date_of_expiry')
+                                : `airline-flat-date-of-expiry-${index}`
+                        }
+                        value={row.date_of_expiry ?? ''}
+                        onChange={(value) =>
+                            updateFlatRow(index, 'date_of_expiry', value)
+                        }
+                        disabled={disabled}
+                    />
+                    {renderCellError(index, 'date_of_expiry')}
+                </TableCell>
+                <TableCell>
+                    <ProperInput
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'issue_place')
+                                : undefined
+                        }
+                        value={row.issue_place ?? ''}
+                        onCommit={(value) =>
+                            updateFlatRow(index, 'issue_place', value)
+                        }
+                        disabled={disabled}
+                        size="default"
+                    />
+                    {renderCellError(index, 'issue_place')}
+                </TableCell>
+                <TableCell>
+                    <ProperInput
+                        id={
+                            errorPrefix
+                                ? getErrorPath(index, 'remarks')
+                                : undefined
+                        }
+                        value={row.remarks ?? ''}
+                        onCommit={(value) =>
+                            updateFlatRow(index, 'remarks', value)
+                        }
+                        disabled={disabled}
+                        textarea
+                        size="default"
+                        className="min-h-[70px]"
+                    />
+                    {renderCellError(index, 'remarks')}
+                </TableCell>
+                <TableCell>
+                    <span className="text-muted-foreground">-</span>
+                </TableCell>
+            </TableRow>
+        );
+
+        return (
+            <ContextMenu>
+                <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                    <ContextMenuItem disabled>
+                        No actions available
+                    </ContextMenuItem>
+                </ContextMenuContent>
+            </ContextMenu>
+        );
+    };
 
     const dndIds = isGrouped
         ? visibleItems.map((visibleItem) => visibleItem.dndId)
@@ -2567,9 +3149,16 @@ export default function ManifestDatatable({
                                           }
                                       </SortableRow>
                                   ))
-                                : flatRows.map((row, index) =>
-                                      renderAirlineRow(row, index),
-                                  )}
+                                : flatRows.map((row, index) => {
+                                      if (mode === 'course_collection') {
+                                          return renderCourseCollectionRow(
+                                              row,
+                                              index,
+                                          );
+                                      }
+
+                                      return renderAirlineRow(row, index);
+                                  })}
 
                             {(isGrouped
                                 ? visibleItems.length

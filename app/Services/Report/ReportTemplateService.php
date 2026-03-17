@@ -70,6 +70,7 @@ class ReportTemplateService
                 'receipt' => $settings->getModuleTemplate('receipt'),
                 'agreement' => $settings->getModuleTemplate('agreement'),
                 'sales' => $settings->getModuleTemplate('sales'),
+                'manifest' => $settings->getModuleTemplate('manifest'),
             ],
         ];
     }

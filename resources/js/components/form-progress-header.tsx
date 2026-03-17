@@ -41,7 +41,7 @@ export function FormProgressHeader({
     }, [sections]);
 
     return (
-        <div className="sticky top-0 z-50 mb-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="sticky top-0 z-50 mb-2 rounded-md border border-primary bg-primary/5 px-4 backdrop-blur">
             <div className="space-y-4 py-4">
                 {/* Header Info */}
                 <div className="flex items-center justify-between">
@@ -89,9 +89,9 @@ export function FormProgressHeader({
                             onClick={() => onSectionClick?.(section.id)}
                             className={cn(
                                 'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-base font-medium transition-all',
-                                'border border-border hover:bg-accent hover:shadow-sm',
+                                'border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:shadow-sm',
                                 currentSection === section.id &&
-                                    'bg-accent ring-2 ring-primary/20',
+                                    'bg-primary text-primary-foreground ring-2 ring-primary/35',
                                 section.status === 'error' &&
                                     'border-red-400 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950/70',
                                 section.status === 'complete' &&

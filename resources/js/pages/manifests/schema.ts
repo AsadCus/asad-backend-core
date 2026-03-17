@@ -56,6 +56,16 @@ export const travelerSchema = z.object({
     role: z.string().nullable().optional(),
     sharing_plan: z.string().nullable().optional(),
     group_remarks: z.string().nullable().optional(),
+    course_1: z.boolean().nullable().optional(),
+    course_2: z.boolean().nullable().optional(),
+    lanyard: z.boolean().nullable().optional(),
+    luggage_tag: z.boolean().nullable().optional(),
+    cabin_tag: z.boolean().nullable().optional(),
+    passport_cover: z.boolean().nullable().optional(),
+    umrah_guidebook: z.boolean().nullable().optional(),
+    sling_bag: z.boolean().nullable().optional(),
+    cabin_size_luggage: z.boolean().nullable().optional(),
+    umrah_essentials: z.boolean().nullable().optional(),
     status: z.string().nullable().optional(),
 });
 

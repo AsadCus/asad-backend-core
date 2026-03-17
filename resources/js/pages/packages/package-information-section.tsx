@@ -14,6 +14,7 @@ import { packageStatusLabels } from './schema';
 
 export interface PackageInformationSectionData {
     id: number;
+    package_number?: string | null;
     name: string;
     status?: string;
     departure_date?: string | null;
@@ -71,9 +72,10 @@ export default function PackageInformationSection({
                 ) : (
                     packageInfo && (
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            <FormField label="Package ID">
+                            <FormField label="Package Number">
                                 <div className="rounded-md border bg-muted/30 px-3 py-1.25 text-base select-text">
-                                    #{packageInfo.id}
+                                    {packageInfo.package_number ||
+                                        `#${packageInfo.id}`}
                                 </div>
                             </FormField>
                             <FormField label="Package Name">

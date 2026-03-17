@@ -115,6 +115,7 @@ class ManifestService
             'package.flights',
             'travelers.sharingGroup',
             'travelers.packageOfficial',
+            'travelers.collectionItem',
             'travelers.confirmationMember.confirmation.enquiry',
             'travelers.confirmationMember.customer.user',
             'rooms.roomMembers.traveler',
@@ -158,6 +159,7 @@ class ManifestService
                 $user = $customer?->user;
                 $packageOfficial = $traveler->packageOfficial;
                 $sharingPlan = $traveler->sharing_plan ?? $member?->sharing_plan;
+                $collectionItem = $traveler->collectionItem;
 
                 return [
                     'id' => $traveler->id,
@@ -175,6 +177,16 @@ class ManifestService
                     'relationship' => $traveler->sharingGroup?->relation,
                     'group_remarks' => $traveler->sharingGroup?->remarks,
                     'sharing_plan' => $sharingPlan,
+                    'course_1' => (bool) ($collectionItem?->course_1 ?? false),
+                    'course_2' => (bool) ($collectionItem?->course_2 ?? false),
+                    'lanyard' => (bool) ($collectionItem?->lanyard ?? false),
+                    'luggage_tag' => (bool) ($collectionItem?->luggage_tag ?? false),
+                    'cabin_tag' => (bool) ($collectionItem?->cabin_tag ?? false),
+                    'passport_cover' => (bool) ($collectionItem?->passport_cover ?? false),
+                    'umrah_guidebook' => (bool) ($collectionItem?->umrah_guidebook ?? false),
+                    'sling_bag' => (bool) ($collectionItem?->sling_bag ?? false),
+                    'cabin_size_luggage' => (bool) ($collectionItem?->cabin_size_luggage ?? false),
+                    'umrah_essentials' => (bool) ($collectionItem?->umrah_essentials ?? false),
                     'manifest_sharing_group_id' => $traveler->manifest_sharing_group_id,
                     'sharing_group_id' => $traveler->manifest_sharing_group_id,
                     'sharing_group_key' => $traveler->manifest_sharing_group_id
@@ -257,7 +269,6 @@ class ManifestService
                             'manifest_traveler_id' => $rm->manifest_traveler_id,
                             'traveler_name' => $rm->traveler?->name ?? $official?->name ?? $customer?->user?->name,
                             'role_in_room' => $member?->role,
-                            'is_assigned' => (bool) $rm->is_assigned,
                             'sort_order' => $rm->sort_order,
                             'remarks' => $rm->remarks,
                             'customer_confirmation_member_id' => $member?->id,
@@ -846,7 +857,7 @@ class ManifestService
                     }
                 }
 
-                $manifest->travelers()->create([
+                $createdTraveler = $manifest->travelers()->create([
                     'manifest_sharing_group_id' => $manifestSharingGroup->id,
                     'customer_confirmation_member_id' => $member?->id,
                     'package_official_id' => $packageOfficial?->id,
@@ -854,6 +865,22 @@ class ManifestService
                     'sort_order' => $memberSortOrder + 1,
                     'remarks' => $traveler['remarks'] ?? null,
                 ]);
+
+                $createdTraveler->collectionItem()->updateOrCreate(
+                    [],
+                    [
+                        'course_1' => (bool) ($traveler['course_1'] ?? false),
+                        'course_2' => (bool) ($traveler['course_2'] ?? false),
+                        'lanyard' => (bool) ($traveler['lanyard'] ?? false),
+                        'luggage_tag' => (bool) ($traveler['luggage_tag'] ?? false),
+                        'cabin_tag' => (bool) ($traveler['cabin_tag'] ?? false),
+                        'passport_cover' => (bool) ($traveler['passport_cover'] ?? false),
+                        'umrah_guidebook' => (bool) ($traveler['umrah_guidebook'] ?? false),
+                        'sling_bag' => (bool) ($traveler['sling_bag'] ?? false),
+                        'cabin_size_luggage' => (bool) ($traveler['cabin_size_luggage'] ?? false),
+                        'umrah_essentials' => (bool) ($traveler['umrah_essentials'] ?? false),
+                    ],
+                );
             }
 
             $groupSortOrder++;
@@ -977,10 +1004,6 @@ class ManifestService
                 $baseRoom = $payload['base'];
                 $roomMembers = $payload['members'];
 
-                $assignedMembersCount = collect($roomMembers)
-                    ->filter(fn (array $member) => ($member['is_assigned'] ?? true) !== false)
-                    ->count();
-
                 $createdRoom = $manifest->rooms()->create([
                     'sort_order' => $roomSortOrder,
                     'location' => $baseRoom['location'] ?? null,
@@ -989,7 +1012,7 @@ class ManifestService
                     'room_number' => $baseRoom['room_number'] ?? $baseRoom['room_no'] ?? null,
                     'room_type' => $payload['room_type'],
                     'bed_type' => $payload['bed_type'],
-                    'capacity' => $baseRoom['capacity'] ?? ($roomMembers === [] ? null : $assignedMembersCount),
+                    'capacity' => $baseRoom['capacity'] ?? ($roomMembers === [] ? null : count($roomMembers)),
                     'sharing_plan' => $payload['sharing_plan'],
                     'status' => $baseRoom['status'] ?? 'pending',
                     'meal' => $baseRoom['meal'] ?? null,
@@ -1017,7 +1040,6 @@ class ManifestService
                     $createdRoom->roomMembers()->create([
                         'manifest_traveler_id' => $manifestTravelerId,
                         'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
-                        'is_assigned' => (bool) ($member['is_assigned'] ?? true),
                         'remarks' => $member['remarks'] ?? null,
                     ]);
                 }
@@ -1169,7 +1191,6 @@ class ManifestService
                                     'sort_order' => $member->sort_order,
                                     'sharing_group_key' => 'room-'.$room->id,
                                     'manifest_traveler_id' => $member->manifest_traveler_id,
-                                    'is_assigned' => (bool) $member->is_assigned,
                                     'room_relationship' => $room->relationship,
                                     'room_label' => $room->room_label,
                                     'room_number' => $room->room_number,

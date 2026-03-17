@@ -48,15 +48,14 @@ export function FormSection({
             id={`section-${value}`}
             value={value}
             className={cn(
-                'scroll-mt-24 rounded-lg border transition-all hover:shadow-sm',
+                'scroll-mt-24 rounded-lg border border-primary bg-primary/5 transition-all hover:shadow-sm',
                 '!border-b',
-                status === 'error' &&
-                    'border-red-400 bg-red-50/70 dark:border-red-800 dark:bg-red-950/30',
+                status === 'error' && 'ring-1 ring-red-400 dark:ring-red-700',
                 status === 'complete' &&
-                    'border-green-400 bg-green-50/70 dark:border-green-800 dark:bg-green-950/30',
+                    'ring-1 ring-primary dark:ring-green-700',
             )}
         >
-            <AccordionTrigger className="px-6 py-4 transition-colors hover:bg-accent/50 hover:no-underline">
+            <AccordionTrigger className="px-6 py-4 transition-colors hover:bg-primary/10 hover:no-underline">
                 <div className="flex w-full items-center gap-3">
                     {getStatusIcon()}
                     <div className="flex flex-col items-start text-left">
