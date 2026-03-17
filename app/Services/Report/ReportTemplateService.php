@@ -68,8 +68,8 @@ class ReportTemplateService
                 'quotation' => $settings->getModuleTemplate('quotation'),
                 'invoice' => $settings->getModuleTemplate('invoice'),
                 'receipt' => $settings->getModuleTemplate('receipt'),
-                'agreement' => $settings->getModuleTemplate('agreement'),
                 'sales' => $settings->getModuleTemplate('sales'),
+                'package' => $settings->getModuleTemplate('package'),
             ],
         ];
     }

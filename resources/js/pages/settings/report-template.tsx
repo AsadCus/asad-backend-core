@@ -50,8 +50,8 @@ const BUILTIN_MODULES: RegisteredModule[] = [
         label: 'Official Receipt',
         document_type: 'OFFICIAL RECEIPT',
     },
-    { key: 'agreement', label: 'Agreement', document_type: 'AGREEMENT' },
     { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
+    { key: 'package', label: 'Package', document_type: 'PACKAGE' },
 ];
 
 const DEFAULT_LOGO_PREVIEW = '/logo-primary.png';

@@ -195,7 +195,7 @@
                         <tr>
                             <td class="lbl">Description</td>
                             <td class="sep">:</td>
-                            <td>{{ $data['description'] ?? 'New / Fresh Helper' }}</td>
+                            <td>{{ $data['description'] ?? '-' }}</td>
                         </tr>
                     </table>
                 </td>

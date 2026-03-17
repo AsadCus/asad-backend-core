@@ -11,14 +11,12 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-// import agreement from '@/routes/agreement';
 import confirmedCustomer from '@/routes/confirmed-customer';
 import customer from '@/routes/customer';
 import customerHolding from '@/routes/customer-holding';
 import enquiries from '@/routes/enquiries';
 import generalEnquiries from '@/routes/general-enquiries';
 import invoice from '@/routes/invoice';
-// import maid from '@/routes/maid';
 import manifests from '@/routes/manifests';
 import master from '@/routes/master';
 import branch from '@/routes/master/branch';
@@ -37,21 +35,14 @@ import quotationItem from '@/routes/quotation-items';
 import receipt from '@/routes/receipt';
 import sales from '@/routes/sales';
 import userLogs from '@/routes/user-logs';
-// import schedule from '@/routes/schedule';
-// import supplier from '@/routes/supplier';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
-    // Calendar,
     ClipboardList,
-    // FileCheck,
-    // FileCheck2,
-    // FilePlus,
     FileText,
     FileUser,
     Globe,
     Handshake,
-    // HeartHandshake,
     Inbox,
     Landmark,
     LayoutGrid,
@@ -307,35 +298,6 @@ export function AppSidebar() {
             href: userLogs.index.url(),
             icon: FileText,
         },
-        // ...(permissions.includes('schedule view') &&
-        // permissions.includes('agreement view')
-        //     ? [
-        //           {
-        //               title: 'Report',
-        //               icon: FileCheck2,
-        //               subItems: [
-        //                   ...(permissions.includes('schedule view')
-        //                       ? [
-        //                             {
-        //                                 title: 'Payment Schedule',
-        //                                 icon: Calendar,
-        //                                 href: schedule.index.url(),
-        //                             },
-        //                         ]
-        //                       : []),
-        //                   ...(permissions.includes('agreement view')
-        //                       ? [
-        //                             {
-        //                                 title: 'Payment Agreement',
-        //                                 icon: FileCheck,
-        //                                 href: agreement.index.url(),
-        //                             },
-        //                         ]
-        //                       : []),
-        //               ],
-        //           },
-        //       ]
-        //     : []),
     ];
 
     const footerNavItems: NavItem[] = [

@@ -8,12 +8,13 @@
 
 @push('styles')
     <style>
+        /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 8px;
+            padding: 0 20px;
         }
 
-        .meta-table,
-        .section-table {
+        /* ── Meta Info Table ── */
+        .meta-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 12px;
@@ -21,40 +22,64 @@
 
         .meta-table td {
             border: 1px solid #d9d9d9;
-            padding: 5px 6px;
+            padding: 5px 8px;
             vertical-align: top;
+            font-size: 10px;
         }
 
         .meta-label {
-            width: 22%;
+            width: 20%;
             font-weight: bold;
             background: #f6f7f8;
             white-space: nowrap;
+            color: #333;
         }
 
+        /* ── Section Title ── */
         .section-title {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
-            margin: 12px 0 6px;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 14px 0 6px;
+            padding: 4px 8px;
+            background: #f0f0f0;
+            border-left: 3px solid {{ $branding['title_color'] ?? '#40A09D' }};
+            color: #222;
+        }
+
+        /* ── Section Detail Table ── */
+        .section-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
         }
 
         .section-table th,
         .section-table td {
             border: 1px solid #d9d9d9;
-            padding: 4px 6px;
+            padding: 4px 8px;
             text-align: left;
             vertical-align: top;
+            font-size: 10px;
         }
 
-        .section-table th {
+        .section-table thead th {
             background: #f6f7f8;
             font-weight: bold;
+            color: #333;
         }
 
+        .section-table tbody tr:nth-child(even) td {
+            background: #fafafa;
+        }
+
+        /* ── Empty state ── */
         .muted {
-            color: #666;
+            color: #888;
+            font-style: italic;
+            font-size: 9px;
+            padding: 4px 0 8px;
         }
     </style>
 @endpush
@@ -329,5 +354,47 @@
                 <td>{{ $data['remarks'] ?? '-' }}</td>
             </tr>
         </table>
+
+        {{-- ── FOOTER ── --}}
+        <div class="footer-section">
+            @if (!empty($branding['footer_text']))
+                <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+            @endif
+
+            @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
+                <table class="stamp-sig-row">
+                    <tr>
+                        <td>
+                            @if (!empty($branding['show_stamp']))
+                                @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
+                                    <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
+                                        style="height:70px; width:auto; display:block;">
+                                @elseif(!empty($branding['stamp_url']))
+                                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
+                                        style="height:70px; width:auto; display:block;">
+                                @endif
+                            @endif
+                        </td>
+                        <td style="text-align:right;">
+                            @if (!empty($branding['show_signature']))
+                                <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
+                                @if (
+                                    ($is_pdf ?? false) &&
+                                        !empty($branding['signature_path_absolute']) &&
+                                        file_exists($branding['signature_path_absolute']))
+                                    <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
+                                        style="height:52px; width:auto; display:block; margin-left:auto;">
+                                @elseif(!empty($branding['signature_url']))
+                                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
+                                        style="height:52px; width:auto; display:block; margin-left:auto;">
+                                @endif
+                            @endif
+                        </td>
+                    </tr>
+                </table>
+            @endif
+
+            <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
+        </div>
     </div>
 @endsection

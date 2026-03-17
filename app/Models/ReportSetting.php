@@ -51,12 +51,12 @@ class ReportSetting extends Model
             'show_stamp' => false,
             'show_signature' => false,
         ],
-        'agreement' => [
+        'sales' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
         ],
-        'sales' => [
+        'package' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
@@ -72,10 +72,10 @@ class ReportSetting extends Model
         return self::firstOrCreate(
             ['id' => 1],
             [
-                'company_name' => 'Urban Care Employment Agency',
-                'company_address' => "931 Yishun Central 1\n#01-109, Singapore 760931",
-                'company_phone' => null,
-                'company_email' => null,
+                'company_name' => 'Karva Travel & Tours',
+                'company_address' => '22-1 Jalan Delima 10, Wangsa Maju, 53300 Kuala Lumpur, Malaysia',
+                'company_phone' => '+60 11-1608 0771',
+                'company_email' => '[EMAIL_ADDRESS]',
                 'logo_path' => null,
                 'footer_text' => null,
                 'stamp_path' => null,
@@ -100,12 +100,12 @@ class ReportSetting extends Model
         ];
 
         $stored = $this->module_templates[$type] ?? [];
-        
+
         // Merge and ensure boolean casting
         $merged = array_merge($defaults, $stored);
         $merged['show_stamp'] = filter_var($merged['show_stamp'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $merged['show_signature'] = filter_var($merged['show_signature'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        
+
         // Always use global brand_color for title_color
         $merged['title_color'] = $this->brand_color ?? '#c05427';
 

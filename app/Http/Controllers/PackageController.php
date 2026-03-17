@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Rules\PackageRule;
-use App\Services\Report\ReportTemplateService;
 use App\Services\PackageService;
+use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -132,11 +132,11 @@ class PackageController extends Controller
             set_time_limit(60);
 
             $package = $this->packageService->getForEditShow($id);
-            $branding = $this->reportTemplateService->getBranding();
+            $reportData = $this->reportTemplateService->build('package', []);
 
             $html = view('packages.report-content', [
                 'data' => $package,
-                'branding' => $branding,
+                'branding' => $reportData['branding'],
                 'is_pdf' => true,
             ])->render();
 
