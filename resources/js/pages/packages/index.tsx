@@ -16,6 +16,10 @@ import {
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
+import PackagePreviewModal, {
+    type PackagePreviewData,
+} from './package-preview-modal';
 import { packageStatusColors, packageStatusLabels } from './schema';
 
 interface PackageDataTableSchema {
@@ -132,9 +136,19 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
 ];
 
 export default function PackagesIndex({ data }: PackagesProps) {
-    const actions: ActionType[] = ['add', 'view', 'edit', 'download', 'delete'];
+    const actions: ActionType[] = [
+        'add',
+        'preview',
+        'view',
+        'edit',
+        'download',
+        'delete',
+    ];
     const { packagesForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    const [selectedPackageForPreview, setSelectedPackageForPreview] =
+        useState<PackagePreviewData | null>(null);
 
     return (
         <>
@@ -160,7 +174,14 @@ export default function PackagesIndex({ data }: PackagesProps) {
                                 const packageId = row?.original.id;
 
                                 if (packageId !== undefined) {
-                                    if (action === 'view') {
+                                    if (action === 'preview') {
+                                        setSelectedPackageForPreview({
+                                            id: packageId,
+                                            package_number:
+                                                row?.original.package_number,
+                                        });
+                                        setPreviewModalOpen(true);
+                                    } else if (action === 'view') {
                                         router.get(show(packageId).url);
                                     } else if (action === 'edit') {
                                         router.get(edit(packageId).url);
@@ -218,6 +239,14 @@ export default function PackagesIndex({ data }: PackagesProps) {
             </AppLayout>
 
             <ConfirmDialog />
+
+            {previewModalOpen && selectedPackageForPreview && (
+                <PackagePreviewModal
+                    data={selectedPackageForPreview}
+                    open={previewModalOpen}
+                    onOpenChange={setPreviewModalOpen}
+                />
+            )}
         </>
     );
 }
