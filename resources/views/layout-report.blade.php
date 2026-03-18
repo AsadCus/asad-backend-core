@@ -109,16 +109,6 @@
             width: 50%;
         }
 
-        .stamp-sig-custom-box {
-            position: relative;
-            min-height: 90px;
-        }
-
-        .stamp-sig-custom-item {
-            position: absolute;
-            overflow: hidden;
-        }
-
         .updated-date {
             text-align: right;
             font-weight: bold;

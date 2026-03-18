@@ -26,59 +26,64 @@
     $signatureLayout = $layout['signature'] ?? ['x' => 62, 'y' => 18, 'width' => 30, 'height' => 48, 'z' => 2];
     $labels = $layout['labels'] ?? [];
     $showNameDate =
-        $mode === 'custom' &&
         !empty($branding['show_signature_stamp_name']) &&
         !empty($branding['show_signature_stamp_date']);
-    $fullName =
-        $labels['full_name'] ??
-        ($labels['signature_name'] ?? ($labels['stamp_name'] ?? ($layout['signature']['name'] ?? ($layout['stamp']['name'] ?? null))));
-    $displayDate = $labels['date'] ?? ($layout['signature']['date'] ?? null);
+    $fullName = $labels['full_name']
+        ?? $labels['signature_name']
+        ?? $labels['stamp_name']
+        ?? null;
+    $displayDate = $labels['date'] ?? null;
 @endphp
 
 @if ($showStamp || $showSignature)
     @if ($mode === 'custom')
-        <div class="stamp-sig-row">
-            <div class="stamp-sig-custom-box">
+        @php
+            $stampH = $unit === 'px' ? (($stampLayout['height'] ?? 58) . 'px') : '68px';
+            $stampW = $unit === 'px' ? (($stampLayout['width'] ?? 68) . 'px') : 'auto';
+            $sigH   = $unit === 'px' ? (($signatureLayout['height'] ?? 48) . 'px') : '50px';
+            $sigW   = $unit === 'px' ? (($signatureLayout['width'] ?? 100) . 'px') : 'auto';
+        @endphp
+        <table class="stamp-sig-row" style="width:auto;">
+            <tr>
                 @if ($showStamp)
-                    <div class="stamp-sig-custom-item"
-                        style="left: {{ $stampLayout['x'] ?? 8 }}{{ $unit }}; top: {{ $stampLayout['y'] ?? 10 }}{{ $unit }}; width: {{ $stampLayout['width'] ?? 26 }}{{ $unit }}; height: {{ $stampLayout['height'] ?? 58 }}{{ $unit }}; z-index: {{ $stampLayout['z'] ?? 1 }};">
+                    <td style="width:auto; padding-right:10px; vertical-align:bottom;">
                         @if (($is_pdf ?? false) && !empty($stampSourceAbsolute) && file_exists($stampSourceAbsolute))
                             <img src="{{ $stampSourceAbsolute }}" alt="Company Stamp"
-                                style="height:100%; width:100%; object-fit:contain; display:block;">
+                                style="height:{{ $stampH }}; width:{{ $stampW }}; object-fit:contain; display:block;">
                         @elseif(!empty($stampSourceUrl))
                             <img src="{{ $stampSourceUrl }}" alt="Company Stamp"
-                                style="height:100%; width:100%; object-fit:contain; display:block;">
+                                style="height:{{ $stampH }}; width:{{ $stampW }}; object-fit:contain; display:block;">
                         @endif
-                    </div>
+                    </td>
                 @endif
-
                 @if ($showSignature)
-                    <div class="stamp-sig-custom-item"
-                        style="left: {{ $signatureLayout['x'] ?? 62 }}{{ $unit }}; top: {{ $signatureLayout['y'] ?? 18 }}{{ $unit }}; width: {{ $signatureLayout['width'] ?? 30 }}{{ $unit }}; height: {{ $signatureLayout['height'] ?? 48 }}{{ $unit }}; z-index: {{ $signatureLayout['z'] ?? 2 }};">
+                    <td style="width:auto; text-align:left; vertical-align:bottom;">
+                        <p style="font-size:10px; margin:0 0 3px 0;">Authorised Signature</p>
                         @if (($is_pdf ?? false) && !empty($signatureSourceAbsolute) && file_exists($signatureSourceAbsolute))
                             <img src="{{ $signatureSourceAbsolute }}" alt="Authorised Signature"
-                                style="height:100%; width:100%; object-fit:contain; display:block;">
+                                style="height:{{ $sigH }}; width:{{ $sigW }}; object-fit:contain; display:block;">
                         @elseif(!empty($signatureSourceUrl))
                             <img src="{{ $signatureSourceUrl }}" alt="Authorised Signature"
-                                style="height:100%; width:100%; object-fit:contain; display:block;">
+                                style="height:{{ $sigH }}; width:{{ $sigW }}; object-fit:contain; display:block;">
                         @endif
-                    </div>
+                    </td>
                 @endif
-            </div>
+            </tr>
             @if($showNameDate && (!empty($fullName) || !empty($displayDate)))
-                <div style="margin-top: 2px; text-align:left; font-size:10px; line-height:1.2;">
-                    @if(!empty($fullName))
-                        <span>{{ $fullName }}</span>
+                <tr>
+                    @if ($showStamp)
+                        <td style="width:auto; font-size:10px; line-height:1.2; padding-top:2px; padding-right:10px;">
+                            @if(!empty($fullName)) {{ $fullName }} @endif
+                        </td>
                     @endif
-                    @if(!empty($fullName) && !empty($displayDate))
-                        <span style="display:inline-block; width:10px;"></span>
+                    @if ($showSignature)
+                        <td style="width:auto; font-size:9px; line-height:1.2; text-align:left; padding-top:2px;">
+                            @if(!empty($displayDate)) {{ $displayDate }} @endif
+                        </td>
                     @endif
-                    @if(!empty($displayDate))
-                        <span>{{ $displayDate }}</span>
-                    @endif
-                </div>
+                </tr>
             @endif
-        </div>
+        </table>
     @else
         <table class="stamp-sig-row stamp-sig-default" style="width:auto;">
             <tr>

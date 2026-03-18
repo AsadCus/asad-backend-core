@@ -99,12 +99,20 @@ class ReportTemplateService
 
         // Merge the per-module template config into branding
         $moduleTemplate = $settings->getModuleTemplate($type);
+        $storedModule = $settings->module_templates[$type] ?? [];
 
         // Ensure boolean values are properly cast
         $moduleTemplate['show_stamp'] = (bool) ($moduleTemplate['show_stamp'] ?? false);
         $moduleTemplate['show_signature'] = (bool) ($moduleTemplate['show_signature'] ?? false);
+        $moduleTemplate['show_signature_stamp_name'] = (bool) ($moduleTemplate['show_signature_stamp_name'] ?? false);
+        $moduleTemplate['show_signature_stamp_date'] = (bool) ($moduleTemplate['show_signature_stamp_date'] ?? false);
 
         $branding = array_merge($branding, $moduleTemplate);
+
+        // Always inherit global signature_stamp_layout and custom layout config —
+        // module templates do not override these; they only control show_stamp / show_signature flags.
+        $branding['signature_stamp_layout'] = $settings->signature_stamp_layout ?? 'default';
+        $branding['custom_signature_stamp_layout'] = $settings->custom_signature_stamp_layout;
 
         return [
             'branding' => $branding,
