@@ -127,33 +127,7 @@
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @endif
 
-            @if (!empty($branding['show_stamp']))
-                <div style="margin-top: 15px; margin-bottom: 0;">
-                    @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
-                        <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
-                            style="max-height: 80px; width: auto; display: block;">
-                    @elseif(!empty($branding['stamp_url']))
-                        <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
-                            style="max-height: 80px; width: auto; display: block;">
-                    @endif
-                </div>
-            @endif
-
-            @if (!empty($branding['show_signature']))
-                <div style="margin-top: 15px;">
-                    <p style="font-size: 9px; margin: 0 0 5px 0;">Authorised Signature</p>
-                    @if (
-                        ($is_pdf ?? false) &&
-                            !empty($branding['signature_path_absolute']) &&
-                            file_exists($branding['signature_path_absolute']))
-                        <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
-                            style="max-height: 60px; width: auto; display: block;">
-                    @elseif(!empty($branding['signature_url']))
-                        <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
-                            style="max-height: 60px; width: auto; display: block;">
-                    @endif
-                </div>
-            @endif
+            @include('partials.report-signature-stamp')
         </div>
     </div>
 

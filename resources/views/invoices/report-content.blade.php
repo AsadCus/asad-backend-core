@@ -17,7 +17,7 @@
     <style>
         /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 30px;
+            padding: 0 12px;
         }
 
         /* ── Order Info ── */
@@ -59,8 +59,8 @@
         .items-section {
             border-top: 1.5px solid #333;
             border-bottom: 1.5px solid #333;
-            padding: 6px 0;
-            margin-bottom: 12px;
+            padding: 4px 0;
+            margin-bottom: 8px;
         }
 
         .items-table {
@@ -82,9 +82,9 @@
         }
 
         .items-table td {
-            padding: 2.5px 0;
+            padding: 3px 0;
             vertical-align: top;
-            font-size: 10px;
+            font-size: 11px;
         }
 
         .col-desc {
@@ -109,21 +109,15 @@
         }
 
         .item-row {
-            border-bottom: 1px solid #ebebeb;
-        }
-
-        .parent-item-end td {
-            height: 5px;
-            line-height: 5px;
-            border: none;
+            border-bottom: 1px solid #f0f0f0;
         }
 
         /* ── Totals ── */
         .totals-wrapper {
             text-align: right;
-            padding: 5px 0 2px;
+            padding: 4px 0 2px;
             border-top: 1px solid #ccc;
-            margin-top: 4px;
+            margin-top: 6px;
         }
 
         .total-label {
@@ -288,10 +282,6 @@
                     $childSubCounter++;
                     renderItem($child, $allItems, $level + 1, $counter, $subtotal, $childSubCounter);
                 }
-
-                if ($level === 0) {
-                    echo '<tr class="parent-item-end"><td colspan="3"></td></tr>';
-                }
             }
 
             $counter = 0;
@@ -327,22 +317,22 @@
                     @endforeach --}}
                 </tbody>
             </table>
+        </div>
 
-            <div class="totals-wrapper">
+        <div class="totals-wrapper">
+            <div>
+                <span class="total-label">Sub Total:&nbsp;</span>
+                <span class="total-amount">{{ formatCurrency($data['subtotal_amount'] ?? $subtotal) }}</span>
+            </div>
+            @if (!empty($data['extensions']) && count($data['extensions']) > 0)
                 <div>
-                    <span class="total-label">Sub Total:&nbsp;</span>
-                    <span class="total-amount">{{ formatCurrency($data['subtotal_amount'] ?? $subtotal) }}</span>
+                    <span class="total-label">Quotation Extension:&nbsp;</span>
+                    <span class="total-amount">{{ formatCurrency($data['extension_total_amount'] ?? 0) }}</span>
                 </div>
-                @if (!empty($data['extensions']) && count($data['extensions']) > 0)
-                    <div>
-                        <span class="total-label">Quotation Extension:&nbsp;</span>
-                        <span class="total-amount">{{ formatCurrency($data['extension_total_amount'] ?? 0) }}</span>
-                    </div>
-                @endif
-                <div>
-                    <span class="total-label">Total Amount:&nbsp;</span>
-                    <span class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</span>
-                </div>
+            @endif
+            <div>
+                <span class="total-label">Total Amount:&nbsp;</span>
+                <span class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</span>
             </div>
         </div>
 
@@ -354,38 +344,7 @@
                 <div class="footer-note">Thank you for your business!</div>
             @endif
 
-            @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
-                <table class="stamp-sig-row">
-                    <tr>
-                        <td>
-                            @if (!empty($branding['show_stamp']))
-                                @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
-                                    <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
-                                        style="height:70px; width:auto; display:block;">
-                                @elseif(!empty($branding['stamp_url']))
-                                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
-                                        style="height:70px; width:auto; display:block;">
-                                @endif
-                            @endif
-                        </td>
-                        <td style="text-align:right;">
-                            @if (!empty($branding['show_signature']))
-                                <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
-                                @if (
-                                    ($is_pdf ?? false) &&
-                                        !empty($branding['signature_path_absolute']) &&
-                                        file_exists($branding['signature_path_absolute']))
-                                    <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
-                                        style="height:52px; width:auto; display:block; margin-left:auto;">
-                                @elseif(!empty($branding['signature_url']))
-                                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
-                                        style="height:52px; width:auto; display:block; margin-left:auto;">
-                                @endif
-                            @endif
-                        </td>
-                    </tr>
-                </table>
-            @endif
+            @include('partials.report-signature-stamp')
 
             <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
         </div>

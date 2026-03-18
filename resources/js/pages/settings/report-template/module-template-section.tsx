@@ -18,10 +18,12 @@ interface ModuleTemplateSectionProps {
     setSelectedModule: (key: string) => void;
     activeModule: ModuleTemplate;
     activeDefinition: RegisteredModule | undefined;
+    signatureStampLayout: 'default' | 'custom';
     isBuiltin: boolean;
     builtinModules: RegisteredModule[];
     registeredModules: RegisteredModule[];
     updateModule: (field: keyof ModuleTemplate, value: string | boolean) => void;
+    updateModuleSignatureStampNameDateVisibility: (value: boolean) => void;
     handleDeleteModule: (key: string) => void;
     /** Rendered element — caller controls key, no wrapper needed */
     AddModuleDialog: React.ReactNode;
@@ -34,10 +36,12 @@ export function ModuleTemplateSection({
     setSelectedModule,
     activeModule,
     activeDefinition,
+    signatureStampLayout,
     isBuiltin,
     builtinModules,
     registeredModules,
     updateModule,
+    updateModuleSignatureStampNameDateVisibility,
     handleDeleteModule,
     AddModuleDialog,
     PdfPreview,
@@ -157,6 +161,27 @@ export function ModuleTemplateSection({
                                     }
                                 />
                             </div>
+                            {signatureStampLayout === 'custom' && (
+                                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                    <div>
+                                        <p className="text-base font-medium">
+                                            Show Full Name and Date
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                            Display full name and date together below signature and stamp area.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={
+                                            (activeModule?.show_signature_stamp_name ?? false) &&
+                                            (activeModule?.show_signature_stamp_date ?? false)
+                                        }
+                                        onCheckedChange={
+                                            updateModuleSignatureStampNameDateVisibility
+                                        }
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 

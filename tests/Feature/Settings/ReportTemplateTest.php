@@ -196,11 +196,186 @@ class ReportTemplateTest extends TestCase
         $this->assertNotNull($updated->stamp_path, 'Stamp should be present after update');
     }
 
+    public function test_signature_stamp_layout_and_custom_coordinates_can_be_saved(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company',
+            'signature_stamp_layout' => 'custom',
+            'custom_signature_stamp_layout' => [
+                'unit' => 'percent',
+                'placement' => 'left_side',
+                'stamp' => [
+                    'x' => 12,
+                    'y' => 8,
+                    'width' => 24,
+                    'height' => 56,
+                    'z' => 1,
+                ],
+                'signature' => [
+                    'x' => 58,
+                    'y' => 16,
+                    'width' => 30,
+                    'height' => 44,
+                    'z' => 2,
+                ],
+                'labels' => [
+                    'show_name' => true,
+                    'show_date' => true,
+                    'full_name' => 'Authorised By',
+                    'date' => '2026-03-18',
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
+        $this->assertSame('custom', $settings->signature_stamp_layout);
+        $this->assertSame('percent', $settings->custom_signature_stamp_layout['unit']);
+        $this->assertSame('left_side', $settings->custom_signature_stamp_layout['placement']);
+        $this->assertSame(12, $settings->custom_signature_stamp_layout['stamp']['x']);
+        $this->assertSame(58, $settings->custom_signature_stamp_layout['signature']['x']);
+        $this->assertTrue($settings->custom_signature_stamp_layout['labels']['show_name']);
+        $this->assertSame('Authorised By', $settings->custom_signature_stamp_layout['labels']['full_name']);
+    }
+
+    public function test_custom_drawn_signature_data_uri_is_persisted(): void
+    {
+        $user = User::factory()->create();
+        $drawnSignatureData =
+            'data:image/png;base64,'.
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Y7JQAAAAASUVORK5CYII=';
+
+        $response = $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company',
+            'signature_stamp_layout' => 'custom',
+            'custom_signature_data' => $drawnSignatureData,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
+        $this->assertNotNull($settings->custom_signature_path);
+        Storage::disk('public')->assertExists($settings->custom_signature_path);
+    }
+
+    public function test_signature_stamp_name_fields_can_be_saved(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company',
+            'signature_stamp_layout' => 'custom',
+            'custom_signature_stamp_layout' => [
+                'unit' => 'percent',
+                'placement' => 'right_side',
+                'stamp' => [
+                    'x' => 8,
+                    'y' => 10,
+                    'width' => 26,
+                    'height' => 58,
+                    'z' => 1,
+                ],
+                'signature' => [
+                    'x' => 62,
+                    'y' => 18,
+                    'width' => 30,
+                    'height' => 48,
+                    'z' => 2,
+                ],
+                'labels' => [
+                    'show_name' => true,
+                    'show_date' => false,
+                    'full_name' => 'Authorized By',
+                    'date' => '',
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
+        $this->assertSame('custom', $settings->signature_stamp_layout);
+        $this->assertSame('right_side', $settings->custom_signature_stamp_layout['placement']);
+        $this->assertSame('Authorized By', $settings->custom_signature_stamp_layout['labels']['full_name']);
+    }
+
+    public function test_signature_date_field_can_be_saved(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company',
+            'signature_stamp_layout' => 'custom',
+            'custom_signature_stamp_layout' => [
+                'unit' => 'percent',
+                'placement' => 'stack_each_other',
+                'stamp' => [
+                    'x' => 8,
+                    'y' => 10,
+                    'width' => 26,
+                    'height' => 58,
+                    'z' => 1,
+                ],
+                'signature' => [
+                    'x' => 62,
+                    'y' => 18,
+                    'width' => 30,
+                    'height' => 48,
+                    'z' => 2,
+                ],
+                'labels' => [
+                    'show_name' => true,
+                    'show_date' => true,
+                    'full_name' => 'Authorized By',
+                    'date' => '2026-03-18',
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
+        $this->assertSame('custom', $settings->signature_stamp_layout);
+        $this->assertSame('stack_each_other', $settings->custom_signature_stamp_layout['placement']);
+        $this->assertSame('Authorized By', $settings->custom_signature_stamp_layout['labels']['full_name']);
+        $this->assertSame('2026-03-18', $settings->custom_signature_stamp_layout['labels']['date']);
+    }
+
+    public function test_module_template_can_toggle_signature_stamp_full_name_and_date_visibility(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company',
+            'module_templates' => [
+                'invoice' => [
+                    'show_stamp' => true,
+                    'show_signature' => true,
+                    'show_signature_stamp_name' => true,
+                    'show_signature_stamp_date' => true,
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
+        $invoice = $settings->getModuleTemplate('invoice');
+
+        $this->assertTrue($invoice['show_stamp']);
+        $this->assertTrue($invoice['show_signature']);
+        $this->assertTrue($invoice['show_signature_stamp_name']);
+        $this->assertTrue($invoice['show_signature_stamp_date']);
+    }
+
     // TODO: Test file deletion when FormData is properly sent from browser
     // The issue is that HTTP request validation might not preserve empty strings
     // but FormData from browser does. This needs to be tested end-to-end in browser.
-    //public function test_file_can_be_deleted_with_empty_string_signal(): void
-    //{
+    // public function test_file_can_be_deleted_with_empty_string_signal(): void
+    // {
     //    ...
-    //}
+    // }
 }

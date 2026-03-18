@@ -48,20 +48,28 @@ class ReportTemplateService
         $logo = $this->resolveAsset($settings->logo_path, 'logo-primary.png');
         $stamp = $this->resolveAsset($settings->stamp_path);
         $signature = $this->resolveAsset($settings->signature_path);
+        $customStamp = $this->resolveAsset($settings->custom_stamp_path);
+        $customSignature = $this->resolveAsset($settings->custom_signature_path);
 
         return [
             'company_name' => $settings->company_name,
             'company_address' => $settings->company_address,
             'company_phone' => $settings->company_phone,
             'company_email' => $settings->company_email,
+            'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
+            'custom_signature_stamp_layout' => $settings->custom_signature_stamp_layout,
             // Relative URL versions (for web/frontend display) - works regardless of APP_URL or port
             'logo_url' => $logo['url'],
             'stamp_url' => $stamp['url'],
             'signature_url' => $signature['url'],
+            'custom_stamp_url' => $customStamp['url'],
+            'custom_signature_url' => $customSignature['url'],
             // Absolute path versions (for DomPDF)
             'logo_path_absolute' => $logo['absolute'],
             'stamp_path_absolute' => $stamp['absolute'],
             'signature_path_absolute' => $signature['absolute'],
+            'custom_stamp_path_absolute' => $customStamp['absolute'],
+            'custom_signature_path_absolute' => $customSignature['absolute'],
             'footer_text' => $settings->footer_text,
             // Per-module template configs (for use in settings page)
             'module_templates' => [

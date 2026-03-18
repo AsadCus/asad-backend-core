@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4;
-            margin: 1.5cm 1.8cm;
+            margin: 1.2cm 1.4cm;
         }
 
         * {
@@ -16,8 +16,8 @@
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 10px;
-            line-height: 1.45;
+            font-size: 12px;
+            line-height: 1.5;
             color: #1a1a1a;
             margin: 0;
             padding: 0;
@@ -27,7 +27,7 @@
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
         }
 
         .logo-cell {
@@ -44,13 +44,13 @@
         .logo-cell img {
             display: block;
             width: auto;
-            height: 52px;
+            height: 84px;
             max-width: 180px;
             margin: 0;
         }
 
         .company-name {
-            font-size: 12px;
+            font-size: 13px;
             font-weight: bold;
             color: #222;
             margin-bottom: 2px;
@@ -58,13 +58,13 @@
         }
 
         .company-details {
-            font-size: 9px;
+            font-size: 11px;
             color: #444;
-            line-height: 1.5;
+            line-height: 1.45;
         }
 
         .company-reg {
-            font-size: 9px;
+            font-size: 11px;
             font-weight: bold;
             margin-top: 3px;
         }
@@ -75,22 +75,22 @@
             color: #fff;
             text-align: center;
             font-weight: bold;
-            font-size: 13px;
-            padding: 5px 0;
-            letter-spacing: 4px;
-            margin-bottom: 12px;
+            font-size: 16px;
+            padding: 6px 8px;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
         }
 
         /* ── Footer ── */
         .footer-section {
-            font-size: 9px;
-            padding-top: 8px;
+            font-size: 11px;
+            padding-top: 6px;
             border-top: 1px solid #d0d0d0;
         }
 
         .footer-note {
             text-align: center;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             line-height: 1.5;
             color: #333;
         }
@@ -98,18 +98,33 @@
         .stamp-sig-row {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 12px;
+            margin-top: 8px;
         }
 
         .stamp-sig-row td {
             vertical-align: bottom;
         }
 
+        .stamp-sig-default td {
+            width: 50%;
+        }
+
+        .stamp-sig-custom-box {
+            position: relative;
+            min-height: 90px;
+            border: 1px dashed #b8c0cc;
+        }
+
+        .stamp-sig-custom-item {
+            position: absolute;
+            overflow: hidden;
+        }
+
         .updated-date {
             text-align: right;
             font-weight: bold;
-            font-size: 9px;
-            margin-top: 12px;
+            font-size: 10px;
+            margin-top: 8px;
             color: #333;
         }
 
@@ -119,9 +134,9 @@
             }
 
             body {
-                font-size: 11px;
+                font-size: 12px;
                 line-height: 1.55;
-                padding: 1.5cm 1.8cm;
+                padding: 1.2cm 1.4cm;
                 background: #ffffff;
                 max-width: 794px;
                 min-height: 27.7cm;
@@ -136,29 +151,29 @@
 
             /* Scale up text that was sized for 96dpi DomPDF */
             .company-name {
-                font-size: 13px;
+                font-size: 14px;
             }
 
             .company-details {
-                font-size: 10px;
+                font-size: 11px;
             }
 
             .company-reg {
-                font-size: 10px;
+                font-size: 11px;
             }
 
             .title-bar {
-                font-size: 14px;
-                padding: 7px 0;
-                letter-spacing: 5px;
+                font-size: 16px;
+                padding: 8px 10px;
+                letter-spacing: 2px;
             }
 
             .footer-section {
-                font-size: 10px;
+                font-size: 11px;
             }
 
             .footer-note {
-                font-size: 10px;
+                font-size: 11px;
             }
 
             .updated-date {

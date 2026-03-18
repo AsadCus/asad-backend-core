@@ -310,4 +310,12 @@
     <p class="muted-note">
         Generated on {{ now()->translatedFormat('d F Y H:i') }}.
     </p>
+
+    <div class="footer-section">
+        @if (!empty($branding['footer_text']))
+            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+        @endif
+
+        @include('partials.report-signature-stamp')
+    </div>
 @endsection

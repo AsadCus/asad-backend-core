@@ -9,6 +9,10 @@ use App\Services\Report\ReportTemplateService;
 use App\Services\UserRoleFileUploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,6 +22,16 @@ class ReportTemplateController extends Controller
         'logo_file' => 'logo_path',
         'stamp_file' => 'stamp_path',
         'signature_file' => 'signature_path',
+        'custom_stamp_file' => 'custom_stamp_path',
+        'custom_signature_file' => 'custom_signature_path',
+    ];
+
+    private const ALLOWED_PLACEMENTS = [
+        'left_side',
+        'right_side',
+        'stack_each_other',
+        'up_side',
+        'down_side',
     ];
 
     public function __construct(
@@ -34,12 +48,12 @@ class ReportTemplateController extends Controller
 
         // Build module templates for all modules (built-in + custom)
         $moduleTemplates = [];
-        
+
         // Add built-in modules
         foreach (array_keys(ReportSetting::$moduleDefaults) as $moduleKey) {
             $moduleTemplates[$moduleKey] = $settings->getModuleTemplate($moduleKey);
         }
-        
+
         // Add custom registered modules
         foreach ($settings->registered_modules ?? [] as $module) {
             $moduleTemplates[$module['key']] = $settings->getModuleTemplate($module['key']);
@@ -53,10 +67,14 @@ class ReportTemplateController extends Controller
                 'company_phone' => $settings->company_phone,
                 'company_email' => $settings->company_email,
                 'brand_color' => $settings->brand_color ?? '#c05427',
+                'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
+                'custom_signature_stamp_layout' => $settings->custom_signature_stamp_layout,
                 'logo_path' => $settings->logo_path,
                 'footer_text' => $settings->footer_text,
                 'stamp_path' => $settings->stamp_path,
                 'signature_path' => $settings->signature_path,
+                'custom_stamp_path' => $settings->custom_stamp_path,
+                'custom_signature_path' => $settings->custom_signature_path,
                 'module_templates' => $moduleTemplates,
                 'registered_modules' => $settings->registered_modules ?? [],
                 'updated_by' => $settings->updated_by,
@@ -81,8 +99,12 @@ class ReportTemplateController extends Controller
             'company_phone' => $validated['company_phone'] ?? null,
             'company_email' => $validated['company_email'] ?? null,
             'brand_color' => $validated['brand_color'] ?? '#c05427',
+            'signature_stamp_layout' => $validated['signature_stamp_layout'] ?? 'default',
+            'custom_signature_stamp_layout' => $this->normalizeCustomSignatureStampLayout(
+                $validated['custom_signature_stamp_layout'] ?? null,
+            ),
             'footer_text' => $validated['footer_text'] ?? null,
-            'updated_by' => auth()->id(),
+            'updated_by' => Auth::id(),
         ]);
 
         // Update per-module template settings
@@ -100,7 +122,13 @@ class ReportTemplateController extends Controller
                 if (isset($moduleConfig['show_signature'])) {
                     $moduleConfig['show_signature'] = filter_var($moduleConfig['show_signature'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
                 }
-                
+                if (isset($moduleConfig['show_signature_stamp_name'])) {
+                    $moduleConfig['show_signature_stamp_name'] = filter_var($moduleConfig['show_signature_stamp_name'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+                }
+                if (isset($moduleConfig['show_signature_stamp_date'])) {
+                    $moduleConfig['show_signature_stamp_date'] = filter_var($moduleConfig['show_signature_stamp_date'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+                }
+
                 $existing[$moduleType] = array_merge(
                     $existing[$moduleType] ?? ReportSetting::$moduleDefaults[$moduleType] ?? [],
                     $moduleConfig
@@ -114,15 +142,15 @@ class ReportTemplateController extends Controller
         // Only process keys where file is actually present (not null from form load)
         // Also include path keys with empty string signals for deletion by end-user
         $filteredData = [];
-        
+
         // Include file uploads
         foreach (array_keys(self::FILE_KEY_MAP) as $fileKey) {
-            if (array_key_exists($fileKey, $validated) && 
+            if (array_key_exists($fileKey, $validated) &&
                 ($validated[$fileKey] instanceof \Illuminate\Http\UploadedFile || $validated[$fileKey] === '')) {
                 $filteredData[$fileKey] = $validated[$fileKey];
             }
         }
-        
+
         // Include path deletion signals (when path is empty string)
         foreach (array_values(self::FILE_KEY_MAP) as $pathField) {
             if (array_key_exists($pathField, $validated) && $validated[$pathField] === '') {
@@ -130,7 +158,7 @@ class ReportTemplateController extends Controller
             }
         }
 
-        if (!empty($filteredData)) {
+        if (! empty($filteredData)) {
             $this->fileUploadService->processUploads(
                 model: $settings,
                 data: $filteredData,
@@ -140,7 +168,87 @@ class ReportTemplateController extends Controller
             );
         }
 
+        $hasUploadedCustomSignature =
+            isset($validated['custom_signature_file']) &&
+            $validated['custom_signature_file'] instanceof UploadedFile;
+
+        if (! $hasUploadedCustomSignature && ! empty($validated['custom_signature_data'])) {
+            $this->persistCustomSignatureFromDataUri(
+                reportSetting: $settings,
+                dataUri: $validated['custom_signature_data'],
+            );
+        }
+
         return back()->with('success', 'Report template settings updated successfully.');
+    }
+
+    /**
+     * Persist a drawn signature represented as a data URI.
+     */
+    private function persistCustomSignatureFromDataUri(ReportSetting $reportSetting, string $dataUri): void
+    {
+        if (! preg_match('/^data:image\/(png|jpeg);base64,/', $dataUri, $matches)) {
+            return;
+        }
+
+        $extension = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+        $base64Payload = preg_replace('/^data:image\/(png|jpeg);base64,/', '', $dataUri);
+
+        if ($base64Payload === null) {
+            return;
+        }
+
+        $decoded = base64_decode(str_replace(' ', '+', $base64Payload), true);
+        if ($decoded === false) {
+            return;
+        }
+
+        if (! empty($reportSetting->custom_signature_path) && Storage::disk('public')->exists($reportSetting->custom_signature_path)) {
+            Storage::disk('public')->delete($reportSetting->custom_signature_path);
+        }
+
+        $fileName = Str::slug($reportSetting->company_name ?: 'report-branding').'-custom-signature-'.now()->timestamp.'.'.$extension;
+        $filePath = 'report/'.$fileName;
+        Storage::disk('public')->put($filePath, $decoded);
+
+        $reportSetting->update([
+            'custom_signature_path' => $filePath,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $layout
+     * @return array<string, mixed>|null
+     */
+    private function normalizeCustomSignatureStampLayout(?array $layout): ?array
+    {
+        if ($layout === null) {
+            return null;
+        }
+
+        $placement = in_array($layout['placement'] ?? null, self::ALLOWED_PLACEMENTS, true)
+            ? $layout['placement']
+            : 'left_side';
+
+        $labels = $layout['labels'] ?? [];
+        $legacyStamp = $layout['stamp'] ?? [];
+        $legacySignature = $layout['signature'] ?? [];
+
+        $layout['placement'] = $placement;
+        $layout['labels'] = [
+            'show_name' => (bool) ($labels['show_name'] ?? false),
+            'show_date' => (bool) ($labels['show_date'] ?? false),
+            'full_name' => (string) (
+                $labels['full_name'] ??
+                ($labels['signature_name'] ??
+                    ($labels['stamp_name'] ??
+                        ($legacySignature['name'] ??
+                            ($legacyStamp['name'] ?? ''))))
+            ),
+            'date' => (string) ($labels['date'] ?? ($legacySignature['date'] ?? '')),
+        ];
+
+        return $layout;
     }
 
     /**

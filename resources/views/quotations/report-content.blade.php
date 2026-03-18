@@ -297,39 +297,7 @@
             @endforelse
         @endif
 
-        {{-- Stamp & Signature --}}
-        @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
-            <table class="stamp-sig-row">
-                <tr>
-                    <td>
-                        @if (!empty($branding['show_stamp']))
-                            @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
-                                <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
-                                    style="height:70px; width:auto; display:block;">
-                            @elseif(!empty($branding['stamp_url']))
-                                <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
-                                    style="height:70px; width:auto; display:block;">
-                            @endif
-                        @endif
-                    </td>
-                    <td style="text-align:right;">
-                        @if (!empty($branding['show_signature']))
-                            <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
-                            @if (
-                                ($is_pdf ?? false) &&
-                                    !empty($branding['signature_path_absolute']) &&
-                                    file_exists($branding['signature_path_absolute']))
-                                <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
-                                    style="height:52px; width:auto; display:block; margin-left:auto;">
-                            @elseif(!empty($branding['signature_url']))
-                                <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
-                                    style="height:52px; width:auto; display:block; margin-left:auto;">
-                            @endif
-                        @endif
-                    </td>
-                </tr>
-            </table>
-        @endif
+        @include('partials.report-signature-stamp')
 
         <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
     </div>
