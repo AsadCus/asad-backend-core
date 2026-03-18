@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -231,18 +232,54 @@ class ManifestController extends Controller
         return response()->json($manifest);
     }
 
-    public function exportCollectionItemsPdf(string $id)
+    public function exportCollectionItemsPdf(Request $request, string $id)
     {
         try {
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
+            $snapshot = $request->input('snapshot');
+
+            if (is_string($snapshot) && $snapshot !== '') {
+                $decodedSnapshot = json_decode($snapshot, true);
+
+                if (is_array($decodedSnapshot)) {
+                    if (isset($decodedSnapshot['travelers']) && is_array($decodedSnapshot['travelers'])) {
+                        $manifest['travelers'] = $decodedSnapshot['travelers'];
+                    }
+
+                    if (isset($decodedSnapshot['manifest_number'])) {
+                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
+                    }
+
+                    if (isset($decodedSnapshot['package_name'])) {
+                        $manifest['package_name'] = $decodedSnapshot['package_name'];
+                    }
+
+                    if (isset($decodedSnapshot['package_number'])) {
+                        $manifest['package_number'] = $decodedSnapshot['package_number'];
+                    }
+
+                    if (isset($decodedSnapshot['departure_date'])) {
+                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
+                    }
+
+                    if (isset($decodedSnapshot['return_date'])) {
+                        $manifest['return_date'] = $decodedSnapshot['return_date'];
+                    }
+
+                    if (isset($decodedSnapshot['package_accommodations']) && is_array($decodedSnapshot['package_accommodations'])) {
+                        $manifest['package_accommodations'] = $decodedSnapshot['package_accommodations'];
+                    }
+                }
+            }
+
             $reportData = $this->reportTemplateService->build('manifest', [
                 'manifest' => $manifest,
             ]);
 
-            $html = view('manifests.report-content', [
+            $html = view('manifests.namelist-course-items-report-content', [
                 'manifest' => $manifest,
                 'branding' => $reportData['branding'],
                 'is_pdf' => true,
@@ -258,6 +295,114 @@ class ManifestController extends Controller
                 ->stream($fileName);
         } catch (\Throwable $e) {
             Log::error('Manifest collection-items PDF generation error', [
+                'manifest_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to generate PDF: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function exportRoomCheckPdf(Request $request, string $id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $location = Str::of((string) $request->query('location', ''))
+                ->trim()
+                ->lower()
+                ->value();
+
+            if ($location === '') {
+                return response()->json([
+                    'error' => 'Room check location is required.',
+                ], 422);
+            }
+
+            $manifest = $this->manifestService->getForEditShow((int) $id);
+
+            $snapshot = $request->input('snapshot');
+
+            if (is_string($snapshot) && $snapshot !== '') {
+                $decodedSnapshot = json_decode($snapshot, true);
+
+                if (is_array($decodedSnapshot)) {
+                    if (isset($decodedSnapshot['room_check_rows']) && is_array($decodedSnapshot['room_check_rows'])) {
+                        $manifest['room_check_rows'] = $decodedSnapshot['room_check_rows'];
+                    }
+
+                    if (isset($decodedSnapshot['room_check_location_label'])) {
+                        $manifest['room_check_location_label'] = $decodedSnapshot['room_check_location_label'];
+                    }
+
+                    if (isset($decodedSnapshot['manifest_number'])) {
+                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
+                    }
+
+                    if (isset($decodedSnapshot['package_name'])) {
+                        $manifest['package_name'] = $decodedSnapshot['package_name'];
+                    }
+
+                    if (isset($decodedSnapshot['package_number'])) {
+                        $manifest['package_number'] = $decodedSnapshot['package_number'];
+                    }
+
+                    if (isset($decodedSnapshot['departure_date'])) {
+                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
+                    }
+
+                    if (isset($decodedSnapshot['return_date'])) {
+                        $manifest['return_date'] = $decodedSnapshot['return_date'];
+                    }
+
+                    if (isset($decodedSnapshot['package_accommodations']) && is_array($decodedSnapshot['package_accommodations'])) {
+                        $manifest['package_accommodations'] = $decodedSnapshot['package_accommodations'];
+                    }
+                }
+            }
+
+            $roomRows = collect((array) Arr::get($manifest, 'roomLists.'.$location, []))
+                ->values()
+                ->all();
+
+            $locationLabel = collect((array) ($manifest['package_accommodations'] ?? []))
+                ->first(function (array $accommodation) use ($location): bool {
+                    return Str::of((string) ($accommodation['location'] ?? ''))
+                        ->trim()
+                        ->lower()
+                        ->value() === $location;
+                })['location'] ?? Str::title(str_replace('-', ' ', $location));
+
+            $manifest['room_check_location'] = $location;
+            $manifest['room_check_location_label'] = $manifest['room_check_location_label'] ?? $locationLabel;
+
+            if (! isset($manifest['room_check_rows']) || ! is_array($manifest['room_check_rows'])) {
+                $manifest['room_check_rows'] = $roomRows;
+            }
+
+            $reportData = $this->reportTemplateService->build('manifest', [
+                'manifest' => $manifest,
+            ]);
+
+            $html = view('manifests.room-check-report-content', [
+                'manifest' => $manifest,
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $fileName = ($manifest['manifest_number'] ?? 'manifest').'-room-check-'.$location.'.pdf';
+
+            return Pdf::loadHTML($html)
+                ->setPaper('a4', 'landscape')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96)
+                ->stream($fileName);
+        } catch (\Throwable $e) {
+            Log::error('Manifest room-check PDF generation error', [
                 'manifest_id' => $id,
                 'error' => $e->getMessage(),
             ]);

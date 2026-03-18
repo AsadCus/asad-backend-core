@@ -8,15 +8,20 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
 use App\Models\Invoice;
+use App\Models\MasterNotes;
+use App\Models\ModelFile;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
+use App\Models\QuotationNotes;
 use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -328,6 +333,94 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertEquals('2026-06-15', $group->date_of_application->format('Y-m-d'));
     }
 
+    public function test_customer_confirmation_update_keeps_payment_derived_member_status(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Billing Guard Test',
+            'contact_number' => '012',
+            'email' => 'billing-guard@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Billing Guard Member',
+                    'email' => 'billing-guard@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ]);
+
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)
+            ->with('members.customer.user')
+            ->firstOrFail();
+        $member = $group->members->firstOrFail();
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Member package',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $depositInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'type' => 'deposit',
+            'description' => 'Deposit invoice',
+            'amount' => 3000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $depositInvoice->quotationItems()->sync([$quotationItem->id]);
+
+        $member->update(['status' => 'partially_paid']);
+
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
+            'date_of_application' => '2026-06-20',
+            'members' => [
+                $this->memberPayload([
+                    'member_id' => $member->id,
+                    'customer_id' => $member->customer_id,
+                    'name' => $member->customer?->user?->name ?? 'Billing Guard Member',
+                    'email' => $member->customer?->user?->email ?? 'billing-guard@test.com',
+                    'contact_number' => $member->customer?->user?->contact ?? '0123456789',
+                    'is_leader' => true,
+                    'status' => 'draft',
+                ]),
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $member->refresh();
+        $this->assertEquals('partially_paid', $member->status);
+    }
+
     public function test_customer_confirmation_update_with_multiple_members(): void
     {
         $this->actingAs($this->adminUser);
@@ -532,6 +625,61 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->assertContains($leader->id, $currentMemberIds);
         $this->assertContains($member->id, $currentMemberIds);
+    }
+
+    public function test_update_member_stores_documents_in_model_files_with_custom_name(): void
+    {
+        $this->actingAs($this->adminUser);
+        Storage::fake('public');
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Doc Upload Test',
+            'contact_number' => '0128888000',
+            'email' => 'doc-upload@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Doc Upload Member',
+                    'email' => 'doc-upload-member@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer')->where('enquiry_id', $enquiry->id)->firstOrFail();
+        $member = $group->members->firstOrFail();
+
+        $passportFile = UploadedFile::fake()->create('passport-scan.pdf', 120, 'application/pdf');
+
+        $response = $this->post("/customer-confirmations/members/{$member->id}", [
+            '_method' => 'PUT',
+            'name' => 'Doc Upload Member',
+            'email' => 'doc-upload-member@test.com',
+            'contact_number' => '0128888000',
+            'status' => 'draft',
+            'passport_file' => $passportFile,
+            'passport_file_name' => 'Member Passport Final.pdf',
+        ]);
+
+        $response->assertRedirect();
+
+        $storedPassportFile = ModelFile::query()
+            ->where('fileable_type', Customer::class)
+            ->where('fileable_id', $member->customer_id)
+            ->where('field', 'passport')
+            ->first();
+
+        $this->assertNotNull($storedPassportFile);
+        $this->assertSame('Member Passport Final.pdf', $storedPassportFile->file_name);
+        $this->assertMatchesRegularExpression('/^customers\/passport\/.+$/', $storedPassportFile->file_path);
+        Storage::disk('public')->assertExists($storedPassportFile->file_path);
     }
 
     public function test_customer_confirmation_update_blocks_removing_member_with_paid_billing(): void
@@ -891,7 +1039,7 @@ class CustomerConfirmationFormTest extends TestCase
         }
 
         $enquiry->refresh();
-        $this->assertEquals(EnquiryStatus::Negotiating, $enquiry->status);
+        $this->assertEquals(EnquiryStatus::Contacted, $enquiry->status);
     }
 
     public function test_confirmed_customer_bulk_destroy_deletes_selected_groups(): void
@@ -949,8 +1097,8 @@ class CustomerConfirmationFormTest extends TestCase
 
         $firstEnquiry->refresh();
         $secondEnquiry->refresh();
-        $this->assertEquals(EnquiryStatus::Negotiating, $firstEnquiry->status);
-        $this->assertEquals(EnquiryStatus::Negotiating, $secondEnquiry->status);
+        $this->assertEquals(EnquiryStatus::Contacted, $firstEnquiry->status);
+        $this->assertEquals(EnquiryStatus::Contacted, $secondEnquiry->status);
     }
 
     public function test_destroy_from_holding_menu_redirects_back_to_holding_index(): void
@@ -1411,5 +1559,73 @@ class CustomerConfirmationFormTest extends TestCase
         $response
             ->assertRedirect(route('quotation.index'))
             ->assertSessionHas('success', '1 quotation(s) created successfully.');
+    }
+
+    public function test_generate_quotations_autofills_master_quotation_notes(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        MasterNotes::create([
+            'model' => 'quotation',
+            'description' => 'Please complete payment before departure date.',
+            'sort_order' => 1,
+        ]);
+
+        MasterNotes::create([
+            'model' => 'quotation',
+            'description' => 'Passport must be valid for at least 6 months.',
+            'sort_order' => 2,
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-GEN-003',
+            'name' => 'Generate Quotation Note Autofill Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $payerUser = User::factory()->create(['email' => 'payer-note-autofill@test.com']);
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-PAYER-003',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'is_leader' => true,
+            'status' => 'draft',
+            'sharing_plan' => 'single',
+        ]);
+
+        $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+            'payer_to_members' => [
+                (string) $payerMember->id => [$payerMember->id],
+            ],
+        ])->assertRedirect(route('quotation.index'));
+
+        $quotation = Quotation::query()->where('customer_confirmation_id', $confirmation->id)->first();
+
+        $this->assertNotNull($quotation);
+        $this->assertDatabaseHas('quotation_notes', [
+            'quotation_id' => $quotation->id,
+            'description' => 'Please complete payment before departure date.',
+            'sort_order' => 1,
+        ]);
+        $this->assertDatabaseHas('quotation_notes', [
+            'quotation_id' => $quotation->id,
+            'description' => 'Passport must be valid for at least 6 months.',
+            'sort_order' => 2,
+        ]);
+        $this->assertSame(
+            2,
+            QuotationNotes::query()->where('quotation_id', $quotation->id)->count()
+        );
     }
 }

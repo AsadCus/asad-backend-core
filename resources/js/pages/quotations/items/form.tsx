@@ -677,7 +677,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         <ProperInput
                             value={item.quantity ?? ''}
                             type="number"
-                            inputProps={{ step: 'any', min: 0 }}
+                            inputProps={{ step: 'any' }}
                             disabled={disabled}
                             size="compact"
                             onCommit={(v) =>
@@ -712,7 +712,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         <ProperInput
                             value={item.rate ?? ''}
                             type="number"
-                            inputProps={{ step: '1' }}
+                            inputProps={{ step: 'any' }}
                             disabled={disabled}
                             size="compact"
                             onCommit={(v) =>

@@ -228,24 +228,18 @@ export type ManifestApiResponseSchema = z.infer<
 >;
 
 export const manifestStatusOptions = [
-    { label: 'Draft', value: 'draft' },
-    { label: 'Confirmed', value: 'confirmed' },
-    { label: 'Completed', value: 'completed' },
-    { label: 'Cancelled', value: 'cancelled' },
+    { label: 'Open', value: 'open' },
+    { label: 'Closed', value: 'closed' },
 ];
 
 export const manifestStatusColors: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-800',
-    confirmed: 'bg-blue-100 text-blue-800',
-    completed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-red-100 text-red-800',
+    open: 'bg-green-100 text-green-800',
+    closed: 'bg-red-100 text-red-800',
 };
 
 export const manifestStatusLabels: Record<string, string> = {
-    draft: 'Draft',
-    confirmed: 'Confirmed',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
+    open: 'Open',
+    closed: 'Closed',
 };
 
 export const roomStatusOptions = [

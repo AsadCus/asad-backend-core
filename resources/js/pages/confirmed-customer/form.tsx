@@ -586,8 +586,13 @@ export default function CustomerConfirmationForm({
                 first_time_umrah: customer.first_time_umrah ?? null,
                 has_chronic_disease: customer.has_chronic_disease ?? false,
                 chronic_disease_details: customer.chronic_disease_details ?? '',
-                passport_path: customer.passport_path ?? null,
-                photo_path: customer.photo_path ?? null,
+                passport_document: customer.passport_document ?? null,
+                photo_document: customer.photo_document ?? null,
+                passport_file_name:
+                    customer.passport_document?.file_name ?? null,
+                photo_file_name: customer.photo_document?.file_name ?? null,
+                passport_file_removed: false,
+                photo_file_removed: false,
             });
         }
 
@@ -1264,6 +1269,7 @@ export default function CustomerConfirmationForm({
                                                     <CustomerFormFields
                                                         customer={customer}
                                                         index={idx}
+                                                        useGeneratedDocumentName
                                                         isView={isView}
                                                         processing={processing}
                                                         getError={getError}

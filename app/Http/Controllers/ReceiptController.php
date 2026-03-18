@@ -70,7 +70,7 @@ class ReceiptController extends Controller
     {
         $validated = $request->validate([
             'invoice_id' => ['required', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['required', 'numeric'],
             'receipt_date' => ['required', 'date'],
             'payment_method' => ['nullable', 'string'],
             'reference' => ['nullable', 'string'],
@@ -113,7 +113,7 @@ class ReceiptController extends Controller
     {
         $validated = $request->validate([
             'invoice_id' => ['nullable', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')->ignore((int) $id)],
-            'amount' => ['nullable', 'numeric', 'min:0'],
+            'amount' => ['nullable', 'numeric'],
             'receipt_date' => ['required', 'date'],
             'payment_method' => ['nullable', 'string'],
             'reference' => ['nullable', 'string'],
@@ -200,11 +200,11 @@ class ReceiptController extends Controller
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96);
 
-            return $pdf->stream($data['receipt_number'] . '.pdf');
+            return $pdf->stream($data['receipt_number'].'.pdf');
         } catch (\Exception $e) {
-            Log::error('Receipt PDF Generation Error: ' . $e->getMessage());
+            Log::error('Receipt PDF Generation Error: '.$e->getMessage());
 
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 }

@@ -13,7 +13,6 @@ class Manifest extends Model
         'package_id',
         'manifest_number',
         'notes',
-        'status',
     ];
 
     public function package(): BelongsTo

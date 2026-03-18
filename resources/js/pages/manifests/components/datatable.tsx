@@ -246,19 +246,7 @@ function isOfficialTraveler(traveler: TravelerWithUI): boolean {
     return !!traveler.package_official_id;
 }
 
-function shouldHideRoomTraveler(
-    mode: TableMode,
-    traveler: TravelerWithUI,
-    _currentLocationKey?: string,
-): boolean {
-    if (mode !== 'room' && mode !== 'room_check') {
-        return false;
-    }
-
-    if (!isOfficialTraveler(traveler)) {
-        return false;
-    }
-
+function shouldHideRoomTraveler(): boolean {
     return false;
 }
 
@@ -303,6 +291,14 @@ function toMemberDndId(traveler: TravelerWithUI, flatIndex: number): string {
     return `m-${toMemberId(traveler, flatIndex)}-${flatIndex}`;
 }
 
+function getTravelerGroupKey(traveler: TravelerWithUI, index: number): string {
+    if (traveler.sharing_group_key && traveler.sharing_group_key.trim()) {
+        return traveler.sharing_group_key;
+    }
+
+    return `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? traveler.package_official_id ?? traveler.id ?? index}`;
+}
+
 function SortableRow({
     id,
     disabled,
@@ -344,50 +340,6 @@ function SelectCell({
             disabled={disabled}
             size="default"
         />
-    );
-}
-
-function TravelerActionItems({
-    mode,
-    disabled,
-    canMoveToHolding,
-    onMoveToHolding,
-    canToggleRoomAssignment,
-    isRoomAssigned,
-    onToggleRoomAssignment,
-}: {
-    mode: TableMode;
-    disabled: boolean;
-    canMoveToHolding: boolean;
-    onMoveToHolding: () => void;
-    canToggleRoomAssignment: boolean;
-    isRoomAssigned: boolean;
-    onToggleRoomAssignment: () => void;
-}) {
-    if (mode === 'room' || mode === 'room_check') {
-        return (
-            <>
-                {canToggleRoomAssignment && (
-                    <DropdownMenuItem
-                        disabled={disabled}
-                        onClick={onToggleRoomAssignment}
-                    >
-                        {isRoomAssigned ? 'Unassign Room' : 'Assign Room'}
-                    </DropdownMenuItem>
-                )}
-            </>
-        );
-    }
-
-    return (
-        <>
-            <DropdownMenuItem
-                disabled={!canMoveToHolding || disabled}
-                onClick={onMoveToHolding}
-            >
-                Move to Holding
-            </DropdownMenuItem>
-        </>
     );
 }
 
@@ -466,9 +418,7 @@ export default function ManifestDatatable({
         const map = new Map<string, GroupMember[]>();
 
         rows.forEach((row, flatIndex) => {
-            const key =
-                row.sharing_group_key ??
-                `solo-${row.customer_confirmation_member_id ?? flatIndex}`;
+            const key = getTravelerGroupKey(row, flatIndex);
 
             if (!map.has(key)) {
                 map.set(key, []);
@@ -518,12 +468,7 @@ export default function ManifestDatatable({
 
         groups.forEach((group) => {
             const visibleMembers = group.members.filter(
-                (member) =>
-                    !shouldHideRoomTraveler(
-                        mode,
-                        member.traveler,
-                        currentRoomLocationKey,
-                    ),
+                () => !shouldHideRoomTraveler(),
             );
 
             if (visibleMembers.length === 0) {
@@ -557,7 +502,7 @@ export default function ManifestDatatable({
         });
 
         return items;
-    }, [groups, expanded, isGrouped, mode, currentRoomLocationKey]);
+    }, [groups, expanded, isGrouped]);
 
     const roomRowColorByGroupKey = useMemo<Record<string, string>>(() => {
         if (mode !== 'room' && mode !== 'room_check') {
@@ -701,10 +646,8 @@ export default function ManifestDatatable({
             patch.bed_type = getBedTypeFromRoomType(roomType);
         }
 
-        const next = rows.map((row) => {
-            const key =
-                row.sharing_group_key ??
-                `solo-${row.customer_confirmation_member_id}`;
+        const next = rows.map((row, rowIndex) => {
+            const key = getTravelerGroupKey(row, rowIndex);
 
             if (key === groupKey) {
                 return { ...row, ...patch };
@@ -891,8 +834,8 @@ export default function ManifestDatatable({
         emitReorderedRows(newGroups);
     };
 
-    const splitGroupInMainTab = (groupKey: string) => {
-        if (mode !== 'travelers') {
+    const splitGroupByCapacity = (groupKey: string) => {
+        if (mode !== 'travelers' && mode !== 'room') {
             return;
         }
 
@@ -1102,7 +1045,7 @@ export default function ManifestDatatable({
         const drag = allowReorder ? 1 : 0;
 
         if (mode === 'travelers') {
-            return drag + 21;
+            return drag + 27;
         }
 
         if (mode === 'room') {
@@ -1114,7 +1057,7 @@ export default function ManifestDatatable({
         }
 
         if (mode === 'course_collection') {
-            return drag + 12;
+            return drag + 13;
         }
 
         return drag + 11;
@@ -1192,6 +1135,28 @@ export default function ManifestDatatable({
             )}
             {mode === 'travelers' && (
                 <TableHead className="min-w-35">Package Price</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-35">Discount</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-55">
+                    Date of Deposit Payment
+                </TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-35">Deposit Payment</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-55">
+                    Date of Second Payment
+                </TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-35">Second Payment</TableHead>
+            )}
+            {mode === 'travelers' && (
+                <TableHead className="min-w-35">Balance Due</TableHead>
             )}
             {mode === 'airline' && (
                 <TableHead className="min-w-40">Passport No</TableHead>
@@ -1292,7 +1257,7 @@ export default function ManifestDatatable({
             {mode !== 'course_collection' && (
                 <TableHead className="min-w-60">Remarks</TableHead>
             )}
-            {mode !== 'course_collection' && <TableHead>Action</TableHead>}
+            <TableHead>Action</TableHead>
         </TableRow>
     );
 
@@ -1322,7 +1287,12 @@ export default function ManifestDatatable({
             Number.isFinite(capacity) && item.memberCount >= capacity;
         const disableRoomFields = isRoomCheckMode || disabled;
 
-        return (
+        const canSplitGroup =
+            (mode === 'travelers' || mode === 'room') &&
+            !disabled &&
+            item.memberCount > 1;
+
+        const rowContent = (
             <TableRow
                 ref={setNodeRef}
                 style={{
@@ -1418,6 +1388,12 @@ export default function ManifestDatatable({
                                 size="default"
                             />
                         </TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
                         <TableCell />
                         <TableCell />
                         <TableCell />
@@ -1654,38 +1630,57 @@ export default function ManifestDatatable({
                 )}
 
                 <TableCell>
-                    {mode === 'travelers' ? (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 p-0"
-                                    disabled={disabled || item.memberCount < 2}
-                                >
-                                    <span className="sr-only">
-                                        Open group actions
-                                    </span>
-                                    <EllipsisVertical className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 p-0"
+                            >
+                                <span className="sr-only">
+                                    Open group actions
+                                </span>
+                                <EllipsisVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {canSplitGroup ? (
                                 <DropdownMenuItem
-                                    disabled={disabled || item.memberCount < 2}
                                     onClick={() =>
-                                        splitGroupInMainTab(item.groupKey)
+                                        splitGroupByCapacity(item.groupKey)
                                     }
                                 >
                                     Split Up Group
                                 </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    ) : (
-                        <span className="text-muted-foreground">-</span>
-                    )}
+                            ) : (
+                                <DropdownMenuItem disabled>
+                                    No actions available
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </TableCell>
             </TableRow>
+        );
+
+        return (
+            <ContextMenu>
+                <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                    {canSplitGroup ? (
+                        <ContextMenuItem
+                            onClick={() => splitGroupByCapacity(item.groupKey)}
+                        >
+                            Split Up Group
+                        </ContextMenuItem>
+                    ) : (
+                        <ContextMenuItem disabled>
+                            No actions available
+                        </ContextMenuItem>
+                    )}
+                </ContextMenuContent>
+            </ContextMenu>
         );
     };
 
@@ -1707,7 +1702,6 @@ export default function ManifestDatatable({
             traveler.status !== 'cancelled' &&
             !!traveler.customer_confirmation_member_id;
 
-        const isRoomMode = mode === 'room' || mode === 'room_check';
         const isOfficialRoomTraveler = isOfficialTraveler(traveler);
         const roomLocationKeys = roomAssignmentOptions
             .map((option) => normalizeRoomLocationKey(option.key))
@@ -1745,6 +1739,8 @@ export default function ManifestDatatable({
                 : assignedLocations.includes(defaultLocationKey);
 
         const memberDisabled = mode === 'room_check' || disabled;
+        const remarksDisabled = disabled;
+        const isOfficialTravelerRow = isOfficialTraveler(traveler);
 
         const canToggleRoomAssignment =
             isOfficialRoomTraveler && (mode === 'room' || mode === 'travelers');
@@ -1782,6 +1778,18 @@ export default function ManifestDatatable({
                 fallbackScope,
             );
         };
+
+        const canShowMoveToHoldingAction =
+            mode === 'travelers' && canMoveToHolding && !disabled;
+        const canShowToggleRoomAction =
+            (mode === 'room' || mode === 'room_check') &&
+            canToggleRoomAssignment &&
+            !disabled;
+        const hasTravelerAction =
+            canShowMoveToHoldingAction ||
+            canShowToggleRoomAction ||
+            canShowUnassignByLocation ||
+            canShowAssignByLocation;
 
         const rowContent = (
             <TableRow
@@ -2122,6 +2130,7 @@ export default function ManifestDatatable({
                     <TableCell>
                         <ProperInput
                             value={
+                                !isOfficialTravelerRow &&
                                 traveler.package_price !== null &&
                                 traveler.package_price !== undefined
                                     ? String(traveler.package_price)
@@ -2136,23 +2145,125 @@ export default function ManifestDatatable({
 
                 {mode === 'travelers' && (
                     <TableCell>
-                        {(() => {
-                            const status = traveler.status ?? 'draft';
-                            const statusColor =
-                                confirmationMemberStatusColors[status] ??
-                                'bg-gray-100 text-gray-800';
-                            const statusLabel =
-                                confirmationMemberStatusLabels[status] ??
-                                status;
+                        <ProperInput
+                            value={
+                                !isOfficialTravelerRow &&
+                                traveler.discount !== null &&
+                                traveler.discount !== undefined
+                                    ? String(traveler.discount)
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
 
-                            return (
-                                <Badge
-                                    className={`${statusColor} rounded-full px-3 py-1 text-base`}
-                                >
-                                    {statusLabel}
-                                </Badge>
-                            );
-                        })()}
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialTravelerRow
+                                    ? (traveler.date_of_deposit_payment ?? '')
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialTravelerRow &&
+                                traveler.deposit_payment !== null &&
+                                traveler.deposit_payment !== undefined
+                                    ? String(traveler.deposit_payment)
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialTravelerRow
+                                    ? (traveler.date_of_second_payment ?? '')
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialTravelerRow &&
+                                traveler.second_payment !== null &&
+                                traveler.second_payment !== undefined
+                                    ? String(traveler.second_payment)
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialTravelerRow &&
+                                traveler.balance_due !== null &&
+                                traveler.balance_due !== undefined
+                                    ? String(traveler.balance_due)
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'travelers' && (
+                    <TableCell>
+                        {isOfficialTravelerRow ? (
+                            <span className="text-muted-foreground">-</span>
+                        ) : (
+                            (() => {
+                                const status = traveler.status ?? 'draft';
+                                const statusColor =
+                                    confirmationMemberStatusColors[status] ??
+                                    'bg-gray-100 text-gray-800';
+                                const statusLabel =
+                                    confirmationMemberStatusLabels[status] ??
+                                    status;
+
+                                return (
+                                    <Badge
+                                        className={`${statusColor} rounded-full px-3 py-1 text-base`}
+                                    >
+                                        {statusLabel}
+                                    </Badge>
+                                );
+                            })()
+                        )}
                     </TableCell>
                 )}
 
@@ -2555,7 +2666,7 @@ export default function ManifestDatatable({
                             onCommit={(value) =>
                                 updateMemberField(flatIndex, 'remarks', value)
                             }
-                            disabled={memberDisabled}
+                            disabled={remarksDisabled}
                             textarea
                             size="default"
                             className="min-h-[70px]"
@@ -2576,7 +2687,6 @@ export default function ManifestDatatable({
                                         variant="outline"
                                         size="icon"
                                         className="h-8 w-8 p-0"
-                                        disabled={disabled}
                                     >
                                         <span className="sr-only">
                                             Open actions
@@ -2585,115 +2695,134 @@ export default function ManifestDatatable({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <TravelerActionItems
-                                        mode={mode}
-                                        disabled={disabled}
-                                        canMoveToHolding={canMoveToHolding}
-                                        onMoveToHolding={() =>
-                                            onMoveToHolding?.(traveler)
-                                        }
-                                        canToggleRoomAssignment={
-                                            canToggleRoomAssignment
-                                        }
-                                        isRoomAssigned={isRoomAssigned}
-                                        onToggleRoomAssignment={
-                                            toggleRoomAssignment
-                                        }
-                                    />
-                                    {canShowUnassignByLocation && (
-                                        <DropdownMenuSub>
-                                            <DropdownMenuSubTrigger>
-                                                Unassign by Location
-                                            </DropdownMenuSubTrigger>
-                                            <DropdownMenuSubContent>
-                                                {assignedLocations.map(
-                                                    (location) => {
-                                                        const option =
-                                                            roomAssignmentOptions.find(
-                                                                (item) =>
-                                                                    normalizeRoomLocationKey(
-                                                                        item.key,
-                                                                    ) ===
-                                                                    location,
-                                                            );
-
-                                                        return (
-                                                            <DropdownMenuItem
-                                                                key={`unassign-${location}`}
-                                                                onClick={() =>
-                                                                    setTravelerRoomAssignment(
-                                                                        'unassign',
-                                                                        location,
-                                                                    )
-                                                                }
-                                                            >
-                                                                {option?.label ??
-                                                                    location}
-                                                            </DropdownMenuItem>
-                                                        );
-                                                    },
-                                                )}
+                                    {hasTravelerAction ? (
+                                        <>
+                                            {canShowMoveToHoldingAction && (
                                                 <DropdownMenuItem
                                                     onClick={() =>
-                                                        setTravelerRoomAssignment(
-                                                            'unassign',
-                                                            'all',
+                                                        onMoveToHolding?.(
+                                                            traveler,
                                                         )
                                                     }
                                                 >
-                                                    All
+                                                    Move to Holding
                                                 </DropdownMenuItem>
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-                                    )}
+                                            )}
+                                            {canShowToggleRoomAction && (
+                                                <DropdownMenuItem
+                                                    onClick={
+                                                        toggleRoomAssignment
+                                                    }
+                                                >
+                                                    {isRoomAssigned
+                                                        ? 'Unassign Room'
+                                                        : 'Assign Room'}
+                                                </DropdownMenuItem>
+                                            )}
+                                            {canShowUnassignByLocation && (
+                                                <DropdownMenuSub>
+                                                    <DropdownMenuSubTrigger>
+                                                        Unassign by Location
+                                                    </DropdownMenuSubTrigger>
+                                                    <DropdownMenuSubContent>
+                                                        {assignedLocations.map(
+                                                            (location) => {
+                                                                const option =
+                                                                    roomAssignmentOptions.find(
+                                                                        (
+                                                                            item,
+                                                                        ) =>
+                                                                            normalizeRoomLocationKey(
+                                                                                item.key,
+                                                                            ) ===
+                                                                            location,
+                                                                    );
 
-                                    {canShowAssignByLocation && (
-                                        <DropdownMenuSub>
-                                            <DropdownMenuSubTrigger>
-                                                Assign by Location
-                                            </DropdownMenuSubTrigger>
-                                            <DropdownMenuSubContent>
-                                                {explicitUnassignedLocations.map(
-                                                    (location) => {
-                                                        const option =
-                                                            roomAssignmentOptions.find(
-                                                                (item) =>
-                                                                    normalizeRoomLocationKey(
-                                                                        item.key,
-                                                                    ) ===
-                                                                    location,
-                                                            );
+                                                                return (
+                                                                    <DropdownMenuItem
+                                                                        key={`unassign-${location}`}
+                                                                        onClick={() =>
+                                                                            setTravelerRoomAssignment(
+                                                                                'unassign',
+                                                                                location,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {option?.label ??
+                                                                            location}
+                                                                    </DropdownMenuItem>
+                                                                );
+                                                            },
+                                                        )}
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                setTravelerRoomAssignment(
+                                                                    'unassign',
+                                                                    'all',
+                                                                )
+                                                            }
+                                                        >
+                                                            All
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuSub>
+                                            )}
 
-                                                        return (
+                                            {canShowAssignByLocation && (
+                                                <DropdownMenuSub>
+                                                    <DropdownMenuSubTrigger>
+                                                        Assign by Location
+                                                    </DropdownMenuSubTrigger>
+                                                    <DropdownMenuSubContent>
+                                                        {explicitUnassignedLocations.map(
+                                                            (location) => {
+                                                                const option =
+                                                                    roomAssignmentOptions.find(
+                                                                        (
+                                                                            item,
+                                                                        ) =>
+                                                                            normalizeRoomLocationKey(
+                                                                                item.key,
+                                                                            ) ===
+                                                                            location,
+                                                                    );
+
+                                                                return (
+                                                                    <DropdownMenuItem
+                                                                        key={`assign-${location}`}
+                                                                        onClick={() =>
+                                                                            setTravelerRoomAssignment(
+                                                                                'assign',
+                                                                                location,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {option?.label ??
+                                                                            location}
+                                                                    </DropdownMenuItem>
+                                                                );
+                                                            },
+                                                        )}
+                                                        {canShowAssignAllOption && (
                                                             <DropdownMenuItem
-                                                                key={`assign-${location}`}
                                                                 onClick={() =>
                                                                     setTravelerRoomAssignment(
                                                                         'assign',
-                                                                        location,
+                                                                        'all',
                                                                     )
                                                                 }
                                                             >
-                                                                {option?.label ??
-                                                                    location}
+                                                                All
                                                             </DropdownMenuItem>
-                                                        );
-                                                    },
-                                                )}
-                                                {canShowAssignAllOption && (
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            setTravelerRoomAssignment(
-                                                                'assign',
-                                                                'all',
-                                                            )
-                                                        }
-                                                    >
-                                                        All
-                                                    </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
+                                                        )}
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuSub>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <DropdownMenuItem disabled>
+                                            No actions available
+                                        </DropdownMenuItem>
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -2709,14 +2838,22 @@ export default function ManifestDatatable({
             <ContextMenu>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                    {mode === 'travelers' ? (
+                    {hasTravelerAction ? (
                         <>
-                            <ContextMenuItem
-                                disabled={!canMoveToHolding || disabled}
-                                onClick={() => onMoveToHolding?.(traveler)}
-                            >
-                                Move to Holding
-                            </ContextMenuItem>
+                            {canShowMoveToHoldingAction && (
+                                <ContextMenuItem
+                                    onClick={() => onMoveToHolding?.(traveler)}
+                                >
+                                    Move to Holding
+                                </ContextMenuItem>
+                            )}
+                            {canShowToggleRoomAction && (
+                                <ContextMenuItem onClick={toggleRoomAssignment}>
+                                    {isRoomAssigned
+                                        ? 'Unassign Room'
+                                        : 'Assign Room'}
+                                </ContextMenuItem>
+                            )}
                             {canShowUnassignByLocation && (
                                 <>
                                     <ContextMenuSub>
@@ -2813,22 +2950,9 @@ export default function ManifestDatatable({
                             )}
                         </>
                     ) : (
-                        <>
-                            {canToggleRoomAssignment ? (
-                                <ContextMenuItem
-                                    disabled={disabled}
-                                    onClick={toggleRoomAssignment}
-                                >
-                                    {isRoomAssigned
-                                        ? 'Unassign Room'
-                                        : 'Assign Room'}
-                                </ContextMenuItem>
-                            ) : (
-                                <ContextMenuItem disabled>
-                                    No actions available
-                                </ContextMenuItem>
-                            )}
-                        </>
+                        <ContextMenuItem disabled>
+                            No actions available
+                        </ContextMenuItem>
                     )}
                 </ContextMenuContent>
             </ContextMenu>
@@ -2841,10 +2965,10 @@ export default function ManifestDatatable({
     ) => {
         const toggleCheck = (field: keyof TravelerWithUI) => {
             const currentValue = row[field];
-            updateFlatRow(index, field, !Boolean(currentValue));
+            updateFlatRow(index, field, !currentValue);
         };
 
-        return (
+        const rowContent = (
             <TableRow key={row._rowId} className="odd:bg-muted/35">
                 <TableCell>{row.sn ?? index + 1}</TableCell>
                 <TableCell>
@@ -2934,7 +3058,38 @@ export default function ManifestDatatable({
                         className="mx-auto h-6 w-6 border-2"
                     />
                 </TableCell>
+                <TableCell>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 p-0"
+                            >
+                                <span className="sr-only">Open actions</span>
+                                <EllipsisVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem disabled>
+                                No actions available
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </TableCell>
             </TableRow>
+        );
+
+        return (
+            <ContextMenu>
+                <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                    <ContextMenuItem disabled>
+                        No actions available
+                    </ContextMenuItem>
+                </ContextMenuContent>
+            </ContextMenu>
         );
     };
 
@@ -3086,7 +3241,24 @@ export default function ManifestDatatable({
                     {renderCellError(index, 'remarks')}
                 </TableCell>
                 <TableCell>
-                    <span className="text-muted-foreground">-</span>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 p-0"
+                            >
+                                <span className="sr-only">Open actions</span>
+                                <EllipsisVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem disabled>
+                                No actions available
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </TableCell>
             </TableRow>
         );

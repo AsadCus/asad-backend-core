@@ -619,6 +619,139 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         }
     }
 
+    public function test_order_update_with_missing_item_ids_does_not_duplicate_quotation_items(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $quotationItems = collect([
+            ['description' => 'Package Item (Deposit)', 'sort_order' => 1001, 'rate' => 1000],
+            ['description' => 'Package Item (50%)', 'sort_order' => 2001, 'rate' => 1500],
+            ['description' => 'Package Item (Balance)', 'sort_order' => 3001, 'rate' => 2500],
+        ])->map(function (array $item) use ($quotation): QuotationItem {
+            return QuotationItem::create([
+                'quotation_id' => $quotation->id,
+                'description' => $item['description'],
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => $item['rate'],
+                'sort_order' => $item['sort_order'],
+            ]);
+        })->values();
+
+        $invoiceOne = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice Deposit',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceOne->quotationItems()->sync([$quotationItems[0]->id]);
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 50%',
+            'amount' => 1500,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(4)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceTwo->quotationItems()->sync([$quotationItems[1]->id]);
+
+        $invoiceThree = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice Balance',
+            'amount' => 2500,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(5)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceThree->quotationItems()->sync([$quotationItems[2]->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        $payload = [
+            'payment_plan' => 'installment',
+            'invoices' => [
+                [
+                    'id' => $invoiceOne->id,
+                    '_key' => 'inv-deposit',
+                    'description' => 'Invoice Deposit',
+                    'amount' => 1000,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(3)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            '_key' => 'item-deposit',
+                            'description' => 'Package Item (Deposit)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1000,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+                [
+                    'id' => $invoiceTwo->id,
+                    '_key' => 'inv-fifty',
+                    'description' => 'Invoice 50%',
+                    'amount' => 1500,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(4)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            '_key' => 'item-fifty',
+                            'description' => 'Package Item (50%)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1500,
+                            'sort_order' => 2,
+                        ],
+                    ],
+                ],
+                [
+                    'id' => $invoiceThree->id,
+                    '_key' => 'inv-balance',
+                    'description' => 'Invoice Balance',
+                    'amount' => 2500,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(5)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            '_key' => 'item-balance',
+                            'description' => 'Package Item (Balance)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 2500,
+                            'sort_order' => 3,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $orderService->update($payload, $order->id);
+        $orderService->update($payload, $order->id);
+
+        $this->assertSame(
+            3,
+            QuotationItem::query()->where('quotation_id', $quotation->id)->count()
+        );
+
+        $this->assertSame(
+            3,
+            \DB::table('invoice_items')
+                ->whereIn('invoice_id', [$invoiceOne->id, $invoiceTwo->id, $invoiceThree->id])
+                ->count()
+        );
+    }
+
     public function test_order_update_syncs_parent_child_and_between_invoice_sort_order(): void
     {
         $graph = $this->createBaseGraph();

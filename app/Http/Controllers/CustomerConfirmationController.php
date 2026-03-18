@@ -122,7 +122,7 @@ class CustomerConfirmationController extends Controller
             $validated['source_manifest_id'] ?? null,
         );
 
-            return back()->with('success', 'Customer members moved to holding confirmation successfully.');
+        return back()->with('success', 'Customer members moved to holding confirmation successfully.');
     }
 
     /**
@@ -150,8 +150,10 @@ class CustomerConfirmationController extends Controller
             'chronic_disease_details' => ['nullable', 'string', 'max:1000'],
             'passport_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'passport_path' => ['nullable', 'string'],
-            'photo_path' => ['nullable', 'string'],
+            'passport_file_name' => ['nullable', 'string', 'max:255'],
+            'photo_file_name' => ['nullable', 'string', 'max:255'],
+            'passport_file_removed' => ['nullable', 'boolean'],
+            'photo_file_removed' => ['nullable', 'boolean'],
             'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled,unavailable'],
             'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'role' => ['nullable', 'string', 'max:255'],
@@ -159,7 +161,7 @@ class CustomerConfirmationController extends Controller
 
         $member = $this->customerConfirmationService->updateMemberDetails((int) $memberId, $validated);
 
-            return back()->with('success', 'Member updated successfully.');
+        return back()->with('success', 'Member updated successfully.');
     }
 
     /**
@@ -169,7 +171,7 @@ class CustomerConfirmationController extends Controller
     {
         $this->customerConfirmationService->cancelMember((int) $memberId);
 
-            return back()->with('success', 'Member cancelled successfully.');
+        return back()->with('success', 'Member cancelled successfully.');
     }
 
     /**
@@ -190,7 +192,7 @@ class CustomerConfirmationController extends Controller
 
         $successMessage = count($quotations).' quotation(s) created successfully.';
 
-            return redirect()->route('quotation.index')->with('success', $successMessage);
+        return redirect()->route('quotation.index')->with('success', $successMessage);
     }
 
     /**

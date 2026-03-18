@@ -9,7 +9,7 @@ class ManifestRule
         return [
             'package_id' => ['required', 'exists:packages,id'],
             'notes' => ['nullable', 'string'],
-            'status' => ['nullable', 'string', 'in:draft,confirmed,completed,cancelled'],
+            'status' => ['nullable', 'string', 'in:open,closed,draft,confirmed,completed,cancelled'],
 
             // Travelers
             'travelers' => ['nullable', 'array'],

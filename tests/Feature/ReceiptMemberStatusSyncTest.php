@@ -373,4 +373,188 @@ class ReceiptMemberStatusSyncTest extends TestCase
             'id' => $traveler?->id,
         ]);
     }
+
+    public function test_split_quotation_payments_create_separate_manifest_groups_and_rooms_for_same_confirmation(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-SPLIT-001',
+            'name' => 'Split Package',
+            'status' => 'open',
+            'room_type' => 'triple',
+            'price_triple' => 3000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-SPLIT-001',
+            'status' => 'draft',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+        ]);
+
+        $members = collect(range(1, 5))->map(function (int $index) use ($confirmation) {
+            $memberUser = User::factory()->create();
+            $customer = Customer::create([
+                'user_id' => $memberUser->id,
+                'customer_number' => 'CUST-SPLIT-'.$index,
+            ]);
+
+            return CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'is_leader' => $index === 1,
+                'status' => 'pending_payment',
+                'sharing_plan' => 'triple',
+            ]);
+        });
+
+        $quotationOne = Quotation::create([
+            'customer_id' => $members[0]->customer_id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $quotationTwo = Quotation::create([
+            'customer_id' => $members[3]->customer_id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        foreach ([0, 1, 2] as $index) {
+            QuotationItem::create([
+                'quotation_id' => $quotationOne->id,
+                'customer_confirmation_member_id' => $members[$index]->id,
+                'description' => 'Q1 member #'.$members[$index]->id,
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => 3000,
+                'sort_order' => $index + 1,
+            ]);
+        }
+
+        foreach ([3, 4] as $offset => $index) {
+            QuotationItem::create([
+                'quotation_id' => $quotationTwo->id,
+                'customer_confirmation_member_id' => $members[$index]->id,
+                'description' => 'Q2 member #'.$members[$index]->id,
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => 3000,
+                'sort_order' => $offset + 1,
+            ]);
+        }
+
+        $orderOne = Order::create([
+            'quotation_id' => $quotationOne->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $orderTwo = Order::create([
+            'quotation_id' => $quotationTwo->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoiceOne = Invoice::create([
+            'order_id' => $orderOne->id,
+            'description' => 'Q1 Invoice',
+            'amount' => 9000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceOne->quotationItems()->sync(
+            $quotationOne->quotationItems()->pluck('id')->all()
+        );
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $orderTwo->id,
+            'description' => 'Q2 Invoice',
+            'amount' => 6000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceTwo->quotationItems()->sync(
+            $quotationTwo->quotationItems()->pluck('id')->all()
+        );
+
+        Receipt::create([
+            'invoice_id' => $invoiceOne->id,
+            'amount' => 9000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $this->assertDatabaseHas('manifest_sharing_groups', [
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'source_quotation_id' => $quotationOne->id,
+        ]);
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'source_quotation_id' => $quotationOne->id,
+            'room_type' => 'triple',
+            'sharing_plan' => 'triple',
+            'capacity' => 3,
+        ]);
+
+        $roomOneId = (int) \DB::table('manifest_rooms')
+            ->where('manifest_id', $manifest->id)
+            ->where('source_quotation_id', $quotationOne->id)
+            ->value('id');
+
+        $this->assertSame(
+            3,
+            \DB::table('manifest_room_members')
+                ->where('manifest_room_id', $roomOneId)
+                ->count()
+        );
+
+        Receipt::create([
+            'invoice_id' => $invoiceTwo->id,
+            'amount' => 6000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $this->assertDatabaseHas('manifest_sharing_groups', [
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'source_quotation_id' => $quotationTwo->id,
+        ]);
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'source_quotation_id' => $quotationTwo->id,
+            'room_type' => 'triple',
+            'sharing_plan' => 'triple',
+            'capacity' => 3,
+        ]);
+
+        $roomTwoId = (int) \DB::table('manifest_rooms')
+            ->where('manifest_id', $manifest->id)
+            ->where('source_quotation_id', $quotationTwo->id)
+            ->value('id');
+
+        $this->assertSame(
+            2,
+            \DB::table('manifest_room_members')
+                ->where('manifest_room_id', $roomTwoId)
+                ->count()
+        );
+    }
 }

@@ -74,7 +74,7 @@ class InvoiceController extends Controller
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
             'description' => 'nullable|string',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric',
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
             'status' => 'nullable|in:draft,issued,paid,overdue,cancelled',
@@ -119,7 +119,7 @@ class InvoiceController extends Controller
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
             'description' => 'nullable|string',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric',
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
             'status' => 'nullable|in:draft,issued,paid,overdue,cancelled',
@@ -186,11 +186,11 @@ class InvoiceController extends Controller
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96);
 
-            return $pdf->stream($invoice['invoice_number'] . '.pdf');
+            return $pdf->stream($invoice['invoice_number'].'.pdf');
         } catch (\Exception $e) {
-            Log::error('Invoice PDF Generation Error: ' . $e->getMessage());
+            Log::error('Invoice PDF Generation Error: '.$e->getMessage());
 
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 }

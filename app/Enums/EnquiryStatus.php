@@ -26,7 +26,7 @@ enum EnquiryStatus: string
     {
         return match ($this) {
             self::NewLead => self::Contacted,
-            self::Contacted => self::Negotiating,
+            self::Contacted => self::Confirmed,
             self::Negotiating => self::Confirmed,
             self::Confirmed => null,
         };
@@ -47,7 +47,11 @@ enum EnquiryStatus: string
      */
     public static function values(): array
     {
-        return array_column(self::cases(), 'value');
+        return [
+            self::NewLead->value,
+            self::Contacted->value,
+            self::Confirmed->value,
+        ];
     }
 
     /**
@@ -60,6 +64,10 @@ enum EnquiryStatus: string
         return array_map(fn (self $status) => [
             'label' => $status->label(),
             'value' => $status->value,
-        ], self::cases());
+        ], [
+            self::NewLead,
+            self::Contacted,
+            self::Confirmed,
+        ]);
     }
 }

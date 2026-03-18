@@ -114,4 +114,52 @@ class ReceiptControllerValidationTest extends TestCase
                 'invoice_id',
             ]);
     }
+
+    public function test_receipt_store_allows_negative_amount(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RCP-NEG-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Credit invoice',
+            'amount' => -200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(5)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        $response = $this->post(route('receipt.store'), [
+            'invoice_id' => $invoice->id,
+            'amount' => -200,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response->assertRedirect(route('invoice.index'));
+
+        $this->assertDatabaseHas('receipts', [
+            'invoice_id' => $invoice->id,
+            'amount' => '-200.00',
+        ]);
+    }
 }

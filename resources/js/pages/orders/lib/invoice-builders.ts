@@ -3,6 +3,10 @@ import { InvoiceItemSchema, InvoiceSchema } from '@/pages/invoices/schema';
 import { QuotationSchema } from '@/pages/quotations/schema';
 import { nanoid } from 'nanoid';
 
+type QuotationExtensionInput = {
+    amount?: number | string | null;
+};
+
 export function autoFillInvoiceDates(
     invoices: InvoiceSchema[],
     defaultDate?: string,
@@ -20,6 +24,55 @@ export function autoFillInvoiceDates(
 
 function roundToCents(value: number): number {
     return Math.round(value * 100) / 100;
+}
+
+function sumExtensions(extensions: QuotationExtensionInput[] = []): number {
+    return roundToCents(
+        extensions.reduce(
+            (sum, extension) => sum + Number(extension.amount ?? 0),
+            0,
+        ),
+    );
+}
+
+function applyExtensionToInvoices(
+    invoices: InvoiceSchema[],
+    extensionTotal: number,
+): InvoiceSchema[] {
+    if (!invoices.length || extensionTotal === 0) {
+        return invoices;
+    }
+
+    const baseAmounts = invoices.map((invoice) => Number(invoice.amount ?? 0));
+    const baseTotalAbs = baseAmounts.reduce(
+        (sum, amount) => sum + Math.abs(amount),
+        0,
+    );
+
+    const shares = invoices.map((_, index) => {
+        if (index === invoices.length - 1) {
+            return extensionTotal;
+        }
+
+        if (baseTotalAbs === 0) {
+            return 0;
+        }
+
+        return roundToCents(
+            extensionTotal * (Math.abs(baseAmounts[index]) / baseTotalAbs),
+        );
+    });
+
+    const allocatedSoFar = shares
+        .slice(0, Math.max(0, shares.length - 1))
+        .reduce((sum, amount) => sum + amount, 0);
+
+    shares[shares.length - 1] = roundToCents(extensionTotal - allocatedSoFar);
+
+    return invoices.map((invoice, index) => ({
+        ...invoice,
+        amount: roundToCents(Number(invoice.amount ?? 0) + shares[index]),
+    }));
 }
 
 function stripInstallmentSuffix(description?: string | null): string {
@@ -243,15 +296,19 @@ export function buildInvoicesFromItems(
     totalAmount?: number,
     depositType?: string | null,
     depositValue?: number | string | null,
+    extensions: QuotationExtensionInput[] = [],
 ): InvoiceSchema[] {
     let invoices: InvoiceSchema[] = [];
+    const extensionTotal = sumExtensions(extensions);
 
     const sourceItems =
         paymentPlan === 'full' || paymentPlan === 'direct'
             ? mergeSplitInstallmentItems(items)
             : items;
 
-    const amount = totalAmount ?? calculateTotal(sourceItems);
+    const amount =
+        totalAmount ??
+        roundToCents(calculateTotal(sourceItems) + extensionTotal);
 
     if (paymentPlan === 'direct') {
         invoices = [
@@ -303,6 +360,10 @@ export function buildInvoicesFromItems(
         ];
     }
 
+    if (paymentPlan === 'installment') {
+        return applyExtensionToInvoices(invoices, extensionTotal);
+    }
+
     return invoices;
 }
 
@@ -347,6 +408,7 @@ export function buildInitialInvoices(
         Number(quotation.total_amount),
         undefined,
         undefined,
+        quotation.extensions ?? [],
     );
 }
 

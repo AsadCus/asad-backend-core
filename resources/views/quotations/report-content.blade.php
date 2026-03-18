@@ -268,8 +268,20 @@
 
         {{-- Totals --}}
         <div class="totals-wrapper">
-            <span class="total-label">Total Amount:&nbsp;</span>
-            <span class="total-amount">{{ formatCurrency($subtotal) }}</span>
+            <div>
+                <span class="total-label">Sub Total:&nbsp;</span>
+                <span class="total-amount">{{ formatCurrency($subtotal) }}</span>
+            </div>
+            @if (!empty($data['extensions']) && count($data['extensions']) > 0)
+                <div>
+                    <span class="total-label">Quotation Extension:&nbsp;</span>
+                    <span class="total-amount">{{ formatCurrency($data['extension_total_amount'] ?? 0) }}</span>
+                </div>
+            @endif
+            <div>
+                <span class="total-label">Total Amount:&nbsp;</span>
+                <span class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</span>
+            </div>
         </div>
     </div>
 

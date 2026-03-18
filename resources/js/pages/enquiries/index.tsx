@@ -366,7 +366,6 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
                                 if (
                                     action === 'enquiry-status-contacted' ||
-                                    action === 'enquiry-status-negotiating' ||
                                     action === 'enquiry-status-confirmed'
                                 ) {
                                     const actionType = action.replace(

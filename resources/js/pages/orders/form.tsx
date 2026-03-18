@@ -17,6 +17,7 @@ import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatCurrency } from '@/lib/utils';
 import { InvoiceHeader } from '../invoices/components/invoice-header';
 import {
     calculateInvoicesTotal,
@@ -168,6 +169,7 @@ export default function OrderForm({
                             Number(quotation.total_amount ?? 0),
                             depositType,
                             depositValue,
+                            quotation.extensions ?? [],
                         ),
                         quotation.quotation_date ?? '',
                     ),
@@ -573,6 +575,35 @@ export default function OrderForm({
     function toggleQuotation() {
         setQuotationCollapsed((prev) => !prev);
     }
+
+    const quotationSubtotalAmount = Number(
+        quotation?.subtotal_amount ??
+            quotation?.items?.reduce((sum, item) => {
+                if (item.is_header) {
+                    return sum;
+                }
+
+                return (
+                    sum + Number(item.quantity ?? 0) * Number(item.rate ?? 0)
+                );
+            }, 0) ??
+            0,
+    );
+
+    const quotationExtensions = quotation?.extensions ?? [];
+    const quotationExtensionTotalAmount = Number(
+        quotation?.extension_total_amount ??
+            quotationExtensions.reduce(
+                (sum, extension) => sum + Number(extension.amount ?? 0),
+                0,
+            ) ??
+            0,
+    );
+
+    const quotationTotalAmount = Number(
+        quotation?.total_amount ??
+            quotationSubtotalAmount + quotationExtensionTotalAmount,
+    );
 
     // preview
     // const [previewInvoice, setPreviewInvoice] = useState<InvoiceSchema | null>(
@@ -1161,6 +1192,66 @@ export default function OrderForm({
                                                     memberSharingPlanById
                                                 }
                                             />
+
+                                            <div className="space-y-3 rounded-md border p-4">
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-muted-foreground">
+                                                        Sub Total
+                                                    </span>
+                                                    <span className="font-semibold">
+                                                        {formatCurrency(
+                                                            quotationSubtotalAmount,
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                {quotationExtensions.map(
+                                                    (extension, index) => (
+                                                        <div
+                                                            key={
+                                                                extension._key ??
+                                                                `quotation-extension-${index}`
+                                                            }
+                                                            className="flex items-center justify-between gap-3 text-sm"
+                                                        >
+                                                            <span className="text-muted-foreground">
+                                                                {extension.name ||
+                                                                    'Extension'}
+                                                            </span>
+                                                            <span className="font-semibold">
+                                                                {formatCurrency(
+                                                                    Number(
+                                                                        extension.amount ??
+                                                                            0,
+                                                                    ),
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    ),
+                                                )}
+
+                                                <div className="flex items-center justify-between border-t pt-3 text-sm">
+                                                    <span className="text-muted-foreground">
+                                                        Extension Total
+                                                    </span>
+                                                    <span className="font-semibold">
+                                                        {formatCurrency(
+                                                            quotationExtensionTotalAmount,
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-base">
+                                                    <span className="font-semibold">
+                                                        Total Amount
+                                                    </span>
+                                                    <span className="text-lg font-bold text-primary">
+                                                        {formatCurrency(
+                                                            quotationTotalAmount,
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </>
                                     )}
                                 </CardContent>

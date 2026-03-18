@@ -62,29 +62,56 @@ class Quotation extends Model
         return $this->hasMany(QuotationNotes::class);
     }
 
+    public function quotationExtensions(): HasMany
+    {
+        return $this->hasMany(QuotationExtension::class);
+    }
+
     // Computed Attributes
+    public function itemSubtotalAmount(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->computeItemSubtotalCents() / 100
+        );
+    }
+
+    public function extensionTotalAmount(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->computeExtensionTotalCents() / 100
+        );
+    }
+
     public function totalAmount(): Attribute
     {
         return Attribute::make(
-            get: function () {
-                $totalCents = $this->quotationItems->reduce(
-                    function (int $sum, $item) {
-                        if ($item->is_header) {
-                            return $sum;
-                        }
+            get: fn () => ($this->computeItemSubtotalCents() + $this->computeExtensionTotalCents()) / 100
+        );
+    }
 
-                        $quantity = (float) ($item->quantity ?? 0);
-                        $rate = (float) ($item->rate ?? 0);
+    private function computeItemSubtotalCents(): int
+    {
+        return $this->quotationItems->reduce(
+            function (int $sum, $item) {
+                if ($item->is_header) {
+                    return $sum;
+                }
 
-                        $amountCents = (int) round($quantity * $rate * 100);
+                $quantity = (float) ($item->quantity ?? 0);
+                $rate = (float) ($item->rate ?? 0);
+                $amountCents = (int) round($quantity * $rate * 100);
 
-                        return $sum + $amountCents;
-                    },
-                    0
-                );
+                return $sum + $amountCents;
+            },
+            0
+        );
+    }
 
-                return $totalCents / 100;
-            }
+    private function computeExtensionTotalCents(): int
+    {
+        return $this->quotationExtensions->reduce(
+            fn (int $sum, QuotationExtension $extension) => $sum + (int) round(((float) $extension->amount) * 100),
+            0
         );
     }
 

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Models\Invoice;
+use App\Models\QuotationExtension;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceService
@@ -25,12 +27,12 @@ class InvoiceService
 
     public function getForDataTable(array $filters = [])
     {
-        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy'])
+        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name'])
             ->with('receipt:id,invoice_id')
             ->withCount('receipt')
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->whereHas('order.quotation.customer', function ($cq) use ($value) {
-                    $cq->where('handled_by', $value);
+                $q->whereHas('order.quotation.customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
+                    $enquiryQuery->where('handled_by', $value);
                 });
             })
             ->orderBy('invoice_number', 'desc')->get()->map(function ($i) {
@@ -44,8 +46,8 @@ class InvoiceService
                     'customer_id' => $i->order->quotation->customer->id ?? '-',
                     'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
                     'customer_name' => $i->order->quotation->customer->user->name ?? '-',
-                    'sales_id' => $i->order->quotation->customer->handledBy->id ?? '-',
-                    'sales_name' => $i->order->quotation->customer->handledBy->name ?? '-',
+                    'sales_id' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
+                    'sales_name' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
                     'type' => $i->type,
                     'description' => $i->description,
                     'amount' => $this->formatService->cleanDecimal($i->amount),
@@ -101,7 +103,25 @@ class InvoiceService
 
     public function getForEditShow($id)
     {
-        $i = Invoice::with('order')->findOrFail($id);
+        $i = Invoice::with([
+            'quotationItems',
+            'order.quotation.quotationExtensions',
+            'order.quotation.customer.user',
+        ])->findOrFail($id);
+
+        $subtotalAmount = (float) $i->quotationItems
+            ->where('is_header', false)
+            ->sum(function ($item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            });
+
+        $totalAmount = (float) ($i->amount ?? 0);
+        $extensionTotalAmount = round($totalAmount - $subtotalAmount, 2);
+
+        $extensions = $this->allocateExtensionsForTargetTotal(
+            $i->order?->quotation?->quotationExtensions ?? collect(),
+            $extensionTotalAmount,
+        );
 
         return [
             'id' => $i->id,
@@ -124,6 +144,10 @@ class InvoiceService
             'due_date' => $i->due_date_formatted,
             'sales_registration_number' => $i->order->quotation->sales_registration_number,
             'status' => $i->status,
+            'subtotal_amount' => $this->formatService->cleanDecimal($subtotalAmount),
+            'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
+            'total_amount' => $this->formatService->cleanDecimal($totalAmount),
+            'extensions' => $extensions,
             'items' => $i->quotationItems->map(fn ($item) => [
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
@@ -136,6 +160,52 @@ class InvoiceService
                 'sort_order' => $item->sort_order,
             ]),
         ];
+    }
+
+    /**
+     * @param  Collection<int, QuotationExtension>  $extensions
+     * @return array<int, array<string, mixed>>
+     */
+    private function allocateExtensionsForTargetTotal(Collection $extensions, float $targetTotal): array
+    {
+        if ($extensions->isEmpty()) {
+            return [];
+        }
+
+        $sortedExtensions = $extensions
+            ->sortBy('sort_order')
+            ->values();
+
+        $sourceTotal = (float) $sortedExtensions->sum(function (QuotationExtension $extension): float {
+            return (float) ($extension->amount ?? 0);
+        });
+
+        $allocated = [];
+        $runningTotal = 0.0;
+        $lastIndex = $sortedExtensions->count() - 1;
+
+        foreach ($sortedExtensions as $index => $extension) {
+            if ($index === $lastIndex) {
+                $amount = round($targetTotal - $runningTotal, 2);
+            } elseif (abs($sourceTotal) > 0.00001) {
+                $ratio = (float) ($extension->amount ?? 0) / $sourceTotal;
+                $amount = round($targetTotal * $ratio, 2);
+            } else {
+                $amount = 0.0;
+            }
+
+            $runningTotal += $amount;
+
+            $allocated[] = [
+                'id' => $extension->id,
+                'name' => $extension->name,
+                'type' => $extension->type,
+                'sort_order' => $extension->sort_order,
+                'amount' => $this->formatService->cleanDecimal($amount),
+            ];
+        }
+
+        return $allocated;
     }
 
     public function update(array $data, int $id): Invoice

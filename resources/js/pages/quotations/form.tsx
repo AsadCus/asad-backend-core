@@ -167,13 +167,27 @@ export function QuotationForm({
         status: 'draft',
         reason: '',
         items: [],
+        extensions: [],
         model: 'quotation',
         notes: [],
     };
 
+    const normalizedExtensions = (initialData?.extensions ?? []).map(
+        (extension) => ({
+            ...extension,
+            _key:
+                extension._key ??
+                (extension.id ? `id-${extension.id}` : nanoid()),
+            type: extension.type || 'discount',
+            name: extension.name || 'Discount',
+            sort_order: extension.sort_order ?? 1,
+        }),
+    );
+
     const defaultData: QuotationSchema = {
         ...(initialData ?? initialFormState),
         notes: initialNotes,
+        extensions: normalizedExtensions,
         ...(prefilledCustomerId && prefilledCustomerData
             ? {
                   customer_id: Number.parseInt(prefilledCustomerId, 10),

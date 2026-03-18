@@ -1,5 +1,6 @@
 import { FormField } from '@/components/form-field';
 import { FormSection } from '@/components/form-section';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -8,9 +9,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { cn, formatCurrency } from '@/lib/utils';
 import NoteForm from '@/pages/notes/form';
 import { NoteSchema } from '@/pages/notes/schema';
 import { OptionType } from '@/types';
+import { Trash2 } from 'lucide-react';
+import { nanoid } from 'nanoid';
 import React from 'react';
 import { ProperInput } from '../../../components/proper-input';
 import QuotationItemTableForm from '../items/form';
@@ -86,6 +90,57 @@ export default function QuotationDetailSection({
             member.sharing_plan,
         ]),
     );
+
+    const extensions = data.extensions ?? [];
+    const subtotalAmount = items.reduce((sum, item) => {
+        if (item.is_header) {
+            return sum;
+        }
+
+        return sum + Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+    }, 0);
+    const extensionTotalAmount = extensions.reduce(
+        (sum, extension) => sum + Number(extension.amount ?? 0),
+        0,
+    );
+    const totalAmount = subtotalAmount + extensionTotalAmount;
+
+    const handleExtensionChange = (
+        index: number,
+        patch: Partial<(typeof extensions)[number]>,
+    ) => {
+        const next = [...extensions];
+        next[index] = {
+            ...next[index],
+            ...patch,
+            sort_order: index + 1,
+        };
+        setData('extensions', next);
+    };
+
+    const addDiscountExtension = () => {
+        setData('extensions', [
+            ...extensions,
+            {
+                _key: nanoid(),
+                name: 'Discount',
+                type: 'discount',
+                amount: 0,
+                sort_order: extensions.length + 1,
+            },
+        ]);
+    };
+
+    const removeExtension = (index: number) => {
+        const next = extensions
+            .filter((_, currentIndex) => currentIndex !== index)
+            .map((extension, currentIndex) => ({
+                ...extension,
+                sort_order: currentIndex + 1,
+            }));
+
+        setData('extensions', next);
+    };
 
     return (
         <FormSection
@@ -244,6 +299,118 @@ export default function QuotationDetailSection({
                         memberOptions={memberOptions}
                         memberSharingPlanById={memberSharingPlanById}
                     />
+
+                    <div className="space-y-3 rounded-md border p-4">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                                Sub Total
+                            </span>
+                            <span className="font-semibold">
+                                {formatCurrency(subtotalAmount)}
+                            </span>
+                        </div>
+
+                        {extensions.map((extension, index) => (
+                            <div
+                                key={extension._key ?? `extension-${index}`}
+                                className={cn(
+                                    'grid items-end gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+                                    isView &&
+                                        'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]',
+                                )}
+                            >
+                                <FormField label="Extension Name">
+                                    <ProperInput
+                                        value={extension.name ?? ''}
+                                        placeholder="Discount"
+                                        disabled={isView}
+                                        onCommit={(value) =>
+                                            handleExtensionChange(index, {
+                                                name: value,
+                                            })
+                                        }
+                                    />
+                                    {renderError(`extensions.${index}.name`)}
+                                </FormField>
+
+                                <FormField label="Type">
+                                    <Select
+                                        disabled={isView}
+                                        value={extension.type ?? 'discount'}
+                                        onValueChange={(value) =>
+                                            handleExtensionChange(index, {
+                                                type: value,
+                                            })
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="discount">
+                                                Discount
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {renderError(`extensions.${index}.type`)}
+                                </FormField>
+
+                                <FormField label="Amount">
+                                    <ProperInput
+                                        value={extension.amount ?? ''}
+                                        type="number"
+                                        inputProps={{ step: 'any' }}
+                                        disabled={isView}
+                                        onCommit={(value) =>
+                                            handleExtensionChange(index, {
+                                                amount: Number(value),
+                                            })
+                                        }
+                                    />
+                                    {renderError(`extensions.${index}.amount`)}
+                                </FormField>
+
+                                {!isView && (
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        onClick={() => removeExtension(index)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+
+                        {!isView && (
+                            <div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={addDiscountExtension}
+                                >
+                                    + Add Discount
+                                </Button>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between border-t pt-3 text-sm">
+                            <span className="text-muted-foreground">
+                                Extension Total
+                            </span>
+                            <span className="font-semibold">
+                                {formatCurrency(extensionTotalAmount)}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-base">
+                            <span className="font-semibold">Total Amount</span>
+                            <span className="text-lg font-bold text-primary">
+                                {formatCurrency(totalAmount)}
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mx-auto w-full">

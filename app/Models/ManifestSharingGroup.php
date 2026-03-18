@@ -11,6 +11,7 @@ class ManifestSharingGroup extends Model
     protected $fillable = [
         'manifest_id',
         'customer_confirmation_id',
+        'source_quotation_id',
         'sort_order',
         'relation',
         'remarks',
@@ -20,6 +21,7 @@ class ManifestSharingGroup extends Model
     {
         return [
             'sort_order' => 'integer',
+            'source_quotation_id' => 'integer',
         ];
     }
 
@@ -31,6 +33,11 @@ class ManifestSharingGroup extends Model
     public function customerConfirmation(): BelongsTo
     {
         return $this->belongsTo(CustomerConfirmation::class, 'customer_confirmation_id');
+    }
+
+    public function sourceQuotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class, 'source_quotation_id');
     }
 
     public function members(): HasMany

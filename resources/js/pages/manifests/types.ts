@@ -76,6 +76,7 @@ export interface PackageFlightOption {
 }
 
 export interface PackageForManifestOption extends ValueNumberOptionType {
+    status?: 'open' | 'closed' | string;
     departure_date?: string;
     return_date?: string;
     accommodations?: PackageAccommodationOption[];

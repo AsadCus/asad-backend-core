@@ -89,13 +89,18 @@ class RolePermissionSeeder extends Seeder
 
         // Create roles
         $roles = [
-            ['name' => 'admin', 'guard_name' => 'web'],
-            ['name' => 'sales', 'guard_name' => 'web'],
-            ['name' => 'supplier', 'guard_name' => 'web'],
-            ['name' => 'customer', 'guard_name' => 'web'],
+            'admin',
+            'sales',
+            'supplier',
+            'customer',
         ];
 
-        Role::insert($roles);
+        foreach ($roles as $role) {
+            Role::firstOrCreate([
+                'name' => $role,
+                'guard_name' => 'web',
+            ]);
+        }
 
         // Assign permissions
         Role::findByName('admin')->givePermissionTo([
@@ -209,6 +214,10 @@ class RolePermissionSeeder extends Seeder
             'private-enquiry create',
             'private-enquiry edit',
             'private-enquiry delete',
+            'manifest view',
+            'manifest create',
+            'manifest edit',
+            'manifest delete',
         ]);
         Role::findByName('supplier')->givePermissionTo([
             'dashboard view',

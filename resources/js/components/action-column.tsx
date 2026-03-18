@@ -28,7 +28,6 @@ export type ActionType =
     | 'quotation-status-expire'
     | 'quotation-status-cancel'
     | 'enquiry-status-contacted'
-    | 'enquiry-status-negotiating'
     | 'enquiry-status-confirmed'
     | 'add-remark'
     | 'copy-customer-confirmation-public-edit-link'

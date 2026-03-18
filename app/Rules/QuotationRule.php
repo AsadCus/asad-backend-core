@@ -23,6 +23,12 @@ class QuotationRule
                 'payment_method' => ['nullable', 'string'],
                 'description' => ['nullable', 'string'],
                 'status' => ['nullable', $this->statusRule()],
+                'extensions' => ['nullable', 'array'],
+                'extensions.*.id' => ['nullable', 'integer'],
+                'extensions.*.name' => ['required_with:extensions', 'string', 'max:255'],
+                'extensions.*.type' => ['required_with:extensions', 'string', 'max:100'],
+                'extensions.*.amount' => ['required_with:extensions', 'numeric'],
+                'extensions.*.sort_order' => ['nullable', 'integer'],
             ],
             (new QuotationItemRule)->rules('items')
         );
@@ -40,6 +46,12 @@ class QuotationRule
                 'payment_method' => ['required', 'string'],
                 'description' => ['required', 'string'],
                 'status' => ['required', $this->statusRule()],
+                'extensions' => ['nullable', 'array'],
+                'extensions.*.id' => ['nullable', 'integer'],
+                'extensions.*.name' => ['required_with:extensions', 'string', 'max:255'],
+                'extensions.*.type' => ['required_with:extensions', 'string', 'max:100'],
+                'extensions.*.amount' => ['required_with:extensions', 'numeric'],
+                'extensions.*.sort_order' => ['nullable', 'integer'],
             ],
             (new QuotationItemRule)->rules('items')
         );

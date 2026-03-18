@@ -176,7 +176,7 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
         id: initialData?.id,
         package_id: initialData?.package_id ?? 0,
         manifest_number: initialData?.manifest_number ?? '',
-        status: initialData?.status ?? 'draft',
+        status: initialData?.status ?? 'open',
         notes: initialData?.notes ?? '',
         travelers,
         roomLists: normalizedRoomLists,
@@ -542,6 +542,7 @@ function syncRoomRowsWithTravelers(
                 room_label: row.room_label ?? traveler.room_label ?? '',
                 room_type: row.room_type ?? traveler.room_type ?? '',
                 bed_type: row.bed_type ?? traveler.bed_type ?? '',
+                remarks: row.remarks ?? traveler.remarks,
                 room_remarks: row.room_remarks ?? traveler.room_remarks,
                 meal: row.meal ?? traveler.meal ?? defaultMealPlan ?? '',
                 age:
@@ -1325,6 +1326,12 @@ export default function ManifestForm({
         );
     }, [data.travelers, isCancelledTraveler]);
 
+    const nonCancelledNonOfficialTravelers = useMemo(() => {
+        return nonCancelledTravelers.filter(
+            (traveler) => !traveler.package_official_id,
+        );
+    }, [nonCancelledTravelers]);
+
     const moveTravelerToHolding = async (traveler: TravelerWithUI) => {
         const memberId = traveler.customer_confirmation_member_id;
         const travelerId = traveler.id;
@@ -1377,6 +1384,40 @@ export default function ManifestForm({
             console.error(error);
         }
     };
+
+    const exportPdfWithSnapshot = useCallback(
+        (url: string, snapshot: Record<string, unknown>) => {
+            const csrfToken = document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content');
+
+            if (!csrfToken) {
+                return;
+            }
+
+            const exportForm = document.createElement('form');
+            exportForm.method = 'POST';
+            exportForm.action = url;
+            exportForm.target = '_blank';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = csrfToken;
+            exportForm.appendChild(csrfInput);
+
+            const snapshotInput = document.createElement('input');
+            snapshotInput.type = 'hidden';
+            snapshotInput.name = 'snapshot';
+            snapshotInput.value = JSON.stringify(snapshot);
+            exportForm.appendChild(snapshotInput);
+
+            document.body.appendChild(exportForm);
+            exportForm.submit();
+            document.body.removeChild(exportForm);
+        },
+        [],
+    );
 
     return (
         <div className="mx-auto w-full">
@@ -1946,6 +1987,32 @@ export default function ManifestForm({
                                 value={`room-check-${tab.sourceRoomKey}`}
                                 className="space-y-4"
                             >
+                                <div className="flex items-center justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={!data.id}
+                                        onClick={() => {
+                                            if (!data.id) {
+                                                return;
+                                            }
+
+                                            exportPdfWithSnapshot(
+                                                `/manifests/${data.id}/room-check-pdf?location=${encodeURIComponent(tab.sourceRoomKey)}`,
+                                                {
+                                                    room_check_rows:
+                                                        sourceRoomRows,
+                                                    room_check_location_label:
+                                                        tab.label,
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export PDF
+                                    </Button>
+                                </div>
+
                                 <ManifestDatatable
                                     mode="room_check"
                                     rows={sourceRoomRows}
@@ -2195,9 +2262,12 @@ export default function ManifestForm({
                                         return;
                                     }
 
-                                    window.open(
+                                    exportPdfWithSnapshot(
                                         `/manifests/${data.id}/collection-items-pdf`,
-                                        '_blank',
+                                        {
+                                            travelers:
+                                                nonCancelledNonOfficialTravelers,
+                                        },
                                     );
                                 }}
                             >
@@ -2208,7 +2278,9 @@ export default function ManifestForm({
 
                         <ManifestDatatable
                             mode="course_collection"
-                            rows={nonCancelledTravelers as TravelerWithUI[]}
+                            rows={
+                                nonCancelledNonOfficialTravelers as TravelerWithUI[]
+                            }
                             disabled={isView}
                             allowReorder={false}
                             errors={form.errors}

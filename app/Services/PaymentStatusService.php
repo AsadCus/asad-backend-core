@@ -6,6 +6,9 @@ use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
+use App\Models\ManifestRoom;
+use App\Models\ManifestSharingGroup;
+use App\Models\Quotation;
 
 class PaymentStatusService
 {
@@ -47,8 +50,7 @@ class PaymentStatusService
 
     private function syncInvoiceStatus(Invoice $invoice): void
     {
-        $totalPaid = (float) $invoice->receipt->sum('amount');
-        $outstandingAmount = max(0, (float) $invoice->amount - $totalPaid);
+        $outstandingAmount = $this->calculateInvoiceOutstandingAmount($invoice);
 
         if ($outstandingAmount <= 0) {
             $newStatus = 'paid';
@@ -85,6 +87,7 @@ class PaymentStatusService
         }
 
         $orderInvoices = $invoice->order->invoices;
+        $autoLinkStatuses = $this->getAutoLinkEligibleStatuses();
 
         foreach ($memberIds as $memberId) {
             $member = CustomerConfirmationMember::with('confirmation')->find((int) $memberId);
@@ -105,9 +108,7 @@ class PaymentStatusService
             }
 
             $paidInvoicesCount = $memberInvoices->filter(function (Invoice $memberInvoice) {
-                $invoicePaid = (float) $memberInvoice->receipt->sum('amount');
-
-                return $invoicePaid >= (float) $memberInvoice->amount;
+                return $this->isInvoiceSettled($memberInvoice);
             })->count();
 
             if ($paidInvoicesCount === $memberInvoices->count()) {
@@ -119,7 +120,7 @@ class PaymentStatusService
             }
 
             $packageId = (int) ($member->confirmation?->package_id ?? 0);
-            $isSeatConsumingStatus = in_array($newStatus, $this->getAutoLinkEligibleStatuses(), true);
+            $isSeatConsumingStatus = in_array($newStatus, $autoLinkStatuses, true);
 
             if ($packageId > 0 && $isSeatConsumingStatus) {
                 $hasAvailableSeat = $this->packageSeatService->hasAvailableSeat($packageId, (int) $member->id);
@@ -145,15 +146,34 @@ class PaymentStatusService
                 ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed', 'unavailable'])
                 ->update(['status' => $newStatus]);
 
-            // Auto-link member to manifest when they reach the minimum status
-            if ($isSeatConsumingStatus) {
-                $this->autoLinkMemberToManifest($memberId);
-            }
-
             if ($packageId > 0) {
                 $this->packageSeatService->recalculateForPackageId($packageId);
             }
         }
+
+        $this->autoLinkQuotationMembersToManifest($quotation, $memberIds, $autoLinkStatuses);
+
+        $packageId = (int) ($quotation->customerConfirmation?->package_id ?? 0);
+        if ($packageId > 0) {
+            $this->packageSeatService->recalculateForPackageId($packageId);
+        }
+    }
+
+    private function calculateInvoiceOutstandingAmount(Invoice $invoice): float
+    {
+        $invoiceAmount = (float) $invoice->amount;
+        $totalPaid = (float) $invoice->receipt->sum('amount');
+
+        if ($invoiceAmount >= 0) {
+            return max(0, $invoiceAmount - $totalPaid);
+        }
+
+        return max(0, abs($invoiceAmount) - abs($totalPaid));
+    }
+
+    private function isInvoiceSettled(Invoice $invoice): bool
+    {
+        return $this->calculateInvoiceOutstandingAmount($invoice) <= 0;
     }
 
     /**
@@ -178,35 +198,131 @@ class PaymentStatusService
     }
 
     /**
-     * Auto-link a CC member to their package's manifest as a traveler.
-     *
-     * If the member already exists as a traveler in the manifest, skip.
+     * Auto-link paid members from one quotation into one sharing group and one room.
      */
-    private function autoLinkMemberToManifest(int $memberId): void
-    {
-        $member = CustomerConfirmationMember::with(['confirmation', 'customer'])->find($memberId);
-
-        if (! $member || ! $member->confirmation?->package_id) {
+    private function autoLinkQuotationMembersToManifest(
+        Quotation $quotation,
+        array $memberIds,
+        array $autoLinkStatuses
+    ): void {
+        if (! $quotation->customer_confirmation_id) {
             return;
         }
 
-        $manifest = Manifest::where('package_id', $member->confirmation->package_id)->first();
+        $confirmation = $quotation->customerConfirmation;
+
+        if (! $confirmation || ! $confirmation->package_id) {
+            return;
+        }
+
+        $manifest = Manifest::query()
+            ->where('package_id', (int) $confirmation->package_id)
+            ->first();
 
         if (! $manifest) {
             return;
         }
 
-        // Skip if already linked
-        $alreadyLinked = $manifest->travelers()
-            ->where('customer_confirmation_member_id', $memberId)
-            ->exists();
+        $eligibleMembers = CustomerConfirmationMember::query()
+            ->whereIn('id', array_map('intval', $memberIds))
+            ->whereIn('status', $autoLinkStatuses)
+            ->orderBy('id')
+            ->get();
 
-        if ($alreadyLinked) {
+        if ($eligibleMembers->isEmpty()) {
             return;
         }
 
-        $manifest->travelers()->create([
-            'customer_confirmation_member_id' => $memberId,
-        ]);
+        $sharingGroup = ManifestSharingGroup::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('source_quotation_id', $quotation->id)
+            ->first();
+
+        if (! $sharingGroup) {
+            $sharingGroup = ManifestSharingGroup::query()->create([
+                'manifest_id' => $manifest->id,
+                'customer_confirmation_id' => (int) $quotation->customer_confirmation_id,
+                'source_quotation_id' => (int) $quotation->id,
+                'sort_order' => ((int) ManifestSharingGroup::query()->where('manifest_id', $manifest->id)->max('sort_order')) + 1,
+                'remarks' => 'Auto-linked from quotation #'.$quotation->quotation_number,
+            ]);
+        }
+
+        $travelerIds = [];
+
+        foreach ($eligibleMembers->values() as $index => $member) {
+            $traveler = ManifestMember::query()
+                ->where('manifest_id', $manifest->id)
+                ->where('customer_confirmation_member_id', (int) $member->id)
+                ->first();
+
+            if (! $traveler) {
+                $traveler = ManifestMember::query()->create([
+                    'manifest_id' => $manifest->id,
+                    'manifest_sharing_group_id' => $sharingGroup->id,
+                    'customer_confirmation_member_id' => (int) $member->id,
+                    'sharing_plan' => $member->sharing_plan,
+                    'sort_order' => $index + 1,
+                ]);
+            } else {
+                $traveler->update([
+                    'manifest_sharing_group_id' => $sharingGroup->id,
+                    'sharing_plan' => $member->sharing_plan,
+                ]);
+            }
+
+            $travelerIds[] = (int) $traveler->id;
+        }
+
+        if (empty($travelerIds)) {
+            return;
+        }
+
+        $primarySharingPlan = (string) ($eligibleMembers->first()?->sharing_plan ?? 'single');
+
+        $room = ManifestRoom::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('source_quotation_id', $quotation->id)
+            ->first();
+
+        if (! $room) {
+            $room = ManifestRoom::query()->create([
+                'manifest_id' => $manifest->id,
+                'source_quotation_id' => (int) $quotation->id,
+                'sort_order' => ((int) ManifestRoom::query()->where('manifest_id', $manifest->id)->max('sort_order')) + 1,
+                'room_type' => $primarySharingPlan,
+                'sharing_plan' => $primarySharingPlan,
+                'capacity' => $this->capacityFromSharingPlan($primarySharingPlan),
+                'status' => 'pending',
+                'remarks' => 'Auto-linked from quotation #'.$quotation->quotation_number,
+            ]);
+        } else {
+            $room->update([
+                'room_type' => $primarySharingPlan,
+                'sharing_plan' => $primarySharingPlan,
+                'capacity' => $this->capacityFromSharingPlan($primarySharingPlan),
+            ]);
+        }
+
+        $room->roomMembers()
+            ->whereNotIn('manifest_traveler_id', $travelerIds)
+            ->delete();
+
+        foreach (array_values($travelerIds) as $index => $travelerId) {
+            $room->roomMembers()->updateOrCreate(
+                ['manifest_traveler_id' => $travelerId],
+                ['sort_order' => $index + 1]
+            );
+        }
+    }
+
+    private function capacityFromSharingPlan(?string $sharingPlan): int
+    {
+        return match (strtolower((string) $sharingPlan)) {
+            'quad' => 4,
+            'triple' => 3,
+            'double' => 2,
+            default => 1,
+        };
     }
 }

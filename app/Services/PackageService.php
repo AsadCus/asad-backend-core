@@ -78,6 +78,7 @@ class PackageService
             return [
                 'value' => $q->id,
                 'label' => $q->name,
+                'status' => $q->status,
                 'departure_date' => $q->departure_date_formatted,
                 'return_date' => $q->return_date_formatted,
                 'accommodations' => $q->accommodations->map(function ($accommodation) {
@@ -160,7 +161,6 @@ class PackageService
             $manifest = Manifest::create([
                 'package_id' => $package->id,
                 'manifest_number' => $manifestNumber,
-                'status' => 'draft',
             ]);
 
             $this->syncManifestOfficialTravelers($manifest, $package);
@@ -609,7 +609,6 @@ class PackageService
             $manifest = Manifest::create([
                 'package_id' => $package->id,
                 'manifest_number' => $manifestNumber,
-                'status' => 'draft',
             ]);
 
             $this->syncManifestOfficialTravelers($manifest, $package);

@@ -9,20 +9,23 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
 use App\Models\ManifestMember;
+use App\Models\ModelFile;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\ReceiptAllocation;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CustomerConfirmationService
 {
+    public function __construct(private NoteService $noteService) {}
+
     /** Create a customer confirmation from request data. */
     public function createGroup(array $data): CustomerConfirmation
     {
@@ -141,8 +144,6 @@ class CustomerConfirmationService
             'first_time_umrah',
             'has_chronic_disease',
             'chronic_disease_details',
-            'passport_path',
-            'photo_path',
         ];
 
         $biodata = [];
@@ -174,8 +175,6 @@ class CustomerConfirmationService
             'first_time_umrah',
             'has_chronic_disease',
             'chronic_disease_details',
-            'passport_path',
-            'photo_path',
         ];
 
         foreach ($customerFields as $field) {
@@ -270,9 +269,14 @@ class CustomerConfirmationService
             'members.receiptAllocations',
             'members.quotationItems',
             'members.quotationItems.invoices.receipt',
-            'enquiry',
+            'enquiry.handledBy:id,name',
             'package',
         ])
+            ->when(auth()->user()?->hasRole('sales'), function ($query) {
+                $query->whereHas('enquiry', function ($enquiryQuery) {
+                    $enquiryQuery->where('handled_by', auth()->id());
+                });
+            })
             ->when($withPackage === true, function ($query) {
                 $query->whereNotNull('package_id');
             })
@@ -387,11 +391,12 @@ class CustomerConfirmationService
     {
         return User::query()
             ->whereHas('customer')
-            ->with('customer')
+            ->with('customer.files')
             ->orderBy('name')
             ->get()
             ->map(function ($user) {
                 $customer = $user->customer;
+                $documents = $customer ? $this->getCustomerDocumentsByField($customer) : collect();
 
                 return [
                     'value' => $user->id,
@@ -413,8 +418,8 @@ class CustomerConfirmationService
                     'first_time_umrah' => $customer->first_time_umrah ?? false,
                     'has_chronic_disease' => $customer->has_chronic_disease ?? false,
                     'chronic_disease_details' => $customer->chronic_disease_details ?? '',
-                    'passport_path' => $customer->passport_path,
-                    'photo_path' => $customer->photo_path,
+                    'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
+                    'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
                 ];
             })
             ->all();
@@ -423,7 +428,7 @@ class CustomerConfirmationService
     /** Get full customer confirmation details for edit or show. */
     public function getForEditShow(int $id): array
     {
-        $group = CustomerConfirmation::with(['members.customer.user', 'members.quotationItems', 'enquiry.package', 'package'])
+        $group = CustomerConfirmation::with(['members.customer.user', 'members.customer.files', 'members.quotationItems', 'enquiry.package', 'package'])
             ->findOrFail($id);
 
         return [
@@ -441,6 +446,7 @@ class CustomerConfirmationService
             'members' => $group->members->map(function (CustomerConfirmationMember $member) {
                 $customer = $member->customer;
                 $user = $customer?->user;
+                $documents = $customer ? $this->getCustomerDocumentsByField($customer) : collect();
 
                 return [
                     'member_id' => $member->id,
@@ -468,8 +474,12 @@ class CustomerConfirmationService
                     'first_time_umrah' => $customer?->first_time_umrah ?? false,
                     'has_chronic_disease' => $customer?->has_chronic_disease ?? false,
                     'chronic_disease_details' => $customer?->chronic_disease_details ?? '',
-                    'passport_path' => $customer?->passport_path,
-                    'photo_path' => $customer?->photo_path,
+                    'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
+                    'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
+                    'passport_file_name' => $documents->get('passport')?->file_name,
+                    'photo_file_name' => $documents->get('photo')?->file_name,
+                    'passport_file_removed' => false,
+                    'photo_file_removed' => false,
                 ];
             })->all(),
         ];
@@ -525,7 +535,7 @@ class CustomerConfirmationService
                     $matchedMember->update([
                         'customer_id' => $customer->id,
                         'is_leader' => (bool) ($memberData['is_leader'] ?? false),
-                        'status' => $memberData['status'] ?? 'draft',
+                        'status' => $this->resolveMemberStatusOnGroupUpdate($matchedMember, $memberData),
                         'sharing_plan' => $incomingSharingPlan,
                         'role' => $memberData['role'] ?? null,
                     ]);
@@ -584,6 +594,27 @@ class CustomerConfirmationService
 
             return $group;
         });
+    }
+
+    private function resolveMemberStatusOnGroupUpdate(
+        CustomerConfirmationMember $member,
+        array $memberData,
+    ): string {
+        $incomingStatus = strtolower(trim((string) ($memberData['status'] ?? '')));
+
+        if ($incomingStatus === '') {
+            return $member->status ?? 'draft';
+        }
+
+        if (in_array($incomingStatus, ['cancelled', 'unavailable'], true)) {
+            return $incomingStatus;
+        }
+
+        if ($this->memberHasAnyBilling($member->id)) {
+            return (string) ($member->status ?? 'draft');
+        }
+
+        return $incomingStatus;
     }
 
     private function findExistingMemberMatch(
@@ -660,7 +691,7 @@ class CustomerConfirmationService
             $group->delete();
 
             if ($enquiry && $enquiry->status === EnquiryStatus::Confirmed) {
-                $enquiry->update(['status' => EnquiryStatus::Negotiating->value]);
+                $enquiry->update(['status' => EnquiryStatus::Contacted->value]);
 
                 activity()
                     ->performedOn($enquiry)
@@ -668,9 +699,9 @@ class CustomerConfirmationService
                         'subject_type' => 'Enquiry',
                         'subject_id' => $enquiry->id,
                         'old_status' => EnquiryStatus::Confirmed->value,
-                        'new_status' => EnquiryStatus::Negotiating->value,
+                        'new_status' => EnquiryStatus::Contacted->value,
                     ])
-                    ->log("Enquiry #{$enquiry->id} moved to Negotiating after customer confirmation deletion");
+                    ->log("Enquiry #{$enquiry->id} moved to Contacted after customer confirmation deletion");
             }
 
             activity()
@@ -697,7 +728,7 @@ class CustomerConfirmationService
     public function updateMemberDetails(int $memberId, array $data): array
     {
         return DB::transaction(function () use ($memberId, $data) {
-            $member = CustomerConfirmationMember::with(['customer.user'])->findOrFail($memberId);
+            $member = CustomerConfirmationMember::with(['customer.user', 'customer.files'])->findOrFail($memberId);
 
             $customer = $member->customer;
             if (! $customer) {
@@ -724,7 +755,8 @@ class CustomerConfirmationService
             );
 
             $member->refresh();
-            $member->load('customer.user');
+            $member->load('customer.user', 'customer.files');
+            $documents = $member->customer ? $this->getCustomerDocumentsByField($member->customer) : collect();
 
             return [
                 'id' => $member->id,
@@ -750,8 +782,12 @@ class CustomerConfirmationService
                 'first_time_umrah' => $member->customer?->first_time_umrah ?? false,
                 'has_chronic_disease' => $member->customer?->has_chronic_disease ?? false,
                 'chronic_disease_details' => $member->customer?->chronic_disease_details ?? '',
-                'passport_path' => $member->customer?->passport_path,
-                'photo_path' => $member->customer?->photo_path,
+                'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
+                'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
+                'passport_file_name' => $documents->get('passport')?->file_name,
+                'photo_file_name' => $documents->get('photo')?->file_name,
+                'passport_file_removed' => false,
+                'photo_file_removed' => false,
             ];
         });
     }
@@ -1033,60 +1069,108 @@ class CustomerConfirmationService
         };
     }
 
-    /** Store one uploaded file and return its path. */
-    private function handleFileUpload(mixed $file, string $field, string $customerName): ?string
+    /** Store one uploaded file and return its hashed path. */
+    private function handleFileUpload(mixed $file, string $field): ?string
     {
         if (! $file instanceof UploadedFile) {
             return null;
         }
 
-        $directory = "customers/{$field}";
-        $slugName = Str::slug($customerName);
-        $fieldName = str_replace('_path', '', $field);
-        $timestamp = now()->format('Ymd-His');
-        $extension = $file->getClientOriginalExtension();
-        $filename = "{$slugName}-{$fieldName}-{$timestamp}.{$extension}";
-
-        return $file->storeAs($directory, $filename, 'public');
+        return $file->store("customers/{$field}", 'public');
     }
 
-    /** Process member file uploads and update stored paths. */
+    /** Process member file uploads and update model file records. */
     private function processFileUploads(Customer $customer, array $memberData): void
     {
-        $updates = [];
-        $fileKeyMap = [
-            'passport_file' => 'passport_path',
-            'photo_file' => 'photo_path',
+        $documentConfigs = [
+            [
+                'field' => 'passport',
+                'file_key' => 'passport_file',
+                'name_key' => 'passport_file_name',
+                'removed_key' => 'passport_file_removed',
+            ],
+            [
+                'field' => 'photo',
+                'file_key' => 'photo_file',
+                'name_key' => 'photo_file_name',
+                'removed_key' => 'photo_file_removed',
+            ],
         ];
 
         $customerName = $customer->user?->name ?? 'customer';
+        $existingFiles = $this->getCustomerDocumentsByField($customer);
 
-        foreach ($fileKeyMap as $fileKey => $pathField) {
-            $path = $this->handleFileUpload($memberData[$fileKey] ?? null, $pathField, $customerName);
+        foreach ($documentConfigs as $documentConfig) {
+            $field = $documentConfig['field'];
+            $fileKey = $documentConfig['file_key'];
+            $nameKey = $documentConfig['name_key'];
+            $removedKey = $documentConfig['removed_key'];
+
+            $existingFile = $existingFiles->get($field);
+            $path = $this->handleFileUpload($memberData[$fileKey] ?? null, $field);
+            $isMarkedAsRemoved = (bool) ($memberData[$removedKey] ?? false);
+
             if ($path) {
-                if ($customer->{$pathField}) {
-                    Storage::disk('public')->delete($customer->{$pathField});
+                if ($existingFile?->file_path) {
+                    Storage::disk('public')->delete($existingFile->file_path);
                 }
-                $updates[$pathField] = $path;
+
+                $uploadedFile = $memberData[$fileKey];
+                $requestedFileName = $this->normalizeNullableString($memberData[$nameKey] ?? null);
+                $defaultFileName = $uploadedFile instanceof UploadedFile
+                    ? $this->buildDefaultDocumentName($field, $customerName, $uploadedFile)
+                    : null;
+
+                $customer->files()->updateOrCreate(
+                    ['field' => $field],
+                    [
+                        'file_name' => $requestedFileName ?? $defaultFileName ?? $field,
+                        'file_path' => $path,
+                    ],
+                );
 
                 continue;
             }
 
-            $isPathCleared = array_key_exists($pathField, $memberData)
-                && ($memberData[$pathField] === null || $memberData[$pathField] === '');
-
-            $isFileCleared = array_key_exists($fileKey, $memberData)
-                && ($memberData[$fileKey] === null || $memberData[$fileKey] === '');
-
-            if (($isPathCleared || $isFileCleared) && $customer->{$pathField}) {
-                Storage::disk('public')->delete($customer->{$pathField});
-                $updates[$pathField] = null;
+            if ($isMarkedAsRemoved && $existingFile) {
+                Storage::disk('public')->delete($existingFile->file_path);
+                $existingFile->delete();
             }
         }
+    }
 
-        if (! empty($updates)) {
-            $customer->update($updates);
+    private function buildDefaultDocumentName(string $field, string $customerName, UploadedFile $file): string
+    {
+        $extension = $file->getClientOriginalExtension();
+        $fieldLabel = ucfirst($field);
+        $safeCustomerName = trim($customerName) !== '' ? trim($customerName) : 'Customer';
+
+        return $safeCustomerName.' '.$fieldLabel.($extension !== '' ? '.'.$extension : '');
+    }
+
+    /**
+     * @return Collection<string, ModelFile>
+     */
+    private function getCustomerDocumentsByField(Customer $customer): Collection
+    {
+        if ($customer->relationLoaded('files')) {
+            return $customer->files->keyBy('field');
         }
+
+        return $customer->files()->get()->keyBy('field');
+    }
+
+    private function formatDocumentPayload(?ModelFile $modelFile): ?array
+    {
+        if (! $modelFile) {
+            return null;
+        }
+
+        return [
+            'field' => $modelFile->field,
+            'file_name' => $modelFile->file_name,
+            'file_path' => $modelFile->file_path,
+        ];
     }
 
     /**
@@ -1125,6 +1209,20 @@ class CustomerConfirmationService
                     'description' => 'Payment for travel package — '
                         .($package->name ?? 'Package #'.$package->id),
                 ]);
+
+                $masterQuotationNotes = $this->noteService->get('master', 'quotation')
+                    ->map(function ($note) {
+                        return [
+                            'description' => $note->description,
+                            'sort_order' => $note->sort_order,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                if (! empty($masterQuotationNotes)) {
+                    $this->noteService->sync('quotation', (int) $quotation->id, $masterQuotationNotes);
+                }
 
                 $sortOrder = 1;
 

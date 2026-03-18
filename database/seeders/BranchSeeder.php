@@ -11,6 +11,7 @@ class BranchSeeder extends Seeder
     public function run(): void
     {
         $cities = [
+            ['name' => 'Golden Landmark', 'country' => 'Singapore'],
             ['name' => 'Yishun', 'country' => 'Singapore'],
         ];
 

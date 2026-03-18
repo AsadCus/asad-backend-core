@@ -109,8 +109,6 @@ export default function EnquiryViewDialog({
                                     >
                                         {action === 'contacted' &&
                                             'Mark Contacted'}
-                                        {action === 'negotiating' &&
-                                            'Mark Negotiating'}
                                         {action === 'confirmed' && 'Confirm'}
                                     </Button>
                                 ))}

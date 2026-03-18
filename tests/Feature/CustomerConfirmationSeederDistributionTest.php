@@ -6,6 +6,9 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Quotation;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\EnquirySeeder;
+use Database\Seeders\PackageSeeder;
+use Database\Seeders\QuotationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,6 +19,9 @@ class CustomerConfirmationSeederDistributionTest extends TestCase
     public function test_seeders_create_mixed_confirmation_status_and_non_leader_quotation_handlers(): void
     {
         $this->seed(DatabaseSeeder::class);
+        $this->seed(PackageSeeder::class);
+        $this->seed(EnquirySeeder::class);
+        $this->seed(QuotationSeeder::class);
 
         $groups = CustomerConfirmation::query()
             ->with(['members', 'quotations', 'quotations.quotationItems'])

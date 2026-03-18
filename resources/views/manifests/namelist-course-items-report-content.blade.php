@@ -1,9 +1,9 @@
 @extends('layout-report')
 
-@section('document-title', 'Namelist Course & Collection Items - ' . ($manifest['manifest_number'] ?? 'Manifest'))
+@section('document-title', 'Manifest Namelist Course Items - ' . ($manifest['manifest_number'] ?? 'Manifest'))
 
 @section('title-bar')
-    Namelist Course & Collection Items
+    Manifest Namelist Course Items
 @endsection
 
 @push('styles')
@@ -17,24 +17,29 @@
             width: 100%;
             margin-bottom: 10px;
             border-collapse: collapse;
+            table-layout: fixed;
         }
 
         .summary-grid td {
             border: 1px solid #d7dde3;
             padding: 6px 8px;
             font-size: 9px;
+            width: 25%;
         }
 
         .summary-label {
-            width: 16%;
             font-weight: 700;
             background-color: #f3f7fa;
+        }
+
+        .summary-head {
+            text-align: center;
         }
 
         .collection-table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
+            /* table-layout: fixed; */
             margin-top: 8px;
         }
 
@@ -57,7 +62,7 @@
         .collection-table th.name-col {
             text-align: left;
             padding-left: 8px;
-            width: 22%;
+            width: 200px;
         }
 
         .collection-table td.sn-col,
@@ -65,16 +70,23 @@
             width: 4.5%;
         }
 
-        .check-mark {
-            font-size: 12px;
-            font-weight: 700;
+        .print-checkbox {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 13px;
+            height: 13px;
+            border: 1px solid #8ea1b2;
+            border-radius: 2px;
             line-height: 1;
+            font-size: 10px;
+            font-weight: 700;
             color: #0f4d5a;
+            background: #fff;
         }
 
-        .empty-mark {
-            color: #97a5b2;
-            font-size: 10px;
+        .print-checkbox.checked {
+            border-color: #0f4d5a;
         }
 
         .muted-note {
@@ -89,20 +101,55 @@
     @php
         $travelers = collect($manifest['travelers'] ?? [])
             ->filter(function ($traveler) {
-                return ($traveler['status'] ?? null) !== 'cancelled';
+                return ($traveler['status'] ?? null) !== 'cancelled' && empty($traveler['package_official_id']);
             })
             ->values();
+
+        $accommodations = collect($manifest['package_accommodations'] ?? [])->values();
     @endphp
 
     <table class="summary-grid">
         <tr>
+            <td class="summary-label summary-head" colspan="2">Embarkation Details</td>
+            <td class="summary-label summary-head" colspan="2">Details</td>
+        </tr>
+        <tr>
+            <td class="summary-label">Date of Departure</td>
+            <td>{{ $manifest['departure_date'] ?? '-' }}</td>
             <td class="summary-label">Manifest Number</td>
             <td>{{ $manifest['manifest_number'] ?? '-' }}</td>
-            <td class="summary-label">Package</td>
-            <td>{{ $manifest['package_name'] ?? '-' }}</td>
-            <td class="summary-label">Status</td>
-            <td>{{ ucfirst((string) ($manifest['status'] ?? 'draft')) }}</td>
         </tr>
+        <tr>
+            <td class="summary-label">Date of Return</td>
+            <td>{{ $manifest['return_date'] ?? '-' }}</td>
+            <td class="summary-label">Package Number</td>
+            <td>{{ $manifest['package_number'] ?? '-' }}</td>
+        </tr>
+        @forelse ($accommodations as $index => $accommodation)
+            <tr>
+                <td class="summary-label">
+                    Date of Enter {{ $accommodation['location'] ?? '-' }}
+                    @if (!empty($accommodation['hotel_name']))
+                        ({{ $accommodation['hotel_name'] }})
+                    @endif
+                </td>
+                <td>{{ $accommodation['check_in_formatted'] ?? '-' }}</td>
+                @if ($index === 0)
+                    <td class="summary-label">Package</td>
+                    <td>{{ $manifest['package_name'] ?? '-' }}</td>
+                @else
+                    <td class="summary-label">&nbsp;</td>
+                    <td>&nbsp;</td>
+                @endif
+            </tr>
+        @empty
+            <tr>
+                <td class="summary-label">Date of Enter</td>
+                <td>-</td>
+                <td class="summary-label">Package</td>
+                <td>{{ $manifest['package_name'] ?? '-' }}</td>
+            </tr>
+        @endforelse
     </table>
 
     <table class="collection-table">
@@ -129,11 +176,9 @@
                     <td class="name-col">{{ $traveler['name_as_per_passport'] ?? '-' }}</td>
                     @foreach (['course_1', 'course_2', 'lanyard', 'luggage_tag', 'cabin_tag', 'passport_cover', 'umrah_guidebook', 'sling_bag', 'cabin_size_luggage', 'umrah_essentials'] as $field)
                         <td>
-                            @if (!empty($traveler[$field]))
-                                <span class="check-mark">&#10003;</span>
-                            @else
-                                <span class="empty-mark">-</span>
-                            @endif
+                            <span class="print-checkbox {{ !empty($traveler[$field]) ? 'checked' : '' }}">
+                                {{ !empty($traveler[$field]) ? 'X' : '' }}
+                            </span>
                         </td>
                     @endforeach
                 </tr>

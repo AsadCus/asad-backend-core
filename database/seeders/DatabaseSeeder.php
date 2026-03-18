@@ -29,19 +29,20 @@ class DatabaseSeeder extends Seeder
 
             // Users and Roles
             RolePermissionSeeder::class,
-            UserSeeder::class,
+            AdminSalesUserSeeder::class,
+            // UserSeeder::class,
 
-            // Travel Management
-            PackageSeeder::class,
-            EnquirySeeder::class,
-            CustomerConfirmationSeeder::class,
+            // // Travel Management
+            // PackageSeeder::class,
+            // EnquirySeeder::class,
+            // CustomerConfirmationSeeder::class,
 
-            // Transactions
-            QuotationSeeder::class,
-            OrderSeeder::class,
-            InvoiceSeeder::class,
-            ReceiptSeeder::class,
-            ManifestSeeder::class,
+            // // Transactions
+            // QuotationSeeder::class,
+            // OrderSeeder::class,
+            // InvoiceSeeder::class,
+            // ReceiptSeeder::class,
+            // ManifestSeeder::class,
         ]);
     }
 }

@@ -284,7 +284,7 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(permissions.includes('manifest view')
+        ...(permissions.includes('manifest view') || roles.includes('sales')
             ? [
                   {
                       title: 'Manifest',
@@ -302,11 +302,15 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        {
-            title: 'User Logs',
-            href: userLogs.index.url(),
-            icon: FileText,
-        },
+        ...(!roles.includes('sales')
+            ? [
+                  {
+                      title: 'User Logs',
+                      href: userLogs.index.url(),
+                      icon: FileText,
+                  },
+              ]
+            : []),
         // ...(permissions.includes('schedule view') &&
         // permissions.includes('agreement view')
         //     ? [

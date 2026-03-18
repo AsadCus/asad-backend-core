@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Models\Invoice;
+use App\Models\QuotationExtension;
 use App\Models\Receipt;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,10 +26,10 @@ class ReceiptService
 
     public function getForDataTable(array $filters = [])
     {
-        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy'])
+        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->whereHas('invoice.order.quotation.customer', function ($cq) use ($value) {
-                    $cq->where('handled_by', $value);
+                $q->whereHas('invoice.order.quotation.customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
+                    $enquiryQuery->where('handled_by', $value);
                 });
             })
             ->orderBy('receipt_number', 'desc')->get()->map(function ($r) {
@@ -40,8 +42,8 @@ class ReceiptService
                     'customer_id' => $r->invoice?->order->quotation->customer->id ?? '-',
                     'customer_number' => $r->invoice?->order->quotation->customer->customer_number ?? '-',
                     'customer_name' => $r->invoice?->order->quotation->customer->user->name ?? '-',
-                    'sales_id' => $r->invoice?->order->quotation->customer->handledBy->id ?? '-',
-                    'sales_name' => $r->invoice?->order->quotation->customer->handledBy->name ?? '-',
+                    'sales_id' => $r->invoice?->order->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
+                    'sales_name' => $r->invoice?->order->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
                     'amount' => $this->formatService->cleanDecimal($r->amount),
                     'receipt_date' => $r->receipt_date_formatted,
                     'payment_method' => $r->payment_method,
@@ -76,7 +78,7 @@ class ReceiptService
 
             $receipt = Receipt::create([
                 'invoice_id' => $invoice->id,
-                'amount' => $this->formatService->cleanDecimal((string) $invoice->amount),
+                'amount' => $this->formatService->cleanDecimal($data['amount']),
                 'receipt_date' => $data['receipt_date'],
                 'payment_method' => $data['payment_method'] ?? null,
                 'reference' => $data['reference'] ?? null,
@@ -94,7 +96,27 @@ class ReceiptService
 
     public function getForEditShow($id)
     {
-        $r = Receipt::with('invoice')->findOrFail($id);
+        $r = Receipt::with([
+            'invoice.quotationItems',
+            'invoice.order.quotation.quotationExtensions',
+            'invoice.order.quotation.customer.user',
+        ])->findOrFail($id);
+
+        $invoice = $r->invoice;
+
+        $subtotalAmount = (float) ($invoice?->quotationItems
+            ->where('is_header', false)
+            ->sum(function ($item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            }) ?? 0);
+
+        $totalAmount = (float) ($r->amount ?? 0);
+        $extensionTotalAmount = round($totalAmount - $subtotalAmount, 2);
+
+        $extensions = $this->allocateExtensionsForTargetTotal(
+            $invoice?->order?->quotation?->quotationExtensions ?? collect(),
+            $extensionTotalAmount,
+        );
 
         return [
             'id' => $r->id,
@@ -112,6 +134,10 @@ class ReceiptService
             'reference' => $r->reference,
             'description' => $r->description,
             'sales_registration_number' => $r->invoice?->order->quotation->sales_registration_number,
+            'subtotal_amount' => $this->formatService->cleanDecimal($subtotalAmount),
+            'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
+            'total_amount' => $this->formatService->cleanDecimal($totalAmount),
+            'extensions' => $extensions,
             'items' => $r->invoice?->quotationItems->map(fn ($item) => [
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
@@ -124,6 +150,52 @@ class ReceiptService
                 'sort_order' => $item->sort_order,
             ]),
         ];
+    }
+
+    /**
+     * @param  Collection<int, QuotationExtension>  $extensions
+     * @return array<int, array<string, mixed>>
+     */
+    private function allocateExtensionsForTargetTotal(Collection $extensions, float $targetTotal): array
+    {
+        if ($extensions->isEmpty()) {
+            return [];
+        }
+
+        $sortedExtensions = $extensions
+            ->sortBy('sort_order')
+            ->values();
+
+        $sourceTotal = (float) $sortedExtensions->sum(function (QuotationExtension $extension): float {
+            return (float) ($extension->amount ?? 0);
+        });
+
+        $allocated = [];
+        $runningTotal = 0.0;
+        $lastIndex = $sortedExtensions->count() - 1;
+
+        foreach ($sortedExtensions as $index => $extension) {
+            if ($index === $lastIndex) {
+                $amount = round($targetTotal - $runningTotal, 2);
+            } elseif (abs($sourceTotal) > 0.00001) {
+                $ratio = (float) ($extension->amount ?? 0) / $sourceTotal;
+                $amount = round($targetTotal * $ratio, 2);
+            } else {
+                $amount = 0.0;
+            }
+
+            $runningTotal += $amount;
+
+            $allocated[] = [
+                'id' => $extension->id,
+                'name' => $extension->name,
+                'type' => $extension->type,
+                'sort_order' => $extension->sort_order,
+                'amount' => $this->formatService->cleanDecimal($amount),
+            ];
+        }
+
+        return $allocated;
     }
 
     public function update(array $data, $id)
