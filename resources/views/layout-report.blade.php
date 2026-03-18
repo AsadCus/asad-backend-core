@@ -112,7 +112,6 @@
         .stamp-sig-custom-box {
             position: relative;
             min-height: 90px;
-            border: 1px dashed #b8c0cc;
         }
 
         .stamp-sig-custom-item {

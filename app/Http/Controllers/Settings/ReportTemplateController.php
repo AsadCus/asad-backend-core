@@ -10,6 +10,7 @@ use App\Services\UserRoleFileUploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -32,6 +33,53 @@ class ReportTemplateController extends Controller
         'stack_each_other',
         'up_side',
         'down_side',
+    ];
+
+    private const PRESET_LAYOUTS = [
+        'percent' => [
+            'left_side' => [
+                'stamp' => ['x' => 2, 'y' => 20, 'width' => 24, 'height' => 52, 'z' => 1],
+                'signature' => ['x' => 28, 'y' => 24, 'width' => 28, 'height' => 46, 'z' => 2],
+            ],
+            'right_side' => [
+                'stamp' => ['x' => 28, 'y' => 20, 'width' => 24, 'height' => 52, 'z' => 2],
+                'signature' => ['x' => 2, 'y' => 24, 'width' => 28, 'height' => 46, 'z' => 1],
+            ],
+            'stack_each_other' => [
+                'stamp' => ['x' => 8, 'y' => 18, 'width' => 28, 'height' => 54, 'z' => 1],
+                'signature' => ['x' => 12, 'y' => 22, 'width' => 30, 'height' => 46, 'z' => 2],
+            ],
+            'up_side' => [
+                'stamp' => ['x' => 6, 'y' => 4, 'width' => 26, 'height' => 38, 'z' => 2],
+                'signature' => ['x' => 6, 'y' => 44, 'width' => 30, 'height' => 38, 'z' => 1],
+            ],
+            'down_side' => [
+                'stamp' => ['x' => 6, 'y' => 44, 'width' => 26, 'height' => 38, 'z' => 2],
+                'signature' => ['x' => 6, 'y' => 4, 'width' => 30, 'height' => 38, 'z' => 1],
+            ],
+        ],
+        'px' => [
+            'left_side' => [
+                'stamp' => ['x' => 8, 'y' => 36, 'width' => 112, 'height' => 80, 'z' => 1],
+                'signature' => ['x' => 126, 'y' => 42, 'width' => 132, 'height' => 72, 'z' => 2],
+            ],
+            'right_side' => [
+                'stamp' => ['x' => 126, 'y' => 36, 'width' => 108, 'height' => 80, 'z' => 2],
+                'signature' => ['x' => 8, 'y' => 42, 'width' => 130, 'height' => 72, 'z' => 1],
+            ],
+            'stack_each_other' => [
+                'stamp' => ['x' => 16, 'y' => 36, 'width' => 124, 'height' => 84, 'z' => 1],
+                'signature' => ['x' => 32, 'y' => 44, 'width' => 138, 'height' => 72, 'z' => 2],
+            ],
+            'up_side' => [
+                'stamp' => ['x' => 8, 'y' => 8, 'width' => 112, 'height' => 62, 'z' => 2],
+                'signature' => ['x' => 8, 'y' => 78, 'width' => 140, 'height' => 62, 'z' => 1],
+            ],
+            'down_side' => [
+                'stamp' => ['x' => 8, 'y' => 78, 'width' => 112, 'height' => 62, 'z' => 2],
+                'signature' => ['x' => 8, 'y' => 8, 'width' => 140, 'height' => 62, 'z' => 1],
+            ],
+        ],
     ];
 
     public function __construct(
@@ -68,7 +116,9 @@ class ReportTemplateController extends Controller
                 'company_email' => $settings->company_email,
                 'brand_color' => $settings->brand_color ?? '#c05427',
                 'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
-                'custom_signature_stamp_layout' => $settings->custom_signature_stamp_layout,
+                'custom_signature_stamp_layout' => $this->normalizeCustomSignatureStampLayout(
+                    $settings->custom_signature_stamp_layout,
+                ),
                 'logo_path' => $settings->logo_path,
                 'footer_text' => $settings->footer_text,
                 'stamp_path' => $settings->stamp_path,
@@ -226,15 +276,22 @@ class ReportTemplateController extends Controller
             return null;
         }
 
+        $unit = ($layout['unit'] ?? 'percent') === 'px' ? 'px' : 'percent';
+
         $placement = in_array($layout['placement'] ?? null, self::ALLOWED_PLACEMENTS, true)
             ? $layout['placement']
             : 'left_side';
+
+        $preset = self::PRESET_LAYOUTS[$unit][$placement] ?? self::PRESET_LAYOUTS['percent']['left_side'];
 
         $labels = $layout['labels'] ?? [];
         $legacyStamp = $layout['stamp'] ?? [];
         $legacySignature = $layout['signature'] ?? [];
 
+        $layout['unit'] = $unit;
         $layout['placement'] = $placement;
+        $layout['stamp'] = $preset['stamp'];
+        $layout['signature'] = $preset['signature'];
         $layout['labels'] = [
             'show_name' => (bool) ($labels['show_name'] ?? false),
             'show_date' => (bool) ($labels['show_date'] ?? false),
@@ -245,10 +302,25 @@ class ReportTemplateController extends Controller
                         ($legacySignature['name'] ??
                             ($legacyStamp['name'] ?? ''))))
             ),
-            'date' => (string) ($labels['date'] ?? ($legacySignature['date'] ?? '')),
+            'date' => $this->normalizeLayoutDate(
+                $labels['date'] ?? ($legacySignature['date'] ?? null),
+            ),
         ];
 
         return $layout;
+    }
+
+    private function normalizeLayoutDate(mixed $value): string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return trim($value);
+        }
     }
 
     /**

@@ -235,8 +235,8 @@ class ReportTemplateTest extends TestCase
         $this->assertSame('custom', $settings->signature_stamp_layout);
         $this->assertSame('percent', $settings->custom_signature_stamp_layout['unit']);
         $this->assertSame('left_side', $settings->custom_signature_stamp_layout['placement']);
-        $this->assertSame(12, $settings->custom_signature_stamp_layout['stamp']['x']);
-        $this->assertSame(58, $settings->custom_signature_stamp_layout['signature']['x']);
+        $this->assertSame(2, $settings->custom_signature_stamp_layout['stamp']['x']);
+        $this->assertSame(28, $settings->custom_signature_stamp_layout['signature']['x']);
         $this->assertTrue($settings->custom_signature_stamp_layout['labels']['show_name']);
         $this->assertSame('Authorised By', $settings->custom_signature_stamp_layout['labels']['full_name']);
     }
@@ -341,6 +341,45 @@ class ReportTemplateTest extends TestCase
         $this->assertSame('custom', $settings->signature_stamp_layout);
         $this->assertSame('stack_each_other', $settings->custom_signature_stamp_layout['placement']);
         $this->assertSame('Authorized By', $settings->custom_signature_stamp_layout['labels']['full_name']);
+        $this->assertSame('2026-03-18', $settings->custom_signature_stamp_layout['labels']['date']);
+    }
+
+    public function test_signature_date_in_display_format_is_normalized_and_saved(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->put(route('report-template.update'), [
+            'company_name' => 'Test Company',
+            'signature_stamp_layout' => 'custom',
+            'custom_signature_stamp_layout' => [
+                'unit' => 'percent',
+                'placement' => 'left_side',
+                'stamp' => [
+                    'x' => 8,
+                    'y' => 10,
+                    'width' => 26,
+                    'height' => 58,
+                    'z' => 1,
+                ],
+                'signature' => [
+                    'x' => 62,
+                    'y' => 18,
+                    'width' => 30,
+                    'height' => 48,
+                    'z' => 2,
+                ],
+                'labels' => [
+                    'show_name' => true,
+                    'show_date' => true,
+                    'full_name' => 'Authorized By',
+                    'date' => '18 March 2026',
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
         $this->assertSame('2026-03-18', $settings->custom_signature_stamp_layout['labels']['date']);
     }
 

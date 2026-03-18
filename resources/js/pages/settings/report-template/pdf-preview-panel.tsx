@@ -160,10 +160,10 @@ export function PdfPreview({
 
                         {(showStamp || showSignature) && signatureStampLayout === 'custom' && (
                             <div className="mt-2">
-                                <div className="relative h-20 w-full overflow-hidden rounded border border-dashed border-gray-300 bg-gray-50">
+                                <div className="relative h-20 w-full overflow-hidden">
                                     {showStamp && (
                                         <div
-                                            className="absolute overflow-hidden rounded border border-dashed border-sky-400/80 bg-sky-50/70"
+                                            className="absolute overflow-hidden"
                                             style={{
                                                 left: toCssValue(customSignatureStampLayout.stamp.x),
                                                 top: toCssValue(customSignatureStampLayout.stamp.y),
@@ -188,7 +188,7 @@ export function PdfPreview({
 
                                     {showSignature && (
                                         <div
-                                            className="absolute overflow-hidden rounded border border-dashed border-emerald-400/80 bg-emerald-50/70"
+                                            className="absolute overflow-hidden"
                                             style={{
                                                 left: toCssValue(customSignatureStampLayout.signature.x),
                                                 top: toCssValue(customSignatureStampLayout.signature.y),
@@ -212,9 +212,9 @@ export function PdfPreview({
                                     )}
                                 </div>
                                 {(fullNameText || dateText) && (
-                                    <div className="mt-0.5 flex gap-4 text-[7px] text-gray-500">
-                                        <div className="min-w-0 flex-1">{fullNameText}</div>
-                                        <div className="min-w-0 flex-1 text-right">{dateText}</div>
+                                    <div className="mt-0.5 inline-flex items-start gap-3 text-[7px] text-gray-500">
+                                        <div>{fullNameText}</div>
+                                        <div>{dateText}</div>
                                     </div>
                                 )}
                             </div>

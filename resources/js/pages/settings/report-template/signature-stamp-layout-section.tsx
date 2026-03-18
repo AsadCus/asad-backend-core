@@ -83,20 +83,20 @@ const PRESET_LAYOUTS: Record<
             signature: { x: 28, y: 24, width: 28, height: 46, z: 2 },
         },
         right_side: {
-            stamp: { x: 44, y: 20, width: 24, height: 52, z: 1 },
-            signature: { x: 68, y: 24, width: 28, height: 46, z: 2 },
+            stamp: { x: 28, y: 20, width: 24, height: 52, z: 2 },
+            signature: { x: 2, y: 24, width: 28, height: 46, z: 1 },
         },
         stack_each_other: {
-            stamp: { x: 36, y: 18, width: 28, height: 54, z: 1 },
-            signature: { x: 40, y: 22, width: 30, height: 46, z: 2 },
+            stamp: { x: 8, y: 18, width: 28, height: 54, z: 1 },
+            signature: { x: 12, y: 22, width: 30, height: 46, z: 2 },
         },
         up_side: {
-            stamp: { x: 10, y: 6, width: 24, height: 42, z: 1 },
-            signature: { x: 38, y: 6, width: 30, height: 42, z: 2 },
+            stamp: { x: 6, y: 4, width: 26, height: 38, z: 2 },
+            signature: { x: 6, y: 44, width: 30, height: 38, z: 1 },
         },
         down_side: {
-            stamp: { x: 10, y: 38, width: 24, height: 42, z: 1 },
-            signature: { x: 38, y: 38, width: 30, height: 42, z: 2 },
+            stamp: { x: 6, y: 44, width: 26, height: 38, z: 2 },
+            signature: { x: 6, y: 4, width: 30, height: 38, z: 1 },
         },
     },
     px: {
@@ -105,20 +105,20 @@ const PRESET_LAYOUTS: Record<
             signature: { x: 126, y: 42, width: 132, height: 72, z: 2 },
         },
         right_side: {
-            stamp: { x: 250, y: 36, width: 108, height: 80, z: 1 },
-            signature: { x: 360, y: 42, width: 130, height: 72, z: 2 },
+            stamp: { x: 126, y: 36, width: 108, height: 80, z: 2 },
+            signature: { x: 8, y: 42, width: 130, height: 72, z: 1 },
         },
         stack_each_other: {
-            stamp: { x: 220, y: 36, width: 124, height: 84, z: 1 },
-            signature: { x: 236, y: 44, width: 138, height: 72, z: 2 },
+            stamp: { x: 16, y: 36, width: 124, height: 84, z: 1 },
+            signature: { x: 32, y: 44, width: 138, height: 72, z: 2 },
         },
         up_side: {
-            stamp: { x: 30, y: 10, width: 112, height: 62, z: 1 },
-            signature: { x: 170, y: 10, width: 140, height: 62, z: 2 },
+            stamp: { x: 8, y: 8, width: 112, height: 62, z: 2 },
+            signature: { x: 8, y: 78, width: 140, height: 62, z: 1 },
         },
         down_side: {
-            stamp: { x: 30, y: 78, width: 112, height: 62, z: 1 },
-            signature: { x: 170, y: 78, width: 140, height: 62, z: 2 },
+            stamp: { x: 8, y: 78, width: 112, height: 62, z: 2 },
+            signature: { x: 8, y: 8, width: 140, height: 62, z: 1 },
         },
     },
 };
@@ -395,7 +395,7 @@ export function SignatureStampLayoutSection({
                                     </div>
 
                                     <div
-                                        className="absolute overflow-hidden rounded border border-dashed border-sky-500/70 bg-sky-50/70"
+                                        className="absolute overflow-hidden"
                                         style={normalizedPreview.stamp}
                                     >
                                         {customStampPreview ? (
@@ -425,7 +425,7 @@ export function SignatureStampLayoutSection({
                                     )}
 
                                     <div
-                                        className="absolute overflow-hidden rounded border border-dashed border-emerald-500/70 bg-emerald-50/70"
+                                        className="absolute overflow-hidden"
                                         style={normalizedPreview.signature}
                                     >
                                         {customSignaturePreview ? (
@@ -544,11 +544,11 @@ export function SignatureStampLayoutSection({
                                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                     {(
                                         [
-                                            ['left_side', 'Left Side'],
-                                            ['right_side', 'Right Side'],
+                                            ['left_side', 'Left: Stamp, Right: Sign'],
+                                            ['right_side', 'Right: Stamp, Left: Sign'],
                                             ['stack_each_other', 'Stack Each Other'],
-                                            ['up_side', 'Up Side'],
-                                            ['down_side', 'Down Side'],
+                                            ['up_side', 'Up: Stamp, Down: Sign'],
+                                            ['down_side', 'Down: Stamp, Up: Sign'],
                                         ] as Array<[SignatureStampPlacementPreset, string]>
                                     ).map(([key, label]) => (
                                         <button

@@ -51,7 +51,7 @@ class ReportTemplateUpdateRequest extends FormRequest
             'custom_signature_stamp_layout.labels.full_name' => ['nullable', 'string', 'max:255'],
             'custom_signature_stamp_layout.labels.stamp_name' => ['nullable', 'string', 'max:255'],
             'custom_signature_stamp_layout.labels.signature_name' => ['nullable', 'string', 'max:255'],
-            'custom_signature_stamp_layout.labels.date' => ['nullable', 'date_format:Y-m-d'],
+            'custom_signature_stamp_layout.labels.date' => ['nullable', 'date'],
             'custom_signature_stamp_layout.stamp' => ['nullable', 'array'],
             'custom_signature_stamp_layout.signature' => ['nullable', 'array'],
             'custom_signature_stamp_layout.stamp.x' => ['nullable', 'numeric', 'min:0'],
@@ -66,7 +66,7 @@ class ReportTemplateUpdateRequest extends FormRequest
             'custom_signature_stamp_layout.signature.height' => ['nullable', 'numeric', 'min:1'],
             'custom_signature_stamp_layout.signature.z' => ['nullable', 'integer', 'min:0'],
             'custom_signature_stamp_layout.signature.name' => ['nullable', 'string', 'max:255'],
-            'custom_signature_stamp_layout.signature.date' => ['nullable', 'date_format:Y-m-d'],
+            'custom_signature_stamp_layout.signature.date' => ['nullable', 'date'],
 
             // Per-module template settings (wildcard for all modules including custom)
             'module_templates' => ['nullable', 'array'],

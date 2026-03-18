@@ -64,18 +64,20 @@
                         @endif
                     </div>
                 @endif
-
-                @if($showNameDate && !empty($fullName))
-                    <div style="position:absolute; left: {{ $stampLayout['x'] ?? 8 }}{{ $unit }}; top: calc({{ $stampLayout['y'] ?? 10 }}{{ $unit }} + {{ $stampLayout['height'] ?? 58 }}{{ $unit }} + 2px); width: {{ $stampLayout['width'] ?? 26 }}{{ $unit }}; font-size:10px; line-height:1.2; text-align:center;">
-                        {{ $fullName }}
-                    </div>
-                @endif
-                @if($showNameDate && !empty($displayDate))
-                    <div style="position:absolute; left: {{ $signatureLayout['x'] ?? 62 }}{{ $unit }}; top: calc({{ $signatureLayout['y'] ?? 18 }}{{ $unit }} + {{ $signatureLayout['height'] ?? 48 }}{{ $unit }} + 2px); width: {{ $signatureLayout['width'] ?? 30 }}{{ $unit }}; font-size:9px; line-height:1.2; text-align:center;">
-                        {{ $displayDate }}
-                    </div>
-                @endif
             </div>
+            @if($showNameDate && (!empty($fullName) || !empty($displayDate)))
+                <div style="margin-top: 2px; text-align:left; font-size:10px; line-height:1.2;">
+                    @if(!empty($fullName))
+                        <span>{{ $fullName }}</span>
+                    @endif
+                    @if(!empty($fullName) && !empty($displayDate))
+                        <span style="display:inline-block; width:10px;"></span>
+                    @endif
+                    @if(!empty($displayDate))
+                        <span>{{ $displayDate }}</span>
+                    @endif
+                </div>
+            @endif
         </div>
     @else
         <table class="stamp-sig-row stamp-sig-default" style="width:auto;">
