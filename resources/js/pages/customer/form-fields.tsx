@@ -15,6 +15,7 @@ interface CustomerFormFieldsProps {
     customer: CustomerSchema;
     index?: number;
     fieldPrefix?: string;
+    useGeneratedDocumentName?: boolean;
     isView: boolean;
     processing: boolean;
     getError: (path: string) => string | undefined;
@@ -27,14 +28,18 @@ interface CustomerFormFieldsProps {
 const DOCUMENT_FIELDS = [
     {
         fileKey: 'passport_file' as const,
-        pathKey: 'passport_path' as const,
+        nameKey: 'passport_file_name' as const,
+        removedKey: 'passport_file_removed' as const,
+        documentKey: 'passport_document' as const,
         label: 'Passport',
         accept: '.jpg,.jpeg,.png,.pdf',
         hint: 'Upload a scan or photo of the passport bio-data page',
     },
     {
         fileKey: 'photo_file' as const,
-        pathKey: 'photo_path' as const,
+        nameKey: 'photo_file_name' as const,
+        removedKey: 'photo_file_removed' as const,
+        documentKey: 'photo_document' as const,
         label: 'Photo',
         accept: '.jpg,.jpeg,.png',
         hint: 'Upload a photo',
@@ -45,6 +50,7 @@ export default function CustomerFormFields({
     customer,
     index,
     fieldPrefix,
+    useGeneratedDocumentName = false,
     isView,
     processing,
     getError,
@@ -60,6 +66,28 @@ export default function CustomerFormFields({
     const passportIssueDate = customer.passport_issue_date
         ? parseDisplayDate(customer.passport_issue_date)
         : null;
+
+    const sanitizeSegment = (value: string): string => {
+        return value
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .replace(/_+/g, '_');
+    };
+
+    const buildGeneratedFileName = (field: 'passport' | 'photo'): string => {
+        const memberNameSegment = sanitizeSegment(customer.name ?? '') || 'member';
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        const minute = String(now.getMinutes()).padStart(2, '0');
+        const second = String(now.getSeconds()).padStart(2, '0');
+
+        return `customer_${memberNameSegment}_${field}_${year}${month}${day}${hour}${minute}${second}`;
+    };
 
     return (
         <div className="space-y-6">
@@ -476,23 +504,51 @@ export default function CustomerFormFields({
                             fileValue={
                                 customer[doc.fileKey] as File | undefined
                             }
-                            existingPath={
-                                (customer[doc.pathKey] as string | null) ??
-                                undefined
+                            existingPath={customer[doc.documentKey]?.file_path}
+                            existingFileName={
+                                customer[doc.documentKey]?.file_name
+                            }
+                            useFileNameInput
+                            fileNameValue={
+                                (customer[doc.nameKey] as string | null) ??
+                                null
                             }
                             isView={isView}
                             disabled={disabled}
                             error={getError(fieldPath(doc.fileKey))}
-                            onSelect={(file) =>
-                                onUpdateCustomer(doc.fileKey, file)
+                            onSelect={(file) => {
+                                onUpdateCustomer(doc.fileKey, file);
+                                onUpdateCustomer(doc.removedKey, false);
+
+                                if (useGeneratedDocumentName) {
+                                    const fieldName =
+                                        doc.fileKey === 'passport_file'
+                                            ? 'passport'
+                                            : 'photo';
+                                    onUpdateCustomer(
+                                        doc.nameKey,
+                                        buildGeneratedFileName(fieldName),
+                                    );
+                                } else if (!customer[doc.nameKey]) {
+                                    onUpdateCustomer(doc.nameKey, file.name);
+                                }
+                            }}
+                            onFileNameChange={(fileName) =>
+                                onUpdateCustomer(doc.nameKey, fileName)
                             }
                             onClear={() => {
-                                // If there's a new file selected, only clear the new file
-                                // Otherwise, clear both file and existing path
-                                const hasNewFile = !!customer[doc.fileKey];
+                                const hasExistingDocument = Boolean(
+                                    customer[doc.documentKey],
+                                );
+
                                 onUpdateCustomer(doc.fileKey, null);
-                                if (!hasNewFile) {
-                                    onUpdateCustomer(doc.pathKey, null);
+                                onUpdateCustomer(doc.nameKey, null);
+
+                                if (hasExistingDocument) {
+                                    onUpdateCustomer(doc.removedKey, true);
+                                    onUpdateCustomer(doc.documentKey, null);
+                                } else {
+                                    onUpdateCustomer(doc.removedKey, false);
                                 }
                             }}
                         />

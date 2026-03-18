@@ -19,7 +19,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 const MANIFEST_DATA = {
     package_id: 0,
     manifest_number: '',
-    status: 'draft',
+    status: 'open',
     notes: '',
     travelers: [],
     roomLists: {},

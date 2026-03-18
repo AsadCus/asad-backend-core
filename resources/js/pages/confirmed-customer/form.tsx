@@ -72,6 +72,7 @@ type ClientValidationErrors = Record<string, string>;
 
 interface LinkedPackageInfo {
     id: number;
+    package_number?: string | null;
     name: string;
     status?: string;
     departure_date?: string | null;
@@ -164,6 +165,7 @@ export default function CustomerConfirmationForm({
 
             setLinkedPackageInfo({
                 id: pkg.id,
+                package_number: pkg.package_number ?? null,
                 name: pkg.name,
                 status: pkg.status,
                 departure_date: pkg.departure_date,
@@ -289,6 +291,7 @@ export default function CustomerConfirmationForm({
         if (packageData?.id) {
             setLinkedPackageInfo({
                 id: packageData.id,
+                package_number: packageData.package_number ?? null,
                 name: packageData.name ?? '-',
                 status: packageData.status,
                 departure_date: packageData.departure_date,
@@ -319,6 +322,7 @@ export default function CustomerConfirmationForm({
         if (selectedOption) {
             setLinkedPackageInfo((current) => ({
                 id: Number(packageId),
+                package_number: current?.package_number,
                 name: selectedOption.label,
                 status: current?.status,
                 departure_date: current?.departure_date,
@@ -582,8 +586,13 @@ export default function CustomerConfirmationForm({
                 first_time_umrah: customer.first_time_umrah ?? null,
                 has_chronic_disease: customer.has_chronic_disease ?? false,
                 chronic_disease_details: customer.chronic_disease_details ?? '',
-                passport_path: customer.passport_path ?? null,
-                photo_path: customer.photo_path ?? null,
+                passport_document: customer.passport_document ?? null,
+                photo_document: customer.photo_document ?? null,
+                passport_file_name:
+                    customer.passport_document?.file_name ?? null,
+                photo_file_name: customer.photo_document?.file_name ?? null,
+                passport_file_removed: false,
+                photo_file_removed: false,
             });
         }
 
@@ -870,7 +879,7 @@ export default function CustomerConfirmationForm({
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                <FormField label="Enquiry ID">
+                                <FormField label="Enquiry Number">
                                     <div className="rounded-md border bg-muted/30 px-3 py-1.25 select-text">
                                         #{effectiveLinkedEnquiry.id}
                                     </div>
@@ -1260,6 +1269,7 @@ export default function CustomerConfirmationForm({
                                                     <CustomerFormFields
                                                         customer={customer}
                                                         index={idx}
+                                                        useGeneratedDocumentName
                                                         isView={isView}
                                                         processing={processing}
                                                         getError={getError}

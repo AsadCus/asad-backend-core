@@ -34,10 +34,10 @@ class OrderService
 
     public function getForDataTable(array $filters = [])
     {
-        return Order::with(['quotation.customer.user', 'quotation.customer.handledBy', 'invoices.receipt'])
+        return Order::with(['quotation.customer.user', 'quotation.customer.handledBy', 'quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoices.receipt'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->whereHas('quotation.customer', function ($cq) use ($value) {
-                    $cq->where('handled_by', $value);
+                $q->whereHas('quotation.customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
+                    $enquiryQuery->where('handled_by', $value);
                 });
             })->orderBy('order_number', 'desc')->get()->map(function ($o) {
                 $hasReceipts = $o->invoices->some(function ($invoice) {
@@ -52,8 +52,8 @@ class OrderService
                     'customer_id' => $o->quotation->customer->id ?? '-',
                     'customer_number' => $o->quotation->customer->customer_number ?? '-',
                     'customer_name' => $o->quotation->customer->user->name ?? '-',
-                    'sales_id' => $o->quotation->customer->handledBy->id ?? '-',
-                    'sales_name' => $o->quotation->customer->handledBy->name ?? '-',
+                    'sales_id' => $o->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
+                    'sales_name' => $o->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
                     'payment_plan' => $o->payment_plan,
                     'created_at' => $o->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $o->updated_at?->translatedFormat('d F Y'),
@@ -69,8 +69,8 @@ class OrderService
                             'customer_id' => $i->order->quotation->customer->id ?? '-',
                             'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
                             'customer_name' => $i->order->quotation->customer->user->name ?? '-',
-                            'sales_id' => $i->order->quotation->customer->handledBy->id ?? '-',
-                            'sales_name' => $i->order->quotation->customer->handledBy->name ?? '-',
+                            'sales_id' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
+                            'sales_name' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
                             'type' => $i->type,
                             'description' => $i->description,
                             'amount' => $this->formatService->cleanDecimal($i->amount),
@@ -98,6 +98,8 @@ class OrderService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
+            $incomingInvoices = $this->normalizeIncomingInvoices(array_values($data['invoices'] ?? []));
+
             $order = Order::create([
                 'quotation_id' => $data['quotation_id'],
                 'payment_plan' => $data['payment_plan'],
@@ -105,7 +107,7 @@ class OrderService
 
             $this->quotationService->converted($order->quotation->id);
 
-            foreach ($data['invoices'] ?? [] as $invoice) {
+            foreach ($incomingInvoices as $invoice) {
                 $this->invoiceService->store([
                     'order_id' => $order->id,
                     'description' => $invoice['description'],
@@ -177,7 +179,7 @@ class OrderService
 
             $incomingInvoiceIds = [];
             $seenInvoiceIds = [];
-            $incomingInvoices = array_values($data['invoices'] ?? []);
+            $incomingInvoices = $this->normalizeIncomingInvoices(array_values($data['invoices'] ?? []));
             $existingInvoicesByNumber = $order->invoices
                 ->filter(fn ($invoice) => ! empty($invoice->invoice_number))
                 ->keyBy('invoice_number');
@@ -302,6 +304,57 @@ class OrderService
     public function delete($id)
     {
         return Order::find($id)?->delete() ?? false;
+    }
+
+    private function normalizeIncomingInvoices(array $incomingInvoices): array
+    {
+        $seenItemIds = [];
+        $seenFingerprints = [];
+
+        return array_map(function (array $invoice) use (&$seenItemIds, &$seenFingerprints) {
+            $rawItems = array_values($invoice['items'] ?? []);
+            $normalizedItems = [];
+
+            foreach ($rawItems as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $itemId = isset($item['id']) && is_numeric($item['id'])
+                    ? (int) $item['id']
+                    : null;
+
+                if ($itemId && isset($seenItemIds[$itemId])) {
+                    continue;
+                }
+
+                if (! $itemId) {
+                    $fingerprint = implode('|', [
+                        (string) ($item['parent_id'] ?? ''),
+                        (string) ($item['customer_confirmation_member_id'] ?? ''),
+                        strtolower(trim((string) ($item['description'] ?? ''))),
+                        (string) ((int) (! empty($item['is_header']))),
+                        (string) ($item['quantity'] ?? ''),
+                        (string) ($item['rate'] ?? ''),
+                        (string) ($item['sort_order'] ?? ''),
+                    ]);
+
+                    if (isset($seenFingerprints[$fingerprint])) {
+                        continue;
+                    }
+
+                    $seenFingerprints[$fingerprint] = true;
+                } else {
+                    $seenItemIds[$itemId] = true;
+                }
+
+                $normalizedItems[] = $item;
+            }
+
+            $invoice['items'] = array_values($normalizedItems);
+
+            return $invoice;
+        }, $incomingInvoices);
     }
 
     /**

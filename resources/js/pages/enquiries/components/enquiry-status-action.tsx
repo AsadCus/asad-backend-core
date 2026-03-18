@@ -12,7 +12,7 @@ import { router } from '@inertiajs/react';
 import { Info, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
-export type EnquiryStatusActionType = 'contacted' | 'negotiating' | 'confirmed';
+export type EnquiryStatusActionType = 'contacted' | 'confirmed';
 
 interface EnquiryStatusActionProps {
     enquiryId?: number;
@@ -29,8 +29,7 @@ export function getAvailableEnquiryActions(
     if (!status) return [];
 
     if (status === 'new_lead') return ['contacted'];
-    if (status === 'contacted') return ['negotiating'];
-    if (status === 'negotiating') return ['confirmed'];
+    if (status === 'contacted') return ['confirmed'];
 
     return [];
 }
@@ -49,8 +48,6 @@ export function EnquiryStatusAction({
         switch (action) {
             case 'contacted':
                 return 'Mark as Contacted';
-            case 'negotiating':
-                return 'Mark as Negotiating';
             case 'confirmed':
                 return 'Confirm Enquiry';
             default:
@@ -64,8 +61,6 @@ export function EnquiryStatusAction({
         switch (action) {
             case 'contacted':
                 return 'Mark this enquiry as contacted. The customer has been reached out to.';
-            case 'negotiating':
-                return 'Move this enquiry to negotiating stage. Terms are being discussed with the customer.';
             case 'confirmed':
                 return isPrivate
                     ? 'Confirm this private enquiry. You will continue through a 2-step flow: package setup first, then customer confirmation.'
@@ -90,7 +85,7 @@ export function EnquiryStatusAction({
             return;
         }
 
-        // For contacted / negotiating: just transition status
+        // For contacted: just transition status
         router.put(
             transitionStatus(enquiryId).url,
             { status: action },
@@ -138,7 +133,6 @@ export function EnquiryStatusAction({
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
                         {action === 'contacted' && 'Mark Contacted'}
-                        {action === 'negotiating' && 'Mark Negotiating'}
                         {action === 'confirmed' && 'Confirm'}
                     </Button>
                 </DialogFooter>

@@ -82,7 +82,7 @@ class EnquiryService
             'private' => Enquiry::where('type', 'private')->count(),
             'new_lead' => Enquiry::where('status', EnquiryStatus::NewLead)->count(),
             'contacted' => Enquiry::where('status', EnquiryStatus::Contacted)->count(),
-            'negotiating' => Enquiry::where('status', EnquiryStatus::Negotiating)->count(),
+            'negotiating' => Enquiry::where('status', 'negotiating')->count(),
             'confirmed' => Enquiry::where('status', EnquiryStatus::Confirmed)->count(),
         ];
     }
@@ -107,7 +107,10 @@ class EnquiryService
                 abort(422, "Cannot transition from {$enquiry->status->label()} to {$targetStatus->label()}.");
             }
 
-            $enquiry->update(['status' => $targetStatus->value]);
+            $enquiry->update([
+                'status' => $targetStatus->value,
+                'handled_by' => auth()->id(),
+            ]);
 
             $this->createStatusUpdatedRemark($enquiry->id, $previousStatus, $targetStatus);
 
@@ -138,7 +141,7 @@ class EnquiryService
             }
 
             if (! $enquiry->status->canTransitionTo(EnquiryStatus::Confirmed)) {
-                abort(422, "Cannot confirm enquiry from status {$enquiry->status->label()}. It must be in Negotiating status.");
+                abort(422, "Cannot confirm enquiry from status {$enquiry->status->label()}. It must be in Contacted status.");
             }
 
             $previousStatus = $enquiry->status;

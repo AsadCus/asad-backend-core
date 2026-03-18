@@ -17,8 +17,8 @@ class ReportSettingSeeder extends Seeder
         ReportSetting::firstOrCreate(
             ['id' => 1],
             [
-                'company_name' => 'Karva Travel Management System',
-                'company_address' => "931 Yishun Central 1\n#01-109, Singapore 760931",
+                'company_name' => 'Karva Travel & Tours',
+                'company_address' => "390 Victoria Street\nGolden Landmark Shopping Centre\n#03-28 Singapore 188061",
                 'company_phone' => null,
                 'company_email' => null,
                 'logo_path' => null,

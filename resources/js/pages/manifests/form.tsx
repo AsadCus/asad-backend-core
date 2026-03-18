@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { navigateToSection } from '@/lib/navigation-helper';
 import { store, update } from '@/routes/manifests';
 import { useForm } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, RotateCcw } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Download, RotateCcw } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AccommodationInformationCard from './components/accommodation-information-card';
@@ -176,7 +176,7 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
         id: initialData?.id,
         package_id: initialData?.package_id ?? 0,
         manifest_number: initialData?.manifest_number ?? '',
-        status: initialData?.status ?? 'draft',
+        status: initialData?.status ?? 'open',
         notes: initialData?.notes ?? '',
         travelers,
         roomLists: normalizedRoomLists,
@@ -245,7 +245,6 @@ function buildRoomRowsFromTravelers(
             ...traveler,
             ...existing,
             is_official: traveler.package_official_id !== null,
-            is_assigned: existing?.is_assigned ?? traveler.is_assigned ?? true,
             role: traveler.role ?? existing?.role,
             relationship: traveler.relationship ?? existing?.relationship,
             row_key:
@@ -516,13 +515,6 @@ function syncRoomRowsWithTravelers(
         ]),
     );
 
-    const existingByIdentity = new Map(
-        existingRows.map((row, index) => [
-            travelerIdentityKey(row, index),
-            row,
-        ]),
-    );
-
     const keptRows = existingRows
         .map((row, index) => {
             const identity = travelerIdentityKey(row, index);
@@ -550,107 +542,16 @@ function syncRoomRowsWithTravelers(
                 room_label: row.room_label ?? traveler.room_label ?? '',
                 room_type: row.room_type ?? traveler.room_type ?? '',
                 bed_type: row.bed_type ?? traveler.bed_type ?? '',
+                remarks: row.remarks ?? traveler.remarks,
                 room_remarks: row.room_remarks ?? traveler.room_remarks,
                 meal: row.meal ?? traveler.meal ?? defaultMealPlan ?? '',
                 age:
                     calculateAgeFromDob(
                         traveler.date_of_birth ?? row.date_of_birth,
                     ) ?? row.age,
-                is_assigned: row.is_assigned ?? traveler.is_assigned ?? true,
             } as TravelerWithUI;
         })
         .filter((row): row is TravelerWithUI => row !== null);
-
-    const groupedRows = new Map<string, TravelerWithUI[]>();
-
-    keptRows.forEach((row, index) => {
-        const key =
-            row.sharing_group_key ??
-            `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`;
-
-        if (!groupedRows.has(key)) {
-            groupedRows.set(key, []);
-        }
-
-        groupedRows.get(key)?.push(row);
-    });
-
-    const missingTravelers = activeTravelers.filter((traveler, index) => {
-        return !existingByIdentity.has(travelerIdentityKey(traveler, index));
-    });
-
-    missingTravelers.forEach((traveler, index) => {
-        const sharingPlan = String(traveler.sharing_plan ?? 'single')
-            .toLowerCase()
-            .trim();
-        const customerConfirmationId = Number(
-            traveler.customer_confirmation_id ?? 0,
-        );
-        const targetCapacity = capacityFromSharingPlan(sharingPlan);
-
-        let targetGroupKey = traveler.sharing_group_key ?? '';
-
-        if (!targetGroupKey) {
-            for (const [groupKey, rowsInGroup] of groupedRows.entries()) {
-                const first = rowsInGroup[0];
-                const firstSharingPlan = String(first?.sharing_plan ?? '')
-                    .toLowerCase()
-                    .trim();
-                const firstConfirmationId = Number(
-                    first?.customer_confirmation_id ?? 0,
-                );
-                const assignedCount = rowsInGroup.filter(
-                    (row) => row.is_assigned !== false,
-                ).length;
-
-                if (
-                    firstSharingPlan === sharingPlan &&
-                    firstConfirmationId === customerConfirmationId &&
-                    assignedCount < targetCapacity
-                ) {
-                    targetGroupKey = groupKey;
-                    break;
-                }
-            }
-        }
-
-        if (!targetGroupKey) {
-            targetGroupKey =
-                traveler.sharing_group_key ??
-                `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index + 1}`;
-        }
-
-        const roomSource = groupedRows.get(targetGroupKey)?.[0];
-
-        const newRow: TravelerWithUI = {
-            ...traveler,
-            is_official: traveler.package_official_id !== null,
-            is_assigned: traveler.is_assigned ?? true,
-            row_key:
-                traveler.row_key ??
-                `room-${accommodationKey}-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index}`,
-            sharing_group_key: targetGroupKey,
-            accommodation_key: accommodationKey,
-            room_relationship:
-                roomSource?.room_relationship ?? traveler.relationship ?? '',
-            room_label: roomSource?.room_label ?? traveler.room_label ?? '',
-            room_no: roomSource?.room_no ?? traveler.room_no ?? '',
-            room_type: roomSource?.room_type ?? traveler.room_type ?? '',
-            bed_type: roomSource?.bed_type ?? traveler.bed_type ?? '',
-            number_of_beds_checked:
-                roomSource?.number_of_beds_checked ??
-                traveler.number_of_beds_checked ??
-                false,
-            meal: roomSource?.meal ?? traveler.meal ?? defaultMealPlan ?? '',
-            room_remarks: roomSource?.room_remarks ?? traveler.room_remarks,
-            remarks: traveler.remarks ?? null,
-            age: calculateAgeFromDob(traveler.date_of_birth) ?? traveler.age,
-        };
-
-        const existingGroupRows = groupedRows.get(targetGroupKey) ?? [];
-        groupedRows.set(targetGroupKey, [...existingGroupRows, newRow]);
-        keptRows.push(newRow);
-    });
 
     return keptRows.map((row, index) => ({
         ...row,
@@ -679,9 +580,6 @@ export default function ManifestForm({
     const [activeTab, setActiveTab] = useState('main');
     const [openSections, setOpenSections] = useState<string[]>([
         'manifest_information',
-        'manifest_member_information',
-        'accommodation_information',
-        'flight_detail_information',
     ]);
 
     const scrollToErrorBanner = useCallback(() => {
@@ -851,27 +749,32 @@ export default function ManifestForm({
             currentKeys.some((key) => !syncedKeys.includes(key));
 
         const membershipChanged = roomTabs.some((tab) => {
-            const roomRows =
+            const currentRows =
                 ((currentRoomLists[tab.key] ?? []) as TravelerWithUI[]) ?? [];
+            const syncedRows =
+                ((syncedRoomLists[tab.key] ?? []) as TravelerWithUI[]) ?? [];
 
-            const travelerIdentitySet = new Set(
-                currentTravelers.map((traveler, index) =>
-                    travelerIdentityKey(traveler, index),
-                ),
-            );
-
-            const roomIdentitySet = new Set(
-                roomRows.map((traveler, index) =>
-                    travelerIdentityKey(traveler, index),
-                ),
-            );
-
-            if (travelerIdentitySet.size !== roomIdentitySet.size) {
+            if (currentRows.length !== syncedRows.length) {
                 return true;
             }
 
-            for (const identity of travelerIdentitySet) {
-                if (!roomIdentitySet.has(identity)) {
+            const currentIdentitySet = new Set(
+                currentRows.map((traveler, index) =>
+                    travelerIdentityKey(traveler, index),
+                ),
+            );
+            const syncedIdentitySet = new Set(
+                syncedRows.map((traveler, index) =>
+                    travelerIdentityKey(traveler, index),
+                ),
+            );
+
+            if (currentIdentitySet.size !== syncedIdentitySet.size) {
+                return true;
+            }
+
+            for (const identity of currentIdentitySet) {
+                if (!syncedIdentitySet.has(identity)) {
                     return true;
                 }
             }
@@ -1108,6 +1011,126 @@ export default function ManifestForm({
         ],
     );
 
+    const getTravelerAssignedLocations = useCallback(
+        (traveler: TravelerWithUI): string[] => {
+            const membership = new Set<string>();
+
+            roomTabs.forEach((tab) => {
+                const rows = ((data.roomLists ?? {})[tab.key] ?? []) as
+                    | TravelerWithUI[]
+                    | undefined;
+
+                if (!rows || rows.length === 0) {
+                    return;
+                }
+
+                const exists = rows.some((row, index) => {
+                    return (
+                        travelerIdentityKey(row, index) ===
+                        travelerIdentityKey(traveler, 0)
+                    );
+                });
+
+                if (exists) {
+                    membership.add(tab.key.trim().toLowerCase());
+                }
+            });
+
+            return Array.from(membership);
+        },
+        [data.roomLists, roomTabs],
+    );
+
+    const handleRoomAssignmentChange = useCallback(
+        (
+            traveler: TravelerWithUI,
+            action: 'assign' | 'unassign',
+            scope: string,
+        ) => {
+            const normalizeLocationKey = (value: string): string => {
+                return value.trim().toLowerCase();
+            };
+
+            const allLocationKeys = roomTabs
+                .map((tab) => normalizeLocationKey(tab.key))
+                .filter((value) => value.length > 0);
+            const scopeKey = normalizeLocationKey(scope);
+            const targetLocations =
+                scopeKey === 'all'
+                    ? allLocationKeys
+                    : scopeKey.length > 0
+                      ? [scopeKey]
+                      : [];
+
+            if (targetLocations.length === 0) {
+                return;
+            }
+
+            const currentRoomLists =
+                (data.roomLists as Record<string, TravelerWithUI[]>) ?? {};
+            const nextRoomLists: Record<string, TravelerWithUI[]> = {
+                ...currentRoomLists,
+            };
+
+            targetLocations.forEach((locationKey) => {
+                const tab = roomTabs.find(
+                    (roomTab) =>
+                        normalizeLocationKey(roomTab.key) === locationKey,
+                );
+
+                if (!tab) {
+                    return;
+                }
+
+                const existingRows = (nextRoomLists[tab.key] ??
+                    []) as TravelerWithUI[];
+                const travelerExists = existingRows.some((row, rowIndex) => {
+                    return (
+                        travelerIdentityKey(row, rowIndex) ===
+                        travelerIdentityKey(traveler, 0)
+                    );
+                });
+
+                if (action === 'unassign') {
+                    nextRoomLists[tab.key] = existingRows
+                        .filter((row, rowIndex) => {
+                            return (
+                                travelerIdentityKey(row, rowIndex) !==
+                                travelerIdentityKey(traveler, 0)
+                            );
+                        })
+                        .map((row, index) => ({
+                            ...row,
+                            sn: index + 1,
+                            sort_order: index + 1,
+                        }));
+
+                    return;
+                }
+
+                if (!travelerExists) {
+                    const appended = buildRoomRowsFromTravelers(
+                        [traveler],
+                        existingRows,
+                        tab.key,
+                        tab.accommodation.type_of_meal ?? '',
+                    );
+
+                    nextRoomLists[tab.key] = [...existingRows, ...appended].map(
+                        (row, index) => ({
+                            ...row,
+                            sn: index + 1,
+                            sort_order: index + 1,
+                        }),
+                    );
+                }
+            });
+
+            form.setData('roomLists', nextRoomLists);
+        },
+        [data.roomLists, form, roomTabs],
+    );
+
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
 
@@ -1303,6 +1326,12 @@ export default function ManifestForm({
         );
     }, [data.travelers, isCancelledTraveler]);
 
+    const nonCancelledNonOfficialTravelers = useMemo(() => {
+        return nonCancelledTravelers.filter(
+            (traveler) => !traveler.package_official_id,
+        );
+    }, [nonCancelledTravelers]);
+
     const moveTravelerToHolding = async (traveler: TravelerWithUI) => {
         const memberId = traveler.customer_confirmation_member_id;
         const travelerId = traveler.id;
@@ -1355,6 +1384,40 @@ export default function ManifestForm({
             console.error(error);
         }
     };
+
+    const exportPdfWithSnapshot = useCallback(
+        (url: string, snapshot: Record<string, unknown>) => {
+            const csrfToken = document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content');
+
+            if (!csrfToken) {
+                return;
+            }
+
+            const exportForm = document.createElement('form');
+            exportForm.method = 'POST';
+            exportForm.action = url;
+            exportForm.target = '_blank';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = csrfToken;
+            exportForm.appendChild(csrfInput);
+
+            const snapshotInput = document.createElement('input');
+            snapshotInput.type = 'hidden';
+            snapshotInput.name = 'snapshot';
+            snapshotInput.value = JSON.stringify(snapshot);
+            exportForm.appendChild(snapshotInput);
+
+            document.body.appendChild(exportForm);
+            exportForm.submit();
+            document.body.removeChild(exportForm);
+        },
+        [],
+    );
 
     return (
         <div className="mx-auto w-full">
@@ -1502,36 +1565,50 @@ export default function ManifestForm({
                     onValueChange={setActiveTab}
                     className="w-full"
                 >
-                    <ScrollArea className="w-full whitespace-nowrap">
-                        <TabsList className="w-full group-data-[orientation=horizontal]/tabs:h-11">
+                    <div className="space-y-3">
+                        <TabsList className="w-fit group-data-[orientation=horizontal]/tabs:h-11">
                             <TabsTrigger value="main" className="text-lg">
                                 Main
                             </TabsTrigger>
-                            {roomTabs.map((tab) => (
-                                <TabsTrigger
-                                    key={tab.key}
-                                    value={`room-${tab.key}`}
-                                    className="text-lg"
-                                >
-                                    Room List - {tab.label}
-                                </TabsTrigger>
-                            ))}
-                            {officialCheckTabs.map((tab) => (
-                                <TabsTrigger
-                                    key={tab.key}
-                                    value={`room-check-${tab.sourceRoomKey}`}
-                                    className="text-lg"
-                                >
-                                    Room List for Official to Check -{' '}
-                                    {tab.label}
-                                </TabsTrigger>
-                            ))}
-                            <TabsTrigger value="airline" className="text-lg">
-                                Airline Name List
-                            </TabsTrigger>
                         </TabsList>
-                        <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
+
+                        <ScrollArea className="w-full whitespace-nowrap">
+                            <TabsList className="w-fit group-data-[orientation=horizontal]/tabs:h-11">
+                                <TabsTrigger
+                                    value="airline"
+                                    className="text-lg"
+                                >
+                                    Airline Name List
+                                </TabsTrigger>
+                                {roomTabs.map((tab) => (
+                                    <TabsTrigger
+                                        key={tab.key}
+                                        value={`room-${tab.key}`}
+                                        className="text-lg"
+                                    >
+                                        Room List - {tab.label}
+                                    </TabsTrigger>
+                                ))}
+                                {officialCheckTabs.map((tab) => (
+                                    <TabsTrigger
+                                        key={tab.key}
+                                        value={`room-check-${tab.sourceRoomKey}`}
+                                        className="text-lg"
+                                    >
+                                        Room List for Official to Check -{' '}
+                                        {tab.label}
+                                    </TabsTrigger>
+                                ))}
+                                <TabsTrigger
+                                    value="course-collection"
+                                    className="text-lg"
+                                >
+                                    Namelist Course & Collection Items
+                                </TabsTrigger>
+                            </TabsList>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                    </div>
 
                     <TabsContent value="main" className="space-y-4">
                         <ManifestDatatable
@@ -1541,6 +1618,14 @@ export default function ManifestForm({
                             allowReorder
                             errorPrefix="travelers"
                             errors={form.errors}
+                            roomAssignmentOptions={roomTabs.map((tab) => ({
+                                key: tab.key,
+                                label: tab.label,
+                            }))}
+                            getTravelerAssignedLocations={
+                                getTravelerAssignedLocations
+                            }
+                            onRoomAssignmentChange={handleRoomAssignmentChange}
                             onMoveToHolding={moveTravelerToHolding}
                             onRowsChange={updateFromTravelers}
                         />
@@ -1564,16 +1649,24 @@ export default function ManifestForm({
                                 <ManifestDatatable
                                     mode="room"
                                     rows={roomRows}
+                                    currentRoomLocationKey={tab.key}
                                     disabled={isView}
                                     allowReorder
                                     errorPrefix={`roomLists.${tab.key}`}
                                     roomGroupErrorPrefix="rooms"
                                     roomGroupStartIndex={roomRange?.start ?? 0}
                                     errors={form.errors}
+                                    roomAssignmentOptions={roomTabs.map(
+                                        (roomTab) => ({
+                                            key: roomTab.key,
+                                            label: roomTab.label,
+                                        }),
+                                    )}
                                     onRowsChange={(rows: TravelerWithUI[]) => {
                                         const normalizedRows = rows.map(
                                             (row, index) => ({
                                                 ...row,
+                                                accommodation_key: tab.key,
                                                 age:
                                                     calculateAgeFromDob(
                                                         row.date_of_birth,
@@ -1676,93 +1769,114 @@ export default function ManifestForm({
                                                 ),
                                             );
 
+                                            const nextActiveTravelers =
+                                                nextTravelers.filter(
+                                                    (traveler) =>
+                                                        !isCancelledTraveler(
+                                                            traveler,
+                                                        ),
+                                                );
+
                                             const nextRoomLists =
                                                 Object.fromEntries(
-                                                    Object.entries(
-                                                        data.roomLists ?? {},
-                                                    ).map(
-                                                        ([
-                                                            roomKey,
-                                                            roomRows,
-                                                        ]) => [
-                                                            roomKey,
-                                                            (roomKey === tab.key
+                                                    roomTabs.map((roomTab) => {
+                                                        const roomKey =
+                                                            roomTab.key;
+                                                        const sourceRows =
+                                                            roomKey === tab.key
                                                                 ? normalizedRows
-                                                                : (roomRows as TravelerWithUI[])
-                                                            ).map(
-                                                                (
-                                                                    roomRow,
-                                                                    roomIndex,
-                                                                ) => {
-                                                                    const travelerUpdate =
-                                                                        travelerMap.get(
-                                                                            travelerIdentityKey(
-                                                                                roomRow,
-                                                                                roomIndex,
-                                                                            ),
-                                                                        );
+                                                                : (
+                                                                      ((data.roomLists ??
+                                                                          {})[
+                                                                          roomKey
+                                                                      ] ??
+                                                                          []) as TravelerWithUI[]
+                                                                  ).map(
+                                                                      (
+                                                                          roomRow,
+                                                                          roomIndex,
+                                                                      ) => {
+                                                                          const travelerUpdate =
+                                                                              travelerMap.get(
+                                                                                  travelerIdentityKey(
+                                                                                      roomRow,
+                                                                                      roomIndex,
+                                                                                  ),
+                                                                              );
 
-                                                                    if (
-                                                                        !travelerUpdate
-                                                                    ) {
-                                                                        return roomRow;
-                                                                    }
+                                                                          if (
+                                                                              !travelerUpdate
+                                                                          ) {
+                                                                              return roomRow;
+                                                                          }
 
-                                                                    return {
-                                                                        ...roomRow,
-                                                                        name_as_per_passport:
-                                                                            travelerUpdate.name_as_per_passport ??
-                                                                            roomRow.name_as_per_passport,
-                                                                        passport_number:
-                                                                            travelerUpdate.passport_number ??
-                                                                            roomRow.passport_number,
-                                                                        role:
-                                                                            travelerUpdate.role ??
-                                                                            roomRow.role,
-                                                                        relationship:
-                                                                            travelerUpdate.relationship ??
-                                                                            roomRow.relationship,
-                                                                        sharing_plan:
-                                                                            travelerUpdate.sharing_plan ??
-                                                                            roomRow.sharing_plan,
-                                                                        nationality:
-                                                                            travelerUpdate.nationality ??
-                                                                            roomRow.nationality,
-                                                                        gender:
-                                                                            travelerUpdate.gender ??
-                                                                            roomRow.gender,
-                                                                        date_of_birth:
-                                                                            travelerUpdate.date_of_birth ??
-                                                                            roomRow.date_of_birth,
-                                                                        date_of_issue:
-                                                                            travelerUpdate.date_of_issue ??
-                                                                            roomRow.date_of_issue,
-                                                                        date_of_expiry:
-                                                                            travelerUpdate.date_of_expiry ??
-                                                                            roomRow.date_of_expiry,
-                                                                        issue_place:
-                                                                            travelerUpdate.issue_place ??
-                                                                            roomRow.issue_place,
-                                                                        birth_place:
-                                                                            travelerUpdate.birth_place ??
-                                                                            roomRow.birth_place,
-                                                                        contact_no:
-                                                                            travelerUpdate.contact_no ??
-                                                                            roomRow.contact_no,
-                                                                        package_price:
-                                                                            travelerUpdate.package_price ??
-                                                                            roomRow.package_price,
-                                                                        age:
-                                                                            calculateAgeFromDob(
-                                                                                travelerUpdate.date_of_birth ??
-                                                                                    roomRow.date_of_birth,
-                                                                            ) ??
-                                                                            roomRow.age,
-                                                                    };
-                                                                },
+                                                                          return {
+                                                                              ...roomRow,
+                                                                              name_as_per_passport:
+                                                                                  travelerUpdate.name_as_per_passport ??
+                                                                                  roomRow.name_as_per_passport,
+                                                                              passport_number:
+                                                                                  travelerUpdate.passport_number ??
+                                                                                  roomRow.passport_number,
+                                                                              role:
+                                                                                  travelerUpdate.role ??
+                                                                                  roomRow.role,
+                                                                              relationship:
+                                                                                  travelerUpdate.relationship ??
+                                                                                  roomRow.relationship,
+                                                                              sharing_plan:
+                                                                                  travelerUpdate.sharing_plan ??
+                                                                                  roomRow.sharing_plan,
+                                                                              nationality:
+                                                                                  travelerUpdate.nationality ??
+                                                                                  roomRow.nationality,
+                                                                              gender:
+                                                                                  travelerUpdate.gender ??
+                                                                                  roomRow.gender,
+                                                                              date_of_birth:
+                                                                                  travelerUpdate.date_of_birth ??
+                                                                                  roomRow.date_of_birth,
+                                                                              date_of_issue:
+                                                                                  travelerUpdate.date_of_issue ??
+                                                                                  roomRow.date_of_issue,
+                                                                              date_of_expiry:
+                                                                                  travelerUpdate.date_of_expiry ??
+                                                                                  roomRow.date_of_expiry,
+                                                                              issue_place:
+                                                                                  travelerUpdate.issue_place ??
+                                                                                  roomRow.issue_place,
+                                                                              birth_place:
+                                                                                  travelerUpdate.birth_place ??
+                                                                                  roomRow.birth_place,
+                                                                              contact_no:
+                                                                                  travelerUpdate.contact_no ??
+                                                                                  roomRow.contact_no,
+                                                                              package_price:
+                                                                                  travelerUpdate.package_price ??
+                                                                                  roomRow.package_price,
+                                                                              age:
+                                                                                  calculateAgeFromDob(
+                                                                                      travelerUpdate.date_of_birth ??
+                                                                                          roomRow.date_of_birth,
+                                                                                  ) ??
+                                                                                  roomRow.age,
+                                                                          };
+                                                                      },
+                                                                  );
+
+                                                        return [
+                                                            roomKey,
+                                                            syncRoomRowsWithTravelers(
+                                                                nextActiveTravelers,
+                                                                sourceRows,
+                                                                roomKey,
+                                                                roomTab
+                                                                    .accommodation
+                                                                    .type_of_meal ??
+                                                                    '',
                                                             ),
-                                                        ],
-                                                    ),
+                                                        ];
+                                                    }),
                                                 );
 
                                             const nextAirline = (
@@ -1873,14 +1987,47 @@ export default function ManifestForm({
                                 value={`room-check-${tab.sourceRoomKey}`}
                                 className="space-y-4"
                             >
+                                <div className="flex items-center justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={!data.id}
+                                        onClick={() => {
+                                            if (!data.id) {
+                                                return;
+                                            }
+
+                                            exportPdfWithSnapshot(
+                                                `/manifests/${data.id}/room-check-pdf?location=${encodeURIComponent(tab.sourceRoomKey)}`,
+                                                {
+                                                    room_check_rows:
+                                                        sourceRoomRows,
+                                                    room_check_location_label:
+                                                        tab.label,
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export PDF
+                                    </Button>
+                                </div>
+
                                 <ManifestDatatable
                                     mode="room_check"
                                     rows={sourceRoomRows}
+                                    currentRoomLocationKey={tab.sourceRoomKey}
                                     disabled={isView}
                                     allowReorder
                                     errorPrefix={`roomLists.${tab.sourceRoomKey}`}
                                     roomGroupErrorPrefix="rooms"
                                     errors={form.errors}
+                                    roomAssignmentOptions={roomTabs.map(
+                                        (roomTab) => ({
+                                            key: roomTab.key,
+                                            label: roomTab.label,
+                                        }),
+                                    )}
                                     onRowsChange={(updatedRows) => {
                                         const normalizedRows = updatedRows.map(
                                             (row, index) => ({
@@ -1926,6 +2073,10 @@ export default function ManifestForm({
                             allowReorder
                             errorPrefix="airlineList"
                             errors={form.errors}
+                            roomAssignmentOptions={roomTabs.map((tab) => ({
+                                key: tab.key,
+                                label: tab.label,
+                            }))}
                             onRowsChange={(rows: TravelerWithUI[]) => {
                                 const normalizedAirline = rows.map((row) => ({
                                     ...row,
@@ -2093,6 +2244,89 @@ export default function ManifestForm({
                                 form.setData('travelers', nextTravelers);
                                 form.setData('airlineList', normalizedAirline);
                                 form.setData('roomLists', nextRoomLists);
+                            }}
+                        />
+                    </TabsContent>
+
+                    <TabsContent
+                        value="course-collection"
+                        className="space-y-4"
+                    >
+                        <div className="flex items-center justify-end">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={!data.id}
+                                onClick={() => {
+                                    if (!data.id) {
+                                        return;
+                                    }
+
+                                    exportPdfWithSnapshot(
+                                        `/manifests/${data.id}/collection-items-pdf`,
+                                        {
+                                            travelers:
+                                                nonCancelledNonOfficialTravelers,
+                                        },
+                                    );
+                                }}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export PDF
+                            </Button>
+                        </div>
+
+                        <ManifestDatatable
+                            mode="course_collection"
+                            rows={
+                                nonCancelledNonOfficialTravelers as TravelerWithUI[]
+                            }
+                            disabled={isView}
+                            allowReorder={false}
+                            errors={form.errors}
+                            onRowsChange={(rows: TravelerWithUI[]) => {
+                                const checklistMap = new Map(
+                                    rows.map((row, index) => [
+                                        travelerIdentityKey(row, index),
+                                        row,
+                                    ]),
+                                );
+
+                                const nextTravelers = (
+                                    (data.travelers ?? []) as TravelerWithUI[]
+                                ).map((traveler, travelerIndex) => {
+                                    const updatedChecklist = checklistMap.get(
+                                        travelerIdentityKey(
+                                            traveler,
+                                            travelerIndex,
+                                        ),
+                                    );
+
+                                    if (!updatedChecklist) {
+                                        return traveler;
+                                    }
+
+                                    return {
+                                        ...traveler,
+                                        course_1: !!updatedChecklist.course_1,
+                                        course_2: !!updatedChecklist.course_2,
+                                        lanyard: !!updatedChecklist.lanyard,
+                                        luggage_tag:
+                                            !!updatedChecklist.luggage_tag,
+                                        cabin_tag: !!updatedChecklist.cabin_tag,
+                                        passport_cover:
+                                            !!updatedChecklist.passport_cover,
+                                        umrah_guidebook:
+                                            !!updatedChecklist.umrah_guidebook,
+                                        sling_bag: !!updatedChecklist.sling_bag,
+                                        cabin_size_luggage:
+                                            !!updatedChecklist.cabin_size_luggage,
+                                        umrah_essentials:
+                                            !!updatedChecklist.umrah_essentials,
+                                    };
+                                });
+
+                                form.setData('travelers', nextTravelers);
                             }}
                         />
                     </TabsContent>

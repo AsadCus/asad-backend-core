@@ -45,7 +45,7 @@ class ManifestSeederTest extends TestCase
         $manifest = Manifest::first();
 
         $this->assertNotNull($manifest->manifest_number);
-        $this->assertSame('draft', $manifest->status);
+        $this->assertSame('open', $manifest->package?->status);
 
         // If travelers exist, they should have customer_confirmation_member_id
         if ($manifest->travelers()->count() > 0) {

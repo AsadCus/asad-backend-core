@@ -30,7 +30,6 @@ class ManifestSeeder extends Seeder
                 [
                     'manifest_number' => NumberGenerator::generate('manifest'),
                     'notes' => 'Seeded manifest for package workflow validation.',
-                    'status' => 'draft',
                 ]
             );
 

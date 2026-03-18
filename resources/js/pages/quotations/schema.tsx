@@ -2,6 +2,15 @@ import { z } from 'zod';
 import { noteSchema } from '../notes/schema';
 import { quotationItemSchema } from './items/schema';
 
+export const quotationExtensionSchema = z.object({
+    _key: z.string().optional(),
+    id: z.number().optional(),
+    name: z.string(),
+    type: z.string(),
+    amount: z.union([z.string(), z.number()]).nullable().optional(),
+    sort_order: z.number().optional(),
+});
+
 export const quotationSchema = z.object({
     id: z.number().optional(),
     quotation_number: z.string().nullable().optional(),
@@ -41,12 +50,18 @@ export const quotationSchema = z.object({
     package_price_quad: z.union([z.string(), z.number()]).nullable().optional(),
     status: z.string().optional(),
     items_count: z.number().optional(),
+    subtotal_amount: z.union([z.string(), z.number()]).nullable().optional(),
+    extension_total_amount: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
     total_amount: z.union([z.string(), z.number()]).nullable().optional(),
     reason: z.string().nullable().optional(),
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
 
     items: z.array(quotationItemSchema),
+    extensions: z.array(quotationExtensionSchema).optional(),
 
     model: z.string().optional(),
     notes: z.array(noteSchema),

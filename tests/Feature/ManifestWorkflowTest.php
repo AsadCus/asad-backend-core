@@ -5,12 +5,20 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
+use App\Models\Invoice;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
+use App\Models\Order;
 use App\Models\Package;
+use App\Models\PackageAccommodation;
 use App\Models\PackageOfficial;
+use App\Models\Quotation;
+use App\Models\QuotationExtension;
+use App\Models\QuotationItem;
+use App\Models\Receipt;
 use App\Models\User;
 use App\Services\ManifestService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -144,6 +152,107 @@ class ManifestWorkflowTest extends TestCase
             'sort_order' => 1,
             'remarks' => 'Member-level note',
         ]);
+    }
+
+    public function test_update_persists_collection_items_checklist_fields(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-COLLECTION-001',
+            'name' => 'Umrah Collection Checklist',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-COLLECTION-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Checklist Member', $actingUser->id);
+
+        $payload = [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Checklist Member',
+                    'course_1' => true,
+                    'course_2' => false,
+                    'lanyard' => true,
+                    'luggage_tag' => true,
+                    'cabin_tag' => false,
+                    'passport_cover' => true,
+                    'umrah_guidebook' => true,
+                    'sling_bag' => false,
+                    'cabin_size_luggage' => true,
+                    'umrah_essentials' => true,
+                ],
+            ],
+        ];
+
+        $this->put(route('manifests.update', $manifest->id), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $travelerId = (int) ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->value('id');
+
+        $this->assertDatabaseHas('manifest_member_collection_items', [
+            'manifest_member_id' => $travelerId,
+            'course_1' => 1,
+            'course_2' => 0,
+            'lanyard' => 1,
+            'luggage_tag' => 1,
+            'cabin_tag' => 0,
+            'passport_cover' => 1,
+            'umrah_guidebook' => 1,
+            'sling_bag' => 0,
+            'cabin_size_luggage' => 1,
+            'umrah_essentials' => 1,
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $this->assertTrue((bool) ($rehydrated['travelers'][0]['course_1'] ?? false));
+        $this->assertTrue((bool) ($rehydrated['travelers'][0]['luggage_tag'] ?? false));
+        $this->assertFalse((bool) ($rehydrated['travelers'][0]['cabin_tag'] ?? true));
+    }
+
+    public function test_manifest_status_updates_package_status_and_rehydrates_from_package(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-STATUS-LINK-001',
+            'name' => 'Umrah Status Link',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-STATUS-LINK-001',
+        ]);
+
+        $payload = [
+            'package_id' => $package->id,
+            'status' => 'closed',
+            'travelers' => [],
+        ];
+
+        $this->put(route('manifests.update', $manifest->id), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $package->refresh();
+        $this->assertSame('closed', $package->status);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+        $this->assertSame('closed', $rehydrated['status']);
     }
 
     public function test_get_for_edit_show_returns_grouped_travelers_shape(): void
@@ -853,6 +962,7 @@ class ManifestWorkflowTest extends TestCase
     public function test_relationship_update_does_not_override_member_role(): void
     {
         $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
 
         $package = Package::create([
             'package_number' => 'PKG-ROLE-REL-001',
@@ -891,7 +1001,7 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'draft',
         ]);
 
-        app(ManifestService::class)->update([
+        $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
             'travelers' => [
@@ -902,7 +1012,10 @@ class ManifestWorkflowTest extends TestCase
                     'sharing_group_key' => 'group-role-rel-1',
                 ],
             ],
-        ], (int) $manifest->id);
+        ];
+
+        $this->put(route('manifests.update', $manifest->id), $payload)
+            ->assertRedirect(route('manifests.index'));
 
         $member->refresh();
         $manifest->refresh();
@@ -1055,6 +1168,145 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertSame([2, 2], $groupMemberCounts);
         $this->assertSame([2, 2], $roomMemberCounts);
+    }
+
+    public function test_update_keeps_new_confirmation_members_separate_from_official_group_and_assigns_rooms_per_location(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MIXED-GROUP-001',
+            'name' => 'Mixed Group Isolation',
+            'status' => 'open',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $memberOne = $this->createMemberForPackage($package->id, 'Member One', $actingUser->id, $confirmation->id);
+        $memberTwo = $this->createMemberForPackage($package->id, 'Member Two', $actingUser->id, $confirmation->id);
+
+        $official = PackageOfficial::create([
+            'package_id' => $package->id,
+            'name' => 'Official One',
+            'type' => 'mutawwif',
+            'passport_number' => 'OFF-MIX-001',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-MIXED-GROUP-001',
+            'status' => 'draft',
+        ]);
+
+        app(ManifestService::class)->update([
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'package_official_id' => $official->id,
+                    'name_as_per_passport' => 'Official One',
+                    'sharing_group_key' => 'shared-main-group',
+                    'sharing_plan' => 'double',
+                    'group_sort_order' => 1,
+                ],
+                [
+                    'customer_confirmation_member_id' => $memberOne->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Member One',
+                    'sharing_group_key' => 'shared-main-group',
+                    'sharing_plan' => 'double',
+                    'group_sort_order' => 2,
+                ],
+                [
+                    'customer_confirmation_member_id' => $memberTwo->id,
+                    'customer_confirmation_id' => $confirmation->id,
+                    'name_as_per_passport' => 'Member Two',
+                    'sharing_group_key' => 'shared-main-group',
+                    'sharing_plan' => 'double',
+                    'group_sort_order' => 2,
+                ],
+            ],
+            'roomLists' => [
+                'makkah' => [
+                    [
+                        'customer_confirmation_member_id' => $memberOne->id,
+                        'customer_confirmation_id' => $confirmation->id,
+                        'name_as_per_passport' => 'Member One',
+                        'sharing_group_key' => 'room-shared-a',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_no' => 'MK-001',
+                    ],
+                    [
+                        'customer_confirmation_member_id' => $memberTwo->id,
+                        'customer_confirmation_id' => $confirmation->id,
+                        'name_as_per_passport' => 'Member Two',
+                        'sharing_group_key' => 'room-shared-a',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_no' => 'MK-001',
+                    ],
+                    [
+                        'package_official_id' => $official->id,
+                        'name_as_per_passport' => 'Official One',
+                        'sharing_group_key' => 'room-shared-a',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_no' => 'MK-001',
+                    ],
+                ],
+                'madinah' => [
+                    [
+                        'customer_confirmation_member_id' => $memberOne->id,
+                        'customer_confirmation_id' => $confirmation->id,
+                        'name_as_per_passport' => 'Member One',
+                        'sharing_group_key' => 'room-shared-b',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_no' => 'MD-001',
+                    ],
+                    [
+                        'customer_confirmation_member_id' => $memberTwo->id,
+                        'customer_confirmation_id' => $confirmation->id,
+                        'name_as_per_passport' => 'Member Two',
+                        'sharing_group_key' => 'room-shared-b',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_no' => 'MD-001',
+                    ],
+                    [
+                        'package_official_id' => $official->id,
+                        'name_as_per_passport' => 'Official One',
+                        'sharing_group_key' => 'room-shared-b',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_no' => 'MD-001',
+                    ],
+                ],
+            ],
+        ], (int) $manifest->id);
+
+        $manifest->refresh();
+
+        $groups = $manifest->manifestSharingGroups()
+            ->withCount('members')
+            ->orderBy('sort_order')
+            ->get();
+
+        $this->assertSame([1, 2], $groups->pluck('members_count')->sort()->values()->all());
+        $this->assertSame(1, $groups->whereNotNull('customer_confirmation_id')->count());
     }
 
     public function test_update_persists_group_member_sort_order_and_keeps_official_groups_last(): void
@@ -1242,7 +1494,513 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame($memberC->id, $payloadAfterSecondUpdate['travelers'][2]['customer_confirmation_member_id']);
     }
 
-    private function createMemberForPackage(int $packageId, string $customerName, int $createdBy): CustomerConfirmationMember
+    public function test_update_removes_members_missing_from_room_list_and_drops_empty_rooms(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-ROOM-UNASSIGN-001',
+            'name' => 'Room Unassign Cleanup',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-ROOM-UNASSIGN-001',
+            'status' => 'draft',
+        ]);
+
+        $memberOne = $this->createMemberForPackage($package->id, 'Room Keep One', $actingUser->id);
+        $memberTwo = $this->createMemberForPackage($package->id, 'Room Remove Two', $actingUser->id);
+        $memberThree = $this->createMemberForPackage($package->id, 'Room Remove Three', $actingUser->id);
+
+        $travelerOne = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $memberOne->id,
+            'name' => 'Room Keep One',
+        ]);
+
+        $travelerTwo = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $memberTwo->id,
+            'name' => 'Room Remove Two',
+        ]);
+
+        $travelerThree = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $memberThree->id,
+            'name' => 'Room Remove Three',
+        ]);
+
+        $payload = [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'id' => $travelerOne->id,
+                    'customer_confirmation_member_id' => $memberOne->id,
+                    'name_as_per_passport' => 'Room Keep One',
+                    'sharing_plan' => 'double',
+                ],
+                [
+                    'id' => $travelerTwo->id,
+                    'customer_confirmation_member_id' => $memberTwo->id,
+                    'name_as_per_passport' => 'Room Remove Two',
+                    'sharing_plan' => 'double',
+                ],
+                [
+                    'id' => $travelerThree->id,
+                    'customer_confirmation_member_id' => $memberThree->id,
+                    'name_as_per_passport' => 'Room Remove Three',
+                    'sharing_plan' => 'single',
+                ],
+            ],
+            'roomLists' => [
+                'makkah' => [
+                    [
+                        'manifest_traveler_id' => $travelerOne->id,
+                        'customer_confirmation_member_id' => $memberOne->id,
+                        'name_as_per_passport' => 'Room Keep One',
+                        'sharing_group_key' => 'room-keep-a',
+                        'sharing_plan' => 'double',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'room_label' => 'Room Keep',
+                        'room_no' => 'MK-801',
+                    ],
+                ],
+            ],
+        ];
+
+        $this->put(route('manifests.update', $manifest->id), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $manifest->refresh();
+        $manifest->load(['rooms.roomMembers', 'travelers']);
+
+        $this->assertCount(1, $manifest->rooms);
+        $this->assertSame('MK-801', $manifest->rooms[0]->room_number);
+        $this->assertCount(1, $manifest->rooms[0]->roomMembers);
+
+        $persistedTravelerOneId = (int) $manifest->travelers()
+            ->where('customer_confirmation_member_id', $memberOne->id)
+            ->value('id');
+
+        $this->assertSame($persistedTravelerOneId, (int) $manifest->rooms[0]->roomMembers[0]->manifest_traveler_id);
+    }
+
+    public function test_collection_items_pdf_export_returns_pdf_response(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-COLLECTION-PDF-001',
+            'name' => 'Collection PDF Package',
+            'status' => 'open',
+            'departure_date' => '2026-03-20',
+            'return_date' => '2026-03-30',
+        ]);
+
+        PackageAccommodation::create([
+            'package_id' => $package->id,
+            'location' => 'Makkah',
+            'hotel_name' => 'Hotel One',
+            'check_in' => '2026-03-21',
+            'check_out' => '2026-03-25',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-COLLECTION-PDF-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Collection Pdf Member', $actingUser->id);
+
+        $this->put(route('manifests.update', $manifest->id), [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Collection Pdf Member',
+                    'course_1' => true,
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $response = $this->get(route('manifests.collection-items-pdf', $manifest->id));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_room_check_pdf_export_returns_pdf_response_for_location(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-ROOM-CHECK-PDF-001',
+            'name' => 'Room Check PDF Package',
+            'status' => 'open',
+            'departure_date' => '2026-04-01',
+            'return_date' => '2026-04-10',
+        ]);
+
+        PackageAccommodation::create([
+            'package_id' => $package->id,
+            'location' => 'Makkah',
+            'hotel_name' => 'Hotel Check',
+            'check_in' => '2026-04-02',
+            'check_out' => '2026-04-06',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-ROOM-CHECK-PDF-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Room Check Member', $actingUser->id);
+
+        $this->put(route('manifests.update', $manifest->id), [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Room Check Member',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'room-check-group-1',
+                ],
+            ],
+            'roomLists' => [
+                'makkah' => [
+                    [
+                        'customer_confirmation_member_id' => $member->id,
+                        'name_as_per_passport' => 'Room Check Member',
+                        'sharing_group_key' => 'room-check-group-1',
+                        'room_relationship' => 'Family',
+                        'room_label' => 'Room 1',
+                        'room_no' => 'MK-401',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'number_of_beds_checked' => true,
+                        'meal' => 'Breakfast Only',
+                        'remarks' => 'Member note',
+                        'room_remarks' => 'Room note',
+                    ],
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $response = $this->get(route('manifests.room-check-pdf', [
+            'id' => $manifest->id,
+            'location' => 'makkah',
+        ]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_get_for_edit_show_fills_financial_columns_from_receipts_and_discount_extensions(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-001',
+            'name' => 'Manifest Financial Snapshot',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-001',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        $manifestTraveler = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        QuotationExtension::create([
+            'quotation_id' => $quotation->id,
+            'name' => 'Promo Discount',
+            'type' => 'discount',
+            'amount' => -300,
+            'sort_order' => 1,
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package installment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $firstInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Deposit invoice',
+            'amount' => 1000,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'issued',
+        ]);
+        $firstInvoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $firstInvoice->id,
+            'amount' => 1000,
+            'receipt_date' => '2026-03-01',
+            'payment_method' => 'transfer',
+        ]);
+
+        $secondInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Second invoice',
+            'amount' => 1500,
+            'invoice_date' => '2026-03-10',
+            'due_date' => '2026-03-10',
+            'status' => 'issued',
+        ]);
+        $secondInvoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $secondInvoice->id,
+            'amount' => 1500,
+            'receipt_date' => '2026-03-10',
+            'payment_method' => 'transfer',
+        ]);
+
+        $thirdInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Final invoice',
+            'amount' => 500,
+            'invoice_date' => '2026-03-20',
+            'due_date' => '2026-03-20',
+            'status' => 'issued',
+        ]);
+        $thirdInvoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $thirdInvoice->id,
+            'amount' => 500,
+            'receipt_date' => '2026-03-20',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $travelerRow = collect($rehydrated['travelers'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($travelerRow);
+        $this->assertSame(300.0, (float) ($travelerRow['discount'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            $travelerRow['date_of_deposit_payment']
+        );
+        $this->assertSame(1000.0, (float) ($travelerRow['deposit_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            $travelerRow['date_of_second_payment']
+        );
+        $this->assertSame(2000.0, (float) ($travelerRow['second_payment'] ?? 0));
+        $this->assertSame(1700.0, (float) ($travelerRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_splits_receipt_amounts_by_carried_members_in_each_receipt(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-002',
+            'name' => 'Manifest Financial Shared Receipt Snapshot',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-002',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $memberUsers = [
+            User::factory()->create(['name' => 'Shared Receipt Member One']),
+            User::factory()->create(['name' => 'Shared Receipt Member Two']),
+            User::factory()->create(['name' => 'Shared Receipt Member Three']),
+        ];
+
+        $members = collect($memberUsers)->map(function (User $user) use ($confirmation) {
+            $customer = Customer::create([
+                'user_id' => $user->id,
+                'is_active' => true,
+            ]);
+
+            return CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'is_leader' => false,
+                'status' => 'confirmed',
+                'role' => 'member',
+                'sharing_plan' => 'double',
+            ]);
+        })->values();
+
+        $primaryMember = $members->first();
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $primaryMember->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $primaryMember->customer_id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        QuotationExtension::create([
+            'quotation_id' => $quotation->id,
+            'name' => 'Group Discount',
+            'type' => 'discount',
+            'amount' => -300,
+            'sort_order' => 1,
+        ]);
+
+        $quotationItems = $members->map(function (CustomerConfirmationMember $member, int $index) use ($quotation) {
+            return QuotationItem::create([
+                'quotation_id' => $quotation->id,
+                'customer_confirmation_member_id' => $member->id,
+                'description' => 'Installment member #'.($index + 1),
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => 5000,
+                'sort_order' => $index + 1,
+            ]);
+        });
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $firstInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Deposit invoice',
+            'amount' => 1500,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'issued',
+        ]);
+        $firstInvoice->quotationItems()->sync($quotationItems->pluck('id')->all());
+
+        Receipt::create([
+            'invoice_id' => $firstInvoice->id,
+            'amount' => 1500,
+            'receipt_date' => '2026-03-01',
+            'payment_method' => 'transfer',
+        ]);
+
+        $secondInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Second invoice',
+            'amount' => 3000,
+            'invoice_date' => '2026-03-10',
+            'due_date' => '2026-03-10',
+            'status' => 'issued',
+        ]);
+        $secondInvoice->quotationItems()->sync($quotationItems->pluck('id')->all());
+
+        Receipt::create([
+            'invoice_id' => $secondInvoice->id,
+            'amount' => 3000,
+            'receipt_date' => '2026-03-10',
+            'payment_method' => 'transfer',
+        ]);
+
+        $thirdInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Final invoice',
+            'amount' => 600,
+            'invoice_date' => '2026-03-20',
+            'due_date' => '2026-03-20',
+            'status' => 'issued',
+        ]);
+        $thirdInvoice->quotationItems()->sync($quotationItems->pluck('id')->all());
+
+        Receipt::create([
+            'invoice_id' => $thirdInvoice->id,
+            'amount' => 600,
+            'receipt_date' => '2026-03-20',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $travelerRow = collect($rehydrated['travelers'])
+            ->firstWhere('customer_confirmation_member_id', $primaryMember->id);
+
+        $this->assertNotNull($travelerRow);
+        $this->assertSame(100.0, (float) ($travelerRow['discount'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            $travelerRow['date_of_deposit_payment']
+        );
+        $this->assertSame(500.0, (float) ($travelerRow['deposit_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            $travelerRow['date_of_second_payment']
+        );
+        $this->assertSame(1200.0, (float) ($travelerRow['second_payment'] ?? 0));
+        $this->assertSame(3200.0, (float) ($travelerRow['balance_due'] ?? 0));
+    }
+
+    private function createMemberForPackage(int $packageId, string $customerName, int $createdBy, ?int $confirmationId = null): CustomerConfirmationMember
     {
         $user = User::factory()->create(['name' => $customerName]);
         $customer = Customer::create([
@@ -1250,15 +2008,19 @@ class ManifestWorkflowTest extends TestCase
             'is_active' => true,
         ]);
 
-        $confirmation = CustomerConfirmation::create([
-            'package_id' => $packageId,
-            'package_room_type' => 'double',
-            'package_category' => 'classic_umrah',
-            'created_by' => $createdBy,
-        ]);
+        if ($confirmationId === null) {
+            $confirmation = CustomerConfirmation::create([
+                'package_id' => $packageId,
+                'package_room_type' => 'double',
+                'package_category' => 'classic_umrah',
+                'created_by' => $createdBy,
+            ]);
+
+            $confirmationId = $confirmation->id;
+        }
 
         return CustomerConfirmationMember::create([
-            'customer_confirmation_id' => $confirmation->id,
+            'customer_confirmation_id' => $confirmationId,
             'customer_id' => $customer->id,
             'is_leader' => true,
             'status' => 'confirmed',

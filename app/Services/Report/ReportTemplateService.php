@@ -69,6 +69,7 @@ class ReportTemplateService
                 'invoice' => $settings->getModuleTemplate('invoice'),
                 'receipt' => $settings->getModuleTemplate('receipt'),
                 'sales' => $settings->getModuleTemplate('sales'),
+                'manifest' => $settings->getModuleTemplate('manifest'),
                 'package' => $settings->getModuleTemplate('package'),
             ],
         ];

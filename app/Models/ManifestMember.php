@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ManifestMember extends Model
 {
@@ -77,5 +78,10 @@ class ManifestMember extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(ManifestPayment::class, 'manifest_traveler_id');
+    }
+
+    public function collectionItem(): HasOne
+    {
+        return $this->hasOne(ManifestMemberCollectionItem::class, 'manifest_member_id');
     }
 }

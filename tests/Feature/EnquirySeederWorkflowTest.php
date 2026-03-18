@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Enums\EnquiryStatus;
 use App\Models\Enquiry;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\EnquirySeeder;
+use Database\Seeders\PackageSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -15,6 +17,8 @@ class EnquirySeederWorkflowTest extends TestCase
     public function test_seeded_confirmed_enquiries_keep_manifest_package_alignment_workflow(): void
     {
         $this->seed(DatabaseSeeder::class);
+        $this->seed(PackageSeeder::class);
+        $this->seed(EnquirySeeder::class);
 
         $confirmedGeneral = Enquiry::query()
             ->where('type', 'general')

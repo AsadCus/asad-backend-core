@@ -58,7 +58,6 @@ export function ActionMenuItems<TData>({
 
     const hasEnquiryStatusActions =
         actions.includes('enquiry-status-contacted') ||
-        actions.includes('enquiry-status-negotiating') ||
         actions.includes('enquiry-status-confirmed');
 
     return (
@@ -185,19 +184,6 @@ export function ActionMenuItems<TData>({
                                     }
                                 >
                                     Mark as Contacted
-                                </Item>
-                            )}
-
-                            {actions.includes('enquiry-status-negotiating') && (
-                                <Item
-                                    onClick={() =>
-                                        onAction?.(
-                                            'enquiry-status-negotiating',
-                                            row,
-                                        )
-                                    }
-                                >
-                                    Mark as Negotiating
                                 </Item>
                             )}
 

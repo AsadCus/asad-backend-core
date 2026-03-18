@@ -7,7 +7,10 @@ use App\Helpers\FormatService;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\FinancialTransaction;
+use App\Models\Manifest;
+use App\Models\ManifestMember;
 use App\Models\Quotation;
+use App\Models\QuotationExtension;
 use App\Models\QuotationItem;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -19,18 +22,21 @@ class QuotationService
 
     protected $quotationItemService;
 
-    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService)
+    protected $paymentStatusService;
+
+    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService, PaymentStatusService $paymentStatusService)
     {
         $this->formatService = $formatService;
         $this->quotationItemService = $quotationItemService;
+        $this->paymentStatusService = $paymentStatusService;
     }
 
     public function getForDataTable(array $filters = [])
     {
-        $data = Quotation::with(['customer.user', 'customer.handledBy', 'quotationItems', 'order'])->withTrashed()
+        $data = Quotation::with(['customer.user', 'customer.handledBy', 'customerConfirmation.enquiry.handledBy:id,name', 'quotationItems', 'quotationExtensions', 'order'])->withTrashed()
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->whereHas('customer', function ($cq) use ($value) {
-                    $cq->where('handled_by', $value);
+                $q->whereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
+                    $enquiryQuery->where('handled_by', $value);
                 });
             })->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
@@ -49,8 +55,8 @@ class QuotationService
                     'customer_id' => $q->customer_id,
                     'customer_number' => $q->customer->customer_number ?? '-',
                     'customer_name' => $q->customer->user->name ?? '-',
-                    'sales_id' => $q->customer->handledBy->id ?? '-',
-                    'sales_name' => $q->customer->handledBy->name ?? '-',
+                    'sales_id' => $q->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
+                    'sales_name' => $q->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
                     'description' => $q->description ?? '-',
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,
@@ -122,6 +128,10 @@ class QuotationService
                 $this->quotationItemService->storeQuotationItems($quotation->id, $data['items']);
             }
 
+            if (array_key_exists('extensions', $data) && is_array($data['extensions'])) {
+                $this->syncQuotationExtensions($quotation, $data['extensions']);
+            }
+
             $linkedMemberIds = $quotation->quotationItems()
                 ->whereNotNull('customer_confirmation_member_id')
                 ->pluck('customer_confirmation_member_id')
@@ -143,7 +153,7 @@ class QuotationService
 
     public function getForEditShow($id): array
     {
-        $quotation = Quotation::with(['customer.user', 'quotationItems.confirmationMember', 'customerConfirmation.package'])->findOrFail($id);
+        $quotation = Quotation::with(['customer.user', 'quotationItems.confirmationMember', 'quotationExtensions', 'customerConfirmation.package'])->findOrFail($id);
 
         return [
             'id' => $quotation->id,
@@ -159,6 +169,8 @@ class QuotationService
             'description' => $quotation->description ?? '',
             'quotation_date' => $quotation->quotation_date_formatted,
             'expiry_date' => $quotation->expiry_date_formatted,
+            'subtotal_amount' => $this->formatService->cleanDecimal($quotation->item_subtotal_amount),
+            'extension_total_amount' => $this->formatService->cleanDecimal($quotation->extension_total_amount),
             'total_amount' => $this->formatService->cleanDecimal($quotation->total_amount),
             'payment_plan' => $quotation->payment_plan,
             'payment_method' => $quotation->payment_method,
@@ -172,6 +184,15 @@ class QuotationService
             'sales_registration_number' => $quotation->sales_registration_number,
             'model' => 'quotation',
             'notes' => $quotation->quotationNotes->sortBy('sort_order')->values()->toArray(),
+            'extensions' => $quotation->quotationExtensions->sortBy('sort_order')->map(function (QuotationExtension $extension) {
+                return [
+                    'id' => $extension->id,
+                    'name' => $extension->name,
+                    'type' => $extension->type,
+                    'amount' => $this->formatService->cleanDecimal($extension->amount),
+                    'sort_order' => $extension->sort_order,
+                ];
+            })->values()->toArray(),
             'items' => $quotation->quotationItems->sortBy('sort_order')->map(function (QuotationItem $it) {
                 return [
                     'id' => $it->id,
@@ -225,6 +246,10 @@ class QuotationService
                 $this->quotationItemService->replaceQuotationItems($quotation->id, $data['items']);
             }
 
+            if (array_key_exists('extensions', $data) && is_array($data['extensions'])) {
+                $this->syncQuotationExtensions($quotation, $data['extensions']);
+            }
+
             $currentLinkedMemberIds = $quotation->quotationItems()
                 ->whereNotNull('customer_confirmation_member_id')
                 ->pluck('customer_confirmation_member_id')
@@ -241,6 +266,7 @@ class QuotationService
             $this->syncLinkedMemberStatuses($currentLinkedMemberIds, $removedLinkedMemberIds);
 
             $this->syncQuotationItemsToRelevantInvoicesBySortOrder($quotation);
+            $this->syncConvertedOrderInvoiceAndReceiptAmounts($quotation);
 
             return $quotation->fresh();
         });
@@ -618,8 +644,10 @@ class QuotationService
     {
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
+            $linkedMemberIds = $this->getLinkedMemberIds($quotation);
 
-            $this->resetLinkedMembersToDraft($this->getLinkedMemberIds($quotation));
+            $this->resetLinkedMembersToDraft($linkedMemberIds);
+            $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
 
             if ($quotation->order) {
                 $invoices = $quotation->order->invoices;
@@ -686,7 +714,187 @@ class QuotationService
 
         CustomerConfirmationMember::query()
             ->whereIn('id', $memberIds)
-            ->where('status', '!=', 'cancelled')
+            ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed'])
             ->update(['status' => 'draft']);
+    }
+
+    /**
+     * @param  array<int>  $memberIds
+     */
+    private function removeLinkedMembersFromPackageManifest(Quotation $quotation, array $memberIds): void
+    {
+        if (empty($memberIds)) {
+            return;
+        }
+
+        $packageId = (int) ($quotation->customerConfirmation?->package_id ?? 0);
+        if ($packageId <= 0) {
+            return;
+        }
+
+        $manifestIds = Manifest::query()
+            ->where('package_id', $packageId)
+            ->pluck('id')
+            ->map(fn ($manifestId) => (int) $manifestId)
+            ->filter(fn ($manifestId) => $manifestId > 0)
+            ->values()
+            ->all();
+
+        if (empty($manifestIds)) {
+            return;
+        }
+
+        $travelers = ManifestMember::query()
+            ->whereIn('manifest_id', $manifestIds)
+            ->whereIn('customer_confirmation_member_id', $memberIds)
+            ->get();
+
+        foreach ($travelers as $traveler) {
+            $traveler->roomMembers()->delete();
+            $traveler->payments()->delete();
+            $traveler->collectionItem()?->delete();
+            $traveler->delete();
+        }
+
+        app(PackageSeatService::class)->recalculateForPackageId($packageId);
+    }
+
+    private function syncQuotationExtensions(Quotation $quotation, array $extensions): void
+    {
+        $sanitizedExtensions = collect($extensions)
+            ->filter(fn ($extension) => is_array($extension))
+            ->map(function (array $extension, int $index) {
+                return [
+                    'id' => ! empty($extension['id']) ? (int) $extension['id'] : null,
+                    'name' => (string) ($extension['name'] ?? ''),
+                    'type' => (string) ($extension['type'] ?? 'discount'),
+                    'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0) ?? 0,
+                    'sort_order' => (int) ($extension['sort_order'] ?? ($index + 1)),
+                ];
+            })
+            ->values();
+
+        $keepIds = $sanitizedExtensions
+            ->pluck('id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $quotation->quotationExtensions()
+            ->when(! empty($keepIds), fn ($query) => $query->whereNotIn('id', $keepIds))
+            ->when(empty($keepIds), fn ($query) => $query)
+            ->delete();
+
+        foreach ($sanitizedExtensions as $extension) {
+            if ($extension['id']) {
+                $quotation->quotationExtensions()
+                    ->where('id', $extension['id'])
+                    ->update([
+                        'name' => $extension['name'],
+                        'type' => $extension['type'],
+                        'amount' => $extension['amount'],
+                        'sort_order' => $extension['sort_order'],
+                    ]);
+
+                continue;
+            }
+
+            $quotation->quotationExtensions()->create([
+                'name' => $extension['name'],
+                'type' => $extension['type'],
+                'amount' => $extension['amount'],
+                'sort_order' => $extension['sort_order'],
+            ]);
+        }
+    }
+
+    private function syncConvertedOrderInvoiceAndReceiptAmounts(Quotation $quotation): void
+    {
+        $order = $quotation->order()
+            ->with([
+                'invoices.quotationItems',
+                'invoices.receipt',
+            ])
+            ->first();
+
+        if (! $order || $order->invoices->isEmpty()) {
+            return;
+        }
+
+        $invoices = $order->invoices->sortBy('id')->values();
+        $extensionTotalCents = (int) round(
+            $quotation->quotationExtensions()->get()->sum(
+                fn (QuotationExtension $extension) => (float) ($extension->amount ?? 0)
+            ) * 100
+        );
+
+        $baseAmountCentsByInvoice = $invoices
+            ->mapWithKeys(function ($invoice) {
+                $baseAmountCents = (int) round(
+                    $invoice->quotationItems
+                        ->filter(fn ($item) => ! $item->is_header)
+                        ->sum(function ($item) {
+                            $quantity = (float) ($item->quantity ?? 0);
+                            $rate = (float) ($item->rate ?? 0);
+
+                            return $quantity * $rate;
+                        }) * 100
+                );
+
+                return [(int) $invoice->id => $baseAmountCents];
+            })
+            ->all();
+
+        $baseAbsTotalCents = array_sum(array_map(
+            fn (int $amountCents) => abs($amountCents),
+            array_values($baseAmountCentsByInvoice)
+        ));
+
+        $invoiceIds = $invoices->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        $extensionShareCentsByInvoice = [];
+        $allocatedShareCents = 0;
+        $lastIndex = max(0, count($invoiceIds) - 1);
+
+        foreach ($invoiceIds as $index => $invoiceId) {
+            if ($extensionTotalCents === 0) {
+                $extensionShareCentsByInvoice[$invoiceId] = 0;
+
+                continue;
+            }
+
+            if ($index === $lastIndex) {
+                $extensionShareCentsByInvoice[$invoiceId] = $extensionTotalCents - $allocatedShareCents;
+
+                continue;
+            }
+
+            if ($baseAbsTotalCents === 0) {
+                $shareCents = 0;
+            } else {
+                $shareCents = (int) round(
+                    $extensionTotalCents * (abs($baseAmountCentsByInvoice[$invoiceId] ?? 0) / $baseAbsTotalCents)
+                );
+            }
+
+            $extensionShareCentsByInvoice[$invoiceId] = $shareCents;
+            $allocatedShareCents += $shareCents;
+        }
+
+        foreach ($invoices as $invoice) {
+            $invoiceId = (int) $invoice->id;
+            $baseCents = (int) ($baseAmountCentsByInvoice[$invoiceId] ?? 0);
+            $shareCents = (int) ($extensionShareCentsByInvoice[$invoiceId] ?? 0);
+            $newInvoiceAmount = ($baseCents + $shareCents) / 100;
+
+            if ((float) $invoice->amount !== (float) $newInvoiceAmount) {
+                $invoice->update(['amount' => $newInvoiceAmount]);
+            }
+
+            if ($invoice->receipt->isNotEmpty()) {
+                $invoice->receipt()->update(['amount' => $newInvoiceAmount]);
+                $this->paymentStatusService->syncAfterReceiptMutation($invoiceId);
+            }
+        }
     }
 }

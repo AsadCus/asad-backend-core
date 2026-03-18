@@ -9,7 +9,7 @@ class ManifestRule
         return [
             'package_id' => ['required', 'exists:packages,id'],
             'notes' => ['nullable', 'string'],
-            'status' => ['nullable', 'string', 'in:draft,confirmed,completed,cancelled'],
+            'status' => ['nullable', 'string', 'in:open,closed,draft,confirmed,completed,cancelled'],
 
             // Travelers
             'travelers' => ['nullable', 'array'],
@@ -41,6 +41,16 @@ class ManifestRule
             'travelers.*.sharing_group_key' => ['nullable', 'string', 'max:255'],
             'travelers.*.manifest_sharing_group_id' => ['nullable', 'integer', 'exists:manifest_sharing_groups,id'],
             'travelers.*.sharing_group_id' => ['nullable', 'integer', 'exists:manifest_sharing_groups,id'],
+            'travelers.*.course_1' => ['nullable', 'boolean'],
+            'travelers.*.course_2' => ['nullable', 'boolean'],
+            'travelers.*.lanyard' => ['nullable', 'boolean'],
+            'travelers.*.luggage_tag' => ['nullable', 'boolean'],
+            'travelers.*.cabin_tag' => ['nullable', 'boolean'],
+            'travelers.*.passport_cover' => ['nullable', 'boolean'],
+            'travelers.*.umrah_guidebook' => ['nullable', 'boolean'],
+            'travelers.*.sling_bag' => ['nullable', 'boolean'],
+            'travelers.*.cabin_size_luggage' => ['nullable', 'boolean'],
+            'travelers.*.umrah_essentials' => ['nullable', 'boolean'],
 
             // Rooms
             'rooms' => ['nullable', 'array'],
@@ -63,7 +73,6 @@ class ManifestRule
             'rooms.*.members.*.customer_confirmation_member_id' => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
             'rooms.*.members.*.package_official_id' => ['nullable', 'integer', 'exists:package_officials,id'],
             'rooms.*.members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
-            'rooms.*.members.*.is_assigned' => ['nullable', 'boolean'],
             'rooms.*.members.*.sort_order' => ['nullable', 'integer', 'min:1'],
             'rooms.*.members.*.remarks' => ['nullable', 'string'],
 

@@ -11,6 +11,7 @@ class ManifestRoom extends Model
 {
     protected $fillable = [
         'manifest_id',
+        'source_quotation_id',
         'sort_order',
         'location',
         'relationship',
@@ -28,6 +29,7 @@ class ManifestRoom extends Model
 
     protected $casts = [
         'sort_order' => 'integer',
+        'source_quotation_id' => 'integer',
         'capacity' => 'integer',
         'number_of_beds_checked' => 'boolean',
     ];
@@ -35,6 +37,11 @@ class ManifestRoom extends Model
     public function manifest(): BelongsTo
     {
         return $this->belongsTo(Manifest::class);
+    }
+
+    public function sourceQuotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class, 'source_quotation_id');
     }
 
     public function roomMembers(): HasMany

@@ -2,6 +2,12 @@ import type { OptionType } from '@/types';
 import { z } from 'zod';
 import type { PackageSchema } from '../packages/schema';
 
+export interface ModelFileSchema {
+    field: string;
+    file_name: string;
+    file_path: string;
+}
+
 // ── Member schema (per-person fields stored in users + customers) ──
 export const customerSchema = z.object({
     customer_number: z.string().optional(),
@@ -31,8 +37,26 @@ export const customerSchema = z.object({
     // Image uploads (File on submit, string path from server)
     passport_file: z.any().optional(),
     photo_file: z.any().optional(),
-    passport_path: z.string().nullable().optional(),
-    photo_path: z.string().nullable().optional(),
+    passport_file_name: z.string().nullable().optional(),
+    photo_file_name: z.string().nullable().optional(),
+    passport_file_removed: z.boolean().optional(),
+    photo_file_removed: z.boolean().optional(),
+    passport_document: z
+        .object({
+            field: z.string(),
+            file_name: z.string(),
+            file_path: z.string(),
+        })
+        .nullable()
+        .optional(),
+    photo_document: z
+        .object({
+            field: z.string(),
+            file_name: z.string(),
+            file_path: z.string(),
+        })
+        .nullable()
+        .optional(),
 });
 
 export type CustomerSchema = z.infer<typeof customerSchema>;
@@ -56,12 +80,10 @@ export type CustomerConfirmationFormSchema = z.infer<
 
 export type CustomerMemberFormData = Omit<
     CustomerSchema,
-    'passport_file' | 'photo_file' | 'passport_path' | 'photo_path'
+    'passport_file' | 'photo_file'
 > & {
     passport_file?: File | null;
     photo_file?: File | null;
-    passport_path?: string | null;
-    photo_path?: string | null;
 };
 
 export type CustomerConfirmationFormData = Omit<
@@ -90,8 +112,8 @@ export interface CustomerOption extends OptionType {
     first_time_umrah?: boolean;
     has_chronic_disease?: boolean;
     chronic_disease_details?: string;
-    passport_path?: string;
-    photo_path?: string;
+    passport_document?: ModelFileSchema | null;
+    photo_document?: ModelFileSchema | null;
 }
 
 // ── Options ──
@@ -206,6 +228,10 @@ export const emptyMember = (isLeader = false): CustomerSchema => ({
     role: null,
     passport_file: undefined,
     photo_file: undefined,
-    passport_path: null,
-    photo_path: null,
+    passport_file_name: null,
+    photo_file_name: null,
+    passport_file_removed: false,
+    photo_file_removed: false,
+    passport_document: null,
+    photo_document: null,
 });

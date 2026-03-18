@@ -151,8 +151,10 @@ export default function ReceiptForm({
                         <div className="relative">
                             <Input
                                 type="number"
-                                step="1"
-                                value={data.amount || selectedInvoice?.amount || ''}
+                                step="any"
+                                value={
+                                    data.amount || selectedInvoice?.amount || ''
+                                }
                                 onChange={(e) =>
                                     setData('amount', e.target.value)
                                 }

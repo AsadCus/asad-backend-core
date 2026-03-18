@@ -165,6 +165,26 @@ class QuotationItemService
             $masterIdToQuotationId = [];
             $incomingIds = [];
             $usedIds = [];
+            $existingItems = QuotationItem::query()
+                ->where('quotation_id', $quotationId)
+                ->get(['id', 'parent_id', 'customer_confirmation_member_id', 'description', 'is_header']);
+            $existingIdsBySignature = [];
+
+            foreach ($existingItems as $existingItem) {
+                $signature = $this->buildItemSignature(
+                    (int) ($existingItem->parent_id ?? 0) ?: null,
+                    $existingItem->customer_confirmation_member_id,
+                    (string) ($existingItem->description ?? ''),
+                    (bool) $existingItem->is_header,
+                );
+
+                if (! isset($existingIdsBySignature[$signature])) {
+                    $existingIdsBySignature[$signature] = [];
+                }
+
+                $existingIdsBySignature[$signature][] = (int) $existingItem->id;
+            }
+
             $existingMemberIds = QuotationItem::where('quotation_id', $quotationId)
                 ->pluck('customer_confirmation_member_id', 'id');
             $existingSortOrders = QuotationItem::query()
@@ -187,6 +207,17 @@ class QuotationItemService
                 $id = isset($item['id']) ? (int) $item['id'] : null;
                 if ($id && in_array($id, $usedIds, true)) {
                     $id = null;
+                }
+
+                if (! $id) {
+                    $id = $this->popMatchingExistingItemId(
+                        $existingIdsBySignature,
+                        $usedIds,
+                        null,
+                        $item['customer_confirmation_member_id'] ?? null,
+                        (string) ($item['description'] ?? ''),
+                        (bool) ($item['is_header'] ?? false),
+                    );
                 }
 
                 $customerConfirmationMemberId = array_key_exists('customer_confirmation_member_id', $item)
@@ -252,6 +283,17 @@ class QuotationItemService
                     $id = null;
                 }
 
+                if (! $id) {
+                    $id = $this->popMatchingExistingItemId(
+                        $existingIdsBySignature,
+                        $usedIds,
+                        (int) $parentId,
+                        $item['customer_confirmation_member_id'] ?? null,
+                        (string) ($item['description'] ?? ''),
+                        (bool) ($item['is_header'] ?? false),
+                    );
+                }
+
                 $customerConfirmationMemberId = array_key_exists('customer_confirmation_member_id', $item)
                     ? $item['customer_confirmation_member_id']
                     : ($id ? $existingMemberIds->get($id) : null);
@@ -292,6 +334,56 @@ class QuotationItemService
 
             return $incomingIds;
         });
+    }
+
+    private function buildItemSignature(
+        ?int $parentId,
+        mixed $customerConfirmationMemberId,
+        string $description,
+        bool $isHeader
+    ): string {
+        return implode('|', [
+            $parentId ?? 0,
+            (int) ($customerConfirmationMemberId ?? 0),
+            strtolower(trim($description)),
+            (int) $isHeader,
+        ]);
+    }
+
+    /**
+     * @param  array<string, array<int>>  $existingIdsBySignature
+     * @param  array<int>  $usedIds
+     */
+    private function popMatchingExistingItemId(
+        array &$existingIdsBySignature,
+        array $usedIds,
+        ?int $parentId,
+        mixed $customerConfirmationMemberId,
+        string $description,
+        bool $isHeader
+    ): ?int {
+        $signature = $this->buildItemSignature(
+            $parentId,
+            $customerConfirmationMemberId,
+            $description,
+            $isHeader,
+        );
+
+        $candidateIds = $existingIdsBySignature[$signature] ?? [];
+
+        while (! empty($candidateIds)) {
+            $candidateId = (int) array_shift($candidateIds);
+
+            if (! in_array($candidateId, $usedIds, true)) {
+                $existingIdsBySignature[$signature] = $candidateIds;
+
+                return $candidateId;
+            }
+        }
+
+        $existingIdsBySignature[$signature] = $candidateIds;
+
+        return null;
     }
 
     public function deleteUnusedQuotationItems(int $quotationId, array $keepIds = []): void

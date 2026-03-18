@@ -728,18 +728,12 @@ export default function ConfirmedCustomerIndex({
                 memberDialogData.photo_file instanceof File
                     ? memberDialogData.photo_file
                     : undefined,
-            passport_path:
-                memberDialogData.passport_file instanceof File
-                    ? undefined
-                    : memberDialogData.passport_path === null
-                      ? ''
-                      : undefined,
-            photo_path:
-                memberDialogData.photo_file instanceof File
-                    ? undefined
-                    : memberDialogData.photo_path === null
-                      ? ''
-                      : undefined,
+            passport_file_name: memberDialogData.passport_file_name ?? '',
+            photo_file_name: memberDialogData.photo_file_name ?? '',
+            passport_file_removed: Boolean(
+                memberDialogData.passport_file_removed,
+            ),
+            photo_file_removed: Boolean(memberDialogData.photo_file_removed),
         };
 
         router.post(
@@ -1284,6 +1278,7 @@ export default function ConfirmedCustomerIndex({
                                     <CardContent>
                                         <CustomerFormFields
                                             customer={memberDialogData}
+                                            useGeneratedDocumentName
                                             isView={isMemberView}
                                             processing={isSavingMember}
                                             getError={(path) =>

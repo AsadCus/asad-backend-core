@@ -274,11 +274,7 @@ class EnquiryWorkflowTest extends TestCase
         $this->put(route('enquiries.transition-status', $enquiry->id), ['status' => 'contacted'])
             ->assertRedirect();
 
-        // contacted -> negotiating
-        $this->put(route('enquiries.transition-status', $enquiry->id), ['status' => 'negotiating'])
-            ->assertRedirect();
-
-        // negotiating -> confirmed (must use the confirm endpoint with member data)
+        // contacted -> confirmed (must use the confirm endpoint with member data)
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
             'date_of_application' => '2026-01-01',
@@ -293,17 +289,17 @@ class EnquiryWorkflowTest extends TestCase
 
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
-        $this->assertEquals(3, EnquiryRemark::where('enquiry_id', $enquiry->id)->count());
+        $this->assertEquals(2, EnquiryRemark::where('enquiry_id', $enquiry->id)->count());
     }
 
     public function test_confirm_endpoint_creates_customer_confirmation(): void
     {
         $this->actingAs($this->adminUser);
 
-        // Create enquiry in negotiating state (so it can transition to confirmed)
+        // Create enquiry in contacted state (so it can transition to confirmed)
         $enquiry = Enquiry::create([
             'type' => 'general',
-            'status' => EnquiryStatus::Negotiating->value,
+            'status' => EnquiryStatus::Contacted->value,
             'name' => 'Group Leader',
             'contact_number' => '012345',
             'email' => 'leader@test.com',
@@ -361,7 +357,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $enquiry = Enquiry::create([
             'type' => 'general',
-            'status' => EnquiryStatus::Negotiating->value,
+            'status' => EnquiryStatus::Contacted->value,
             'name' => 'Handled By Confirm Test',
             'contact_number' => '012345',
             'email' => 'handled-confirm@test.com',
@@ -391,7 +387,7 @@ class EnquiryWorkflowTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'created_by' => $this->adminUser->id,
             'status_at_time' => EnquiryStatus::Confirmed->value,
-            'remark' => 'Status updated from Negotiating to Confirmed.',
+            'remark' => 'Status updated from Contacted to Confirmed.',
         ]);
     }
 
@@ -766,12 +762,11 @@ class EnquiryWorkflowTest extends TestCase
     public function test_enquiry_enum_has_correct_transitions(): void
     {
         $this->assertTrue(EnquiryStatus::NewLead->canTransitionTo(EnquiryStatus::Contacted));
-        $this->assertTrue(EnquiryStatus::Contacted->canTransitionTo(EnquiryStatus::Negotiating));
-        $this->assertTrue(EnquiryStatus::Negotiating->canTransitionTo(EnquiryStatus::Confirmed));
+        $this->assertTrue(EnquiryStatus::Contacted->canTransitionTo(EnquiryStatus::Confirmed));
 
         $this->assertFalse(EnquiryStatus::NewLead->canTransitionTo(EnquiryStatus::Negotiating));
         $this->assertFalse(EnquiryStatus::NewLead->canTransitionTo(EnquiryStatus::Confirmed));
-        $this->assertFalse(EnquiryStatus::Contacted->canTransitionTo(EnquiryStatus::Confirmed));
+        $this->assertFalse(EnquiryStatus::Contacted->canTransitionTo(EnquiryStatus::Negotiating));
     }
 
     public function test_deleting_general_enquiry_deletes_parent(): void

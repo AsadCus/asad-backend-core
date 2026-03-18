@@ -17,7 +17,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { type ManifestFormData, type PackageForManifestOption } from '../types';
 
-const STATUS_OPTIONS = ['draft', 'confirmed', 'completed', 'cancelled'];
+const STATUS_OPTIONS = ['open', 'closed'];
 
 interface ManifestInformationCardProps {
     isView: boolean;
@@ -44,7 +44,7 @@ export default function ManifestInformationCard({
                 <CardTitle className="text-xl">Manifest Information</CardTitle>
                 <CardDescription>
                     Provide the necessary details for the manifest, including
-                    package selection, status, and any additional notes.
+                    package selection, package status, and any additional notes.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -59,9 +59,22 @@ export default function ManifestInformationCard({
                     >
                         <Select
                             value={String(data.package_id || '')}
-                            onValueChange={(value) =>
-                                setData('package_id', Number(value))
-                            }
+                            onValueChange={(value) => {
+                                const nextPackageId = Number(value);
+                                const nextPackage = dataPackage.find(
+                                    (item) =>
+                                        Number(item.value) === nextPackageId,
+                                );
+
+                                setData('package_id', nextPackageId);
+
+                                if (
+                                    typeof nextPackage?.status === 'string' &&
+                                    nextPackage.status.length > 0
+                                ) {
+                                    setData('status', nextPackage.status);
+                                }
+                            }}
                             disabled={isView || !!data.id}
                         >
                             <SelectTrigger>
@@ -101,7 +114,9 @@ export default function ManifestInformationCard({
 
                     <FormField label="Status" htmlFor="status">
                         <Select
-                            value={data.status ?? 'draft'}
+                            value={
+                                data.status ?? selectedPackage?.status ?? 'open'
+                            }
                             onValueChange={(value) => setData('status', value)}
                             disabled={isView}
                         >

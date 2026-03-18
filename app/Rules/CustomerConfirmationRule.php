@@ -43,6 +43,10 @@ class CustomerConfirmationRule
             // Image uploads per member
             'members.*.passport_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'members.*.photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'members.*.passport_file_name' => ['nullable', 'string', 'max:255'],
+            'members.*.photo_file_name' => ['nullable', 'string', 'max:255'],
+            'members.*.passport_file_removed' => ['nullable', 'boolean'],
+            'members.*.photo_file_removed' => ['nullable', 'boolean'],
         ];
 
         if ($requireEnquiry) {

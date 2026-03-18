@@ -6,6 +6,8 @@ use App\Enums\QuotationStatus;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
+use App\Models\Manifest;
+use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\User;
@@ -74,6 +76,74 @@ class QuotationStatusTest extends TestCase
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
             'status' => 'draft',
+        ]);
+    }
+
+    public function test_cancel_quotation_removes_linked_members_from_package_manifest(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-QS-007',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-QS-007',
+            'name' => 'Void Manifest Sync Package',
+            'status' => 'open',
+            'total_seats' => 10,
+            'seats_left' => 10,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'status' => 'confirmed',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => QuotationStatus::Converted->value,
+        ]);
+
+        QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Linked member item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 100,
+            'sort_order' => 1,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-QS-007',
+            'status' => 'draft',
+        ]);
+
+        $traveler = $manifest->travelers()->create([
+            'customer_confirmation_member_id' => $member->id,
+            'name' => 'Linked Member',
+        ]);
+
+        app(QuotationService::class)->cancel($quotation->id);
+
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $member->id,
+            'status' => 'draft',
+        ]);
+
+        $this->assertDatabaseMissing('manifest_members', [
+            'id' => $traveler->id,
         ]);
     }
 

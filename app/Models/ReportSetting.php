@@ -61,6 +61,11 @@ class ReportSetting extends Model
             'show_stamp' => false,
             'show_signature' => false,
         ],
+        'manifest' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+        ],
     ];
 
     /**
