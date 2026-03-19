@@ -429,7 +429,7 @@ export default function ReportTemplate({
             <Head title="Report Template Settings" />
             <SettingsLayout wide>
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-                    <div className="w-full space-y-6 lg:flex-1">
+                    <div className="w-full min-w-0 space-y-6 lg:flex-1">
                         <HeadingSmall
                             title="Report Template Settings"
                             description="Manage branding and per-module PDF document settings"

@@ -263,7 +263,7 @@ export function GlobalBrandingSection({
 
                     <Separator className="my-1" />
 
-                    <div className="grid grid-cols-1 gap-7 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="space-y-7">
                         <FileUploadField
                             id="logo_file"
                             label="Company Logo"
@@ -275,40 +275,42 @@ export function GlobalBrandingSection({
                             onChange={makeFileHandler('logo_file', setLogoPreview, setLogoPreviewFileName)}
                             onClear={makeClearHandler('logo_file', setLogoPreview, initialLogoPreview, setLogoPreviewFileName, initialLogoPreviewFileName, 'logo_path', !!initialLogoDatabasePath)}
                         />
-                        <FileUploadField
-                            id="stamp_file"
-                            label="Company Stamp"
-                            hint="Enable per-module in the section below"
-                            preview={stampPreview}
-                            previewFileName={stampPreviewFileName}
-                            previewAlt="Company Stamp"
-                            error={errors.stamp_file}
-                            onChange={makeFileHandler('stamp_file', setStampPreview, setStampPreviewFileName)}
-                            onClear={makeClearHandler('stamp_file', setStampPreview, initialStampPreview, setStampPreviewFileName, initialStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
-                        />
-                        <FileUploadField
-                            id="signature_file"
-                            label="Authorised Signature"
-                            hint="Enable per-module in the section below"
-                            preview={signaturePreview}
-                            previewFileName={signaturePreviewFileName}
-                            previewAlt="Authorised Signature"
-                            error={errors.signature_file}
-                            onChange={makeFileHandler(
-                                'signature_file',
-                                setSignaturePreview,
-                                setSignaturePreviewFileName,
-                            )}
-                            onClear={makeClearHandler(
-                                'signature_file',
-                                setSignaturePreview,
-                                initialSignaturePreview,
-                                setSignaturePreviewFileName,
-                                initialSignaturePreviewFileName,
-                                'signature_path',
-                                !!initialSignatureDatabasePath,
-                            )}
-                        />
+                        <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 [&>*]:min-w-0">
+                            <FileUploadField
+                                id="stamp_file"
+                                label="Company Stamp"
+                                hint="Enable per-module in the section below"
+                                preview={stampPreview}
+                                previewFileName={stampPreviewFileName}
+                                previewAlt="Company Stamp"
+                                error={errors.stamp_file}
+                                onChange={makeFileHandler('stamp_file', setStampPreview, setStampPreviewFileName)}
+                                onClear={makeClearHandler('stamp_file', setStampPreview, initialStampPreview, setStampPreviewFileName, initialStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
+                            />
+                            <FileUploadField
+                                id="signature_file"
+                                label="Authorised Signature"
+                                hint="Enable per-module in the section below"
+                                preview={signaturePreview}
+                                previewFileName={signaturePreviewFileName}
+                                previewAlt="Authorised Signature"
+                                error={errors.signature_file}
+                                onChange={makeFileHandler(
+                                    'signature_file',
+                                    setSignaturePreview,
+                                    setSignaturePreviewFileName,
+                                )}
+                                onClear={makeClearHandler(
+                                    'signature_file',
+                                    setSignaturePreview,
+                                    initialSignaturePreview,
+                                    setSignaturePreviewFileName,
+                                    initialSignaturePreviewFileName,
+                                    'signature_path',
+                                    !!initialSignatureDatabasePath,
+                                )}
+                            />
+                        </div>
                     </div>
 
                     <Separator className="my-1" />

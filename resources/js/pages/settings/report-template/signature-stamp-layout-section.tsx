@@ -501,9 +501,9 @@ export function SignatureStampLayoutSection({
                                 )}
                             />
 
-                            <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-                                Current custom signature file:{' '}
-                                <span className="font-medium text-foreground">
+                            <div className="flex w-full flex-col gap-1 overflow-hidden rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+                                <span>Current custom signature file:</span>
+                                <span className="block truncate font-medium text-foreground" title={customSignaturePreviewFileName ?? initialCustomSignaturePreviewFileName ?? 'Not set'}>
                                     {customSignaturePreviewFileName ??
                                         initialCustomSignaturePreviewFileName ??
                                         'Not set'}
