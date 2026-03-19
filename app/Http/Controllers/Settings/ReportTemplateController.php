@@ -394,4 +394,152 @@ class ReportTemplateController extends Controller
     {
         return response()->json($this->reportTemplateService->getBranding());
     }
+
+    /**
+     * Render a report Blade template as HTML with current (unsaved) settings.
+     * Used for live preview on the Report Template settings page.
+     */
+    public function preview(Request $request)
+    {
+        $moduleKey = $request->input('module_key', 'quotation');
+
+        // Map of blade view: module key -> view name
+        $viewMap = [
+            'quotation' => 'quotations.report-content',
+            'invoice'   => 'invoices.report-content',
+            'receipt'   => 'receipts.report-content',
+            'sales'     => 'sales.report-content',
+            'package'   => 'packages.report-content',
+            'manifest'  => 'manifests.namelist-course-items-report-content',
+        ];
+
+        $viewName = $viewMap[$moduleKey] ?? 'quotations.report-content';
+
+        // Build branding from request data (current unsaved form state)
+        $brandColor = $request->input('brand_color', '#c05427');
+        $signatureStampLayout = $request->input('signature_stamp_layout', 'default');
+        $customLayout = $request->input('custom_signature_stamp_layout');
+
+        // Resolve logos from saved DB paths (not re-uploaded within preview)
+        $settings = ReportSetting::current();
+        $logo = $settings->logo_path ? [
+            'url' => '/storage/' . $settings->logo_path,
+            'absolute' => storage_path('app/public/' . $settings->logo_path),
+        ] : ['url' => '/logo-primary.png', 'absolute' => null];
+
+        $stamp = $settings->stamp_path ? [
+            'url' => '/storage/' . $settings->stamp_path,
+            'absolute' => storage_path('app/public/' . $settings->stamp_path),
+        ] : ['url' => null, 'absolute' => null];
+
+        $signature = $settings->signature_path ? [
+            'url' => '/storage/' . $settings->signature_path,
+            'absolute' => storage_path('app/public/' . $settings->signature_path),
+        ] : ['url' => null, 'absolute' => null];
+
+        $customStamp = $settings->custom_stamp_path ? [
+            'url' => '/storage/' . $settings->custom_stamp_path,
+            'absolute' => storage_path('app/public/' . $settings->custom_stamp_path),
+        ] : ['url' => null, 'absolute' => null];
+
+        $customSignature = $settings->custom_signature_path ? [
+            'url' => '/storage/' . $settings->custom_signature_path,
+            'absolute' => storage_path('app/public/' . $settings->custom_signature_path),
+        ] : ['url' => null, 'absolute' => null];
+
+        // Build module template settings from request
+        $moduleTemplates = $request->input('module_templates', []);
+        $moduleConfig = $moduleTemplates[$moduleKey] ?? [];
+
+        $branding = [
+            'company_name'    => $request->input('company_name', $settings->company_name),
+            'company_address' => $request->input('company_address', $settings->company_address),
+            'company_phone'   => $request->input('company_phone', $settings->company_phone),
+            'company_email'   => $request->input('company_email', $settings->company_email),
+            'title_color'     => $brandColor,
+            'signature_stamp_layout'        => $signatureStampLayout,
+            'custom_signature_stamp_layout' => is_array($customLayout) ? $customLayout : ($settings->custom_signature_stamp_layout ?? []),
+            'logo_url'                => $logo['url'],
+            'stamp_url'               => $stamp['url'],
+            'signature_url'           => $signature['url'],
+            'custom_stamp_url'        => $customStamp['url'],
+            'custom_signature_url'    => $customSignature['url'],
+            'logo_path_absolute'             => $logo['absolute'],
+            'stamp_path_absolute'            => $stamp['absolute'],
+            'signature_path_absolute'        => $signature['absolute'],
+            'custom_stamp_path_absolute'     => $customStamp['absolute'],
+            'custom_signature_path_absolute' => $customSignature['absolute'],
+            'footer_text'                    => $moduleConfig['footer_text'] ?? $settings->footer_text ?? '',
+            'show_stamp'                     => (bool) ($moduleConfig['show_stamp'] ?? false),
+            'show_signature'                 => (bool) ($moduleConfig['show_signature'] ?? false),
+            'show_signature_stamp_name'      => (bool) ($moduleConfig['show_signature_stamp_name'] ?? false),
+            'show_signature_stamp_date'      => (bool) ($moduleConfig['show_signature_stamp_date'] ?? false),
+        ];
+
+        // Dummy data for each template type (safe, minimal)
+        $data = [
+            // shared
+            'customer_name'            => 'Sample Customer',
+            'customer_address'         => '123 Sample Street, Singapore 123456',
+            'customer_contact'         => '91234567',
+            'customer_email'           => 'sample@example.com',
+            'customer_number'          => 'CUST-001',
+            'description'              => 'Sample Service Description',
+            // quotation
+            'quotation_number'         => 'QUO-2025-0001',
+            'payment_plan_label'       => 'Full Payment',
+            'sales_registration_number'=> null,
+            // invoice
+            'invoice_number'           => 'INV-2025-0001',
+            'order_number'             => 'ORD-2025-0001',
+            'invoice_date'             => date('d/m/Y'),
+            'due_date'                 => null,
+            // receipt
+            'receipt_number'           => 'RCT-2025-0001',
+            'payment_date'             => date('d/m/Y'),
+            'payment_method'           => 'Bank Transfer',
+            // sales
+            'sales_number'             => 'SAL-2025-0001',
+            'consultant'               => 'Sample Consultant',
+            // package
+            'package_code'             => 'PKG-0001',
+            'package_name'             => 'Sample Package Tour',
+            'tour_start'               => date('d/m/Y'),
+            'tour_end'                 => date('d/m/Y', strtotime('+7 days')),
+            'pax'                      => 2,
+            // totals
+            'subtotal_amount'          => 1500.00,
+            'total_amount'             => 1500.00,
+            'extension_total_amount'   => 0,
+            'extensions'               => [],
+            'notes'                    => [],
+        ];
+
+        $items = [
+            [
+                'id'          => 1,
+                'parent_id'   => null,
+                'parent_key'  => null,
+                '_key'        => 'item-1',
+                'description' => 'Sample Item Description',
+                'rate'        => 1500.00,
+                'quantity'    => 1,
+                'sort_order'  => 1,
+                'is_header'   => false,
+            ],
+        ];
+
+        try {
+            $html = view($viewName, compact('branding', 'data', 'items'))->render();
+            return response()->json(['html' => $html]);
+        } catch (\Throwable $e) {
+            // Fallback to quotation view if module-specific view fails
+            try {
+                $html = view('quotations.report-content', compact('branding', 'data', 'items'))->render();
+                return response()->json(['html' => $html]);
+            } catch (\Throwable $e2) {
+                return response()->json(['html' => '<p style="color:red;padding:12px;">Preview unavailable: ' . e($e->getMessage()) . '</p>']);
+            }
+        }
+    }
 }

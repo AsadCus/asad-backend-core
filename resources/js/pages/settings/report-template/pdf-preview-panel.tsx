@@ -1,208 +1,141 @@
-import type { PdfPreviewProps } from './types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ModuleTemplate, SignatureStampLayoutConfig } from './types';
+
+interface LivePreviewProps {
+    selectedModule: string;
+    brand_color: string;
+    company_name: string;
+    company_address: string;
+    company_phone: string;
+    company_email: string;
+    signature_stamp_layout: 'default' | 'custom';
+    custom_signature_stamp_layout: SignatureStampLayoutConfig;
+    module_templates: Record<string, ModuleTemplate>;
+}
+
+/** Read a cookie by name. */
+function getCookie(name: string): string {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : '';
+}
 
 export function PdfPreview({
-    titleColor,
-    footerText,
-    showStamp,
-    showSignature,
-    showSignatureStampName,
-    showSignatureStampDate,
-    signatureStampLayout,
-    customSignatureStampLayout,
-    documentType,
-    companyName,
-    companyPhone,
-    companyEmail,
-    companyAddress,
-    logoPreview,
-    stampPreview,
-    signaturePreview,
-    customStampPreview,
-    customSignaturePreview,
-}: PdfPreviewProps) {
-    const labels = customSignatureStampLayout.labels;
-    const placement = customSignatureStampLayout.placement ?? 'left_side';
-    const showUnitNameDate =
-        signatureStampLayout === 'custom' &&
-        showSignatureStampName &&
-        showSignatureStampDate;
-    const fullNameText = showUnitNameDate ? labels.full_name : '';
-    const dateText = showUnitNameDate ? labels.date : '';
+    selectedModule,
+    brand_color,
+    company_name,
+    company_address,
+    company_phone,
+    company_email,
+    signature_stamp_layout,
+    custom_signature_stamp_layout,
+    module_templates,
+}: LivePreviewProps) {
+    const [html, setHtml] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const isVertical = placement === 'up_side' || placement === 'down_side';
-    const isStacked = placement === 'stack_each_other';
-    const signatureFirst = placement === 'down_side' || placement === 'right_side';
-    const imgH = isVertical ? '24px' : '32px';
+    // Stable JSON strings for dependency tracking
+    const customLayoutJson = JSON.stringify(custom_signature_stamp_layout);
+    const moduleTemplateJson = JSON.stringify(module_templates[selectedModule]);
 
-    const stampEl = (preview: string | null) => {
-        if (preview) {
-            return <img src={preview} alt="Stamp" style={{ height: imgH, width: 'auto', objectFit: 'contain', opacity: 0.8, display: 'block' }} />;
-        }
-        return (
-            <div style={{ height: imgH, width: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #d1d5db', borderRadius: '4px', fontSize: '7px', color: '#0369a1' }}>
-                Stamp
-            </div>
-        );
-    };
+    const fetchPreview = useCallback(() => {
+        setLoading(true);
+        setError(null);
 
-    const sigEl = (preview: string | null) => {
-        if (preview) {
-            return <img src={preview} alt="Signature" style={{ height: imgH, width: 'auto', objectFit: 'contain', opacity: 0.8, display: 'block' }} />;
-        }
-        return (
-            <div style={{ height: imgH, width: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #d1d5db', borderRadius: '4px', fontSize: '7px', color: '#059669' }}>
-                Signature
-            </div>
-        );
-    };
+        // Use the XSRF-TOKEN cookie Laravel sets on each page
+        const xsrfToken = getCookie('XSRF-TOKEN');
+
+        fetch('/api/report-template/preview', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': xsrfToken,
+            },
+            body: JSON.stringify({
+                module_key: selectedModule,
+                brand_color,
+                company_name,
+                company_address,
+                company_phone,
+                company_email,
+                signature_stamp_layout,
+                custom_signature_stamp_layout,
+                module_templates,
+            }),
+        })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then((data) => {
+                setHtml(data.html ?? '');
+                setError(null);
+            })
+            .catch(() => {
+                setError('Preview is currently unavailable.');
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        selectedModule,
+        brand_color,
+        company_name,
+        company_address,
+        company_phone,
+        company_email,
+        signature_stamp_layout,
+        customLayoutJson,
+        moduleTemplateJson,
+    ]);
+
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(fetchPreview, 600);
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [fetchPreview]);
 
     return (
         <div className="w-full overflow-hidden rounded-lg border bg-white shadow-sm">
             <div className="flex items-center justify-between border-b bg-muted/50 px-3 py-2">
                 <span className="text-sm font-medium text-muted-foreground">PDF Preview</span>
-                <span className="text-sm text-muted-foreground italic">Sample only</span>
+                <span className="text-sm italic text-muted-foreground">
+                    {loading ? 'Updating…' : 'Live view'}
+                </span>
             </div>
 
-            <div className="overflow-x-auto p-4">
-                <div
-                    className="min-w-[320px] space-y-3"
-                    style={{ fontFamily: 'Arial, sans-serif', fontSize: '9px' }}
-                >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex-shrink-0">
-                            {logoPreview ? (
-                                <img
-                                    src={logoPreview}
-                                    alt="Logo"
-                                    className="h-10 w-auto object-contain"
-                                />
-                            ) : (
-                                <div className="flex h-10 w-20 items-center justify-center rounded bg-gray-100 text-[8px] text-gray-400">
-                                    Your Logo
-                                </div>
-                            )}
-                        </div>
-                        <div className="text-right text-[8px] leading-tight text-gray-600">
-                            <div className="text-[9px] font-bold text-gray-800">
-                                {companyName || 'Company Name'}
-                            </div>
-                            <div className="whitespace-pre-line">
-                                {companyAddress || 'Company Address, Singapore'}
-                            </div>
-                            {companyPhone && <div className="mt-0.5">Tel: {companyPhone}</div>}
-                            {companyEmail && <div>Email: {companyEmail}</div>}
-                            <div className="mt-0.5 font-semibold">LICENCE NO. 25C2708</div>
+            {/* A4 aspect ratio container: 1/√2 = 0.7071, so paddingTop = 141.4% */}
+            <div className="relative w-full" style={{ paddingTop: '141.4%' }}>
+                {loading && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            <span className="text-xs text-muted-foreground">Loading preview…</span>
                         </div>
                     </div>
+                )}
 
-                    <div
-                        className="py-1.5 text-center text-[9px] font-bold tracking-widest text-white"
-                        style={{ backgroundColor: titleColor || '#c05427' }}
-                    >
-                        {documentType || 'DOCUMENT'}
+                {error && !loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted/10 p-4">
+                        <p className="text-center text-sm text-red-500">{error}</p>
                     </div>
+                )}
 
-                    <div className="flex flex-col gap-2 text-[8px] sm:flex-row sm:gap-4">
-                        <div className="flex-1 space-y-0.5">
-                            <div className="flex">
-                                <span className="w-14 font-semibold">Customer</span>
-                                <span>: Sample Customer</span>
-                            </div>
-                            <div className="flex">
-                                <span className="w-14 font-semibold">Address</span>
-                                <span>: 123 Sample St</span>
-                            </div>
-                        </div>
-                        <div className="space-y-0.5">
-                            <div className="flex">
-                                <span className="w-20 font-semibold">Doc Number</span>
-                                <span>: DOC-2025-0001</span>
-                            </div>
-                            <div className="flex">
-                                <span className="w-20 font-semibold">Date</span>
-                                <span>: 01/01/2026</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-0.5 border-y border-gray-800 py-1.5 text-[8px]">
-                        <div className="flex justify-between border-b border-gray-800 pb-0.5 font-semibold">
-                            <span>Item Description</span>
-                            <span>Amount</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>1. Sample Item</span>
-                            <span>SGD 1,000.00</span>
-                        </div>
-                    </div>
-
-                    <div className="text-right text-[9px] font-bold">Total: SGD 1,000.00</div>
-
-                    <div className="space-y-1.5 border-t pt-2 text-[8px] text-gray-600">
-                        {footerText ? (
-                            <p className="leading-tight whitespace-pre-wrap">{footerText}</p>
-                        ) : (
-                            <p className="leading-tight text-gray-400 italic">
-                                Footer text will appear here...
-                            </p>
-                        )}
-
-                        {(showStamp || showSignature) && signatureStampLayout === 'default' && (
-                            <div className="mt-2" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-                                    {showStamp && stampEl(stampPreview)}
-                                    {showSignature && sigEl(signaturePreview)}
-                                </div>
-                                {(fullNameText || dateText) && (
-                                    <div style={{ display: 'flex', gap: '8px', marginTop: '2px', fontSize: '7px', color: '#6b7280' }}>
-                                        {fullNameText && <span>{fullNameText}</span>}
-                                        {dateText && <span>{dateText}</span>}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {(showStamp || showSignature) && signatureStampLayout === 'custom' && (
-                            <div className="mt-2">
-                                <div style={isStacked ? { position: 'relative', width: '80px', height: '32px' } : { display: 'flex', flexDirection: isVertical ? 'column' : 'row', alignItems: 'flex-start', gap: '8px', width: 'fit-content' }}>
-                                    {signatureFirst ? (
-                                        <>
-                                            {showSignature && (
-                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 2 } : {}}>
-                                                    {sigEl(customSignaturePreview)}
-                                                </div>
-                                            )}
-                                            {showStamp && (
-                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 1 } : {}}>
-                                                    {stampEl(customStampPreview)}
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            {showStamp && (
-                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 1 } : {}}>
-                                                    {stampEl(customStampPreview)}
-                                                </div>
-                                            )}
-                                            {showSignature && (
-                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 2 } : {}}>
-                                                    {sigEl(customSignaturePreview)}
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                                {(fullNameText || dateText) && (
-                                    <div style={{ display: 'flex', gap: '8px', marginTop: isStacked ? '4px' : '2px', fontSize: '7px', color: '#6b7280' }}>
-                                        {fullNameText && <span>{fullNameText}</span>}
-                                        {dateText && <span>{dateText}</span>}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {html !== null && (
+                    <iframe
+                        srcDoc={html}
+                        className="absolute inset-0 h-full w-full border-0"
+                        title="PDF Preview"
+                        sandbox="allow-same-origin"
+                        style={{ background: 'white' }}
+                    />
+                )}
             </div>
         </div>
     );

@@ -586,25 +586,16 @@ export default function ReportTemplate({
                         <div className="overflow-hidden rounded-lg border bg-card shadow-sm p-5">
                             <h3 className="text-base font-semibold mb-1">Live Preview</h3>
                             <p className="text-sm text-muted-foreground mb-4">Updates as you change settings</p>
-                            <PdfPreview 
-                                titleColor={data.brand_color || '#c05427'}
-                                footerText={activeModule.footer_text}
-                                showStamp={activeModule.show_stamp}
-                                showSignature={activeModule.show_signature}
-                                showSignatureStampName={activeModule.show_signature_stamp_name}
-                                showSignatureStampDate={activeModule.show_signature_stamp_date}
-                                signatureStampLayout={data.signature_stamp_layout}
-                                customSignatureStampLayout={data.custom_signature_stamp_layout}
-                                documentType={activeDefinition?.document_type ?? selectedModule.toUpperCase()}
-                                companyName={data.company_name}
-                                companyPhone={data.company_phone}
-                                companyEmail={data.company_email}
-                                companyAddress={data.company_address}
-                                logoPreview={logoPreview}
-                                stampPreview={stampPreview}
-                                signaturePreview={signaturePreview}
-                                customStampPreview={customStampPreview}
-                                customSignaturePreview={customSignaturePreview}
+                            <PdfPreview
+                                selectedModule={selectedModule}
+                                brand_color={data.brand_color || '#c05427'}
+                                company_name={data.company_name}
+                                company_address={data.company_address}
+                                company_phone={data.company_phone}
+                                company_email={data.company_email}
+                                signature_stamp_layout={data.signature_stamp_layout}
+                                custom_signature_stamp_layout={data.custom_signature_stamp_layout}
+                                module_templates={data.module_templates}
                             />
                         </div>
                     </div>
