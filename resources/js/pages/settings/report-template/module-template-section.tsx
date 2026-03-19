@@ -129,58 +129,95 @@ export function ModuleTemplateSection({
                             <h4 className="text-base font-medium">
                                 Document Elements
                             </h4>
-                            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                                <div>
-                                    <p className="text-base font-medium">
-                                        Show Company Stamp
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Display stamp from Branding section.
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={activeModule?.show_stamp ?? false}
-                                    onCheckedChange={(v) =>
-                                        updateModule('show_stamp', v)
-                                    }
-                                />
-                            </div>
-                            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                                <div>
-                                    <p className="text-base font-medium">
-                                        Show Authorised Signature
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Display signature from Branding section.
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={activeModule?.show_signature ?? false}
-                                    onCheckedChange={(v) =>
-                                        updateModule('show_signature', v)
-                                    }
-                                />
-                            </div>
-                            {signatureStampLayout === 'custom' && (
-                                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                                    <div>
-                                        <p className="text-base font-medium">
-                                            Show Full Name and Date
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Display full name and date together below signature and stamp area.
-                                        </p>
+                            {signatureStampLayout === 'custom' ? (
+                                <>
+                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                        <div>
+                                            <p className="text-base font-medium">
+                                                Show Custom Stamp
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Display custom stamp from Global Branding.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={activeModule?.show_stamp ?? false}
+                                            onCheckedChange={(v) =>
+                                                updateModule('show_stamp', v)
+                                            }
+                                        />
                                     </div>
-                                    <Switch
-                                        checked={
-                                            (activeModule?.show_signature_stamp_name ?? false) &&
-                                            (activeModule?.show_signature_stamp_date ?? false)
-                                        }
-                                        onCheckedChange={
-                                            updateModuleSignatureStampNameDateVisibility
-                                        }
-                                    />
-                                </div>
+                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                        <div>
+                                            <p className="text-base font-medium">
+                                                Show Custom Signature
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Display custom signature from Global Branding.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={activeModule?.show_signature ?? false}
+                                            onCheckedChange={(v) =>
+                                                updateModule('show_signature', v)
+                                            }
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                        <div>
+                                            <p className="text-base font-medium">
+                                                Show Full Name and Date
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Display full name and date below signature and stamp.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={
+                                                (activeModule?.show_signature_stamp_name ?? false) &&
+                                                (activeModule?.show_signature_stamp_date ?? false)
+                                            }
+                                            onCheckedChange={
+                                                updateModuleSignatureStampNameDateVisibility
+                                            }
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                        <div>
+                                            <p className="text-base font-medium">
+                                                Show Company Stamp
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Display stamp from Branding section.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={activeModule?.show_stamp ?? false}
+                                            onCheckedChange={(v) =>
+                                                updateModule('show_stamp', v)
+                                            }
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                        <div>
+                                            <p className="text-base font-medium">
+                                                Show Authorised Signature
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Display signature from Branding section.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={activeModule?.show_signature ?? false}
+                                            onCheckedChange={(v) =>
+                                                updateModule('show_signature', v)
+                                            }
+                                        />
+                                    </div>
+                                </>
                             )}
                         </div>
                     </div>

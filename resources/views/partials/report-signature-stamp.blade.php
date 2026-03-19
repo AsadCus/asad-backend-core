@@ -22,31 +22,57 @@
 
     $layout = $branding['custom_signature_stamp_layout'] ?? [];
     $unit = ($layout['unit'] ?? 'percent') === 'px' ? 'px' : '%';
-    $stampLayout = $layout['stamp'] ?? ['x' => 8, 'y' => 10, 'width' => 26, 'height' => 58, 'z' => 1];
-    $signatureLayout = $layout['signature'] ?? ['x' => 62, 'y' => 18, 'width' => 30, 'height' => 48, 'z' => 2];
+    $placement = $layout['placement'] ?? 'left_side';
+    $stampLayout = $layout['stamp'] ?? ['width' => 26, 'height' => 58];
+    $signatureLayout = $layout['signature'] ?? ['width' => 30, 'height' => 48];
     $labels = $layout['labels'] ?? [];
     $showNameDate =
         !empty($branding['show_signature_stamp_name']) &&
         !empty($branding['show_signature_stamp_date']);
-    $fullName = $labels['full_name']
-        ?? $labels['signature_name']
-        ?? $labels['stamp_name']
-        ?? null;
+    $fullName = $labels['full_name'] ?? $labels['signature_name'] ?? $labels['stamp_name'] ?? null;
     $displayDate = $labels['date'] ?? null;
+
+    // Image sizes — px unit uses config values, percent falls back to fixed px
+    $stampH = $unit === 'px' ? (($stampLayout['height'] ?? 58) . 'px') : '68px';
+    $stampW = $unit === 'px' ? (($stampLayout['width'] ?? 68) . 'px') : 'auto';
+    $sigH   = $unit === 'px' ? (($signatureLayout['height'] ?? 48) . 'px') : '50px';
+    $sigW   = $unit === 'px' ? (($signatureLayout['width'] ?? 100) . 'px') : 'auto';
+
+    // Placement determines flex direction and item order
+    $isVertical = in_array($placement, ['up_side', 'down_side']);
+    $isStacked = $placement === 'stack_each_other';
+    // down_side = stamp below signature → signature renders first
+    // right_side = stamp on right → signature renders first
+    $signatureFirst = in_array($placement, ['down_side', 'right_side']);
+    $flexDirection = $isVertical ? 'column' : 'row';
+    $alignItems = 'flex-start';
+
+    // Calculate stacked container height based on the larger image
+    $stackedHeight = '68px';
+    if ($isStacked && $unit === 'px') {
+        $stampHeightNum = $stampLayout['height'] ?? 58;
+        $sigHeightNum = $signatureLayout['height'] ?? 48;
+        $stackedHeight = max($stampHeightNum, $sigHeightNum) . 'px';
+    }
 @endphp
 
 @if ($showStamp || $showSignature)
-    @if ($mode === 'custom')
-        @php
-            $stampH = $unit === 'px' ? (($stampLayout['height'] ?? 58) . 'px') : '68px';
-            $stampW = $unit === 'px' ? (($stampLayout['width'] ?? 68) . 'px') : 'auto';
-            $sigH   = $unit === 'px' ? (($signatureLayout['height'] ?? 48) . 'px') : '50px';
-            $sigW   = $unit === 'px' ? (($signatureLayout['width'] ?? 100) . 'px') : 'auto';
-        @endphp
-        <table class="stamp-sig-row" style="width:auto;">
-            <tr>
+    <div style="display:block; margin-top:8px;">
+        <div style="{{ $isStacked ? 'position:relative; width:fit-content; height:' . $stackedHeight . ';' : 'display:flex; flex-direction:' . $flexDirection . '; align-items:' . $alignItems . '; gap:10px; width:fit-content;' }}">
+            @if ($signatureFirst)
+                @if ($showSignature)
+                    <div style="{{ $isStacked ? 'position:absolute; top:0; left:0; z-index:2;' : '' }}">
+                        @if (($is_pdf ?? false) && !empty($signatureSourceAbsolute) && file_exists($signatureSourceAbsolute))
+                            <img src="{{ $signatureSourceAbsolute }}" alt="Authorised Signature"
+                                style="height:{{ $sigH }}; width:{{ $sigW }}; object-fit:contain; display:block;">
+                        @elseif(!empty($signatureSourceUrl))
+                            <img src="{{ $signatureSourceUrl }}" alt="Authorised Signature"
+                                style="height:{{ $sigH }}; width:{{ $sigW }}; object-fit:contain; display:block;">
+                        @endif
+                    </div>
+                @endif
                 @if ($showStamp)
-                    <td style="width:auto; padding-right:10px; vertical-align:bottom;">
+                    <div style="{{ $isStacked ? 'position:absolute; top:0; left:0; z-index:1;' : '' }}">
                         @if (($is_pdf ?? false) && !empty($stampSourceAbsolute) && file_exists($stampSourceAbsolute))
                             <img src="{{ $stampSourceAbsolute }}" alt="Company Stamp"
                                 style="height:{{ $stampH }}; width:{{ $stampW }}; object-fit:contain; display:block;">
@@ -54,11 +80,22 @@
                             <img src="{{ $stampSourceUrl }}" alt="Company Stamp"
                                 style="height:{{ $stampH }}; width:{{ $stampW }}; object-fit:contain; display:block;">
                         @endif
-                    </td>
+                    </div>
+                @endif
+            @else
+                @if ($showStamp)
+                    <div style="{{ $isStacked ? 'position:absolute; top:0; left:0; z-index:1;' : '' }}">
+                        @if (($is_pdf ?? false) && !empty($stampSourceAbsolute) && file_exists($stampSourceAbsolute))
+                            <img src="{{ $stampSourceAbsolute }}" alt="Company Stamp"
+                                style="height:{{ $stampH }}; width:{{ $stampW }}; object-fit:contain; display:block;">
+                        @elseif(!empty($stampSourceUrl))
+                            <img src="{{ $stampSourceUrl }}" alt="Company Stamp"
+                                style="height:{{ $stampH }}; width:{{ $stampW }}; object-fit:contain; display:block;">
+                        @endif
+                    </div>
                 @endif
                 @if ($showSignature)
-                    <td style="width:auto; text-align:left; vertical-align:bottom;">
-                        <p style="font-size:10px; margin:0 0 3px 0;">Authorised Signature</p>
+                    <div style="{{ $isStacked ? 'position:absolute; top:0; left:0; z-index:2;' : '' }}">
                         @if (($is_pdf ?? false) && !empty($signatureSourceAbsolute) && file_exists($signatureSourceAbsolute))
                             <img src="{{ $signatureSourceAbsolute }}" alt="Authorised Signature"
                                 style="height:{{ $sigH }}; width:{{ $sigW }}; object-fit:contain; display:block;">
@@ -66,65 +103,19 @@
                             <img src="{{ $signatureSourceUrl }}" alt="Authorised Signature"
                                 style="height:{{ $sigH }}; width:{{ $sigW }}; object-fit:contain; display:block;">
                         @endif
-                    </td>
+                    </div>
                 @endif
-            </tr>
-            @if($showNameDate && (!empty($fullName) || !empty($displayDate)))
-                <tr>
-                    @if ($showStamp)
-                        <td style="width:auto; font-size:10px; line-height:1.2; padding-top:2px; padding-right:10px;">
-                            @if(!empty($fullName)) {{ $fullName }} @endif
-                        </td>
-                    @endif
-                    @if ($showSignature)
-                        <td style="width:auto; font-size:9px; line-height:1.2; text-align:left; padding-top:2px;">
-                            @if(!empty($displayDate)) {{ $displayDate }} @endif
-                        </td>
-                    @endif
-                </tr>
             @endif
-        </table>
-    @else
-        <table class="stamp-sig-row stamp-sig-default" style="width:auto;">
-            <tr>
-                <td style="width:auto; padding-right:10px;">
-                    @if ($showStamp)
-                        @if (($is_pdf ?? false) && !empty($stampSourceAbsolute) && file_exists($stampSourceAbsolute))
-                            <img src="{{ $stampSourceAbsolute }}" alt="Company Stamp"
-                                style="height:68px; width:auto; display:block;">
-                        @elseif(!empty($stampSourceUrl))
-                            <img src="{{ $stampSourceUrl }}" alt="Company Stamp"
-                                style="height:68px; width:auto; display:block;">
-                        @endif
-                    @endif
-                </td>
-                <td style="width:auto; text-align:left;">
-                    @if ($showSignature)
-                        <p style="font-size:10px; margin:0 0 3px 0;">Authorised Signature</p>
-                        @if (($is_pdf ?? false) && !empty($signatureSourceAbsolute) && file_exists($signatureSourceAbsolute))
-                            <img src="{{ $signatureSourceAbsolute }}" alt="Authorised Signature"
-                                style="height:50px; width:auto; display:block;">
-                        @elseif(!empty($signatureSourceUrl))
-                            <img src="{{ $signatureSourceUrl }}" alt="Authorised Signature"
-                                style="height:50px; width:auto; display:block;">
-                        @endif
-                    @endif
-                </td>
-            </tr>
-            @if($showNameDate && (!empty($fullName) || !empty($displayDate)))
-                <tr>
-                    <td style="width:auto; font-size:10px; line-height:1.2; padding-top:2px; padding-right:10px;">
-                        @if(!empty($fullName))
-                            {{ $fullName }}
-                        @endif
-                    </td>
-                    <td style="width:auto; font-size:9px; line-height:1.2; text-align:left; padding-top:2px;">
-                        @if(!empty($displayDate))
-                            {{ $displayDate }}
-                        @endif
-                    </td>
-                </tr>
-            @endif
-        </table>
-    @endif
+        </div>
+        @if ($showNameDate && (!empty($fullName) || !empty($displayDate)))
+            <div style="margin-top:{{ $isStacked ? '4px' : '2px' }}; font-size:10px; line-height:1.2; display:flex; gap:12px; width:fit-content;">
+                @if (!empty($fullName))
+                    <span>{{ $fullName }}</span>
+                @endif
+                @if (!empty($displayDate))
+                    <span>{{ $displayDate }}</span>
+                @endif
+            </div>
+        @endif
+    </div>
 @endif

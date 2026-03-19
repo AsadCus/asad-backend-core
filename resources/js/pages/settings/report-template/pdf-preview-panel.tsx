@@ -21,14 +21,40 @@ export function PdfPreview({
     customSignaturePreview,
 }: PdfPreviewProps) {
     const labels = customSignatureStampLayout.labels;
+    const placement = customSignatureStampLayout.placement ?? 'left_side';
     const showUnitNameDate =
         signatureStampLayout === 'custom' &&
         showSignatureStampName &&
         showSignatureStampDate;
     const fullNameText = showUnitNameDate ? labels.full_name : '';
     const dateText = showUnitNameDate ? labels.date : '';
-    const toCssValue = (value: number) =>
-        customSignatureStampLayout.unit === 'percent' ? `${value}%` : `${value}px`;
+
+    const isVertical = placement === 'up_side' || placement === 'down_side';
+    const isStacked = placement === 'stack_each_other';
+    const signatureFirst = placement === 'down_side' || placement === 'right_side';
+    const imgH = isVertical ? '24px' : '32px';
+
+    const stampEl = (preview: string | null) => {
+        if (preview) {
+            return <img src={preview} alt="Stamp" style={{ height: imgH, width: 'auto', objectFit: 'contain', opacity: 0.8, display: 'block' }} />;
+        }
+        return (
+            <div style={{ height: imgH, width: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #d1d5db', borderRadius: '4px', fontSize: '7px', color: '#0369a1' }}>
+                Stamp
+            </div>
+        );
+    };
+
+    const sigEl = (preview: string | null) => {
+        if (preview) {
+            return <img src={preview} alt="Signature" style={{ height: imgH, width: 'auto', objectFit: 'contain', opacity: 0.8, display: 'block' }} />;
+        }
+        return (
+            <div style={{ height: imgH, width: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #d1d5db', borderRadius: '4px', fontSize: '7px', color: '#059669' }}>
+                Signature
+            </div>
+        );
+    };
 
     return (
         <div className="w-full overflow-hidden rounded-lg border bg-white shadow-sm">
@@ -122,37 +148,15 @@ export function PdfPreview({
                         )}
 
                         {(showStamp || showSignature) && signatureStampLayout === 'default' && (
-                            <div className="mt-2">
-                                <div className="inline-flex items-end gap-2">
-                                    {showStamp &&
-                                        (stampPreview ? (
-                                            <img
-                                                src={stampPreview}
-                                                alt="Stamp"
-                                                className="h-8 w-auto object-contain opacity-70"
-                                            />
-                                        ) : (
-                                            <div className="flex h-8 w-14 items-center justify-center rounded border border-dashed border-gray-300 text-[7px] text-gray-400">
-                                                Stamp
-                                            </div>
-                                        ))}
-                                    {showSignature &&
-                                        (signaturePreview ? (
-                                            <img
-                                                src={signaturePreview}
-                                                alt="Signature"
-                                                className="h-8 w-auto object-contain opacity-70"
-                                            />
-                                        ) : (
-                                            <div className="flex h-8 w-16 items-center justify-center rounded border border-dashed border-gray-300 text-[7px] text-gray-400">
-                                                Signature
-                                            </div>
-                                        ))}
+                            <div className="mt-2" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+                                    {showStamp && stampEl(stampPreview)}
+                                    {showSignature && sigEl(signaturePreview)}
                                 </div>
                                 {(fullNameText || dateText) && (
-                                    <div className="mt-0.5 inline-flex w-auto gap-2 text-[7px] text-gray-500">
-                                        <div>{fullNameText}</div>
-                                        <div>{dateText}</div>
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '2px', fontSize: '7px', color: '#6b7280' }}>
+                                        {fullNameText && <span>{fullNameText}</span>}
+                                        {dateText && <span>{dateText}</span>}
                                     </div>
                                 )}
                             </div>
@@ -160,61 +164,39 @@ export function PdfPreview({
 
                         {(showStamp || showSignature) && signatureStampLayout === 'custom' && (
                             <div className="mt-2">
-                                <div className="relative h-20 w-full overflow-hidden">
-                                    {showStamp && (
-                                        <div
-                                            className="absolute overflow-hidden"
-                                            style={{
-                                                left: toCssValue(customSignatureStampLayout.stamp.x),
-                                                top: toCssValue(customSignatureStampLayout.stamp.y),
-                                                width: toCssValue(customSignatureStampLayout.stamp.width),
-                                                height: toCssValue(customSignatureStampLayout.stamp.height),
-                                                zIndex: customSignatureStampLayout.stamp.z,
-                                            }}
-                                        >
-                                            {customStampPreview ? (
-                                                <img
-                                                    src={customStampPreview}
-                                                    alt="Custom Stamp"
-                                                    className="h-full w-full object-contain opacity-80"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-[7px] text-sky-700">
-                                                    Custom Stamp
+                                <div style={isStacked ? { position: 'relative', width: '80px', height: '32px' } : { display: 'flex', flexDirection: isVertical ? 'column' : 'row', alignItems: 'flex-start', gap: '8px', width: 'fit-content' }}>
+                                    {signatureFirst ? (
+                                        <>
+                                            {showSignature && (
+                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 2 } : {}}>
+                                                    {sigEl(customSignaturePreview)}
                                                 </div>
                                             )}
-                                        </div>
-                                    )}
-
-                                    {showSignature && (
-                                        <div
-                                            className="absolute overflow-hidden"
-                                            style={{
-                                                left: toCssValue(customSignatureStampLayout.signature.x),
-                                                top: toCssValue(customSignatureStampLayout.signature.y),
-                                                width: toCssValue(customSignatureStampLayout.signature.width),
-                                                height: toCssValue(customSignatureStampLayout.signature.height),
-                                                zIndex: customSignatureStampLayout.signature.z,
-                                            }}
-                                        >
-                                            {customSignaturePreview ? (
-                                                <img
-                                                    src={customSignaturePreview}
-                                                    alt="Custom Signature"
-                                                    className="h-full w-full object-contain opacity-80"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-[7px] text-emerald-700">
-                                                    Custom Signature
+                                            {showStamp && (
+                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 1 } : {}}>
+                                                    {stampEl(customStampPreview)}
                                                 </div>
                                             )}
-                                        </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {showStamp && (
+                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 1 } : {}}>
+                                                    {stampEl(customStampPreview)}
+                                                </div>
+                                            )}
+                                            {showSignature && (
+                                                <div style={isStacked ? { position: 'absolute', top: 0, left: 0, zIndex: 2 } : {}}>
+                                                    {sigEl(customSignaturePreview)}
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                                 {(fullNameText || dateText) && (
-                                    <div className="mt-0.5 inline-flex items-start gap-3 text-[7px] text-gray-500">
-                                        <div>{fullNameText}</div>
-                                        <div>{dateText}</div>
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: isStacked ? '4px' : '2px', fontSize: '7px', color: '#6b7280' }}>
+                                        {fullNameText && <span>{fullNameText}</span>}
+                                        {dateText && <span>{dateText}</span>}
                                     </div>
                                 )}
                             </div>

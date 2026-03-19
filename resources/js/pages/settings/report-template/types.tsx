@@ -34,6 +34,7 @@ export interface SignatureStampLayoutConfig {
     labels: SignatureStampLabelsConfig;
     stamp: SignatureStampPlacement;
     signature: SignatureStampPlacement;
+    signatureLineWidth?: number;
 }
 
 export interface RegisteredModule {

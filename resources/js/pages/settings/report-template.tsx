@@ -95,6 +95,7 @@ const DEFAULT_CUSTOM_LAYOUT: SignatureStampLayoutConfig = {
         height: 48,
         z: 2,
     },
+    signatureLineWidth: 2,
 };
 
 export default function ReportTemplate({
@@ -178,6 +179,7 @@ export default function ReportTemplate({
                     DEFAULT_CUSTOM_LAYOUT.signature.height,
                 z: incoming.signature?.z ?? DEFAULT_CUSTOM_LAYOUT.signature.z,
             },
+            signatureLineWidth: incoming.signatureLineWidth ?? 2,
         };
     };
 

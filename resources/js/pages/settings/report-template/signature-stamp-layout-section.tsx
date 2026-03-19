@@ -260,11 +260,12 @@ export function SignatureStampLayoutSection({
         }
 
         const point = resolvePoint(event);
+        const lineWidth = customSignatureStampLayout.signatureLineWidth ?? 2;
         context.beginPath();
         context.moveTo(point.x, point.y);
         context.lineCap = 'round';
         context.lineJoin = 'round';
-        context.lineWidth = 2;
+        context.lineWidth = lineWidth;
         context.strokeStyle = '#111827';
         setIsDrawing(true);
     };
@@ -616,6 +617,30 @@ export function SignatureStampLayoutSection({
                                                 })
                                             }
                                         />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="signature-line-width">Signature Line Width</Label>
+                                        <select
+                                            id="signature-line-width"
+                                            title="Signature line width"
+                                            value={customSignatureStampLayout.signatureLineWidth ?? 2}
+                                            onChange={(e) =>
+                                                onCustomSignatureStampLayoutChange({
+                                                    ...customSignatureStampLayout,
+                                                    signatureLineWidth: parseFloat(e.target.value),
+                                                })
+                                            }
+                                            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                                        >
+                                            <option value="1">Small</option>
+                                            <option value="2">Medium</option>
+                                            <option value="3.5">Large</option>
+                                            <option value="5">XL</option>
+                                        </select>
+                                        <p className="text-xs text-muted-foreground">
+                                            Adjust the thickness of the signature line
+                                        </p>
                                     </div>
                                 </div>
                             </div>

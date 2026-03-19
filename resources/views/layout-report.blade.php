@@ -95,20 +95,6 @@
             color: #333;
         }
 
-        .stamp-sig-row {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-        }
-
-        .stamp-sig-row td {
-            vertical-align: bottom;
-        }
-
-        .stamp-sig-default td {
-            width: 50%;
-        }
-
         .updated-date {
             text-align: right;
             font-weight: bold;
