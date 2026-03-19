@@ -55,7 +55,7 @@
 
         /* Content */
         .content-wrapper {
-            padding: 0 20px;
+            padding: 0;
         }
 
         /* Info Table */

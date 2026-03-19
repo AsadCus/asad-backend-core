@@ -24,7 +24,7 @@
 
         /* ── Order Info ── */
         .order-info-section {
-            padding: 0 30px;
+            padding: 0;
             margin-bottom: 12px;
         }
 
@@ -51,7 +51,7 @@
 
         /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 30px;
+            padding: 0;
         }
 
         /* ── Items Table ── */
@@ -118,7 +118,7 @@
 
         /* ── Footer ── */
         .footer-section {
-            padding: 12px 30px 0;
+            padding: 12px 0 0;
             font-size: 10px;
             border-top: none;
         }

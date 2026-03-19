@@ -428,14 +428,15 @@ export default function ReportTemplate({
         <AppLayout>
             <Head title="Report Template Settings" />
             <SettingsLayout wide>
-                <div className="space-y-6">
-                    <HeadingSmall
-                        title="Report Template Settings"
-                        description="Manage branding and per-module PDF document settings"
-                    />
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+                    <div className="w-full space-y-6 lg:flex-1">
+                        <HeadingSmall
+                            title="Report Template Settings"
+                            description="Manage branding and per-module PDF document settings"
+                        />
 
-                    <form onSubmit={submit} className="space-y-6">
-                        <GlobalBrandingSection
+                        <form onSubmit={submit} className="space-y-6">
+                            <GlobalBrandingSection
                             data={data}
                             errors={errors}
                             logoPreview={logoPreview}
@@ -559,32 +560,6 @@ export default function ReportTemplate({
                             AddModuleDialog={
                                 <AddModuleDialog key={registeredModulesCount} />
                             }
-                            PdfPreview={PdfPreview}
-                            previewProps={{
-                                titleColor: data.brand_color || '#c05427',
-                                footerText: activeModule.footer_text,
-                                showStamp: activeModule.show_stamp,
-                                showSignature: activeModule.show_signature,
-                                showSignatureStampName:
-                                    activeModule.show_signature_stamp_name,
-                                showSignatureStampDate:
-                                    activeModule.show_signature_stamp_date,
-                                signatureStampLayout: data.signature_stamp_layout,
-                                customSignatureStampLayout:
-                                    data.custom_signature_stamp_layout,
-                                documentType:
-                                    activeDefinition?.document_type ??
-                                    selectedModule.toUpperCase(),
-                                companyName: data.company_name,
-                                companyPhone: data.company_phone,
-                                companyEmail: data.company_email,
-                                companyAddress: data.company_address,
-                                logoPreview,
-                                stampPreview,
-                                signaturePreview,
-                                customStampPreview,
-                                customSignaturePreview,
-                            }}
                         />
 
                         <div className="flex items-center gap-4 pt-2">
@@ -603,7 +578,36 @@ export default function ReportTemplate({
                                 </p>
                             </Transition>
                         </div>
-                    </form>
+                        </form>
+                    </div>
+
+                    {/* Right Column (Live Preview) */}
+                    <div className="w-full space-y-6 lg:sticky lg:top-6 lg:w-[45%] xl:w-[40%]">
+                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm p-5">
+                            <h3 className="text-base font-semibold mb-1">Live Preview</h3>
+                            <p className="text-sm text-muted-foreground mb-4">Updates as you change settings</p>
+                            <PdfPreview 
+                                titleColor={data.brand_color || '#c05427'}
+                                footerText={activeModule.footer_text}
+                                showStamp={activeModule.show_stamp}
+                                showSignature={activeModule.show_signature}
+                                showSignatureStampName={activeModule.show_signature_stamp_name}
+                                showSignatureStampDate={activeModule.show_signature_stamp_date}
+                                signatureStampLayout={data.signature_stamp_layout}
+                                customSignatureStampLayout={data.custom_signature_stamp_layout}
+                                documentType={activeDefinition?.document_type ?? selectedModule.toUpperCase()}
+                                companyName={data.company_name}
+                                companyPhone={data.company_phone}
+                                companyEmail={data.company_email}
+                                companyAddress={data.company_address}
+                                logoPreview={logoPreview}
+                                stampPreview={stampPreview}
+                                signaturePreview={signaturePreview}
+                                customStampPreview={customStampPreview}
+                                customSignaturePreview={customSignaturePreview}
+                            />
+                        </div>
+                    </div>
                 </div>
             </SettingsLayout>
         </AppLayout>

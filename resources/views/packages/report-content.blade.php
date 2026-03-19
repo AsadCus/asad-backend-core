@@ -10,7 +10,7 @@
     <style>
         /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 20px;
+            padding: 0;
         }
 
         /* ── Meta Info Table ── */

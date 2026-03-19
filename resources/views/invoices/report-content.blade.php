@@ -17,7 +17,7 @@
     <style>
         /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 12px;
+            padding: 0;
         }
 
         /* ── Order Info ── */

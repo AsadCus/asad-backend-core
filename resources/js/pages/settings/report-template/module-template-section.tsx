@@ -27,8 +27,6 @@ interface ModuleTemplateSectionProps {
     handleDeleteModule: (key: string) => void;
     /** Rendered element — caller controls key, no wrapper needed */
     AddModuleDialog: React.ReactNode;
-    PdfPreview: React.ComponentType<PdfPreviewProps>;
-    previewProps: PdfPreviewProps;
 }
 
 export function ModuleTemplateSection({
@@ -103,8 +101,7 @@ export function ModuleTemplateSection({
             </div>
 
             <div className="p-5">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <div className="space-y-5">
+                <div className="space-y-5">
                         <FormField
                             label="Footer Text"
                             fieldRequirementsProps={{
@@ -220,18 +217,6 @@ export function ModuleTemplateSection({
                                 </>
                             )}
                         </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <FormField
-                            label="Live Preview"
-                            fieldRequirementsProps={{
-                                hint: 'Updates as you change settings above',
-                            }}
-                        >
-                            <PdfPreview {...previewProps} />
-                        </FormField>
-                    </div>
                 </div>
             </div>
         </div>

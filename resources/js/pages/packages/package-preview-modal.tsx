@@ -88,7 +88,19 @@ export default function PackagePreviewModal({
                             <iframe
                                 src={previewUrl}
                                 title="Package Preview"
-                                className="h-[1050px] w-full"
+                                className="w-full transition-all duration-300"
+                                style={{ minHeight: '1050px' }}
+                                scrolling="no"
+                                onLoad={(e) => {
+                                    const iframe = e.currentTarget;
+                                    try {
+                                        if (iframe.contentWindow?.document?.documentElement) {
+                                            iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + 'px';
+                                        }
+                                    } catch {
+                                        // Silently fail if cross-origin or other error
+                                    }
+                                }}
                             />
                         ) : (
                             <div className="flex h-64 items-center justify-center rounded-md bg-white p-4 text-sm text-muted-foreground">
