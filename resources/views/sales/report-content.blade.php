@@ -23,7 +23,7 @@
             width: 55%;
             text-align: right;
             vertical-align: top;
-            font-size: 10px;
+            font-size: 11px;
             line-height: 1.5;
         }
 
@@ -38,16 +38,16 @@
         }
 
         .info-cell b {
-            font-size: 11px;
+            font-size: 12px;
         }
 
         body {
-            font-size: 11px;
+            font-size: 12px;
         }
 
         /* Title Bar override for Sales */
         .title-bar {
-            font-size: 14px;
+            font-size: 15px;
             padding: 6px;
             letter-spacing: 3px;
             margin-bottom: 20px;
@@ -82,7 +82,7 @@
         .footer-section {
             clear: both;
             padding: 15px 0 0;
-            font-size: 10px;
+            font-size: 11px;
             border-top: none;
         }
 

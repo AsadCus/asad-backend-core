@@ -36,7 +36,7 @@
         .order-info td {
             vertical-align: top;
             padding: 1px 0;
-            font-size: 10px;
+            font-size: 11px;
         }
 
         .order-info .lbl {
@@ -64,13 +64,12 @@
         .items-table-wrap {
             border-top: 1.5px solid #333;
             border-bottom: 1.5px solid #333;
-            padding: 6px 0;
         }
 
         .items-table td {
             padding: 3px 0;
             vertical-align: top;
-            font-size: 10px;
+            font-size: 11px;
         }
 
         .col-desc {
@@ -93,11 +92,7 @@
             font-weight: bold;
             padding: 4px 0 2px;
             border-bottom: 1px solid #ccc;
-            font-size: 10px;
-        }
-
-        .item-row {
-            border-bottom: 1px solid #ebebeb;
+            font-size: 11px;
         }
 
         .item-row.root .col-desc {
@@ -108,24 +103,23 @@
         .totals-wrapper {
             text-align: right;
             padding: 6px 0 4px;
-            border-top: 1px solid #ccc;
             margin-top: 4px;
         }
 
         .total-label {
-            font-size: 10px;
+            font-size: 11px;
             color: #555;
         }
 
         .total-amount {
             font-weight: bold;
-            font-size: 11px;
+            font-size: 12px;
         }
 
         /* ── Footer ── */
         .footer-section {
             padding: 12px 30px 0;
-            font-size: 9px;
+            font-size: 10px;
             border-top: none;
         }
 
@@ -139,7 +133,7 @@
         .updated-date {
             text-align: right;
             font-weight: bold;
-            font-size: 9px;
+            font-size: 10px;
             margin-top: 16px;
             color: #333;
         }

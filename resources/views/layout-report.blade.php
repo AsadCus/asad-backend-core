@@ -16,7 +16,7 @@
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 12px;
+            font-size: 13px;
             line-height: 1.5;
             color: #1a1a1a;
             margin: 0;
@@ -50,7 +50,7 @@
         }
 
         .company-name {
-            font-size: 13px;
+            font-size: 14px;
             font-weight: bold;
             color: #222;
             margin-bottom: 2px;
@@ -58,13 +58,13 @@
         }
 
         .company-details {
-            font-size: 11px;
+            font-size: 12px;
             color: #444;
             line-height: 1.45;
         }
 
         .company-reg {
-            font-size: 11px;
+            font-size: 12px;
             font-weight: bold;
             margin-top: 3px;
         }
@@ -75,7 +75,7 @@
             color: #fff;
             text-align: center;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 17px;
             padding: 6px 8px;
             letter-spacing: 2px;
             margin-bottom: 10px;
@@ -83,7 +83,7 @@
 
         /* ── Footer ── */
         .footer-section {
-            font-size: 11px;
+            font-size: 12px;
             padding-top: 6px;
             border-top: 1px solid #d0d0d0;
         }
@@ -98,7 +98,7 @@
         .updated-date {
             text-align: right;
             font-weight: bold;
-            font-size: 10px;
+            font-size: 11px;
             margin-top: 8px;
             color: #333;
         }
@@ -109,7 +109,7 @@
             }
 
             body {
-                font-size: 12px;
+                font-size: 13px;
                 line-height: 1.55;
                 padding: 1.2cm 1.4cm;
                 background: #ffffff;
@@ -126,33 +126,33 @@
 
             /* Scale up text that was sized for 96dpi DomPDF */
             .company-name {
-                font-size: 14px;
+                font-size: 15px;
             }
 
             .company-details {
-                font-size: 11px;
+                font-size: 12px;
             }
 
             .company-reg {
-                font-size: 11px;
+                font-size: 12px;
             }
 
             .title-bar {
-                font-size: 16px;
+                font-size: 17px;
                 padding: 8px 10px;
                 letter-spacing: 2px;
             }
 
             .footer-section {
-                font-size: 11px;
+                font-size: 12px;
             }
 
             .footer-note {
-                font-size: 11px;
+                font-size: 12px;
             }
 
             .updated-date {
-                font-size: 10px;
+                font-size: 11px;
             }
         }
     </style>

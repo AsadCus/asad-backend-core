@@ -24,7 +24,7 @@
             border: 1px solid #d9d9d9;
             padding: 5px 8px;
             vertical-align: top;
-            font-size: 10px;
+            font-size: 11px;
         }
 
         .meta-label {
@@ -37,7 +37,7 @@
 
         /* ── Section Title ── */
         .section-title {
-            font-size: 10px;
+            font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -61,7 +61,7 @@
             padding: 4px 8px;
             text-align: left;
             vertical-align: top;
-            font-size: 10px;
+            font-size: 11px;
         }
 
         .section-table thead th {
@@ -78,7 +78,7 @@
         .muted {
             color: #888;
             font-style: italic;
-            font-size: 9px;
+            font-size: 10px;
             padding: 4px 0 8px;
         }
     </style>

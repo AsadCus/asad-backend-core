@@ -30,7 +30,7 @@
         .order-info-grid td {
             vertical-align: top;
             padding: 1px 0;
-            font-size: 10px;
+            font-size: 11px;
         }
 
         .lbl {
@@ -59,7 +59,6 @@
         .items-section {
             border-top: 1.5px solid #333;
             border-bottom: 1.5px solid #333;
-            padding: 4px 0;
             margin-bottom: 8px;
         }
 
@@ -72,7 +71,7 @@
             border-bottom: 1px solid #333;
             padding: 3px 0;
             font-weight: bold;
-            font-size: 10px;
+            font-size: 11px;
             text-align: left;
         }
 
@@ -84,7 +83,7 @@
         .items-table td {
             padding: 3px 0;
             vertical-align: top;
-            font-size: 11px;
+            font-size: 12px;
         }
 
         .col-desc {
@@ -108,26 +107,21 @@
             padding-left: 20px;
         }
 
-        .item-row {
-            border-bottom: 1px solid #f0f0f0;
-        }
-
         /* ── Totals ── */
         .totals-wrapper {
             text-align: right;
             padding: 4px 0 2px;
-            border-top: 1px solid #ccc;
             margin-top: 6px;
         }
 
         .total-label {
-            font-size: 10px;
+            font-size: 11px;
             color: #555;
         }
 
         .total-amount {
             font-weight: bold;
-            font-size: 11px;
+            font-size: 12px;
         }
     </style>
 @endpush

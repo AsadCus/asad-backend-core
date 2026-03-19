@@ -618,30 +618,39 @@ export function SignatureStampLayoutSection({
                                             }
                                         />
                                     </div>
+                                </div>
 
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="signature-line-width">Signature Line Width</Label>
-                                        <select
-                                            id="signature-line-width"
-                                            title="Signature line width"
-                                            value={customSignatureStampLayout.signatureLineWidth ?? 2}
-                                            onChange={(e) =>
-                                                onCustomSignatureStampLayoutChange({
-                                                    ...customSignatureStampLayout,
-                                                    signatureLineWidth: parseFloat(e.target.value),
-                                                })
-                                            }
-                                            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                                        >
-                                            <option value="1">Small</option>
-                                            <option value="2">Medium</option>
-                                            <option value="3.5">Large</option>
-                                            <option value="5">XL</option>
-                                        </select>
-                                        <p className="text-xs text-muted-foreground">
-                                            Adjust the thickness of the signature line
-                                        </p>
+                                <div className="space-y-1.5">
+                                    <Label>Signature Line Width</Label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {[
+                                            { label: 'Small', value: 1 },
+                                            { label: 'Medium', value: 2 },
+                                            { label: 'Large', value: 3.5 },
+                                            { label: 'XL', value: 5 },
+                                        ].map(({ label, value }) => (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+                                                    (customSignatureStampLayout.signatureLineWidth ?? 2) === value
+                                                        ? 'border-primary bg-primary/5'
+                                                        : 'hover:bg-muted/40'
+                                                }`}
+                                                onClick={() =>
+                                                    onCustomSignatureStampLayoutChange({
+                                                        ...customSignatureStampLayout,
+                                                        signatureLineWidth: value,
+                                                    })
+                                                }
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
                                     </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Adjust the thickness of the signature line
+                                    </p>
                                 </div>
                             </div>
                         </div>
