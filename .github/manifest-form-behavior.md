@@ -7,6 +7,106 @@ This document defines mandatory behavior for the Manifest form so future changes
 - Frontend files under `resources/js/pages/manifests/*`
 - Backend normalization/sync in `app/Http/Controllers/ManifestController.php` and `app/Services/ManifestService.php`
 - Validation and typing in `resources/js/pages/manifests/schema.ts`, `resources/js/pages/manifests/types.ts`, `resources/js/pages/manifests/validation.ts`, and `app/Rules/ManifestRule.php`
+- Restructure strategy source in `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md`
+
+## Restructure Alignment Contract
+
+This file must stay synchronized with `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` during the full migration.
+
+Source-of-truth split:
+
+- `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` defines migration direction, phase plan, and target payload contract.
+- `.github/manifest-form-behavior.md` defines runtime behavior guarantees and implementation guardrails.
+
+Mandatory rule:
+
+- Any phase implementation that changes payload shape, naming, endpoint flow, validation assumptions, or cross-tab sync behavior must update both files in the same PR/commit.
+
+## Restructure Phase Workflow (Path A)
+
+Phases follow the strategy document and must preserve current behavior parity:
+
+1. Payload slimming stabilization
+2. Canonical read adapter (GET)
+3. Canonical submit adapter (POST)
+4. Frontend state migration to canonical sections
+5. Section-level patch endpoints
+6. Receipt file endpoint separation
+7. Terminology migration from traveler to member
+
+For all phases:
+
+- Backward compatibility is required until explicit legacy removal phase.
+- Room ordering/grouping persistence and shared-field sync across tabs must not regress.
+- Phase cannot be marked complete without targeted test evidence.
+
+## Phase Status Governance
+
+Phase status must be tracked in `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` and mirrored in this file's phase notes.
+
+Allowed values:
+
+- `not-started`
+- `in-progress`
+- `completed`
+- `blocked`
+
+Governance rules:
+
+1. Only one phase can be `in-progress` at any time.
+2. `completed` requires passing targeted tests and synchronized docs update.
+3. `blocked` requires blocker reason and unblock plan in phase notes.
+4. Next phase cannot start until current `in-progress` phase is `completed` or explicitly `blocked`.
+
+## Invocation Behavior For "run manifest restructure"
+
+When user provides "run manifest restructure" with this file and `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` as context:
+
+1. Determine active phase from Phase Status Tracker in restructure file.
+2. Execute the current `in-progress` phase; if none exists, execute earliest `not-started` phase.
+3. Follow phase prompt requirements: analysis first, then implementation, then tests.
+4. Update both files with phase notes and status transition.
+5. Report next actionable phase at the end.
+
+## Per-Phase Documentation Update Requirement
+
+At phase completion, append a phase note section in both files with the same core facts:
+
+- status
+- scope delivered
+- payload keys added/changed/deprecated
+- compatibility aliases still active
+- backend normalization changes
+- frontend state/sync changes
+- tests executed and result summary
+- known risks and next-phase context
+- status transition (`old_status -> new_status`)
+
+Template:
+
+```markdown
+### Phase X Completion Notes
+
+- Status: completed
+- Date:
+- Scope delivered:
+- Payload contract changes:
+- Compatibility aliases still active:
+- Backend behavior changes:
+- Frontend behavior changes:
+- Tests executed and results:
+- Known risks / follow-up:
+- Context for next phase:
+```
+
+## Naming Transition Rule (Traveler -> Member)
+
+During migration:
+
+- Existing `traveler` terms may remain only where compatibility is required.
+- New logic should prefer `member` naming when safe.
+- Do not break existing payload consumers while aliases are active.
+- Final target is consistent `member` terminology across payload keys, comments, and variable names.
 
 ## Tab Layout Contract
 
@@ -53,6 +153,11 @@ Each is stored in the `documents` object keyed by field name. Each field contain
 - Do not introduce or reintroduce fixed keys like `roomListMakkah`, `roomListMadinah`, or `roomListOthers`.
 - Keep `travelers` as the canonical list for shared traveler/customer/member data.
 - `airlineList` and every room list entry are projections of the same traveler entities, not separate independent records.
+
+Transition note:
+
+- During restructure phases, canonical section keys (`manifest`, `manifest_sharing_groups`, `manifest_rooms`, `documents`) may exist in parallel with legacy keys.
+- Implementation must preserve behavior parity while dual-shape compatibility remains active.
 
 ## Field Unification Rules
 
@@ -108,3 +213,4 @@ Shared fields that must stay synchronized:
 - Prefer extending existing manifest helpers before introducing new parallel transformation paths.
 - Avoid one-off per-tab mappings that can drift from canonical traveler data.
 - If a new field is introduced, define it once in schema/types and wire sync from canonical traveler source.
+- Before starting any new phase implementation prompt, read this file and `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` together.

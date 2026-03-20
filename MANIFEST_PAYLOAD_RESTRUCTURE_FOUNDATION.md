@@ -199,29 +199,50 @@ Cons / Costs:
 - Temporary dual-shape support during migration.
 - Need careful test coverage for relation resolution.
 
-## Open Questions
+## Finalized Decisions And Discussion Result
 
-- Should manifest_sharing_groups be the only source of traveler membership ordering?
-  My Answer: well, what we have currently in main tab and other tabs that same member list, the ordering first from sharing group order then manifest member order.
-- Should rooms always reference manifest_traveler_id only, or keep member_id fallback for pre-save forms?
-  My Answer: what do you mean with member_id? what i think about the manifest_rooms then to its members, the members data must source from manifest member first. because manifest member have fields similar like customer, that have purpose as history data for manifest so in the future when customer data updated it will not effect manifest member.
-- Should traveler receipt docs move to a separate endpoint for very large updates?
-  My Answer: i think we should, we will discuss it further.
-- Do we want section-level patch endpoints (rooms/docs/checklist) instead of one big submit?
-  My Answer: i think we should, we will discuss it further.
+The previous open questions are now finalized. This section is the agreed direction and replaces earlier question/answer discussion.
 
-My Discussion & Suggestion:
-~ i think we need rename manifest "traveler" to manifest "member" in all model/migrations/controller/service/etc, so we dont call it again manifest_traveler_id but manifest_member_id, and in any comment & variable will call it "member" not "traveler".
-~ for your questions about separate endpoints, section-level patch endpoints, etc. i think same but with specific way, we separate it between manifest fields then manifest sharing group with its members then manifest room with its room member then document then member receipt files. what do you think?
+1. Ordering rule is fixed and canonical across tabs:
+    - primary order: `manifest_sharing_group.sort_order`
+    - secondary order: `manifest_member.sort_order`
+2. Room member source of truth is manifest member snapshot data, not live mutable customer profile data.
+3. Room member rows must not send `customer_id` and `customer_confirmation_id`; server resolves these from member references.
+4. Separate section save flow is the long-term target:
+    - manifest core fields
+    - sharing groups + members
+    - rooms + room members
+    - documents
+    - member receipt files
+5. Receipt files are approved to move out of large full-form submit into dedicated section endpoint flow.
+6. Terminology target is `member` (not `traveler`) across code, payload keys, comments, and docs, executed in staged migration to avoid regressions.
+7. Execution strategy is fixed to Path A (incremental migration first, dual-shape safety during transition).
+8. Every phase must preserve current behavior parity and pass targeted regression tests before moving to next phase.
 
-## Recommended Next Step
+## Phase Documentation Sync Contract
 
-Pick one pilot path:
+This restructure document and `.github/manifest-form-behavior.md` must be updated together during implementation.
 
-- Path A: canonical room payload first (already started by removing redundant IDs), then full contract migration.
-- Path B: full contract in one feature branch with dual-shape compatibility and dedicated migration tests.
+Usage rule:
 
-My Answer: I prefer path A, but can you suggest & tell me how much request/phase you need to make sure the this restructure is success and achieve same with current manifest form but with efficient payload and backend and with ai agent gpt-5.3-codex? and if you can, make prompt for each phase needed, so we have the structured prompt to ai agent to perfectly improve manifest form without regressing the current feature.
+1. This file is the strategy and migration-direction source.
+2. `.github/manifest-form-behavior.md` is the implementation guardrail and behavior source.
+3. Every completed phase must update both files in the same PR/commit.
+4. If a phase changes payload shape, naming, endpoint split, or sync behavior, document it in both files before starting the next phase.
+
+Minimum update items per completed phase:
+
+- phase status: completed/in-progress/blocked
+- exact payload changes (new keys, deprecated keys, alias compatibility)
+- backend normalization updates
+- frontend adapter/sync behavior updates
+- tests added/updated and their result summary
+- rollout notes and rollback notes
+- open risks carried forward to next phase
+
+Phase handoff requirement:
+
+- The next phase prompt must include a short "Context From Previous Phase" section copied from the last completed phase notes in both documents.
 
 ## Version 2: Concrete Example (Discussion Draft)
 
@@ -476,64 +497,12 @@ Key reduction rule in this proposal: no `customer_id` and no `customer_confirmat
 - Lower risk of hitting `max_input_vars` for large manifests.
 - Cleaner migration path to section-based update endpoints later.
 
-## Response To Your Answers And Suggestions
-
-### 1) Ordering source of truth
-
-Agreed. Ordering should stay:
-- primary: `manifest_sharing_group.sort_order`
-- secondary: `manifest_member.sort_order`
-
-This should be the canonical ordering rule for main tab and all derived tabs.
-
-### 2) Room member reference model
-
-Agreed. Room members should reference manifest members as the primary source.
-
-Direction:
-- primary reference: `manifest_member_id` (currently still `manifest_traveler_id` in existing code)
-- fallback only during migration: `customer_confirmation_member_id` and `package_official_id`
-
-This preserves manifest snapshot behavior and avoids coupling to mutable customer records.
-
-### 3) Receipt files endpoint separation
-
-Agreed. Receipt files should move to a dedicated endpoint (or dedicated section endpoint) in later phases.
-
-Reason:
-- receipt operations are high-churn and file-heavy
-- separating them reduces full-form request size and risk of PHP input limits
-
-### 4) Section-level patch endpoints
-
-Agreed with your structure. Target split should be:
-- manifest fields endpoint
-- manifest sharing groups + members endpoint
-- manifest rooms + room members endpoint
-- manifest documents endpoint
-- manifest member receipt files endpoint
-
-This is the best long-term shape for reliability and payload efficiency.
-
-### 5) Rename `traveler` to `member`
-
-Strongly agreed, with migration safety.
-
-Direction:
-- target terminology everywhere: `member`
-- avoid big-bang rename; run staged compatibility aliasing first
-- keep old names temporarily where needed to avoid regressions
-
-Suggested final naming targets:
-- `manifest_traveler_id` -> `manifest_member_id`
-- `travelers` payload key -> `members`
-- variable names/comments/services/controllers updated gradually
-
 ## Final Direction Chosen
 
 Selected strategy: **Path A (incremental migration)**.
 
 Why Path A:
+
 - lower regression risk
 - easier rollback
 - faster measurable improvements early
@@ -544,87 +513,149 @@ Why Path A:
 Estimated total phases: **7 phases**.
 
 Each phase should complete with:
+
 - code changes
 - targeted tests
 - no behavior regression in existing manifest flow
 
+## Phase Status Tracker
+
+Use this tracker to determine which phase must be implemented next.
+
+Status values:
+
+- `not-started`
+- `in-progress`
+- `completed`
+- `blocked`
+
+Rules:
+
+1. Keep exactly one phase as `in-progress` at a time.
+2. Mark phase as `completed` only after code changes, tests, and doc sync updates are done.
+3. If a phase cannot continue, mark it `blocked` and write blocker reason in Phase Completion Notes.
+4. When a phase is completed, set the next phase to `in-progress` (or `not-started` if intentionally paused).
+
+Current phase status:
+
+| Phase | Name                                    | Status      |
+| ----- | --------------------------------------- | ----------- |
+| 1     | Payload Slimming Stabilization          | not-started |
+| 2     | Canonical Read Adapter (GET)            | not-started |
+| 3     | Canonical Submit Adapter (POST)         | not-started |
+| 4     | Frontend State Migration To Sections    | not-started |
+| 5     | Section Endpoints Introduction          | not-started |
+| 6     | Receipt Files Separation                | not-started |
+| 7     | Terminology Rename (traveler -> member) | not-started |
+
+## Invocation Contract: "run manifest restructure"
+
+When user input is "run manifest restructure", execution must follow this contract:
+
+1. Read this file and `.github/manifest-form-behavior.md` first.
+2. Read the Phase Status Tracker and select target phase:
+    - first priority: current `in-progress` phase
+    - second priority: earliest `not-started` phase
+3. Implement only the selected phase unless user explicitly asks multi-phase execution.
+4. Before coding, write phase impact map, risks, and test plan (as required in Prompt Pack).
+5. After implementation:
+    - run targeted tests
+    - update both docs
+    - set phase status (`completed`, `in-progress`, or `blocked`)
+    - append/update Phase Completion Notes
+6. In final report, state: selected phase, status transition, files changed, tests, and next phase.
+
 ### Phase 1: Payload Slimming Stabilization
 
 Scope:
+
 - keep current shape
 - remove redundant fields from submit payload (already started for roomLists)
 - ensure backend resolves missing redundant fields from member identifiers
 
 Exit criteria:
+
 - roomLists submits without `customer_id` / `customer_confirmation_id`
 - no regression in room assignment and document persistence
 
 ### Phase 2: Canonical Read Adapter (GET)
 
 Scope:
+
 - add server adapter to produce canonical sections in parallel:
-  - `manifest`
-  - `manifest_sharing_groups`
-  - `manifest_rooms`
-  - `documents`
+    - `manifest`
+    - `manifest_sharing_groups`
+    - `manifest_rooms`
+    - `documents`
 - keep legacy response fields for compatibility
 
 Exit criteria:
+
 - frontend can consume legacy unchanged
 - canonical sections are available for migration
 
 ### Phase 3: Canonical Submit Adapter (POST)
 
 Scope:
+
 - controller accepts canonical keys in parallel with legacy keys
 - add transform layer: canonical -> existing service sync shape
 
 Exit criteria:
+
 - both payload styles are accepted
 - validation and persistence parity confirmed
 
 ### Phase 4: Frontend State Migration To Sections
 
 Scope:
+
 - migrate ManifestForm internal state to canonical section structure
 - keep UI behavior identical
 - submit canonical shape while retaining fallback if needed
 
 Exit criteria:
+
 - all tabs save correctly with canonical payload
 - payload size reduced further for 50-member scenario
 
 ### Phase 5: Section Endpoints Introduction
 
 Scope:
+
 - create patch endpoints:
-  - manifest core
-  - sharing groups + members
-  - rooms + room members
-  - documents
+    - manifest core
+    - sharing groups + members
+    - rooms + room members
+    - documents
 - keep full submit endpoint for backward compatibility
 
 Exit criteria:
+
 - section save flows work independently
 - full submit still works during transition
 
 ### Phase 6: Receipt Files Separation
 
 Scope:
+
 - move receipt file updates to dedicated endpoint
 - remove receipt-heavy payload from full form submit
 
 Exit criteria:
+
 - receipt upload/remove works independently
 - full form payload remains compact
 
 ### Phase 7: Terminology Rename (`traveler` -> `member`)
 
 Scope:
+
 - staged rename across payload keys, variables, comments, and endpoints
 - DB field rename only when compatibility layer is ready
 
 Exit criteria:
+
 - external contract and internal code consistently use `member`
 - compatibility fallback removed only after full migration
 
@@ -632,13 +663,30 @@ Exit criteria:
 
 Use each prompt in sequence. Each prompt assumes the previous phase is merged and green.
 
+Global instruction for all phase prompts:
+
+- Act as a senior website developer for Laravel + Inertia React systems.
+- Spend enough analysis time before implementation; do not jump directly to code edits.
+- First produce: impact map, edge-case checklist, compatibility risks, and test plan for the current phase.
+- Only then implement with smallest safe changes.
+- Validate no regressions in ordering, room mapping, documents, and receipts behavior.
+- If ambiguity exists, prefer backward-compatible behavior and explicit TODO notes over risky assumptions.
+- Read `.github/manifest-form-behavior.md` and this restructure file before implementation.
+- If implementation updates behavior rules, payload contract, or naming decisions, update both documents in the same change.
+- End each phase with a "Phase Completion Notes" section in both docs so the next phase prompt inherits accurate context.
+
 ### Prompt Phase 1
 
 ```text
-You are GPT-5.3-Codex working on Laravel + Inertia React manifest form.
+You are GPT-5.3-Codex acting as a senior website developer on a Laravel + Inertia React manifest form.
 
 Goal:
 Reduce manifest submit payload size without changing behavior.
+
+Before implementation:
+1) Map current submit flow and impacted files.
+2) List hidden coupling risks (validation, tab adapters, backend normalizer, tests).
+3) Define exact acceptance criteria and rollback approach.
 
 Tasks:
 1) In manifest form submit mapper, ensure roomLists rows do not send customer_id and customer_confirmation_id.
@@ -650,18 +698,25 @@ Tasks:
     - room_list_order_can_be_different_between_hotels_and_is_persisted
 
 Output:
+- impact map and risk checklist
 - list changed files
 - summary of payload reduction
 - test results
+- synchronized doc updates in both markdown files
 ```
 
 ### Prompt Phase 2
 
 ```text
-You are GPT-5.3-Codex.
+You are GPT-5.3-Codex acting as a senior website developer.
 
 Goal:
 Add canonical GET response sections in parallel with existing legacy response shape.
+
+Before implementation:
+1) Identify all consumers of current GET payload.
+2) Define compatibility guarantees so existing frontend keeps working without changes.
+3) Prepare consistency checks between legacy and canonical output.
 
 Tasks:
 1) In manifest service/controller response builder, include:
@@ -673,18 +728,25 @@ Tasks:
 3) Add tests asserting canonical keys are present and consistent with legacy data.
 
 Output:
+- impact map and compatibility checklist
 - changed files
 - example GET JSON snapshot
 - test results
+- synchronized doc updates in both markdown files
 ```
 
 ### Prompt Phase 3
 
 ```text
-You are GPT-5.3-Codex.
+You are GPT-5.3-Codex acting as a senior website developer.
 
 Goal:
 Accept canonical submit payload in parallel with legacy payload.
+
+Before implementation:
+1) Design a deterministic normalization pipeline with clear precedence rules.
+2) List validation and persistence parity risks.
+3) Define how to detect and reject malformed mixed-shape payloads safely.
 
 Tasks:
 1) Extend controller normalizer to accept canonical keys:
@@ -697,18 +759,25 @@ Tasks:
 4) Add tests for both payload styles producing same persisted result.
 
 Output:
+- normalization strategy and risk checklist
 - changed files
 - normalization mapping rules
 - test matrix and results
+- synchronized doc updates in both markdown files
 ```
 
 ### Prompt Phase 4
 
 ```text
-You are GPT-5.3-Codex.
+You are GPT-5.3-Codex acting as a senior website developer.
 
 Goal:
 Migrate frontend manifest state to canonical section structure without UI regressions.
+
+Before implementation:
+1) Map all tab dependencies on existing state shape.
+2) Identify key stability and client validation risk points.
+3) Prepare an adapter strategy so migration is reversible.
 
 Tasks:
 1) Refactor ManifestForm state adapters to derive tab data from canonical sections.
@@ -718,18 +787,25 @@ Tasks:
 4) Verify all tabs: main, rooms, airline, checklist, documents, receipts.
 
 Output:
+- migration impact map and risk checklist
 - changed files
 - before/after payload example
 - test results and manual QA checklist
+- synchronized doc updates in both markdown files
 ```
 
 ### Prompt Phase 5
 
 ```text
-You are GPT-5.3-Codex.
+You are GPT-5.3-Codex acting as a senior website developer.
 
 Goal:
 Introduce section-level patch endpoints while keeping full submit endpoint.
+
+Before implementation:
+1) Define transaction boundaries and conflict handling between section and full submit saves.
+2) Identify authorization and validation reuse points.
+3) Define backward-compatibility contract and failure behavior.
 
 Tasks:
 1) Add endpoints and handlers for:
@@ -742,18 +818,25 @@ Tasks:
 4) Add feature tests per new endpoint.
 
 Output:
+- endpoint design notes and risk checklist
 - endpoint list
 - changed files
 - tests and results
+- synchronized doc updates in both markdown files
 ```
 
 ### Prompt Phase 6
 
 ```text
-You are GPT-5.3-Codex.
+You are GPT-5.3-Codex acting as a senior website developer.
 
 Goal:
 Separate member receipt file updates into dedicated endpoint.
+
+Before implementation:
+1) Identify current receipt file data paths and side effects.
+2) Define idempotent CRUD behavior for add/remove/replace.
+3) Ensure compatibility when old full payload still contains receipt data.
 
 Tasks:
 1) Add dedicated API/route for member receipt file CRUD.
@@ -762,18 +845,25 @@ Tasks:
 4) Add tests for add/remove/replace receipt files.
 
 Output:
+- receipt flow impact map and risk checklist
 - changed files
 - request/response examples
 - test results
+- synchronized doc updates in both markdown files
 ```
 
 ### Prompt Phase 7
 
 ```text
-You are GPT-5.3-Codex.
+You are GPT-5.3-Codex acting as a senior website developer.
 
 Goal:
 Complete terminology migration from traveler to member.
+
+Before implementation:
+1) Build full rename inventory (payload keys, DB fields, model attributes, TS types, UI labels, tests).
+2) Define staged alias plan and safe deprecation timeline.
+3) Identify migration rollback steps.
 
 Tasks:
 1) Rename code-level symbols and comments from traveler to member.
@@ -782,10 +872,34 @@ Tasks:
 4) Keep all existing behavior and tests green.
 
 Output:
+- rename strategy and compatibility checklist
 - rename map (old -> new)
 - changed files
 - migration notes and rollback plan
+- synchronized doc updates in both markdown files
 ```
+
+## Phase Completion Notes Template
+
+Copy and fill this template at the end of each completed phase.
+
+```markdown
+### Phase X Completion Notes
+
+- Status: completed
+- Date:
+- Scope delivered:
+- Payload contract changes:
+- Compatibility aliases still active:
+- Files changed:
+- Tests executed and results:
+- Known risks / follow-up:
+- Context for next phase:
+```
+
+Status update requirement for this template:
+
+- Include explicit transition line: `Status Transition: <old_status> -> <new_status>`
 
 ## Success Criteria For The Whole Restructure
 
