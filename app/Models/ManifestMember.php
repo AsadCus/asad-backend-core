@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class ManifestMember extends Model
 {
@@ -19,6 +20,7 @@ class ManifestMember extends Model
         'role',
         'sharing_plan',
         'name',
+        'arabic_name',
         'contact_number',
         'nationality',
         'passport_number',
@@ -83,5 +85,10 @@ class ManifestMember extends Model
     public function collectionItem(): HasOne
     {
         return $this->hasOne(ManifestMemberCollectionItem::class, 'manifest_member_id');
+    }
+
+    public function files(): MorphMany
+    {
+        return $this->morphMany(ModelFile::class, 'fileable');
     }
 }

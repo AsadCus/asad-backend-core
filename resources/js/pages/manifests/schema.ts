@@ -13,6 +13,7 @@ export const travelerSchema = z.object({
     customer_name: z.string().nullable().optional(),
     sn: z.coerce.number().nullable().optional(),
     name_as_per_passport: z.string().nullable().optional(),
+    arabic_name: z.string().nullable().optional(),
     date_of_sign_up: z.string().nullable().optional(),
     package_category: z.string().nullable().optional(),
     is_first_time_umrah: z.boolean().nullable().optional(),
@@ -66,7 +67,26 @@ export const travelerSchema = z.object({
     sling_bag: z.boolean().nullable().optional(),
     cabin_size_luggage: z.boolean().nullable().optional(),
     umrah_essentials: z.boolean().nullable().optional(),
+    receipt_documents: z
+        .array(
+            z.object({
+                id: z.number().optional(),
+                file_name: z.string().nullable().optional(),
+                file_path: z.string().nullable().optional(),
+                removed: z.boolean().optional(),
+                file: z.any().optional(),
+            }),
+        )
+        .optional(),
     status: z.string().nullable().optional(),
+});
+
+const manifestDocumentItemSchema = z.object({
+    id: z.number().optional(),
+    file_name: z.string().nullable().optional(),
+    file_path: z.string().nullable().optional(),
+    removed: z.boolean().optional(),
+    file: z.any().optional(),
 });
 
 export const roomMemberSchema = z.object({
@@ -146,11 +166,21 @@ export const manifestSharingGroupSchema = z.object({
 export const manifestSchema = z.object({
     id: z.number().optional(),
     members_count: z.coerce.number().nullable().optional(),
-    package_id: z.coerce.number().optional(),
+    package_id: z.coerce.number().nullable().optional(),
+    in_charge_official_id: z.coerce.number().nullable().optional(),
     manifest_number: z.string().optional(),
     notes: z.string().optional(),
     status: z.string().optional(),
     travelers: z.array(travelerSchema).optional(),
+    documents: z
+        .object({
+            flight_tickets: z.array(manifestDocumentItemSchema).optional(),
+            visa: z.array(manifestDocumentItemSchema).optional(),
+            hotel: z.array(manifestDocumentItemSchema).optional(),
+            passport: z.array(manifestDocumentItemSchema).optional(),
+            photo: z.array(manifestDocumentItemSchema).optional(),
+        })
+        .optional(),
     rooms: z.array(roomSchema).optional(),
     payments: z.array(paymentSchema).optional(),
     sharing_groups: z.array(manifestSharingGroupSchema).optional(),
@@ -186,7 +216,7 @@ export const hotelDetailsSchema = z.object({
 
 export const manifestInformationSchema = z.object({
     id: z.number().optional(),
-    package_id: z.coerce.number().optional(),
+    package_id: z.coerce.number().nullable().optional(),
     manifest_number: z.string().optional(),
     status: z.string().optional(),
     departure_date: z.string().optional(),

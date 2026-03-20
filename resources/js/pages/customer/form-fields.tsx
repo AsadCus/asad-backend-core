@@ -77,16 +77,10 @@ export default function CustomerFormFields({
     };
 
     const buildGeneratedFileName = (field: 'passport' | 'photo'): string => {
-        const memberNameSegment = sanitizeSegment(customer.name ?? '') || 'member';
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hour = String(now.getHours()).padStart(2, '0');
-        const minute = String(now.getMinutes()).padStart(2, '0');
-        const second = String(now.getSeconds()).padStart(2, '0');
+        const memberNameSegment =
+            sanitizeSegment(customer.name ?? '') || 'member';
 
-        return `customer_${memberNameSegment}_${field}_${year}${month}${day}${hour}${minute}${second}`;
+        return `customer_${memberNameSegment}_${field}`;
     };
 
     return (
@@ -510,8 +504,7 @@ export default function CustomerFormFields({
                             }
                             useFileNameInput
                             fileNameValue={
-                                (customer[doc.nameKey] as string | null) ??
-                                null
+                                (customer[doc.nameKey] as string | null) ?? null
                             }
                             isView={isView}
                             disabled={disabled}

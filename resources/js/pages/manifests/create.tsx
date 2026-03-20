@@ -24,6 +24,13 @@ const MANIFEST_DATA = {
     travelers: [],
     roomLists: {},
     airlineList: [],
+    documents: {
+        flight_tickets: [],
+        visa: [],
+        hotel: [],
+        passport: [],
+        photo: [],
+    },
 } as ManifestFormData;
 
 export default function CreateManifest({ dataPackage }: CreateManifestProps) {

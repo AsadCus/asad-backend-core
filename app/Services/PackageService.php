@@ -74,13 +74,20 @@ class PackageService
 
     public function getForFilter()
     {
-        return Package::with(['accommodations', 'flights'])->get()->map(function ($q) {
+        return Package::with(['accommodations', 'flights', 'officials'])->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => $q->name,
                 'status' => $q->status,
                 'departure_date' => $q->departure_date_formatted,
                 'return_date' => $q->return_date_formatted,
+                'officials' => $q->officials->map(function ($official) {
+                    return [
+                        'id' => $official->id,
+                        'name' => $official->name,
+                        'contact_number' => $official->contact_number,
+                    ];
+                })->values()->toArray(),
                 'accommodations' => $q->accommodations->map(function ($accommodation) {
                     return [
                         'id' => $accommodation->id,

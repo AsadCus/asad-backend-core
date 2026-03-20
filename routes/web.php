@@ -192,6 +192,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('manifests', ManifestController::class);
     Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
     Route::match(['get', 'post'], 'manifests/{id}/collection-items-pdf', [ManifestController::class, 'exportCollectionItemsPdf'])->name('manifests.collection-items-pdf');
+    Route::match(['get', 'post'], 'manifests/{id}/arabic-names-pdf', [ManifestController::class, 'exportArabicNamesPdf'])->name('manifests.arabic-names-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/room-check-pdf', [ManifestController::class, 'exportRoomCheckPdf'])->name('manifests.room-check-pdf');
 
     // Manifest Rooms

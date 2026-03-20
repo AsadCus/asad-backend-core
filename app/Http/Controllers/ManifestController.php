@@ -305,6 +305,75 @@ class ManifestController extends Controller
         }
     }
 
+    public function exportArabicNamesPdf(Request $request, string $id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $manifest = $this->manifestService->getForEditShow((int) $id);
+            $snapshot = $request->input('snapshot');
+
+            if (is_string($snapshot) && $snapshot !== '') {
+                $decodedSnapshot = json_decode($snapshot, true);
+
+                if (is_array($decodedSnapshot)) {
+                    if (isset($decodedSnapshot['travelers']) && is_array($decodedSnapshot['travelers'])) {
+                        $manifest['travelers'] = $decodedSnapshot['travelers'];
+                    }
+
+                    if (isset($decodedSnapshot['manifest_number'])) {
+                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
+                    }
+
+                    if (isset($decodedSnapshot['package_name'])) {
+                        $manifest['package_name'] = $decodedSnapshot['package_name'];
+                    }
+
+                    if (isset($decodedSnapshot['departure_date'])) {
+                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
+                    }
+
+                    if (isset($decodedSnapshot['in_charge_official_name'])) {
+                        $manifest['in_charge_official_name'] = $decodedSnapshot['in_charge_official_name'];
+                    }
+
+                    if (isset($decodedSnapshot['in_charge_official_contact_number'])) {
+                        $manifest['in_charge_official_contact_number'] = $decodedSnapshot['in_charge_official_contact_number'];
+                    }
+                }
+            }
+
+            $reportData = $this->reportTemplateService->build('manifest', [
+                'manifest' => $manifest,
+            ]);
+
+            $html = view('manifests.arabic-names-report-content', [
+                'manifest' => $manifest,
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $fileName = ($manifest['manifest_number'] ?? 'manifest').'-arabic-names.pdf';
+
+            return Pdf::loadHTML($html)
+                ->setPaper('a4', 'landscape')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96)
+                ->stream($fileName);
+        } catch (\Throwable $e) {
+            Log::error('Manifest arabic names PDF generation error', [
+                'manifest_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to generate PDF: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function exportRoomCheckPdf(Request $request, string $id)
     {
         try {

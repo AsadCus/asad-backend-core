@@ -1,3 +1,4 @@
+import { DocumentField } from '@/components/document-field';
 import { FormProgressHeader } from '@/components/form-progress-header';
 import { FormSection } from '@/components/form-section';
 import { Accordion } from '@/components/ui/accordion';
@@ -5,6 +6,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    convertNameToArabic,
+    normalizeArabicNameInput,
+} from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
 import { store, update } from '@/routes/manifests';
 import { useForm } from '@inertiajs/react';
@@ -17,6 +22,9 @@ import FlightDetailInformationCard from './components/flight-detail-information-
 import ManifestInformationCard from './components/manifest-information-card';
 import ManifestMemberInformationCard from './components/manifest-member-information-card';
 import {
+    type ManifestDocumentFieldKey,
+    type ManifestDocumentItem,
+    type ManifestDocumentsByField,
     type ManifestFormData,
     type ManifestFormProps,
     type PackageAccommodationOption,
@@ -26,6 +34,79 @@ import {
 import { manifestValidationSchema } from './validation';
 
 export type { ManifestFormData } from './types';
+
+const MANIFEST_DOCUMENT_TABS: Array<{
+    key: ManifestDocumentFieldKey;
+    label: string;
+    hint: string;
+    accept: string;
+}> = [
+    {
+        key: 'flight_tickets',
+        label: 'Flight Tickets',
+        hint: 'Upload flight ticket files for this manifest.',
+        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+    },
+    {
+        key: 'visa',
+        label: 'Visa',
+        hint: 'Upload visa files for this manifest.',
+        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+    },
+    {
+        key: 'hotel',
+        label: 'Hotel',
+        hint: 'Upload hotel-related documents.',
+        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+    },
+    {
+        key: 'passport',
+        label: 'Passport',
+        hint: 'Upload passport supporting files.',
+        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+    },
+    {
+        key: 'photo',
+        label: 'Photo',
+        hint: 'Upload traveler photo files.',
+        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+    },
+];
+
+function createEmptyDocumentEntry(): ManifestDocumentItem {
+    return {
+        file: null,
+        file_name: null,
+        file_path: null,
+        removed: false,
+    };
+}
+
+function toFileNameWithoutExtension(fileName: string): string {
+    const trimmed = fileName.trim();
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    const dotIndex = trimmed.lastIndexOf('.');
+
+    if (dotIndex <= 0) {
+        return trimmed;
+    }
+
+    return trimmed.slice(0, dotIndex);
+}
+
+function buildEmptyManifestDocuments(): ManifestDocumentsByField {
+    return {
+        flight_tickets: [createEmptyDocumentEntry()],
+        visa: [createEmptyDocumentEntry()],
+        hotel: [createEmptyDocumentEntry()],
+        passport: [createEmptyDocumentEntry()],
+        photo: [createEmptyDocumentEntry()],
+    };
+}
 
 function slugifyTab(value: string): string {
     return value
@@ -64,6 +145,13 @@ function toTravelerWithUI(
         ...(row as TravelerWithUI),
         role: String(row.role ?? ''),
         relationship: String(row.relationship ?? ''),
+        arabic_name: String(
+            row.arabic_name ??
+                convertNameToArabic(String(row.name_as_per_passport ?? '')),
+        ),
+        receipt_documents: Array.isArray(row.receipt_documents)
+            ? (row.receipt_documents as ManifestDocumentItem[])
+            : [createEmptyDocumentEntry()],
         row_key:
             typeof row.row_key === 'string' && row.row_key.trim().length > 0
                 ? row.row_key
@@ -160,6 +248,26 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
         flattenGroupedRows(initialData?.travelers ?? []),
     );
 
+    const sourceDocuments = initialData?.documents;
+    const fallbackDocuments = buildEmptyManifestDocuments();
+    const documents: ManifestDocumentsByField = {
+        flight_tickets: sourceDocuments?.flight_tickets?.length
+            ? sourceDocuments.flight_tickets
+            : fallbackDocuments.flight_tickets,
+        visa: sourceDocuments?.visa?.length
+            ? sourceDocuments.visa
+            : fallbackDocuments.visa,
+        hotel: sourceDocuments?.hotel?.length
+            ? sourceDocuments.hotel
+            : fallbackDocuments.hotel,
+        passport: sourceDocuments?.passport?.length
+            ? sourceDocuments.passport
+            : fallbackDocuments.passport,
+        photo: sourceDocuments?.photo?.length
+            ? sourceDocuments.photo
+            : fallbackDocuments.photo,
+    };
+
     const roomLists = initialData?.roomLists ?? {};
 
     const normalizedRoomLists = Object.fromEntries(
@@ -175,12 +283,14 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
     return {
         id: initialData?.id,
         package_id: initialData?.package_id ?? 0,
+        in_charge_official_id: initialData?.in_charge_official_id ?? null,
         manifest_number: initialData?.manifest_number ?? '',
         status: initialData?.status ?? 'open',
         notes: initialData?.notes ?? '',
         travelers,
         roomLists: normalizedRoomLists,
         airlineList,
+        documents,
     };
 }
 
@@ -560,6 +670,36 @@ function syncRoomRowsWithTravelers(
     }));
 }
 
+function toPositiveInteger(value: unknown): number {
+    const parsed =
+        typeof value === 'number'
+            ? value
+            : Number.parseInt(String(value ?? ''), 10);
+
+    if (!Number.isFinite(parsed) || parsed < 1) {
+        return 0;
+    }
+
+    return parsed;
+}
+
+function hasAnyNewUpload(data: ManifestFormData): boolean {
+    const manifestDocs = Object.values(data.documents ?? {}).flat();
+    const hasManifestFile = manifestDocs.some(
+        (doc) => doc.file instanceof File,
+    );
+
+    if (hasManifestFile) {
+        return true;
+    }
+
+    const travelerDocs = (data.travelers ?? []).flatMap(
+        (traveler) => traveler.receipt_documents ?? [],
+    );
+
+    return travelerDocs.some((doc) => doc.file instanceof File);
+}
+
 export default function ManifestForm({
     mode,
     initialData,
@@ -574,9 +714,45 @@ export default function ManifestForm({
     const defaults = buildDefaultData(initialData);
 
     const form = useForm<ManifestFormData>(defaults);
-    const data = form.data;
-    const { setData } = form;
+    const { data, setData, post, put, transform, processing, hasErrors } = form;
+    const rawErrors = (form as unknown as { errors?: Record<string, string> })
+        .errors;
+    const formErrorActions = form as unknown as {
+        clearErrors: () => void;
+        setError: (field: string, message: string) => void;
+    };
+    const formResetAction = (form as unknown as { reset: () => void }).reset;
+    const formErrors = useMemo<Record<string, string>>(() => {
+        return rawErrors ?? {};
+    }, [rawErrors]);
+    const setFormData = useCallback(
+        (key: string, value: unknown) => {
+            (
+                setData as unknown as (
+                    field: string,
+                    fieldValue: unknown,
+                ) => void
+            )(key, value);
+        },
+        [setData],
+    );
+    const setManifestInfoData: (key: string, value: unknown) => void = (
+        key,
+        value,
+    ) => {
+        setFormData(key, value);
+    };
+    const clearFormErrors = useCallback(() => {
+        formErrorActions.clearErrors();
+    }, [formErrorActions]);
+    const setFormError = useCallback(
+        (field: string, message: string) => {
+            formErrorActions.setError(field, message);
+        },
+        [formErrorActions],
+    );
     const errorAlertRef = useRef<HTMLDivElement | null>(null);
+    const previousNameByIdentityRef = useRef<Record<string, string>>({});
     const [activeTab, setActiveTab] = useState('main');
     const [openSections, setOpenSections] = useState<string[]>([
         'manifest_information',
@@ -599,6 +775,24 @@ export default function ManifestForm({
         () => packageOptions.find((item) => item.value === data.package_id),
         [packageOptions, data.package_id],
     );
+
+    const selectedPackageOfficials = useMemo(() => {
+        return selectedPackage?.officials ?? [];
+    }, [selectedPackage]);
+
+    const selectedInChargeOfficial = useMemo(() => {
+        const inChargeOfficialId = Number(data.in_charge_official_id ?? 0);
+
+        if (inChargeOfficialId < 1) {
+            return null;
+        }
+
+        return (
+            selectedPackageOfficials.find(
+                (official) => Number(official.id) === inChargeOfficialId,
+            ) ?? null
+        );
+    }, [data.in_charge_official_id, selectedPackageOfficials]);
 
     const hotelAccommodations = useMemo(() => {
         return (selectedPackage?.accommodations ?? []).filter(
@@ -783,14 +977,14 @@ export default function ManifestForm({
         });
 
         if (keysChanged || membershipChanged) {
-            setData('roomLists', syncedRoomLists);
+            setFormData('roomLists', syncedRoomLists);
         }
     }, [
         roomTabs,
         data.travelers,
         data.roomLists,
         isCancelledTraveler,
-        setData,
+        setFormData,
     ]);
 
     useEffect(() => {
@@ -798,10 +992,10 @@ export default function ManifestForm({
             return;
         }
 
-        if (Object.keys(form.errors).length > 0) {
+        if (hasErrors) {
             scrollToErrorBanner();
         }
-    }, [form.errors, isView, scrollToErrorBanner]);
+    }, [hasErrors, isView, scrollToErrorBanner]);
 
     const updateFromTravelers = useCallback(
         (nextTravelers: TravelerWithUI[]) => {
@@ -912,7 +1106,7 @@ export default function ManifestForm({
                     );
 
                     const existing = (data.airlineList ?? []).find(
-                        (row, existingIndex) =>
+                        (row: unknown, existingIndex: number) =>
                             travelerIdentityKey(
                                 row as TravelerWithUI,
                                 existingIndex,
@@ -960,17 +1154,17 @@ export default function ManifestForm({
                 })
                 .filter((traveler) => !isCancelledTraveler(traveler));
 
-            form.setData('travelers', travelersWithSn);
-            form.setData('roomLists', nextRoomLists);
-            form.setData('airlineList', nextAirline);
+            setFormData('travelers', travelersWithSn);
+            setFormData('roomLists', nextRoomLists);
+            setFormData('airlineList', nextAirline);
         },
         [
             data.airlineList,
             data.roomLists,
             data.travelers,
-            form,
             isCancelledTraveler,
             roomTabs,
+            setFormData,
         ],
     );
 
@@ -997,7 +1191,7 @@ export default function ManifestForm({
                 sort_order: index + 1,
             }));
 
-            setData('roomLists', {
+            setFormData('roomLists', {
                 ...(data.roomLists ?? {}),
                 [tabKey]: baseRows,
             });
@@ -1007,7 +1201,7 @@ export default function ManifestForm({
             data.travelers,
             isCancelledTraveler,
             roomTabs,
-            setData,
+            setFormData,
         ],
     );
 
@@ -1126,23 +1320,102 @@ export default function ManifestForm({
                 }
             });
 
-            form.setData('roomLists', nextRoomLists);
+            setFormData('roomLists', nextRoomLists);
         },
-        [data.roomLists, form, roomTabs],
+        [data.roomLists, roomTabs, setFormData],
+    );
+
+    const updateManifestDocuments = useCallback(
+        (field: ManifestDocumentFieldKey, rows: ManifestDocumentItem[]) => {
+            const nextDocuments: ManifestDocumentsByField = {
+                ...(data.documents ?? buildEmptyManifestDocuments()),
+                [field]: rows,
+            };
+
+            setFormData('documents', nextDocuments);
+        },
+        [data.documents, setFormData],
+    );
+
+    const updateTravelerArabicName = useCallback(
+        (traveler: TravelerWithUI, arabicName: string) => {
+            const sanitizedArabicName = normalizeArabicNameInput(arabicName);
+
+            const nextTravelers = (
+                (data.travelers ?? []) as TravelerWithUI[]
+            ).map((row, index) => {
+                if (
+                    travelerIdentityKey(row, index) !==
+                    travelerIdentityKey(traveler, 0)
+                ) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    arabic_name: sanitizedArabicName,
+                };
+            });
+
+            setFormData('travelers', nextTravelers);
+        },
+        [data.travelers, setFormData],
+    );
+
+    const updateTravelerReceiptDocuments = useCallback(
+        (traveler: TravelerWithUI, rows: ManifestDocumentItem[]) => {
+            const nextTravelers = (
+                (data.travelers ?? []) as TravelerWithUI[]
+            ).map((row, index) => {
+                if (
+                    travelerIdentityKey(row, index) !==
+                    travelerIdentityKey(traveler, 0)
+                ) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    receipt_documents: rows,
+                };
+            });
+
+            setFormData('travelers', nextTravelers);
+        },
+        [data.travelers, setFormData],
     );
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
 
-        const validationResult = manifestValidationSchema.safeParse(data);
-        form.clearErrors();
+        const normalizedPackageId = toPositiveInteger(data.package_id);
+        const normalizedInChargeOfficialId = toPositiveInteger(
+            data.in_charge_official_id,
+        );
+
+        const normalizedPayload: ManifestFormData = {
+            ...data,
+            package_id: normalizedPackageId,
+            in_charge_official_id:
+                normalizedInChargeOfficialId > 0
+                    ? normalizedInChargeOfficialId
+                    : null,
+        };
+
+        if (
+            normalizedPackageId > 0 &&
+            normalizedPackageId !== data.package_id
+        ) {
+            setFormData('package_id', normalizedPackageId);
+        }
+
+        const validationResult =
+            manifestValidationSchema.safeParse(normalizedPayload);
+        clearFormErrors();
 
         if (!validationResult.success) {
             validationResult.error.issues.forEach((issue) => {
-                form.setError(
-                    issue.path.join('.') as keyof ManifestFormData,
-                    issue.message,
-                );
+                setFormError(issue.path.join('.'), issue.message);
             });
 
             scrollToErrorBanner();
@@ -1150,8 +1423,19 @@ export default function ManifestForm({
             return;
         }
 
+        transform((currentData: ManifestFormData) => ({
+            ...currentData,
+            ...normalizedPayload,
+            package_id:
+                normalizedPackageId ||
+                toPositiveInteger(currentData.package_id),
+        }));
+
+        const shouldForceFormData = hasAnyNewUpload(normalizedPayload);
+
         if (isCreate) {
-            form.post(store().url, {
+            post(store().url, {
+                forceFormData: shouldForceFormData,
                 preserveScroll: 'errors',
                 onError: () => {
                     scrollToErrorBanner();
@@ -1160,7 +1444,8 @@ export default function ManifestForm({
         }
 
         if (isEdit && data.id) {
-            form.put(update(data.id).url, {
+            put(update(data.id).url, {
+                forceFormData: shouldForceFormData,
                 preserveScroll: 'errors',
                 onError: () => {
                     scrollToErrorBanner();
@@ -1170,9 +1455,7 @@ export default function ManifestForm({
     };
 
     const renderError = (path: string) => {
-        const message = (form.errors as Record<string, string | undefined>)[
-            path
-        ];
+        const message = formErrors[path];
 
         if (typeof message !== 'string' || message.length === 0) {
             return null;
@@ -1188,9 +1471,7 @@ export default function ManifestForm({
             Array<{ path: string; message: string }>
         >();
 
-        Object.entries(
-            form.errors as Record<string, string | undefined>,
-        ).forEach(([path, message]) => {
+        Object.entries(formErrors).forEach(([path, message]) => {
             if (!message) {
                 return;
             }
@@ -1225,12 +1506,12 @@ export default function ManifestForm({
                 }),
             ),
         };
-    }, [form.errors, data.travelers]);
+    }, [formErrors, data.travelers]);
 
     const sectionStatuses = useMemo(() => {
-        const errorEntries = Object.entries(
-            form.errors as Record<string, string | undefined>,
-        ).filter(([, message]) => Boolean(message));
+        const errorEntries = Object.entries(formErrors).filter(([, message]) =>
+            Boolean(message),
+        );
 
         const hasErrorsForPrefix = (prefixes: string[]): boolean => {
             return errorEntries.some(([path]) =>
@@ -1279,7 +1560,7 @@ export default function ManifestForm({
             flight_detail_information: flightDetailInformationStatus,
         } as const;
     }, [
-        form.errors,
+        formErrors,
         data.package_id,
         data.status,
         data.travelers,
@@ -1331,6 +1612,71 @@ export default function ManifestForm({
             (traveler) => !traveler.package_official_id,
         );
     }, [nonCancelledTravelers]);
+
+    useEffect(() => {
+        const travelers = (data.travelers ?? []) as TravelerWithUI[];
+        const previousMap = previousNameByIdentityRef.current;
+        let hasChanges = false;
+
+        const nextTravelers = travelers.map((traveler, index) => {
+            if (traveler.package_official_id) {
+                return traveler;
+            }
+
+            const identity = travelerIdentityKey(traveler, index);
+            const currentName = String(
+                traveler.name_as_per_passport ?? '',
+            ).trim();
+            const previousName = previousMap[identity] ?? null;
+            previousMap[identity] = currentName;
+
+            if (currentName === '') {
+                return traveler;
+            }
+
+            const shouldAutoFill =
+                !traveler.arabic_name ||
+                traveler.arabic_name.trim() === '' ||
+                previousName !== null;
+
+            if (!shouldAutoFill || previousName === currentName) {
+                return traveler;
+            }
+
+            const autoArabicName = convertNameToArabic(currentName);
+
+            if (autoArabicName === traveler.arabic_name) {
+                return traveler;
+            }
+
+            hasChanges = true;
+
+            return {
+                ...traveler,
+                arabic_name: autoArabicName,
+            };
+        });
+
+        if (hasChanges) {
+            setFormData('travelers', nextTravelers);
+        }
+    }, [data.travelers, setFormData]);
+
+    useEffect(() => {
+        const inChargeOfficialId = Number(data.in_charge_official_id ?? 0);
+
+        if (inChargeOfficialId < 1) {
+            return;
+        }
+
+        const stillExists = selectedPackageOfficials.some(
+            (official) => Number(official.id) === inChargeOfficialId,
+        );
+
+        if (!stillExists) {
+            setFormData('in_charge_official_id', null);
+        }
+    }, [data.in_charge_official_id, selectedPackageOfficials, setFormData]);
 
     const moveTravelerToHolding = async (traveler: TravelerWithUI) => {
         const memberId = traveler.customer_confirmation_member_id;
@@ -1419,6 +1765,8 @@ export default function ManifestForm({
         [],
     );
 
+    console.log(data);
+
     return (
         <div className="mx-auto w-full">
             {mode !== 'view' && (
@@ -1430,7 +1778,7 @@ export default function ManifestForm({
             )}
 
             <form onSubmit={submit} className="space-y-6 py-2">
-                {Object.keys(form.errors).length > 0 && !isView && (
+                {Object.keys(formErrors).length > 0 && !isView && (
                     <Alert variant="destructive" ref={errorAlertRef}>
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
@@ -1509,7 +1857,7 @@ export default function ManifestForm({
                             isView={isView}
                             data={data}
                             dataPackage={packageOptions}
-                            setData={form.setData}
+                            setData={setManifestInfoData}
                             renderError={renderError}
                         />
                     </FormSection>
@@ -1608,6 +1956,54 @@ export default function ManifestForm({
                             </TabsList>
                             <ScrollBar orientation="horizontal" />
                         </ScrollArea>
+
+                        <ScrollArea className="w-full whitespace-nowrap">
+                            <TabsList className="w-fit group-data-[orientation=horizontal]/tabs:h-11">
+                                <TabsTrigger
+                                    value="document-flight-tickets"
+                                    className="text-lg"
+                                >
+                                    Flight Tickets
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="document-visa"
+                                    className="text-lg"
+                                >
+                                    Visa
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="document-hotel"
+                                    className="text-lg"
+                                >
+                                    Hotel
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="document-passport"
+                                    className="text-lg"
+                                >
+                                    Passport
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="document-photo"
+                                    className="text-lg"
+                                >
+                                    Photo
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="arabic-names"
+                                    className="text-lg"
+                                >
+                                    Arabic Names
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="receipt"
+                                    className="text-lg"
+                                >
+                                    Receipt
+                                </TabsTrigger>
+                            </TabsList>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
                     </div>
 
                     <TabsContent value="main" className="space-y-4">
@@ -1617,7 +2013,7 @@ export default function ManifestForm({
                             disabled={isView}
                             allowReorder
                             errorPrefix="travelers"
-                            errors={form.errors}
+                            errors={formErrors}
                             roomAssignmentOptions={roomTabs.map((tab) => ({
                                 key: tab.key,
                                 label: tab.label,
@@ -1655,7 +2051,7 @@ export default function ManifestForm({
                                     errorPrefix={`roomLists.${tab.key}`}
                                     roomGroupErrorPrefix="rooms"
                                     roomGroupStartIndex={roomRange?.start ?? 0}
-                                    errors={form.errors}
+                                    errors={formErrors}
                                     roomAssignmentOptions={roomTabs.map(
                                         (roomTab) => ({
                                             key: roomTab.key,
@@ -1940,16 +2336,16 @@ export default function ManifestForm({
                                                 },
                                             );
 
-                                            form.setData(
+                                            setFormData(
                                                 'travelers',
                                                 nextTravelers,
                                             );
-                                            form.setData(
+                                            setFormData(
                                                 'roomLists',
                                                 nextRoomLists,
                                             );
 
-                                            form.setData(
+                                            setFormData(
                                                 'airlineList',
                                                 nextAirline,
                                             );
@@ -2021,7 +2417,7 @@ export default function ManifestForm({
                                     allowReorder
                                     errorPrefix={`roomLists.${tab.sourceRoomKey}`}
                                     roomGroupErrorPrefix="rooms"
-                                    errors={form.errors}
+                                    errors={formErrors}
                                     roomAssignmentOptions={roomTabs.map(
                                         (roomTab) => ({
                                             key: roomTab.key,
@@ -2039,7 +2435,7 @@ export default function ManifestForm({
                                             }),
                                         );
 
-                                        setData('roomLists', {
+                                        setFormData('roomLists', {
                                             ...(data.roomLists ?? {}),
                                             [tab.sourceRoomKey]: normalizedRows,
                                         });
@@ -2072,7 +2468,7 @@ export default function ManifestForm({
                             disabled={isView}
                             allowReorder
                             errorPrefix="airlineList"
-                            errors={form.errors}
+                            errors={formErrors}
                             roomAssignmentOptions={roomTabs.map((tab) => ({
                                 key: tab.key,
                                 label: tab.label,
@@ -2241,9 +2637,9 @@ export default function ManifestForm({
                                     ),
                                 );
 
-                                form.setData('travelers', nextTravelers);
-                                form.setData('airlineList', normalizedAirline);
-                                form.setData('roomLists', nextRoomLists);
+                                setFormData('travelers', nextTravelers);
+                                setFormData('airlineList', normalizedAirline);
+                                setFormData('roomLists', nextRoomLists);
                             }}
                         />
                     </TabsContent>
@@ -2283,7 +2679,7 @@ export default function ManifestForm({
                             }
                             disabled={isView}
                             allowReorder={false}
-                            errors={form.errors}
+                            errors={formErrors}
                             onRowsChange={(rows: TravelerWithUI[]) => {
                                 const checklistMap = new Map(
                                     rows.map((row, index) => [
@@ -2326,9 +2722,609 @@ export default function ManifestForm({
                                     };
                                 });
 
-                                form.setData('travelers', nextTravelers);
+                                setFormData('travelers', nextTravelers);
                             }}
                         />
+                    </TabsContent>
+
+                    {MANIFEST_DOCUMENT_TABS.map((tab) => {
+                        const allRows =
+                            (data.documents?.[tab.key] as
+                                | ManifestDocumentItem[]
+                                | undefined) ?? [];
+                        const visibleRows = allRows.filter(
+                            (row) => !row.removed,
+                        );
+                        const rowsToRender =
+                            visibleRows.length > 0
+                                ? visibleRows
+                                : [createEmptyDocumentEntry()];
+
+                        return (
+                            <TabsContent
+                                key={tab.key}
+                                value={`document-${tab.key.replaceAll('_', '-')}`}
+                                className="space-y-4"
+                            >
+                                <div className="rounded-xl border border-border/70 p-4">
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-semibold">
+                                                {tab.label} Documents
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                {tab.hint}
+                                            </p>
+                                        </div>
+                                        {!isView && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    updateManifestDocuments(
+                                                        tab.key,
+                                                        [
+                                                            ...allRows,
+                                                            createEmptyDocumentEntry(),
+                                                        ],
+                                                    );
+                                                }}
+                                            >
+                                                Add Document
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                        {rowsToRender.map((row, index) => {
+                                            return (
+                                                <div
+                                                    key={`${tab.key}-${row.id ?? `new-${index}`}`}
+                                                    className="rounded-lg border p-3"
+                                                >
+                                                    <DocumentField
+                                                        label={`${tab.label} #${index + 1}`}
+                                                        hint={tab.hint}
+                                                        accept={tab.accept}
+                                                        fileValue={
+                                                            row.file ??
+                                                            undefined
+                                                        }
+                                                        existingPath={
+                                                            row.file_path ??
+                                                            undefined
+                                                        }
+                                                        existingFileName={
+                                                            row.file_name ??
+                                                            undefined
+                                                        }
+                                                        useFileNameInput
+                                                        fileNameValue={
+                                                            row.file_name ??
+                                                            null
+                                                        }
+                                                        isView={isView}
+                                                        disabled={isView}
+                                                        onSelect={(file) => {
+                                                            const nextRows =
+                                                                allRows.length >
+                                                                0
+                                                                    ? [
+                                                                          ...allRows,
+                                                                      ]
+                                                                    : [
+                                                                          createEmptyDocumentEntry(),
+                                                                      ];
+                                                            const targetIndex =
+                                                                allRows.length >
+                                                                0
+                                                                    ? index
+                                                                    : 0;
+                                                            nextRows[
+                                                                targetIndex
+                                                            ] = {
+                                                                ...nextRows[
+                                                                    targetIndex
+                                                                ],
+                                                                file,
+                                                                removed: false,
+                                                                file_name:
+                                                                    nextRows[
+                                                                        targetIndex
+                                                                    ]
+                                                                        ?.file_name ??
+                                                                    toFileNameWithoutExtension(
+                                                                        file.name,
+                                                                    ),
+                                                            };
+                                                            updateManifestDocuments(
+                                                                tab.key,
+                                                                nextRows,
+                                                            );
+                                                        }}
+                                                        onFileNameChange={(
+                                                            fileName,
+                                                        ) => {
+                                                            const nextRows =
+                                                                allRows.length >
+                                                                0
+                                                                    ? [
+                                                                          ...allRows,
+                                                                      ]
+                                                                    : [
+                                                                          createEmptyDocumentEntry(),
+                                                                      ];
+                                                            const targetIndex =
+                                                                allRows.length >
+                                                                0
+                                                                    ? index
+                                                                    : 0;
+                                                            nextRows[
+                                                                targetIndex
+                                                            ] = {
+                                                                ...nextRows[
+                                                                    targetIndex
+                                                                ],
+                                                                file_name:
+                                                                    fileName,
+                                                            };
+                                                            updateManifestDocuments(
+                                                                tab.key,
+                                                                nextRows,
+                                                            );
+                                                        }}
+                                                        onClear={() => {
+                                                            const nextRows =
+                                                                allRows.length >
+                                                                0
+                                                                    ? [
+                                                                          ...allRows,
+                                                                      ]
+                                                                    : [
+                                                                          createEmptyDocumentEntry(),
+                                                                      ];
+                                                            const currentRow =
+                                                                nextRows[index];
+
+                                                            if (
+                                                                currentRow?.id ||
+                                                                currentRow?.file_path
+                                                            ) {
+                                                                nextRows[
+                                                                    index
+                                                                ] = {
+                                                                    ...currentRow,
+                                                                    file: null,
+                                                                    file_name:
+                                                                        null,
+                                                                    file_path:
+                                                                        null,
+                                                                    removed: true,
+                                                                };
+                                                            } else {
+                                                                nextRows.splice(
+                                                                    index,
+                                                                    1,
+                                                                );
+                                                            }
+
+                                                            updateManifestDocuments(
+                                                                tab.key,
+                                                                nextRows,
+                                                            );
+                                                        }}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </TabsContent>
+                        );
+                    })}
+
+                    <TabsContent value="arabic-names" className="space-y-4">
+                        <div className="rounded-xl border border-border/70 p-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <div className="space-y-2">
+                                    <label
+                                        htmlFor="in_charge_official_id"
+                                        className="text-sm font-medium"
+                                    >
+                                        Official In Charge
+                                    </label>
+                                    <select
+                                        id="in_charge_official_id"
+                                        value={String(
+                                            data.in_charge_official_id ?? '',
+                                        )}
+                                        onChange={(event) => {
+                                            const nextValue =
+                                                event.target.value.trim();
+                                            setFormData(
+                                                'in_charge_official_id',
+                                                nextValue === ''
+                                                    ? null
+                                                    : Number(nextValue),
+                                            );
+                                        }}
+                                        disabled={isView}
+                                        className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        <option value="">
+                                            Select official in charge
+                                        </option>
+                                        {selectedPackageOfficials.map(
+                                            (official) => (
+                                                <option
+                                                    key={official.id}
+                                                    value={official.id}
+                                                >
+                                                    {official.name ??
+                                                        `Official #${official.id}`}
+                                                </option>
+                                            ),
+                                        )}
+                                    </select>
+                                    {renderError('in_charge_official_id')}
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">
+                                        Contact Number
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={
+                                            selectedInChargeOfficial?.contact_number ??
+                                            ''
+                                        }
+                                        disabled
+                                        className="h-10 w-full rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground"
+                                        placeholder="Auto-filled from package official"
+                                    />
+                                </div>
+                                <div className="flex items-end justify-start md:justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={!data.id}
+                                        onClick={() => {
+                                            if (!data.id) {
+                                                return;
+                                            }
+
+                                            exportPdfWithSnapshot(
+                                                `/manifests/${data.id}/arabic-names-pdf`,
+                                                {
+                                                    travelers:
+                                                        nonCancelledNonOfficialTravelers,
+                                                    manifest_number:
+                                                        data.manifest_number,
+                                                    package_name:
+                                                        selectedPackage?.label,
+                                                    departure_date:
+                                                        selectedPackage?.departure_date,
+                                                    in_charge_official_name:
+                                                        selectedInChargeOfficial?.name ??
+                                                        '',
+                                                    in_charge_official_contact_number:
+                                                        selectedInChargeOfficial?.contact_number ??
+                                                        '',
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export PDF
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="overflow-hidden rounded-xl border border-border/70">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/40 text-left">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold">
+                                            No
+                                        </th>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Name
+                                        </th>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Arabic Name
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {nonCancelledNonOfficialTravelers.map(
+                                        (traveler, index) => (
+                                            <tr
+                                                key={`${travelerIdentityKey(traveler, index)}-arabic`}
+                                                className="border-t"
+                                            >
+                                                <td className="px-4 py-3 align-top">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="px-4 py-3 align-top">
+                                                    <input
+                                                        type="text"
+                                                        value={
+                                                            traveler.name_as_per_passport ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3 align-top">
+                                                    <input
+                                                        type="text"
+                                                        dir="rtl"
+                                                        value={
+                                                            traveler.arabic_name ??
+                                                            ''
+                                                        }
+                                                        onChange={(event) => {
+                                                            updateTravelerArabicName(
+                                                                traveler,
+                                                                event.target
+                                                                    .value,
+                                                            );
+                                                        }}
+                                                        disabled={isView}
+                                                        className="w-full rounded-md border bg-background px-3 py-2 text-right text-sm"
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ),
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="receipt" className="space-y-4">
+                        <div className="overflow-hidden rounded-xl border border-border/70">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/40 text-left">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold">
+                                            No
+                                        </th>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Name
+                                        </th>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Receipt
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {nonCancelledNonOfficialTravelers.map(
+                                        (traveler, index) => {
+                                            const sourceRows =
+                                                traveler.receipt_documents ??
+                                                [];
+                                            const rows = sourceRows.filter(
+                                                (row) => !row.removed,
+                                            );
+                                            const rowsToRender =
+                                                rows.length > 0
+                                                    ? rows
+                                                    : [
+                                                          createEmptyDocumentEntry(),
+                                                      ];
+
+                                            return (
+                                                <tr
+                                                    key={`${travelerIdentityKey(traveler, index)}-receipt`}
+                                                    className="border-t"
+                                                >
+                                                    <td className="px-4 py-3 align-top">
+                                                        {index + 1}
+                                                    </td>
+                                                    <td className="px-4 py-3 align-top">
+                                                        <input
+                                                            type="text"
+                                                            value={
+                                                                traveler.name_as_per_passport ??
+                                                                ''
+                                                            }
+                                                            disabled
+                                                            className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="space-y-3">
+                                                            {rowsToRender.map(
+                                                                (
+                                                                    row,
+                                                                    documentIndex,
+                                                                ) => (
+                                                                    <div
+                                                                        key={`${travelerIdentityKey(traveler, index)}-receipt-doc-${row.id ?? documentIndex}`}
+                                                                        className="rounded-lg border p-3"
+                                                                    >
+                                                                        <DocumentField
+                                                                            label={`Receipt #${documentIndex + 1}`}
+                                                                            hint="Upload receipt evidence for this traveler."
+                                                                            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                                                                            fileValue={
+                                                                                row.file ??
+                                                                                undefined
+                                                                            }
+                                                                            existingPath={
+                                                                                row.file_path ??
+                                                                                undefined
+                                                                            }
+                                                                            existingFileName={
+                                                                                row.file_name ??
+                                                                                undefined
+                                                                            }
+                                                                            useFileNameInput
+                                                                            fileNameValue={
+                                                                                row.file_name ??
+                                                                                null
+                                                                            }
+                                                                            isView={
+                                                                                isView
+                                                                            }
+                                                                            disabled={
+                                                                                isView
+                                                                            }
+                                                                            onSelect={(
+                                                                                file,
+                                                                            ) => {
+                                                                                const nextRows =
+                                                                                    sourceRows.length >
+                                                                                    0
+                                                                                        ? [
+                                                                                              ...sourceRows,
+                                                                                          ]
+                                                                                        : [
+                                                                                              createEmptyDocumentEntry(),
+                                                                                          ];
+                                                                                const targetIndex =
+                                                                                    sourceRows.length >
+                                                                                    0
+                                                                                        ? documentIndex
+                                                                                        : 0;
+                                                                                nextRows[
+                                                                                    targetIndex
+                                                                                ] =
+                                                                                    {
+                                                                                        ...nextRows[
+                                                                                            targetIndex
+                                                                                        ],
+                                                                                        file,
+                                                                                        removed: false,
+                                                                                        file_name:
+                                                                                            nextRows[
+                                                                                                targetIndex
+                                                                                            ]
+                                                                                                ?.file_name ??
+                                                                                            toFileNameWithoutExtension(
+                                                                                                file.name,
+                                                                                            ),
+                                                                                    };
+                                                                                updateTravelerReceiptDocuments(
+                                                                                    traveler,
+                                                                                    nextRows,
+                                                                                );
+                                                                            }}
+                                                                            onFileNameChange={(
+                                                                                fileName,
+                                                                            ) => {
+                                                                                const nextRows =
+                                                                                    sourceRows.length >
+                                                                                    0
+                                                                                        ? [
+                                                                                              ...sourceRows,
+                                                                                          ]
+                                                                                        : [
+                                                                                              createEmptyDocumentEntry(),
+                                                                                          ];
+                                                                                const targetIndex =
+                                                                                    sourceRows.length >
+                                                                                    0
+                                                                                        ? documentIndex
+                                                                                        : 0;
+                                                                                nextRows[
+                                                                                    targetIndex
+                                                                                ] =
+                                                                                    {
+                                                                                        ...nextRows[
+                                                                                            targetIndex
+                                                                                        ],
+                                                                                        file_name:
+                                                                                            fileName,
+                                                                                    };
+                                                                                updateTravelerReceiptDocuments(
+                                                                                    traveler,
+                                                                                    nextRows,
+                                                                                );
+                                                                            }}
+                                                                            onClear={() => {
+                                                                                const nextRows =
+                                                                                    sourceRows.length >
+                                                                                    0
+                                                                                        ? [
+                                                                                              ...sourceRows,
+                                                                                          ]
+                                                                                        : [
+                                                                                              createEmptyDocumentEntry(),
+                                                                                          ];
+                                                                                const currentRow =
+                                                                                    nextRows[
+                                                                                        documentIndex
+                                                                                    ];
+
+                                                                                if (
+                                                                                    currentRow?.id ||
+                                                                                    currentRow?.file_path
+                                                                                ) {
+                                                                                    nextRows[
+                                                                                        documentIndex
+                                                                                    ] =
+                                                                                        {
+                                                                                            ...currentRow,
+                                                                                            file: null,
+                                                                                            file_name:
+                                                                                                null,
+                                                                                            file_path:
+                                                                                                null,
+                                                                                            removed: true,
+                                                                                        };
+                                                                                } else {
+                                                                                    nextRows.splice(
+                                                                                        documentIndex,
+                                                                                        1,
+                                                                                    );
+                                                                                }
+
+                                                                                updateTravelerReceiptDocuments(
+                                                                                    traveler,
+                                                                                    nextRows,
+                                                                                );
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                ),
+                                                            )}
+
+                                                            {!isView && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        const baseRows =
+                                                                            sourceRows.length >
+                                                                            0
+                                                                                ? sourceRows
+                                                                                : rowsToRender;
+
+                                                                        updateTravelerReceiptDocuments(
+                                                                            traveler,
+                                                                            [
+                                                                                ...baseRows,
+                                                                                createEmptyDocumentEntry(),
+                                                                            ],
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    Add Receipt
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        },
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </TabsContent>
                 </Tabs>
 
@@ -2342,12 +3338,12 @@ export default function ManifestForm({
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => form.reset()}
+                                onClick={() => formResetAction()}
                             >
                                 <RotateCcw className="mr-1 h-4 w-4" />
                                 Reset
                             </Button>
-                            <Button type="submit" disabled={form.processing}>
+                            <Button type="submit" disabled={processing}>
                                 {isCreate
                                     ? 'Create Manifest'
                                     : 'Update Manifest'}
