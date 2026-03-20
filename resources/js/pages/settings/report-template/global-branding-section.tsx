@@ -91,18 +91,18 @@ export function GlobalBrandingSection({
     const stampPreviewUrl = data.stamp_file
         ? URL.createObjectURL(data.stamp_file)
         : initialStampDatabasePath
-          ? `/storage/${initialStampDatabasePath}`
-          : null;
+            ? `/storage/${initialStampDatabasePath}`
+            : null;
 
     const signaturePreviewUrl =
         data.custom_signature_data ||
         (data.custom_signature_path
             ? `/storage/${data.custom_signature_path}`
             : data.signature_file instanceof File
-              ? URL.createObjectURL(data.signature_file)
-              : initialSignatureDatabasePath
-                ? `/storage/${initialSignatureDatabasePath}`
-                : null);
+                ? URL.createObjectURL(data.signature_file)
+                : initialSignatureDatabasePath
+                    ? `/storage/${initialSignatureDatabasePath}`
+                    : null);
 
     return (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -226,7 +226,8 @@ export function GlobalBrandingSection({
 
                     <Separator className="my-1" />
 
-                    <div className="space-y-7">
+                    <div className="space-y-7 mt-5">
+
                         <DocumentField
                             label="Company Logo"
                             hint="Displayed top-left on all PDFs"
@@ -244,12 +245,12 @@ export function GlobalBrandingSection({
 
                     <Separator className="my-1" />
 
-                    <div className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm">
+                    <div className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm mt-5">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-base font-medium">Signature and Stamp Layout</p>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    Configure placement, draw your signature, and set name/date labels.
+                                    Configure placement, draw your signature, <br /> and set name/date labels.
                                 </p>
                             </div>
 
@@ -266,7 +267,7 @@ export function GlobalBrandingSection({
                                             Adjust the positions, upload files, and draw your signature for document reports.
                                         </DialogDescription>
                                     </DialogHeader>
-                                    
+
                                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 mb-2 p-5 border rounded-xl bg-muted/10">
                                         <DocumentField
                                             label="Company Stamp"
