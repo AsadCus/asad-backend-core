@@ -29,6 +29,9 @@ interface GlobalBrandingSectionProps {
         signature_file?: File | null;
         custom_signature_data?: string | null;
         custom_signature_path?: string | null;
+        logo_path?: string | null;
+        stamp_path?: string | null;
+        signature_path?: string | null;
     };
     errors: Record<string, string | undefined>;
     initialLogoDatabasePath: string | null;
@@ -90,17 +93,17 @@ export function GlobalBrandingSection({
 
     const stampPreviewUrl = data.stamp_file
         ? URL.createObjectURL(data.stamp_file)
-        : initialStampDatabasePath
+        : data.stamp_path !== '' && initialStampDatabasePath
             ? `/storage/${initialStampDatabasePath}`
             : null;
 
     const signaturePreviewUrl =
         data.custom_signature_data ||
-        (data.custom_signature_path
+        (data.custom_signature_path && data.custom_signature_path !== ''
             ? `/storage/${data.custom_signature_path}`
             : data.signature_file instanceof File
                 ? URL.createObjectURL(data.signature_file)
-                : initialSignatureDatabasePath
+                : data.signature_path !== '' && initialSignatureDatabasePath
                     ? `/storage/${initialSignatureDatabasePath}`
                     : null);
 
@@ -274,7 +277,7 @@ export function GlobalBrandingSection({
                                             hint="Image file for the company stamp"
                                             accept="image/jpeg,image/png,image/jpg"
                                             fileValue={data.stamp_file || undefined}
-                                            existingPath={initialStampDatabasePath || undefined}
+                                            existingPath={data.stamp_path !== '' ? (initialStampDatabasePath || undefined) : undefined}
                                             existingFileName={stampPreviewFileName || undefined}
                                             isView={false}
                                             disabled={false}
@@ -287,7 +290,7 @@ export function GlobalBrandingSection({
                                             hint="Image file for the signature (or draw below)"
                                             accept="image/jpeg,image/png,image/jpg"
                                             fileValue={data.signature_file || undefined}
-                                            existingPath={initialSignatureDatabasePath || undefined}
+                                            existingPath={data.signature_path !== '' ? (initialSignatureDatabasePath || undefined) : undefined}
                                             existingFileName={signaturePreviewFileName || undefined}
                                             isView={false}
                                             disabled={false}
