@@ -775,7 +775,7 @@ export default function ManifestDatatable({
                 ? {
                       room_relationship: targetShared.room_relationship,
                       room_label: targetShared.room_label,
-                      room_no: targetShared.room_no,
+                      room_number: targetShared.room_number,
                       sharing_plan: targetShared.sharing_plan,
                       room_type: targetShared.room_type,
                       bed_type: targetShared.bed_type,
@@ -1070,7 +1070,7 @@ export default function ManifestDatatable({
         return {
             room_relationship: first?.room_relationship ?? '',
             room_label: first?.room_label ?? '',
-            room_no: first?.room_no ?? '',
+            room_number: first?.room_number ?? '',
             sharing_plan: first?.sharing_plan ?? '',
             room_type: first?.room_type ?? '',
             bed_type: first?.bed_type ?? '',
@@ -1493,16 +1493,16 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell>
                             <ProperInput
-                                value={roomInfo?.room_no ?? ''}
+                                value={roomInfo?.room_number ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
-                                        'room_no',
+                                        'room_number',
                                         value,
                                     )
                                 }
                                 disabled={disableRoomFields}
-                                placeholder="Room no"
+                                placeholder="Room No"
                                 size="default"
                             />
                         </TableCell>
@@ -3082,7 +3082,7 @@ export default function ManifestDatatable({
         );
 
         return (
-            <ContextMenu>
+            <ContextMenu key={row._rowId}>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
                     <ContextMenuItem disabled>
@@ -3264,7 +3264,7 @@ export default function ManifestDatatable({
         );
 
         return (
-            <ContextMenu>
+            <ContextMenu key={row._rowId}>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
                     <ContextMenuItem disabled>

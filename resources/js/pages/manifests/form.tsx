@@ -295,19 +295,34 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
     const fallbackDocuments = buildEmptyManifestDocuments();
     const documents: ManifestDocumentsByField = {
         flight_tickets: sourceDocuments?.flight_tickets?.length
-            ? sourceDocuments.flight_tickets
+            ? sourceDocuments.flight_tickets.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.flight_tickets,
         visa: sourceDocuments?.visa?.length
-            ? sourceDocuments.visa
+            ? sourceDocuments.visa.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.visa,
         hotel: sourceDocuments?.hotel?.length
-            ? sourceDocuments.hotel
+            ? sourceDocuments.hotel.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.hotel,
         passport: sourceDocuments?.passport?.length
-            ? sourceDocuments.passport
+            ? sourceDocuments.passport.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.passport,
         photo: sourceDocuments?.photo?.length
-            ? sourceDocuments.photo
+            ? sourceDocuments.photo.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.photo,
     };
 
@@ -693,18 +708,7 @@ function syncRoomRowsWithTravelers(
                     `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index + 1}`,
                 sharing_plan:
                     row.sharing_plan ?? traveler.sharing_plan ?? 'single',
-                room_number:
-                    row.room_no ??
-                    row.room_number ??
-                    traveler.room_number ??
-                    traveler.room_no ??
-                    '',
-                room_no:
-                    row.room_no ??
-                    row.room_number ??
-                    traveler.room_no ??
-                    traveler.room_number ??
-                    '',
+                room_number: row.room_number ?? traveler.room_number ?? '',
                 room_relationship:
                     rowRoomRelationship !== '' ? row.room_relationship : '',
                 room_label: row.room_label ?? traveler.room_label ?? '',
@@ -801,39 +805,178 @@ function normalizeDocumentEntriesForSubmit(
         });
 }
 
-function buildSubmitPayload(data: ManifestFormData): ManifestFormData {
-    const roomLists = Object.fromEntries(
-        Object.entries(data.roomLists ?? {}).map(([key, rows]) => [
-            key,
-            ((rows ?? []) as TravelerWithUI[]).map((row, index) => {
-                const roomNumber = String(
-                    row.room_no ?? row.room_number ?? '',
-                ).trim();
+function areDocumentEntriesEquivalent(
+    currentEntries: ManifestDocumentItem[],
+    baselineEntries: ManifestDocumentItem[],
+): boolean {
+    if (currentEntries.length !== baselineEntries.length) {
+        return false;
+    }
 
-                return {
-                    ...row,
-                    sort_order: index + 1,
-                    sn: index + 1,
-                    room_number: roomNumber === '' ? null : roomNumber,
-                    room_no: roomNumber === '' ? null : roomNumber,
-                    room_relationship: String(
-                        row.room_relationship ?? '',
-                    ).trim(),
-                    room_label: String(row.room_label ?? '').trim(),
-                    room_type: String(row.room_type ?? '').trim(),
-                    bed_type: String(row.bed_type ?? '').trim(),
-                    meal: String(row.meal ?? '').trim(),
-                    sharing_group_key: String(
-                        row.sharing_group_key ??
-                            `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`,
-                    ),
-                };
-            }),
-        ]),
+    return currentEntries.every((entry, index) => {
+        const baselineEntry = baselineEntries[index];
+
+        if (!baselineEntry) {
+            return false;
+        }
+
+        return (
+            (entry.id ?? null) === (baselineEntry.id ?? null) &&
+            (entry.file_name ?? null) === (baselineEntry.file_name ?? null) &&
+            (entry.file_path ?? null) === (baselineEntry.file_path ?? null) &&
+            Boolean(entry.removed) === Boolean(baselineEntry.removed) &&
+            entry.file instanceof File === baselineEntry.file instanceof File
+        );
+    });
+}
+
+function shouldIncludeTravelerField(
+    currentValue: unknown,
+    baselineValue: unknown,
+): boolean {
+    return currentValue !== baselineValue;
+}
+
+function buildTravelerBaselineMap(
+    travelers: TravelerWithUI[],
+): Map<string, TravelerWithUI> {
+    const baselineMap = new Map<string, TravelerWithUI>();
+
+    travelers.forEach((traveler, index) => {
+        baselineMap.set(travelerIdentityKey(traveler, index), traveler);
+    });
+
+    return baselineMap;
+}
+
+function toTravelerSubmitRow(
+    traveler: TravelerWithUI,
+    index: number,
+    baselineTraveler?: TravelerWithUI,
+): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+        id: traveler.id ?? null,
+        customer_confirmation_member_id:
+            traveler.customer_confirmation_member_id ?? null,
+        customer_id: traveler.customer_id ?? null,
+        package_official_id: traveler.package_official_id ?? null,
+        role: traveler.role ?? null,
+        relationship: traveler.relationship ?? null,
+        group_remarks: traveler.group_remarks ?? null,
+        sharing_plan: traveler.sharing_plan ?? null,
+        sharing_group_key:
+            traveler.sharing_group_key ??
+            `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index + 1}`,
+        group_sort_order: traveler.group_sort_order ?? null,
+        sort_order: traveler.sort_order ?? index + 1,
+        name_as_per_passport: traveler.name_as_per_passport ?? null,
+        remarks: traveler.remarks ?? null,
+        status: traveler.status ?? null,
+    };
+
+    const compactOptionalFields: Array<keyof TravelerWithUI> = [
+        'arabic_name',
+        'contact_no',
+        'passport_number',
+        'nationality',
+        'gender',
+        'date_of_birth',
+        'date_of_issue',
+        'date_of_expiry',
+        'issue_place',
+        'birth_place',
+        'address',
+        'first_time_umrah',
+        'has_chronic_disease',
+        'chronic_disease_details',
+        'passport_path',
+        'photo_path',
+        'course_1',
+        'course_2',
+        'lanyard',
+        'luggage_tag',
+        'cabin_tag',
+        'passport_cover',
+        'umrah_guidebook',
+        'sling_bag',
+        'cabin_size_luggage',
+        'umrah_essentials',
+    ];
+
+    compactOptionalFields.forEach((field) => {
+        const currentValue = traveler[field] ?? null;
+        const baselineValue = baselineTraveler?.[field] ?? null;
+
+        if (shouldIncludeTravelerField(currentValue, baselineValue)) {
+            payload[field] = currentValue;
+        }
+    });
+
+    const normalizedReceipts = normalizeDocumentEntriesForSubmit(
+        traveler.receipt_documents,
+    );
+    const baselineReceipts = normalizeDocumentEntriesForSubmit(
+        baselineTraveler?.receipt_documents,
+    );
+
+    if (!areDocumentEntriesEquivalent(normalizedReceipts, baselineReceipts)) {
+        payload.receipt_documents = normalizedReceipts;
+    }
+
+    return payload;
+}
+
+function toRoomListSubmitRow(
+    row: TravelerWithUI,
+    index: number,
+    accommodationKey: string,
+): Record<string, unknown> {
+    const roomNumber = String(row.room_number ?? '').trim();
+
+    return {
+        manifest_traveler_id: row.manifest_traveler_id ?? row.id ?? null,
+        id: row.id ?? null,
+        customer_confirmation_member_id:
+            row.customer_confirmation_member_id ?? null,
+        package_official_id: row.package_official_id ?? null,
+        accommodation_key: accommodationKey,
+        sort_order: index + 1,
+        sharing_group_key:
+            row.sharing_group_key ??
+            `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`,
+        sharing_plan: row.sharing_plan ?? null,
+        room_relationship: String(row.room_relationship ?? '').trim(),
+        room_label: String(row.room_label ?? '').trim(),
+        room_number: roomNumber === '' ? null : roomNumber,
+        room_type: String(row.room_type ?? '').trim(),
+        bed_type: String(row.bed_type ?? '').trim(),
+        number_of_beds_checked: !!row.number_of_beds_checked,
+        meal: String(row.meal ?? '').trim(),
+        room_remarks: row.room_remarks ?? null,
+        remarks: row.remarks ?? null,
+    };
+}
+
+function buildSubmitPayload(
+    data: ManifestFormData,
+    baselineTravelers: TravelerWithUI[] = [],
+): ManifestFormData {
+    const baselineTravelerMap = buildTravelerBaselineMap(baselineTravelers);
+
+    const roomLists = Object.fromEntries(
+        Object.entries(data.roomLists ?? {}).map(([key, rows]) => {
+            return [
+                key,
+                ((rows ?? []) as TravelerWithUI[]).map((row, index) =>
+                    toRoomListSubmitRow(row, index, key),
+                ),
+            ];
+        }),
     );
 
     return {
         ...data,
+        airlineList: [],
         roomLists,
         documents: {
             flight_tickets: normalizeDocumentEntriesForSubmit(
@@ -847,13 +990,15 @@ function buildSubmitPayload(data: ManifestFormData): ManifestFormData {
             photo: normalizeDocumentEntriesForSubmit(data.documents?.photo),
         },
         travelers: ((data.travelers ?? []) as TravelerWithUI[]).map(
-            (traveler) => ({
-                ...traveler,
-                receipt_documents: normalizeDocumentEntriesForSubmit(
-                    traveler.receipt_documents,
+            (traveler, index) =>
+                toTravelerSubmitRow(
+                    traveler,
+                    index,
+                    baselineTravelerMap.get(
+                        travelerIdentityKey(traveler, index),
+                    ),
                 ),
-            }),
-        ),
+        ) as TravelerWithUI[],
     };
 }
 
@@ -903,25 +1048,10 @@ export default function ManifestForm({
     );
     const errorAlertRef = useRef<HTMLDivElement | null>(null);
     const previousNameByIdentityRef = useRef<Record<string, string>>({});
-    const roomListsRef = useRef<Record<string, TravelerWithUI[]>>({});
-    const documentsRef = useRef<ManifestDocumentsByField>(
-        buildEmptyManifestDocuments(),
-    );
     const [activeTab, setActiveTab] = useState('main');
     const [openSections, setOpenSections] = useState<string[]>([
         'manifest_information',
     ]);
-
-    useEffect(() => {
-        roomListsRef.current = (data.roomLists ?? {}) as Record<
-            string,
-            TravelerWithUI[]
-        >;
-    }, [data.roomLists]);
-
-    useEffect(() => {
-        documentsRef.current = data.documents ?? buildEmptyManifestDocuments();
-    }, [data.documents]);
 
     const scrollToErrorBanner = useCallback(() => {
         setTimeout(() => {
@@ -1491,7 +1621,8 @@ export default function ManifestForm({
 
     const updateManifestDocuments = useCallback(
         (field: ManifestDocumentFieldKey, rows: ManifestDocumentItem[]) => {
-            const currentDocuments = documentsRef.current;
+            const currentDocuments =
+                data.documents ?? buildEmptyManifestDocuments();
             const nextDocuments: ManifestDocumentsByField = {
                 ...currentDocuments,
                 [field]: rows,
@@ -1499,7 +1630,7 @@ export default function ManifestForm({
 
             setFormData('documents', nextDocuments);
         },
-        [setFormData],
+        [data.documents, setFormData],
     );
 
     const updateTravelerArabicName = useCallback(
@@ -1553,9 +1684,7 @@ export default function ManifestForm({
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
 
-        const submitPayload = buildSubmitPayload(data);
-        const validationResult =
-            manifestValidationSchema.safeParse(submitPayload);
+        const validationResult = manifestValidationSchema.safeParse(data);
 
         clearFormErrors();
 
@@ -1568,6 +1697,11 @@ export default function ManifestForm({
 
             return;
         }
+
+        const submitPayload = buildSubmitPayload(
+            data,
+            (defaults.travelers ?? []) as TravelerWithUI[],
+        );
 
         const handleError = (errors: Record<string, string>) => {
             Object.entries(errors).forEach(([field, message]) => {
@@ -1904,6 +2038,9 @@ export default function ManifestForm({
         [],
     );
 
+    console.log(data);
+    console.log(formErrors);
+
     return (
         <div className="mx-auto w-full">
             {mode !== 'view' && (
@@ -2212,7 +2349,7 @@ export default function ManifestForm({
                                         );
 
                                         setFormData('roomLists', {
-                                            ...roomListsRef.current,
+                                            ...(data.roomLists ?? {}),
                                             [tab.key]: normalizedRows,
                                         });
                                     }}

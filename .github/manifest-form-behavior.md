@@ -8,6 +8,45 @@ This document defines mandatory behavior for the Manifest form so future changes
 - Backend normalization/sync in `app/Http/Controllers/ManifestController.php` and `app/Services/ManifestService.php`
 - Validation and typing in `resources/js/pages/manifests/schema.ts`, `resources/js/pages/manifests/types.ts`, `resources/js/pages/manifests/validation.ts`, and `app/Rules/ManifestRule.php`
 
+## Tab Layout Contract
+
+The Manifest form tab UI is split into three horizontal tab-list rows and must remain consistent:
+
+### Row 1: Main Traveler List
+
+- `Main` — Full traveler list with shared fields (passport, nationality, gender, dates, etc.)
+
+### Row 2: Room & Airline Lists
+
+- `Airline Name List` — Traveler list for flight manifests with airline-specific fields
+- `Room List - {Location}` — Dynamic room tabs (one per accommodation location) for room assignment by location
+- `Room List for Official to Check - {Location}` — Dynamic official check tabs (one per accommodation location, read-only/reference)
+- `Namelist Course & Collection Items` — Course assignments and collection checklist for each traveler
+
+### Row 3: Document & Member Data Tabs
+
+- **Manifest-level document upload tabs** (`documents` payload):
+    - `Flight Tickets` — Manifest-level flight document files
+    - `Visa` — Manifest-level visa document files
+    - `Hotel` — Manifest-level hotel document files
+    - `Passport` — Manifest-level passport document files
+    - `Photo` — Manifest-level photo document files
+- **Additional data tabs** (not manifest documents):
+    - `Arabic Names` — Traveler list with editable `arabic_name` field; not a file upload tab
+    - `Receipt` — Traveler-level multi-file receipt uploads (`receipt_documents` payload per traveler)
+
+### Manifest Document Definition
+
+Manifest documents are the five file upload tabs in Row 3:
+
+- `flight_tickets`
+- `visa`
+- `hotel`
+- `passport`
+- `photo`
+
+Each is stored in the `documents` object keyed by field name. Each field contains an array of document entries with `id`, `file`, `file_name`, `file_path`, and `removed` flag.
+
 ## Canonical Data Shape
 
 - Use dynamic `roomLists` only as `Record<string, TravelerRow[]>`.

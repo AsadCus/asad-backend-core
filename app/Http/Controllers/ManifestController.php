@@ -46,6 +46,7 @@ class ManifestController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        dd($request->all());
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $manifestId = isset($requestPayload['id']) ? (int) $requestPayload['id'] : 0;
         $normalizedPayload = $this->normalizeManifestPayload($requestPayload);
@@ -54,6 +55,7 @@ class ManifestController extends Controller
             $this->manifestRule->rules($manifestId > 0 ? $manifestId : null),
         )->validate();
         $validated['roomLists'] = $normalizedPayload['roomLists'] ?? [];
+        $validated['documents'] = $normalizedPayload['documents'] ?? [];
         $this->ensureTravelerPackageMatchesManifestPackage($validated);
 
         if ($manifestId > 0) {
@@ -519,11 +521,14 @@ class ManifestController extends Controller
         $travelers = array_map(function (array $traveler): array {
             $traveler['room_type'] = $this->normalizeRoomType($traveler['room_type'] ?? null);
             $traveler['bed_type'] = $this->normalizeBedType($traveler['bed_type'] ?? null);
-            $traveler['receipt_documents'] = $this->normalizeDocumentEntries(
-                is_array($traveler['receipt_documents'] ?? null)
-                    ? $traveler['receipt_documents']
-                    : [],
-            );
+
+            if (array_key_exists('receipt_documents', $traveler)) {
+                $traveler['receipt_documents'] = $this->normalizeDocumentEntries(
+                    is_array($traveler['receipt_documents'])
+                        ? $traveler['receipt_documents']
+                        : [],
+                );
+            }
 
             return $traveler;
         }, $this->flattenGroupedRows(Arr::get($payload, 'travelers', [])));
@@ -578,9 +583,8 @@ class ManifestController extends Controller
                 function (array $row, int $index): array {
                     $row['room_type'] = $this->normalizeRoomType($row['room_type'] ?? null) ?? ($row['room_type'] ?? null);
                     $row['bed_type'] = $this->normalizeBedType($row['bed_type'] ?? null) ?? ($row['bed_type'] ?? null);
-                    $roomNumber = $row['room_number'] ?? $row['room_no'] ?? null;
+                    $roomNumber = $row['room_number'] ?? null;
                     $row['room_number'] = $roomNumber;
-                    $row['room_no'] = $roomNumber;
                     $row['sort_order'] = (int) ($row['sort_order'] ?? $row['sn'] ?? ($index + 1));
                     $row['sn'] = $row['sort_order'];
                     $row['number_of_beds_checked'] = (bool) ($row['number_of_beds_checked'] ?? false);
@@ -718,7 +722,7 @@ class ManifestController extends Controller
                     'location' => is_string($location) ? $location : null,
                     'relationship' => $first['room_relationship'] ?? null,
                     'room_label' => $first['room_label'] ?? null,
-                    'room_number' => $first['room_number'] ?? $first['room_no'] ?? null,
+                    'room_number' => $first['room_number'] ?? null,
                     'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
                     'bed_type' => $this->normalizeBedType($first['bed_type'] ?? null),
                     'sharing_plan' => $first['sharing_plan'] ?? null,

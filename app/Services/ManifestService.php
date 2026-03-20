@@ -1069,7 +1069,7 @@ class ManifestService
                 'location' => $baseRoom['location'] ?? null,
                 'relationship' => $baseRoom['relationship'] ?? null,
                 'room_label' => $baseRoom['room_label'] ?? null,
-                'room_number' => $baseRoom['room_number'] ?? $baseRoom['room_no'] ?? null,
+                'room_number' => $baseRoom['room_number'] ?? null,
                 'room_type' => $payload['room_type'],
                 'bed_type' => $payload['bed_type'],
                 'capacity' => $baseRoom['capacity'] ?? ($roomMembers === [] ? null : count($roomMembers)),
@@ -1255,7 +1255,6 @@ class ManifestService
                                     'room_relationship' => $room->relationship,
                                     'room_label' => $room->room_label,
                                     'room_number' => $room->room_number,
-                                    'room_no' => $room->room_number,
                                     'sharing_plan' => $room->sharing_plan,
                                     'room_type' => $room->room_type,
                                     'bed_type' => $room->bed_type,
@@ -1799,6 +1798,10 @@ class ManifestService
                 continue;
             }
 
+            if (! array_key_exists('receipt_documents', $travelerPayload)) {
+                continue;
+            }
+
             $confirmationMemberId = isset($travelerPayload['customer_confirmation_member_id'])
                 ? (int) $travelerPayload['customer_confirmation_member_id']
                 : 0;
@@ -1883,8 +1886,10 @@ class ManifestService
                 ->map(function (ModelFile $file): array {
                     return [
                         'id' => $file->id,
+                        'file' => null,
                         'file_name' => $file->file_name,
                         'file_path' => $file->file_path,
+                        'removed' => false,
                     ];
                 })
                 ->values()
