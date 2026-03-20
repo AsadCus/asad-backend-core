@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4;
-            margin: 0.5cm 0.7cm;
+            margin: 0.2cm 0.4cm;
         }
 
         * {
@@ -111,7 +111,7 @@
             body {
                 font-size: 13px;
                 line-height: 1.55;
-                padding: 0.5cm 0.7cm;
+                padding: 0.2cm 0.4cm;
                 background: #ffffff;
                 max-width: 794px;
                 min-height: 27.7cm;

@@ -357,7 +357,7 @@ class ManifestController extends Controller
             $fileName = ($manifest['manifest_number'] ?? 'manifest').'-arabic-names.pdf';
 
             return Pdf::loadHTML($html)
-                ->setPaper('a4', 'landscape')
+                ->setPaper('a4', 'portrait')
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96)

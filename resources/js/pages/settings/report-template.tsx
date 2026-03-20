@@ -6,7 +6,7 @@ import { update as updateReportTemplate } from '@/routes/report-template';
 import { destroy as destroyModuleRoute } from '@/routes/report-template/modules';
 import { Transition } from '@headlessui/react';
 import { Head, router, useForm } from '@inertiajs/react';
-import { FormEventHandler, useRef, useState } from 'react';
+import { FormEventHandler, useState } from 'react';
 import { AddModuleDialog } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
 import { ModuleTemplateSection } from './report-template/module-template-section';
@@ -23,12 +23,10 @@ interface ReportTemplateSettings {
     company_phone: string;
     company_email: string;
     brand_color: string;
-    signature_stamp_layout: 'default' | 'custom';
     custom_signature_stamp_layout: SignatureStampLayoutConfig | null;
     logo_path: string | null;
     stamp_path: string | null;
     signature_path: string | null;
-    custom_stamp_path: string | null;
     custom_signature_path: string | null;
     module_templates: Record<string, ModuleTemplate>;
     registered_modules: RegisteredModule[];
@@ -40,19 +38,15 @@ interface ReportTemplateFormData {
     company_phone: string;
     company_email: string;
     brand_color: string;
-    signature_stamp_layout: 'default' | 'custom';
     custom_signature_stamp_layout: SignatureStampLayoutConfig;
     _method: 'put';
     logo_file: File | null;
     stamp_file: File | null;
     signature_file: File | null;
-    custom_stamp_file: File | null;
-    custom_signature_file: File | null;
     custom_signature_data: string | null;
     logo_path: string | null;
     stamp_path: string | null;
     signature_path: string | null;
-    custom_stamp_path: string | null;
     custom_signature_path: string | null;
     module_templates: Record<string, ModuleTemplate>;
 }
@@ -212,20 +206,16 @@ export default function ReportTemplate({
             company_phone: settings.company_phone || '',
             company_email: settings.company_email || '',
             brand_color: settings.brand_color || '#c05427',
-            signature_stamp_layout: settings.signature_stamp_layout || 'default',
             custom_signature_stamp_layout: resolveCustomLayout(),
             _method: 'put',
             logo_file: null,
             stamp_file: null,
             signature_file: null,
-            custom_stamp_file: null,
-            custom_signature_file: null,
             custom_signature_data: null,
-            logo_path: null,
-            stamp_path: null,
-            signature_path: null,
-            custom_stamp_path: null,
-            custom_signature_path: null,
+            logo_path: settings.logo_path ?? null,
+            stamp_path: settings.stamp_path ?? null,
+            signature_path: settings.signature_path ?? null,
+            custom_signature_path: settings.custom_signature_path ?? null,
             module_templates: buildInitialModuleTemplates(),
         });
 
@@ -238,13 +228,6 @@ export default function ReportTemplate({
     const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<
         string | null
     >(extractFileName(settings.signature_path));
-    const [customStampPreviewFileName, setCustomStampPreviewFileName] = useState<
-        string | null
-    >(extractFileName(settings.custom_stamp_path));
-    const [customSignaturePreviewFileName, setCustomSignaturePreviewFileName] = useState<
-        string | null
-    >(extractFileName(settings.custom_signature_path));
-
     
 
     const makeFileHandler =
@@ -252,19 +235,13 @@ export default function ReportTemplate({
             field:
                 | 'logo_file'
                 | 'stamp_file'
-                | 'signature_file'
-                | 'custom_stamp_file'
-                | 'custom_signature_file',
+                | 'signature_file',
             setPreviewFileName: (v: string | null) => void,
         ) =>
             (file: File) => {
                 if (!file) return;
 
-                setData(field, file);
-
-                if (field === 'custom_signature_file') {
-                    setData('custom_signature_data', null);
-                }
+                setData(field, file as never);
 
                 setPreviewFileName(file.name);
             };
@@ -274,30 +251,20 @@ export default function ReportTemplate({
             field:
                 | 'logo_file'
                 | 'stamp_file'
-                | 'signature_file'
-                | 'custom_stamp_file'
-                | 'custom_signature_file',
+                | 'signature_file',
             setPreviewFileName: (v: string | null) => void,
             pathKey:
                 | 'logo_path'
                 | 'stamp_path'
-                | 'signature_path'
-                | 'custom_stamp_path'
-                | 'custom_signature_path',
+                | 'signature_path',
             hasDatabaseFile: boolean,
         ) =>
             () => {
-                // Clear file and preview
-                setData(field, null);
+                setData(field, null as never);
                 setPreviewFileName(null);
 
-                // If there's an existing file in database, send empty string signal for deletion
                 if (hasDatabaseFile) {
-                    setData(pathKey, '');
-                }
-
-                if (field === 'custom_signature_file') {
-                    setData('custom_signature_data', null);
+                    setData(pathKey, '' as never);
                 }
             };
 
@@ -395,27 +362,17 @@ export default function ReportTemplate({
                                         value,
                                     )
                                 }
-                                makeFileHandler={makeFileHandler}
-                                makeClearHandler={makeClearHandler}
+                                makeFileHandler={makeFileHandler as Parameters<typeof GlobalBrandingSection>[0]['makeFileHandler']}
+                                makeClearHandler={makeClearHandler as Parameters<typeof GlobalBrandingSection>[0]['makeClearHandler']}  
                                 logoPreviewFileName={logoPreviewFileName}
                                 stampPreviewFileName={stampPreviewFileName}
                                 signaturePreviewFileName={signaturePreviewFileName}
-                                customStampPreviewFileName={customStampPreviewFileName}
-                                customSignaturePreviewFileName={customSignaturePreviewFileName}
                                 initialLogoDatabasePath={settings.logo_path}
                                 initialStampDatabasePath={settings.stamp_path}
                                 initialSignatureDatabasePath={settings.signature_path}
-                                initialCustomStampDatabasePath={settings.custom_stamp_path}
-                                initialCustomSignatureDatabasePath={settings.custom_signature_path}
                                 setLogoPreviewFileName={setLogoPreviewFileName}
                                 setStampPreviewFileName={setStampPreviewFileName}
                                 setSignaturePreviewFileName={setSignaturePreviewFileName}
-                                setCustomStampPreviewFileName={setCustomStampPreviewFileName}
-                                setCustomSignaturePreviewFileName={setCustomSignaturePreviewFileName}
-                                signatureStampLayout={data.signature_stamp_layout}
-                                onSignatureStampLayoutChange={(value) =>
-                                    setData('signature_stamp_layout', value)
-                                }
                                 customSignatureStampLayout={data.custom_signature_stamp_layout}
                                 onCustomSignatureStampLayoutChange={(layout) =>
                                     setData('custom_signature_stamp_layout', layout)
@@ -430,7 +387,6 @@ export default function ReportTemplate({
                             setSelectedModule={setSelectedModule}
                             activeModule={activeModule}
                             activeDefinition={activeDefinition}
-                            signatureStampLayout={data.signature_stamp_layout}
                             isBuiltin={isBuiltin}
                             builtinModules={BUILTIN_MODULES}
                             registeredModules={
@@ -477,7 +433,7 @@ export default function ReportTemplate({
                                 company_address={data.company_address}
                                 company_phone={data.company_phone}
                                 company_email={data.company_email}
-                                signature_stamp_layout={data.signature_stamp_layout}
+                                signature_stamp_layout={'custom'}
                                 custom_signature_stamp_layout={data.custom_signature_stamp_layout}
                                 module_templates={data.module_templates}
                             />

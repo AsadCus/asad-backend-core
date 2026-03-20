@@ -101,17 +101,20 @@ export function PdfPreview({
         };
     }, [fetchPreview]);
 
+    const isLandscape = selectedModule === 'manifest';
+    const aspectRatioPadding = isLandscape ? '70.7%' : '141.4%';
+
     return (
-        <div className="w-full overflow-hidden rounded-lg border bg-white shadow-sm">
+        <div className="w-full overflow-hidden rounded-lg border bg-white shadow-sm transition-all duration-300">
             <div className="flex items-center justify-between border-b bg-muted/50 px-3 py-2">
                 <span className="text-sm font-medium text-muted-foreground">PDF Preview</span>
                 <span className="text-sm italic text-muted-foreground">
-                    {loading ? 'Updating…' : 'Live view'}
+                    {loading ? 'Updating…' : (isLandscape ? 'Landscape view' : 'Portrait view')}
                 </span>
             </div>
 
-            {/* A4 aspect ratio container: 1/√2 = 0.7071, so paddingTop = 141.4% */}
-            <div className="relative w-full" style={{ paddingTop: '141.4%' }}>
+            {/* Dynamic A4 aspect ratio container */}
+            <div className="relative w-full transition-all duration-300" style={{ paddingTop: aspectRatioPadding }}>
                 {loading && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
                         <div className="flex flex-col items-center gap-2">

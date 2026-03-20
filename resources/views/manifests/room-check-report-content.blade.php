@@ -12,7 +12,7 @@
     <style>
         @page {
             size: A4 landscape;
-            margin: 1cm 1.2cm;
+            margin: 0.1cm 0.2cm;
         }
 
         .summary-grid {

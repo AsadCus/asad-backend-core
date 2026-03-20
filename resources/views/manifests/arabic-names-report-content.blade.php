@@ -9,8 +9,8 @@
 @push('styles')
     <style>
         @page {
-            size: A4 landscape;
-            margin: 1cm 1.2cm;
+            size: A4;
+            margin: 0.1cm 0.2cm;
         }
 
         .summary-grid {
@@ -140,4 +140,12 @@
     <p class="muted-note">
         Generated on {{ now()->translatedFormat('d F Y H:i') }}.
     </p>
+
+    <div class="footer-section">
+        @if (!empty($branding['footer_text']))
+            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+        @endif
+
+        @include('partials.report-signature-stamp')
+    </div>
 @endsection
