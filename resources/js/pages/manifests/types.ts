@@ -103,7 +103,7 @@ export interface ManifestFormData
 }
 
 export interface ManifestFormProps {
-    mode: 'create' | 'edit' | 'view';
+    mode: 'edit' | 'view';
     initialData?: ManifestFormData;
     dataPackage?: ValueNumberOptionType[];
     onCancel: () => void;

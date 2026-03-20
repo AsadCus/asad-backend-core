@@ -11,6 +11,7 @@ use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
@@ -41,26 +42,27 @@ class ManifestController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
-     */
-    public function create(): \Inertia\Response
-    {
-        $dataPackage = $this->packageService->getForFilter();
-
-        return Inertia::render('manifests/create', [
-            'dataPackage' => $dataPackage,
-        ]);
-    }
-
-    /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
-        $normalizedPayload = $this->normalizeManifestPayload($request->all());
-        $validated = validator($normalizedPayload, $this->manifestRule->rules())->validate();
+        $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
+        $manifestId = isset($requestPayload['id']) ? (int) $requestPayload['id'] : 0;
+        $normalizedPayload = $this->normalizeManifestPayload($requestPayload);
+        $validated = validator(
+            $normalizedPayload,
+            $this->manifestRule->rules($manifestId > 0 ? $manifestId : null),
+        )->validate();
         $validated['roomLists'] = $normalizedPayload['roomLists'] ?? [];
         $this->ensureTravelerPackageMatchesManifestPackage($validated);
+
+        if ($manifestId > 0) {
+            $this->manifestService->update($validated, $manifestId);
+
+            return redirect()->route('manifests.index')
+                ->with('success', 'Manifest updated successfully.');
+        }
+
         $this->manifestService->store($validated);
 
         return redirect()->route('manifests.index')
@@ -96,24 +98,9 @@ class ManifestController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id): \Illuminate\Http\RedirectResponse
-    {
-        $normalizedPayload = $this->normalizeManifestPayload($request->all());
-        $validated = validator($normalizedPayload, $this->manifestRule->rules((int) $id))->validate();
-        $validated['roomLists'] = $normalizedPayload['roomLists'] ?? [];
-        $this->ensureTravelerPackageMatchesManifestPackage($validated);
-        $this->manifestService->update($validated, (int) $id);
-
-        return redirect()->route('manifests.index')
-            ->with('success', 'Manifest updated successfully.');
-    }
-
-    /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request, string $id): \Illuminate\Http\RedirectResponse
+    public function destroy(Request $request, string $id): RedirectResponse
     {
         $ids = $request->input('ids');
         if ($ids && is_array($ids)) {
@@ -285,7 +272,8 @@ class ManifestController extends Controller
                 'is_pdf' => true,
             ])->render();
 
-            $fileName = ($manifest['manifest_number'] ?? 'manifest').'-collection-items.pdf';
+            $manifestNumber = trim((string) ($manifest['manifest_number'] ?? 'Manifest'));
+            $fileName = 'Manifest Namelist Course & Collection Items - '.$manifestNumber.'.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'landscape')
@@ -354,7 +342,8 @@ class ManifestController extends Controller
                 'is_pdf' => true,
             ])->render();
 
-            $fileName = ($manifest['manifest_number'] ?? 'manifest').'-arabic-names.pdf';
+            $manifestNumber = trim((string) ($manifest['manifest_number'] ?? 'Manifest'));
+            $fileName = 'Manifest Arabic Names - '.$manifestNumber.'.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'landscape')
@@ -462,7 +451,8 @@ class ManifestController extends Controller
                 'is_pdf' => true,
             ])->render();
 
-            $fileName = ($manifest['manifest_number'] ?? 'manifest').'-room-check-'.$location.'.pdf';
+            $manifestNumber = trim((string) ($manifest['manifest_number'] ?? 'Manifest'));
+            $fileName = 'Manifest Room Check - '.$manifestNumber.'.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'landscape')
@@ -529,10 +519,18 @@ class ManifestController extends Controller
         $travelers = array_map(function (array $traveler): array {
             $traveler['room_type'] = $this->normalizeRoomType($traveler['room_type'] ?? null);
             $traveler['bed_type'] = $this->normalizeBedType($traveler['bed_type'] ?? null);
+            $traveler['receipt_documents'] = $this->normalizeDocumentEntries(
+                is_array($traveler['receipt_documents'] ?? null)
+                    ? $traveler['receipt_documents']
+                    : [],
+            );
 
             return $traveler;
         }, $this->flattenGroupedRows(Arr::get($payload, 'travelers', [])));
         $payload['travelers'] = $travelers;
+        $payload['documents'] = $this->normalizeManifestDocuments(
+            Arr::get($payload, 'documents', []),
+        );
 
         $roomLists = Arr::get($payload, 'roomLists', []);
 
@@ -580,8 +578,12 @@ class ManifestController extends Controller
                 function (array $row, int $index): array {
                     $row['room_type'] = $this->normalizeRoomType($row['room_type'] ?? null) ?? ($row['room_type'] ?? null);
                     $row['bed_type'] = $this->normalizeBedType($row['bed_type'] ?? null) ?? ($row['bed_type'] ?? null);
+                    $roomNumber = $row['room_number'] ?? $row['room_no'] ?? null;
+                    $row['room_number'] = $roomNumber;
+                    $row['room_no'] = $roomNumber;
                     $row['sort_order'] = (int) ($row['sort_order'] ?? $row['sn'] ?? ($index + 1));
                     $row['sn'] = $row['sort_order'];
+                    $row['number_of_beds_checked'] = (bool) ($row['number_of_beds_checked'] ?? false);
 
                     return $row;
                 },
@@ -797,6 +799,69 @@ class ManifestController extends Controller
             'queen' => 'queen',
             default => null,
         };
+    }
+
+    /**
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function normalizeManifestDocuments(mixed $documents): array
+    {
+        $allowedFields = ['flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
+
+        if (! is_array($documents)) {
+            return collect($allowedFields)
+                ->mapWithKeys(fn (string $field) => [$field => []])
+                ->all();
+        }
+
+        return collect($allowedFields)
+            ->mapWithKeys(function (string $field) use ($documents): array {
+                $entries = $documents[$field] ?? [];
+
+                return [
+                    $field => $this->normalizeDocumentEntries(is_array($entries) ? $entries : []),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  array<int, mixed>  $entries
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeDocumentEntries(array $entries): array
+    {
+        $normalized = [];
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $id = isset($entry['id']) ? (int) $entry['id'] : null;
+            $file = $entry['file'] ?? null;
+            $fileName = isset($entry['file_name']) && is_string($entry['file_name'])
+                ? trim($entry['file_name'])
+                : null;
+            $filePath = isset($entry['file_path']) && is_string($entry['file_path'])
+                ? trim($entry['file_path'])
+                : null;
+            $removed = (bool) ($entry['removed'] ?? false);
+
+            if (! $removed && ! $id && ! $file && ! $filePath) {
+                continue;
+            }
+
+            $normalized[] = [
+                'id' => $id,
+                'file' => $file,
+                'file_name' => $fileName !== '' ? $fileName : null,
+                'file_path' => $filePath !== '' ? $filePath : null,
+                'removed' => $removed,
+            ];
+        }
+
+        return $normalized;
     }
 
     /**

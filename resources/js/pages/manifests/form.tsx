@@ -1,6 +1,9 @@
 import { DocumentField } from '@/components/document-field';
+import { FormField } from '@/components/form-field';
 import { FormProgressHeader } from '@/components/form-progress-header';
 import { FormSection } from '@/components/form-section';
+import { ProperInput } from '@/components/proper-input';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Accordion } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -11,7 +14,7 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { store, update } from '@/routes/manifests';
+import { store } from '@/routes/manifests';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, ArrowLeft, Download, RotateCcw } from 'lucide-react';
 import { nanoid } from 'nanoid';
@@ -82,20 +85,50 @@ function createEmptyDocumentEntry(): ManifestDocumentItem {
     };
 }
 
-function toFileNameWithoutExtension(fileName: string): string {
-    const trimmed = fileName.trim();
-
-    if (trimmed === '') {
-        return '';
+function removeDocumentEntryAtIndex(
+    rows: ManifestDocumentItem[],
+    index: number,
+): ManifestDocumentItem[] {
+    if (index < 0 || index >= rows.length) {
+        return rows;
     }
 
-    const dotIndex = trimmed.lastIndexOf('.');
+    const nextRows = [...rows];
+    const currentRow = nextRows[index];
 
-    if (dotIndex <= 0) {
-        return trimmed;
+    if (!currentRow) {
+        return nextRows;
     }
 
-    return trimmed.slice(0, dotIndex);
+    if (currentRow.id || currentRow.file_path) {
+        nextRows[index] = {
+            ...currentRow,
+            file: null,
+            file_name: null,
+            file_path: null,
+            removed: true,
+        };
+
+        return nextRows;
+    }
+
+    nextRows.splice(index, 1);
+
+    return nextRows;
+}
+
+function buildManifestDocumentFileName(
+    fieldLabel: string,
+    iteration: number,
+    manifestNumber?: string | null,
+): string {
+    const normalizedManifestNumber = String(manifestNumber ?? '').trim();
+    const safeManifestNumber =
+        normalizedManifestNumber.length > 0
+            ? normalizedManifestNumber
+            : 'Draft';
+
+    return `Manifest ${fieldLabel} #${iteration} - ${safeManifestNumber}`;
 }
 
 function buildEmptyManifestDocuments(): ManifestDocumentsByField {
@@ -136,6 +169,7 @@ function toTravelerWithUI(
         row.customer_confirmation_member_id,
     );
     const customerId = toPositiveIntegerOrNull(row.customer_id);
+    const packageOfficialId = toPositiveIntegerOrNull(row.package_official_id);
     const travelerId = toPositiveIntegerOrNull(row.id);
     const sharingGroupId = toPositiveIntegerOrNull(
         row.manifest_sharing_group_id ?? row.sharing_group_id,
@@ -159,9 +193,11 @@ function toTravelerWithUI(
                   ? `traveler-member-${memberId}`
                   : customerId !== null
                     ? `traveler-customer-${customerId}`
-                    : travelerId !== null
-                      ? `traveler-id-${travelerId}`
-                      : `traveler-temp-${nanoid()}`,
+                    : packageOfficialId !== null
+                      ? `traveler-official-${packageOfficialId}`
+                      : travelerId !== null
+                        ? `traveler-id-${travelerId}`
+                        : `traveler-temp-${nanoid()}`,
         sn: Number(row.sn ?? index + 1),
         sharing_group_key: String(
             row.sharing_group_key ??
@@ -206,6 +242,13 @@ function travelerIdentityKey(traveler: TravelerWithUI, index: number): string {
 
     if (traveler.customer_id !== undefined && traveler.customer_id !== null) {
         return `customer-${traveler.customer_id}`;
+    }
+
+    if (
+        traveler.package_official_id !== undefined &&
+        traveler.package_official_id !== null
+    ) {
+        return `official-${traveler.package_official_id}`;
     }
 
     if (traveler.id !== undefined && traveler.id !== null) {
@@ -374,8 +417,7 @@ function buildRoomRowsFromTravelers(
             accommodation_key: accommodationKey,
             sharing_plan:
                 existing?.sharing_plan ?? traveler.sharing_plan ?? 'single',
-            room_relationship:
-                existing?.room_relationship ?? traveler.relationship ?? '',
+            room_relationship: existing?.room_relationship ?? '',
             room_type:
                 existing?.room_type ??
                 traveler.room_type ??
@@ -634,6 +676,10 @@ function syncRoomRowsWithTravelers(
                 return null;
             }
 
+            const rowRoomRelationship = String(
+                row.room_relationship ?? '',
+            ).trim();
+
             return {
                 ...row,
                 ...traveler,
@@ -647,11 +693,27 @@ function syncRoomRowsWithTravelers(
                     `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index + 1}`,
                 sharing_plan:
                     row.sharing_plan ?? traveler.sharing_plan ?? 'single',
+                room_number:
+                    row.room_no ??
+                    row.room_number ??
+                    traveler.room_number ??
+                    traveler.room_no ??
+                    '',
+                room_no:
+                    row.room_no ??
+                    row.room_number ??
+                    traveler.room_no ??
+                    traveler.room_number ??
+                    '',
                 room_relationship:
-                    row.room_relationship ?? traveler.relationship ?? '',
+                    rowRoomRelationship !== '' ? row.room_relationship : '',
                 room_label: row.room_label ?? traveler.room_label ?? '',
                 room_type: row.room_type ?? traveler.room_type ?? '',
                 bed_type: row.bed_type ?? traveler.bed_type ?? '',
+                number_of_beds_checked:
+                    row.number_of_beds_checked ??
+                    traveler.number_of_beds_checked ??
+                    false,
                 remarks: row.remarks ?? traveler.remarks,
                 room_remarks: row.room_remarks ?? traveler.room_remarks,
                 meal: row.meal ?? traveler.meal ?? defaultMealPlan ?? '',
@@ -663,41 +725,136 @@ function syncRoomRowsWithTravelers(
         })
         .filter((row): row is TravelerWithUI => row !== null);
 
-    return keptRows.map((row, index) => ({
+    const seenIdentities = new Set<string>();
+    const dedupedRows = keptRows.filter((row, index) => {
+        const identity = travelerIdentityKey(row, index);
+
+        if (seenIdentities.has(identity)) {
+            return false;
+        }
+
+        seenIdentities.add(identity);
+
+        return true;
+    });
+
+    const missingTravelers = activeTravelers.filter((traveler, index) => {
+        const identity = travelerIdentityKey(traveler, index);
+
+        return !seenIdentities.has(identity);
+    });
+
+    const appendedRows =
+        missingTravelers.length > 0
+            ? buildRoomRowsFromTravelers(
+                  missingTravelers,
+                  dedupedRows,
+                  accommodationKey,
+                  defaultMealPlan,
+              )
+            : [];
+
+    const mergedRows = [...dedupedRows, ...appendedRows];
+
+    return mergedRows.map((row, index) => ({
         ...row,
         sn: index + 1,
         sort_order: index + 1,
     }));
 }
 
-function toPositiveInteger(value: unknown): number {
-    const parsed =
-        typeof value === 'number'
-            ? value
-            : Number.parseInt(String(value ?? ''), 10);
-
-    if (!Number.isFinite(parsed) || parsed < 1) {
-        return 0;
+function normalizeDocumentEntriesForSubmit(
+    entries: ManifestDocumentItem[] | undefined,
+): ManifestDocumentItem[] {
+    if (!Array.isArray(entries)) {
+        return [];
     }
 
-    return parsed;
+    return entries
+        .map((entry) => {
+            const filePath = String(entry.file_path ?? '').trim();
+            const fileName = String(entry.file_name ?? '').trim();
+            const isRemoved = Boolean(entry.removed);
+
+            return {
+                id: entry.id,
+                file: entry.file instanceof File ? entry.file : null,
+                file_name: fileName === '' ? null : fileName,
+                file_path: filePath === '' ? null : filePath,
+                removed: isRemoved,
+            };
+        })
+        .filter((entry) => {
+            if (entry.removed) {
+                return true;
+            }
+
+            if (entry.id) {
+                return true;
+            }
+
+            if (entry.file instanceof File) {
+                return true;
+            }
+
+            return Boolean(entry.file_path);
+        });
 }
 
-function hasAnyNewUpload(data: ManifestFormData): boolean {
-    const manifestDocs = Object.values(data.documents ?? {}).flat();
-    const hasManifestFile = manifestDocs.some(
-        (doc) => doc.file instanceof File,
+function buildSubmitPayload(data: ManifestFormData): ManifestFormData {
+    const roomLists = Object.fromEntries(
+        Object.entries(data.roomLists ?? {}).map(([key, rows]) => [
+            key,
+            ((rows ?? []) as TravelerWithUI[]).map((row, index) => {
+                const roomNumber = String(
+                    row.room_no ?? row.room_number ?? '',
+                ).trim();
+
+                return {
+                    ...row,
+                    sort_order: index + 1,
+                    sn: index + 1,
+                    room_number: roomNumber === '' ? null : roomNumber,
+                    room_no: roomNumber === '' ? null : roomNumber,
+                    room_relationship: String(
+                        row.room_relationship ?? '',
+                    ).trim(),
+                    room_label: String(row.room_label ?? '').trim(),
+                    room_type: String(row.room_type ?? '').trim(),
+                    bed_type: String(row.bed_type ?? '').trim(),
+                    meal: String(row.meal ?? '').trim(),
+                    sharing_group_key: String(
+                        row.sharing_group_key ??
+                            `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`,
+                    ),
+                };
+            }),
+        ]),
     );
 
-    if (hasManifestFile) {
-        return true;
-    }
-
-    const travelerDocs = (data.travelers ?? []).flatMap(
-        (traveler) => traveler.receipt_documents ?? [],
-    );
-
-    return travelerDocs.some((doc) => doc.file instanceof File);
+    return {
+        ...data,
+        roomLists,
+        documents: {
+            flight_tickets: normalizeDocumentEntriesForSubmit(
+                data.documents?.flight_tickets,
+            ),
+            visa: normalizeDocumentEntriesForSubmit(data.documents?.visa),
+            hotel: normalizeDocumentEntriesForSubmit(data.documents?.hotel),
+            passport: normalizeDocumentEntriesForSubmit(
+                data.documents?.passport,
+            ),
+            photo: normalizeDocumentEntriesForSubmit(data.documents?.photo),
+        },
+        travelers: ((data.travelers ?? []) as TravelerWithUI[]).map(
+            (traveler) => ({
+                ...traveler,
+                receipt_documents: normalizeDocumentEntriesForSubmit(
+                    traveler.receipt_documents,
+                ),
+            }),
+        ),
+    };
 }
 
 export default function ManifestForm({
@@ -708,13 +865,12 @@ export default function ManifestForm({
 }: ManifestFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
-    const isCreate = mode === 'create';
 
     const packageOptions = dataPackage as PackageForManifestOption[];
     const defaults = buildDefaultData(initialData);
 
     const form = useForm<ManifestFormData>(defaults);
-    const { data, setData, post, put, transform, processing, hasErrors } = form;
+    const { data, setData, post, processing, hasErrors } = form;
     const rawErrors = (form as unknown as { errors?: Record<string, string> })
         .errors;
     const formErrorActions = form as unknown as {
@@ -736,12 +892,6 @@ export default function ManifestForm({
         },
         [setData],
     );
-    const setManifestInfoData: (key: string, value: unknown) => void = (
-        key,
-        value,
-    ) => {
-        setFormData(key, value);
-    };
     const clearFormErrors = useCallback(() => {
         formErrorActions.clearErrors();
     }, [formErrorActions]);
@@ -753,10 +903,25 @@ export default function ManifestForm({
     );
     const errorAlertRef = useRef<HTMLDivElement | null>(null);
     const previousNameByIdentityRef = useRef<Record<string, string>>({});
+    const roomListsRef = useRef<Record<string, TravelerWithUI[]>>({});
+    const documentsRef = useRef<ManifestDocumentsByField>(
+        buildEmptyManifestDocuments(),
+    );
     const [activeTab, setActiveTab] = useState('main');
     const [openSections, setOpenSections] = useState<string[]>([
         'manifest_information',
     ]);
+
+    useEffect(() => {
+        roomListsRef.current = (data.roomLists ?? {}) as Record<
+            string,
+            TravelerWithUI[]
+        >;
+    }, [data.roomLists]);
+
+    useEffect(() => {
+        documentsRef.current = data.documents ?? buildEmptyManifestDocuments();
+    }, [data.documents]);
 
     const scrollToErrorBanner = useCallback(() => {
         setTimeout(() => {
@@ -1087,8 +1252,7 @@ export default function ManifestForm({
                                         travelerUpdate.package_price ??
                                         row.package_price,
                                     room_relationship:
-                                        row.room_relationship ??
-                                        travelerUpdate.relationship,
+                                        row.room_relationship ?? '',
                                 };
                             }),
                             key,
@@ -1327,14 +1491,15 @@ export default function ManifestForm({
 
     const updateManifestDocuments = useCallback(
         (field: ManifestDocumentFieldKey, rows: ManifestDocumentItem[]) => {
+            const currentDocuments = documentsRef.current;
             const nextDocuments: ManifestDocumentsByField = {
-                ...(data.documents ?? buildEmptyManifestDocuments()),
+                ...currentDocuments,
                 [field]: rows,
             };
 
             setFormData('documents', nextDocuments);
         },
-        [data.documents, setFormData],
+        [setFormData],
     );
 
     const updateTravelerArabicName = useCallback(
@@ -1388,29 +1553,10 @@ export default function ManifestForm({
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
 
-        const normalizedPackageId = toPositiveInteger(data.package_id);
-        const normalizedInChargeOfficialId = toPositiveInteger(
-            data.in_charge_official_id,
-        );
-
-        const normalizedPayload: ManifestFormData = {
-            ...data,
-            package_id: normalizedPackageId,
-            in_charge_official_id:
-                normalizedInChargeOfficialId > 0
-                    ? normalizedInChargeOfficialId
-                    : null,
-        };
-
-        if (
-            normalizedPackageId > 0 &&
-            normalizedPackageId !== data.package_id
-        ) {
-            setFormData('package_id', normalizedPackageId);
-        }
-
+        const submitPayload = buildSubmitPayload(data);
         const validationResult =
-            manifestValidationSchema.safeParse(normalizedPayload);
+            manifestValidationSchema.safeParse(submitPayload);
+
         clearFormErrors();
 
         if (!validationResult.success) {
@@ -1423,32 +1569,25 @@ export default function ManifestForm({
             return;
         }
 
-        transform((currentData: ManifestFormData) => ({
-            ...currentData,
-            ...normalizedPayload,
-            package_id:
-                normalizedPackageId ||
-                toPositiveInteger(currentData.package_id),
-        }));
-
-        const shouldForceFormData = hasAnyNewUpload(normalizedPayload);
-
-        if (isCreate) {
-            post(store().url, {
-                forceFormData: shouldForceFormData,
-                preserveScroll: 'errors',
-                onError: () => {
-                    scrollToErrorBanner();
-                },
+        const handleError = (errors: Record<string, string>) => {
+            Object.entries(errors).forEach(([field, message]) => {
+                setFormError(field, message);
             });
-        }
 
-        if (isEdit && data.id) {
-            put(update(data.id).url, {
-                forceFormData: shouldForceFormData,
+            scrollToErrorBanner();
+        };
+
+        if (isEdit && submitPayload.id) {
+            form.transform(() => submitPayload);
+
+            post(store().url, {
                 preserveScroll: 'errors',
-                onError: () => {
-                    scrollToErrorBanner();
+                forceFormData: true,
+                onError: handleError,
+                onFinish: () => {
+                    form.transform(
+                        (currentData: ManifestFormData) => currentData,
+                    );
                 },
             });
         }
@@ -1765,8 +1904,6 @@ export default function ManifestForm({
         [],
     );
 
-    console.log(data);
-
     return (
         <div className="mx-auto w-full">
             {mode !== 'view' && (
@@ -1857,7 +1994,7 @@ export default function ManifestForm({
                             isView={isView}
                             data={data}
                             dataPackage={packageOptions}
-                            setData={setManifestInfoData}
+                            setData={setFormData}
                             renderError={renderError}
                         />
                     </FormSection>
@@ -2074,282 +2211,10 @@ export default function ManifestForm({
                                             }),
                                         );
 
-                                        const roomTravelerMap = new Map(
-                                            normalizedRows.map((row, index) => [
-                                                travelerIdentityKey(row, index),
-                                                row,
-                                            ]),
-                                        );
-
-                                        const nextTravelers = (
-                                            (data.travelers ?? []) as
-                                                | TravelerWithUI[]
-                                                | undefined
-                                        )?.map((traveler, travelerIndex) => {
-                                            const updated = roomTravelerMap.get(
-                                                travelerIdentityKey(
-                                                    traveler,
-                                                    travelerIndex,
-                                                ),
-                                            );
-
-                                            if (!updated) {
-                                                return traveler;
-                                            }
-
-                                            return {
-                                                ...traveler,
-                                                name_as_per_passport:
-                                                    updated.name_as_per_passport ??
-                                                    traveler.name_as_per_passport,
-                                                passport_number:
-                                                    updated.passport_number ??
-                                                    traveler.passport_number,
-                                                role:
-                                                    updated.role ??
-                                                    traveler.role,
-                                                relationship:
-                                                    updated.relationship ??
-                                                    traveler.relationship,
-                                                sharing_plan:
-                                                    updated.sharing_plan ??
-                                                    traveler.sharing_plan,
-                                                nationality:
-                                                    updated.nationality ??
-                                                    traveler.nationality,
-                                                gender:
-                                                    updated.gender ??
-                                                    traveler.gender,
-                                                date_of_birth:
-                                                    updated.date_of_birth ??
-                                                    traveler.date_of_birth,
-                                                date_of_issue:
-                                                    updated.date_of_issue ??
-                                                    traveler.date_of_issue,
-                                                date_of_expiry:
-                                                    updated.date_of_expiry ??
-                                                    traveler.date_of_expiry,
-                                                issue_place:
-                                                    updated.issue_place ??
-                                                    traveler.issue_place,
-                                                birth_place:
-                                                    updated.birth_place ??
-                                                    traveler.birth_place,
-                                                contact_no:
-                                                    updated.contact_no ??
-                                                    traveler.contact_no,
-                                                package_price:
-                                                    updated.package_price ??
-                                                    traveler.package_price,
-                                                age:
-                                                    calculateAgeFromDob(
-                                                        updated.date_of_birth ??
-                                                            traveler.date_of_birth,
-                                                    ) ?? traveler.age,
-                                            };
+                                        setFormData('roomLists', {
+                                            ...roomListsRef.current,
+                                            [tab.key]: normalizedRows,
                                         });
-
-                                        if (nextTravelers) {
-                                            const travelerMap = new Map(
-                                                nextTravelers.map(
-                                                    (
-                                                        traveler,
-                                                        travelerIndex,
-                                                    ) => [
-                                                        travelerIdentityKey(
-                                                            traveler,
-                                                            travelerIndex,
-                                                        ),
-                                                        traveler,
-                                                    ],
-                                                ),
-                                            );
-
-                                            const nextActiveTravelers =
-                                                nextTravelers.filter(
-                                                    (traveler) =>
-                                                        !isCancelledTraveler(
-                                                            traveler,
-                                                        ),
-                                                );
-
-                                            const nextRoomLists =
-                                                Object.fromEntries(
-                                                    roomTabs.map((roomTab) => {
-                                                        const roomKey =
-                                                            roomTab.key;
-                                                        const sourceRows =
-                                                            roomKey === tab.key
-                                                                ? normalizedRows
-                                                                : (
-                                                                      ((data.roomLists ??
-                                                                          {})[
-                                                                          roomKey
-                                                                      ] ??
-                                                                          []) as TravelerWithUI[]
-                                                                  ).map(
-                                                                      (
-                                                                          roomRow,
-                                                                          roomIndex,
-                                                                      ) => {
-                                                                          const travelerUpdate =
-                                                                              travelerMap.get(
-                                                                                  travelerIdentityKey(
-                                                                                      roomRow,
-                                                                                      roomIndex,
-                                                                                  ),
-                                                                              );
-
-                                                                          if (
-                                                                              !travelerUpdate
-                                                                          ) {
-                                                                              return roomRow;
-                                                                          }
-
-                                                                          return {
-                                                                              ...roomRow,
-                                                                              name_as_per_passport:
-                                                                                  travelerUpdate.name_as_per_passport ??
-                                                                                  roomRow.name_as_per_passport,
-                                                                              passport_number:
-                                                                                  travelerUpdate.passport_number ??
-                                                                                  roomRow.passport_number,
-                                                                              role:
-                                                                                  travelerUpdate.role ??
-                                                                                  roomRow.role,
-                                                                              relationship:
-                                                                                  travelerUpdate.relationship ??
-                                                                                  roomRow.relationship,
-                                                                              sharing_plan:
-                                                                                  travelerUpdate.sharing_plan ??
-                                                                                  roomRow.sharing_plan,
-                                                                              nationality:
-                                                                                  travelerUpdate.nationality ??
-                                                                                  roomRow.nationality,
-                                                                              gender:
-                                                                                  travelerUpdate.gender ??
-                                                                                  roomRow.gender,
-                                                                              date_of_birth:
-                                                                                  travelerUpdate.date_of_birth ??
-                                                                                  roomRow.date_of_birth,
-                                                                              date_of_issue:
-                                                                                  travelerUpdate.date_of_issue ??
-                                                                                  roomRow.date_of_issue,
-                                                                              date_of_expiry:
-                                                                                  travelerUpdate.date_of_expiry ??
-                                                                                  roomRow.date_of_expiry,
-                                                                              issue_place:
-                                                                                  travelerUpdate.issue_place ??
-                                                                                  roomRow.issue_place,
-                                                                              birth_place:
-                                                                                  travelerUpdate.birth_place ??
-                                                                                  roomRow.birth_place,
-                                                                              contact_no:
-                                                                                  travelerUpdate.contact_no ??
-                                                                                  roomRow.contact_no,
-                                                                              package_price:
-                                                                                  travelerUpdate.package_price ??
-                                                                                  roomRow.package_price,
-                                                                              age:
-                                                                                  calculateAgeFromDob(
-                                                                                      travelerUpdate.date_of_birth ??
-                                                                                          roomRow.date_of_birth,
-                                                                                  ) ??
-                                                                                  roomRow.age,
-                                                                          };
-                                                                      },
-                                                                  );
-
-                                                        return [
-                                                            roomKey,
-                                                            syncRoomRowsWithTravelers(
-                                                                nextActiveTravelers,
-                                                                sourceRows,
-                                                                roomKey,
-                                                                roomTab
-                                                                    .accommodation
-                                                                    .type_of_meal ??
-                                                                    '',
-                                                            ),
-                                                        ];
-                                                    }),
-                                                );
-
-                                            const nextAirline = (
-                                                (data.airlineList ??
-                                                    []) as TravelerWithUI[]
-                                            ).map(
-                                                (airlineRow, airlineIndex) => {
-                                                    const travelerUpdate =
-                                                        travelerMap.get(
-                                                            travelerIdentityKey(
-                                                                airlineRow,
-                                                                airlineIndex,
-                                                            ),
-                                                        );
-
-                                                    if (!travelerUpdate) {
-                                                        return airlineRow;
-                                                    }
-
-                                                    return {
-                                                        ...airlineRow,
-                                                        name_as_per_passport:
-                                                            travelerUpdate.name_as_per_passport ??
-                                                            airlineRow.name_as_per_passport,
-                                                        passport_number:
-                                                            travelerUpdate.passport_number ??
-                                                            airlineRow.passport_number,
-                                                        nationality:
-                                                            travelerUpdate.nationality ??
-                                                            airlineRow.nationality,
-                                                        gender:
-                                                            travelerUpdate.gender ??
-                                                            airlineRow.gender,
-                                                        date_of_birth:
-                                                            travelerUpdate.date_of_birth ??
-                                                            airlineRow.date_of_birth,
-                                                        date_of_issue:
-                                                            travelerUpdate.date_of_issue ??
-                                                            airlineRow.date_of_issue,
-                                                        date_of_expiry:
-                                                            travelerUpdate.date_of_expiry ??
-                                                            airlineRow.date_of_expiry,
-                                                        issue_place:
-                                                            travelerUpdate.issue_place ??
-                                                            airlineRow.issue_place,
-                                                        birth_place:
-                                                            travelerUpdate.birth_place ??
-                                                            airlineRow.birth_place,
-                                                        contact_no:
-                                                            travelerUpdate.contact_no ??
-                                                            airlineRow.contact_no,
-                                                        package_price:
-                                                            travelerUpdate.package_price ??
-                                                            airlineRow.package_price,
-                                                        age:
-                                                            calculateAgeFromDob(
-                                                                travelerUpdate.date_of_birth ??
-                                                                    airlineRow.date_of_birth,
-                                                            ) ?? airlineRow.age,
-                                                    };
-                                                },
-                                            );
-
-                                            setFormData(
-                                                'travelers',
-                                                nextTravelers,
-                                            );
-                                            setFormData(
-                                                'roomLists',
-                                                nextRoomLists,
-                                            );
-
-                                            setFormData(
-                                                'airlineList',
-                                                nextAirline,
-                                            );
-                                        }
                                     }}
                                 />
 
@@ -2448,23 +2313,9 @@ export default function ManifestForm({
                     <TabsContent value="airline" className="space-y-4">
                         <ManifestDatatable
                             mode="airline"
-                            rows={((data.airlineList ?? []) as TravelerWithUI[])
-                                .filter((row) => !isCancelledTraveler(row))
-                                .map((row) => {
-                                    const activeTraveler =
-                                        nonCancelledTravelers.find(
-                                            (traveler) =>
-                                                traveler.customer_confirmation_member_id ===
-                                                row.customer_confirmation_member_id,
-                                        );
-
-                                    return {
-                                        ...row,
-                                        name_as_per_passport:
-                                            activeTraveler?.name_as_per_passport ??
-                                            row.name_as_per_passport,
-                                    };
-                                })}
+                            rows={(
+                                (data.airlineList ?? []) as TravelerWithUI[]
+                            ).filter((row) => !isCancelledTraveler(row))}
                             disabled={isView}
                             allowReorder
                             errorPrefix="airlineList"
@@ -2732,13 +2583,30 @@ export default function ManifestForm({
                             (data.documents?.[tab.key] as
                                 | ManifestDocumentItem[]
                                 | undefined) ?? [];
-                        const visibleRows = allRows.filter(
-                            (row) => !row.removed,
-                        );
+                        const visibleRowIndexes = allRows
+                            .map((row, rowIndex) =>
+                                row.removed ? null : rowIndex,
+                            )
+                            .filter(
+                                (rowIndex): rowIndex is number =>
+                                    rowIndex !== null,
+                            );
                         const rowsToRender =
-                            visibleRows.length > 0
-                                ? visibleRows
-                                : [createEmptyDocumentEntry()];
+                            visibleRowIndexes.length > 0
+                                ? visibleRowIndexes.map(
+                                      (actualIndex, visibleIndex) => ({
+                                          row: allRows[actualIndex],
+                                          actualIndex,
+                                          visibleIndex,
+                                      }),
+                                  )
+                                : [
+                                      {
+                                          row: createEmptyDocumentEntry(),
+                                          actualIndex: -1,
+                                          visibleIndex: 0,
+                                      },
+                                  ];
 
                         return (
                             <TabsContent
@@ -2776,14 +2644,43 @@ export default function ManifestForm({
                                     </div>
 
                                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                        {rowsToRender.map((row, index) => {
+                                        {rowsToRender.map((renderRow) => {
+                                            const {
+                                                row,
+                                                actualIndex,
+                                                visibleIndex,
+                                            } = renderRow;
+
                                             return (
                                                 <div
-                                                    key={`${tab.key}-${row.id ?? `new-${index}`}`}
+                                                    key={`${tab.key}-${row.id ?? `new-${visibleIndex}`}`}
                                                     className="rounded-lg border p-3"
                                                 >
+                                                    {!isView &&
+                                                        actualIndex >= 0 && (
+                                                            <div className="mb-3 flex justify-end">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                    onClick={() => {
+                                                                        updateManifestDocuments(
+                                                                            tab.key,
+                                                                            removeDocumentEntryAtIndex(
+                                                                                allRows,
+                                                                                actualIndex,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            </div>
+                                                        )}
+
                                                     <DocumentField
-                                                        label={`${tab.label} #${index + 1}`}
+                                                        label={`${tab.label} #${visibleIndex + 1}`}
                                                         hint={tab.hint}
                                                         accept={tab.accept}
                                                         fileValue={
@@ -2816,9 +2713,8 @@ export default function ManifestForm({
                                                                           createEmptyDocumentEntry(),
                                                                       ];
                                                             const targetIndex =
-                                                                allRows.length >
-                                                                0
-                                                                    ? index
+                                                                actualIndex >= 0
+                                                                    ? actualIndex
                                                                     : 0;
                                                             nextRows[
                                                                 targetIndex
@@ -2833,8 +2729,11 @@ export default function ManifestForm({
                                                                         targetIndex
                                                                     ]
                                                                         ?.file_name ??
-                                                                    toFileNameWithoutExtension(
-                                                                        file.name,
+                                                                    buildManifestDocumentFileName(
+                                                                        tab.label,
+                                                                        visibleIndex +
+                                                                            1,
+                                                                        data.manifest_number,
                                                                     ),
                                                             };
                                                             updateManifestDocuments(
@@ -2855,9 +2754,8 @@ export default function ManifestForm({
                                                                           createEmptyDocumentEntry(),
                                                                       ];
                                                             const targetIndex =
-                                                                allRows.length >
-                                                                0
-                                                                    ? index
+                                                                actualIndex >= 0
+                                                                    ? actualIndex
                                                                     : 0;
                                                             nextRows[
                                                                 targetIndex
@@ -2874,43 +2772,12 @@ export default function ManifestForm({
                                                             );
                                                         }}
                                                         onClear={() => {
-                                                            const nextRows =
-                                                                allRows.length >
-                                                                0
-                                                                    ? [
-                                                                          ...allRows,
-                                                                      ]
-                                                                    : [
-                                                                          createEmptyDocumentEntry(),
-                                                                      ];
-                                                            const currentRow =
-                                                                nextRows[index];
-
-                                                            if (
-                                                                currentRow?.id ||
-                                                                currentRow?.file_path
-                                                            ) {
-                                                                nextRows[
-                                                                    index
-                                                                ] = {
-                                                                    ...currentRow,
-                                                                    file: null,
-                                                                    file_name:
-                                                                        null,
-                                                                    file_path:
-                                                                        null,
-                                                                    removed: true,
-                                                                };
-                                                            } else {
-                                                                nextRows.splice(
-                                                                    index,
-                                                                    1,
-                                                                );
-                                                            }
-
                                                             updateManifestDocuments(
                                                                 tab.key,
-                                                                nextRows,
+                                                                removeDocumentEntryAtIndex(
+                                                                    allRows,
+                                                                    actualIndex,
+                                                                ),
                                                             );
                                                         }}
                                                     />
@@ -2926,21 +2793,34 @@ export default function ManifestForm({
                     <TabsContent value="arabic-names" className="space-y-4">
                         <div className="rounded-xl border border-border/70 p-4">
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <label
-                                        htmlFor="in_charge_official_id"
-                                        className="text-sm font-medium"
-                                    >
-                                        Official In Charge
-                                    </label>
-                                    <select
+                                <FormField
+                                    label="Official In Charge"
+                                    htmlFor="in_charge_official_id"
+                                    error={formErrors.in_charge_official_id}
+                                >
+                                    <ProperInputSelect
                                         id="in_charge_official_id"
+                                        options={[
+                                            {
+                                                label: 'Select official in charge',
+                                                value: '',
+                                            },
+                                            ...selectedPackageOfficials.map(
+                                                (official) => ({
+                                                    label:
+                                                        official.name ??
+                                                        `Official #${official.id}`,
+                                                    value: String(official.id),
+                                                }),
+                                            ),
+                                        ]}
                                         value={String(
                                             data.in_charge_official_id ?? '',
                                         )}
-                                        onChange={(event) => {
-                                            const nextValue =
-                                                event.target.value.trim();
+                                        onValueChange={(value) => {
+                                            const nextValue = String(
+                                                value ?? '',
+                                            ).trim();
                                             setFormData(
                                                 'in_charge_official_id',
                                                 nextValue === ''
@@ -2949,40 +2829,23 @@ export default function ManifestForm({
                                             );
                                         }}
                                         disabled={isView}
-                                        className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                                    >
-                                        <option value="">
-                                            Select official in charge
-                                        </option>
-                                        {selectedPackageOfficials.map(
-                                            (official) => (
-                                                <option
-                                                    key={official.id}
-                                                    value={official.id}
-                                                >
-                                                    {official.name ??
-                                                        `Official #${official.id}`}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                    {renderError('in_charge_official_id')}
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">
-                                        Contact Number
-                                    </label>
-                                    <input
-                                        type="text"
+                                        searchable
+                                        placeholder="Select official in charge"
+                                    />
+                                </FormField>
+                                <FormField label="Contact Number">
+                                    <ProperInput
                                         value={
                                             selectedInChargeOfficial?.contact_number ??
                                             ''
                                         }
+                                        onCommit={(value) => {
+                                            void value;
+                                        }}
                                         disabled
-                                        className="h-10 w-full rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground"
                                         placeholder="Auto-filled from package official"
                                     />
-                                </div>
+                                </FormField>
                                 <div className="flex items-end justify-start md:justify-end">
                                     <Button
                                         type="button"
@@ -3047,33 +2910,34 @@ export default function ManifestForm({
                                                     {index + 1}
                                                 </td>
                                                 <td className="px-4 py-3 align-top">
-                                                    <input
-                                                        type="text"
+                                                    <ProperInput
                                                         value={
                                                             traveler.name_as_per_passport ??
                                                             ''
                                                         }
+                                                        onCommit={(value) => {
+                                                            void value;
+                                                        }}
                                                         disabled
-                                                        className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
                                                     />
                                                 </td>
                                                 <td className="px-4 py-3 align-top">
-                                                    <input
-                                                        type="text"
-                                                        dir="rtl"
+                                                    <ProperInput
                                                         value={
                                                             traveler.arabic_name ??
                                                             ''
                                                         }
-                                                        onChange={(event) => {
+                                                        onCommit={(value) => {
                                                             updateTravelerArabicName(
                                                                 traveler,
-                                                                event.target
-                                                                    .value,
+                                                                value,
                                                             );
                                                         }}
                                                         disabled={isView}
-                                                        className="w-full rounded-md border bg-background px-3 py-2 text-right text-sm"
+                                                        inputProps={{
+                                                            dir: 'rtl',
+                                                        }}
+                                                        className="text-right"
                                                     />
                                                 </td>
                                             </tr>
@@ -3109,11 +2973,38 @@ export default function ManifestForm({
                                             const rows = sourceRows.filter(
                                                 (row) => !row.removed,
                                             );
+                                            const visibleRowIndexes = sourceRows
+                                                .map((row, rowIndex) =>
+                                                    row.removed
+                                                        ? null
+                                                        : rowIndex,
+                                                )
+                                                .filter(
+                                                    (
+                                                        rowIndex,
+                                                    ): rowIndex is number =>
+                                                        rowIndex !== null,
+                                                );
                                             const rowsToRender =
-                                                rows.length > 0
-                                                    ? rows
+                                                visibleRowIndexes.length > 0
+                                                    ? visibleRowIndexes.map(
+                                                          (
+                                                              actualIndex,
+                                                              visibleIndex,
+                                                          ) => ({
+                                                              row: sourceRows[
+                                                                  actualIndex
+                                                              ],
+                                                              actualIndex,
+                                                              visibleIndex,
+                                                          }),
+                                                      )
                                                     : [
-                                                          createEmptyDocumentEntry(),
+                                                          {
+                                                              row: createEmptyDocumentEntry(),
+                                                              actualIndex: -1,
+                                                              visibleIndex: 0,
+                                                          },
                                                       ];
 
                                             return (
@@ -3138,159 +3029,158 @@ export default function ManifestForm({
                                                     <td className="px-4 py-3">
                                                         <div className="space-y-3">
                                                             {rowsToRender.map(
-                                                                (
-                                                                    row,
-                                                                    documentIndex,
-                                                                ) => (
-                                                                    <div
-                                                                        key={`${travelerIdentityKey(traveler, index)}-receipt-doc-${row.id ?? documentIndex}`}
-                                                                        className="rounded-lg border p-3"
-                                                                    >
-                                                                        <DocumentField
-                                                                            label={`Receipt #${documentIndex + 1}`}
-                                                                            hint="Upload receipt evidence for this traveler."
-                                                                            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
-                                                                            fileValue={
-                                                                                row.file ??
-                                                                                undefined
-                                                                            }
-                                                                            existingPath={
-                                                                                row.file_path ??
-                                                                                undefined
-                                                                            }
-                                                                            existingFileName={
-                                                                                row.file_name ??
-                                                                                undefined
-                                                                            }
-                                                                            useFileNameInput
-                                                                            fileNameValue={
-                                                                                row.file_name ??
-                                                                                null
-                                                                            }
-                                                                            isView={
-                                                                                isView
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onSelect={(
-                                                                                file,
-                                                                            ) => {
-                                                                                const nextRows =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? [
-                                                                                              ...sourceRows,
-                                                                                          ]
-                                                                                        : [
-                                                                                              createEmptyDocumentEntry(),
-                                                                                          ];
-                                                                                const targetIndex =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? documentIndex
-                                                                                        : 0;
-                                                                                nextRows[
-                                                                                    targetIndex
-                                                                                ] =
-                                                                                    {
-                                                                                        ...nextRows[
-                                                                                            targetIndex
-                                                                                        ],
-                                                                                        file,
-                                                                                        removed: false,
-                                                                                        file_name:
-                                                                                            nextRows[
-                                                                                                targetIndex
-                                                                                            ]
-                                                                                                ?.file_name ??
-                                                                                            toFileNameWithoutExtension(
-                                                                                                file.name,
-                                                                                            ),
-                                                                                    };
-                                                                                updateTravelerReceiptDocuments(
-                                                                                    traveler,
-                                                                                    nextRows,
-                                                                                );
-                                                                            }}
-                                                                            onFileNameChange={(
-                                                                                fileName,
-                                                                            ) => {
-                                                                                const nextRows =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? [
-                                                                                              ...sourceRows,
-                                                                                          ]
-                                                                                        : [
-                                                                                              createEmptyDocumentEntry(),
-                                                                                          ];
-                                                                                const targetIndex =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? documentIndex
-                                                                                        : 0;
-                                                                                nextRows[
-                                                                                    targetIndex
-                                                                                ] =
-                                                                                    {
-                                                                                        ...nextRows[
-                                                                                            targetIndex
-                                                                                        ],
-                                                                                        file_name:
-                                                                                            fileName,
-                                                                                    };
-                                                                                updateTravelerReceiptDocuments(
-                                                                                    traveler,
-                                                                                    nextRows,
-                                                                                );
-                                                                            }}
-                                                                            onClear={() => {
-                                                                                const nextRows =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? [
-                                                                                              ...sourceRows,
-                                                                                          ]
-                                                                                        : [
-                                                                                              createEmptyDocumentEntry(),
-                                                                                          ];
-                                                                                const currentRow =
-                                                                                    nextRows[
-                                                                                        documentIndex
-                                                                                    ];
+                                                                (renderRow) => {
+                                                                    const {
+                                                                        row,
+                                                                        actualIndex,
+                                                                        visibleIndex,
+                                                                    } =
+                                                                        renderRow;
 
-                                                                                if (
-                                                                                    currentRow?.id ||
-                                                                                    currentRow?.file_path
-                                                                                ) {
+                                                                    return (
+                                                                        <div
+                                                                            key={`${travelerIdentityKey(traveler, index)}-receipt-doc-${row.id ?? visibleIndex}`}
+                                                                            className="rounded-lg border p-3"
+                                                                        >
+                                                                            {!isView &&
+                                                                                actualIndex >=
+                                                                                    0 && (
+                                                                                    <div className="mb-3 flex justify-end">
+                                                                                        <Button
+                                                                                            type="button"
+                                                                                            variant="ghost"
+                                                                                            size="sm"
+                                                                                            className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                                            onClick={() => {
+                                                                                                updateTravelerReceiptDocuments(
+                                                                                                    traveler,
+                                                                                                    removeDocumentEntryAtIndex(
+                                                                                                        sourceRows,
+                                                                                                        actualIndex,
+                                                                                                    ),
+                                                                                                );
+                                                                                            }}
+                                                                                        >
+                                                                                            Remove
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                )}
+
+                                                                            <DocumentField
+                                                                                label={`Receipt #${visibleIndex + 1}`}
+                                                                                hint="Upload receipt evidence for this traveler."
+                                                                                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                                                                                fileValue={
+                                                                                    row.file ??
+                                                                                    undefined
+                                                                                }
+                                                                                existingPath={
+                                                                                    row.file_path ??
+                                                                                    undefined
+                                                                                }
+                                                                                existingFileName={
+                                                                                    row.file_name ??
+                                                                                    undefined
+                                                                                }
+                                                                                useFileNameInput
+                                                                                fileNameValue={
+                                                                                    row.file_name ??
+                                                                                    null
+                                                                                }
+                                                                                isView={
+                                                                                    isView
+                                                                                }
+                                                                                disabled={
+                                                                                    isView
+                                                                                }
+                                                                                onSelect={(
+                                                                                    file,
+                                                                                ) => {
+                                                                                    const nextRows =
+                                                                                        sourceRows.length >
+                                                                                        0
+                                                                                            ? [
+                                                                                                  ...sourceRows,
+                                                                                              ]
+                                                                                            : [
+                                                                                                  createEmptyDocumentEntry(),
+                                                                                              ];
+                                                                                    const targetIndex =
+                                                                                        actualIndex >=
+                                                                                        0
+                                                                                            ? actualIndex
+                                                                                            : 0;
                                                                                     nextRows[
-                                                                                        documentIndex
+                                                                                        targetIndex
                                                                                     ] =
                                                                                         {
-                                                                                            ...currentRow,
-                                                                                            file: null,
+                                                                                            ...nextRows[
+                                                                                                targetIndex
+                                                                                            ],
+                                                                                            file,
+                                                                                            removed: false,
                                                                                             file_name:
-                                                                                                null,
-                                                                                            file_path:
-                                                                                                null,
-                                                                                            removed: true,
+                                                                                                nextRows[
+                                                                                                    targetIndex
+                                                                                                ]
+                                                                                                    ?.file_name ??
+                                                                                                buildManifestDocumentFileName(
+                                                                                                    'Receipt',
+                                                                                                    visibleIndex +
+                                                                                                        1,
+                                                                                                    data.manifest_number,
+                                                                                                ),
                                                                                         };
-                                                                                } else {
-                                                                                    nextRows.splice(
-                                                                                        documentIndex,
-                                                                                        1,
+                                                                                    updateTravelerReceiptDocuments(
+                                                                                        traveler,
+                                                                                        nextRows,
                                                                                     );
-                                                                                }
-
-                                                                                updateTravelerReceiptDocuments(
-                                                                                    traveler,
-                                                                                    nextRows,
-                                                                                );
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                ),
+                                                                                }}
+                                                                                onFileNameChange={(
+                                                                                    fileName,
+                                                                                ) => {
+                                                                                    const nextRows =
+                                                                                        sourceRows.length >
+                                                                                        0
+                                                                                            ? [
+                                                                                                  ...sourceRows,
+                                                                                              ]
+                                                                                            : [
+                                                                                                  createEmptyDocumentEntry(),
+                                                                                              ];
+                                                                                    const targetIndex =
+                                                                                        actualIndex >=
+                                                                                        0
+                                                                                            ? actualIndex
+                                                                                            : 0;
+                                                                                    nextRows[
+                                                                                        targetIndex
+                                                                                    ] =
+                                                                                        {
+                                                                                            ...nextRows[
+                                                                                                targetIndex
+                                                                                            ],
+                                                                                            file_name:
+                                                                                                fileName,
+                                                                                        };
+                                                                                    updateTravelerReceiptDocuments(
+                                                                                        traveler,
+                                                                                        nextRows,
+                                                                                    );
+                                                                                }}
+                                                                                onClear={() => {
+                                                                                    updateTravelerReceiptDocuments(
+                                                                                        traveler,
+                                                                                        removeDocumentEntryAtIndex(
+                                                                                            sourceRows,
+                                                                                            actualIndex,
+                                                                                        ),
+                                                                                    );
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    );
+                                                                },
                                                             )}
 
                                                             {!isView && (
@@ -3302,7 +3192,9 @@ export default function ManifestForm({
                                                                             sourceRows.length >
                                                                             0
                                                                                 ? sourceRows
-                                                                                : rowsToRender;
+                                                                                : [
+                                                                                      createEmptyDocumentEntry(),
+                                                                                  ];
 
                                                                         updateTravelerReceiptDocuments(
                                                                             traveler,
@@ -3344,9 +3236,7 @@ export default function ManifestForm({
                                 Reset
                             </Button>
                             <Button type="submit" disabled={processing}>
-                                {isCreate
-                                    ? 'Create Manifest'
-                                    : 'Update Manifest'}
+                                Update Manifest
                             </Button>
                         </>
                     )}

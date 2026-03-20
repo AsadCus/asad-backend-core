@@ -166,8 +166,8 @@ export const manifestSharingGroupSchema = z.object({
 export const manifestSchema = z.object({
     id: z.number().optional(),
     members_count: z.coerce.number().nullable().optional(),
-    package_id: z.coerce.number().nullable().optional(),
-    in_charge_official_id: z.coerce.number().nullable().optional(),
+    package_id: z.number().nullable().optional(),
+    in_charge_official_id: z.number().nullable().optional(),
     manifest_number: z.string().optional(),
     notes: z.string().optional(),
     status: z.string().optional(),
@@ -216,7 +216,7 @@ export const hotelDetailsSchema = z.object({
 
 export const manifestInformationSchema = z.object({
     id: z.number().optional(),
-    package_id: z.coerce.number().nullable().optional(),
+    package_id: z.number().nullable().optional(),
     manifest_number: z.string().optional(),
     status: z.string().optional(),
     departure_date: z.string().optional(),

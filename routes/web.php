@@ -199,7 +199,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('packages-get-for-show/{id}', [PackageController::class, 'getForShow'])->name('packages.get-for-show');
 
     // Manifests
-    Route::resource('manifests', ManifestController::class);
+    Route::resource('manifests', ManifestController::class)->except(['create', 'update']);
     Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
     Route::match(['get', 'post'], 'manifests/{id}/collection-items-pdf', [ManifestController::class, 'exportCollectionItemsPdf'])->name('manifests.collection-items-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/arabic-names-pdf', [ManifestController::class, 'exportArabicNamesPdf'])->name('manifests.arabic-names-pdf');

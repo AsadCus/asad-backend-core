@@ -15,6 +15,7 @@ use App\Models\PackageOfficial;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -94,12 +95,17 @@ class ManifestService
     public function store(array $data): Manifest
     {
         return DB::transaction(function () use ($data) {
-            $manifest = Manifest::create([
+            $manifestAttributes = [
                 'package_id' => $data['package_id'],
-                'in_charge_official_id' => $data['in_charge_official_id'] ?? null,
                 'manifest_number' => NumberGenerator::generate('manifest'),
                 'notes' => $data['notes'] ?? null,
-            ]);
+            ];
+
+            if (Schema::hasColumn('manifests', 'in_charge_official_id')) {
+                $manifestAttributes['in_charge_official_id'] = $data['in_charge_official_id'] ?? null;
+            }
+
+            $manifest = Manifest::create($manifestAttributes);
 
             $this->syncPackageStatus($manifest, $data['status'] ?? null);
 
@@ -378,11 +384,16 @@ class ManifestService
         return DB::transaction(function () use ($data, $id) {
             $manifest = Manifest::findOrFail($id);
 
-            $manifest->update([
+            $manifestAttributes = [
                 'package_id' => $data['package_id'] ?? $manifest->package_id,
-                'in_charge_official_id' => $data['in_charge_official_id'] ?? null,
                 'notes' => $data['notes'] ?? $manifest->notes,
-            ]);
+            ];
+
+            if (Schema::hasColumn('manifests', 'in_charge_official_id')) {
+                $manifestAttributes['in_charge_official_id'] = $data['in_charge_official_id'] ?? null;
+            }
+
+            $manifest->update($manifestAttributes);
 
             $this->syncPackageStatus($manifest, $data['status'] ?? null);
 

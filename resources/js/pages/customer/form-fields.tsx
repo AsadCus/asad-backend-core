@@ -16,6 +16,7 @@ interface CustomerFormFieldsProps {
     index?: number;
     fieldPrefix?: string;
     useGeneratedDocumentName?: boolean;
+    confirmationNumber?: string | null;
     isView: boolean;
     processing: boolean;
     getError: (path: string) => string | undefined;
@@ -51,6 +52,7 @@ export default function CustomerFormFields({
     index,
     fieldPrefix,
     useGeneratedDocumentName = false,
+    confirmationNumber = null,
     isView,
     processing,
     getError,
@@ -67,20 +69,15 @@ export default function CustomerFormFields({
         ? parseDisplayDate(customer.passport_issue_date)
         : null;
 
-    const sanitizeSegment = (value: string): string => {
-        return value
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '')
-            .replace(/_+/g, '_');
-    };
+    const buildGeneratedFileName = (): string => {
+        const safeName = (customer.name ?? '').trim() || 'Customer';
+        const safeConfirmationNumber = (confirmationNumber ?? '').trim();
 
-    const buildGeneratedFileName = (field: 'passport' | 'photo'): string => {
-        const memberNameSegment =
-            sanitizeSegment(customer.name ?? '') || 'member';
+        if (safeConfirmationNumber === '') {
+            return `Customer ${safeName}`;
+        }
 
-        return `customer_${memberNameSegment}_${field}`;
+        return `Customer ${safeName} - ${safeConfirmationNumber}`;
     };
 
     return (
@@ -514,13 +511,9 @@ export default function CustomerFormFields({
                                 onUpdateCustomer(doc.removedKey, false);
 
                                 if (useGeneratedDocumentName) {
-                                    const fieldName =
-                                        doc.fileKey === 'passport_file'
-                                            ? 'passport'
-                                            : 'photo';
                                     onUpdateCustomer(
                                         doc.nameKey,
-                                        buildGeneratedFileName(fieldName),
+                                        buildGeneratedFileName(),
                                     );
                                 } else if (!customer[doc.nameKey]) {
                                     onUpdateCustomer(doc.nameKey, file.name);

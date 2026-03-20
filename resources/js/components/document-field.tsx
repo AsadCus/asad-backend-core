@@ -45,6 +45,37 @@ function getFileNameWithoutExtension(fileName: string): string {
     return trimmed.slice(0, dotIndex);
 }
 
+function getPathExtension(path: string): string {
+    const cleanPath = path.split('?')[0] ?? '';
+    const fileName = cleanPath.split('/').pop() ?? '';
+    const dotIndex = fileName.lastIndexOf('.');
+
+    if (dotIndex <= 0 || dotIndex === fileName.length - 1) {
+        return '';
+    }
+
+    return fileName.slice(dotIndex + 1).toLowerCase();
+}
+
+function ensureFileNameHasExtension(
+    fileName: string,
+    extension: string,
+): string {
+    const trimmedName = fileName.trim();
+
+    if (trimmedName === '' || extension.trim() === '') {
+        return trimmedName;
+    }
+
+    const normalizedExtension = extension.replace(/^\./, '').toLowerCase();
+
+    if (trimmedName.toLowerCase().endsWith(`.${normalizedExtension}`)) {
+        return trimmedName;
+    }
+
+    return `${trimmedName}.${normalizedExtension}`;
+}
+
 function PdfPreviewCard({ pdfSrc, title }: PdfPreviewCardProps) {
     return (
         <a
@@ -131,18 +162,40 @@ export function DocumentField({
         ? fileValue.type === 'application/pdf' || /\.pdf$/i.test(fileValue.name)
         : existingPath?.match(/\.pdf(\?|$)/i) != null;
 
-    // Extract filename for display
-    const displayFilenameRaw = fileValue
-        ? fileValue.name
-        : fileNameValue?.trim()
-          ? fileNameValue
-          : existingFileName?.trim()
-            ? existingFileName
-            : existingPath
-              ? decodeURIComponent(existingPath.split('/').pop() || '')
+    const existingPathFileName = existingPath
+        ? decodeURIComponent(existingPath.split('/').pop() || '')
+        : '';
+
+    const sourceFileNameForExtension =
+        fileValue?.name || existingPathFileName || existingFileName || '';
+    const fileExtension = getPathExtension(sourceFileNameForExtension);
+
+    const preferredBaseName = fileNameValue?.trim()
+        ? fileNameValue.trim()
+        : existingFileName?.trim()
+          ? existingFileName.trim()
+          : fileValue?.name
+            ? getFileNameWithoutExtension(fileValue.name)
+            : existingPathFileName
+              ? getFileNameWithoutExtension(existingPathFileName)
               : '';
 
-    const displayFilename = getFileNameWithoutExtension(displayFilenameRaw);
+    const displayFilename = ensureFileNameHasExtension(
+        preferredBaseName,
+        fileExtension,
+    );
+
+    const downloadExtension = fileValue?.name
+        ? getPathExtension(fileValue.name)
+        : previewSrc
+          ? getPathExtension(previewSrc)
+          : '';
+
+    const downloadBaseName = preferredBaseName;
+    const downloadFilename = ensureFileNameHasExtension(
+        downloadBaseName,
+        downloadExtension,
+    );
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -356,13 +409,27 @@ export function DocumentField({
 
                         {displayFilename && (
                             <span
-                                className="max-w-full truncate text-sm text-muted-foreground"
+                                className="max-w-full text-center text-sm text-muted-foreground"
                                 title={displayFilename}
                                 onClick={(e) => e.stopPropagation()}
                                 {...{ [PREVENT_UPLOAD_CLICK_ATTR]: 'true' }}
                             >
-                                {displayFilename}
+                                <span className="truncate">
+                                    {displayFilename}
+                                </span>
                             </span>
+                        )}
+
+                        {previewSrc && (
+                            <a
+                                href={previewSrc}
+                                download={downloadFilename || undefined}
+                                className="text-xs text-blue-600 underline dark:text-blue-400"
+                                onClick={(e) => e.stopPropagation()}
+                                {...{ [PREVENT_UPLOAD_CLICK_ATTR]: 'true' }}
+                            >
+                                Download
+                            </a>
                         )}
 
                         {useFileNameInput && !isView && (

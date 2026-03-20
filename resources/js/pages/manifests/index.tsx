@@ -5,7 +5,7 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
-import { create, destroy, edit, index, show } from '@/routes/manifests';
+import { destroy, edit, index, show } from '@/routes/manifests';
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -118,13 +118,8 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             columns={columns}
                             data={manifestsForDatatable}
                             actions={actions}
-                            addButtonText="Create New Manifest"
                             url={index().url}
                             onAction={(action, row) => {
-                                if (action === 'add') {
-                                    router.get(create().url);
-                                }
-
                                 const manifestId = row?.original.id;
 
                                 if (manifestId !== undefined) {

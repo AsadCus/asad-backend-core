@@ -313,7 +313,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $travelerId = (int) ManifestMember::query()
@@ -364,7 +364,7 @@ class ManifestWorkflowTest extends TestCase
             'travelers' => [],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $package->refresh();
@@ -467,7 +467,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
@@ -614,6 +614,158 @@ class ManifestWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_update_persists_multi_location_room_edits_and_non_receipt_document_tabs(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-ROOM-DOC-EDIT-001',
+            'name' => 'Manifest Edit Room + Docs',
+            'status' => 'open',
+        ]);
+
+        $memberOne = $this->createMemberForPackage($package->id, 'Traveler Room One', $actingUser->id);
+        $memberTwo = $this->createMemberForPackage($package->id, 'Traveler Room Two', $actingUser->id);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-ROOM-DOC-EDIT-001',
+            'status' => 'draft',
+        ]);
+
+        $payload = [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $memberOne->id,
+                    'name_as_per_passport' => 'Traveler Room One',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'group-makkah-1',
+                ],
+                [
+                    'customer_confirmation_member_id' => $memberTwo->id,
+                    'name_as_per_passport' => 'Traveler Room Two',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'group-madinah-1',
+                ],
+            ],
+            'roomLists' => [
+                'makkah' => [
+                    [
+                        'customer_confirmation_member_id' => $memberOne->id,
+                        'name_as_per_passport' => 'Traveler Room One',
+                        'sharing_group_key' => 'group-makkah-1',
+                        'room_relationship' => 'Family',
+                        'room_label' => 'Makkah Room A',
+                        'room_no' => 'MK-901',
+                        'room_type' => 'double',
+                        'bed_type' => 'king',
+                        'sharing_plan' => 'double',
+                        'meal' => 'Breakfast Only',
+                    ],
+                ],
+                'madinah' => [
+                    [
+                        'customer_confirmation_member_id' => $memberTwo->id,
+                        'name_as_per_passport' => 'Traveler Room Two',
+                        'sharing_group_key' => 'group-madinah-1',
+                        'room_relationship' => 'Friends',
+                        'room_label' => 'Madinah Room B',
+                        'room_no' => 'MD-902',
+                        'room_type' => 'triple',
+                        'bed_type' => 'single',
+                        'sharing_plan' => 'triple',
+                        'meal' => 'Full Board',
+                    ],
+                ],
+            ],
+            'documents' => [
+                'flight_tickets' => [
+                    [
+                        'file' => UploadedFile::fake()->create('flight-update.pdf', 120, 'application/pdf'),
+                        'file_name' => 'Flight Update.pdf',
+                    ],
+                ],
+                'visa' => [
+                    [
+                        'file' => UploadedFile::fake()->create('visa-update.pdf', 120, 'application/pdf'),
+                        'file_name' => 'Visa Update.pdf',
+                    ],
+                ],
+                'hotel' => [
+                    [
+                        'file' => UploadedFile::fake()->create('hotel-update.pdf', 120, 'application/pdf'),
+                        'file_name' => 'Hotel Update.pdf',
+                    ],
+                ],
+                'passport' => [
+                    [
+                        'file' => UploadedFile::fake()->create('passport-update.pdf', 120, 'application/pdf'),
+                        'file_name' => 'Passport Update.pdf',
+                    ],
+                ],
+                'photo' => [
+                    [
+                        'file' => UploadedFile::fake()->create('photo-update.jpg', 120, 'image/jpeg'),
+                        'file_name' => 'Photo Update.jpg',
+                    ],
+                ],
+            ],
+        ];
+
+        $this->post(route('manifests.store'), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $manifest->refresh();
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'location' => 'makkah',
+            'relationship' => 'Family',
+            'room_label' => 'Makkah Room A',
+            'room_number' => 'MK-901',
+            'room_type' => 'double',
+            'bed_type' => 'king',
+            'sharing_plan' => 'double',
+            'meal' => 'Breakfast Only',
+        ]);
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'location' => 'madinah',
+            'relationship' => 'Friends',
+            'room_label' => 'Madinah Room B',
+            'room_number' => 'MD-902',
+            'room_type' => 'triple',
+            'bed_type' => 'single',
+            'sharing_plan' => 'triple',
+            'meal' => 'Full Board',
+        ]);
+
+        foreach (['flight_tickets', 'visa', 'hotel', 'passport', 'photo'] as $field) {
+            $this->assertDatabaseHas('model_files', [
+                'fileable_type' => Manifest::class,
+                'fileable_id' => $manifest->id,
+                'field' => $field,
+            ]);
+        }
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $this->assertNotEmpty($rehydrated['roomLists']['makkah'] ?? []);
+        $this->assertNotEmpty($rehydrated['roomLists']['madinah'] ?? []);
+        $this->assertNotEmpty($rehydrated['documents']['flight_tickets'] ?? []);
+        $this->assertNotEmpty($rehydrated['documents']['visa'] ?? []);
+        $this->assertNotEmpty($rehydrated['documents']['hotel'] ?? []);
+        $this->assertNotEmpty($rehydrated['documents']['passport'] ?? []);
+        $this->assertNotEmpty($rehydrated['documents']['photo'] ?? []);
+    }
+
     public function test_store_rejects_customer_confirmation_member_from_different_package(): void
     {
         $actingUser = User::factory()->create();
@@ -741,7 +893,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
@@ -882,7 +1034,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $this->assertDatabaseHas('manifest_rooms', [
@@ -989,7 +1141,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
@@ -1063,7 +1215,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $member->refresh();
@@ -1133,7 +1285,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $member->refresh();
@@ -1261,7 +1413,7 @@ class ManifestWorkflowTest extends TestCase
             'room_type' => 'double',
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
@@ -1692,7 +1844,7 @@ class ManifestWorkflowTest extends TestCase
             ],
         ];
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
@@ -1738,7 +1890,8 @@ class ManifestWorkflowTest extends TestCase
 
         $member = $this->createMemberForPackage($package->id, 'Collection Pdf Member', $actingUser->id);
 
-        $this->put(route('manifests.update', $manifest->id), [
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
             'package_id' => $package->id,
             'status' => 'draft',
             'travelers' => [
@@ -1785,7 +1938,8 @@ class ManifestWorkflowTest extends TestCase
 
         $member = $this->createMemberForPackage($package->id, 'Arabic Pdf Member', $actingUser->id);
 
-        $this->put(route('manifests.update', $manifest->id), [
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
             'package_id' => $package->id,
             'in_charge_official_id' => $official->id,
             'status' => 'draft',
@@ -1833,7 +1987,8 @@ class ManifestWorkflowTest extends TestCase
 
         $member = $this->createMemberForPackage($package->id, 'Room Check Member', $actingUser->id);
 
-        $this->put(route('manifests.update', $manifest->id), [
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
             'package_id' => $package->id,
             'status' => 'draft',
             'travelers' => [

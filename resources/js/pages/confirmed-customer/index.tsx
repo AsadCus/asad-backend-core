@@ -371,6 +371,8 @@ export default function ConfirmedCustomerIndex({
     );
     const [memberDialogData, setMemberDialogData] =
         useState<CustomerMemberFormData | null>(null);
+    const [memberDialogConfirmationNumber, setMemberDialogConfirmationNumber] =
+        useState<string | null>(null);
     const [memberDialogMemberId, setMemberDialogMemberId] = useState<
         number | null
     >(null);
@@ -588,6 +590,7 @@ export default function ConfirmedCustomerIndex({
             }
 
             setMemberDialogMemberId(memberId);
+            setMemberDialogConfirmationNumber(data.number ?? null);
             setMemberDialogData({
                 ...emptyMember(false),
                 ...selectedMember,
@@ -1279,6 +1282,9 @@ export default function ConfirmedCustomerIndex({
                                         <CustomerFormFields
                                             customer={memberDialogData}
                                             useGeneratedDocumentName
+                                            confirmationNumber={
+                                                memberDialogConfirmationNumber
+                                            }
                                             isView={isMemberView}
                                             processing={isSavingMember}
                                             getError={(path) =>

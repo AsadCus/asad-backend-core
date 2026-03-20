@@ -335,7 +335,7 @@ class PackageOfficialManifestSyncTest extends TestCase
             }, $rows);
         }
 
-        $this->put(route('manifests.update', $manifest->id), $payload)
+        $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
