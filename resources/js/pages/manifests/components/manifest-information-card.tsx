@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import { ProperInput } from '@/components/proper-input';
 import {
     Card,
     CardContent,
@@ -14,7 +15,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { type ManifestFormData, type PackageForManifestOption } from '../types';
 
 const STATUS_OPTIONS = ['open', 'closed'];
@@ -174,13 +174,13 @@ export default function ManifestInformationCard({
                             hint: 'Enter any additional information or remarks about the manifest',
                         }}
                     >
-                        <Textarea
+                        <ProperInput
                             id="notes"
                             value={data.notes ?? ''}
-                            onChange={(event) =>
-                                setData('notes', event.target.value)
-                            }
                             disabled={isView}
+                            textarea
+                            onCommit={(v) => setData('notes', v)}
+                            placeholder="Enter any additional information or remarks about the manifest"
                         />
                     </FormField>
                 </div>

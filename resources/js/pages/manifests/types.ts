@@ -75,12 +75,19 @@ export interface PackageFlightOption {
     arrival_datetime?: string;
 }
 
+export interface PackageOfficialOption {
+    id: number;
+    name?: string;
+    contact_number?: string;
+}
+
 export interface PackageForManifestOption extends ValueNumberOptionType {
     status?: 'open' | 'closed' | string;
     departure_date?: string;
     return_date?: string;
     accommodations?: PackageAccommodationOption[];
     flights?: PackageFlightOption[];
+    officials?: PackageOfficialOption[];
 }
 
 export interface ManifestFormData
@@ -91,6 +98,8 @@ export interface ManifestFormData
     travelers?: TravelerSchema[];
     roomLists?: Record<string, TravelerSchema[]>;
     airlineList?: TravelerSchema[];
+    documents?: ManifestDocumentsByField;
+    in_charge_official_id?: number | null;
 }
 
 export interface ManifestFormProps {
@@ -130,4 +139,26 @@ export type TravelerWithUI = TravelerSchema & {
     role?: string | null;
     relationship?: string | null;
     sharing_plan?: string | null;
+    arabic_name?: string | null;
+    receipt_documents?: ManifestDocumentItem[];
 };
+
+export type ManifestDocumentFieldKey =
+    | 'flight_tickets'
+    | 'visa'
+    | 'hotel'
+    | 'passport'
+    | 'photo';
+
+export interface ManifestDocumentItem {
+    id?: number;
+    file?: File | null;
+    file_name?: string | null;
+    file_path?: string | null;
+    removed?: boolean;
+}
+
+export type ManifestDocumentsByField = Record<
+    ManifestDocumentFieldKey,
+    ManifestDocumentItem[]
+>;

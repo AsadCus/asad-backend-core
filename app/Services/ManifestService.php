@@ -6,12 +6,16 @@ use App\Helpers\NumberGenerator;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
+use App\Models\ManifestMember;
 use App\Models\ManifestPayment;
 use App\Models\ManifestRoom;
 use App\Models\ManifestSharingGroup;
+use App\Models\ModelFile;
 use App\Models\PackageOfficial;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ManifestService
@@ -92,6 +96,7 @@ class ManifestService
         return DB::transaction(function () use ($data) {
             $manifest = Manifest::create([
                 'package_id' => $data['package_id'],
+                'in_charge_official_id' => $data['in_charge_official_id'] ?? null,
                 'manifest_number' => NumberGenerator::generate('manifest'),
                 'notes' => $data['notes'] ?? null,
             ]);
@@ -99,6 +104,8 @@ class ManifestService
             $this->syncPackageStatus($manifest, $data['status'] ?? null);
 
             $this->syncTravelers($manifest, $data['travelers'] ?? []);
+            $this->syncManifestDocuments($manifest, $data['documents'] ?? []);
+            $this->syncTravelerReceiptDocuments($manifest, $data['travelers'] ?? []);
             $this->syncRooms($manifest, $data['rooms'] ?? []);
             $this->syncPayments($manifest, $data['payments'] ?? []);
 
@@ -116,9 +123,12 @@ class ManifestService
         $manifest = Manifest::with([
             'package.accommodations',
             'package.flights',
+            'package.officials',
+            'inChargeOfficial',
             'travelers.sharingGroup',
             'travelers.packageOfficial',
             'travelers.collectionItem',
+            'travelers.files',
             'travelers.confirmationMember.confirmation.enquiry',
             'travelers.confirmationMember.customer.user',
             'travelers.confirmationMember.receiptAllocations.receipt',
@@ -128,6 +138,7 @@ class ManifestService
             'travelers.confirmationMember.quotationItems.invoices.receipt',
             'rooms.roomMembers.traveler',
             'payments.traveler',
+            'files',
             'manifestSharingGroups.customerConfirmation',
             'manifestSharingGroups.members.confirmationMember.confirmation.enquiry',
             'manifestSharingGroups.members.confirmationMember.customer.user',
@@ -186,6 +197,7 @@ class ManifestService
                     'is_official' => $traveler->package_official_id !== null,
                     'customer_name' => $traveler->name ?? $packageOfficial?->name ?? $user?->name,
                     'name_as_per_passport' => $traveler->name ?? $packageOfficial?->name ?? $user?->name,
+                    'arabic_name' => $traveler->arabic_name,
                     'contact_no' => $traveler->contact_number ?? $packageOfficial?->contact_number ?? $user?->contact,
                     'role' => $traveler->role ?? $member?->role,
                     'relationship' => $traveler->sharingGroup?->relation,
@@ -234,10 +246,21 @@ class ManifestService
                     'passport_path' => $traveler->passport_path ?? $customer?->passport_path,
                     'photo_path' => $traveler->photo_path ?? $customer?->photo_path,
                     'remarks' => $traveler->remarks,
+                    'receipt_documents' => $traveler->files
+                        ->where('field', 'receipt')
+                        ->map(fn (ModelFile $file) => [
+                            'id' => $file->id,
+                            'file_name' => $file->file_name,
+                            'file_path' => $file->file_path,
+                        ])
+                        ->values()
+                        ->toArray(),
                     'status' => $member?->status ?? 'draft',
                 ];
             })
             ->toArray();
+
+        $documents = $this->buildManifestDocumentPayload($manifest);
 
         $roomLists = $this->buildRoomListsFromRooms($manifest, $travelers);
 
@@ -254,6 +277,9 @@ class ManifestService
         return [
             'id' => $manifest->id,
             'package_id' => $manifest->package_id,
+            'in_charge_official_id' => $manifest->in_charge_official_id,
+            'in_charge_official_name' => $manifest->inChargeOfficial?->name,
+            'in_charge_official_contact_number' => $manifest->inChargeOfficial?->contact_number,
             'package_number' => $manifest->package?->package_number,
             'package_name' => $manifest->package?->name,
             'manifest_number' => $manifest->manifest_number,
@@ -274,6 +300,7 @@ class ManifestService
             'travelers' => $travelers,
             'roomLists' => $roomLists,
             'airlineList' => $airlineList,
+            'documents' => $documents,
             'rooms' => $manifest->rooms->map(function ($r) {
                 return [
                     'id' => $r->id,
@@ -353,6 +380,7 @@ class ManifestService
 
             $manifest->update([
                 'package_id' => $data['package_id'] ?? $manifest->package_id,
+                'in_charge_official_id' => $data['in_charge_official_id'] ?? null,
                 'notes' => $data['notes'] ?? $manifest->notes,
             ]);
 
@@ -360,6 +388,11 @@ class ManifestService
 
             if (isset($data['travelers'])) {
                 $this->syncTravelers($manifest, $data['travelers']);
+                $this->syncTravelerReceiptDocuments($manifest, $data['travelers']);
+            }
+
+            if (isset($data['documents'])) {
+                $this->syncManifestDocuments($manifest, $data['documents']);
             }
 
             if (isset($data['rooms'])) {
@@ -705,6 +738,16 @@ class ManifestService
      */
     private function syncTravelers(Manifest $manifest, array $travelers): void
     {
+        $previousTravelerIds = $manifest->travelers()->pluck('id');
+
+        if ($previousTravelerIds->isNotEmpty()) {
+            ModelFile::query()
+                ->where('fileable_type', ManifestMember::class)
+                ->whereIn('fileable_id', $previousTravelerIds->all())
+                ->where('field', 'receipt')
+                ->delete();
+        }
+
         $manifest->manifestSharingGroups()->delete();
         $manifest->travelers()->delete();
 
@@ -1396,6 +1439,7 @@ class ManifestService
             'role' => $traveler['role'] ?? $member?->role,
             'sharing_plan' => $traveler['sharing_plan'] ?? $member?->sharing_plan,
             'name' => $traveler['name_as_per_passport'] ?? $traveler['customer_name'] ?? $packageOfficial?->name ?? $user?->name,
+            'arabic_name' => $traveler['arabic_name'] ?? null,
             'contact_number' => $traveler['contact_no'] ?? $packageOfficial?->contact_number ?? $user?->contact,
             'nationality' => $traveler['nationality'] ?? $packageOfficial?->nationality ?? $customer?->nationality,
             'passport_number' => $traveler['passport_number'] ?? $packageOfficial?->passport_number ?? $customer?->passport_number,
@@ -1661,6 +1705,214 @@ class ManifestService
             'second_payment' => $secondPayment,
             'balance_due' => $balanceDue,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $documents
+     */
+    private function syncManifestDocuments(Manifest $manifest, array $documents): void
+    {
+        $allowedFields = ['flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
+        $existingFiles = $manifest->files()->get()->groupBy('field');
+        $rowsToPersist = [];
+
+        foreach ($allowedFields as $field) {
+            $entries = $documents[$field] ?? [];
+
+            if (! is_array($entries)) {
+                continue;
+            }
+
+            foreach ($entries as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
+                $isRemoved = (bool) ($entry['removed'] ?? false);
+                if ($isRemoved) {
+                    continue;
+                }
+
+                $uploadedPath = $this->storeDocumentFile($entry['file'] ?? null, $field);
+                $requestedName = $this->normalizeNullableString($entry['file_name'] ?? null);
+                $defaultFileName = $this->buildDefaultDocumentName($entry['file'] ?? null, $field);
+                $existingPath = $this->normalizeNullableString($entry['file_path'] ?? null);
+                $filePath = $uploadedPath ?? $existingPath;
+
+                if (! $filePath) {
+                    continue;
+                }
+
+                $rowsToPersist[] = [
+                    'field' => $field,
+                    'file_name' => $requestedName ?? $defaultFileName ?? pathinfo(basename($filePath), PATHINFO_FILENAME),
+                    'file_path' => $filePath,
+                ];
+            }
+        }
+
+        $preservedPaths = collect($rowsToPersist)
+            ->pluck('file_path')
+            ->filter(fn ($path) => is_string($path) && $path !== '')
+            ->all();
+
+        foreach ($existingFiles->flatten() as $existingFile) {
+            if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
+                Storage::disk('public')->delete($existingFile->file_path);
+            }
+        }
+
+        $manifest->files()->delete();
+
+        foreach ($rowsToPersist as $row) {
+            $manifest->files()->create($row);
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $travelers
+     */
+    private function syncTravelerReceiptDocuments(Manifest $manifest, array $travelers): void
+    {
+        if ($travelers === []) {
+            return;
+        }
+
+        $manifestTravelersByConfirmationMember = $manifest->travelers()
+            ->whereNotNull('customer_confirmation_member_id')
+            ->get()
+            ->keyBy('customer_confirmation_member_id');
+
+        foreach ($travelers as $travelerPayload) {
+            if (! is_array($travelerPayload)) {
+                continue;
+            }
+
+            $confirmationMemberId = isset($travelerPayload['customer_confirmation_member_id'])
+                ? (int) $travelerPayload['customer_confirmation_member_id']
+                : 0;
+
+            if ($confirmationMemberId <= 0) {
+                continue;
+            }
+
+            /** @var ManifestMember|null $manifestTraveler */
+            $manifestTraveler = $manifestTravelersByConfirmationMember->get($confirmationMemberId);
+
+            if (! $manifestTraveler) {
+                continue;
+            }
+
+            $receiptDocuments = $travelerPayload['receipt_documents'] ?? [];
+
+            if (! is_array($receiptDocuments)) {
+                continue;
+            }
+
+            $rowsToPersist = [];
+
+            foreach ($receiptDocuments as $receiptDocument) {
+                if (! is_array($receiptDocument)) {
+                    continue;
+                }
+
+                $isRemoved = (bool) ($receiptDocument['removed'] ?? false);
+                if ($isRemoved) {
+                    continue;
+                }
+
+                $uploadedPath = $this->storeDocumentFile($receiptDocument['file'] ?? null, 'receipt');
+                $requestedName = $this->normalizeNullableString($receiptDocument['file_name'] ?? null);
+                $defaultFileName = $this->buildDefaultDocumentName($receiptDocument['file'] ?? null, 'receipt');
+                $existingPath = $this->normalizeNullableString($receiptDocument['file_path'] ?? null);
+                $filePath = $uploadedPath ?? $existingPath;
+
+                if (! $filePath) {
+                    continue;
+                }
+
+                $rowsToPersist[] = [
+                    'field' => 'receipt',
+                    'file_name' => $requestedName ?? $defaultFileName ?? pathinfo(basename($filePath), PATHINFO_FILENAME),
+                    'file_path' => $filePath,
+                ];
+            }
+
+            $existingReceiptFiles = $manifestTraveler->files()->where('field', 'receipt')->get();
+            $preservedPaths = collect($rowsToPersist)
+                ->pluck('file_path')
+                ->filter(fn ($path) => is_string($path) && $path !== '')
+                ->all();
+
+            foreach ($existingReceiptFiles as $existingReceiptFile) {
+                if (! in_array($existingReceiptFile->file_path, $preservedPaths, true) && $existingReceiptFile->file_path) {
+                    Storage::disk('public')->delete($existingReceiptFile->file_path);
+                }
+            }
+
+            $manifestTraveler->files()->where('field', 'receipt')->delete();
+
+            foreach ($rowsToPersist as $row) {
+                $manifestTraveler->files()->create($row);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function buildManifestDocumentPayload(Manifest $manifest): array
+    {
+        $allowedFields = ['flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
+        $grouped = $manifest->files->groupBy('field');
+        $documents = [];
+
+        foreach ($allowedFields as $field) {
+            $documents[$field] = ($grouped->get($field) ?? collect())
+                ->map(function (ModelFile $file): array {
+                    return [
+                        'id' => $file->id,
+                        'file_name' => $file->file_name,
+                        'file_path' => $file->file_path,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
+        return $documents;
+    }
+
+    private function storeDocumentFile(mixed $file, string $field): ?string
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        return $file->store("manifests/{$field}", 'public');
+    }
+
+    private function buildDefaultDocumentName(mixed $file, string $field): ?string
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $normalized = $this->normalizeNullableString($originalName);
+
+        return $normalized ?? $field;
+    }
+
+    private function normalizeNullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     private function normalizePackageStatus(mixed $status): string

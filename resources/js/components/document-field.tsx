@@ -29,6 +29,22 @@ interface PdfPreviewCardProps {
 
 const PREVENT_UPLOAD_CLICK_ATTR = 'data-prevent-upload-click';
 
+function getFileNameWithoutExtension(fileName: string): string {
+    const trimmed = fileName.trim();
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    const dotIndex = trimmed.lastIndexOf('.');
+
+    if (dotIndex <= 0) {
+        return trimmed;
+    }
+
+    return trimmed.slice(0, dotIndex);
+}
+
 function PdfPreviewCard({ pdfSrc, title }: PdfPreviewCardProps) {
     return (
         <a
@@ -89,6 +105,19 @@ export function DocumentField({
         };
     }, []);
 
+    useEffect(() => {
+        if (!(fileValue instanceof File)) {
+            setNewFilePreview(null);
+
+            return;
+        }
+
+        revokeObjectUrl();
+        const objectUrl = URL.createObjectURL(fileValue);
+        objectUrlRef.current = objectUrl;
+        setNewFilePreview(objectUrl);
+    }, [fileValue]);
+
     // Use preview for new file, or existing path for uploaded files.
     const previewSrc =
         newFilePreview || (existingPath ? `/storage/${existingPath}` : null);
@@ -103,7 +132,7 @@ export function DocumentField({
         : existingPath?.match(/\.pdf(\?|$)/i) != null;
 
     // Extract filename for display
-    const displayFilename = fileValue
+    const displayFilenameRaw = fileValue
         ? fileValue.name
         : fileNameValue?.trim()
           ? fileNameValue
@@ -112,6 +141,8 @@ export function DocumentField({
             : existingPath
               ? decodeURIComponent(existingPath.split('/').pop() || '')
               : '';
+
+    const displayFilename = getFileNameWithoutExtension(displayFilenameRaw);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -342,7 +373,9 @@ export function DocumentField({
                                 {...{ [PREVENT_UPLOAD_CLICK_ATTR]: 'true' }}
                             >
                                 <ProperInput
-                                    value={fileNameValue ?? ''}
+                                    value={getFileNameWithoutExtension(
+                                        fileNameValue ?? '',
+                                    )}
                                     onCommit={(value) =>
                                         onFileNameChange?.(
                                             value.trim() === ''

@@ -6,11 +6,13 @@ use App\Helpers\NumberGenerator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Manifest extends Model
 {
     protected $fillable = [
         'package_id',
+        'in_charge_official_id',
         'manifest_number',
         'notes',
     ];
@@ -18,6 +20,11 @@ class Manifest extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class);
+    }
+
+    public function inChargeOfficial(): BelongsTo
+    {
+        return $this->belongsTo(PackageOfficial::class, 'in_charge_official_id');
     }
 
     public function travelers(): HasMany
@@ -38,6 +45,11 @@ class Manifest extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(ManifestPayment::class);
+    }
+
+    public function files(): MorphMany
+    {
+        return $this->morphMany(ModelFile::class, 'fileable');
     }
 
     public function manifestSharingGroups(): HasMany

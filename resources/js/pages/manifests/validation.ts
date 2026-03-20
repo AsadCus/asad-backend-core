@@ -21,12 +21,26 @@ export const manifestValidationSchema = manifestSchema.superRefine(
     (data, ctx) => {
         const travelers =
             (data.travelers as TravelerSchema[] | undefined) ?? [];
+        const packageId = Number(data.package_id ?? 0);
+        const inChargeOfficialId = Number(data.in_charge_official_id ?? 0);
 
         // package_id
-        if (!data.package_id || data.package_id < 1) {
+        if (!Number.isFinite(packageId) || packageId < 1) {
             ctx.addIssue({
                 path: ['package_id'],
                 message: 'Package is required.',
+                code: z.ZodIssueCode.custom,
+            });
+        }
+
+        if (
+            data.in_charge_official_id !== null &&
+            data.in_charge_official_id !== undefined &&
+            (!Number.isFinite(inChargeOfficialId) || inChargeOfficialId < 1)
+        ) {
+            ctx.addIssue({
+                path: ['in_charge_official_id'],
+                message: 'Official in charge is invalid.',
                 code: z.ZodIssueCode.custom,
             });
         }

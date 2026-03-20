@@ -8,6 +8,7 @@ use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
+use App\Models\ModelFile;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\PackageAccommodation;
@@ -20,11 +21,129 @@ use App\Models\User;
 use App\Services\ManifestService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ManifestWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_store_persists_manifest_documents_arabic_names_and_receipt_documents(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $customerUser = User::factory()->create([
+            'name' => 'Yusuf Adam',
+            'contact' => '0191111111',
+        ]);
+
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-DOC-001',
+            'name' => 'Umrah Documents',
+            'status' => 'open',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'is_active' => true,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'draft',
+        ]);
+
+        $payload = [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Yusuf Adam',
+                    'arabic_name' => 'يوسف ادم',
+                    'receipt_documents' => [
+                        [
+                            'file' => UploadedFile::fake()->create('receipt-proof.pdf', 100, 'application/pdf'),
+                            'file_name' => 'Member Receipt Proof.pdf',
+                        ],
+                    ],
+                ],
+            ],
+            'documents' => [
+                'flight_tickets' => [
+                    [
+                        'file' => UploadedFile::fake()->create('flight-ticket.pdf', 120, 'application/pdf'),
+                        'file_name' => 'Flight Ticket.pdf',
+                    ],
+                ],
+                'visa' => [],
+                'hotel' => [],
+                'passport' => [],
+                'photo' => [],
+            ],
+        ];
+
+        $this->post(route('manifests.store'), $payload)
+            ->assertRedirect(route('manifests.index'));
+
+        $manifest = Manifest::query()->firstOrFail();
+        $traveler = ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->firstOrFail();
+
+        $this->assertSame('يوسف ادم', $traveler->arabic_name);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Manifest::class,
+            'fileable_id' => $manifest->id,
+            'field' => 'flight_tickets',
+            'file_name' => 'Flight Ticket.pdf',
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $traveler->id,
+            'field' => 'receipt',
+            'file_name' => 'Member Receipt Proof.pdf',
+        ]);
+
+        $storedManifestFilePath = ModelFile::query()
+            ->where('fileable_type', Manifest::class)
+            ->where('fileable_id', $manifest->id)
+            ->where('field', 'flight_tickets')
+            ->value('file_path');
+
+        $storedReceiptFilePath = ModelFile::query()
+            ->where('fileable_type', ManifestMember::class)
+            ->where('fileable_id', $traveler->id)
+            ->where('field', 'receipt')
+            ->value('file_path');
+
+        $this->assertNotNull($storedManifestFilePath);
+        $this->assertNotNull($storedReceiptFilePath);
+        Storage::disk('public')->assertExists((string) $storedManifestFilePath);
+        Storage::disk('public')->assertExists((string) $storedReceiptFilePath);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $this->assertNotEmpty($rehydrated['documents']['flight_tickets'] ?? []);
+        $this->assertSame('يوسف ادم', $rehydrated['travelers'][0]['arabic_name'] ?? null);
+        $this->assertNotEmpty($rehydrated['travelers'][0]['receipt_documents'] ?? []);
+    }
 
     public function test_store_accepts_grouped_manifest_payload_and_normalizes_values(): void
     {
@@ -1632,6 +1751,54 @@ class ManifestWorkflowTest extends TestCase
         ])->assertRedirect(route('manifests.index'));
 
         $response = $this->get(route('manifests.collection-items-pdf', $manifest->id));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_arabic_names_pdf_export_returns_pdf_response(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-ARABIC-PDF-001',
+            'name' => 'Arabic PDF Package',
+            'status' => 'open',
+            'departure_date' => '2026-05-01',
+            'return_date' => '2026-05-11',
+        ]);
+
+        $official = PackageOfficial::create([
+            'package_id' => $package->id,
+            'name' => 'Official One',
+            'contact_number' => '0191234567',
+            'sort_order' => 1,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'in_charge_official_id' => $official->id,
+            'manifest_number' => 'MAN-ARABIC-PDF-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Arabic Pdf Member', $actingUser->id);
+
+        $this->put(route('manifests.update', $manifest->id), [
+            'package_id' => $package->id,
+            'in_charge_official_id' => $official->id,
+            'status' => 'draft',
+            'travelers' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Arabic Pdf Member',
+                    'arabic_name' => 'عربي عضو',
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $response = $this->get(route('manifests.arabic-names-pdf', $manifest->id));
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
