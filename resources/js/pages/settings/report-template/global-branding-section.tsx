@@ -1,3 +1,4 @@
+import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -5,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import { SignatureStampLayoutSection } from './signature-stamp-layout-section';
-import type { FileUploadFieldProps, SignatureStampLayoutConfig } from './types';
+import type { SignatureStampLayoutConfig } from './types';
 
 interface GlobalBrandingSectionProps {
     data: {
@@ -14,28 +15,11 @@ interface GlobalBrandingSectionProps {
         company_phone: string;
         company_email: string;
         brand_color: string;
+        logo_file?: File | null;
+        stamp_file?: File | null;
+        signature_file?: File | null;
     };
     errors: Record<string, string | undefined>;
-    logoPreview: string | null;
-    stampPreview: string | null;
-    signaturePreview: string | null;
-    customStampPreview: string | null;
-    customSignaturePreview: string | null;
-    logoPreviewFileName: string | null;
-    stampPreviewFileName: string | null;
-    signaturePreviewFileName: string | null;
-    customStampPreviewFileName: string | null;
-    customSignaturePreviewFileName: string | null;
-    initialLogoPreview: string | null;
-    initialStampPreview: string | null;
-    initialSignaturePreview: string | null;
-    initialCustomStampPreview: string | null;
-    initialCustomSignaturePreview: string | null;
-    initialLogoPreviewFileName: string | null;
-    initialStampPreviewFileName: string | null;
-    initialSignaturePreviewFileName: string | null;
-    initialCustomStampPreviewFileName: string | null;
-    initialCustomSignaturePreviewFileName: string | null;
     initialLogoDatabasePath: string | null;
     initialStampDatabasePath: string | null;
     initialSignatureDatabasePath: string | null;
@@ -56,9 +40,8 @@ interface GlobalBrandingSectionProps {
             | 'signature_file'
             | 'custom_stamp_file'
             | 'custom_signature_file',
-        setPreview: (v: string | null) => void,
         setPreviewFileName: (v: string | null) => void,
-    ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+    ) => (file: File) => void;
     makeClearHandler: (
         field:
             | 'logo_file'
@@ -66,10 +49,7 @@ interface GlobalBrandingSectionProps {
             | 'signature_file'
             | 'custom_stamp_file'
             | 'custom_signature_file',
-        setPreview: (v: string | null) => void,
-        existingPreview: string | null,
         setPreviewFileName: (v: string | null) => void,
-        existingFileName: string | null,
         pathKey:
             | 'logo_path'
             | 'stamp_path'
@@ -78,42 +58,21 @@ interface GlobalBrandingSectionProps {
             | 'custom_signature_path',
         hasDatabaseFile: boolean,
     ) => () => void;
-    setLogoPreview: (v: string | null) => void;
-    setStampPreview: (v: string | null) => void;
-    setSignaturePreview: (v: string | null) => void;
-    setCustomStampPreview: (v: string | null) => void;
-    setCustomSignaturePreview: (v: string | null) => void;
     setLogoPreviewFileName: (v: string | null) => void;
     setStampPreviewFileName: (v: string | null) => void;
     setSignaturePreviewFileName: (v: string | null) => void;
     setCustomStampPreviewFileName: (v: string | null) => void;
     setCustomSignaturePreviewFileName: (v: string | null) => void;
-    FileUploadField: React.ComponentType<FileUploadFieldProps>;
 }
 
 export function GlobalBrandingSection({
     data,
     errors,
-    logoPreview,
-    stampPreview,
-    signaturePreview,
-    customStampPreview,
-    customSignaturePreview,
     logoPreviewFileName,
     stampPreviewFileName,
     signaturePreviewFileName,
     customStampPreviewFileName,
     customSignaturePreviewFileName,
-    initialLogoPreview,
-    initialStampPreview,
-    initialSignaturePreview,
-    initialCustomStampPreview,
-    initialCustomSignaturePreview,
-    initialLogoPreviewFileName,
-    initialStampPreviewFileName,
-    initialSignaturePreviewFileName,
-    initialCustomStampPreviewFileName,
-    initialCustomSignaturePreviewFileName,
     initialLogoDatabasePath,
     initialStampDatabasePath,
     initialSignatureDatabasePath,
@@ -127,17 +86,11 @@ export function GlobalBrandingSection({
     onDataChange,
     makeFileHandler,
     makeClearHandler,
-    setLogoPreview,
-    setStampPreview,
-    setSignaturePreview,
-    setCustomStampPreview,
-    setCustomSignaturePreview,
     setLogoPreviewFileName,
     setStampPreviewFileName,
     setSignaturePreviewFileName,
     setCustomStampPreviewFileName,
     setCustomSignaturePreviewFileName,
-    FileUploadField,
 }: GlobalBrandingSectionProps) {
     const [brandingOpen, setBrandingOpen] = useState(true);
 
@@ -264,48 +217,50 @@ export function GlobalBrandingSection({
                     <Separator className="my-1" />
 
                     <div className="space-y-7">
-                        <FileUploadField
-                            id="logo_file"
+                        <DocumentField
                             label="Company Logo"
                             hint="Displayed top-left on all PDFs"
-                            preview={logoPreview}
-                            previewFileName={logoPreviewFileName}
-                            previewAlt="Company Logo"
+                            accept="image/jpeg,image/png,image/jpg"
+                            fileValue={data.logo_file || undefined}
+                            existingPath={initialLogoDatabasePath || undefined}
+                            existingFileName={logoPreviewFileName || undefined}
+                            isView={false}
+                            disabled={false}
                             error={errors.logo_file}
-                            onChange={makeFileHandler('logo_file', setLogoPreview, setLogoPreviewFileName)}
-                            onClear={makeClearHandler('logo_file', setLogoPreview, initialLogoPreview, setLogoPreviewFileName, initialLogoPreviewFileName, 'logo_path', !!initialLogoDatabasePath)}
+                            onSelect={makeFileHandler('logo_file', setLogoPreviewFileName)}
+                            onClear={makeClearHandler('logo_file', setLogoPreviewFileName, 'logo_path', !!initialLogoDatabasePath)}
                         />
                         <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 [&>*]:min-w-0">
-                            <FileUploadField
-                                id="stamp_file"
+                            <DocumentField
                                 label="Company Stamp"
                                 hint="Enable per-module in the section below"
-                                preview={stampPreview}
-                                previewFileName={stampPreviewFileName}
-                                previewAlt="Company Stamp"
+                                accept="image/jpeg,image/png,image/jpg"
+                                fileValue={data.stamp_file || undefined}
+                                existingPath={initialStampDatabasePath || undefined}
+                                existingFileName={stampPreviewFileName || undefined}
+                                isView={false}
+                                disabled={false}
                                 error={errors.stamp_file}
-                                onChange={makeFileHandler('stamp_file', setStampPreview, setStampPreviewFileName)}
-                                onClear={makeClearHandler('stamp_file', setStampPreview, initialStampPreview, setStampPreviewFileName, initialStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
+                                onSelect={makeFileHandler('stamp_file', setStampPreviewFileName)}
+                                onClear={makeClearHandler('stamp_file', setStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
                             />
-                            <FileUploadField
-                                id="signature_file"
+                            <DocumentField
                                 label="Authorised Signature"
                                 hint="Enable per-module in the section below"
-                                preview={signaturePreview}
-                                previewFileName={signaturePreviewFileName}
-                                previewAlt="Authorised Signature"
+                                accept="image/jpeg,image/png,image/jpg"
+                                fileValue={data.signature_file || undefined}
+                                existingPath={initialSignatureDatabasePath || undefined}
+                                existingFileName={signaturePreviewFileName || undefined}
+                                isView={false}
+                                disabled={false}
                                 error={errors.signature_file}
-                                onChange={makeFileHandler(
+                                onSelect={makeFileHandler(
                                     'signature_file',
-                                    setSignaturePreview,
                                     setSignaturePreviewFileName,
                                 )}
                                 onClear={makeClearHandler(
                                     'signature_file',
-                                    setSignaturePreview,
-                                    initialSignaturePreview,
                                     setSignaturePreviewFileName,
-                                    initialSignaturePreviewFileName,
                                     'signature_path',
                                     !!initialSignatureDatabasePath,
                                 )}
@@ -321,23 +276,16 @@ export function GlobalBrandingSection({
                         customSignatureStampLayout={customSignatureStampLayout}
                         onCustomSignatureStampLayoutChange={onCustomSignatureStampLayoutChange}
                         onCustomSignatureDataChange={onCustomSignatureDataChange}
-                        customStampPreview={customStampPreview}
-                        customSignaturePreview={customSignaturePreview}
                         customStampPreviewFileName={customStampPreviewFileName}
                         customSignaturePreviewFileName={customSignaturePreviewFileName}
-                        initialCustomStampPreview={initialCustomStampPreview}
-                        initialCustomSignaturePreview={initialCustomSignaturePreview}
-                        initialCustomStampPreviewFileName={initialCustomStampPreviewFileName}
-                        initialCustomSignaturePreviewFileName={initialCustomSignaturePreviewFileName}
                         initialCustomStampDatabasePath={initialCustomStampDatabasePath}
                         initialCustomSignatureDatabasePath={initialCustomSignatureDatabasePath}
                         makeFileHandler={makeFileHandler}
                         makeClearHandler={makeClearHandler}
-                        setCustomStampPreview={setCustomStampPreview}
-                        setCustomSignaturePreview={setCustomSignaturePreview}
                         setCustomStampPreviewFileName={setCustomStampPreviewFileName}
                         setCustomSignaturePreviewFileName={setCustomSignaturePreviewFileName}
-                        FileUploadField={FileUploadField}
+                        data={data}
+                        errors={errors}
                     />
                 </div>
             )}

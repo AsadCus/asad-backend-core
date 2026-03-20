@@ -1,4 +1,4 @@
-import { DatePickerField } from '@/components/date-picker';
+import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useMemo, useRef, useState } from 'react';
+import { DatePickerField } from '@/components/date-picker';
 import type {
-    FileUploadFieldProps,
     SignatureStampLayoutConfig,
     SignatureStampPlacement,
     SignatureStampPlacementPreset,
@@ -27,14 +27,8 @@ interface SignatureStampLayoutSectionProps {
         value: SignatureStampLayoutConfig,
     ) => void;
     onCustomSignatureDataChange: (value: string | null) => void;
-    customStampPreview: string | null;
-    customSignaturePreview: string | null;
     customStampPreviewFileName: string | null;
     customSignaturePreviewFileName: string | null;
-    initialCustomStampPreview: string | null;
-    initialCustomSignaturePreview: string | null;
-    initialCustomStampPreviewFileName: string | null;
-    initialCustomSignaturePreviewFileName: string | null;
     initialCustomStampDatabasePath: string | null;
     initialCustomSignatureDatabasePath: string | null;
     makeFileHandler: (
@@ -44,9 +38,8 @@ interface SignatureStampLayoutSectionProps {
             | 'signature_file'
             | 'custom_stamp_file'
             | 'custom_signature_file',
-        setPreview: (v: string | null) => void,
         setPreviewFileName: (v: string | null) => void,
-    ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+    ) => (file: File) => void;
     makeClearHandler: (
         field:
             | 'logo_file'
@@ -54,10 +47,7 @@ interface SignatureStampLayoutSectionProps {
             | 'signature_file'
             | 'custom_stamp_file'
             | 'custom_signature_file',
-        setPreview: (v: string | null) => void,
-        existingPreview: string | null,
         setPreviewFileName: (v: string | null) => void,
-        existingFileName: string | null,
         pathKey:
             | 'logo_path'
             | 'stamp_path'
@@ -66,11 +56,15 @@ interface SignatureStampLayoutSectionProps {
             | 'custom_signature_path',
         hasDatabaseFile: boolean,
     ) => () => void;
-    setCustomStampPreview: (v: string | null) => void;
-    setCustomSignaturePreview: (v: string | null) => void;
     setCustomStampPreviewFileName: (v: string | null) => void;
     setCustomSignaturePreviewFileName: (v: string | null) => void;
-    FileUploadField: React.ComponentType<FileUploadFieldProps>;
+    data: {
+        custom_stamp_file?: File | null;
+        custom_signature_file?: File | null;
+        custom_signature_data?: string | null;
+        [key: string]: unknown;
+    };
+    errors: Record<string, string | undefined>;
 }
 
 const PRESET_LAYOUTS: Record<
@@ -143,26 +137,33 @@ export function SignatureStampLayoutSection({
     customSignatureStampLayout,
     onCustomSignatureStampLayoutChange,
     onCustomSignatureDataChange,
-    customStampPreview,
-    customSignaturePreview,
     customStampPreviewFileName,
     customSignaturePreviewFileName,
-    initialCustomStampPreview,
-    initialCustomSignaturePreview,
-    initialCustomStampPreviewFileName,
-    initialCustomSignaturePreviewFileName,
     initialCustomStampDatabasePath,
+    initialCustomSignatureDatabasePath,
     makeFileHandler,
     makeClearHandler,
-    setCustomStampPreview,
-    setCustomSignaturePreview,
     setCustomStampPreviewFileName,
     setCustomSignaturePreviewFileName,
-    FileUploadField,
+    data,
+    errors,
 }: SignatureStampLayoutSectionProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+    const customStampPreviewUrl = useMemo(() => {
+        if (data.custom_stamp_file) return URL.createObjectURL(data.custom_stamp_file);
+        if (initialCustomStampDatabasePath) return initialCustomStampDatabasePath;
+        return null;
+    }, [data.custom_stamp_file, initialCustomStampDatabasePath]);
+
+    const customSignaturePreviewUrl = useMemo(() => {
+        if (data.custom_signature_data) return data.custom_signature_data;
+        if (data.custom_signature_file) return URL.createObjectURL(data.custom_signature_file);
+        if (initialCustomSignatureDatabasePath) return initialCustomSignatureDatabasePath;
+        return null;
+    }, [data.custom_signature_data, data.custom_signature_file, initialCustomSignatureDatabasePath]);
 
     const normalizedPreview = useMemo(() => {
         const toCssValue = (value: number, unit: 'percent' | 'px') =>
@@ -211,9 +212,8 @@ export function SignatureStampLayoutSection({
             return;
         }
 
-        const data = canvas.toDataURL('image/png');
-        onCustomSignatureDataChange(data);
-        setCustomSignaturePreview(data);
+        const dataUrl = canvas.toDataURL('image/png');
+        onCustomSignatureDataChange(dataUrl);
         setCustomSignaturePreviewFileName('drawn-signature.png');
     };
 
@@ -317,8 +317,7 @@ export function SignatureStampLayoutSection({
 
         context.clearRect(0, 0, canvas.width, canvas.height);
         onCustomSignatureDataChange(null);
-        setCustomSignaturePreview(initialCustomSignaturePreview);
-        setCustomSignaturePreviewFileName(initialCustomSignaturePreviewFileName);
+        setCustomSignaturePreviewFileName(null);
     };
 
     return (
@@ -399,9 +398,9 @@ export function SignatureStampLayoutSection({
                                         className="absolute overflow-hidden"
                                         style={normalizedPreview.stamp}
                                     >
-                                        {customStampPreview ? (
+                                        {customStampPreviewUrl ? (
                                             <img
-                                                src={customStampPreview}
+                                                src={customStampPreviewUrl}
                                                 alt="Custom Stamp"
                                                 className="h-full w-full object-contain"
                                             />
@@ -429,9 +428,9 @@ export function SignatureStampLayoutSection({
                                         className="absolute overflow-hidden"
                                         style={normalizedPreview.signature}
                                     >
-                                        {customSignaturePreview ? (
+                                        {customSignaturePreviewUrl ? (
                                             <img
-                                                src={customSignaturePreview}
+                                                src={customSignaturePreviewUrl}
                                                 alt="Custom Signature"
                                                 className="h-full w-full object-contain"
                                             />
@@ -476,26 +475,23 @@ export function SignatureStampLayoutSection({
                                 </p>
                             </div>
 
-                            <Separator />
-
-                            <FileUploadField
-                                id="custom_stamp_file"
+                            <DocumentField
                                 label="Custom Stamp"
                                 hint="Upload a custom stamp for custom mode"
-                                preview={customStampPreview}
-                                previewFileName={customStampPreviewFileName}
-                                previewAlt="Custom Stamp"
-                                onChange={makeFileHandler(
+                                accept="image/jpeg,image/png,image/jpg"
+                                fileValue={data.custom_stamp_file || undefined}
+                                existingPath={initialCustomStampDatabasePath || undefined}
+                                existingFileName={customStampPreviewFileName || undefined}
+                                isView={false}
+                                disabled={false}
+                                error={errors?.custom_stamp_file as string | undefined}
+                                onSelect={makeFileHandler(
                                     'custom_stamp_file',
-                                    setCustomStampPreview,
                                     setCustomStampPreviewFileName,
                                 )}
                                 onClear={makeClearHandler(
                                     'custom_stamp_file',
-                                    setCustomStampPreview,
-                                    initialCustomStampPreview,
                                     setCustomStampPreviewFileName,
-                                    initialCustomStampPreviewFileName,
                                     'custom_stamp_path',
                                     !!initialCustomStampDatabasePath,
                                 )}
@@ -503,9 +499,8 @@ export function SignatureStampLayoutSection({
 
                             <div className="flex w-full flex-col gap-1 overflow-hidden rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
                                 <span>Current custom signature file:</span>
-                                <span className="block truncate font-medium text-foreground" title={customSignaturePreviewFileName ?? initialCustomSignaturePreviewFileName ?? 'Not set'}>
+                                <span className="block truncate font-medium text-foreground" title={customSignaturePreviewFileName ?? 'Not set'}>
                                     {customSignaturePreviewFileName ??
-                                        initialCustomSignaturePreviewFileName ??
                                         'Not set'}
                                 </span>
                             </div>
@@ -607,12 +602,12 @@ export function SignatureStampLayoutSection({
                                             id="signature-date"
                                             value={customSignatureStampLayout.labels.date}
                                             disabled={false}
-                                            onChange={(value) =>
+                                            onChange={(value: string | null) =>
                                                 onCustomSignatureStampLayoutChange({
                                                     ...customSignatureStampLayout,
                                                     labels: {
                                                         ...customSignatureStampLayout.labels,
-                                                        date: value,
+                                                        date: value || '',
                                                     },
                                                 })
                                             }

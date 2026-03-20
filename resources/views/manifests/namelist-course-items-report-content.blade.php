@@ -6,6 +6,8 @@
     Manifest Namelist Course Items
 @endsection
 
+@section('body-class', 'is-landscape')
+
 @push('styles')
     <style>
         @page {

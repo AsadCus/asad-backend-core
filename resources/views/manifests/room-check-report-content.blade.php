@@ -6,6 +6,8 @@
     Manifest Room Check - {{ $manifest['room_check_location_label'] ?? '-' }}
 @endsection
 
+@section('body-class', 'is-landscape')
+
 @push('styles')
     <style>
         @page {

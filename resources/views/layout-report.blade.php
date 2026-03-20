@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4;
-            margin: 1.2cm 1.4cm;
+            margin: 0.5cm 0.7cm;
         }
 
         * {
@@ -27,7 +27,7 @@
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         .logo-cell {
@@ -75,10 +75,10 @@
             color: #fff;
             text-align: center;
             font-weight: bold;
-            font-size: 17px;
-            padding: 6px 8px;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
+            font-size: 16px;
+            padding: 4px 6px;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
         }
 
         /* ── Footer ── */
@@ -111,11 +111,16 @@
             body {
                 font-size: 13px;
                 line-height: 1.55;
-                padding: 1.2cm 1.4cm;
+                padding: 0.5cm 0.7cm;
                 background: #ffffff;
                 max-width: 794px;
                 min-height: 27.7cm;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+            }
+
+            body.is-landscape {
+                max-width: 1122px;
+                min-height: 21cm;
             }
 
             /* Prevent browsers from styling links */
@@ -138,9 +143,9 @@
             }
 
             .title-bar {
-                font-size: 17px;
-                padding: 8px 10px;
-                letter-spacing: 2px;
+                font-size: 16px;
+                padding: 5px 8px;
+                letter-spacing: 1px;
             }
 
             .footer-section {
@@ -160,7 +165,7 @@
     @stack('styles')
 </head>
 
-<body>
+<body class="@yield('body-class')">
 
     {{-- ── HEADER ── --}}
     <table class="header-table">

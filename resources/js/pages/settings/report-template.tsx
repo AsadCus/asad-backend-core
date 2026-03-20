@@ -7,7 +7,7 @@ import { destroy as destroyModuleRoute } from '@/routes/report-template/modules'
 import { Transition } from '@headlessui/react';
 import { Head, router, useForm } from '@inertiajs/react';
 import { FormEventHandler, useRef, useState } from 'react';
-import { AddModuleDialog, FileUploadField } from './report-template/components';
+import { AddModuleDialog } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
 import { ModuleTemplateSection } from './report-template/module-template-section';
 import { PdfPreview } from './report-template/pdf-preview-panel';
@@ -70,7 +70,6 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     { key: 'manifest', label: 'Manifest', document_type: 'MANIFEST' },
 ];
 
-const DEFAULT_LOGO_PREVIEW = '/logo-primary.png';
 const DEFAULT_LOGO_FILE_NAME = 'logo-primary.png';
 const DEFAULT_CUSTOM_LAYOUT: SignatureStampLayoutConfig = {
     unit: 'percent',
@@ -230,25 +229,6 @@ export default function ReportTemplate({
             module_templates: buildInitialModuleTemplates(),
         });
 
-    const [logoPreview, setLogoPreview] = useState<string | null>(
-        settings.logo_path
-            ? `/storage/${settings.logo_path}`
-            : DEFAULT_LOGO_PREVIEW,
-    );
-    const [stampPreview, setStampPreview] = useState<string | null>(
-        settings.stamp_path ? `/storage/${settings.stamp_path}` : null,
-    );
-    const [signaturePreview, setSignaturePreview] = useState<string | null>(
-        settings.signature_path ? `/storage/${settings.signature_path}` : null,
-    );
-    const [customStampPreview, setCustomStampPreview] = useState<string | null>(
-        settings.custom_stamp_path ? `/storage/${settings.custom_stamp_path}` : null,
-    );
-    const [customSignaturePreview, setCustomSignaturePreview] = useState<string | null>(
-        settings.custom_signature_path
-            ? `/storage/${settings.custom_signature_path}`
-            : null,
-    );
     const [logoPreviewFileName, setLogoPreviewFileName] = useState<
         string | null
     >(extractFileName(settings.logo_path) ?? DEFAULT_LOGO_FILE_NAME);
@@ -265,8 +245,7 @@ export default function ReportTemplate({
         string | null
     >(extractFileName(settings.custom_signature_path));
 
-    // Track active FileReaders to prevent race conditions
-    const activeReadersRef = useRef<Map<string, FileReader>>(new Map());
+    
 
     const makeFileHandler =
         (
@@ -276,18 +255,10 @@ export default function ReportTemplate({
                 | 'signature_file'
                 | 'custom_stamp_file'
                 | 'custom_signature_file',
-            setPreview: (v: string | null) => void,
             setPreviewFileName: (v: string | null) => void,
         ) =>
-            (e: React.ChangeEvent<HTMLInputElement>) => {
-                const file = e.target.files?.[0];
+            (file: File) => {
                 if (!file) return;
-
-                // Cancel any previous FileReader for this field
-                const existingReader = activeReadersRef.current.get(field);
-                if (existingReader) {
-                    existingReader.abort();
-                }
 
                 setData(field, file);
 
@@ -296,16 +267,6 @@ export default function ReportTemplate({
                 }
 
                 setPreviewFileName(file.name);
-                const reader = new FileReader();
-                activeReadersRef.current.set(field, reader);
-                reader.onloadend = () => {
-                    // Only set preview if this reader wasn't aborted
-                    if (activeReadersRef.current.get(field) === reader) {
-                        setPreview(reader.result as string);
-                        activeReadersRef.current.delete(field);
-                    }
-                };
-                reader.readAsDataURL(file);
             };
 
     const makeClearHandler =
@@ -316,10 +277,7 @@ export default function ReportTemplate({
                 | 'signature_file'
                 | 'custom_stamp_file'
                 | 'custom_signature_file',
-            setPreview: (v: string | null) => void,
-            existingPreview: string | null,
             setPreviewFileName: (v: string | null) => void,
-            existingFileName: string | null,
             pathKey:
                 | 'logo_path'
                 | 'stamp_path'
@@ -329,16 +287,8 @@ export default function ReportTemplate({
             hasDatabaseFile: boolean,
         ) =>
             () => {
-                // Cancel any active FileReader for this field
-                const existingReader = activeReadersRef.current.get(field);
-                if (existingReader) {
-                    existingReader.abort();
-                    activeReadersRef.current.delete(field);
-                }   
-
                 // Clear file and preview
                 setData(field, null);
-                setPreview(null);
                 setPreviewFileName(null);
 
                 // If there's an existing file in database, send empty string signal for deletion
@@ -437,109 +387,43 @@ export default function ReportTemplate({
 
                         <form onSubmit={submit} className="space-y-6">
                             <GlobalBrandingSection
-                            data={data}
-                            errors={errors}
-                            logoPreview={logoPreview}
-                            stampPreview={stampPreview}
-                            signaturePreview={signaturePreview}
-                            customStampPreview={customStampPreview}
-                            customSignaturePreview={customSignaturePreview}
-                            onDataChange={(field, value) =>
-                                setData(
-                                    field as keyof ReportTemplateFormData,
-                                    value,
-                                )
-                            }
-                            makeFileHandler={makeFileHandler}
-                            makeClearHandler={makeClearHandler}
-                            logoPreviewFileName={logoPreviewFileName}
-                            stampPreviewFileName={stampPreviewFileName}
-                            signaturePreviewFileName={signaturePreviewFileName}
-                            customStampPreviewFileName={customStampPreviewFileName}
-                            customSignaturePreviewFileName={customSignaturePreviewFileName}
-                            initialLogoPreview={
-                                settings.logo_path
-                                    ? `/storage/${settings.logo_path}`
-                                    : DEFAULT_LOGO_PREVIEW
-                            }
-                            initialStampPreview={
-                                settings.stamp_path
-                                    ? `/storage/${settings.stamp_path}`
-                                    : null
-                            }
-                            initialSignaturePreview={
-                                settings.signature_path
-                                    ? `/storage/${settings.signature_path}`
-                                    : null
-                            }
-                            initialCustomStampPreview={
-                                settings.custom_stamp_path
-                                    ? `/storage/${settings.custom_stamp_path}`
-                                    : null
-                            }
-                            initialCustomSignaturePreview={
-                                settings.custom_signature_path
-                                    ? `/storage/${settings.custom_signature_path}`
-                                    : null
-                            }
-                            initialLogoPreviewFileName={
-                                extractFileName(settings.logo_path) ??
-                                DEFAULT_LOGO_FILE_NAME
-                            }
-                            initialStampPreviewFileName={extractFileName(
-                                settings.stamp_path,
-                            )}
-                            initialSignaturePreviewFileName={extractFileName(
-                                settings.signature_path,
-                            )}
-                            initialCustomStampPreviewFileName={extractFileName(
-                                settings.custom_stamp_path,
-                            )}
-                            initialCustomSignaturePreviewFileName={extractFileName(
-                                settings.custom_signature_path,
-                            )}
-                            initialLogoDatabasePath={settings.logo_path}
-                            initialStampDatabasePath={settings.stamp_path}
-                            initialSignatureDatabasePath={
-                                settings.signature_path
-                            }
-                            initialCustomStampDatabasePath={
-                                settings.custom_stamp_path
-                            }
-                            initialCustomSignatureDatabasePath={
-                                settings.custom_signature_path
-                            }
-                            setLogoPreview={setLogoPreview}
-                            setStampPreview={setStampPreview}
-                            setSignaturePreview={setSignaturePreview}
-                            setCustomStampPreview={setCustomStampPreview}
-                            setCustomSignaturePreview={setCustomSignaturePreview}
-                            setLogoPreviewFileName={setLogoPreviewFileName}
-                            setStampPreviewFileName={setStampPreviewFileName}
-                            setSignaturePreviewFileName={
-                                setSignaturePreviewFileName
-                            }
-                            setCustomStampPreviewFileName={
-                                setCustomStampPreviewFileName
-                            }
-                            setCustomSignaturePreviewFileName={
-                                setCustomSignaturePreviewFileName
-                            }
-                            signatureStampLayout={data.signature_stamp_layout}
-                            onSignatureStampLayoutChange={(value) =>
-                                setData('signature_stamp_layout', value)
-                            }
-                            customSignatureStampLayout={
-                                data.custom_signature_stamp_layout
-                            }
-                            onCustomSignatureStampLayoutChange={(layout) =>
-                                setData('custom_signature_stamp_layout', layout)
-                            }
-                            onCustomSignatureDataChange={(value) =>
-                                setData('custom_signature_data', value)
-                            }
-                            FileUploadField={FileUploadField}
-                        />
+                                data={data}
+                                errors={errors}
+                                onDataChange={(field, value) =>
+                                    setData(
+                                        field as keyof ReportTemplateFormData,
+                                        value,
+                                    )
+                                }
+                                makeFileHandler={makeFileHandler}
+                                makeClearHandler={makeClearHandler}
+                                logoPreviewFileName={logoPreviewFileName}
+                                stampPreviewFileName={stampPreviewFileName}
+                                signaturePreviewFileName={signaturePreviewFileName}
+                                customStampPreviewFileName={customStampPreviewFileName}
+                                customSignaturePreviewFileName={customSignaturePreviewFileName}
+                                initialLogoDatabasePath={settings.logo_path}
+                                initialStampDatabasePath={settings.stamp_path}
+                                initialSignatureDatabasePath={settings.signature_path}
+                                initialCustomStampDatabasePath={settings.custom_stamp_path}
+                                initialCustomSignatureDatabasePath={settings.custom_signature_path}
+                                setLogoPreviewFileName={setLogoPreviewFileName}
+                                setStampPreviewFileName={setStampPreviewFileName}
+                                setSignaturePreviewFileName={setSignaturePreviewFileName}
+                                setCustomStampPreviewFileName={setCustomStampPreviewFileName}
+                                setCustomSignaturePreviewFileName={setCustomSignaturePreviewFileName}
+                                signatureStampLayout={data.signature_stamp_layout}
+                                onSignatureStampLayoutChange={(value) =>
+                                    setData('signature_stamp_layout', value)
+                                }
+                                customSignatureStampLayout={data.custom_signature_stamp_layout}
+                                onCustomSignatureStampLayoutChange={(layout) =>
+                                    setData('custom_signature_stamp_layout', layout)
+                                }
+                                onCustomSignatureDataChange={(value) =>
+                                    setData('custom_signature_data', value)
+                                }
+                            />
 
                         <ModuleTemplateSection
                             selectedModule={selectedModule}
