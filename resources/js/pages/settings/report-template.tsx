@@ -61,7 +61,9 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     },
     { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
     { key: 'package', label: 'Package', document_type: 'PACKAGE' },
-    { key: 'manifest', label: 'Manifest', document_type: 'MANIFEST' },
+    { key: 'manifest_arabic_names', label: 'Manifest - Arabic Names', document_type: 'MANIFEST' },
+    { key: 'manifest_namelist_course_items', label: 'Manifest - Namelist & Course Items', document_type: 'MANIFEST' },
+    { key: 'manifest_room_check', label: 'Manifest - Room Check', document_type: 'MANIFEST' },
 ];
 
 const DEFAULT_LOGO_FILE_NAME = 'logo-primary.png';

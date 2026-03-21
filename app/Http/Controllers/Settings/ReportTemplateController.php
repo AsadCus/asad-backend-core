@@ -410,7 +410,9 @@ class ReportTemplateController extends Controller
             'receipt'   => 'receipts.report-content',
             'sales'     => 'sales.report-content',
             'package'   => 'packages.report-content',
-            'manifest'  => 'manifests.namelist-course-items-report-content',
+            'manifest_arabic_names' => 'manifests.arabic-names-report-content',
+            'manifest_namelist_course_items'  => 'manifests.namelist-course-items-report-content',
+            'manifest_room_check' => 'manifests.room-check-report-content',
         ];
 
         $viewName = $viewMap[$moduleKey] ?? 'quotations.report-content';
@@ -529,8 +531,51 @@ class ReportTemplateController extends Controller
             ],
         ];
 
+        $manifest = [
+            'manifest_number' => 'MNF-2025-0001',
+            'package_name' => 'Sample Umrah Package',
+            'package_number' => 'PKG-0001',
+            'departure_date' => date('d/m/Y'),
+            'return_date' => date('d/m/Y', strtotime('+12 days')),
+            'in_charge_official_name' => 'Sample Official',
+            'in_charge_official_contact_number' => '+60123456789',
+            'members' => [
+                ['name_as_per_passport' => 'Ahmad Bin Abu', 'arabic_name' => 'أحمد بن أبو', 'status' => 'confirmed'],
+                ['name_as_per_passport' => 'Siti Binti Ali', 'arabic_name' => 'سيتي بنت علي', 'status' => 'confirmed'],
+            ],
+            'package_accommodations' => [
+                ['location' => 'Makkah', 'hotel_name' => 'Sample Hotel Makkah', 'check_in_formatted' => date('d/m/Y', strtotime('+1 days'))],
+                ['location' => 'Madinah', 'hotel_name' => 'Sample Hotel Madinah', 'check_in_formatted' => date('d/m/Y', strtotime('+6 days'))],
+            ],
+            'room_check_location_label' => 'Makkah',
+            'room_check_rows' => [
+                [
+                    'sharing_group_key' => 'group-1',
+                    'room_label' => 'Room 1',
+                    'room_number' => '101',
+                    'room_type' => 'Double',
+                    'bed_type' => 'Single',
+                    'name_as_per_passport' => 'Ahmad Bin Abu',
+                    'room_relationship' => 'Husband',
+                    'passport_number' => 'A12345678',
+                    'date_of_birth' => '01/01/1980',
+                    'age' => 45,
+                    'meal' => 'Full Board',
+                    'status' => 'confirmed'
+                ],
+                [
+                    'sharing_group_key' => 'group-1',
+                    'name_as_per_passport' => 'Siti Binti Ali',
+                    'passport_number' => 'A87654321',
+                    'date_of_birth' => '01/01/1985',
+                    'age' => 40,
+                    'status' => 'confirmed'
+                ]
+            ],
+        ];
+
         try {
-            $html = view($viewName, compact('branding', 'data', 'items'))->render();
+            $html = view($viewName, compact('branding', 'data', 'items', 'manifest'))->render();
             return response()->json(['html' => $html]);
         } catch (\Throwable $e) {
             // Fallback to quotation view if module-specific view fails

@@ -3,22 +3,20 @@
     $showStamp = !empty($branding['show_stamp']);
     $showSignature = !empty($branding['show_signature']);
 
-    $stampSourceAbsolute = $branding['stamp_path_absolute'] ?? null;
-    $stampSourceUrl = $branding['stamp_url'] ?? null;
-    $signatureSourceAbsolute = $branding['signature_path_absolute'] ?? null;
-    $signatureSourceUrl = $branding['signature_url'] ?? null;
-
-    if ($mode === 'custom') {
-        $stampSourceAbsolute =
-            $branding['custom_stamp_path_absolute'] ??
-            ($branding['stamp_path_absolute'] ?? null);
-        $stampSourceUrl = $branding['custom_stamp_url'] ?? ($branding['stamp_url'] ?? null);
-        $signatureSourceAbsolute =
-            $branding['custom_signature_path_absolute'] ??
-            ($branding['signature_path_absolute'] ?? null);
-        $signatureSourceUrl =
-            $branding['custom_signature_url'] ?? ($branding['signature_url'] ?? null);
-    }
+    // Always prefer custom paths (from "Configure Layout" dialog), fall back to regular paths.
+    // The $mode variable is intentionally kept for the positioning/layout logic below.
+    $stampSourceAbsolute =
+        $branding['custom_stamp_path_absolute'] ??
+        ($branding['stamp_path_absolute'] ?? null);
+    $stampSourceUrl =
+        $branding['custom_stamp_url'] ??
+        ($branding['stamp_url'] ?? null);
+    $signatureSourceAbsolute =
+        $branding['custom_signature_path_absolute'] ??
+        ($branding['signature_path_absolute'] ?? null);
+    $signatureSourceUrl =
+        $branding['custom_signature_url'] ??
+        ($branding['signature_url'] ?? null);
 
     $layout = $branding['custom_signature_stamp_layout'] ?? [];
     $unit = ($layout['unit'] ?? 'percent') === 'px' ? 'px' : '%';

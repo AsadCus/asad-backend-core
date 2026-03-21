@@ -101,7 +101,7 @@ export function PdfPreview({
         };
     }, [fetchPreview]);
 
-    const isLandscape = selectedModule === 'manifest';
+    const isLandscape = selectedModule === 'manifest_namelist_course_items' || selectedModule === 'manifest_room_check';
     const aspectRatioPadding = isLandscape ? '70.7%' : '141.4%';
 
     return (

@@ -77,8 +77,10 @@ class ReportTemplateService
                 'invoice' => $settings->getModuleTemplate('invoice'),
                 'receipt' => $settings->getModuleTemplate('receipt'),
                 'sales' => $settings->getModuleTemplate('sales'),
-                'manifest' => $settings->getModuleTemplate('manifest'),
                 'package' => $settings->getModuleTemplate('package'),
+                'manifest_arabic_names' => $settings->getModuleTemplate('manifest_arabic_names'),
+                'manifest_namelist_course_items' => $settings->getModuleTemplate('manifest_namelist_course_items'),
+                'manifest_room_check' => $settings->getModuleTemplate('manifest_room_check'),
             ],
         ];
     }

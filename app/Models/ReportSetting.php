@@ -76,7 +76,21 @@ class ReportSetting extends Model
             'show_signature_stamp_name' => false,
             'show_signature_stamp_date' => false,
         ],
-        'manifest' => [
+        'manifest_arabic_names' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'manifest_namelist_course_items' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'manifest_room_check' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
