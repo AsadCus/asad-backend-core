@@ -248,33 +248,33 @@ class PaymentStatusService
             ]);
         }
 
-        $travelerIds = [];
+        $memberIds = [];
 
-        foreach ($eligibleMembers->values() as $index => $member) {
-            $traveler = ManifestMember::query()
+        foreach ($eligibleMembers->values() as $index => $confirmationMember) {
+            $manifestMember = ManifestMember::query()
                 ->where('manifest_id', $manifest->id)
-                ->where('customer_confirmation_member_id', (int) $member->id)
+                ->where('customer_confirmation_member_id', (int) $confirmationMember->id)
                 ->first();
 
-            if (! $traveler) {
-                $traveler = ManifestMember::query()->create([
+            if (! $manifestMember) {
+                $manifestMember = ManifestMember::query()->create([
                     'manifest_id' => $manifest->id,
                     'manifest_sharing_group_id' => $sharingGroup->id,
-                    'customer_confirmation_member_id' => (int) $member->id,
-                    'sharing_plan' => $member->sharing_plan,
+                    'customer_confirmation_member_id' => (int) $confirmationMember->id,
+                    'sharing_plan' => $confirmationMember->sharing_plan,
                     'sort_order' => $index + 1,
                 ]);
             } else {
-                $traveler->update([
+                $manifestMember->update([
                     'manifest_sharing_group_id' => $sharingGroup->id,
-                    'sharing_plan' => $member->sharing_plan,
+                    'sharing_plan' => $confirmationMember->sharing_plan,
                 ]);
             }
 
-            $travelerIds[] = (int) $traveler->id;
+            $memberIds[] = (int) $manifestMember->id;
         }
 
-        if (empty($travelerIds)) {
+        if (empty($memberIds)) {
             return;
         }
 
@@ -305,12 +305,12 @@ class PaymentStatusService
         }
 
         $room->roomMembers()
-            ->whereNotIn('manifest_traveler_id', $travelerIds)
+            ->whereNotIn('manifest_member_id', $memberIds)
             ->delete();
 
-        foreach (array_values($travelerIds) as $index => $travelerId) {
+        foreach (array_values($memberIds) as $index => $memberId) {
             $room->roomMembers()->updateOrCreate(
-                ['manifest_traveler_id' => $travelerId],
+                ['manifest_member_id' => $memberId],
                 ['sort_order' => $index + 1]
             );
         }

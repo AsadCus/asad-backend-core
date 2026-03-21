@@ -1,6 +1,9 @@
 import { DocumentField } from '@/components/document-field';
+import { FormField } from '@/components/form-field';
 import { FormProgressHeader } from '@/components/form-progress-header';
 import { FormSection } from '@/components/form-section';
+import { ProperInput } from '@/components/proper-input';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Accordion } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -11,9 +14,18 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { store, update } from '@/routes/manifests';
+import { store } from '@/routes/manifests';
+import manifestSections from '@/routes/manifests/sections';
 import { useForm } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, Download, RotateCcw } from 'lucide-react';
+import {
+    AlertCircle,
+    ArrowLeft,
+    CheckCircle2,
+    CircleDashed,
+    Download,
+    Loader2,
+    RotateCcw,
+} from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AccommodationInformationCard from './components/accommodation-information-card';
@@ -22,14 +34,16 @@ import FlightDetailInformationCard from './components/flight-detail-information-
 import ManifestInformationCard from './components/manifest-information-card';
 import ManifestMemberInformationCard from './components/manifest-member-information-card';
 import {
+    type CanonicalManifestRoom,
+    type CanonicalManifestSharingGroup,
     type ManifestDocumentFieldKey,
     type ManifestDocumentItem,
     type ManifestDocumentsByField,
     type ManifestFormData,
     type ManifestFormProps,
+    type MemberWithUI,
     type PackageAccommodationOption,
     type PackageForManifestOption,
-    type TravelerWithUI,
 } from './types';
 import { manifestValidationSchema } from './validation';
 
@@ -68,10 +82,12 @@ const MANIFEST_DOCUMENT_TABS: Array<{
     {
         key: 'photo',
         label: 'Photo',
-        hint: 'Upload traveler photo files.',
+        hint: 'Upload member photo files.',
         accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
     },
 ];
+
+const ENABLE_LEGACY_FULL_SUBMIT_FALLBACK = true;
 
 function createEmptyDocumentEntry(): ManifestDocumentItem {
     return {
@@ -82,20 +98,50 @@ function createEmptyDocumentEntry(): ManifestDocumentItem {
     };
 }
 
-function toFileNameWithoutExtension(fileName: string): string {
-    const trimmed = fileName.trim();
-
-    if (trimmed === '') {
-        return '';
+function removeDocumentEntryAtIndex(
+    rows: ManifestDocumentItem[],
+    index: number,
+): ManifestDocumentItem[] {
+    if (index < 0 || index >= rows.length) {
+        return rows;
     }
 
-    const dotIndex = trimmed.lastIndexOf('.');
+    const nextRows = [...rows];
+    const currentRow = nextRows[index];
 
-    if (dotIndex <= 0) {
-        return trimmed;
+    if (!currentRow) {
+        return nextRows;
     }
 
-    return trimmed.slice(0, dotIndex);
+    if (currentRow.id || currentRow.file_path) {
+        nextRows[index] = {
+            ...currentRow,
+            file: null,
+            file_name: null,
+            file_path: null,
+            removed: true,
+        };
+
+        return nextRows;
+    }
+
+    nextRows.splice(index, 1);
+
+    return nextRows;
+}
+
+function buildManifestDocumentFileName(
+    fieldLabel: string,
+    iteration: number,
+    manifestNumber?: string | null,
+): string {
+    const normalizedManifestNumber = String(manifestNumber ?? '').trim();
+    const safeManifestNumber =
+        normalizedManifestNumber.length > 0
+            ? normalizedManifestNumber
+            : 'Draft';
+
+    return `Manifest ${fieldLabel} #${iteration} - ${safeManifestNumber}`;
 }
 
 function buildEmptyManifestDocuments(): ManifestDocumentsByField {
@@ -115,34 +161,37 @@ function slugifyTab(value: string): string {
         .replace(/(^-|-$)/g, '');
 }
 
-function toTravelerWithUI(
+function toPositiveIntegerOrNull(value: unknown): number | null {
+    const parsed =
+        typeof value === 'number'
+            ? value
+            : Number.parseInt(String(value ?? ''), 10);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return null;
+    }
+
+    return parsed;
+}
+
+function toMemberWithUI(
     row: Record<string, unknown>,
     index: number,
-): TravelerWithUI {
-    const toPositiveIntegerOrNull = (value: unknown): number | null => {
-        const parsed =
-            typeof value === 'number'
-                ? value
-                : Number.parseInt(String(value ?? ''), 10);
-
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-            return null;
-        }
-
-        return parsed;
-    };
-
-    const memberId = toPositiveIntegerOrNull(
+): MemberWithUI {
+    const manifestMemberId = toPositiveIntegerOrNull(
+        row.manifest_member_id ?? row.id,
+    );
+    const confirmationMemberId = toPositiveIntegerOrNull(
         row.customer_confirmation_member_id,
     );
     const customerId = toPositiveIntegerOrNull(row.customer_id);
-    const travelerId = toPositiveIntegerOrNull(row.id);
+    const packageOfficialId = toPositiveIntegerOrNull(row.package_official_id);
     const sharingGroupId = toPositiveIntegerOrNull(
         row.manifest_sharing_group_id ?? row.sharing_group_id,
     );
 
     return {
-        ...(row as TravelerWithUI),
+        ...(row as MemberWithUI),
         role: String(row.role ?? ''),
         relationship: String(row.relationship ?? ''),
         arabic_name: String(
@@ -155,13 +204,15 @@ function toTravelerWithUI(
         row_key:
             typeof row.row_key === 'string' && row.row_key.trim().length > 0
                 ? row.row_key
-                : memberId !== null
-                  ? `traveler-member-${memberId}`
-                  : customerId !== null
-                    ? `traveler-customer-${customerId}`
-                    : travelerId !== null
-                      ? `traveler-id-${travelerId}`
-                      : `traveler-temp-${nanoid()}`,
+                : manifestMemberId !== null
+                  ? `manifest_member-${manifestMemberId}`
+                  : confirmationMemberId !== null
+                    ? `confirmation_member-${confirmationMemberId}`
+                    : customerId !== null
+                      ? `customer-${customerId}`
+                      : packageOfficialId !== null
+                        ? `package_official-${packageOfficialId}`
+                        : `manifest_member-temp-${nanoid()}`,
         sn: Number(row.sn ?? index + 1),
         sharing_group_key: String(
             row.sharing_group_key ??
@@ -173,7 +224,7 @@ function toTravelerWithUI(
     };
 }
 
-function flattenGroupedRows(rows: unknown): TravelerWithUI[] {
+function flattenGroupedRows(rows: unknown): MemberWithUI[] {
     if (!Array.isArray(rows)) {
         if (rows && typeof rows === 'object') {
             return Object.values(rows as Record<string, unknown[]>)
@@ -182,7 +233,7 @@ function flattenGroupedRows(rows: unknown): TravelerWithUI[] {
                     (item): item is Record<string, unknown> =>
                         !!item && typeof item === 'object',
                 )
-                .map((item, index) => toTravelerWithUI(item, index));
+                .map((item, index) => toMemberWithUI(item, index));
         }
 
         return [];
@@ -193,27 +244,283 @@ function flattenGroupedRows(rows: unknown): TravelerWithUI[] {
             (item): item is Record<string, unknown> =>
                 !!item && typeof item === 'object',
         )
-        .map((item, index) => toTravelerWithUI(item, index));
+        .map((item, index) => toMemberWithUI(item, index));
 }
 
-function travelerIdentityKey(traveler: TravelerWithUI, index: number): string {
+function buildMemberLookupMap(
+    members: MemberWithUI[],
+): Map<string, MemberWithUI> {
+    const map = new Map<string, MemberWithUI>();
+
+    members.forEach((member, index) => {
+        const manifestMemberId = toPositiveIntegerOrNull(
+            member.manifest_member_id ?? member.id,
+        );
+        const confirmationMemberId = toPositiveIntegerOrNull(
+            member.customer_confirmation_member_id,
+        );
+        const officialId = toPositiveIntegerOrNull(member.package_official_id);
+
+        if (manifestMemberId !== null) {
+            map.set(`manifest_member:${manifestMemberId}`, member);
+        }
+
+        if (confirmationMemberId !== null) {
+            map.set(`confirmation_member:${confirmationMemberId}`, member);
+        }
+
+        if (officialId !== null) {
+            map.set(`package_official:${officialId}`, member);
+        }
+
+        map.set(`member_identity:${memberIdentityKey(member, index)}`, member);
+    });
+
+    return map;
+}
+
+function getMemberFromLookup(
+    memberLookup: Map<string, MemberWithUI>,
+    ids: {
+        manifestMemberId: number | null;
+        confirmationMemberId: number | null;
+        officialId: number | null;
+    },
+): MemberWithUI | undefined {
+    const { manifestMemberId, confirmationMemberId, officialId } = ids;
+
+    return (
+        (manifestMemberId !== null
+            ? memberLookup.get(`manifest_member:${manifestMemberId}`)
+            : undefined) ??
+        (confirmationMemberId !== null
+            ? memberLookup.get(`confirmation_member:${confirmationMemberId}`)
+            : undefined) ??
+        (officialId !== null
+            ? memberLookup.get(`package_official:${officialId}`)
+            : undefined)
+    );
+}
+
+function buildMembersFromCanonicalGroups(
+    canonicalGroups: CanonicalManifestSharingGroup[] | undefined,
+    fallbackMembers: MemberWithUI[],
+): MemberWithUI[] {
+    if (!Array.isArray(canonicalGroups) || canonicalGroups.length === 0) {
+        return fallbackMembers;
+    }
+
+    const fallbackLookup = buildMemberLookupMap(fallbackMembers);
+    const nextMembers: MemberWithUI[] = [];
+
+    canonicalGroups.forEach((group, groupIndex) => {
+        const groupId = toPositiveIntegerOrNull(group.id);
+        const groupKey =
+            groupId !== null ? `group-${groupId}` : `group-${groupIndex + 1}`;
+        const groupSortOrder =
+            toPositiveIntegerOrNull(group.sort_order) ?? groupIndex + 1;
+
+        (group.members ?? []).forEach((member, memberIndex) => {
+            const manifestMemberId = toPositiveIntegerOrNull(member.id);
+            const confirmationMemberId = toPositiveIntegerOrNull(
+                member.customer_confirmation_member_id,
+            );
+            const officialId = toPositiveIntegerOrNull(
+                member.package_official_id,
+            );
+
+            const fallbackMember = getMemberFromLookup(fallbackLookup, {
+                manifestMemberId,
+                confirmationMemberId,
+                officialId,
+            });
+
+            const patch =
+                member.patch && typeof member.patch === 'object'
+                    ? member.patch
+                    : {};
+
+            nextMembers.push(
+                toMemberWithUI(
+                    {
+                        ...(fallbackMember ?? {}),
+                        ...(patch as MemberWithUI),
+                        id: manifestMemberId ?? fallbackMember?.id ?? null,
+                        customer_confirmation_member_id:
+                            confirmationMemberId ??
+                            fallbackMember?.customer_confirmation_member_id ??
+                            null,
+                        package_official_id:
+                            officialId ??
+                            fallbackMember?.package_official_id ??
+                            null,
+                        role: member.role ?? fallbackMember?.role ?? null,
+                        sharing_plan:
+                            member.sharing_plan ??
+                            fallbackMember?.sharing_plan ??
+                            null,
+                        sort_order:
+                            toPositiveIntegerOrNull(member.sort_order) ??
+                            fallbackMember?.sort_order ??
+                            memberIndex + 1,
+                        group_sort_order: groupSortOrder,
+                        sharing_group_key:
+                            fallbackMember?.sharing_group_key ?? groupKey,
+                        manifest_sharing_group_id:
+                            groupId ??
+                            fallbackMember?.manifest_sharing_group_id ??
+                            null,
+                        sharing_group_id:
+                            groupId ?? fallbackMember?.sharing_group_id ?? null,
+                        relationship:
+                            group.relation ??
+                            fallbackMember?.relationship ??
+                            null,
+                        group_remarks:
+                            group.remarks ??
+                            fallbackMember?.group_remarks ??
+                            null,
+                        remarks:
+                            member.remarks ?? fallbackMember?.remarks ?? null,
+                        status: member.status ?? fallbackMember?.status ?? null,
+                    },
+                    nextMembers.length,
+                ),
+            );
+        });
+    });
+
+    if (nextMembers.length === 0) {
+        return fallbackMembers;
+    }
+
+    return nextMembers;
+}
+
+function buildRoomListsFromCanonicalRooms(
+    canonicalRooms: CanonicalManifestRoom[] | undefined,
+    members: MemberWithUI[],
+): Record<string, MemberWithUI[]> {
+    if (!Array.isArray(canonicalRooms) || canonicalRooms.length === 0) {
+        return {};
+    }
+
+    const memberLookup = buildMemberLookupMap(members);
+    const roomLists: Record<string, MemberWithUI[]> = {};
+
+    canonicalRooms.forEach((room, roomIndex) => {
+        const roomId = toPositiveIntegerOrNull(room.id);
+        const groupKey =
+            roomId !== null ? `room-${roomId}` : `room-${roomIndex + 1}`;
+        const locationKey = String(room.location ?? '')
+            .trim()
+            .toLowerCase();
+
+        if (locationKey.length === 0) {
+            return;
+        }
+
+        const members = [...(room.members ?? [])].sort((left, right) => {
+            const leftOrder = toPositiveIntegerOrNull(left.sort_order) ?? 0;
+            const rightOrder = toPositiveIntegerOrNull(right.sort_order) ?? 0;
+
+            return leftOrder - rightOrder;
+        });
+
+        members.forEach((member, memberIndex) => {
+            const manifestMemberId = toPositiveIntegerOrNull(
+                member.manifest_member_id ?? member.id,
+            );
+            const confirmationMemberId = toPositiveIntegerOrNull(
+                member.customer_confirmation_member_id,
+            );
+            const officialId = toPositiveIntegerOrNull(
+                member.package_official_id,
+            );
+            const fallbackMember = getMemberFromLookup(memberLookup, {
+                manifestMemberId,
+                confirmationMemberId,
+                officialId,
+            });
+
+            const row = toMemberWithUI(
+                {
+                    ...(fallbackMember ?? {}),
+                    id: manifestMemberId ?? fallbackMember?.id ?? null,
+                    manifest_member_id:
+                        manifestMemberId ??
+                        fallbackMember?.manifest_member_id ??
+                        fallbackMember?.id ??
+                        null,
+                    customer_confirmation_member_id:
+                        confirmationMemberId ??
+                        fallbackMember?.customer_confirmation_member_id ??
+                        null,
+                    package_official_id:
+                        officialId ??
+                        fallbackMember?.package_official_id ??
+                        null,
+                    sort_order:
+                        toPositiveIntegerOrNull(member.sort_order) ??
+                        memberIndex + 1,
+                    sharing_group_key: groupKey,
+                    sharing_plan:
+                        room.sharing_plan ??
+                        fallbackMember?.sharing_plan ??
+                        null,
+                    room_relationship: room.relationship ?? null,
+                    room_label: room.room_label ?? null,
+                    room_number: room.room_number ?? null,
+                    room_type: room.room_type ?? null,
+                    bed_type: room.bed_type ?? null,
+                    number_of_beds_checked: !!room.number_of_beds_checked,
+                    meal: room.meal ?? null,
+                    room_remarks: room.remarks ?? null,
+                    remarks: member.remarks ?? fallbackMember?.remarks ?? null,
+                },
+                memberIndex,
+            );
+
+            if (!roomLists[locationKey]) {
+                roomLists[locationKey] = [];
+            }
+
+            roomLists[locationKey].push({
+                ...row,
+                sn: memberIndex + 1,
+                sort_order: memberIndex + 1,
+            });
+        });
+    });
+
+    return roomLists;
+}
+
+function memberIdentityKey(member: MemberWithUI, index: number): string {
     if (
-        traveler.customer_confirmation_member_id !== undefined &&
-        traveler.customer_confirmation_member_id !== null
+        member.customer_confirmation_member_id !== undefined &&
+        member.customer_confirmation_member_id !== null
     ) {
-        return `member-${traveler.customer_confirmation_member_id}`;
+        return `confirmation_member-${member.customer_confirmation_member_id}`;
     }
 
-    if (traveler.customer_id !== undefined && traveler.customer_id !== null) {
-        return `customer-${traveler.customer_id}`;
+    if (member.customer_id !== undefined && member.customer_id !== null) {
+        return `customer-${member.customer_id}`;
     }
 
-    if (traveler.id !== undefined && traveler.id !== null) {
-        return `traveler-${traveler.id}`;
+    if (
+        member.package_official_id !== undefined &&
+        member.package_official_id !== null
+    ) {
+        return `package_official-${member.package_official_id}`;
     }
 
-    if (traveler.row_key && traveler.row_key.trim().length > 0) {
-        return `row-${traveler.row_key}`;
+    if (member.id !== undefined && member.id !== null) {
+        return `manifest_member-${member.id}`;
+    }
+
+    if (member.row_key && member.row_key.trim().length > 0) {
+        return `row-${member.row_key}`;
     }
 
     return `index-${index}`;
@@ -244,31 +551,59 @@ function calculateAgeFromDob(dateValue?: string | null): number | null {
 }
 
 function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
-    const travelers = normalizeMainTabOrdering(
-        flattenGroupedRows(initialData?.travelers ?? []),
+    const legacyMembers = normalizeMainTabOrdering(
+        flattenGroupedRows(initialData?.members ?? []),
+    );
+    const members = normalizeMainTabOrdering(
+        buildMembersFromCanonicalGroups(
+            initialData?.manifest_sharing_groups,
+            legacyMembers,
+        ),
     );
 
     const sourceDocuments = initialData?.documents;
     const fallbackDocuments = buildEmptyManifestDocuments();
     const documents: ManifestDocumentsByField = {
         flight_tickets: sourceDocuments?.flight_tickets?.length
-            ? sourceDocuments.flight_tickets
+            ? sourceDocuments.flight_tickets.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.flight_tickets,
         visa: sourceDocuments?.visa?.length
-            ? sourceDocuments.visa
+            ? sourceDocuments.visa.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.visa,
         hotel: sourceDocuments?.hotel?.length
-            ? sourceDocuments.hotel
+            ? sourceDocuments.hotel.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.hotel,
         passport: sourceDocuments?.passport?.length
-            ? sourceDocuments.passport
+            ? sourceDocuments.passport.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.passport,
         photo: sourceDocuments?.photo?.length
-            ? sourceDocuments.photo
+            ? sourceDocuments.photo.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
             : fallbackDocuments.photo,
     };
 
-    const roomLists = initialData?.roomLists ?? {};
+    const canonicalRoomLists = buildRoomListsFromCanonicalRooms(
+        initialData?.manifest_rooms,
+        members,
+    );
+    const roomLists =
+        Object.keys(canonicalRoomLists).length > 0
+            ? canonicalRoomLists
+            : (initialData?.roomLists ?? {});
 
     const normalizedRoomLists = Object.fromEntries(
         Object.entries(roomLists)
@@ -276,30 +611,65 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
             .filter(([, rows]) => rows.length > 0),
     );
 
-    const airlineList = flattenGroupedRows(
-        initialData?.airlineList ?? travelers,
-    );
+    const airlineList = flattenGroupedRows(initialData?.airlineList ?? members);
+
+    const canonicalManifest = {
+        id: initialData?.manifest?.id ?? initialData?.id,
+        package_id:
+            initialData?.manifest?.package_id ?? initialData?.package_id ?? 0,
+        in_charge_official_id:
+            initialData?.manifest?.in_charge_official_id ??
+            initialData?.in_charge_official_id ??
+            null,
+        manifest_number:
+            initialData?.manifest?.manifest_number ??
+            initialData?.manifest_number ??
+            '',
+        status: initialData?.manifest?.status ?? initialData?.status ?? 'open',
+        notes: initialData?.manifest?.notes ?? initialData?.notes ?? '',
+    };
+
+    const canonicalSharingGroups =
+        initialData?.manifest_sharing_groups &&
+        initialData.manifest_sharing_groups.length > 0
+            ? initialData.manifest_sharing_groups
+            : buildCanonicalSharingGroupsFromMembers(members);
+
+    const canonicalRooms =
+        initialData?.manifest_rooms && initialData.manifest_rooms.length > 0
+            ? initialData.manifest_rooms
+            : buildCanonicalRoomsFromRoomLists(
+                  Object.fromEntries(
+                      Object.entries(normalizedRoomLists).map(([key, rows]) => [
+                          key,
+                          rows as Array<Record<string, unknown>>,
+                      ]),
+                  ),
+              );
 
     return {
-        id: initialData?.id,
-        package_id: initialData?.package_id ?? 0,
-        in_charge_official_id: initialData?.in_charge_official_id ?? null,
-        manifest_number: initialData?.manifest_number ?? '',
-        status: initialData?.status ?? 'open',
-        notes: initialData?.notes ?? '',
-        travelers,
+        id: canonicalManifest.id,
+        package_id: canonicalManifest.package_id ?? 0,
+        in_charge_official_id: canonicalManifest.in_charge_official_id ?? null,
+        manifest_number: canonicalManifest.manifest_number ?? '',
+        status: canonicalManifest.status ?? 'open',
+        notes: canonicalManifest.notes ?? '',
+        members,
         roomLists: normalizedRoomLists,
         airlineList,
         documents,
+        manifest: canonicalManifest,
+        manifest_sharing_groups: canonicalSharingGroups,
+        manifest_rooms: canonicalRooms,
     };
 }
 
-function buildRoomRowsFromTravelers(
-    travelers: TravelerWithUI[],
-    existingRows: TravelerWithUI[] = [],
+function buildRoomRowsFromMembers(
+    members: MemberWithUI[],
+    existingRows: MemberWithUI[] = [],
     accommodationKey: string,
     defaultMealPlan: string,
-): TravelerWithUI[] {
+): MemberWithUI[] {
     const toRoomTypeFromSharingPlan = (
         sharingPlan?: string | null,
     ): string | undefined => {
@@ -340,67 +710,63 @@ function buildRoomRowsFromTravelers(
         return undefined;
     };
 
-    return travelers.map((traveler, index) => {
-        const travelerIdentity = travelerIdentityKey(traveler, index);
+    return members.map((member, index) => {
+        const memberIdentity = memberIdentityKey(member, index);
         const existing = existingRows.find(
             (row, rowIndex) =>
-                travelerIdentityKey(row, rowIndex) === travelerIdentity,
+                memberIdentityKey(row, rowIndex) === memberIdentity,
         );
 
-        const sharingPlan = traveler.sharing_plan;
+        const sharingPlan = member.sharing_plan;
         const fallbackRoomType = toRoomTypeFromSharingPlan(sharingPlan);
         const fallbackBedType = toBedTypeFromSharingPlan(sharingPlan);
 
         return {
-            ...traveler,
+            ...member,
             ...existing,
-            is_official: traveler.package_official_id !== null,
-            role: traveler.role ?? existing?.role,
-            relationship: traveler.relationship ?? existing?.relationship,
+            is_official: member.package_official_id !== null,
+            role: member.role ?? existing?.role,
+            relationship: member.relationship ?? existing?.relationship,
             row_key:
                 existing?.row_key ??
-                traveler.row_key ??
-                `room-${accommodationKey}-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index}`,
+                member.row_key ??
+                `room-${accommodationKey}-${member.customer_confirmation_member_id ?? member.customer_id ?? index}`,
             sn: index + 1,
             passport_number:
-                traveler.passport_number ?? existing?.passport_number,
+                member.passport_number ?? existing?.passport_number,
             date_of_birth:
-                traveler.date_of_birth ?? existing?.date_of_birth ?? null,
+                member.date_of_birth ?? existing?.date_of_birth ?? null,
             age:
-                calculateAgeFromDob(traveler.date_of_birth) ??
+                calculateAgeFromDob(member.date_of_birth) ??
                 calculateAgeFromDob(existing?.date_of_birth) ??
                 existing?.age ??
                 null,
             accommodation_key: accommodationKey,
             sharing_plan:
-                existing?.sharing_plan ?? traveler.sharing_plan ?? 'single',
-            room_relationship:
-                existing?.room_relationship ?? traveler.relationship ?? '',
+                existing?.sharing_plan ?? member.sharing_plan ?? 'single',
+            room_relationship: existing?.room_relationship ?? '',
             room_type:
                 existing?.room_type ??
-                traveler.room_type ??
+                member.room_type ??
                 fallbackRoomType ??
                 '',
             bed_type:
-                existing?.bed_type ??
-                traveler.bed_type ??
-                fallbackBedType ??
-                '',
+                existing?.bed_type ?? member.bed_type ?? fallbackBedType ?? '',
             number_of_beds_checked:
                 existing?.number_of_beds_checked ??
-                traveler.number_of_beds_checked ??
+                member.number_of_beds_checked ??
                 false,
-            room_label: existing?.room_label ?? traveler.room_label ?? '',
-            meal: existing?.meal ?? traveler.meal ?? defaultMealPlan ?? '',
+            room_label: existing?.room_label ?? member.room_label ?? '',
+            meal: existing?.meal ?? member.meal ?? defaultMealPlan ?? '',
             sharing_group_key:
-                traveler.sharing_group_key ??
+                member.sharing_group_key ??
                 existing?.sharing_group_key ??
-                `solo-${traveler.customer_confirmation_member_id ?? index}`,
+                `solo-${member.customer_confirmation_member_id ?? index}`,
         };
     });
 }
 
-function countRoomGroups(rows: TravelerWithUI[]): number {
+function countRoomGroups(rows: MemberWithUI[]): number {
     const groupKeys = new Set<string>();
 
     rows.forEach((row, index) => {
@@ -439,14 +805,14 @@ function capacityFromSharingPlan(sharingPlan?: string | null): number {
     return 1;
 }
 
-function normalizeMainTabOrdering(rows: TravelerWithUI[]): TravelerWithUI[] {
+function normalizeMainTabOrdering(rows: MemberWithUI[]): MemberWithUI[] {
     const grouped = new Map<
         string,
         {
             groupSortOrder: number;
             firstGlobalOrder: number;
             isOfficial: boolean;
-            members: Array<TravelerWithUI & { _globalOrder: number }>;
+            members: Array<MemberWithUI & { _globalOrder: number }>;
         }
     >();
 
@@ -525,14 +891,14 @@ function normalizeMainTabOrdering(rows: TravelerWithUI[]): TravelerWithUI[] {
     });
 }
 
-function syncTravelerSharingGroups(
-    nextTravelers: TravelerWithUI[],
-    previousTravelers: TravelerWithUI[],
-): TravelerWithUI[] {
-    const previousTravelerMap = new Map(
-        previousTravelers.map((traveler, index) => [
-            travelerIdentityKey(traveler, index),
-            traveler,
+function syncMemberSharingGroups(
+    nextMembers: MemberWithUI[],
+    previousMembers: MemberWithUI[],
+): MemberWithUI[] {
+    const previousMemberMap = new Map(
+        previousMembers.map((member, index) => [
+            memberIdentityKey(member, index),
+            member,
         ]),
     );
 
@@ -540,32 +906,30 @@ function syncTravelerSharingGroups(
     const groupCounts = new Map<string, number>();
     const bucketCounters = new Map<string, number>();
 
-    const assigned: TravelerWithUI[] = [];
+    const assigned: MemberWithUI[] = [];
 
-    nextTravelers.forEach((traveler, index) => {
-        const identity = travelerIdentityKey(traveler, index);
-        const previousTraveler = previousTravelerMap.get(identity);
+    nextMembers.forEach((member, index) => {
+        const identity = memberIdentityKey(member, index);
+        const previousMember = previousMemberMap.get(identity);
 
         const customerConfirmationId = Number(
-            traveler.customer_confirmation_id ??
-                previousTraveler?.customer_confirmation_id ??
+            member.customer_confirmation_id ??
+                previousMember?.customer_confirmation_id ??
                 0,
         );
         const sharingPlan = String(
-            traveler.sharing_plan ?? previousTraveler?.sharing_plan ?? '',
+            member.sharing_plan ?? previousMember?.sharing_plan ?? '',
         )
             .toLowerCase()
             .trim();
         const capacity = capacityFromSharingPlan(sharingPlan);
 
         let groupKey =
-            traveler.sharing_group_key ??
-            previousTraveler?.sharing_group_key ??
-            '';
+            member.sharing_group_key ?? previousMember?.sharing_group_key ?? '';
 
-        const isNewTraveler = !previousTraveler;
+        const isNewMember = !previousMember;
         const canAutoAssign =
-            isNewTraveler && customerConfirmationId > 0 && sharingPlan !== '';
+            isNewMember && customerConfirmationId > 0 && sharingPlan !== '';
 
         if (canAutoAssign) {
             const bucketKey = `${customerConfirmationId}|${sharingPlan}`;
@@ -586,8 +950,8 @@ function syncTravelerSharingGroups(
 
         if (!groupKey || groupKey.trim().length === 0) {
             groupKey = `solo-${
-                traveler.customer_confirmation_member_id ??
-                traveler.customer_id ??
+                member.customer_confirmation_member_id ??
+                member.customer_id ??
                 index + 1
             }`;
         }
@@ -604,7 +968,7 @@ function syncTravelerSharingGroups(
         groupCounts.set(groupKey, (groupCounts.get(groupKey) ?? 0) + 1);
 
         assigned.push({
-            ...traveler,
+            ...member,
             sharing_group_key: groupKey,
         });
     });
@@ -612,92 +976,791 @@ function syncTravelerSharingGroups(
     return assigned;
 }
 
-function syncRoomRowsWithTravelers(
-    activeTravelers: TravelerWithUI[],
-    existingRows: TravelerWithUI[],
+function syncRoomRowsWithMembers(
+    activeMembers: MemberWithUI[],
+    existingRows: MemberWithUI[],
     accommodationKey: string,
     defaultMealPlan: string,
-): TravelerWithUI[] {
-    const travelerMap = new Map(
-        activeTravelers.map((traveler, index) => [
-            travelerIdentityKey(traveler, index),
-            traveler,
+): MemberWithUI[] {
+    const memberMap = new Map(
+        activeMembers.map((member, index) => [
+            memberIdentityKey(member, index),
+            member,
         ]),
     );
 
     const keptRows = existingRows
         .map((row, index) => {
-            const identity = travelerIdentityKey(row, index);
-            const traveler = travelerMap.get(identity);
+            const identity = memberIdentityKey(row, index);
+            const member = memberMap.get(identity);
 
-            if (!traveler) {
+            if (!member) {
                 return null;
             }
 
+            const rowRoomRelationship = String(
+                row.room_relationship ?? '',
+            ).trim();
+
             return {
                 ...row,
-                ...traveler,
+                ...member,
                 row_key:
                     row.row_key ??
-                    traveler.row_key ??
-                    `room-${accommodationKey}-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index}`,
+                    member.row_key ??
+                    `room-${accommodationKey}-${member.customer_confirmation_member_id ?? member.customer_id ?? index}`,
                 sharing_group_key:
                     row.sharing_group_key ??
-                    traveler.sharing_group_key ??
-                    `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? index + 1}`,
+                    member.sharing_group_key ??
+                    `solo-${member.customer_confirmation_member_id ?? member.customer_id ?? index + 1}`,
                 sharing_plan:
-                    row.sharing_plan ?? traveler.sharing_plan ?? 'single',
+                    row.sharing_plan ?? member.sharing_plan ?? 'single',
+                room_number: row.room_number ?? member.room_number ?? '',
                 room_relationship:
-                    row.room_relationship ?? traveler.relationship ?? '',
-                room_label: row.room_label ?? traveler.room_label ?? '',
-                room_type: row.room_type ?? traveler.room_type ?? '',
-                bed_type: row.bed_type ?? traveler.bed_type ?? '',
-                remarks: row.remarks ?? traveler.remarks,
-                room_remarks: row.room_remarks ?? traveler.room_remarks,
-                meal: row.meal ?? traveler.meal ?? defaultMealPlan ?? '',
+                    rowRoomRelationship !== '' ? row.room_relationship : '',
+                room_label: row.room_label ?? member.room_label ?? '',
+                room_type: row.room_type ?? member.room_type ?? '',
+                bed_type: row.bed_type ?? member.bed_type ?? '',
+                number_of_beds_checked:
+                    row.number_of_beds_checked ??
+                    member.number_of_beds_checked ??
+                    false,
+                remarks: row.remarks ?? member.remarks,
+                room_remarks: row.room_remarks ?? member.room_remarks,
+                meal: row.meal ?? member.meal ?? defaultMealPlan ?? '',
                 age:
                     calculateAgeFromDob(
-                        traveler.date_of_birth ?? row.date_of_birth,
+                        member.date_of_birth ?? row.date_of_birth,
                     ) ?? row.age,
-            } as TravelerWithUI;
+            } as MemberWithUI;
         })
-        .filter((row): row is TravelerWithUI => row !== null);
+        .filter((row): row is MemberWithUI => row !== null);
 
-    return keptRows.map((row, index) => ({
+    const seenIdentities = new Set<string>();
+    const dedupedRows = keptRows.filter((row, index) => {
+        const identity = memberIdentityKey(row, index);
+
+        if (seenIdentities.has(identity)) {
+            return false;
+        }
+
+        seenIdentities.add(identity);
+
+        return true;
+    });
+
+    const missingMembers = activeMembers.filter((member, index) => {
+        const identity = memberIdentityKey(member, index);
+
+        return !seenIdentities.has(identity);
+    });
+
+    const appendedRows =
+        missingMembers.length > 0
+            ? buildRoomRowsFromMembers(
+                  missingMembers,
+                  dedupedRows,
+                  accommodationKey,
+                  defaultMealPlan,
+              )
+            : [];
+
+    const mergedRows = [...dedupedRows, ...appendedRows];
+
+    return mergedRows.map((row, index) => ({
         ...row,
         sn: index + 1,
         sort_order: index + 1,
     }));
 }
 
-function toPositiveInteger(value: unknown): number {
-    const parsed =
-        typeof value === 'number'
-            ? value
-            : Number.parseInt(String(value ?? ''), 10);
-
-    if (!Number.isFinite(parsed) || parsed < 1) {
-        return 0;
+function normalizeDocumentEntriesForSubmit(
+    entries: ManifestDocumentItem[] | undefined,
+): ManifestDocumentItem[] {
+    if (!Array.isArray(entries)) {
+        return [];
     }
 
-    return parsed;
+    return entries
+        .map((entry) => {
+            const filePath = String(entry.file_path ?? '').trim();
+            const fileName = String(entry.file_name ?? '').trim();
+            const isRemoved = Boolean(entry.removed);
+
+            return {
+                id: entry.id,
+                file: entry.file instanceof File ? entry.file : null,
+                file_name: fileName === '' ? null : fileName,
+                file_path: filePath === '' ? null : filePath,
+                removed: isRemoved,
+            };
+        })
+        .filter((entry) => {
+            if (entry.removed) {
+                return true;
+            }
+
+            if (entry.id) {
+                return true;
+            }
+
+            if (entry.file instanceof File) {
+                return true;
+            }
+
+            return Boolean(entry.file_path);
+        });
 }
 
-function hasAnyNewUpload(data: ManifestFormData): boolean {
-    const manifestDocs = Object.values(data.documents ?? {}).flat();
-    const hasManifestFile = manifestDocs.some(
-        (doc) => doc.file instanceof File,
-    );
-
-    if (hasManifestFile) {
-        return true;
+function areDocumentEntriesEquivalent(
+    currentEntries: ManifestDocumentItem[],
+    baselineEntries: ManifestDocumentItem[],
+): boolean {
+    if (currentEntries.length !== baselineEntries.length) {
+        return false;
     }
 
-    const travelerDocs = (data.travelers ?? []).flatMap(
-        (traveler) => traveler.receipt_documents ?? [],
+    return currentEntries.every((entry, index) => {
+        const baselineEntry = baselineEntries[index];
+
+        if (!baselineEntry) {
+            return false;
+        }
+
+        return (
+            (entry.id ?? null) === (baselineEntry.id ?? null) &&
+            (entry.file_name ?? null) === (baselineEntry.file_name ?? null) &&
+            (entry.file_path ?? null) === (baselineEntry.file_path ?? null) &&
+            Boolean(entry.removed) === Boolean(baselineEntry.removed) &&
+            entry.file instanceof File === baselineEntry.file instanceof File
+        );
+    });
+}
+
+function shouldIncludeMemberField(
+    currentValue: unknown,
+    baselineValue: unknown,
+): boolean {
+    return currentValue !== baselineValue;
+}
+
+function buildMemberBaselineMap(
+    members: MemberWithUI[],
+): Map<string, MemberWithUI> {
+    const baselineMap = new Map<string, MemberWithUI>();
+
+    members.forEach((member, index) => {
+        baselineMap.set(memberIdentityKey(member, index), member);
+    });
+
+    return baselineMap;
+}
+
+function toMemberSubmitRow(
+    member: MemberWithUI,
+    index: number,
+    baselineMember?: MemberWithUI,
+): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+        id: member.id ?? null,
+        customer_confirmation_member_id:
+            member.customer_confirmation_member_id ?? null,
+        customer_id: member.customer_id ?? null,
+        package_official_id: member.package_official_id ?? null,
+        role: member.role ?? null,
+        relationship: member.relationship ?? null,
+        group_remarks: member.group_remarks ?? null,
+        sharing_plan: member.sharing_plan ?? null,
+        sharing_group_key:
+            member.sharing_group_key ??
+            `solo-${member.customer_confirmation_member_id ?? member.customer_id ?? index + 1}`,
+        group_sort_order: member.group_sort_order ?? null,
+        sort_order: member.sort_order ?? index + 1,
+        name_as_per_passport: member.name_as_per_passport ?? null,
+        remarks: member.remarks ?? null,
+        status: member.status ?? null,
+    };
+
+    const compactOptionalFields: Array<keyof MemberWithUI> = [
+        'arabic_name',
+        'contact_no',
+        'passport_number',
+        'nationality',
+        'gender',
+        'date_of_birth',
+        'date_of_issue',
+        'date_of_expiry',
+        'issue_place',
+        'birth_place',
+        'address',
+        'first_time_umrah',
+        'has_chronic_disease',
+        'chronic_disease_details',
+        'passport_path',
+        'photo_path',
+        'course_1',
+        'course_2',
+        'lanyard',
+        'luggage_tag',
+        'cabin_tag',
+        'passport_cover',
+        'umrah_guidebook',
+        'sling_bag',
+        'cabin_size_luggage',
+        'umrah_essentials',
+    ];
+
+    compactOptionalFields.forEach((field) => {
+        const currentValue = member[field] ?? null;
+        const baselineValue = baselineMember?.[field] ?? null;
+
+        if (shouldIncludeMemberField(currentValue, baselineValue)) {
+            payload[field] = currentValue;
+        }
+    });
+
+    const normalizedReceipts = normalizeDocumentEntriesForSubmit(
+        member.receipt_documents,
+    );
+    const baselineReceipts = normalizeDocumentEntriesForSubmit(
+        baselineMember?.receipt_documents,
     );
 
-    return travelerDocs.some((doc) => doc.file instanceof File);
+    if (!areDocumentEntriesEquivalent(normalizedReceipts, baselineReceipts)) {
+        payload.receipt_documents = normalizedReceipts;
+    }
+
+    return payload;
+}
+
+function toRoomListSubmitRow(
+    row: MemberWithUI,
+    index: number,
+    accommodationKey: string,
+): Record<string, unknown> {
+    const roomNumber = String(row.room_number ?? '').trim();
+    const manifestMemberId = toPositiveIntegerOrNull(
+        row.manifest_member_id ?? row.id,
+    );
+
+    return {
+        manifest_member_id: manifestMemberId,
+        id: row.id ?? null,
+        customer_confirmation_member_id:
+            row.customer_confirmation_member_id ?? null,
+        package_official_id: row.package_official_id ?? null,
+        accommodation_key: accommodationKey,
+        sort_order: index + 1,
+        sharing_group_key:
+            row.sharing_group_key ??
+            `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`,
+        sharing_plan: row.sharing_plan ?? null,
+        room_relationship: String(row.room_relationship ?? '').trim(),
+        room_label: String(row.room_label ?? '').trim(),
+        room_number: roomNumber === '' ? null : roomNumber,
+        room_type: String(row.room_type ?? '').trim(),
+        bed_type: String(row.bed_type ?? '').trim(),
+        number_of_beds_checked: !!row.number_of_beds_checked,
+        meal: String(row.meal ?? '').trim(),
+        room_remarks: row.room_remarks ?? null,
+        remarks: row.remarks ?? null,
+    };
+}
+
+function buildCanonicalSharingGroupsFromMembers(
+    members: MemberWithUI[],
+): CanonicalManifestSharingGroup[] {
+    const groupMap = new Map<string, CanonicalManifestSharingGroup>();
+
+    members.forEach((member, index) => {
+        const groupSortOrder = Number(member.group_sort_order ?? index + 1);
+        const groupId = toPositiveIntegerOrNull(
+            member.manifest_sharing_group_id ?? member.sharing_group_id,
+        );
+        const groupKey =
+            String(member.sharing_group_key ?? '').trim() ||
+            (groupId !== null ? `group-${groupId}` : `group-${groupSortOrder}`);
+        const memberSortOrder = Number(
+            member.sort_order ?? member.sn ?? index + 1,
+        );
+
+        if (!groupMap.has(groupKey)) {
+            groupMap.set(groupKey, {
+                id: groupId,
+                customer_confirmation_id:
+                    toPositiveIntegerOrNull(member.customer_confirmation_id) ??
+                    null,
+                sort_order: groupSortOrder,
+                relation: member.relationship ?? null,
+                remarks: member.group_remarks ?? null,
+                members: [],
+            });
+        }
+
+        const group = groupMap.get(groupKey);
+
+        if (!group || !group.members) {
+            return;
+        }
+
+        const memberPatch: Record<string, string | boolean | null> = {};
+        const patchFields: Array<keyof MemberWithUI> = [
+            'name_as_per_passport',
+            'arabic_name',
+            'contact_no',
+            'passport_number',
+            'nationality',
+            'gender',
+            'date_of_birth',
+            'date_of_issue',
+            'date_of_expiry',
+            'issue_place',
+            'birth_place',
+            'address',
+            'first_time_umrah',
+            'has_chronic_disease',
+            'chronic_disease_details',
+            'passport_path',
+            'photo_path',
+            'course_1',
+            'course_2',
+            'lanyard',
+            'luggage_tag',
+            'cabin_tag',
+            'passport_cover',
+            'umrah_guidebook',
+            'sling_bag',
+            'cabin_size_luggage',
+            'umrah_essentials',
+            'status',
+        ];
+
+        patchFields.forEach((field) => {
+            const value = member[field];
+
+            if (
+                value === null ||
+                typeof value === 'string' ||
+                typeof value === 'boolean'
+            ) {
+                memberPatch[field] = value;
+            }
+        });
+
+        group.members.push({
+            id: toPositiveIntegerOrNull(member.id),
+            customer_confirmation_member_id: toPositiveIntegerOrNull(
+                member.customer_confirmation_member_id,
+            ),
+            package_official_id: toPositiveIntegerOrNull(
+                member.package_official_id,
+            ),
+            role: member.role ?? null,
+            sharing_plan: member.sharing_plan ?? null,
+            sort_order: memberSortOrder,
+            remarks: member.remarks ?? null,
+            status: member.status ?? null,
+            patch: memberPatch,
+        });
+    });
+
+    return Array.from(groupMap.values()).map((group) => {
+        return {
+            ...group,
+            members: [...(group.members ?? [])].sort((left, right) => {
+                return (
+                    Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0)
+                );
+            }),
+        };
+    });
+}
+
+function buildCanonicalRoomsFromRoomLists(
+    roomLists: Record<string, Array<Record<string, unknown>>>,
+): CanonicalManifestRoom[] {
+    const rooms: CanonicalManifestRoom[] = [];
+
+    Object.entries(roomLists).forEach(([location, rows]) => {
+        const groupedRows = new Map<string, Array<Record<string, unknown>>>();
+
+        rows.forEach((row, index) => {
+            const rowGroupKey = String(row.sharing_group_key ?? '').trim();
+            const fallbackGroupKey = `room-${location}-${index + 1}`;
+            const groupKey =
+                rowGroupKey.length > 0 ? rowGroupKey : fallbackGroupKey;
+
+            if (!groupedRows.has(groupKey)) {
+                groupedRows.set(groupKey, []);
+            }
+
+            groupedRows.get(groupKey)?.push(row);
+        });
+
+        Array.from(groupedRows.entries()).forEach(
+            ([groupKey, members], roomIndex) => {
+                const base = members[0] ?? {};
+                const groupIdMatch = groupKey.match(/^(?:room-)?(\d+)$/);
+                const canonicalRoomId = groupIdMatch
+                    ? Number.parseInt(groupIdMatch[1], 10)
+                    : toPositiveIntegerOrNull(base.id);
+
+                rooms.push({
+                    id: Number.isFinite(canonicalRoomId)
+                        ? canonicalRoomId
+                        : null,
+                    location,
+                    sort_order: roomIndex + 1,
+                    relationship:
+                        String(base.room_relationship ?? '').trim() || null,
+                    room_label: String(base.room_label ?? '').trim() || null,
+                    room_number: String(base.room_number ?? '').trim() || null,
+                    room_type: String(base.room_type ?? '').trim() || null,
+                    bed_type: String(base.bed_type ?? '').trim() || null,
+                    sharing_plan:
+                        String(base.sharing_plan ?? '').trim() || null,
+                    meal: String(base.meal ?? '').trim() || null,
+                    number_of_beds_checked: !!base.number_of_beds_checked,
+                    remarks:
+                        (base.room_remarks as string | null | undefined) ??
+                        null,
+                    members: members.map((member, memberIndex) => ({
+                        manifest_member_id: toPositiveIntegerOrNull(
+                            member.manifest_member_id ?? member.id,
+                        ),
+                        customer_confirmation_member_id:
+                            toPositiveIntegerOrNull(
+                                member.customer_confirmation_member_id,
+                            ),
+                        package_official_id: toPositiveIntegerOrNull(
+                            member.package_official_id,
+                        ),
+                        sort_order: Number(
+                            member.sort_order ?? memberIndex + 1,
+                        ),
+                        remarks:
+                            (member.remarks as string | null | undefined) ??
+                            null,
+                    })),
+                });
+            },
+        );
+    });
+
+    return rooms;
+}
+
+function buildSubmitPayload(
+    data: ManifestFormData,
+    baselineMembers: MemberWithUI[] = [],
+): ManifestFormData {
+    const baselineMemberMap = buildMemberBaselineMap(baselineMembers);
+    const memberRows = ((data.members ?? []) as MemberWithUI[]).map(
+        (member, index) =>
+            toMemberSubmitRow(
+                member,
+                index,
+                baselineMemberMap.get(memberIdentityKey(member, index)),
+            ),
+    );
+
+    const roomLists = Object.fromEntries(
+        Object.entries(data.roomLists ?? {}).map(([key, rows]) => {
+            return [
+                key,
+                ((rows ?? []) as MemberWithUI[]).map((row, index) =>
+                    toRoomListSubmitRow(row, index, key),
+                ),
+            ];
+        }),
+    );
+
+    const canonicalManifest = {
+        id: data.id ?? data.manifest?.id ?? null,
+        package_id: data.package_id ?? data.manifest?.package_id ?? null,
+        in_charge_official_id:
+            data.in_charge_official_id ??
+            data.manifest?.in_charge_official_id ??
+            null,
+        manifest_number:
+            data.manifest_number ?? data.manifest?.manifest_number ?? '',
+        status: data.status ?? data.manifest?.status ?? null,
+        notes: data.notes ?? data.manifest?.notes ?? null,
+    };
+
+    const canonicalSharingGroups = buildCanonicalSharingGroupsFromMembers(
+        (data.members ?? []) as MemberWithUI[],
+    );
+    const canonicalRooms = buildCanonicalRoomsFromRoomLists(
+        Object.fromEntries(
+            Object.entries(roomLists).map(([key, rows]) => [
+                key,
+                rows as Array<Record<string, unknown>>,
+            ]),
+        ),
+    );
+
+    return {
+        ...data,
+        airlineList: [],
+        roomLists,
+        documents: {
+            flight_tickets: normalizeDocumentEntriesForSubmit(
+                data.documents?.flight_tickets,
+            ),
+            visa: normalizeDocumentEntriesForSubmit(data.documents?.visa),
+            hotel: normalizeDocumentEntriesForSubmit(data.documents?.hotel),
+            passport: normalizeDocumentEntriesForSubmit(
+                data.documents?.passport,
+            ),
+            photo: normalizeDocumentEntriesForSubmit(data.documents?.photo),
+        },
+        members: memberRows as MemberWithUI[],
+        manifest: canonicalManifest,
+        manifest_sharing_groups: canonicalSharingGroups,
+        manifest_rooms: canonicalRooms,
+    };
+}
+
+type SectionRequestResult = {
+    ok: boolean;
+    errors?: Record<string, string>;
+    isValidationError?: boolean;
+};
+
+function normalizeSectionErrors(
+    errors: Record<string, unknown>,
+): Record<string, string> {
+    if (!errors || typeof errors !== 'object') {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(errors).map(([field, message]) => {
+            if (Array.isArray(message)) {
+                return [field, String(message[0] ?? 'Invalid value.')];
+            }
+
+            return [field, String(message ?? 'Invalid value.')];
+        }),
+    );
+}
+
+async function submitSectionPayload(
+    url: string,
+    payload: Record<string, unknown>,
+    options: { forceFormData?: boolean } = {},
+): Promise<SectionRequestResult> {
+    const csrfToken = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content');
+    const useFormData = options.forceFormData ?? false;
+
+    const appendFormValue = (
+        formData: FormData,
+        key: string,
+        value: unknown,
+    ): void => {
+        if (value === undefined) {
+            return;
+        }
+
+        if (value === null) {
+            formData.append(key, '');
+
+            return;
+        }
+
+        if (value instanceof File) {
+            formData.append(key, value);
+
+            return;
+        }
+
+        if (value instanceof Blob) {
+            formData.append(key, value);
+
+            return;
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                appendFormValue(formData, `${key}[${index}]`, item);
+            });
+
+            return;
+        }
+
+        if (typeof value === 'object') {
+            Object.entries(value as Record<string, unknown>).forEach(
+                ([childKey, childValue]) => {
+                    appendFormValue(
+                        formData,
+                        `${key}[${childKey}]`,
+                        childValue,
+                    );
+                },
+            );
+
+            return;
+        }
+
+        if (typeof value === 'boolean') {
+            formData.append(key, value ? '1' : '0');
+
+            return;
+        }
+
+        formData.append(key, String(value));
+    };
+
+    const buildRequestBody = (): BodyInit => {
+        if (!useFormData) {
+            return JSON.stringify(payload);
+        }
+
+        const formData = new FormData();
+        formData.append('_method', 'patch');
+
+        Object.entries(payload).forEach(([key, value]) => {
+            appendFormValue(formData, key, value);
+        });
+
+        return formData;
+    };
+
+    const headers: Record<string, string> = {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+    };
+
+    if (!useFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    let response: Response;
+
+    try {
+        response = await fetch(url, {
+            method: useFormData ? 'POST' : 'PATCH',
+            headers,
+            body: buildRequestBody(),
+            credentials: 'same-origin',
+        });
+    } catch {
+        return {
+            ok: false,
+            errors: {
+                section_save:
+                    'Unable to reach server while saving manifest sections.',
+            },
+        };
+    }
+
+    if (response.ok) {
+        return { ok: true };
+    }
+
+    let errorPayload: Record<string, unknown> = {};
+
+    try {
+        errorPayload = (await response.json()) as Record<string, unknown>;
+    } catch {
+        errorPayload = {};
+    }
+
+    if (response.status === 422) {
+        return {
+            ok: false,
+            isValidationError: true,
+            errors: normalizeSectionErrors(
+                (errorPayload.errors as Record<string, unknown>) ?? {},
+            ),
+        };
+    }
+
+    return {
+        ok: false,
+        errors: {
+            section_save:
+                typeof errorPayload.message === 'string'
+                    ? errorPayload.message
+                    : 'Unable to save one or more manifest sections.',
+        },
+    };
+}
+
+type SaveProgressStepKey =
+    | 'manifest'
+    | 'sharing-groups'
+    | 'rooms'
+    | 'documents'
+    | 'receipt-documents';
+
+type SaveProgressStepStatus = 'pending' | 'running' | 'success' | 'failed';
+
+type SaveProgressStep = {
+    key: SaveProgressStepKey;
+    label: string;
+    status: SaveProgressStepStatus;
+    errorMessage?: string;
+};
+
+const SAVE_PROGRESS_TEMPLATE: SaveProgressStep[] = [
+    {
+        key: 'manifest',
+        label: 'Saving manifest fields',
+        status: 'pending',
+    },
+    {
+        key: 'sharing-groups',
+        label: 'Saving member sharing groups',
+        status: 'pending',
+    },
+    {
+        key: 'rooms',
+        label: 'Saving room assignments',
+        status: 'pending',
+    },
+    {
+        key: 'documents',
+        label: 'Saving manifest documents',
+        status: 'pending',
+    },
+    {
+        key: 'receipt-documents',
+        label: 'Saving member receipt files',
+        status: 'pending',
+    },
+];
+
+function buildManifestMemberReceiptsPayload(
+    members: MemberWithUI[],
+): Record<string, ManifestDocumentItem[]> {
+    return members.reduce<Record<string, ManifestDocumentItem[]>>(
+        (payload, member) => {
+            const manifestMemberId = toPositiveIntegerOrNull(
+                member.manifest_member_id ?? member.id,
+            );
+            const receiptDocuments = normalizeDocumentEntriesForSubmit(
+                member.receipt_documents,
+            );
+
+            if (
+                receiptDocuments.length === 0 ||
+                !Number.isFinite(Number(manifestMemberId))
+            ) {
+                return payload;
+            }
+
+            const key = String(manifestMemberId);
+            payload[key] = receiptDocuments;
+
+            return payload;
+        },
+        {},
+    );
 }
 
 export default function ManifestForm({
@@ -708,13 +1771,12 @@ export default function ManifestForm({
 }: ManifestFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
-    const isCreate = mode === 'create';
 
     const packageOptions = dataPackage as PackageForManifestOption[];
     const defaults = buildDefaultData(initialData);
 
     const form = useForm<ManifestFormData>(defaults);
-    const { data, setData, post, put, transform, processing, hasErrors } = form;
+    const { data, setData, post, processing, hasErrors } = form;
     const rawErrors = (form as unknown as { errors?: Record<string, string> })
         .errors;
     const formErrorActions = form as unknown as {
@@ -736,12 +1798,6 @@ export default function ManifestForm({
         },
         [setData],
     );
-    const setManifestInfoData: (key: string, value: unknown) => void = (
-        key,
-        value,
-    ) => {
-        setFormData(key, value);
-    };
     const clearFormErrors = useCallback(() => {
         formErrorActions.clearErrors();
     }, [formErrorActions]);
@@ -757,6 +1813,39 @@ export default function ManifestForm({
     const [openSections, setOpenSections] = useState<string[]>([
         'manifest_information',
     ]);
+    const [isSectionSaving, setIsSectionSaving] = useState(false);
+    const [showSaveProgressPopup, setShowSaveProgressPopup] = useState(false);
+    const [saveProgressSteps, setSaveProgressSteps] = useState<
+        SaveProgressStep[]
+    >(SAVE_PROGRESS_TEMPLATE);
+
+    const completedSaveStepsCount = useMemo(() => {
+        return saveProgressSteps.filter((step) => step.status === 'success')
+            .length;
+    }, [saveProgressSteps]);
+
+    const updateSaveProgressStep = useCallback(
+        (
+            key: SaveProgressStepKey,
+            status: SaveProgressStepStatus,
+            errorMessage?: string,
+        ) => {
+            setSaveProgressSteps((currentSteps) => {
+                return currentSteps.map((step) => {
+                    if (step.key !== key) {
+                        return step;
+                    }
+
+                    return {
+                        ...step,
+                        status,
+                        errorMessage,
+                    };
+                });
+            });
+        },
+        [],
+    );
 
     const scrollToErrorBanner = useCallback(() => {
         setTimeout(() => {
@@ -767,8 +1856,8 @@ export default function ManifestForm({
         }, 0);
     }, []);
 
-    const isCancelledTraveler = useCallback((traveler: TravelerWithUI) => {
-        return traveler.status === 'cancelled';
+    const isCancelledMember = useCallback((member: MemberWithUI) => {
+        return member.status === 'cancelled';
     }, []);
 
     const selectedPackage = useMemo(
@@ -840,7 +1929,7 @@ export default function ManifestForm({
 
         return roomTabs.map((tab) => {
             const tabRows =
-                ((data.roomLists ?? {})[tab.key] as TravelerWithUI[]) ?? [];
+                ((data.roomLists ?? {})[tab.key] as MemberWithUI[]) ?? [];
             const groupCount = countRoomGroups(tabRows);
             const range = {
                 tabKey: tab.key,
@@ -856,7 +1945,7 @@ export default function ManifestForm({
 
     const resolveErrorTab = useCallback(
         (path: string): string => {
-            if (path.startsWith('travelers.')) {
+            if (path.startsWith('members.')) {
                 return 'main';
             }
 
@@ -919,17 +2008,17 @@ export default function ManifestForm({
     );
 
     useEffect(() => {
-        const currentTravelers = (
-            (data.travelers ?? []) as TravelerWithUI[]
-        ).filter((traveler) => !isCancelledTraveler(traveler));
+        const currentMembers = ((data.members ?? []) as MemberWithUI[]).filter(
+            (member) => !isCancelledMember(member),
+        );
         const currentRoomLists = data.roomLists ?? {};
 
         const syncedRoomLists = Object.fromEntries(
             roomTabs.map((tab) => [
                 tab.key,
-                syncRoomRowsWithTravelers(
-                    currentTravelers,
-                    (currentRoomLists[tab.key] ?? []) as TravelerWithUI[],
+                syncRoomRowsWithMembers(
+                    currentMembers,
+                    (currentRoomLists[tab.key] ?? []) as MemberWithUI[],
                     tab.key,
                     tab.accommodation.type_of_meal ?? '',
                 ),
@@ -944,22 +2033,22 @@ export default function ManifestForm({
 
         const membershipChanged = roomTabs.some((tab) => {
             const currentRows =
-                ((currentRoomLists[tab.key] ?? []) as TravelerWithUI[]) ?? [];
+                ((currentRoomLists[tab.key] ?? []) as MemberWithUI[]) ?? [];
             const syncedRows =
-                ((syncedRoomLists[tab.key] ?? []) as TravelerWithUI[]) ?? [];
+                ((syncedRoomLists[tab.key] ?? []) as MemberWithUI[]) ?? [];
 
             if (currentRows.length !== syncedRows.length) {
                 return true;
             }
 
             const currentIdentitySet = new Set(
-                currentRows.map((traveler, index) =>
-                    travelerIdentityKey(traveler, index),
+                currentRows.map((member, index) =>
+                    memberIdentityKey(member, index),
                 ),
             );
             const syncedIdentitySet = new Set(
-                syncedRows.map((traveler, index) =>
-                    travelerIdentityKey(traveler, index),
+                syncedRows.map((member, index) =>
+                    memberIdentityKey(member, index),
                 ),
             );
 
@@ -981,9 +2070,9 @@ export default function ManifestForm({
         }
     }, [
         roomTabs,
-        data.travelers,
+        data.members,
         data.roomLists,
-        isCancelledTraveler,
+        isCancelledMember,
         setFormData,
     ]);
 
@@ -997,16 +2086,16 @@ export default function ManifestForm({
         }
     }, [hasErrors, isView, scrollToErrorBanner]);
 
-    const updateFromTravelers = useCallback(
-        (nextTravelers: TravelerWithUI[]) => {
-            const groupedTravelers = syncTravelerSharingGroups(
-                nextTravelers,
-                ((data.travelers ?? []) as TravelerWithUI[]) ?? [],
+    const updateFromMembers = useCallback(
+        (nextMembers: MemberWithUI[]) => {
+            const groupedMembers = syncMemberSharingGroups(
+                nextMembers,
+                ((data.members ?? []) as MemberWithUI[]) ?? [],
             );
 
-            const orderedTravelers = normalizeMainTabOrdering(groupedTravelers);
+            const orderedMembers = normalizeMainTabOrdering(groupedMembers);
 
-            const travelersWithSn = orderedTravelers.map((row, index) => ({
+            const membersWithSn = orderedMembers.map((row, index) => ({
                 ...row,
                 sn: index + 1,
                 role: row.role ?? undefined,
@@ -1023,13 +2112,13 @@ export default function ManifestForm({
                     `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`,
             }));
 
-            const activeTravelersWithSn = travelersWithSn.filter(
-                (traveler) => !isCancelledTraveler(traveler),
+            const activeMembersWithSn = membersWithSn.filter(
+                (member) => !isCancelledMember(member),
             );
 
-            const travelerMap = new Map(
-                activeTravelersWithSn.map((row, index) => [
-                    travelerIdentityKey(row, index),
+            const memberMap = new Map(
+                activeMembersWithSn.map((row, index) => [
+                    memberIdentityKey(row, index),
                     row,
                 ]),
             );
@@ -1041,54 +2130,53 @@ export default function ManifestForm({
 
                     return [
                         key,
-                        syncRoomRowsWithTravelers(
-                            activeTravelersWithSn,
-                            (rows as TravelerWithUI[]).map((row, rowIndex) => {
-                                const travelerUpdate = travelerMap.get(
-                                    travelerIdentityKey(row, rowIndex),
+                        syncRoomRowsWithMembers(
+                            activeMembersWithSn,
+                            (rows as MemberWithUI[]).map((row, rowIndex) => {
+                                const memberUpdate = memberMap.get(
+                                    memberIdentityKey(row, rowIndex),
                                 );
 
-                                if (!travelerUpdate) {
+                                if (!memberUpdate) {
                                     return row;
                                 }
 
                                 return {
                                     ...row,
                                     name_as_per_passport:
-                                        travelerUpdate.name_as_per_passport ??
+                                        memberUpdate.name_as_per_passport ??
                                         row.name_as_per_passport,
                                     passport_number:
-                                        travelerUpdate.passport_number ??
+                                        memberUpdate.passport_number ??
                                         row.passport_number,
-                                    role: travelerUpdate.role ?? row.role,
+                                    role: memberUpdate.role ?? row.role,
                                     nationality:
-                                        travelerUpdate.nationality ??
+                                        memberUpdate.nationality ??
                                         row.nationality,
-                                    gender: travelerUpdate.gender ?? row.gender,
+                                    gender: memberUpdate.gender ?? row.gender,
                                     date_of_birth:
-                                        travelerUpdate.date_of_birth ??
+                                        memberUpdate.date_of_birth ??
                                         row.date_of_birth,
                                     date_of_issue:
-                                        travelerUpdate.date_of_issue ??
+                                        memberUpdate.date_of_issue ??
                                         row.date_of_issue,
                                     date_of_expiry:
-                                        travelerUpdate.date_of_expiry ??
+                                        memberUpdate.date_of_expiry ??
                                         row.date_of_expiry,
                                     issue_place:
-                                        travelerUpdate.issue_place ??
+                                        memberUpdate.issue_place ??
                                         row.issue_place,
                                     birth_place:
-                                        travelerUpdate.birth_place ??
+                                        memberUpdate.birth_place ??
                                         row.birth_place,
                                     contact_no:
-                                        travelerUpdate.contact_no ??
+                                        memberUpdate.contact_no ??
                                         row.contact_no,
                                     package_price:
-                                        travelerUpdate.package_price ??
+                                        memberUpdate.package_price ??
                                         row.package_price,
                                     room_relationship:
-                                        row.room_relationship ??
-                                        travelerUpdate.relationship,
+                                        row.room_relationship ?? '',
                                 };
                             }),
                             key,
@@ -1098,71 +2186,70 @@ export default function ManifestForm({
                 }),
             );
 
-            const nextAirline = travelersWithSn
-                .map((traveler, travelerIndex) => {
-                    const travelerIdentity = travelerIdentityKey(
-                        traveler,
-                        travelerIndex,
+            const nextAirline = membersWithSn
+                .map((member, memberIndex) => {
+                    const memberIdentity = memberIdentityKey(
+                        member,
+                        memberIndex,
                     );
 
                     const existing = (data.airlineList ?? []).find(
                         (row: unknown, existingIndex: number) =>
-                            travelerIdentityKey(
-                                row as TravelerWithUI,
+                            memberIdentityKey(
+                                row as MemberWithUI,
                                 existingIndex,
-                            ) === travelerIdentity,
-                    ) as TravelerWithUI | undefined;
+                            ) === memberIdentity,
+                    ) as MemberWithUI | undefined;
 
                     return {
                         ...existing,
-                        ...traveler,
+                        ...member,
                         passport_number:
-                            traveler.passport_number ??
-                            existing?.passport_number,
+                            member.passport_number ?? existing?.passport_number,
                         nationality:
-                            traveler.nationality ?? existing?.nationality,
-                        gender: traveler.gender ?? existing?.gender,
+                            member.nationality ?? existing?.nationality,
+                        gender: member.gender ?? existing?.gender,
                         date_of_birth:
-                            traveler.date_of_birth ?? existing?.date_of_birth,
+                            member.date_of_birth ?? existing?.date_of_birth,
                         age:
-                            calculateAgeFromDob(traveler.date_of_birth) ??
+                            calculateAgeFromDob(member.date_of_birth) ??
                             existing?.age ??
-                            traveler.age ??
+                            member.age ??
                             null,
                         date_of_issue:
-                            traveler.date_of_issue ?? existing?.date_of_issue,
+                            member.date_of_issue ?? existing?.date_of_issue,
                         date_of_expiry:
-                            traveler.date_of_expiry ?? existing?.date_of_expiry,
+                            member.date_of_expiry ?? existing?.date_of_expiry,
                         issue_place:
-                            traveler.issue_place ?? existing?.issue_place,
+                            member.issue_place ?? existing?.issue_place,
                         birth_place:
-                            traveler.birth_place ?? existing?.birth_place,
-                        contact_no: traveler.contact_no ?? existing?.contact_no,
+                            member.birth_place ?? existing?.birth_place,
+                        contact_no: member.contact_no ?? existing?.contact_no,
                         package_price:
-                            traveler.package_price ?? existing?.package_price,
-                        role: traveler.role ?? existing?.role,
+                            member.package_price ?? existing?.package_price,
+                        role: member.role ?? existing?.role,
                         relationship:
-                            traveler.relationship ?? existing?.relationship,
+                            member.relationship ?? existing?.relationship,
                         sharing_plan:
-                            traveler.sharing_plan ?? existing?.sharing_plan,
+                            member.sharing_plan ?? existing?.sharing_plan,
                         row_key:
                             existing?.row_key ??
-                            traveler.row_key ??
-                            `airline-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? traveler.sn}`,
-                        sn: traveler.sn,
+                            member.row_key ??
+                            `airline-${member.customer_confirmation_member_id ?? member.customer_id ?? member.sn}`,
+                        sn: member.sn,
                     };
                 })
-                .filter((traveler) => !isCancelledTraveler(traveler));
+                .filter((member) => !isCancelledMember(member));
 
-            setFormData('travelers', travelersWithSn);
+            setFormData('members', membersWithSn);
             setFormData('roomLists', nextRoomLists);
             setFormData('airlineList', nextAirline);
         },
         [
             data.airlineList,
             data.roomLists,
-            data.travelers,
-            isCancelledTraveler,
+            data.members,
+            isCancelledMember,
             roomTabs,
             setFormData,
         ],
@@ -1176,12 +2263,12 @@ export default function ManifestForm({
                 return;
             }
 
-            const currentNonCancelledTravelers = (
-                (data.travelers ?? []) as TravelerWithUI[]
-            ).filter((traveler) => !isCancelledTraveler(traveler));
+            const currentNonCancelledMembers = (
+                (data.members ?? []) as MemberWithUI[]
+            ).filter((member) => !isCancelledMember(member));
 
-            const baseRows = buildRoomRowsFromTravelers(
-                currentNonCancelledTravelers,
+            const baseRows = buildRoomRowsFromMembers(
+                currentNonCancelledMembers,
                 [],
                 targetTab.key,
                 targetTab.accommodation.type_of_meal ?? '',
@@ -1198,20 +2285,20 @@ export default function ManifestForm({
         },
         [
             data.roomLists,
-            data.travelers,
-            isCancelledTraveler,
+            data.members,
+            isCancelledMember,
             roomTabs,
             setFormData,
         ],
     );
 
-    const getTravelerAssignedLocations = useCallback(
-        (traveler: TravelerWithUI): string[] => {
+    const getMemberAssignedLocations = useCallback(
+        (member: MemberWithUI): string[] => {
             const membership = new Set<string>();
 
             roomTabs.forEach((tab) => {
                 const rows = ((data.roomLists ?? {})[tab.key] ?? []) as
-                    | TravelerWithUI[]
+                    | MemberWithUI[]
                     | undefined;
 
                 if (!rows || rows.length === 0) {
@@ -1220,8 +2307,8 @@ export default function ManifestForm({
 
                 const exists = rows.some((row, index) => {
                     return (
-                        travelerIdentityKey(row, index) ===
-                        travelerIdentityKey(traveler, 0)
+                        memberIdentityKey(row, index) ===
+                        memberIdentityKey(member, 0)
                     );
                 });
 
@@ -1237,7 +2324,7 @@ export default function ManifestForm({
 
     const handleRoomAssignmentChange = useCallback(
         (
-            traveler: TravelerWithUI,
+            member: MemberWithUI,
             action: 'assign' | 'unassign',
             scope: string,
         ) => {
@@ -1261,8 +2348,8 @@ export default function ManifestForm({
             }
 
             const currentRoomLists =
-                (data.roomLists as Record<string, TravelerWithUI[]>) ?? {};
-            const nextRoomLists: Record<string, TravelerWithUI[]> = {
+                (data.roomLists as Record<string, MemberWithUI[]>) ?? {};
+            const nextRoomLists: Record<string, MemberWithUI[]> = {
                 ...currentRoomLists,
             };
 
@@ -1277,11 +2364,11 @@ export default function ManifestForm({
                 }
 
                 const existingRows = (nextRoomLists[tab.key] ??
-                    []) as TravelerWithUI[];
-                const travelerExists = existingRows.some((row, rowIndex) => {
+                    []) as MemberWithUI[];
+                const memberExists = existingRows.some((row, rowIndex) => {
                     return (
-                        travelerIdentityKey(row, rowIndex) ===
-                        travelerIdentityKey(traveler, 0)
+                        memberIdentityKey(row, rowIndex) ===
+                        memberIdentityKey(member, 0)
                     );
                 });
 
@@ -1289,8 +2376,8 @@ export default function ManifestForm({
                     nextRoomLists[tab.key] = existingRows
                         .filter((row, rowIndex) => {
                             return (
-                                travelerIdentityKey(row, rowIndex) !==
-                                travelerIdentityKey(traveler, 0)
+                                memberIdentityKey(row, rowIndex) !==
+                                memberIdentityKey(member, 0)
                             );
                         })
                         .map((row, index) => ({
@@ -1302,9 +2389,9 @@ export default function ManifestForm({
                     return;
                 }
 
-                if (!travelerExists) {
-                    const appended = buildRoomRowsFromTravelers(
-                        [traveler],
+                if (!memberExists) {
+                    const appended = buildRoomRowsFromMembers(
+                        [member],
                         existingRows,
                         tab.key,
                         tab.accommodation.type_of_meal ?? '',
@@ -1327,8 +2414,10 @@ export default function ManifestForm({
 
     const updateManifestDocuments = useCallback(
         (field: ManifestDocumentFieldKey, rows: ManifestDocumentItem[]) => {
+            const currentDocuments =
+                data.documents ?? buildEmptyManifestDocuments();
             const nextDocuments: ManifestDocumentsByField = {
-                ...(data.documents ?? buildEmptyManifestDocuments()),
+                ...currentDocuments,
                 [field]: rows,
             };
 
@@ -1337,80 +2426,63 @@ export default function ManifestForm({
         [data.documents, setFormData],
     );
 
-    const updateTravelerArabicName = useCallback(
-        (traveler: TravelerWithUI, arabicName: string) => {
-            const sanitizedArabicName = normalizeArabicNameInput(arabicName);
+    const updateMemberArabicName = useCallback(
+        (member: MemberWithUI, arabicName: string) => {
+            const sanitizedArabicName = normalizeArabicNameInput(
+                arabicName.trim().length === 0
+                    ? arabicName
+                    : convertNameToArabic(arabicName),
+            );
 
-            const nextTravelers = (
-                (data.travelers ?? []) as TravelerWithUI[]
-            ).map((row, index) => {
-                if (
-                    travelerIdentityKey(row, index) !==
-                    travelerIdentityKey(traveler, 0)
-                ) {
-                    return row;
-                }
+            const nextMembers = ((data.members ?? []) as MemberWithUI[]).map(
+                (row, index) => {
+                    if (
+                        memberIdentityKey(row, index) !==
+                        memberIdentityKey(member, 0)
+                    ) {
+                        return row;
+                    }
 
-                return {
-                    ...row,
-                    arabic_name: sanitizedArabicName,
-                };
-            });
+                    return {
+                        ...row,
+                        arabic_name: sanitizedArabicName,
+                    };
+                },
+            );
 
-            setFormData('travelers', nextTravelers);
+            setFormData('members', nextMembers);
         },
-        [data.travelers, setFormData],
+        [data.members, setFormData],
     );
 
-    const updateTravelerReceiptDocuments = useCallback(
-        (traveler: TravelerWithUI, rows: ManifestDocumentItem[]) => {
-            const nextTravelers = (
-                (data.travelers ?? []) as TravelerWithUI[]
-            ).map((row, index) => {
-                if (
-                    travelerIdentityKey(row, index) !==
-                    travelerIdentityKey(traveler, 0)
-                ) {
-                    return row;
-                }
+    const updateMemberReceiptDocuments = useCallback(
+        (member: MemberWithUI, rows: ManifestDocumentItem[]) => {
+            const nextMembers = ((data.members ?? []) as MemberWithUI[]).map(
+                (row, index) => {
+                    if (
+                        memberIdentityKey(row, index) !==
+                        memberIdentityKey(member, 0)
+                    ) {
+                        return row;
+                    }
 
-                return {
-                    ...row,
-                    receipt_documents: rows,
-                };
-            });
+                    return {
+                        ...row,
+                        receipt_documents: rows,
+                    };
+                },
+            );
 
-            setFormData('travelers', nextTravelers);
+            setFormData('members', nextMembers);
         },
-        [data.travelers, setFormData],
+        [data.members, setFormData],
     );
 
-    const submit = (event: React.FormEvent) => {
+    const submit = async (event: React.FormEvent) => {
         event.preventDefault();
 
-        const normalizedPackageId = toPositiveInteger(data.package_id);
-        const normalizedInChargeOfficialId = toPositiveInteger(
-            data.in_charge_official_id,
-        );
+        const validationResult = manifestValidationSchema.safeParse(data);
 
-        const normalizedPayload: ManifestFormData = {
-            ...data,
-            package_id: normalizedPackageId,
-            in_charge_official_id:
-                normalizedInChargeOfficialId > 0
-                    ? normalizedInChargeOfficialId
-                    : null,
-        };
-
-        if (
-            normalizedPackageId > 0 &&
-            normalizedPackageId !== data.package_id
-        ) {
-            setFormData('package_id', normalizedPackageId);
-        }
-
-        const validationResult =
-            manifestValidationSchema.safeParse(normalizedPayload);
         clearFormErrors();
 
         if (!validationResult.success) {
@@ -1423,35 +2495,158 @@ export default function ManifestForm({
             return;
         }
 
-        transform((currentData: ManifestFormData) => ({
-            ...currentData,
-            ...normalizedPayload,
-            package_id:
-                normalizedPackageId ||
-                toPositiveInteger(currentData.package_id),
-        }));
+        const submitPayload = buildSubmitPayload(
+            data,
+            (defaults.members ?? []) as MemberWithUI[],
+        );
+        const manifestMemberReceiptsPayload =
+            buildManifestMemberReceiptsPayload(
+                (data.members ?? []) as MemberWithUI[],
+            );
 
-        const shouldForceFormData = hasAnyNewUpload(normalizedPayload);
+        submitPayload.manifest_member_receipts = manifestMemberReceiptsPayload;
 
-        if (isCreate) {
+        const handleError = (errors: Record<string, string>) => {
+            Object.entries(errors).forEach(([field, message]) => {
+                setFormError(field, message);
+            });
+
+            scrollToErrorBanner();
+        };
+
+        const submitWithLegacyFullPayload = () => {
+            form.transform(() => submitPayload);
+
             post(store().url, {
-                forceFormData: shouldForceFormData,
                 preserveScroll: 'errors',
-                onError: () => {
-                    scrollToErrorBanner();
+                forceFormData: true,
+                onError: handleError,
+                onFinish: () => {
+                    form.transform(
+                        (currentData: ManifestFormData) => currentData,
+                    );
                 },
             });
+        };
+
+        if (isEdit && submitPayload.id) {
+            const sectionRequests = [
+                {
+                    key: 'manifest' as const,
+                    url: manifestSections.core.update.url(submitPayload.id),
+                    payload: {
+                        package_id: submitPayload.manifest?.package_id ?? null,
+                        in_charge_official_id:
+                            submitPayload.manifest?.in_charge_official_id ??
+                            null,
+                        notes: submitPayload.manifest?.notes ?? null,
+                        status: submitPayload.manifest?.status ?? null,
+                    },
+                    forceFormData: false,
+                },
+                {
+                    key: 'sharing-groups' as const,
+                    url: manifestSections.sharingGroups.update.url(
+                        submitPayload.id,
+                    ),
+                    payload: {
+                        manifest_sharing_groups:
+                            submitPayload.manifest_sharing_groups ?? [],
+                    },
+                    forceFormData: false,
+                },
+                {
+                    key: 'rooms' as const,
+                    url: manifestSections.rooms.update.url(submitPayload.id),
+                    payload: {
+                        manifest_rooms: submitPayload.manifest_rooms ?? [],
+                    },
+                    forceFormData: false,
+                },
+                {
+                    key: 'documents' as const,
+                    url: manifestSections.documents.update.url(
+                        submitPayload.id,
+                    ),
+                    payload: {
+                        documents:
+                            submitPayload.documents ??
+                            buildEmptyManifestDocuments(),
+                    },
+                    forceFormData: true,
+                },
+                {
+                    key: 'receipt-documents' as const,
+                    url: manifestSections.receiptDocuments.update.url(
+                        submitPayload.id,
+                    ),
+                    payload: {
+                        manifest_member_receipts: manifestMemberReceiptsPayload,
+                    },
+                    forceFormData: true,
+                },
+            ];
+
+            setIsSectionSaving(true);
+            setShowSaveProgressPopup(true);
+            setSaveProgressSteps(SAVE_PROGRESS_TEMPLATE);
+
+            try {
+                for (const sectionRequest of sectionRequests) {
+                    updateSaveProgressStep(sectionRequest.key, 'running');
+
+                    const result = await submitSectionPayload(
+                        sectionRequest.url,
+                        sectionRequest.payload,
+                        {
+                            forceFormData: sectionRequest.forceFormData,
+                        },
+                    );
+
+                    if (!result.ok) {
+                        updateSaveProgressStep(
+                            sectionRequest.key,
+                            'failed',
+                            result.errors?.section_save,
+                        );
+
+                        const hasValidationErrors =
+                            result.isValidationError === true;
+
+                        if (
+                            ENABLE_LEGACY_FULL_SUBMIT_FALLBACK &&
+                            !hasValidationErrors
+                        ) {
+                            submitWithLegacyFullPayload();
+
+                            return;
+                        }
+
+                        handleError(
+                            result.errors ?? {
+                                section_save:
+                                    'Unable to save one or more manifest sections.',
+                            },
+                        );
+
+                        setShowSaveProgressPopup(false);
+
+                        return;
+                    }
+
+                    updateSaveProgressStep(sectionRequest.key, 'success');
+                }
+
+                window.location.assign(store().url);
+            } finally {
+                setIsSectionSaving(false);
+                setShowSaveProgressPopup(false);
+            }
+
+            return;
         }
 
-        if (isEdit && data.id) {
-            put(update(data.id).url, {
-                forceFormData: shouldForceFormData,
-                preserveScroll: 'errors',
-                onError: () => {
-                    scrollToErrorBanner();
-                },
-            });
-        }
+        submitWithLegacyFullPayload();
     };
 
     const renderError = (path: string) => {
@@ -1466,7 +2661,7 @@ export default function ManifestForm({
 
     const groupedErrorSummary = useMemo(() => {
         const globalErrors: Array<{ path: string; message: string }> = [];
-        const travelerErrors = new Map<
+        const memberErrors = new Map<
             number,
             Array<{ path: string; message: string }>
         >();
@@ -1476,37 +2671,36 @@ export default function ManifestForm({
                 return;
             }
 
-            const travelerMatch = path.match(/^travelers\.(\d+)\./);
+            const memberMatch = path.match(/^members\.(\d+)\./);
 
-            if (!travelerMatch) {
+            if (!memberMatch) {
                 globalErrors.push({ path, message });
 
                 return;
             }
 
-            const travelerIndex = Number(travelerMatch[1]);
-            if (!travelerErrors.has(travelerIndex)) {
-                travelerErrors.set(travelerIndex, []);
+            const memberIndex = Number(memberMatch[1]);
+            if (!memberErrors.has(memberIndex)) {
+                memberErrors.set(memberIndex, []);
             }
 
-            travelerErrors.get(travelerIndex)?.push({ path, message });
+            memberErrors.get(memberIndex)?.push({ path, message });
         });
 
         return {
             globalErrors,
-            travelerGroups: [...travelerErrors.entries()].map(
-                ([travelerIndex, issues]) => ({
-                    travelerIndex,
-                    travelerName:
-                        ((data.travelers ?? []) as TravelerWithUI[])[
-                            travelerIndex
-                        ]?.name_as_per_passport ||
-                        `Traveler ${travelerIndex + 1}`,
+            memberGroups: [...memberErrors.entries()].map(
+                ([memberIndex, issues]) => ({
+                    memberIndex,
+                    memberName:
+                        ((data.members ?? []) as MemberWithUI[])[memberIndex]
+                            ?.name_as_per_passport ||
+                        `Member ${memberIndex + 1}`,
                     issues,
                 }),
             ),
         };
-    }, [formErrors, data.travelers]);
+    }, [formErrors, data.members]);
 
     const sectionStatuses = useMemo(() => {
         const errorEntries = Object.entries(formErrors).filter(([, message]) =>
@@ -1523,9 +2717,9 @@ export default function ManifestForm({
         };
 
         const selectedFlights = selectedPackage?.flights ?? [];
-        const activeTravelerCount = (
-            ((data.travelers ?? []) as TravelerWithUI[]).filter(
-                (traveler) => !isCancelledTraveler(traveler),
+        const activeMemberCount = (
+            ((data.members ?? []) as MemberWithUI[]).filter(
+                (member) => !isCancelledMember(member),
             ) ?? []
         ).length;
 
@@ -1539,11 +2733,9 @@ export default function ManifestForm({
               ? 'complete'
               : 'incomplete';
 
-        const manifestMemberInformationStatus = hasErrorsForPrefix([
-            'travelers',
-        ])
+        const manifestMemberInformationStatus = hasErrorsForPrefix(['members'])
             ? 'error'
-            : activeTravelerCount > 0
+            : activeMemberCount > 0
               ? 'complete'
               : 'incomplete';
 
@@ -1563,9 +2755,9 @@ export default function ManifestForm({
         formErrors,
         data.package_id,
         data.status,
-        data.travelers,
+        data.members,
         hotelAccommodations.length,
-        isCancelledTraveler,
+        isCancelledMember,
         selectedPackage,
     ]);
 
@@ -1601,66 +2793,83 @@ export default function ManifestForm({
         [setOpenSections],
     );
 
-    const nonCancelledTravelers = useMemo(() => {
-        return ((data.travelers ?? []) as TravelerWithUI[]).filter(
-            (traveler) => !isCancelledTraveler(traveler),
+    const nonCancelledMembers = useMemo(() => {
+        return ((data.members ?? []) as MemberWithUI[]).filter(
+            (member) => !isCancelledMember(member),
         );
-    }, [data.travelers, isCancelledTraveler]);
+    }, [data.members, isCancelledMember]);
 
-    const nonCancelledNonOfficialTravelers = useMemo(() => {
-        return nonCancelledTravelers.filter(
-            (traveler) => !traveler.package_official_id,
+    const nonCancelledNonOfficialMembers = useMemo(() => {
+        return nonCancelledMembers.filter(
+            (member) => !member.package_official_id,
         );
-    }, [nonCancelledTravelers]);
+    }, [nonCancelledMembers]);
 
     useEffect(() => {
-        const travelers = (data.travelers ?? []) as TravelerWithUI[];
+        const members = (data.members ?? []) as MemberWithUI[];
         const previousMap = previousNameByIdentityRef.current;
         let hasChanges = false;
 
-        const nextTravelers = travelers.map((traveler, index) => {
-            if (traveler.package_official_id) {
-                return traveler;
+        const nextMembers = members.map((member, index) => {
+            if (member.package_official_id) {
+                return member;
             }
 
-            const identity = travelerIdentityKey(traveler, index);
+            const identity = memberIdentityKey(member, index);
             const currentName = String(
-                traveler.name_as_per_passport ?? '',
+                member.name_as_per_passport ?? '',
             ).trim();
             const previousName = previousMap[identity] ?? null;
             previousMap[identity] = currentName;
 
             if (currentName === '') {
-                return traveler;
+                return member;
+            }
+
+            const currentArabicName = String(member.arabic_name ?? '');
+            const arabicNameContainsLatin = /[a-z]/i.test(currentArabicName);
+
+            if (arabicNameContainsLatin) {
+                const normalizedArabicName =
+                    normalizeArabicNameInput(currentArabicName);
+
+                if (normalizedArabicName !== currentArabicName) {
+                    hasChanges = true;
+
+                    return {
+                        ...member,
+                        arabic_name: normalizedArabicName,
+                    };
+                }
             }
 
             const shouldAutoFill =
-                !traveler.arabic_name ||
-                traveler.arabic_name.trim() === '' ||
+                !member.arabic_name ||
+                member.arabic_name.trim() === '' ||
                 previousName !== null;
 
             if (!shouldAutoFill || previousName === currentName) {
-                return traveler;
+                return member;
             }
 
             const autoArabicName = convertNameToArabic(currentName);
 
-            if (autoArabicName === traveler.arabic_name) {
-                return traveler;
+            if (autoArabicName === member.arabic_name) {
+                return member;
             }
 
             hasChanges = true;
 
             return {
-                ...traveler,
+                ...member,
                 arabic_name: autoArabicName,
             };
         });
 
         if (hasChanges) {
-            setFormData('travelers', nextTravelers);
+            setFormData('members', nextMembers);
         }
-    }, [data.travelers, setFormData]);
+    }, [data.members, setFormData]);
 
     useEffect(() => {
         const inChargeOfficialId = Number(data.in_charge_official_id ?? 0);
@@ -1678,11 +2887,11 @@ export default function ManifestForm({
         }
     }, [data.in_charge_official_id, selectedPackageOfficials, setFormData]);
 
-    const moveTravelerToHolding = async (traveler: TravelerWithUI) => {
-        const memberId = traveler.customer_confirmation_member_id;
-        const travelerId = traveler.id;
+    const moveMemberToHolding = async (member: MemberWithUI) => {
+        const confirmationMemberId = member.customer_confirmation_member_id;
+        const manifestMemberId = member.id;
 
-        if (!memberId || !travelerId || !data.id) {
+        if (!confirmationMemberId || !manifestMemberId || !data.id) {
             return;
         }
 
@@ -1692,7 +2901,7 @@ export default function ManifestForm({
                 ?.getAttribute('content');
 
             const response = await fetch(
-                `/manifests/${data.id}/travelers/${travelerId}/move-holding`,
+                `/manifests/${data.id}/members/${manifestMemberId}/move-holding`,
                 {
                     method: 'POST',
                     headers: {
@@ -1706,26 +2915,26 @@ export default function ManifestForm({
             );
 
             if (!response.ok) {
-                throw new Error('Failed to move traveler to holding.');
+                throw new Error('Failed to move member to holding.');
             }
 
-            const nextTravelers = (
-                (data.travelers ?? []) as TravelerWithUI[]
-            ).map((row) => {
-                if (
-                    row.customer_confirmation_member_id ===
-                    traveler.customer_confirmation_member_id
-                ) {
-                    return {
-                        ...row,
-                        status: 'cancelled' as const,
-                    };
-                }
+            const nextMembers = ((data.members ?? []) as MemberWithUI[]).map(
+                (row) => {
+                    if (
+                        row.customer_confirmation_member_id ===
+                        member.customer_confirmation_member_id
+                    ) {
+                        return {
+                            ...row,
+                            status: 'cancelled' as const,
+                        };
+                    }
 
-                return row;
-            });
+                    return row;
+                },
+            );
 
-            updateFromTravelers(nextTravelers);
+            updateFromMembers(nextMembers);
         } catch (error) {
             console.error(error);
         }
@@ -1765,10 +2974,62 @@ export default function ManifestForm({
         [],
     );
 
-    console.log(data);
-
     return (
         <div className="mx-auto w-full">
+            {showSaveProgressPopup && isSectionSaving && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+                    <div className="w-full max-w-xl rounded-xl border bg-white p-5 shadow-2xl">
+                        <div className="mb-4 flex items-center justify-between gap-4">
+                            <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                    Processing Manifest Sections
+                                </p>
+                                <p className="text-xs text-slate-600">
+                                    {completedSaveStepsCount}/
+                                    {saveProgressSteps.length} sections
+                                    completed
+                                </p>
+                            </div>
+                            <Loader2 className="h-5 w-5 animate-spin text-slate-600" />
+                        </div>
+
+                        <div className="space-y-2">
+                            {saveProgressSteps.map((step) => {
+                                const icon =
+                                    step.status === 'success' ? (
+                                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                    ) : step.status === 'running' ? (
+                                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                                    ) : step.status === 'failed' ? (
+                                        <AlertCircle className="h-4 w-4 text-red-600" />
+                                    ) : (
+                                        <CircleDashed className="h-4 w-4 text-slate-400" />
+                                    );
+
+                                return (
+                                    <div
+                                        key={step.key}
+                                        className="rounded-md border border-slate-200 px-3 py-2"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {icon}
+                                            <p className="text-sm text-slate-800">
+                                                {step.label}
+                                            </p>
+                                        </div>
+                                        {step.errorMessage && (
+                                            <p className="mt-1 text-xs text-red-600">
+                                                {step.errorMessage}
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {mode !== 'view' && (
                 <FormProgressHeader
                     title="Manifest"
@@ -1801,18 +3062,14 @@ export default function ManifestForm({
                                         </button>
                                     ),
                                 )}
-                                {groupedErrorSummary.travelerGroups.map(
-                                    ({
-                                        travelerIndex,
-                                        travelerName,
-                                        issues,
-                                    }) => (
+                                {groupedErrorSummary.memberGroups.map(
+                                    ({ memberIndex, memberName, issues }) => (
                                         <div
-                                            key={travelerIndex}
+                                            key={memberIndex}
                                             className="space-y-1"
                                         >
                                             <p className="font-medium">
-                                                {travelerName}
+                                                {memberName}
                                             </p>
                                             {issues.map(({ path, message }) => (
                                                 <button
@@ -1857,7 +3114,7 @@ export default function ManifestForm({
                             isView={isView}
                             data={data}
                             dataPackage={packageOptions}
-                            setData={setManifestInfoData}
+                            setData={setFormData}
                             renderError={renderError}
                         />
                     </FormSection>
@@ -1865,14 +3122,12 @@ export default function ManifestForm({
                     <FormSection
                         value="manifest_member_information"
                         title="Manifest Member Information"
-                        description="Auto-calculated summary from active travelers."
+                        description="Auto-calculated summary from active members."
                         status={sectionStatuses.manifest_member_information}
                         required={false}
                     >
                         <ManifestMemberInformationCard
-                            travelers={
-                                (data.travelers ?? []) as TravelerWithUI[]
-                            }
+                            members={(data.members ?? []) as MemberWithUI[]}
                         />
                     </FormSection>
 
@@ -2008,29 +3263,29 @@ export default function ManifestForm({
 
                     <TabsContent value="main" className="space-y-4">
                         <ManifestDatatable
-                            mode="travelers"
-                            rows={(data.travelers ?? []) as TravelerWithUI[]}
+                            mode="members"
+                            rows={(data.members ?? []) as MemberWithUI[]}
                             disabled={isView}
                             allowReorder
-                            errorPrefix="travelers"
+                            errorPrefix="members"
                             errors={formErrors}
                             roomAssignmentOptions={roomTabs.map((tab) => ({
                                 key: tab.key,
                                 label: tab.label,
                             }))}
-                            getTravelerAssignedLocations={
-                                getTravelerAssignedLocations
+                            getMemberAssignedLocations={
+                                getMemberAssignedLocations
                             }
                             onRoomAssignmentChange={handleRoomAssignmentChange}
-                            onMoveToHolding={moveTravelerToHolding}
-                            onRowsChange={updateFromTravelers}
+                            onMoveToHolding={moveMemberToHolding}
+                            onRowsChange={updateFromMembers}
                         />
                     </TabsContent>
 
                     {roomTabs.map((tab) => {
                         const roomRows =
                             ((data.roomLists ?? {})[tab.key] as
-                                | TravelerWithUI[]
+                                | MemberWithUI[]
                                 | undefined) ?? [];
                         const roomRange = roomErrorRanges.find(
                             (range) => range.tabKey === tab.key,
@@ -2058,7 +3313,7 @@ export default function ManifestForm({
                                             label: roomTab.label,
                                         }),
                                     )}
-                                    onRowsChange={(rows: TravelerWithUI[]) => {
+                                    onRowsChange={(rows: MemberWithUI[]) => {
                                         const normalizedRows = rows.map(
                                             (row, index) => ({
                                                 ...row,
@@ -2074,282 +3329,10 @@ export default function ManifestForm({
                                             }),
                                         );
 
-                                        const roomTravelerMap = new Map(
-                                            normalizedRows.map((row, index) => [
-                                                travelerIdentityKey(row, index),
-                                                row,
-                                            ]),
-                                        );
-
-                                        const nextTravelers = (
-                                            (data.travelers ?? []) as
-                                                | TravelerWithUI[]
-                                                | undefined
-                                        )?.map((traveler, travelerIndex) => {
-                                            const updated = roomTravelerMap.get(
-                                                travelerIdentityKey(
-                                                    traveler,
-                                                    travelerIndex,
-                                                ),
-                                            );
-
-                                            if (!updated) {
-                                                return traveler;
-                                            }
-
-                                            return {
-                                                ...traveler,
-                                                name_as_per_passport:
-                                                    updated.name_as_per_passport ??
-                                                    traveler.name_as_per_passport,
-                                                passport_number:
-                                                    updated.passport_number ??
-                                                    traveler.passport_number,
-                                                role:
-                                                    updated.role ??
-                                                    traveler.role,
-                                                relationship:
-                                                    updated.relationship ??
-                                                    traveler.relationship,
-                                                sharing_plan:
-                                                    updated.sharing_plan ??
-                                                    traveler.sharing_plan,
-                                                nationality:
-                                                    updated.nationality ??
-                                                    traveler.nationality,
-                                                gender:
-                                                    updated.gender ??
-                                                    traveler.gender,
-                                                date_of_birth:
-                                                    updated.date_of_birth ??
-                                                    traveler.date_of_birth,
-                                                date_of_issue:
-                                                    updated.date_of_issue ??
-                                                    traveler.date_of_issue,
-                                                date_of_expiry:
-                                                    updated.date_of_expiry ??
-                                                    traveler.date_of_expiry,
-                                                issue_place:
-                                                    updated.issue_place ??
-                                                    traveler.issue_place,
-                                                birth_place:
-                                                    updated.birth_place ??
-                                                    traveler.birth_place,
-                                                contact_no:
-                                                    updated.contact_no ??
-                                                    traveler.contact_no,
-                                                package_price:
-                                                    updated.package_price ??
-                                                    traveler.package_price,
-                                                age:
-                                                    calculateAgeFromDob(
-                                                        updated.date_of_birth ??
-                                                            traveler.date_of_birth,
-                                                    ) ?? traveler.age,
-                                            };
+                                        setFormData('roomLists', {
+                                            ...(data.roomLists ?? {}),
+                                            [tab.key]: normalizedRows,
                                         });
-
-                                        if (nextTravelers) {
-                                            const travelerMap = new Map(
-                                                nextTravelers.map(
-                                                    (
-                                                        traveler,
-                                                        travelerIndex,
-                                                    ) => [
-                                                        travelerIdentityKey(
-                                                            traveler,
-                                                            travelerIndex,
-                                                        ),
-                                                        traveler,
-                                                    ],
-                                                ),
-                                            );
-
-                                            const nextActiveTravelers =
-                                                nextTravelers.filter(
-                                                    (traveler) =>
-                                                        !isCancelledTraveler(
-                                                            traveler,
-                                                        ),
-                                                );
-
-                                            const nextRoomLists =
-                                                Object.fromEntries(
-                                                    roomTabs.map((roomTab) => {
-                                                        const roomKey =
-                                                            roomTab.key;
-                                                        const sourceRows =
-                                                            roomKey === tab.key
-                                                                ? normalizedRows
-                                                                : (
-                                                                      ((data.roomLists ??
-                                                                          {})[
-                                                                          roomKey
-                                                                      ] ??
-                                                                          []) as TravelerWithUI[]
-                                                                  ).map(
-                                                                      (
-                                                                          roomRow,
-                                                                          roomIndex,
-                                                                      ) => {
-                                                                          const travelerUpdate =
-                                                                              travelerMap.get(
-                                                                                  travelerIdentityKey(
-                                                                                      roomRow,
-                                                                                      roomIndex,
-                                                                                  ),
-                                                                              );
-
-                                                                          if (
-                                                                              !travelerUpdate
-                                                                          ) {
-                                                                              return roomRow;
-                                                                          }
-
-                                                                          return {
-                                                                              ...roomRow,
-                                                                              name_as_per_passport:
-                                                                                  travelerUpdate.name_as_per_passport ??
-                                                                                  roomRow.name_as_per_passport,
-                                                                              passport_number:
-                                                                                  travelerUpdate.passport_number ??
-                                                                                  roomRow.passport_number,
-                                                                              role:
-                                                                                  travelerUpdate.role ??
-                                                                                  roomRow.role,
-                                                                              relationship:
-                                                                                  travelerUpdate.relationship ??
-                                                                                  roomRow.relationship,
-                                                                              sharing_plan:
-                                                                                  travelerUpdate.sharing_plan ??
-                                                                                  roomRow.sharing_plan,
-                                                                              nationality:
-                                                                                  travelerUpdate.nationality ??
-                                                                                  roomRow.nationality,
-                                                                              gender:
-                                                                                  travelerUpdate.gender ??
-                                                                                  roomRow.gender,
-                                                                              date_of_birth:
-                                                                                  travelerUpdate.date_of_birth ??
-                                                                                  roomRow.date_of_birth,
-                                                                              date_of_issue:
-                                                                                  travelerUpdate.date_of_issue ??
-                                                                                  roomRow.date_of_issue,
-                                                                              date_of_expiry:
-                                                                                  travelerUpdate.date_of_expiry ??
-                                                                                  roomRow.date_of_expiry,
-                                                                              issue_place:
-                                                                                  travelerUpdate.issue_place ??
-                                                                                  roomRow.issue_place,
-                                                                              birth_place:
-                                                                                  travelerUpdate.birth_place ??
-                                                                                  roomRow.birth_place,
-                                                                              contact_no:
-                                                                                  travelerUpdate.contact_no ??
-                                                                                  roomRow.contact_no,
-                                                                              package_price:
-                                                                                  travelerUpdate.package_price ??
-                                                                                  roomRow.package_price,
-                                                                              age:
-                                                                                  calculateAgeFromDob(
-                                                                                      travelerUpdate.date_of_birth ??
-                                                                                          roomRow.date_of_birth,
-                                                                                  ) ??
-                                                                                  roomRow.age,
-                                                                          };
-                                                                      },
-                                                                  );
-
-                                                        return [
-                                                            roomKey,
-                                                            syncRoomRowsWithTravelers(
-                                                                nextActiveTravelers,
-                                                                sourceRows,
-                                                                roomKey,
-                                                                roomTab
-                                                                    .accommodation
-                                                                    .type_of_meal ??
-                                                                    '',
-                                                            ),
-                                                        ];
-                                                    }),
-                                                );
-
-                                            const nextAirline = (
-                                                (data.airlineList ??
-                                                    []) as TravelerWithUI[]
-                                            ).map(
-                                                (airlineRow, airlineIndex) => {
-                                                    const travelerUpdate =
-                                                        travelerMap.get(
-                                                            travelerIdentityKey(
-                                                                airlineRow,
-                                                                airlineIndex,
-                                                            ),
-                                                        );
-
-                                                    if (!travelerUpdate) {
-                                                        return airlineRow;
-                                                    }
-
-                                                    return {
-                                                        ...airlineRow,
-                                                        name_as_per_passport:
-                                                            travelerUpdate.name_as_per_passport ??
-                                                            airlineRow.name_as_per_passport,
-                                                        passport_number:
-                                                            travelerUpdate.passport_number ??
-                                                            airlineRow.passport_number,
-                                                        nationality:
-                                                            travelerUpdate.nationality ??
-                                                            airlineRow.nationality,
-                                                        gender:
-                                                            travelerUpdate.gender ??
-                                                            airlineRow.gender,
-                                                        date_of_birth:
-                                                            travelerUpdate.date_of_birth ??
-                                                            airlineRow.date_of_birth,
-                                                        date_of_issue:
-                                                            travelerUpdate.date_of_issue ??
-                                                            airlineRow.date_of_issue,
-                                                        date_of_expiry:
-                                                            travelerUpdate.date_of_expiry ??
-                                                            airlineRow.date_of_expiry,
-                                                        issue_place:
-                                                            travelerUpdate.issue_place ??
-                                                            airlineRow.issue_place,
-                                                        birth_place:
-                                                            travelerUpdate.birth_place ??
-                                                            airlineRow.birth_place,
-                                                        contact_no:
-                                                            travelerUpdate.contact_no ??
-                                                            airlineRow.contact_no,
-                                                        package_price:
-                                                            travelerUpdate.package_price ??
-                                                            airlineRow.package_price,
-                                                        age:
-                                                            calculateAgeFromDob(
-                                                                travelerUpdate.date_of_birth ??
-                                                                    airlineRow.date_of_birth,
-                                                            ) ?? airlineRow.age,
-                                                    };
-                                                },
-                                            );
-
-                                            setFormData(
-                                                'travelers',
-                                                nextTravelers,
-                                            );
-                                            setFormData(
-                                                'roomLists',
-                                                nextRoomLists,
-                                            );
-
-                                            setFormData(
-                                                'airlineList',
-                                                nextAirline,
-                                            );
-                                        }
                                     }}
                                 />
 
@@ -2375,7 +3358,7 @@ export default function ManifestForm({
                         const sourceRoomRows =
                             ((data.roomLists ?? {})[
                                 tab.sourceRoomKey
-                            ] as TravelerWithUI[]) ?? [];
+                            ] as MemberWithUI[]) ?? [];
 
                         return (
                             <TabsContent
@@ -2448,23 +3431,9 @@ export default function ManifestForm({
                     <TabsContent value="airline" className="space-y-4">
                         <ManifestDatatable
                             mode="airline"
-                            rows={((data.airlineList ?? []) as TravelerWithUI[])
-                                .filter((row) => !isCancelledTraveler(row))
-                                .map((row) => {
-                                    const activeTraveler =
-                                        nonCancelledTravelers.find(
-                                            (traveler) =>
-                                                traveler.customer_confirmation_member_id ===
-                                                row.customer_confirmation_member_id,
-                                        );
-
-                                    return {
-                                        ...row,
-                                        name_as_per_passport:
-                                            activeTraveler?.name_as_per_passport ??
-                                            row.name_as_per_passport,
-                                    };
-                                })}
+                            rows={(
+                                (data.airlineList ?? []) as MemberWithUI[]
+                            ).filter((row) => !isCancelledMember(row))}
                             disabled={isView}
                             allowReorder
                             errorPrefix="airlineList"
@@ -2473,7 +3442,7 @@ export default function ManifestForm({
                                 key: tab.key,
                                 label: tab.label,
                             }))}
-                            onRowsChange={(rows: TravelerWithUI[]) => {
+                            onRowsChange={(rows: MemberWithUI[]) => {
                                 const normalizedAirline = rows.map((row) => ({
                                     ...row,
                                     passport_number:
@@ -2488,78 +3457,74 @@ export default function ManifestForm({
 
                                 const airlineMap = new Map(
                                     normalizedAirline.map((row, index) => [
-                                        travelerIdentityKey(row, index),
+                                        memberIdentityKey(row, index),
                                         row,
                                     ]),
                                 );
 
-                                const nextTravelers = (
-                                    (data.travelers ?? []) as TravelerWithUI[]
-                                ).map((traveler, travelerIndex) => {
+                                const nextMembers = (
+                                    (data.members ?? []) as MemberWithUI[]
+                                ).map((member, memberIndex) => {
                                     const updated = airlineMap.get(
-                                        travelerIdentityKey(
-                                            traveler,
-                                            travelerIndex,
-                                        ),
+                                        memberIdentityKey(member, memberIndex),
                                     );
 
                                     if (!updated) {
-                                        return traveler;
+                                        return member;
                                     }
 
                                     return {
-                                        ...traveler,
+                                        ...member,
                                         name_as_per_passport:
                                             updated.name_as_per_passport ??
-                                            traveler.name_as_per_passport,
+                                            member.name_as_per_passport,
                                         passport_number:
                                             updated.passport_number ??
-                                            traveler.passport_number,
-                                        role: updated.role ?? traveler.role,
+                                            member.passport_number,
+                                        role: updated.role ?? member.role,
                                         relationship:
                                             updated.relationship ??
-                                            traveler.relationship,
+                                            member.relationship,
                                         sharing_plan:
                                             updated.sharing_plan ??
-                                            traveler.sharing_plan,
+                                            member.sharing_plan,
                                         nationality:
                                             updated.nationality ??
-                                            traveler.nationality,
-                                        gender:
-                                            updated.gender ?? traveler.gender,
+                                            member.nationality,
+                                        gender: updated.gender ?? member.gender,
                                         date_of_birth:
                                             updated.date_of_birth ??
-                                            traveler.date_of_birth,
+                                            member.date_of_birth,
                                         date_of_issue:
                                             updated.date_of_issue ??
-                                            traveler.date_of_issue,
+                                            member.date_of_issue,
                                         date_of_expiry:
                                             updated.date_of_expiry ??
-                                            traveler.date_of_expiry,
+                                            member.date_of_expiry,
                                         issue_place:
                                             updated.issue_place ??
-                                            traveler.issue_place,
+                                            member.issue_place,
                                         birth_place:
                                             updated.birth_place ??
-                                            traveler.birth_place,
+                                            member.birth_place,
                                         contact_no:
                                             updated.contact_no ??
-                                            traveler.contact_no,
+                                            member.contact_no,
                                         package_price:
                                             updated.package_price ??
-                                            traveler.package_price,
+                                            member.package_price,
                                         age:
                                             calculateAgeFromDob(
                                                 updated.date_of_birth ??
-                                                    traveler.date_of_birth,
-                                            ) ?? traveler.age,
+                                                    member.date_of_birth,
+                                            ) ?? member.age,
                                     };
                                 });
 
-                                const travelerMap = new Map(
-                                    nextTravelers.map((traveler, index) => [
-                                        travelerIdentityKey(traveler, index),
-                                        traveler,
+                                const memberMap = new Map(
+                                    nextMembers.map((member, index) => [
+                                        memberIdentityKey(member, index),
+                                        member,
                                     ]),
                                 );
 
@@ -2567,67 +3532,67 @@ export default function ManifestForm({
                                     Object.entries(data.roomLists ?? {}).map(
                                         ([key, roomRows]) => [
                                             key,
-                                            (roomRows as TravelerWithUI[]).map(
+                                            (roomRows as MemberWithUI[]).map(
                                                 (roomRow, roomIndex) => {
-                                                    const travelerUpdate =
-                                                        travelerMap.get(
-                                                            travelerIdentityKey(
+                                                    const memberUpdate =
+                                                        memberMap.get(
+                                                            memberIdentityKey(
                                                                 roomRow,
                                                                 roomIndex,
                                                             ),
                                                         );
 
-                                                    if (!travelerUpdate) {
+                                                    if (!memberUpdate) {
                                                         return roomRow;
                                                     }
 
                                                     return {
                                                         ...roomRow,
                                                         name_as_per_passport:
-                                                            travelerUpdate.name_as_per_passport ??
+                                                            memberUpdate.name_as_per_passport ??
                                                             roomRow.name_as_per_passport,
                                                         passport_number:
-                                                            travelerUpdate.passport_number ??
+                                                            memberUpdate.passport_number ??
                                                             roomRow.passport_number,
                                                         role:
-                                                            travelerUpdate.role ??
+                                                            memberUpdate.role ??
                                                             roomRow.role,
                                                         relationship:
-                                                            travelerUpdate.relationship ??
+                                                            memberUpdate.relationship ??
                                                             roomRow.relationship,
                                                         sharing_plan:
-                                                            travelerUpdate.sharing_plan ??
+                                                            memberUpdate.sharing_plan ??
                                                             roomRow.sharing_plan,
                                                         nationality:
-                                                            travelerUpdate.nationality ??
+                                                            memberUpdate.nationality ??
                                                             roomRow.nationality,
                                                         gender:
-                                                            travelerUpdate.gender ??
+                                                            memberUpdate.gender ??
                                                             roomRow.gender,
                                                         date_of_birth:
-                                                            travelerUpdate.date_of_birth ??
+                                                            memberUpdate.date_of_birth ??
                                                             roomRow.date_of_birth,
                                                         date_of_issue:
-                                                            travelerUpdate.date_of_issue ??
+                                                            memberUpdate.date_of_issue ??
                                                             roomRow.date_of_issue,
                                                         date_of_expiry:
-                                                            travelerUpdate.date_of_expiry ??
+                                                            memberUpdate.date_of_expiry ??
                                                             roomRow.date_of_expiry,
                                                         issue_place:
-                                                            travelerUpdate.issue_place ??
+                                                            memberUpdate.issue_place ??
                                                             roomRow.issue_place,
                                                         birth_place:
-                                                            travelerUpdate.birth_place ??
+                                                            memberUpdate.birth_place ??
                                                             roomRow.birth_place,
                                                         contact_no:
-                                                            travelerUpdate.contact_no ??
+                                                            memberUpdate.contact_no ??
                                                             roomRow.contact_no,
                                                         package_price:
-                                                            travelerUpdate.package_price ??
+                                                            memberUpdate.package_price ??
                                                             roomRow.package_price,
                                                         age:
                                                             calculateAgeFromDob(
-                                                                travelerUpdate.date_of_birth ??
+                                                                memberUpdate.date_of_birth ??
                                                                     roomRow.date_of_birth,
                                                             ) ?? roomRow.age,
                                                     };
@@ -2637,7 +3602,7 @@ export default function ManifestForm({
                                     ),
                                 );
 
-                                setFormData('travelers', nextTravelers);
+                                setFormData('members', nextMembers);
                                 setFormData('airlineList', normalizedAirline);
                                 setFormData('roomLists', nextRoomLists);
                             }}
@@ -2661,8 +3626,8 @@ export default function ManifestForm({
                                     exportPdfWithSnapshot(
                                         `/manifests/${data.id}/collection-items-pdf`,
                                         {
-                                            travelers:
-                                                nonCancelledNonOfficialTravelers,
+                                            members:
+                                                nonCancelledNonOfficialMembers,
                                         },
                                     );
                                 }}
@@ -2675,35 +3640,32 @@ export default function ManifestForm({
                         <ManifestDatatable
                             mode="course_collection"
                             rows={
-                                nonCancelledNonOfficialTravelers as TravelerWithUI[]
+                                nonCancelledNonOfficialMembers as MemberWithUI[]
                             }
                             disabled={isView}
                             allowReorder={false}
                             errors={formErrors}
-                            onRowsChange={(rows: TravelerWithUI[]) => {
+                            onRowsChange={(rows: MemberWithUI[]) => {
                                 const checklistMap = new Map(
                                     rows.map((row, index) => [
-                                        travelerIdentityKey(row, index),
+                                        memberIdentityKey(row, index),
                                         row,
                                     ]),
                                 );
 
-                                const nextTravelers = (
-                                    (data.travelers ?? []) as TravelerWithUI[]
-                                ).map((traveler, travelerIndex) => {
+                                const nextMembers = (
+                                    (data.members ?? []) as MemberWithUI[]
+                                ).map((member, memberIndex) => {
                                     const updatedChecklist = checklistMap.get(
-                                        travelerIdentityKey(
-                                            traveler,
-                                            travelerIndex,
-                                        ),
+                                        memberIdentityKey(member, memberIndex),
                                     );
 
                                     if (!updatedChecklist) {
-                                        return traveler;
+                                        return member;
                                     }
 
                                     return {
-                                        ...traveler,
+                                        ...member,
                                         course_1: !!updatedChecklist.course_1,
                                         course_2: !!updatedChecklist.course_2,
                                         lanyard: !!updatedChecklist.lanyard,
@@ -2722,7 +3684,7 @@ export default function ManifestForm({
                                     };
                                 });
 
-                                setFormData('travelers', nextTravelers);
+                                setFormData('members', nextMembers);
                             }}
                         />
                     </TabsContent>
@@ -2732,13 +3694,30 @@ export default function ManifestForm({
                             (data.documents?.[tab.key] as
                                 | ManifestDocumentItem[]
                                 | undefined) ?? [];
-                        const visibleRows = allRows.filter(
-                            (row) => !row.removed,
-                        );
+                        const visibleRowIndexes = allRows
+                            .map((row, rowIndex) =>
+                                row.removed ? null : rowIndex,
+                            )
+                            .filter(
+                                (rowIndex): rowIndex is number =>
+                                    rowIndex !== null,
+                            );
                         const rowsToRender =
-                            visibleRows.length > 0
-                                ? visibleRows
-                                : [createEmptyDocumentEntry()];
+                            visibleRowIndexes.length > 0
+                                ? visibleRowIndexes.map(
+                                      (actualIndex, visibleIndex) => ({
+                                          row: allRows[actualIndex],
+                                          actualIndex,
+                                          visibleIndex,
+                                      }),
+                                  )
+                                : [
+                                      {
+                                          row: createEmptyDocumentEntry(),
+                                          actualIndex: -1,
+                                          visibleIndex: 0,
+                                      },
+                                  ];
 
                         return (
                             <TabsContent
@@ -2776,14 +3755,43 @@ export default function ManifestForm({
                                     </div>
 
                                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                        {rowsToRender.map((row, index) => {
+                                        {rowsToRender.map((renderRow) => {
+                                            const {
+                                                row,
+                                                actualIndex,
+                                                visibleIndex,
+                                            } = renderRow;
+
                                             return (
                                                 <div
-                                                    key={`${tab.key}-${row.id ?? `new-${index}`}`}
+                                                    key={`${tab.key}-${row.id ?? `new-${visibleIndex}`}`}
                                                     className="rounded-lg border p-3"
                                                 >
+                                                    {!isView &&
+                                                        actualIndex >= 0 && (
+                                                            <div className="mb-3 flex justify-end">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                    onClick={() => {
+                                                                        updateManifestDocuments(
+                                                                            tab.key,
+                                                                            removeDocumentEntryAtIndex(
+                                                                                allRows,
+                                                                                actualIndex,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            </div>
+                                                        )}
+
                                                     <DocumentField
-                                                        label={`${tab.label} #${index + 1}`}
+                                                        label={`${tab.label} #${visibleIndex + 1}`}
                                                         hint={tab.hint}
                                                         accept={tab.accept}
                                                         fileValue={
@@ -2816,9 +3824,8 @@ export default function ManifestForm({
                                                                           createEmptyDocumentEntry(),
                                                                       ];
                                                             const targetIndex =
-                                                                allRows.length >
-                                                                0
-                                                                    ? index
+                                                                actualIndex >= 0
+                                                                    ? actualIndex
                                                                     : 0;
                                                             nextRows[
                                                                 targetIndex
@@ -2833,8 +3840,11 @@ export default function ManifestForm({
                                                                         targetIndex
                                                                     ]
                                                                         ?.file_name ??
-                                                                    toFileNameWithoutExtension(
-                                                                        file.name,
+                                                                    buildManifestDocumentFileName(
+                                                                        tab.label,
+                                                                        visibleIndex +
+                                                                            1,
+                                                                        data.manifest_number,
                                                                     ),
                                                             };
                                                             updateManifestDocuments(
@@ -2855,9 +3865,8 @@ export default function ManifestForm({
                                                                           createEmptyDocumentEntry(),
                                                                       ];
                                                             const targetIndex =
-                                                                allRows.length >
-                                                                0
-                                                                    ? index
+                                                                actualIndex >= 0
+                                                                    ? actualIndex
                                                                     : 0;
                                                             nextRows[
                                                                 targetIndex
@@ -2874,43 +3883,12 @@ export default function ManifestForm({
                                                             );
                                                         }}
                                                         onClear={() => {
-                                                            const nextRows =
-                                                                allRows.length >
-                                                                0
-                                                                    ? [
-                                                                          ...allRows,
-                                                                      ]
-                                                                    : [
-                                                                          createEmptyDocumentEntry(),
-                                                                      ];
-                                                            const currentRow =
-                                                                nextRows[index];
-
-                                                            if (
-                                                                currentRow?.id ||
-                                                                currentRow?.file_path
-                                                            ) {
-                                                                nextRows[
-                                                                    index
-                                                                ] = {
-                                                                    ...currentRow,
-                                                                    file: null,
-                                                                    file_name:
-                                                                        null,
-                                                                    file_path:
-                                                                        null,
-                                                                    removed: true,
-                                                                };
-                                                            } else {
-                                                                nextRows.splice(
-                                                                    index,
-                                                                    1,
-                                                                );
-                                                            }
-
                                                             updateManifestDocuments(
                                                                 tab.key,
-                                                                nextRows,
+                                                                removeDocumentEntryAtIndex(
+                                                                    allRows,
+                                                                    actualIndex,
+                                                                ),
                                                             );
                                                         }}
                                                     />
@@ -2926,21 +3904,34 @@ export default function ManifestForm({
                     <TabsContent value="arabic-names" className="space-y-4">
                         <div className="rounded-xl border border-border/70 p-4">
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <label
-                                        htmlFor="in_charge_official_id"
-                                        className="text-sm font-medium"
-                                    >
-                                        Official In Charge
-                                    </label>
-                                    <select
+                                <FormField
+                                    label="Official In Charge"
+                                    htmlFor="in_charge_official_id"
+                                    error={formErrors.in_charge_official_id}
+                                >
+                                    <ProperInputSelect
                                         id="in_charge_official_id"
+                                        options={[
+                                            {
+                                                label: 'Select official in charge',
+                                                value: '',
+                                            },
+                                            ...selectedPackageOfficials.map(
+                                                (official) => ({
+                                                    label:
+                                                        official.name ??
+                                                        `Official #${official.id}`,
+                                                    value: String(official.id),
+                                                }),
+                                            ),
+                                        ]}
                                         value={String(
                                             data.in_charge_official_id ?? '',
                                         )}
-                                        onChange={(event) => {
-                                            const nextValue =
-                                                event.target.value.trim();
+                                        onValueChange={(value) => {
+                                            const nextValue = String(
+                                                value ?? '',
+                                            ).trim();
                                             setFormData(
                                                 'in_charge_official_id',
                                                 nextValue === ''
@@ -2949,40 +3940,23 @@ export default function ManifestForm({
                                             );
                                         }}
                                         disabled={isView}
-                                        className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                                    >
-                                        <option value="">
-                                            Select official in charge
-                                        </option>
-                                        {selectedPackageOfficials.map(
-                                            (official) => (
-                                                <option
-                                                    key={official.id}
-                                                    value={official.id}
-                                                >
-                                                    {official.name ??
-                                                        `Official #${official.id}`}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                    {renderError('in_charge_official_id')}
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">
-                                        Contact Number
-                                    </label>
-                                    <input
-                                        type="text"
+                                        searchable
+                                        placeholder="Select official in charge"
+                                    />
+                                </FormField>
+                                <FormField label="Contact Number">
+                                    <ProperInput
                                         value={
                                             selectedInChargeOfficial?.contact_number ??
                                             ''
                                         }
+                                        onCommit={(value) => {
+                                            void value;
+                                        }}
                                         disabled
-                                        className="h-10 w-full rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground"
                                         placeholder="Auto-filled from package official"
                                     />
-                                </div>
+                                </FormField>
                                 <div className="flex items-end justify-start md:justify-end">
                                     <Button
                                         type="button"
@@ -2996,8 +3970,8 @@ export default function ManifestForm({
                                             exportPdfWithSnapshot(
                                                 `/manifests/${data.id}/arabic-names-pdf`,
                                                 {
-                                                    travelers:
-                                                        nonCancelledNonOfficialTravelers,
+                                                    members:
+                                                        nonCancelledNonOfficialMembers,
                                                     manifest_number:
                                                         data.manifest_number,
                                                     package_name:
@@ -3037,43 +4011,44 @@ export default function ManifestForm({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {nonCancelledNonOfficialTravelers.map(
-                                        (traveler, index) => (
+                                    {nonCancelledNonOfficialMembers.map(
+                                        (member, index) => (
                                             <tr
-                                                key={`${travelerIdentityKey(traveler, index)}-arabic`}
+                                                key={`${memberIdentityKey(member, index)}-arabic`}
                                                 className="border-t"
                                             >
                                                 <td className="px-4 py-3 align-top">
                                                     {index + 1}
                                                 </td>
                                                 <td className="px-4 py-3 align-top">
-                                                    <input
-                                                        type="text"
+                                                    <ProperInput
                                                         value={
-                                                            traveler.name_as_per_passport ??
+                                                            member.name_as_per_passport ??
                                                             ''
                                                         }
+                                                        onCommit={(value) => {
+                                                            void value;
+                                                        }}
                                                         disabled
-                                                        className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
                                                     />
                                                 </td>
                                                 <td className="px-4 py-3 align-top">
-                                                    <input
-                                                        type="text"
-                                                        dir="rtl"
+                                                    <ProperInput
                                                         value={
-                                                            traveler.arabic_name ??
+                                                            member.arabic_name ??
                                                             ''
                                                         }
-                                                        onChange={(event) => {
-                                                            updateTravelerArabicName(
-                                                                traveler,
-                                                                event.target
-                                                                    .value,
+                                                        onCommit={(value) => {
+                                                            updateMemberArabicName(
+                                                                member,
+                                                                value,
                                                             );
                                                         }}
                                                         disabled={isView}
-                                                        className="w-full rounded-md border bg-background px-3 py-2 text-right text-sm"
+                                                        inputProps={{
+                                                            dir: 'rtl',
+                                                        }}
+                                                        className="text-right"
                                                     />
                                                 </td>
                                             </tr>
@@ -3101,24 +4076,47 @@ export default function ManifestForm({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {nonCancelledNonOfficialTravelers.map(
-                                        (traveler, index) => {
+                                    {nonCancelledNonOfficialMembers.map(
+                                        (member, index) => {
                                             const sourceRows =
-                                                traveler.receipt_documents ??
-                                                [];
-                                            const rows = sourceRows.filter(
-                                                (row) => !row.removed,
-                                            );
+                                                member.receipt_documents ?? [];
+                                            const visibleRowIndexes = sourceRows
+                                                .map((row, rowIndex) =>
+                                                    row.removed
+                                                        ? null
+                                                        : rowIndex,
+                                                )
+                                                .filter(
+                                                    (
+                                                        rowIndex,
+                                                    ): rowIndex is number =>
+                                                        rowIndex !== null,
+                                                );
                                             const rowsToRender =
-                                                rows.length > 0
-                                                    ? rows
+                                                visibleRowIndexes.length > 0
+                                                    ? visibleRowIndexes.map(
+                                                          (
+                                                              actualIndex,
+                                                              visibleIndex,
+                                                          ) => ({
+                                                              row: sourceRows[
+                                                                  actualIndex
+                                                              ],
+                                                              actualIndex,
+                                                              visibleIndex,
+                                                          }),
+                                                      )
                                                     : [
-                                                          createEmptyDocumentEntry(),
+                                                          {
+                                                              row: createEmptyDocumentEntry(),
+                                                              actualIndex: -1,
+                                                              visibleIndex: 0,
+                                                          },
                                                       ];
 
                                             return (
                                                 <tr
-                                                    key={`${travelerIdentityKey(traveler, index)}-receipt`}
+                                                    key={`${memberIdentityKey(member, index)}-receipt`}
                                                     className="border-t"
                                                 >
                                                     <td className="px-4 py-3 align-top">
@@ -3128,7 +4126,7 @@ export default function ManifestForm({
                                                         <input
                                                             type="text"
                                                             value={
-                                                                traveler.name_as_per_passport ??
+                                                                member.name_as_per_passport ??
                                                                 ''
                                                             }
                                                             disabled
@@ -3138,159 +4136,158 @@ export default function ManifestForm({
                                                     <td className="px-4 py-3">
                                                         <div className="space-y-3">
                                                             {rowsToRender.map(
-                                                                (
-                                                                    row,
-                                                                    documentIndex,
-                                                                ) => (
-                                                                    <div
-                                                                        key={`${travelerIdentityKey(traveler, index)}-receipt-doc-${row.id ?? documentIndex}`}
-                                                                        className="rounded-lg border p-3"
-                                                                    >
-                                                                        <DocumentField
-                                                                            label={`Receipt #${documentIndex + 1}`}
-                                                                            hint="Upload receipt evidence for this traveler."
-                                                                            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
-                                                                            fileValue={
-                                                                                row.file ??
-                                                                                undefined
-                                                                            }
-                                                                            existingPath={
-                                                                                row.file_path ??
-                                                                                undefined
-                                                                            }
-                                                                            existingFileName={
-                                                                                row.file_name ??
-                                                                                undefined
-                                                                            }
-                                                                            useFileNameInput
-                                                                            fileNameValue={
-                                                                                row.file_name ??
-                                                                                null
-                                                                            }
-                                                                            isView={
-                                                                                isView
-                                                                            }
-                                                                            disabled={
-                                                                                isView
-                                                                            }
-                                                                            onSelect={(
-                                                                                file,
-                                                                            ) => {
-                                                                                const nextRows =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? [
-                                                                                              ...sourceRows,
-                                                                                          ]
-                                                                                        : [
-                                                                                              createEmptyDocumentEntry(),
-                                                                                          ];
-                                                                                const targetIndex =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? documentIndex
-                                                                                        : 0;
-                                                                                nextRows[
-                                                                                    targetIndex
-                                                                                ] =
-                                                                                    {
-                                                                                        ...nextRows[
-                                                                                            targetIndex
-                                                                                        ],
-                                                                                        file,
-                                                                                        removed: false,
-                                                                                        file_name:
-                                                                                            nextRows[
-                                                                                                targetIndex
-                                                                                            ]
-                                                                                                ?.file_name ??
-                                                                                            toFileNameWithoutExtension(
-                                                                                                file.name,
-                                                                                            ),
-                                                                                    };
-                                                                                updateTravelerReceiptDocuments(
-                                                                                    traveler,
-                                                                                    nextRows,
-                                                                                );
-                                                                            }}
-                                                                            onFileNameChange={(
-                                                                                fileName,
-                                                                            ) => {
-                                                                                const nextRows =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? [
-                                                                                              ...sourceRows,
-                                                                                          ]
-                                                                                        : [
-                                                                                              createEmptyDocumentEntry(),
-                                                                                          ];
-                                                                                const targetIndex =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? documentIndex
-                                                                                        : 0;
-                                                                                nextRows[
-                                                                                    targetIndex
-                                                                                ] =
-                                                                                    {
-                                                                                        ...nextRows[
-                                                                                            targetIndex
-                                                                                        ],
-                                                                                        file_name:
-                                                                                            fileName,
-                                                                                    };
-                                                                                updateTravelerReceiptDocuments(
-                                                                                    traveler,
-                                                                                    nextRows,
-                                                                                );
-                                                                            }}
-                                                                            onClear={() => {
-                                                                                const nextRows =
-                                                                                    sourceRows.length >
-                                                                                    0
-                                                                                        ? [
-                                                                                              ...sourceRows,
-                                                                                          ]
-                                                                                        : [
-                                                                                              createEmptyDocumentEntry(),
-                                                                                          ];
-                                                                                const currentRow =
-                                                                                    nextRows[
-                                                                                        documentIndex
-                                                                                    ];
+                                                                (renderRow) => {
+                                                                    const {
+                                                                        row,
+                                                                        actualIndex,
+                                                                        visibleIndex,
+                                                                    } =
+                                                                        renderRow;
 
-                                                                                if (
-                                                                                    currentRow?.id ||
-                                                                                    currentRow?.file_path
-                                                                                ) {
+                                                                    return (
+                                                                        <div
+                                                                            key={`${memberIdentityKey(member, index)}-receipt-doc-${row.id ?? visibleIndex}`}
+                                                                            className="rounded-lg border p-3"
+                                                                        >
+                                                                            {!isView &&
+                                                                                actualIndex >=
+                                                                                    0 && (
+                                                                                    <div className="mb-3 flex justify-end">
+                                                                                        <Button
+                                                                                            type="button"
+                                                                                            variant="ghost"
+                                                                                            size="sm"
+                                                                                            className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                                            onClick={() => {
+                                                                                                updateMemberReceiptDocuments(
+                                                                                                    member,
+                                                                                                    removeDocumentEntryAtIndex(
+                                                                                                        sourceRows,
+                                                                                                        actualIndex,
+                                                                                                    ),
+                                                                                                );
+                                                                                            }}
+                                                                                        >
+                                                                                            Remove
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                )}
+
+                                                                            <DocumentField
+                                                                                label={`Receipt #${visibleIndex + 1}`}
+                                                                                hint="Upload receipt evidence for this member."
+                                                                                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                                                                                fileValue={
+                                                                                    row.file ??
+                                                                                    undefined
+                                                                                }
+                                                                                existingPath={
+                                                                                    row.file_path ??
+                                                                                    undefined
+                                                                                }
+                                                                                existingFileName={
+                                                                                    row.file_name ??
+                                                                                    undefined
+                                                                                }
+                                                                                useFileNameInput
+                                                                                fileNameValue={
+                                                                                    row.file_name ??
+                                                                                    null
+                                                                                }
+                                                                                isView={
+                                                                                    isView
+                                                                                }
+                                                                                disabled={
+                                                                                    isView
+                                                                                }
+                                                                                onSelect={(
+                                                                                    file,
+                                                                                ) => {
+                                                                                    const nextRows =
+                                                                                        sourceRows.length >
+                                                                                        0
+                                                                                            ? [
+                                                                                                  ...sourceRows,
+                                                                                              ]
+                                                                                            : [
+                                                                                                  createEmptyDocumentEntry(),
+                                                                                              ];
+                                                                                    const targetIndex =
+                                                                                        actualIndex >=
+                                                                                        0
+                                                                                            ? actualIndex
+                                                                                            : 0;
                                                                                     nextRows[
-                                                                                        documentIndex
+                                                                                        targetIndex
                                                                                     ] =
                                                                                         {
-                                                                                            ...currentRow,
-                                                                                            file: null,
+                                                                                            ...nextRows[
+                                                                                                targetIndex
+                                                                                            ],
+                                                                                            file,
+                                                                                            removed: false,
                                                                                             file_name:
-                                                                                                null,
-                                                                                            file_path:
-                                                                                                null,
-                                                                                            removed: true,
+                                                                                                nextRows[
+                                                                                                    targetIndex
+                                                                                                ]
+                                                                                                    ?.file_name ??
+                                                                                                buildManifestDocumentFileName(
+                                                                                                    'Receipt',
+                                                                                                    visibleIndex +
+                                                                                                        1,
+                                                                                                    data.manifest_number,
+                                                                                                ),
                                                                                         };
-                                                                                } else {
-                                                                                    nextRows.splice(
-                                                                                        documentIndex,
-                                                                                        1,
+                                                                                    updateMemberReceiptDocuments(
+                                                                                        member,
+                                                                                        nextRows,
                                                                                     );
-                                                                                }
-
-                                                                                updateTravelerReceiptDocuments(
-                                                                                    traveler,
-                                                                                    nextRows,
-                                                                                );
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                ),
+                                                                                }}
+                                                                                onFileNameChange={(
+                                                                                    fileName,
+                                                                                ) => {
+                                                                                    const nextRows =
+                                                                                        sourceRows.length >
+                                                                                        0
+                                                                                            ? [
+                                                                                                  ...sourceRows,
+                                                                                              ]
+                                                                                            : [
+                                                                                                  createEmptyDocumentEntry(),
+                                                                                              ];
+                                                                                    const targetIndex =
+                                                                                        actualIndex >=
+                                                                                        0
+                                                                                            ? actualIndex
+                                                                                            : 0;
+                                                                                    nextRows[
+                                                                                        targetIndex
+                                                                                    ] =
+                                                                                        {
+                                                                                            ...nextRows[
+                                                                                                targetIndex
+                                                                                            ],
+                                                                                            file_name:
+                                                                                                fileName,
+                                                                                        };
+                                                                                    updateMemberReceiptDocuments(
+                                                                                        member,
+                                                                                        nextRows,
+                                                                                    );
+                                                                                }}
+                                                                                onClear={() => {
+                                                                                    updateMemberReceiptDocuments(
+                                                                                        member,
+                                                                                        removeDocumentEntryAtIndex(
+                                                                                            sourceRows,
+                                                                                            actualIndex,
+                                                                                        ),
+                                                                                    );
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    );
+                                                                },
                                                             )}
 
                                                             {!isView && (
@@ -3302,10 +4299,12 @@ export default function ManifestForm({
                                                                             sourceRows.length >
                                                                             0
                                                                                 ? sourceRows
-                                                                                : rowsToRender;
+                                                                                : [
+                                                                                      createEmptyDocumentEntry(),
+                                                                                  ];
 
-                                                                        updateTravelerReceiptDocuments(
-                                                                            traveler,
+                                                                        updateMemberReceiptDocuments(
+                                                                            member,
                                                                             [
                                                                                 ...baseRows,
                                                                                 createEmptyDocumentEntry(),
@@ -3343,9 +4342,15 @@ export default function ManifestForm({
                                 <RotateCcw className="mr-1 h-4 w-4" />
                                 Reset
                             </Button>
-                            <Button type="submit" disabled={processing}>
-                                {isCreate
-                                    ? 'Create Manifest'
+                            <Button
+                                type="submit"
+                                disabled={processing || isSectionSaving}
+                            >
+                                {(processing || isSectionSaving) && (
+                                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                )}
+                                {isSectionSaving
+                                    ? `Updating Manifest (${completedSaveStepsCount}/${saveProgressSteps.length})`
                                     : 'Update Manifest'}
                             </Button>
                         </>

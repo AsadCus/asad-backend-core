@@ -14,12 +14,12 @@ interface Accommodation {
     check_out: string | null;
 }
 
-interface Traveler {
+interface Member {
     id: number;
     name: string;
     passport_number: string | null;
     nationality: string | null;
-    traveler_type: string | null;
+    member_type: string | null;
 }
 
 interface ManifestInfo {
@@ -27,8 +27,8 @@ interface ManifestInfo {
     reference_number: string;
     company_name: string | null;
     status: string;
-    travelers_count: number;
-    travelers: Traveler[];
+    members_count: number;
+    members: Member[];
 }
 
 interface OpsMovementData {
@@ -335,10 +335,10 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         </CardContent>
                     </Card>
 
-                    {/* Manifests & Travelers */}
+                    {/* Manifests & Members */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Manifests & Travelers</CardTitle>
+                            <CardTitle>Manifests & Members</CardTitle>
                         </CardHeader>
                         <CardContent>
                             {data.manifests.length === 0 ? (
@@ -371,9 +371,9 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base text-muted-foreground">
                                                         {
-                                                            manifest.travelers_count
+                                                            manifest.members_count
                                                         }{' '}
-                                                        traveler(s)
+                                                        member(s)
                                                     </span>
                                                     <span
                                                         className={`inline-flex rounded-full px-2 py-0.5 text-sm font-semibold ${
@@ -387,7 +387,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                                     </span>
                                                 </div>
                                             </div>
-                                            {manifest.travelers.length > 0 && (
+                                            {manifest.members.length > 0 && (
                                                 <div className="overflow-x-auto">
                                                     <table className="w-full text-base">
                                                         <thead>
@@ -407,7 +407,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {manifest.travelers.map(
+                                                            {manifest.members.map(
                                                                 (t) => (
                                                                     <tr
                                                                         key={
@@ -429,7 +429,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                                                                                 '-'}
                                                                         </td>
                                                                         <td className="px-3 py-1.5">
-                                                                            {t.traveler_type ||
+                                                                            {t.member_type ||
                                                                                 '-'}
                                                                         </td>
                                                                     </tr>

@@ -60,10 +60,10 @@ import {
     confirmationMemberStatusLabels,
     packageCategoryOptions,
 } from '../../customer/schema';
-import { type TravelerWithUI } from '../types';
+import { type MemberWithUI } from '../types';
 
 type TableMode =
-    | 'travelers'
+    | 'members'
     | 'room'
     | 'room_check'
     | 'airline'
@@ -118,7 +118,7 @@ const PACKAGE_CATEGORY_LABELS = Object.fromEntries(
 ) as Record<string, string>;
 
 interface GroupMember {
-    traveler: TravelerWithUI;
+    member: MemberWithUI;
     flatIndex: number;
 }
 
@@ -132,14 +132,14 @@ interface VisibleItem {
     isGroupHeader: boolean;
     groupKey: string;
     groupIndex: number;
-    traveler?: TravelerWithUI;
+    member?: MemberWithUI;
     flatIndex: number;
     memberCount: number;
 }
 
 interface ManifestDatatableProps {
     mode: TableMode;
-    rows: TravelerWithUI[];
+    rows: MemberWithUI[];
     currentRoomLocationKey?: string;
     disabled?: boolean;
     allowReorder?: boolean;
@@ -148,14 +148,14 @@ interface ManifestDatatableProps {
     roomGroupStartIndex?: number;
     errors?: Record<string, string>;
     roomAssignmentOptions?: Array<{ key: string; label: string }>;
-    getTravelerAssignedLocations?: (traveler: TravelerWithUI) => string[];
+    getMemberAssignedLocations?: (member: MemberWithUI) => string[];
     onRoomAssignmentChange?: (
-        traveler: TravelerWithUI,
+        member: MemberWithUI,
         action: 'assign' | 'unassign',
         scope: string,
     ) => void;
-    onRowsChange: (rows: TravelerWithUI[]) => void;
-    onMoveToHolding?: (traveler: TravelerWithUI) => void;
+    onRowsChange: (rows: MemberWithUI[]) => void;
+    onMoveToHolding?: (member: MemberWithUI) => void;
 }
 
 function normalizeRoomLocationKey(value: string): string {
@@ -242,11 +242,11 @@ function getBedsCountByRoomTypeAndBedType(
     return 1;
 }
 
-function isOfficialTraveler(traveler: TravelerWithUI): boolean {
-    return !!traveler.package_official_id;
+function isOfficialMember(member: MemberWithUI): boolean {
+    return !!member.package_official_id;
 }
 
-function shouldHideRoomTraveler(): boolean {
+function shouldHideRoomMember(): boolean {
     return false;
 }
 
@@ -274,29 +274,29 @@ function getAgeFromDate(dateValue?: string | null): string {
     return age >= 0 ? String(age) : '';
 }
 
-function toMemberId(traveler: TravelerWithUI, flatIndex: number): string {
-    if (traveler.row_key && traveler.row_key.trim().length > 0) {
-        return traveler.row_key;
+function toMemberId(member: MemberWithUI, flatIndex: number): string {
+    if (member.row_key && member.row_key.trim().length > 0) {
+        return member.row_key;
     }
 
     return String(
-        traveler.customer_confirmation_member_id ??
-            traveler.customer_id ??
-            traveler.id ??
+        member.customer_confirmation_member_id ??
+            member.customer_id ??
+            member.id ??
             `idx-${flatIndex}`,
     );
 }
 
-function toMemberDndId(traveler: TravelerWithUI, flatIndex: number): string {
-    return `m-${toMemberId(traveler, flatIndex)}-${flatIndex}`;
+function toMemberDndId(member: MemberWithUI, flatIndex: number): string {
+    return `m-${toMemberId(member, flatIndex)}-${flatIndex}`;
 }
 
-function getTravelerGroupKey(traveler: TravelerWithUI, index: number): string {
-    if (traveler.sharing_group_key && traveler.sharing_group_key.trim()) {
-        return traveler.sharing_group_key;
+function getMemberGroupKey(member: MemberWithUI, index: number): string {
+    if (member.sharing_group_key && member.sharing_group_key.trim()) {
+        return member.sharing_group_key;
     }
 
-    return `solo-${traveler.customer_confirmation_member_id ?? traveler.customer_id ?? traveler.package_official_id ?? traveler.id ?? index}`;
+    return `solo-${member.customer_confirmation_member_id ?? member.customer_id ?? member.package_official_id ?? member.id ?? index}`;
 }
 
 function SortableRow({
@@ -354,26 +354,26 @@ export default function ManifestDatatable({
     roomGroupStartIndex = 0,
     errors = {},
     roomAssignmentOptions = [],
-    getTravelerAssignedLocations,
+    getMemberAssignedLocations,
     onRoomAssignmentChange,
     onRowsChange,
     onMoveToHolding,
 }: ManifestDatatableProps) {
     const isGrouped =
-        mode === 'travelers' ||
+        mode === 'members' ||
         mode === 'room' ||
         mode === 'room_check' ||
         mode === 'airline';
 
     const getErrorPath = useCallback(
-        (flatIndex: number, field: keyof TravelerWithUI | string): string => {
+        (flatIndex: number, field: keyof MemberWithUI | string): string => {
             return `${errorPrefix}.${flatIndex}.${String(field)}`;
         },
         [errorPrefix],
     );
 
     const renderCellError = useCallback(
-        (flatIndex: number, field: keyof TravelerWithUI | string) => {
+        (flatIndex: number, field: keyof MemberWithUI | string) => {
             if (!errorPrefix) {
                 return null;
             }
@@ -418,13 +418,13 @@ export default function ManifestDatatable({
         const map = new Map<string, GroupMember[]>();
 
         rows.forEach((row, flatIndex) => {
-            const key = getTravelerGroupKey(row, flatIndex);
+            const key = getMemberGroupKey(row, flatIndex);
 
             if (!map.has(key)) {
                 map.set(key, []);
             }
 
-            map.get(key)?.push({ traveler: row, flatIndex });
+            map.get(key)?.push({ member: row, flatIndex });
         });
 
         return Array.from(map.entries()).map(([key, members]) => ({
@@ -468,7 +468,7 @@ export default function ManifestDatatable({
 
         groups.forEach((group) => {
             const visibleMembers = group.members.filter(
-                () => !shouldHideRoomTraveler(),
+                () => !shouldHideRoomMember(),
             );
 
             if (visibleMembers.length === 0) {
@@ -487,11 +487,11 @@ export default function ManifestDatatable({
             if (expanded[group.key] !== false) {
                 visibleMembers.forEach((member) => {
                     items.push({
-                        dndId: toMemberDndId(member.traveler, member.flatIndex),
+                        dndId: toMemberDndId(member.member, member.flatIndex),
                         isGroupHeader: false,
                         groupKey: group.key,
                         groupIndex: visibleGroupIndex,
-                        traveler: member.traveler,
+                        member: member.member,
                         flatIndex: member.flatIndex,
                         memberCount: 0,
                     });
@@ -524,9 +524,9 @@ export default function ManifestDatatable({
             const groupMembers = groups.find(
                 (group) => group.key === item.groupKey,
             )?.members;
-            const leadTraveler = groupMembers?.[0]?.traveler;
+            const leadMember = groupMembers?.[0]?.member;
 
-            const normalizedLabel = String(leadTraveler?.room_label ?? '')
+            const normalizedLabel = String(leadMember?.room_label ?? '')
                 .trim()
                 .toLowerCase();
             const labelKey =
@@ -562,7 +562,7 @@ export default function ManifestDatatable({
 
     const updateMemberField = (
         flatIndex: number,
-        field: keyof TravelerWithUI,
+        field: keyof MemberWithUI,
         value: string | number | string[],
     ) => {
         if (
@@ -620,10 +620,10 @@ export default function ManifestDatatable({
 
     const updateGroupField = (
         groupKey: string,
-        field: keyof TravelerWithUI,
+        field: keyof MemberWithUI,
         value: string | number,
     ) => {
-        const patch: Partial<TravelerWithUI> = { [field]: value };
+        const patch: Partial<MemberWithUI> = { [field]: value };
 
         if (
             (mode === 'room' || mode === 'room_check') &&
@@ -647,7 +647,7 @@ export default function ManifestDatatable({
         }
 
         const next = rows.map((row, rowIndex) => {
-            const key = getTravelerGroupKey(row, rowIndex);
+            const key = getMemberGroupKey(row, rowIndex);
 
             if (key === groupKey) {
                 return { ...row, ...patch };
@@ -661,7 +661,7 @@ export default function ManifestDatatable({
 
     const updateFlatRow = (
         index: number,
-        field: keyof TravelerWithUI,
+        field: keyof MemberWithUI,
         value: string | number | boolean,
     ) => {
         const next = [...rows];
@@ -686,10 +686,10 @@ export default function ManifestDatatable({
     const emitReorderedRows = (reorderedGroups: GroupData[]) => {
         let counter = 0;
 
-        const result: TravelerWithUI[] = reorderedGroups.flatMap(
+        const result: MemberWithUI[] = reorderedGroups.flatMap(
             (group, groupIndex) =>
                 group.members.map((member, memberIndex) => ({
-                    ...member.traveler,
+                    ...member.member,
                     sn: ++counter,
                     group_sort_order: groupIndex + 1,
                     sort_order: memberIndex + 1,
@@ -723,11 +723,11 @@ export default function ManifestDatatable({
 
         const activeIndex = group.members.findIndex(
             (member) =>
-                toMemberDndId(member.traveler, member.flatIndex) === activeId,
+                toMemberDndId(member.member, member.flatIndex) === activeId,
         );
         const overIndex = group.members.findIndex(
             (member) =>
-                toMemberDndId(member.traveler, member.flatIndex) === overId,
+                toMemberDndId(member.member, member.flatIndex) === overId,
         );
 
         if (activeIndex < 0 || overIndex < 0) {
@@ -754,7 +754,7 @@ export default function ManifestDatatable({
         targetGroupKey: string,
         overId: string,
     ) => {
-        if (!activeItem.traveler) {
+        if (!activeItem.member) {
             return;
         }
 
@@ -766,16 +766,16 @@ export default function ManifestDatatable({
             return;
         }
 
-        const targetShared = targetGroup.members[0]?.traveler;
+        const targetShared = targetGroup.members[0]?.member;
 
-        const movedTraveler: TravelerWithUI = {
-            ...activeItem.traveler,
+        const movedMemberRow: MemberWithUI = {
+            ...activeItem.member,
             sharing_group_key: targetGroupKey,
             ...(mode === 'room' && targetShared
                 ? {
                       room_relationship: targetShared.room_relationship,
                       room_label: targetShared.room_label,
-                      room_no: targetShared.room_no,
+                      room_number: targetShared.room_number,
                       sharing_plan: targetShared.sharing_plan,
                       room_type: targetShared.room_type,
                       bed_type: targetShared.bed_type,
@@ -786,7 +786,7 @@ export default function ManifestDatatable({
         };
 
         const movedMember: GroupMember = {
-            traveler: movedTraveler,
+            member: movedMemberRow,
             flatIndex: activeItem.flatIndex,
         };
 
@@ -795,7 +795,7 @@ export default function ManifestDatatable({
         if (!overId.startsWith('g-')) {
             const overIndex = targetGroup.members.findIndex(
                 (member) =>
-                    toMemberDndId(member.traveler, member.flatIndex) === overId,
+                    toMemberDndId(member.member, member.flatIndex) === overId,
             );
 
             if (overIndex >= 0) {
@@ -835,7 +835,7 @@ export default function ManifestDatatable({
     };
 
     const splitGroupByCapacity = (groupKey: string) => {
-        if (mode !== 'travelers' && mode !== 'room') {
+        if (mode !== 'members' && mode !== 'room') {
             return;
         }
 
@@ -849,7 +849,7 @@ export default function ManifestDatatable({
 
         group.members.forEach((member) => {
             const sharingPlan = String(
-                member.traveler.sharing_plan ?? 'single',
+                member.member.sharing_plan ?? 'single',
             ).toLowerCase();
 
             if (!planBuckets.has(sharingPlan)) {
@@ -880,8 +880,8 @@ export default function ManifestDatatable({
                     key: nextKey,
                     members: chunk.map((member) => ({
                         ...member,
-                        traveler: {
-                            ...member.traveler,
+                        member: {
+                            ...member.member,
                             sharing_group_key: nextKey,
                             sharing_plan: sharingPlan,
                         },
@@ -963,7 +963,7 @@ export default function ManifestDatatable({
 
         const activeItem = visibleItems.find((item) => item.dndId === activeId);
 
-        if (!activeItem || !activeItem.traveler) {
+        if (!activeItem || !activeItem.member) {
             return;
         }
 
@@ -983,9 +983,9 @@ export default function ManifestDatatable({
 
         if (mode !== 'room') {
             const sourceConfirmationId =
-                activeItem.traveler.customer_confirmation_id;
+                activeItem.member.customer_confirmation_id;
             const targetConfirmationId =
-                targetGroup.members[0]?.traveler.customer_confirmation_id;
+                targetGroup.members[0]?.member.customer_confirmation_id;
 
             if (
                 sourceConfirmationId &&
@@ -993,7 +993,7 @@ export default function ManifestDatatable({
                 sourceConfirmationId !== targetConfirmationId
             ) {
                 toast.error(
-                    'Cannot move: traveler must stay within the same customer confirmation group.',
+                    'Cannot move: member must stay within the same customer confirmation group.',
                 );
 
                 return;
@@ -1002,7 +1002,7 @@ export default function ManifestDatatable({
 
         if (mode === 'room') {
             const sharingPlan =
-                targetGroup.members[0]?.traveler.sharing_plan ?? '';
+                targetGroup.members[0]?.member.sharing_plan ?? '';
             const capacity = getCapacityForSharingPlan(sharingPlan);
             const currentCount = targetGroup.members.length;
 
@@ -1044,7 +1044,7 @@ export default function ManifestDatatable({
     const getColumnCount = (): number => {
         const drag = allowReorder ? 1 : 0;
 
-        if (mode === 'travelers') {
+        if (mode === 'members') {
             return drag + 27;
         }
 
@@ -1065,12 +1065,12 @@ export default function ManifestDatatable({
 
     const getGroupRoomInfo = (groupKey: string) => {
         const group = groups.find((item) => item.key === groupKey);
-        const first = group?.members[0]?.traveler;
+        const first = group?.members[0]?.member;
 
         return {
             room_relationship: first?.room_relationship ?? '',
             room_label: first?.room_label ?? '',
-            room_no: first?.room_no ?? '',
+            room_number: first?.room_number ?? '',
             sharing_plan: first?.sharing_plan ?? '',
             room_type: first?.room_type ?? '',
             bed_type: first?.bed_type ?? '',
@@ -1086,76 +1086,76 @@ export default function ManifestDatatable({
                 {isGrouped ? '#' : 'S/N'}
             </TableHead>
             <TableHead className="min-w-60">Name as per passport</TableHead>
-            {(mode === 'travelers' ||
+            {(mode === 'members' ||
                 mode === 'room' ||
                 mode === 'room_check') && (
                 <TableHead className="min-w-40">Role</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-40">Relation</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-40">Package Category</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-55">Date of Sign Up</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-40">1st Time Umrah</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-40">Room Type</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-40">Passport No</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-40">Gender</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-55">Date of Birth</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-20">Age</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-45">Contact No</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-55">Date of Issue</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-55">Date of Expiry</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-60">Issue Place</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-40">Birth Place</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-35">Package Price</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-35">Discount</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-55">
                     Date of Deposit Payment
                 </TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-35">Deposit Payment</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-55">
                     Date of Second Payment
                 </TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-35">Second Payment</TableHead>
             )}
-            {mode === 'travelers' && (
+            {mode === 'members' && (
                 <TableHead className="min-w-35">Balance Due</TableHead>
             )}
             {mode === 'airline' && (
@@ -1253,7 +1253,7 @@ export default function ManifestDatatable({
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Meal</TableHead>
             )}
-            {mode === 'travelers' && <TableHead>Status</TableHead>}
+            {mode === 'members' && <TableHead>Status</TableHead>}
             {mode !== 'course_collection' && (
                 <TableHead className="min-w-60">Remarks</TableHead>
             )}
@@ -1270,12 +1270,12 @@ export default function ManifestDatatable({
         const isRoomMode = mode === 'room' || mode === 'room_check';
         const isRoomCheckMode = mode === 'room_check';
         const isExpanded = expanded[item.groupKey] !== false;
-        const groupLeadTraveler = groups.find(
+        const groupLeadMember = groups.find(
             (group) => group.key === item.groupKey,
-        )?.members?.[0]?.traveler;
+        )?.members?.[0]?.member;
         const roomInfo = isRoomMode ? getGroupRoomInfo(item.groupKey) : null;
         const groupConfirmationNumber = !isRoomMode
-            ? groupLeadTraveler?.customer_confirmation_number
+            ? groupLeadMember?.customer_confirmation_number
             : null;
         const capacity = isRoomMode
             ? getCapacityForSharingPlan(roomInfo?.sharing_plan)
@@ -1288,7 +1288,7 @@ export default function ManifestDatatable({
         const disableRoomFields = isRoomCheckMode || disabled;
 
         const canSplitGroup =
-            (mode === 'travelers' || mode === 'room') &&
+            (mode === 'members' || mode === 'room') &&
             !disabled &&
             item.memberCount > 1;
 
@@ -1371,12 +1371,12 @@ export default function ManifestDatatable({
                     </div>
                 </TableCell>
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <>
                         <TableCell />
                         <TableCell>
                             <ProperInput
-                                value={groupLeadTraveler?.relationship ?? ''}
+                                value={groupLeadMember?.relationship ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
@@ -1411,7 +1411,7 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell>
                             <ProperInput
-                                value={groupLeadTraveler?.group_remarks ?? ''}
+                                value={groupLeadMember?.group_remarks ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
@@ -1438,7 +1438,7 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell>
                             <ProperInput
-                                value={groupLeadTraveler?.group_remarks ?? ''}
+                                value={groupLeadMember?.group_remarks ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
@@ -1493,16 +1493,16 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell>
                             <ProperInput
-                                value={roomInfo?.room_no ?? ''}
+                                value={roomInfo?.room_number ?? ''}
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
-                                        'room_no',
+                                        'room_number',
                                         value,
                                     )
                                 }
                                 disabled={disableRoomFields}
-                                placeholder="Room no"
+                                placeholder="Room No"
                                 size="default"
                             />
                         </TableCell>
@@ -1599,7 +1599,7 @@ export default function ManifestDatatable({
                                         <ProperInput
                                             id={roomRemarksPath}
                                             value={
-                                                groupLeadTraveler?.room_remarks ??
+                                                groupLeadMember?.room_remarks ??
                                                 ''
                                             }
                                             onCommit={(value) =>
@@ -1690,7 +1690,7 @@ export default function ManifestDatatable({
     ) => {
         const { setNodeRef, transform, transition, attributes, listeners } =
             sortableProps;
-        const traveler = item.traveler!;
+        const member = item.member!;
         const flatIndex = item.flatIndex;
 
         const itemIndex = visibleItems.indexOf(item);
@@ -1699,16 +1699,16 @@ export default function ManifestDatatable({
 
         const canMoveToHolding =
             !disabled &&
-            traveler.status !== 'cancelled' &&
-            !!traveler.customer_confirmation_member_id;
+            member.status !== 'cancelled' &&
+            !!member.customer_confirmation_member_id;
 
-        const isOfficialRoomTraveler = isOfficialTraveler(traveler);
+        const isOfficialRoomMember = isOfficialMember(member);
         const roomLocationKeys = roomAssignmentOptions
             .map((option) => normalizeRoomLocationKey(option.key))
             .filter((value) => value.length > 0);
         const assignedLocations = Array.from(
             new Set(
-                (getTravelerAssignedLocations?.(traveler) ?? roomLocationKeys)
+                (getMemberAssignedLocations?.(member) ?? roomLocationKeys)
                     .map((location) =>
                         normalizeRoomLocationKey(String(location)),
                     )
@@ -1719,12 +1719,12 @@ export default function ManifestDatatable({
             (location) => !assignedLocations.includes(location),
         );
         const canShowUnassignByLocation =
-            mode === 'travelers' &&
-            isOfficialRoomTraveler &&
+            mode === 'members' &&
+            isOfficialRoomMember &&
             assignedLocations.length > 0;
         const canShowAssignByLocation =
-            mode === 'travelers' &&
-            isOfficialRoomTraveler &&
+            mode === 'members' &&
+            isOfficialRoomMember &&
             explicitUnassignedLocations.length > 0;
         const canShowAssignAllOption = explicitUnassignedLocations.length > 1;
 
@@ -1740,12 +1740,12 @@ export default function ManifestDatatable({
 
         const memberDisabled = mode === 'room_check' || disabled;
         const remarksDisabled = disabled;
-        const isOfficialTravelerRow = isOfficialTraveler(traveler);
+        const isOfficialMemberRow = isOfficialMember(member);
 
         const canToggleRoomAssignment =
-            isOfficialRoomTraveler && (mode === 'room' || mode === 'travelers');
+            isOfficialRoomMember && (mode === 'room' || mode === 'members');
 
-        const setTravelerRoomAssignment = (
+        const setMemberRoomAssignment = (
             action: 'assign' | 'unassign',
             scope: string,
         ) => {
@@ -1763,7 +1763,7 @@ export default function ManifestDatatable({
                 return;
             }
 
-            onRoomAssignmentChange?.(traveler, action, scope);
+            onRoomAssignmentChange?.(member, action, scope);
         };
 
         const toggleRoomAssignment = () => {
@@ -1773,19 +1773,19 @@ export default function ManifestDatatable({
 
             const fallbackScope =
                 defaultLocationKey.length > 0 ? defaultLocationKey : 'all';
-            setTravelerRoomAssignment(
+            setMemberRoomAssignment(
                 isRoomAssigned ? 'unassign' : 'assign',
                 fallbackScope,
             );
         };
 
         const canShowMoveToHoldingAction =
-            mode === 'travelers' && canMoveToHolding && !disabled;
+            mode === 'members' && canMoveToHolding && !disabled;
         const canShowToggleRoomAction =
             (mode === 'room' || mode === 'room_check') &&
             canToggleRoomAssignment &&
             !disabled;
-        const hasTravelerAction =
+        const hasMemberAction =
             canShowMoveToHoldingAction ||
             canShowToggleRoomAction ||
             canShowUnassignByLocation ||
@@ -1822,7 +1822,7 @@ export default function ManifestDatatable({
                 )}
 
                 <TableCell className="text-muted-foreground">
-                    {traveler.sn ?? flatIndex + 1}
+                    {member.sn ?? flatIndex + 1}
                 </TableCell>
 
                 <TableCell>
@@ -1843,7 +1843,7 @@ export default function ManifestDatatable({
                                   )
                                 : undefined
                         }
-                        value={traveler.name_as_per_passport ?? ''}
+                        value={member.name_as_per_passport ?? ''}
                         onCommit={(value) =>
                             updateMemberField(
                                 flatIndex,
@@ -1857,7 +1857,7 @@ export default function ManifestDatatable({
                     {renderCellError(flatIndex, 'name_as_per_passport')}
                 </TableCell>
 
-                {(mode === 'travelers' ||
+                {(mode === 'members' ||
                     mode === 'room' ||
                     mode === 'room_check') && (
                     <TableCell>
@@ -1867,7 +1867,7 @@ export default function ManifestDatatable({
                                     ? getErrorPath(flatIndex, 'role')
                                     : undefined
                             }
-                            value={traveler.role ?? traveler.relationship ?? ''}
+                            value={member.role ?? member.relationship ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(flatIndex, 'role', value)
                             }
@@ -1878,20 +1878,20 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <span className="text-muted-foreground">-</span>
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
                                 PACKAGE_CATEGORY_LABELS[
-                                    traveler.package_category ?? ''
+                                    member.package_category ?? ''
                                 ] ??
-                                traveler.package_category ??
+                                member.package_category ??
                                 ''
                             }
                             disabled={true}
@@ -1901,10 +1901,10 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
-                            value={traveler.date_of_sign_up ?? ''}
+                            value={member.date_of_sign_up ?? ''}
                             disabled={true}
                             onCommit={() => {}}
                             size="default"
@@ -1912,14 +1912,14 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                traveler.is_first_time_umrah === null ||
-                                traveler.is_first_time_umrah === undefined
+                                member.is_first_time_umrah === null ||
+                                member.is_first_time_umrah === undefined
                                     ? ''
-                                    : traveler.is_first_time_umrah
+                                    : member.is_first_time_umrah
                                       ? 'Yes'
                                       : 'No'
                             }
@@ -1930,10 +1930,10 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <SelectCell
-                            value={traveler.sharing_plan ?? ''}
+                            value={member.sharing_plan ?? ''}
                             placeholder="Room type"
                             onValueChange={(value) =>
                                 updateMemberField(
@@ -1949,7 +1949,7 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             id={
@@ -1957,7 +1957,7 @@ export default function ManifestDatatable({
                                     ? getErrorPath(flatIndex, 'passport_number')
                                     : undefined
                             }
-                            value={traveler.passport_number ?? ''}
+                            value={member.passport_number ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(
                                     flatIndex,
@@ -1972,10 +1972,10 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <SelectCell
-                            value={traveler.gender ?? ''}
+                            value={member.gender ?? ''}
                             placeholder="Gender"
                             onValueChange={(value) =>
                                 updateMemberField(flatIndex, 'gender', value)
@@ -1987,7 +1987,7 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <DatePickerField
                             id={
@@ -1995,7 +1995,7 @@ export default function ManifestDatatable({
                                     ? getErrorPath(flatIndex, 'date_of_birth')
                                     : `main-date-of-birth-${flatIndex}`
                             }
-                            value={traveler.date_of_birth ?? ''}
+                            value={member.date_of_birth ?? ''}
                             fromYear={new Date().getFullYear() - 100}
                             onChange={(value) =>
                                 updateMemberField(
@@ -2010,14 +2010,13 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                traveler.age !== null &&
-                                traveler.age !== undefined
-                                    ? String(traveler.age)
-                                    : getAgeFromDate(traveler.date_of_birth)
+                                member.age !== null && member.age !== undefined
+                                    ? String(member.age)
+                                    : getAgeFromDate(member.date_of_birth)
                             }
                             disabled={true}
                             onCommit={() => {}}
@@ -2026,10 +2025,10 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
-                            value={traveler.contact_no ?? ''}
+                            value={member.contact_no ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(
                                     flatIndex,
@@ -2044,7 +2043,7 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <DatePickerField
                             id={
@@ -2052,7 +2051,7 @@ export default function ManifestDatatable({
                                     ? getErrorPath(flatIndex, 'date_of_issue')
                                     : `main-date-of-issue-${flatIndex}`
                             }
-                            value={traveler.date_of_issue ?? ''}
+                            value={member.date_of_issue ?? ''}
                             fromYear={new Date().getFullYear() - 10}
                             onChange={(value) =>
                                 updateMemberField(
@@ -2067,7 +2066,7 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <DatePickerField
                             id={
@@ -2075,7 +2074,7 @@ export default function ManifestDatatable({
                                     ? getErrorPath(flatIndex, 'date_of_expiry')
                                     : `main-date-of-expiry-${flatIndex}`
                             }
-                            value={traveler.date_of_expiry ?? ''}
+                            value={member.date_of_expiry ?? ''}
                             toYear={new Date().getFullYear() + 10}
                             onChange={(value) =>
                                 updateMemberField(
@@ -2090,10 +2089,10 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
-                            value={traveler.issue_place ?? ''}
+                            value={member.issue_place ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(
                                     flatIndex,
@@ -2108,10 +2107,10 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
-                            value={traveler.birth_place ?? ''}
+                            value={member.birth_place ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(
                                     flatIndex,
@@ -2126,14 +2125,14 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                !isOfficialTravelerRow &&
-                                traveler.package_price !== null &&
-                                traveler.package_price !== undefined
-                                    ? String(traveler.package_price)
+                                !isOfficialMemberRow &&
+                                member.package_price !== null &&
+                                member.package_price !== undefined
+                                    ? String(member.package_price)
                                     : ''
                             }
                             disabled={true}
@@ -2143,14 +2142,14 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                !isOfficialTravelerRow &&
-                                traveler.discount !== null &&
-                                traveler.discount !== undefined
-                                    ? String(traveler.discount)
+                                !isOfficialMemberRow &&
+                                member.discount !== null &&
+                                member.discount !== undefined
+                                    ? String(member.discount)
                                     : ''
                             }
                             disabled={true}
@@ -2160,12 +2159,12 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                !isOfficialTravelerRow
-                                    ? (traveler.date_of_deposit_payment ?? '')
+                                !isOfficialMemberRow
+                                    ? (member.date_of_deposit_payment ?? '')
                                     : ''
                             }
                             disabled={true}
@@ -2175,14 +2174,14 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                !isOfficialTravelerRow &&
-                                traveler.deposit_payment !== null &&
-                                traveler.deposit_payment !== undefined
-                                    ? String(traveler.deposit_payment)
+                                !isOfficialMemberRow &&
+                                member.deposit_payment !== null &&
+                                member.deposit_payment !== undefined
+                                    ? String(member.deposit_payment)
                                     : ''
                             }
                             disabled={true}
@@ -2192,12 +2191,12 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                !isOfficialTravelerRow
-                                    ? (traveler.date_of_second_payment ?? '')
+                                !isOfficialMemberRow
+                                    ? (member.date_of_second_payment ?? '')
                                     : ''
                             }
                             disabled={true}
@@ -2207,14 +2206,14 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                !isOfficialTravelerRow &&
-                                traveler.second_payment !== null &&
-                                traveler.second_payment !== undefined
-                                    ? String(traveler.second_payment)
+                                !isOfficialMemberRow &&
+                                member.second_payment !== null &&
+                                member.second_payment !== undefined
+                                    ? String(member.second_payment)
                                     : ''
                             }
                             disabled={true}
@@ -2224,14 +2223,14 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
                         <ProperInput
                             value={
-                                !isOfficialTravelerRow &&
-                                traveler.balance_due !== null &&
-                                traveler.balance_due !== undefined
-                                    ? String(traveler.balance_due)
+                                !isOfficialMemberRow &&
+                                member.balance_due !== null &&
+                                member.balance_due !== undefined
+                                    ? String(member.balance_due)
                                     : ''
                             }
                             disabled={true}
@@ -2241,13 +2240,13 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                {mode === 'travelers' && (
+                {mode === 'members' && (
                     <TableCell>
-                        {isOfficialTravelerRow ? (
+                        {isOfficialMemberRow ? (
                             <span className="text-muted-foreground">-</span>
                         ) : (
                             (() => {
-                                const status = traveler.status ?? 'draft';
+                                const status = member.status ?? 'draft';
                                 const statusColor =
                                     confirmationMemberStatusColors[status] ??
                                     'bg-gray-100 text-gray-800';
@@ -2280,7 +2279,7 @@ export default function ManifestDatatable({
                                           )
                                         : undefined
                                 }
-                                value={traveler.passport_number ?? ''}
+                                value={member.passport_number ?? ''}
                                 onCommit={(value) =>
                                     updateMemberField(
                                         flatIndex,
@@ -2307,7 +2306,7 @@ export default function ManifestDatatable({
                                           )
                                         : `room-date-of-birth-${flatIndex}`
                                 }
-                                value={traveler.date_of_birth ?? ''}
+                                value={member.date_of_birth ?? ''}
                                 fromYear={new Date().getFullYear() - 100}
                                 onChange={(value) =>
                                     updateMemberField(
@@ -2323,10 +2322,10 @@ export default function ManifestDatatable({
                         <TableCell>
                             <ProperInput
                                 value={
-                                    traveler.age !== null &&
-                                    traveler.age !== undefined
-                                        ? String(traveler.age)
-                                        : getAgeFromDate(traveler.date_of_birth)
+                                    member.age !== null &&
+                                    member.age !== undefined
+                                        ? String(member.age)
+                                        : getAgeFromDate(member.date_of_birth)
                                 }
                                 disabled={true}
                                 onCommit={() => {}}
@@ -2355,8 +2354,8 @@ export default function ManifestDatatable({
                                         : undefined
                                 }
                                 value={
-                                    traveler.passport_number ??
-                                    traveler.passport_number ??
+                                    member.passport_number ??
+                                    member.passport_number ??
                                     ''
                                 }
                                 onCommit={(value) =>
@@ -2378,7 +2377,7 @@ export default function ManifestDatatable({
                                         ? getErrorPath(flatIndex, 'nationality')
                                         : undefined
                                 }
-                                value={traveler.nationality ?? ''}
+                                value={member.nationality ?? ''}
                                 onCommit={(value) =>
                                     updateMemberField(
                                         flatIndex,
@@ -2393,7 +2392,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell>
                             <SelectCell
-                                value={traveler.gender ?? ''}
+                                value={member.gender ?? ''}
                                 placeholder="Gender"
                                 onValueChange={(value) =>
                                     updateMemberField(
@@ -2417,7 +2416,7 @@ export default function ManifestDatatable({
                                           )
                                         : `airline-date-of-birth-${flatIndex}`
                                 }
-                                value={traveler.date_of_birth ?? ''}
+                                value={member.date_of_birth ?? ''}
                                 fromYear={new Date().getFullYear() - 100}
                                 onChange={(value) =>
                                     updateMemberField(
@@ -2440,7 +2439,7 @@ export default function ManifestDatatable({
                                           )
                                         : `airline-date-of-issue-${flatIndex}`
                                 }
-                                value={traveler.date_of_issue ?? ''}
+                                value={member.date_of_issue ?? ''}
                                 fromYear={new Date().getFullYear() - 10}
                                 onChange={(value) =>
                                     updateMemberField(
@@ -2463,7 +2462,7 @@ export default function ManifestDatatable({
                                           )
                                         : `airline-date-of-expiry-${flatIndex}`
                                 }
-                                value={traveler.date_of_expiry ?? ''}
+                                value={member.date_of_expiry ?? ''}
                                 toYear={new Date().getFullYear() + 10}
                                 onChange={(value) =>
                                     updateMemberField(
@@ -2483,7 +2482,7 @@ export default function ManifestDatatable({
                                         ? getErrorPath(flatIndex, 'issue_place')
                                         : undefined
                                 }
-                                value={traveler.issue_place ?? ''}
+                                value={member.issue_place ?? ''}
                                 onCommit={(value) =>
                                     updateMemberField(
                                         flatIndex,
@@ -2503,7 +2502,7 @@ export default function ManifestDatatable({
                     <>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.course_1}
+                                checked={!!member.course_1}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2518,7 +2517,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.course_2}
+                                checked={!!member.course_2}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2533,7 +2532,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.lanyard}
+                                checked={!!member.lanyard}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2548,7 +2547,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.luggage_tag}
+                                checked={!!member.luggage_tag}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2563,7 +2562,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.cabin_tag}
+                                checked={!!member.cabin_tag}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2578,7 +2577,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.passport_cover}
+                                checked={!!member.passport_cover}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2593,7 +2592,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.umrah_guidebook}
+                                checked={!!member.umrah_guidebook}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2608,7 +2607,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.sling_bag}
+                                checked={!!member.sling_bag}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2623,7 +2622,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.cabin_size_luggage}
+                                checked={!!member.cabin_size_luggage}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2638,7 +2637,7 @@ export default function ManifestDatatable({
                         </TableCell>
                         <TableCell className="text-center">
                             <Checkbox
-                                checked={!!traveler.umrah_essentials}
+                                checked={!!member.umrah_essentials}
                                 onCheckedChange={(checked) =>
                                     updateFlatRow(
                                         flatIndex,
@@ -2662,7 +2661,7 @@ export default function ManifestDatatable({
                                     ? getErrorPath(flatIndex, 'remarks')
                                     : undefined
                             }
-                            value={traveler.remarks ?? ''}
+                            value={member.remarks ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(flatIndex, 'remarks', value)
                             }
@@ -2677,7 +2676,7 @@ export default function ManifestDatatable({
 
                 {mode !== 'course_collection' && (
                     <TableCell>
-                        {mode === 'travelers' ||
+                        {mode === 'members' ||
                         mode === 'room' ||
                         mode === 'room_check' ? (
                             <DropdownMenu>
@@ -2695,13 +2694,13 @@ export default function ManifestDatatable({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    {hasTravelerAction ? (
+                                    {hasMemberAction ? (
                                         <>
                                             {canShowMoveToHoldingAction && (
                                                 <DropdownMenuItem
                                                     onClick={() =>
                                                         onMoveToHolding?.(
-                                                            traveler,
+                                                            member,
                                                         )
                                                     }
                                                 >
@@ -2742,7 +2741,7 @@ export default function ManifestDatatable({
                                                                     <DropdownMenuItem
                                                                         key={`unassign-${location}`}
                                                                         onClick={() =>
-                                                                            setTravelerRoomAssignment(
+                                                                            setMemberRoomAssignment(
                                                                                 'unassign',
                                                                                 location,
                                                                             )
@@ -2756,7 +2755,7 @@ export default function ManifestDatatable({
                                                         )}
                                                         <DropdownMenuItem
                                                             onClick={() =>
-                                                                setTravelerRoomAssignment(
+                                                                setMemberRoomAssignment(
                                                                     'unassign',
                                                                     'all',
                                                                 )
@@ -2791,7 +2790,7 @@ export default function ManifestDatatable({
                                                                     <DropdownMenuItem
                                                                         key={`assign-${location}`}
                                                                         onClick={() =>
-                                                                            setTravelerRoomAssignment(
+                                                                            setMemberRoomAssignment(
                                                                                 'assign',
                                                                                 location,
                                                                             )
@@ -2806,7 +2805,7 @@ export default function ManifestDatatable({
                                                         {canShowAssignAllOption && (
                                                             <DropdownMenuItem
                                                                 onClick={() =>
-                                                                    setTravelerRoomAssignment(
+                                                                    setMemberRoomAssignment(
                                                                         'assign',
                                                                         'all',
                                                                     )
@@ -2838,11 +2837,11 @@ export default function ManifestDatatable({
             <ContextMenu>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                    {hasTravelerAction ? (
+                    {hasMemberAction ? (
                         <>
                             {canShowMoveToHoldingAction && (
                                 <ContextMenuItem
-                                    onClick={() => onMoveToHolding?.(traveler)}
+                                    onClick={() => onMoveToHolding?.(member)}
                                 >
                                     Move to Holding
                                 </ContextMenuItem>
@@ -2875,7 +2874,7 @@ export default function ManifestDatatable({
                                                         <ContextMenuItem
                                                             key={`ctx-unassign-${location}`}
                                                             onClick={() =>
-                                                                setTravelerRoomAssignment(
+                                                                setMemberRoomAssignment(
                                                                     'unassign',
                                                                     location,
                                                                 )
@@ -2889,7 +2888,7 @@ export default function ManifestDatatable({
                                             )}
                                             <ContextMenuItem
                                                 onClick={() =>
-                                                    setTravelerRoomAssignment(
+                                                    setMemberRoomAssignment(
                                                         'unassign',
                                                         'all',
                                                     )
@@ -2921,7 +2920,7 @@ export default function ManifestDatatable({
                                                     <ContextMenuItem
                                                         key={`ctx-assign-${location}`}
                                                         onClick={() =>
-                                                            setTravelerRoomAssignment(
+                                                            setMemberRoomAssignment(
                                                                 'assign',
                                                                 location,
                                                             )
@@ -2936,7 +2935,7 @@ export default function ManifestDatatable({
                                         {canShowAssignAllOption && (
                                             <ContextMenuItem
                                                 onClick={() =>
-                                                    setTravelerRoomAssignment(
+                                                    setMemberRoomAssignment(
                                                         'assign',
                                                         'all',
                                                     )
@@ -2960,10 +2959,10 @@ export default function ManifestDatatable({
     };
 
     const renderCourseCollectionRow = (
-        row: TravelerWithUI & { _rowId: string },
+        row: MemberWithUI & { _rowId: string },
         index: number,
     ) => {
-        const toggleCheck = (field: keyof TravelerWithUI) => {
+        const toggleCheck = (field: keyof MemberWithUI) => {
             const currentValue = row[field];
             updateFlatRow(index, field, !currentValue);
         };
@@ -3082,7 +3081,7 @@ export default function ManifestDatatable({
         );
 
         return (
-            <ContextMenu>
+            <ContextMenu key={row._rowId}>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
                     <ContextMenuItem disabled>
@@ -3094,7 +3093,7 @@ export default function ManifestDatatable({
     };
 
     const renderAirlineRow = (
-        row: TravelerWithUI & { _rowId: string },
+        row: MemberWithUI & { _rowId: string },
         index: number,
     ) => {
         const rowContent = (
@@ -3264,7 +3263,7 @@ export default function ManifestDatatable({
         );
 
         return (
-            <ContextMenu>
+            <ContextMenu key={row._rowId}>
                 <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
                     <ContextMenuItem disabled>

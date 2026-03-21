@@ -31,7 +31,7 @@ class PackageService
         $data = Package::query()
             ->withCount('manifests')
             ->with([
-                'manifests.travelers' => function ($query) {
+                'manifests.members' => function ($query) {
                     $query->whereNull('package_official_id');
                 },
             ])
@@ -48,7 +48,7 @@ class PackageService
             ->get()
             ->map(function ($q) {
                 $occupiedSeats = $q->manifests->sum(function ($manifest) {
-                    return $manifest->travelers->count();
+                    return $manifest->members->count();
                 });
 
                 $seatsLeft = $q->total_seats === null
@@ -170,7 +170,7 @@ class PackageService
                 'manifest_number' => $manifestNumber,
             ]);
 
-            $this->syncManifestOfficialTravelers($manifest, $package);
+            $this->syncManifestOfficialMembers($manifest, $package);
             $this->packageSeatService->recalculateForPackageId((int) $package->id);
 
             activity()
@@ -618,7 +618,7 @@ class PackageService
                 'manifest_number' => $manifestNumber,
             ]);
 
-            $this->syncManifestOfficialTravelers($manifest, $package);
+            $this->syncManifestOfficialMembers($manifest, $package);
             $this->packageSeatService->recalculateForPackageId((int) $package->id);
 
             activity()
@@ -759,31 +759,31 @@ class PackageService
         $package->load(['officials', 'manifests']);
 
         foreach ($package->manifests as $manifest) {
-            $this->syncManifestOfficialTravelers($manifest, $package);
+            $this->syncManifestOfficialMembers($manifest, $package);
         }
     }
 
-    private function syncManifestOfficialTravelers(Manifest $manifest, Package $package): void
+    private function syncManifestOfficialMembers(Manifest $manifest, Package $package): void
     {
-        $officialTravelerMarker = '[package-official]';
+        $officialMemberMarker = '[package-official]';
 
         $package->load('officials');
 
-        $officialTravelerQuery = $manifest->travelers()
+        $officialMemberQuery = $manifest->members()
             ->whereNull('customer_confirmation_member_id')
-            ->where('remarks', 'like', $officialTravelerMarker.'%');
+            ->where('remarks', 'like', $officialMemberMarker.'%');
 
-        $existingOfficialTravelers = $officialTravelerQuery
+        $existingOfficialMembers = $officialMemberQuery
             ->get()
-            ->filter(fn ($traveler) => $traveler->package_official_id !== null)
-            ->keyBy(fn ($traveler) => (int) $traveler->package_official_id);
+            ->filter(fn ($member) => $member->package_official_id !== null)
+            ->keyBy(fn ($member) => (int) $member->package_official_id);
 
         $activeOfficialIds = [];
 
         foreach ($package->officials as $official) {
             $activeOfficialIds[] = (int) $official->id;
 
-            $existingTraveler = $existingOfficialTravelers->get((int) $official->id);
+            $existingMember = $existingOfficialMembers->get((int) $official->id);
 
             $payload = [
                 'name' => $official->name,
@@ -796,16 +796,16 @@ class PackageService
                 'passport_expiry_date' => $official->passport_expiry_date,
                 'passport_place_of_issue' => $official->passport_place_of_issue,
                 'place_of_birth' => $official->place_of_birth,
-                'remarks' => $officialTravelerMarker.' '.($official->type ?? 'official'),
+                'remarks' => $officialMemberMarker.' '.($official->type ?? 'official'),
             ];
 
-            if ($existingTraveler) {
-                $existingTraveler->update($payload);
+            if ($existingMember) {
+                $existingMember->update($payload);
 
                 continue;
             }
 
-            $manifest->travelers()->create([
+            $manifest->members()->create([
                 'package_official_id' => $official->id,
                 'role' => $official->type,
                 'sharing_plan' => 'single',
@@ -814,9 +814,9 @@ class PackageService
         }
 
         if ($activeOfficialIds === []) {
-            $officialTravelerQuery->delete();
+            $officialMemberQuery->delete();
         } else {
-            $officialTravelerQuery
+            $officialMemberQuery
                 ->where(function ($query) use ($activeOfficialIds): void {
                     $query->whereNull('package_official_id')
                         ->orWhereNotIn('package_official_id', $activeOfficialIds);
@@ -831,13 +831,13 @@ class PackageService
     {
         $officialRoomMarker = '[package-official-room]';
 
-        $officialTravelers = $manifest->travelers()
+        $officialMembers = $manifest->members()
             ->whereNotNull('package_official_id')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
 
-        if ($officialTravelers->isEmpty()) {
+        if ($officialMembers->isEmpty()) {
             $manifest->rooms()
                 ->where('remarks', 'like', $officialRoomMarker.'%')
                 ->each(function ($room): void {
@@ -872,8 +872,8 @@ class PackageService
         $expectedCombos = [];
 
         foreach ($locations as $location) {
-            foreach ($officialTravelers as $officialTraveler) {
-                $expectedCombos[] = $location['key'].'|'.$officialTraveler->id;
+            foreach ($officialMembers as $officialMember) {
+                $expectedCombos[] = $location['key'].'|'.$officialMember->id;
             }
         }
 
@@ -891,15 +891,15 @@ class PackageService
                 }
 
                 return [
-                    ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_traveler_id => $room,
+                    ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_member_id => $room,
                 ];
             });
 
         $currentSortOrder = 1;
 
         foreach ($locations as $location) {
-            foreach ($officialTravelers as $index => $officialTraveler) {
-                $comboKey = $location['key'].'|'.$officialTraveler->id;
+            foreach ($officialMembers as $index => $officialMember) {
+                $comboKey = $location['key'].'|'.$officialMember->id;
                 $existingRoom = $roomMap->get($comboKey);
 
                 $roomPayload = [
@@ -923,12 +923,12 @@ class PackageService
                     $memberRow = $existingRoom->roomMembers->first();
                     if ($memberRow) {
                         $memberRow->update([
-                            'manifest_traveler_id' => $officialTraveler->id,
+                            'manifest_member_id' => $officialMember->id,
                             'sort_order' => 1,
                         ]);
                     } else {
                         $existingRoom->roomMembers()->create([
-                            'manifest_traveler_id' => $officialTraveler->id,
+                            'manifest_member_id' => $officialMember->id,
                             'sort_order' => 1,
                             'is_assigned' => true,
                             'remarks' => null,
@@ -941,7 +941,7 @@ class PackageService
                     ]);
 
                     $newRoom->roomMembers()->create([
-                        'manifest_traveler_id' => $officialTraveler->id,
+                        'manifest_member_id' => $officialMember->id,
                         'sort_order' => 1,
                         'is_assigned' => true,
                         'remarks' => null,
@@ -966,7 +966,7 @@ class PackageService
                     return;
                 }
 
-                $comboKey = ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_traveler_id;
+                $comboKey = ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_member_id;
 
                 if (! in_array($comboKey, $expectedCombos, true)) {
                     $room->roomMembers()->delete();

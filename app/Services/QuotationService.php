@@ -744,16 +744,15 @@ class QuotationService
             return;
         }
 
-        $travelers = ManifestMember::query()
+        $members = ManifestMember::query()
             ->whereIn('manifest_id', $manifestIds)
             ->whereIn('customer_confirmation_member_id', $memberIds)
             ->get();
 
-        foreach ($travelers as $traveler) {
-            $traveler->roomMembers()->delete();
-            $traveler->payments()->delete();
-            $traveler->collectionItem()?->delete();
-            $traveler->delete();
+        foreach ($members as $member) {
+            $member->roomMembers()->delete();
+            $member->collectionItem()?->delete();
+            $member->delete();
         }
 
         app(PackageSeatService::class)->recalculateForPackageId($packageId);

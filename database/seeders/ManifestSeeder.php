@@ -56,7 +56,7 @@ class ManifestSeeder extends Seeder
                 }
             });
 
-            $manifest->travelers()->delete();
+            $manifest->members()->delete();
             $manifest->manifestSharingGroups()->delete();
 
             $membersByManifestGroup = $paidMembers
@@ -81,7 +81,7 @@ class ManifestSeeder extends Seeder
                 ]);
 
                 foreach ($members->values() as $memberIndex => $member) {
-                    $manifest->travelers()->create([
+                    $manifest->members()->create([
                         'manifest_sharing_group_id' => $manifestSharingGroup->id,
                         'customer_confirmation_member_id' => $member->id,
                         'sort_order' => $memberIndex + 1,
@@ -90,15 +90,15 @@ class ManifestSeeder extends Seeder
                 }
             }
 
-            $manifest->load(['travelers', 'rooms.roomMembers']);
+            $manifest->load(['members', 'rooms.roomMembers']);
 
             foreach ($manifest->rooms as $room) {
                 $room->roomMembers()->delete();
             }
             $manifest->rooms()->delete();
 
-            $travelersByMember = $manifest->travelers
-                ->filter(fn ($traveler) => ! empty($traveler->customer_confirmation_member_id))
+            $membersByMember = $manifest->members
+                ->filter(fn ($member) => ! empty($member->customer_confirmation_member_id))
                 ->keyBy('customer_confirmation_member_id');
 
             $defaultLocation = optional($package->accommodations->first())->location ?? 'makkah';
@@ -149,14 +149,14 @@ class ManifestSeeder extends Seeder
                     ]);
 
                     foreach ($chunk->values() as $index => $member) {
-                        $traveler = $travelersByMember->get($member->id);
+                        $member = $membersByMember->get($member->id);
 
-                        if (! $traveler) {
+                        if (! $member) {
                             continue;
                         }
 
                         $room->roomMembers()->create([
-                            'manifest_traveler_id' => $traveler->id,
+                            'manifest_member_id' => $member->id,
                             'sort_order' => $index + 1,
                             'remarks' => null,
                         ]);
@@ -169,7 +169,7 @@ class ManifestSeeder extends Seeder
             $this->syncPackageOfficialsIntoManifest($manifest, $package);
         }
 
-        $this->command->info('Manifests seeded successfully (with paid traveler assignments).');
+        $this->command->info('Manifests seeded successfully (with paid member assignments).');
     }
 
     private function capacityFromSharingPlan(string $sharingPlan): int
@@ -192,13 +192,13 @@ class ManifestSeeder extends Seeder
 
     private function syncPackageOfficialsIntoManifest(Manifest $manifest, Package $package): void
     {
-        $officialTravelerMarker = '[package-official]';
+        $officialMemberMarker = '[package-official]';
         $officialGroupMarker = '[package-official-group]';
         $officialRoomMarker = '[package-official-room]';
 
-        $manifest->travelers()
+        $manifest->members()
             ->whereNull('customer_confirmation_member_id')
-            ->where('remarks', 'like', $officialTravelerMarker.'%')
+            ->where('remarks', 'like', $officialMemberMarker.'%')
             ->delete();
 
         $manifest->manifestSharingGroups()
@@ -214,7 +214,7 @@ class ManifestSeeder extends Seeder
 
         $package->loadMissing(['officials', 'accommodations']);
 
-        $createdOfficialTravelers = collect();
+        $createdOfficialMembers = collect();
 
         $groupSortOrder = ((int) $manifest->manifestSharingGroups()->max('sort_order')) + 1;
 
@@ -226,7 +226,7 @@ class ManifestSeeder extends Seeder
                 'remarks' => $officialGroupMarker,
             ]);
 
-            $createdOfficialTravelers->push($manifest->travelers()->create([
+            $createdOfficialMembers->push($manifest->members()->create([
                 'manifest_sharing_group_id' => $officialGroup->id,
                 'package_official_id' => $official->id,
                 'role' => $official->type,
@@ -241,13 +241,13 @@ class ManifestSeeder extends Seeder
                 'passport_expiry_date' => $official->passport_expiry_date,
                 'passport_place_of_issue' => $official->passport_place_of_issue,
                 'place_of_birth' => $official->place_of_birth,
-                'remarks' => $officialTravelerMarker.' '.($official->type ?? 'official'),
+                'remarks' => $officialMemberMarker.' '.($official->type ?? 'official'),
             ]));
 
             $groupSortOrder++;
         }
 
-        if ($createdOfficialTravelers->isEmpty()) {
+        if ($createdOfficialMembers->isEmpty()) {
             return;
         }
 
@@ -273,7 +273,7 @@ class ManifestSeeder extends Seeder
         $roomSortOrder = 1;
 
         foreach ($locations as $location) {
-            foreach ($createdOfficialTravelers as $index => $officialTraveler) {
+            foreach ($createdOfficialMembers as $index => $officialMember) {
                 $room = $manifest->rooms()->create([
                     'sort_order' => $roomSortOrder,
                     'location' => $location['key'],
@@ -290,7 +290,7 @@ class ManifestSeeder extends Seeder
                 ]);
 
                 $room->roomMembers()->create([
-                    'manifest_traveler_id' => $officialTraveler->id,
+                    'manifest_member_id' => $officialMember->id,
                     'sort_order' => 1,
                     'is_assigned' => true,
                 ]);

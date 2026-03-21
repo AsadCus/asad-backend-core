@@ -1,71 +1,188 @@
 # Manifest Form Behavior Specification
 
-This document defines mandatory behavior for the Manifest form so future changes stay consistent across tabs and backend payload normalization.
+This document is the single source of truth for Manifest form behavior, payload structure, save flow, and regression guardrails after the restructure rollout.
 
 ## Scope
 
-- Frontend files under `resources/js/pages/manifests/*`
-- Backend normalization/sync in `app/Http/Controllers/ManifestController.php` and `app/Services/ManifestService.php`
-- Validation and typing in `resources/js/pages/manifests/schema.ts`, `resources/js/pages/manifests/types.ts`, `resources/js/pages/manifests/validation.ts`, and `app/Rules/ManifestRule.php`
+- Frontend: `resources/js/pages/manifests/*`
+- Backend controller and normalization: `app/Http/Controllers/ManifestController.php`
+- Backend service sync/read mapping: `app/Services/ManifestService.php`
+- Validation: `app/Rules/ManifestRule.php`
+- Frontend schema/types/validation: `resources/js/pages/manifests/schema.ts`, `resources/js/pages/manifests/types.ts`, `resources/js/pages/manifests/validation.ts`
+- Manifest routes: `routes/web.php`
+- Regression suites: `tests/Feature/ManifestWorkflowTest.php`, `tests/Feature/PackageOfficialManifestSyncTest.php`, `tests/Feature/ManifestSeederTest.php`, `tests/Feature/ReceiptMemberStatusSyncTest.php`
 
-## Canonical Data Shape
+## Post-Restructure Runtime Contract
 
-- Use dynamic `roomLists` only as `Record<string, TravelerRow[]>`.
-- Do not introduce or reintroduce fixed keys like `roomListMakkah`, `roomListMadinah`, or `roomListOthers`.
-- Keep `travelers` as the canonical list for shared traveler/customer/member data.
-- `airlineList` and every room list entry are projections of the same traveler entities, not separate independent records.
+### Primary Save Flow
 
-## Field Unification Rules
+Manifest writes are section-first and must use section endpoints in this order:
 
-- Passport field must be `passport_number` only.
-- Do not add alias fields such as `ppt_no`, `passport_no`, or duplicated passport keys.
-- For relationship/role fields, keep consistency between traveler-level role and room-level relationship mapping.
+1. `core`
+2. `sharing-groups`
+3. `rooms`
+4. `documents`
+5. `receipt-documents`
 
-## Cross-Tab Sync Contract
+Section save rules:
 
-When a shared field is edited in any tab, update the same traveler across all tabs immediately.
+1. Omitted section payload means no change.
+2. Section write failure must not wipe other sections.
+3. Explicit clear operations must be intentional and section-scoped.
 
-Shared fields that must stay synchronized:
+### Legacy Full Submit
+
+Legacy full submit can exist only as compatibility/rollback behavior. New features must not depend on full-submit-only payload semantics.
+
+## Canonical Payload Structure
+
+### Canonical GET Shape (Server -> Form)
+
+Top-level canonical keys:
+
+- `manifest`
+- `manifest_sharing_groups`
+- `manifest_rooms`
+- `documents`
+
+Legacy keys may still be present for compatibility, but new code must consume canonical keys first.
+
+### Canonical Write Shapes
+
+#### 1) Manifest Core
+
+`manifest` contains manifest-level fields only, such as:
+
+- `id`
+- `package_id`
+- `in_charge_official_id`
+- `manifest_number`
+- `status`
+- `notes`
+
+#### 2) Sharing Groups
+
+`manifest_sharing_groups` contains group rows and group member rows.
+
+Group-level ordering and member-level ordering are mandatory:
+
+1. Primary ordering: `group.sort_order`
+2. Secondary ordering: `member.sort_order`
+
+#### 3) Rooms
+
+`manifest_rooms` contains room rows and room member rows.
+
+Room member identity rules:
+
+1. Prefer manifest member identity fields.
+2. Fallback aliases may be accepted only for compatibility.
+3. Do not add redundant customer confirmation identifiers in room member rows when they can be derived server-side.
+
+#### 4) Documents
+
+`documents` is a manifest-level object keyed by:
+
+- `flight_tickets`
+- `visa`
+- `hotel`
+- `passport`
+- `photo`
+
+Each document entry supports:
+
+- `id`
+- `file`
+- `file_name`
+- `file_path`
+- `removed`
+
+#### 5) Receipt Documents
+
+Receipt file updates are section-scoped and must not rely on unrelated full payload writes.
+
+## Tab Behavior Contract
+
+The UI remains split into three rows:
+
+### Row 1: Main
+
+- Main member list with shared identity/profile fields.
+
+### Row 2: Room and Airline Views
+
+- Airline list
+- Dynamic room list tabs per location
+- Dynamic official check tabs per location
+- Namelist course and collection items tab
+
+### Row 3: Documents and Additional Member Data
+
+- Manifest-level document tabs: flight tickets, visa, hotel, passport, photo
+- Arabic names tab
+- Receipt tab
+
+## Canonical Data and Naming Rules
+
+1. Keep `roomLists` dynamic (`Record<string, TravelerRow[]>`) where compatibility structures are still required.
+2. Do not reintroduce fixed room list keys such as location-specific hardcoded properties.
+3. Passport must use `passport_number` only.
+4. Shared member entities remain the source for projections shown in airline/room/checklist views.
+5. New code must use member-first naming for symbols, helpers, and payload handling.
+6. Compatibility aliases are allowed only when needed for external contract safety and must be isolated in normalization layers.
+
+## Cross-Tab Synchronization Rules
+
+When a shared field changes in one tab, the same member data must stay synchronized in all tabs.
+
+Shared fields that must stay in sync:
 
 - `passport_number`
 - `nationality`
 - `gender`
 - `date_of_birth`
-- `age` (derived from `date_of_birth`)
+- `age` (derived)
 - `date_of_issue`
 - `date_of_expiry`
 - `issue_place`
-- `role` and room relationship equivalents when applicable
+- `role` and room relationship equivalents
 
-### Travelers/Main Tab Required Columns
+## Persistence Guardrails
 
-- Status badge style should match the visual pattern used for confirmation member status badges.
-- Include these columns/data points:
-    - package category (from confirmation package category)
-    - sign-up date (from enquiry `created_at`, fallback to confirmation `created_at`)
-    - first time umrah (`customer.first_time_umrah`)
-    - room type (from member `sharing_plan`)
-    - passport number
-    - gender
-    - date of birth + age
+1. Repeated submit without namelist edits must preserve namelist values.
+2. Receipt files must remain after unrelated section saves.
+3. Room regrouping/reordering must persist after save and reload.
+4. Document CRUD must remain isolated from member receipt persistence.
 
-## Backend Responsibilities
+## Backend Guardrails
 
-- Controller/service normalization must accept and persist dynamic `roomLists` ordering and grouping.
-- Sync methods must propagate shared traveler updates to underlying member/customer sources where required by business rules.
-- Keep room regroup/reorder persistence behavior intact when saving and reloading.
+1. Normalize compatibility inputs in one place, then sync using canonical internal shape.
+2. Keep deterministic ordering and grouping behavior.
+3. Prevent hidden cross-section clearing when a section is omitted.
+4. Reuse existing sync helpers rather than adding parallel one-off pipelines.
 
-## Validation and Tests
+## Validation and Test Requirements
 
-- Validation rules and TypeScript schemas must use the same field names and constraints.
-- Any behavior change must update/add tests that cover:
-    - grouped payload normalization
-    - room list reorder/regroup persistence
-    - shared field sync across tabs
-    - passport field unification
+Any behavior or contract change must include targeted regression evidence.
 
-## Implementation Guardrails
+Minimum test matrix:
 
-- Prefer extending existing manifest helpers before introducing new parallel transformation paths.
-- Avoid one-off per-tab mappings that can drift from canonical traveler data.
-- If a new field is introduced, define it once in schema/types and wire sync from canonical traveler source.
+1. `tests/Feature/ManifestWorkflowTest.php`
+2. `tests/Feature/PackageOfficialManifestSyncTest.php`
+3. `tests/Feature/ManifestSeederTest.php`
+4. `tests/Feature/ReceiptMemberStatusSyncTest.php`
+
+Coverage expectations for touched behavior:
+
+1. Grouped payload normalization.
+2. Room reorder/regroup persistence.
+3. Cross-tab shared-field synchronization.
+4. Receipt persistence across unrelated saves.
+5. Manifest document CRUD isolation.
+
+## Change Management Rules
+
+1. This file is authoritative for manifest runtime behavior and payload structure.
+2. If a compatibility alias is introduced or removed, document the reason, rollback path, and affected tests in the same change.
+3. Do not add new legacy-key dependencies to frontend runtime paths.
+4. Keep changes incremental and prove parity with focused tests before broader cleanup.

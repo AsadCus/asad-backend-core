@@ -27,24 +27,14 @@ class Manifest extends Model
         return $this->belongsTo(PackageOfficial::class, 'in_charge_official_id');
     }
 
-    public function travelers(): HasMany
-    {
-        return $this->hasMany(ManifestMember::class)->orderBy('sort_order')->orderBy('id');
-    }
-
     public function members(): HasMany
     {
-        return $this->travelers();
+        return $this->hasMany(ManifestMember::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function rooms(): HasMany
     {
         return $this->hasMany(ManifestRoom::class);
-    }
-
-    public function payments(): HasMany
-    {
-        return $this->hasMany(ManifestPayment::class);
     }
 
     public function files(): MorphMany

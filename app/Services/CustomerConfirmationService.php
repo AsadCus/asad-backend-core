@@ -814,7 +814,7 @@ class CustomerConfirmationService
 
     /**
      * Move selected members from an existing confirmation to a new holding confirmation.
-     * Selected source members are marked as cancelled and their linked manifest travelers are cancelled.
+     * Selected source members are marked as cancelled and their linked manifest members are cancelled.
      */
     public function moveMembersToHolding(
         int $sourceConfirmationId,

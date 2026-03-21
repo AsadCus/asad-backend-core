@@ -1270,6 +1270,9 @@ export default function CustomerConfirmationForm({
                                                         customer={customer}
                                                         index={idx}
                                                         useGeneratedDocumentName
+                                                        confirmationNumber={
+                                                            data.number ?? null
+                                                        }
                                                         isView={isView}
                                                         processing={processing}
                                                         getError={getError}

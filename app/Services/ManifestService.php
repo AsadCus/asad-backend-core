@@ -7,7 +7,6 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
-use App\Models\ManifestPayment;
 use App\Models\ManifestRoom;
 use App\Models\ManifestSharingGroup;
 use App\Models\ModelFile;
@@ -15,6 +14,7 @@ use App\Models\PackageOfficial;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -31,7 +31,7 @@ class ManifestService
     {
         $data = Manifest::with('package')
             ->withCount([
-                'travelers as members_count' => function ($query) {
+                'members as members_count' => function ($query) {
                     $query->whereNull('package_official_id');
                 },
             ])
@@ -94,20 +94,23 @@ class ManifestService
     public function store(array $data): Manifest
     {
         return DB::transaction(function () use ($data) {
-            $manifest = Manifest::create([
+            $manifestAttributes = [
                 'package_id' => $data['package_id'],
-                'in_charge_official_id' => $data['in_charge_official_id'] ?? null,
                 'manifest_number' => NumberGenerator::generate('manifest'),
                 'notes' => $data['notes'] ?? null,
-            ]);
+            ];
+
+            if (Schema::hasColumn('manifests', 'in_charge_official_id')) {
+                $manifestAttributes['in_charge_official_id'] = $data['in_charge_official_id'] ?? null;
+            }
+
+            $manifest = Manifest::create($manifestAttributes);
 
             $this->syncPackageStatus($manifest, $data['status'] ?? null);
 
-            $this->syncTravelers($manifest, $data['travelers'] ?? []);
+            $this->syncMembers($manifest, $data['members'] ?? []);
             $this->syncManifestDocuments($manifest, $data['documents'] ?? []);
-            $this->syncTravelerReceiptDocuments($manifest, $data['travelers'] ?? []);
             $this->syncRooms($manifest, $data['rooms'] ?? []);
-            $this->syncPayments($manifest, $data['payments'] ?? []);
 
             activity()
                 ->performedOn($manifest)
@@ -125,26 +128,25 @@ class ManifestService
             'package.flights',
             'package.officials',
             'inChargeOfficial',
-            'travelers.sharingGroup',
-            'travelers.packageOfficial',
-            'travelers.collectionItem',
-            'travelers.files',
-            'travelers.confirmationMember.confirmation.enquiry',
-            'travelers.confirmationMember.customer.user',
-            'travelers.confirmationMember.receiptAllocations.receipt',
-            'travelers.confirmationMember.quotationItems.quotation.quotationExtensions',
-            'travelers.confirmationMember.quotationItems.quotation.quotationItems',
-            'travelers.confirmationMember.quotationItems.invoices.quotationItems',
-            'travelers.confirmationMember.quotationItems.invoices.receipt',
-            'rooms.roomMembers.traveler',
-            'payments.traveler',
+            'members.sharingGroup',
+            'members.packageOfficial',
+            'members.collectionItem',
+            'members.files',
+            'members.confirmationMember.confirmation.enquiry',
+            'members.confirmationMember.customer.user',
+            'members.confirmationMember.receiptAllocations.receipt',
+            'members.confirmationMember.quotationItems.quotation.quotationExtensions',
+            'members.confirmationMember.quotationItems.quotation.quotationItems',
+            'members.confirmationMember.quotationItems.invoices.quotationItems',
+            'members.confirmationMember.quotationItems.invoices.receipt',
+            'rooms.roomMembers.member',
             'files',
             'manifestSharingGroups.customerConfirmation',
             'manifestSharingGroups.members.confirmationMember.confirmation.enquiry',
             'manifestSharingGroups.members.confirmationMember.customer.user',
         ])->findOrFail($id);
 
-        $travelers = $manifest->travelers
+        $members = $manifest->members
             ->sort(function ($left, $right) {
                 $leftOfficial = $left->package_official_id !== null ? 1 : 0;
                 $rightOfficial = $right->package_official_id !== null ? 1 : 0;
@@ -170,38 +172,38 @@ class ManifestService
                 return (int) $left->id <=> (int) $right->id;
             })
             ->values()
-            ->map(function ($traveler, $index) use ($manifest) {
-                $member = $traveler->confirmationMember;
-                $confirmation = $member?->confirmation;
+            ->map(function ($member, $index) use ($manifest) {
+                $confirmationMember = $member->confirmationMember;
+                $confirmation = $confirmationMember?->confirmation;
                 $enquiryCreatedAt = $confirmation?->enquiry?->created_at;
-                $customer = $member?->customer;
+                $customer = $confirmationMember?->customer;
                 $user = $customer?->user;
-                $packageOfficial = $traveler->packageOfficial;
-                $sharingPlan = $traveler->sharing_plan ?? $member?->sharing_plan;
-                $collectionItem = $traveler->collectionItem;
+                $packageOfficial = $member->packageOfficial;
+                $sharingPlan = $member->sharing_plan ?? $confirmationMember?->sharing_plan;
+                $collectionItem = $member->collectionItem;
                 $packagePrice = $this->getPackagePriceForSharingPlan($manifest->package, $sharingPlan);
-                $financialSnapshot = $this->buildTravelerFinancialSnapshot(
-                    $member,
+                $financialSnapshot = $this->buildMemberFinancialSnapshot(
+                    $confirmationMember,
                     $packagePrice,
-                    $traveler->package_official_id !== null,
+                    $member->package_official_id !== null,
                 );
 
                 return [
-                    'id' => $traveler->id,
+                    'id' => $member->id,
                     'sn' => $index + 1,
                     'customer_id' => $customer?->id,
-                    'customer_confirmation_member_id' => $traveler->customer_confirmation_member_id,
-                    'package_official_id' => $traveler->package_official_id,
-                    'customer_confirmation_id' => $member?->customer_confirmation_id,
+                    'customer_confirmation_member_id' => $member->customer_confirmation_member_id,
+                    'package_official_id' => $member->package_official_id,
+                    'customer_confirmation_id' => $confirmationMember?->customer_confirmation_id,
                     'customer_confirmation_number' => $confirmation?->number,
-                    'is_official' => $traveler->package_official_id !== null,
-                    'customer_name' => $traveler->name ?? $packageOfficial?->name ?? $user?->name,
-                    'name_as_per_passport' => $traveler->name ?? $packageOfficial?->name ?? $user?->name,
-                    'arabic_name' => $traveler->arabic_name,
-                    'contact_no' => $traveler->contact_number ?? $packageOfficial?->contact_number ?? $user?->contact,
-                    'role' => $traveler->role ?? $member?->role,
-                    'relationship' => $traveler->sharingGroup?->relation,
-                    'group_remarks' => $traveler->sharingGroup?->remarks,
+                    'is_official' => $member->package_official_id !== null,
+                    'customer_name' => $member->name ?? $packageOfficial?->name ?? $user?->name,
+                    'name_as_per_passport' => $member->name ?? $packageOfficial?->name ?? $user?->name,
+                    'arabic_name' => $member->arabic_name,
+                    'contact_no' => $member->contact_number ?? $packageOfficial?->contact_number ?? $user?->contact,
+                    'role' => $member->role ?? $confirmationMember?->role,
+                    'relationship' => $member->sharingGroup?->relation,
+                    'group_remarks' => $member->sharingGroup?->remarks,
                     'sharing_plan' => $sharingPlan,
                     'course_1' => (bool) ($collectionItem?->course_1 ?? false),
                     'course_2' => (bool) ($collectionItem?->course_2 ?? false),
@@ -213,13 +215,13 @@ class ManifestService
                     'sling_bag' => (bool) ($collectionItem?->sling_bag ?? false),
                     'cabin_size_luggage' => (bool) ($collectionItem?->cabin_size_luggage ?? false),
                     'umrah_essentials' => (bool) ($collectionItem?->umrah_essentials ?? false),
-                    'manifest_sharing_group_id' => $traveler->manifest_sharing_group_id,
-                    'sharing_group_id' => $traveler->manifest_sharing_group_id,
-                    'sharing_group_key' => $traveler->manifest_sharing_group_id
-                        ? 'group-'.$traveler->manifest_sharing_group_id
-                        : 'group-'.$traveler->id,
-                    'group_sort_order' => $traveler->sharingGroup?->sort_order,
-                    'sort_order' => $traveler->sort_order,
+                    'manifest_sharing_group_id' => $member->manifest_sharing_group_id,
+                    'sharing_group_id' => $member->manifest_sharing_group_id,
+                    'sharing_group_key' => $member->manifest_sharing_group_id
+                        ? 'group-'.$member->manifest_sharing_group_id
+                        : 'group-'.$member->id,
+                    'group_sort_order' => $member->sharingGroup?->sort_order,
+                    'sort_order' => $member->sort_order,
                     'package_category' => $confirmation?->package_category,
                     'date_of_sign_up' => ($enquiryCreatedAt ?? $confirmation?->created_at)?->translatedFormat('d F Y'),
                     'package_price' => $packagePrice,
@@ -229,24 +231,24 @@ class ManifestService
                     'date_of_second_payment' => $financialSnapshot['date_of_second_payment'],
                     'second_payment' => $financialSnapshot['second_payment'],
                     'balance_due' => $financialSnapshot['balance_due'],
-                    'is_first_time_umrah' => $traveler->first_time_umrah ?? $customer?->first_time_umrah,
-                    'passport_number' => $traveler->passport_number ?? $packageOfficial?->passport_number ?? $customer?->passport_number,
-                    'nationality' => $traveler->nationality ?? $packageOfficial?->nationality ?? $customer?->nationality,
-                    'gender' => $traveler->gender ?? $packageOfficial?->gender ?? $customer?->gender,
-                    'date_of_issue' => $this->formatDateForUi($traveler->passport_issue_date ?? $packageOfficial?->passport_issue_date ?? $customer?->passport_issue_date),
-                    'date_of_expiry' => $this->formatDateForUi($traveler->passport_expiry_date ?? $packageOfficial?->passport_expiry_date ?? $customer?->passport_expiry_date),
-                    'issue_place' => $traveler->passport_place_of_issue ?? $packageOfficial?->passport_place_of_issue ?? $customer?->passport_place_of_issue,
-                    'birth_place' => $traveler->place_of_birth ?? $packageOfficial?->place_of_birth ?? $customer?->place_of_birth,
-                    'date_of_birth' => $this->formatDateForUi($traveler->date_of_birth ?? $packageOfficial?->date_of_birth ?? $customer?->date_of_birth),
-                    'age' => ($traveler->date_of_birth ?? $packageOfficial?->date_of_birth ?? $customer?->date_of_birth)?->age,
-                    'address' => $traveler->address ?? $customer?->address,
-                    'first_time_umrah' => $traveler->first_time_umrah ?? $customer?->first_time_umrah,
-                    'has_chronic_disease' => $traveler->has_chronic_disease ?? $customer?->has_chronic_disease,
-                    'chronic_disease_details' => $traveler->chronic_disease_details ?? $customer?->chronic_disease_details,
-                    'passport_path' => $traveler->passport_path ?? $customer?->passport_path,
-                    'photo_path' => $traveler->photo_path ?? $customer?->photo_path,
-                    'remarks' => $traveler->remarks,
-                    'receipt_documents' => $traveler->files
+                    'is_first_time_umrah' => $member->first_time_umrah ?? $customer?->first_time_umrah,
+                    'passport_number' => $member->passport_number ?? $packageOfficial?->passport_number ?? $customer?->passport_number,
+                    'nationality' => $member->nationality ?? $packageOfficial?->nationality ?? $customer?->nationality,
+                    'gender' => $member->gender ?? $packageOfficial?->gender ?? $customer?->gender,
+                    'date_of_issue' => $this->formatDateForUi($member->passport_issue_date ?? $packageOfficial?->passport_issue_date ?? $customer?->passport_issue_date),
+                    'date_of_expiry' => $this->formatDateForUi($member->passport_expiry_date ?? $packageOfficial?->passport_expiry_date ?? $customer?->passport_expiry_date),
+                    'issue_place' => $member->passport_place_of_issue ?? $packageOfficial?->passport_place_of_issue ?? $customer?->passport_place_of_issue,
+                    'birth_place' => $member->place_of_birth ?? $packageOfficial?->place_of_birth ?? $customer?->place_of_birth,
+                    'date_of_birth' => $this->formatDateForUi($member->date_of_birth ?? $packageOfficial?->date_of_birth ?? $customer?->date_of_birth),
+                    'age' => ($member->date_of_birth ?? $packageOfficial?->date_of_birth ?? $customer?->date_of_birth)?->age,
+                    'address' => $member->address ?? $customer?->address,
+                    'first_time_umrah' => $member->first_time_umrah ?? $customer?->first_time_umrah,
+                    'has_chronic_disease' => $member->has_chronic_disease ?? $customer?->has_chronic_disease,
+                    'chronic_disease_details' => $member->chronic_disease_details ?? $customer?->chronic_disease_details,
+                    'passport_path' => $member->passport_path ?? $customer?->passport_path,
+                    'photo_path' => $member->photo_path ?? $customer?->photo_path,
+                    'remarks' => $member->remarks,
+                    'receipt_documents' => $member->files
                         ->where('field', 'receipt')
                         ->map(fn (ModelFile $file) => [
                             'id' => $file->id,
@@ -255,24 +257,144 @@ class ManifestService
                         ])
                         ->values()
                         ->toArray(),
-                    'status' => $member?->status ?? 'draft',
+                    'status' => $confirmationMember?->status ?? 'draft',
                 ];
             })
             ->toArray();
 
         $documents = $this->buildManifestDocumentPayload($manifest);
 
-        $roomLists = $this->buildRoomListsFromRooms($manifest, $travelers);
+        $roomLists = $this->buildRoomListsFromRooms($manifest, $members);
 
         if ($roomLists === []) {
             $roomLists = $this->ensureRoomLists(
                 null,
                 [],
-                $travelers,
+                $members,
                 $manifest->package?->accommodations?->toArray() ?? [],
             );
         }
-        $airlineList = $this->ensureFlatList(null, $travelers);
+        $airlineList = $this->ensureFlatList(null, $members);
+
+        $legacyRooms = $manifest->rooms->map(function ($room) {
+            return [
+                'id' => $room->id,
+                'sort_order' => $room->sort_order,
+                'location' => $room->location,
+                'relationship' => $room->relationship,
+                'room_label' => $room->room_label,
+                'room_number' => $room->room_number,
+                'room_type' => $room->room_type,
+                'bed_type' => $room->bed_type,
+                'capacity' => $room->capacity,
+                'sharing_plan' => $room->sharing_plan,
+                'status' => $room->status,
+                'meal' => $room->meal,
+                'number_of_beds_checked' => (bool) $room->number_of_beds_checked,
+                'remarks' => $room->remarks,
+                'members' => $room->roomMembers->map(function ($roomMember) {
+                    $member = $roomMember->member?->confirmationMember;
+                    $customer = $member?->customer;
+                    $official = $roomMember->member?->packageOfficial;
+
+                    return [
+                        'id' => $roomMember->id,
+                        'manifest_member_id' => $roomMember->manifest_member_id,
+                        'member_name' => $roomMember->member?->name ?? $official?->name ?? $customer?->user?->name,
+                        'role_in_room' => $member?->role,
+                        'sort_order' => $roomMember->sort_order,
+                        'remarks' => $roomMember->remarks,
+                        'customer_confirmation_member_id' => $member?->id,
+                        'customer_id' => $customer?->id,
+                    ];
+                })->toArray(),
+            ];
+        })->toArray();
+
+        $legacySharingGroups = $manifest->manifestSharingGroups->map(function ($manifestSharingGroup) {
+            return [
+                'id' => $manifestSharingGroup->id,
+                'customer_confirmation_id' => $manifestSharingGroup->customer_confirmation_id,
+                'sort_order' => $manifestSharingGroup->sort_order,
+                'relation' => $manifestSharingGroup->relation,
+                'remarks' => $manifestSharingGroup->remarks,
+                'members' => $manifestSharingGroup->members->map(function ($member) {
+                    $confirmationMember = $member->confirmationMember;
+
+                    return [
+                        'id' => $member->id,
+                        'customer_confirmation_member_id' => $member->customer_confirmation_member_id,
+                        'package_official_id' => $member->package_official_id,
+                        'role_in_group' => $member->role ?? $confirmationMember?->role,
+                        'sort_order' => $member->sort_order,
+                        'sharing_plan' => $member->sharing_plan,
+                        'remarks' => $member->remarks,
+                        'status' => $confirmationMember?->status,
+                        'customer_name' => $confirmationMember?->customer?->user?->name,
+                        'customer_id' => $confirmationMember?->customer_id,
+                    ];
+                })->toArray(),
+            ];
+        })->toArray();
+
+        $canonicalManifest = [
+            'id' => $manifest->id,
+            'package_id' => $manifest->package_id,
+            'in_charge_official_id' => $manifest->in_charge_official_id,
+            'manifest_number' => $manifest->manifest_number,
+            'status' => $manifest->package?->status,
+            'notes' => $manifest->notes,
+        ];
+
+        $canonicalSharingGroups = array_map(function (array $group): array {
+            return [
+                'id' => $group['id'] ?? null,
+                'customer_confirmation_id' => $group['customer_confirmation_id'] ?? null,
+                'sort_order' => $group['sort_order'] ?? null,
+                'relation' => $group['relation'] ?? null,
+                'remarks' => $group['remarks'] ?? null,
+                'members' => array_map(function (array $member): array {
+                    return [
+                        'id' => $member['id'] ?? null,
+                        'customer_confirmation_member_id' => $member['customer_confirmation_member_id'] ?? null,
+                        'package_official_id' => $member['package_official_id'] ?? null,
+                        'role' => $member['role'] ?? $member['role_in_group'] ?? null,
+                        'sharing_plan' => $member['sharing_plan'] ?? null,
+                        'sort_order' => $member['sort_order'] ?? null,
+                        'remarks' => $member['remarks'] ?? null,
+                        'status' => $member['status'] ?? null,
+                    ];
+                }, $group['members'] ?? []),
+            ];
+        }, $legacySharingGroups);
+
+        $canonicalRooms = array_map(function (array $room): array {
+            return [
+                'id' => $room['id'] ?? null,
+                'location' => $room['location'] ?? null,
+                'sort_order' => $room['sort_order'] ?? null,
+                'relationship' => $room['relationship'] ?? null,
+                'room_label' => $room['room_label'] ?? null,
+                'room_number' => $room['room_number'] ?? null,
+                'room_type' => $room['room_type'] ?? null,
+                'bed_type' => $room['bed_type'] ?? null,
+                'sharing_plan' => $room['sharing_plan'] ?? null,
+                'capacity' => $room['capacity'] ?? null,
+                'meal' => $room['meal'] ?? null,
+                'number_of_beds_checked' => $room['number_of_beds_checked'] ?? false,
+                'remarks' => $room['remarks'] ?? null,
+                'members' => array_map(function (array $member): array {
+                    return [
+                        'id' => $member['id'] ?? null,
+                        'manifest_member_id' => $member['manifest_member_id'] ?? $member['id'] ?? null,
+                        'customer_confirmation_member_id' => $member['customer_confirmation_member_id'] ?? null,
+                        'package_official_id' => $member['package_official_id'] ?? null,
+                        'sort_order' => $member['sort_order'] ?? null,
+                        'remarks' => $member['remarks'] ?? null,
+                    ];
+                }, $room['members'] ?? []),
+            ];
+        }, $legacyRooms);
 
         return [
             'id' => $manifest->id,
@@ -297,79 +419,25 @@ class ManifestService
                 ->toArray() ?? [],
             'notes' => $manifest->notes,
             'status' => $manifest->package?->status,
-            'travelers' => $travelers,
+            'members' => $members,
+            'manifest_member_receipts' => collect($members)
+                ->map(function (array $member): array {
+                    return [
+                        'manifest_member_id' => $member['id'] ?? null,
+                        'customer_confirmation_member_id' => $member['customer_confirmation_member_id'] ?? null,
+                        'receipt_documents' => $member['receipt_documents'] ?? [],
+                    ];
+                })
+                ->values()
+                ->toArray(),
             'roomLists' => $roomLists,
             'airlineList' => $airlineList,
             'documents' => $documents,
-            'rooms' => $manifest->rooms->map(function ($r) {
-                return [
-                    'id' => $r->id,
-                    'sort_order' => $r->sort_order,
-                    'location' => $r->location,
-                    'relationship' => $r->relationship,
-                    'room_label' => $r->room_label,
-                    'room_number' => $r->room_number,
-                    'room_type' => $r->room_type,
-                    'bed_type' => $r->bed_type,
-                    'capacity' => $r->capacity,
-                    'sharing_plan' => $r->sharing_plan,
-                    'status' => $r->status,
-                    'meal' => $r->meal,
-                    'number_of_beds_checked' => (bool) $r->number_of_beds_checked,
-                    'remarks' => $r->remarks,
-                    'members' => $r->roomMembers->map(function ($rm) {
-                        $member = $rm->traveler?->confirmationMember;
-                        $customer = $member?->customer;
-                        $official = $rm->traveler?->packageOfficial;
-
-                        return [
-                            'id' => $rm->id,
-                            'manifest_traveler_id' => $rm->manifest_traveler_id,
-                            'traveler_name' => $rm->traveler?->name ?? $official?->name ?? $customer?->user?->name,
-                            'role_in_room' => $member?->role,
-                            'sort_order' => $rm->sort_order,
-                            'remarks' => $rm->remarks,
-                            'customer_confirmation_member_id' => $member?->id,
-                            'customer_id' => $customer?->id,
-                        ];
-                    })->toArray(),
-                ];
-            })->toArray(),
-            'payments' => $manifest->payments->map(function ($p) {
-                return [
-                    'id' => $p->id,
-                    'manifest_traveler_id' => $p->manifest_traveler_id,
-                    'traveler_name' => $p->traveler_name,
-                    'linked_traveler_name' => $p->traveler?->confirmationMember?->customer?->user?->name,
-                    'description' => $p->description,
-                    'amount' => $p->amount,
-                    'paid_amount' => $p->paid_amount,
-                    'outstanding_amount' => $p->outstanding_amount,
-                    'payment_date' => $p->payment_date_formatted,
-                    'status' => $p->status,
-                ];
-            })->toArray(),
-            'sharing_groups' => $manifest->manifestSharingGroups->map(function ($msg) {
-                return [
-                    'id' => $msg->id,
-                    'customer_confirmation_id' => $msg->customer_confirmation_id,
-                    'sort_order' => $msg->sort_order,
-                    'relation' => $msg->relation,
-                    'remarks' => $msg->remarks,
-                    'members' => $msg->members->map(function ($m) {
-                        $cm = $m->confirmationMember;
-
-                        return [
-                            'id' => $m->id,
-                            'customer_confirmation_member_id' => $m->customer_confirmation_member_id,
-                            'role_in_group' => $cm?->role,
-                            'sort_order' => $m->sort_order,
-                            'customer_name' => $cm?->customer?->user?->name,
-                            'customer_id' => $cm?->customer_id,
-                        ];
-                    })->toArray(),
-                ];
-            })->toArray(),
+            'rooms' => $legacyRooms,
+            'sharing_groups' => $legacySharingGroups,
+            'manifest' => $canonicalManifest,
+            'manifest_sharing_groups' => $canonicalSharingGroups,
+            'manifest_rooms' => $canonicalRooms,
         ];
     }
 
@@ -378,17 +446,21 @@ class ManifestService
         return DB::transaction(function () use ($data, $id) {
             $manifest = Manifest::findOrFail($id);
 
-            $manifest->update([
+            $manifestAttributes = [
                 'package_id' => $data['package_id'] ?? $manifest->package_id,
-                'in_charge_official_id' => $data['in_charge_official_id'] ?? null,
                 'notes' => $data['notes'] ?? $manifest->notes,
-            ]);
+            ];
+
+            if (Schema::hasColumn('manifests', 'in_charge_official_id')) {
+                $manifestAttributes['in_charge_official_id'] = $data['in_charge_official_id'] ?? null;
+            }
+
+            $manifest->update($manifestAttributes);
 
             $this->syncPackageStatus($manifest, $data['status'] ?? null);
 
-            if (isset($data['travelers'])) {
-                $this->syncTravelers($manifest, $data['travelers']);
-                $this->syncTravelerReceiptDocuments($manifest, $data['travelers']);
+            if (isset($data['members'])) {
+                $this->syncMembers($manifest, $data['members']);
             }
 
             if (isset($data['documents'])) {
@@ -399,10 +471,6 @@ class ManifestService
                 $this->syncRooms($manifest, $data['rooms']);
             }
 
-            if (isset($data['payments'])) {
-                $this->syncPayments($manifest, $data['payments']);
-            }
-
             $manifest = $manifest->fresh();
 
             activity()
@@ -411,6 +479,58 @@ class ManifestService
                 ->log('Manifest updated successfully #'.$manifest->id);
 
             return $manifest;
+        });
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $memberReceiptDocuments
+     */
+    public function syncMemberReceiptDocumentsSection(Manifest $manifest, array $memberReceiptDocuments): void
+    {
+        DB::transaction(function () use ($manifest, $memberReceiptDocuments): void {
+            $manifest->loadMissing('members.files');
+
+            $membersById = $manifest->members
+                ->keyBy(fn (ManifestMember $member) => (int) $member->id);
+
+            $membersByConfirmationMemberId = $manifest->members
+                ->filter(fn (ManifestMember $member) => $member->customer_confirmation_member_id !== null)
+                ->keyBy(fn (ManifestMember $member) => (int) $member->customer_confirmation_member_id);
+
+            foreach ($memberReceiptDocuments as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $manifestMemberId = isset($item['manifest_member_id'])
+                    ? (int) $item['manifest_member_id']
+                    : 0;
+
+                $confirmationMemberId = isset($item['customer_confirmation_member_id'])
+                    ? (int) $item['customer_confirmation_member_id']
+                    : 0;
+
+                /** @var ManifestMember|null $manifestMember */
+                $manifestMember = $manifestMemberId > 0
+                    ? $membersById->get($manifestMemberId)
+                    : null;
+
+                if (! $manifestMember && $confirmationMemberId > 0) {
+                    $manifestMember = $membersByConfirmationMemberId->get($confirmationMemberId);
+                }
+
+                if (! $manifestMember) {
+                    continue;
+                }
+
+                $receiptDocuments = $item['receipt_documents'] ?? [];
+
+                if (! is_array($receiptDocuments)) {
+                    continue;
+                }
+
+                $this->persistMemberReceiptDocuments($manifestMember, $receiptDocuments);
+            }
         });
     }
 
@@ -454,8 +574,12 @@ class ManifestService
 
             if (! empty($data['members'])) {
                 foreach ($data['members'] as $index => $member) {
+                    $manifestMemberId = isset($member['manifest_member_id'])
+                        ? (int) $member['manifest_member_id']
+                        : 0;
+
                     $room->roomMembers()->create([
-                        'manifest_traveler_id' => $member['manifest_traveler_id'],
+                        'manifest_member_id' => $manifestMemberId,
                         'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                         'remarks' => $member['remarks'] ?? null,
                     ]);
@@ -467,7 +591,7 @@ class ManifestService
                 ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $manifest->id])
                 ->log('Room added to manifest #'.$manifest->id);
 
-            return $room->load('roomMembers.traveler');
+            return $room->load('roomMembers.member');
         });
     }
 
@@ -497,8 +621,12 @@ class ManifestService
             if (isset($data['members'])) {
                 $room->roomMembers()->delete();
                 foreach ($data['members'] as $index => $member) {
+                    $manifestMemberId = isset($member['manifest_member_id'])
+                        ? (int) $member['manifest_member_id']
+                        : 0;
+
                     $room->roomMembers()->create([
-                        'manifest_traveler_id' => $member['manifest_traveler_id'],
+                        'manifest_member_id' => $manifestMemberId,
                         'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                         'remarks' => $member['remarks'] ?? null,
                     ]);
@@ -510,7 +638,7 @@ class ManifestService
                 ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $room->manifest_id])
                 ->log('Room updated in manifest #'.$room->manifest_id);
 
-            return $room->fresh()->load('roomMembers.traveler');
+            return $room->fresh()->load('roomMembers.member');
         });
     }
 
@@ -532,83 +660,6 @@ class ManifestService
             ->performedOn(Manifest::find($manifestId))
             ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $manifestId])
             ->log('Room deleted from manifest #'.$manifestId);
-
-        return true;
-    }
-
-    /**
-     * Add a single payment to a manifest.
-     */
-    public function addPayment(int $manifestId, array $data): ManifestPayment
-    {
-        return DB::transaction(function () use ($manifestId, $data) {
-            $manifest = Manifest::findOrFail($manifestId);
-
-            $payment = $manifest->payments()->create([
-                'manifest_traveler_id' => $data['manifest_traveler_id'] ?? null,
-                'traveler_name' => $data['traveler_name'] ?? null,
-                'description' => $data['description'] ?? null,
-                'amount' => $data['amount'] ?? 0,
-                'paid_amount' => $data['paid_amount'] ?? 0,
-                'outstanding_amount' => $data['outstanding_amount'] ?? 0,
-                'payment_date' => ! empty($data['payment_date']) ? Carbon::parse($data['payment_date'])->format('Y-m-d') : null,
-                'status' => $data['status'] ?? 'pending',
-            ]);
-
-            activity()
-                ->performedOn($manifest)
-                ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $manifest->id])
-                ->log('Payment added to manifest #'.$manifest->id);
-
-            return $payment->load('traveler');
-        });
-    }
-
-    /**
-     * Update a payment.
-     */
-    public function updatePayment(int $paymentId, array $data): ManifestPayment
-    {
-        return DB::transaction(function () use ($paymentId, $data) {
-            $payment = ManifestPayment::findOrFail($paymentId);
-
-            $payment->update([
-                'manifest_traveler_id' => $data['manifest_traveler_id'] ?? $payment->manifest_traveler_id,
-                'traveler_name' => $data['traveler_name'] ?? $payment->traveler_name,
-                'description' => $data['description'] ?? $payment->description,
-                'amount' => $data['amount'] ?? $payment->amount,
-                'paid_amount' => $data['paid_amount'] ?? $payment->paid_amount,
-                'outstanding_amount' => $data['outstanding_amount'] ?? $payment->outstanding_amount,
-                'payment_date' => ! empty($data['payment_date']) ? Carbon::parse($data['payment_date'])->format('Y-m-d') : $payment->payment_date,
-                'status' => $data['status'] ?? $payment->status,
-            ]);
-
-            activity()
-                ->performedOn($payment->manifest)
-                ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $payment->manifest_id])
-                ->log('Payment updated in manifest #'.$payment->manifest_id);
-
-            return $payment->fresh()->load('traveler');
-        });
-    }
-
-    /**
-     * Delete a payment.
-     */
-    public function deletePayment(int $paymentId): bool
-    {
-        $payment = ManifestPayment::find($paymentId);
-        if (! $payment) {
-            return false;
-        }
-
-        $manifestId = $payment->manifest_id;
-        $payment->delete();
-
-        activity()
-            ->performedOn(Manifest::find($manifestId))
-            ->withProperties(['subject_type' => 'Manifest', 'subject_id' => $manifestId])
-            ->log('Payment deleted from manifest #'.$manifestId);
 
         return true;
     }
@@ -658,7 +709,7 @@ class ManifestService
 
     /**
      * Get customer confirmations with member details for the manifest form.
-     * Includes passport, date-of-birth, and other traveler-relevant data.
+     * Includes passport, date-of-birth, and other member-relevant data.
      *
      * @param  int|null  $packageId  Filter by package if provided
      */
@@ -732,77 +783,117 @@ class ManifestService
      * Parse date fields in-place from various formats to Y-m-d.
      */
     /**
-     * Sync travelers for a manifest (delete-and-recreate strategy).
+     * Sync members for a manifest (delete-and-recreate strategy).
      *
-     * Accepts either a flat array of travelers or a grouped Record<groupId, TravelerSchema[]> from the frontend.
+     * Accepts either a flat array of members or a grouped Record<groupId, MemberSchema[]> from the frontend.
      */
-    private function syncTravelers(Manifest $manifest, array $travelers): void
+    private function syncMembers(Manifest $manifest, array $members): void
     {
-        $previousTravelerIds = $manifest->travelers()->pluck('id');
+        $manifest->loadMissing('members.collectionItem', 'members.files');
 
-        if ($previousTravelerIds->isNotEmpty()) {
+        $existingMembersById = $manifest->members
+            ->keyBy(fn (ManifestMember $member) => (int) $member->id);
+
+        $existingMembersByConfirmationMemberId = $manifest->members
+            ->filter(fn (ManifestMember $member) => $member->customer_confirmation_member_id !== null)
+            ->keyBy(fn (ManifestMember $member) => (int) $member->customer_confirmation_member_id);
+
+        $existingMembersByOfficialId = $manifest->members
+            ->filter(fn (ManifestMember $member) => $member->package_official_id !== null)
+            ->keyBy(fn (ManifestMember $member) => (int) $member->package_official_id);
+
+        $receiptSnapshotsByMemberId = $manifest->members
+            ->mapWithKeys(function (ManifestMember $member): array {
+                return [
+                    (int) $member->id => $member->files
+                        ->where('field', 'receipt')
+                        ->map(fn (ModelFile $file): array => [
+                            'field' => 'receipt',
+                            'file_name' => $file->file_name,
+                            'file_path' => $file->file_path,
+                        ])
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->all();
+
+        $previousMemberIds = $manifest->members()->pluck('id');
+
+        if ($previousMemberIds->isNotEmpty()) {
             ModelFile::query()
                 ->where('fileable_type', ManifestMember::class)
-                ->whereIn('fileable_id', $previousTravelerIds->all())
+                ->whereIn('fileable_id', $previousMemberIds->all())
                 ->where('field', 'receipt')
                 ->delete();
         }
 
         $manifest->manifestSharingGroups()->delete();
-        $manifest->travelers()->delete();
+        $manifest->members()->delete();
 
-        $flatTravelers = collect($this->flattenGroupedData($travelers))
+        $flatMembers = collect($this->flattenGroupedData($members))
             ->values()
-            ->map(function (array $traveler, int $index): array {
-                $traveler['_original_index'] = $index;
+            ->map(function (array $member, int $index): array {
+                $member['_original_index'] = $index;
 
-                return $traveler;
+                return $member;
             })
             ->values()
             ->all();
 
-        $confirmationMemberIds = collect($flatTravelers)
+        $confirmationMemberIds = collect($flatMembers)
             ->pluck('customer_confirmation_member_id')
             ->filter(fn ($value) => ! empty($value))
             ->map(fn ($value) => (int) $value)
             ->unique()
             ->values();
 
-        $confirmationIdMap = $confirmationMemberIds->isEmpty()
+        $confirmationMembers = $confirmationMemberIds->isEmpty()
             ? collect()
             : CustomerConfirmationMember::query()
                 ->whereIn('id', $confirmationMemberIds->all())
-                ->pluck('customer_confirmation_id', 'id')
-                ->map(fn ($value) => (int) $value);
+                ->get(['id', 'customer_confirmation_id', 'sharing_plan']);
 
-        $groupedTravelers = [];
+        $confirmationIdMap = $confirmationMembers
+            ->pluck('customer_confirmation_id', 'id')
+            ->map(fn ($value) => (int) $value);
+
+        $confirmationSharingPlanMap = $confirmationMembers
+            ->pluck('sharing_plan', 'id')
+            ->map(fn ($value) => is_string($value) ? strtolower(trim($value)) : '');
+
+        $groupedMembers = [];
         $groupSizes = [];
         $groupBuckets = [];
         $groupKeyCounter = [];
         $groupTypeByKey = [];
 
-        foreach ($flatTravelers as $index => $traveler) {
-            $groupKey = isset($traveler['sharing_group_key']) && is_string($traveler['sharing_group_key'])
-                ? trim($traveler['sharing_group_key'])
+        foreach ($flatMembers as $index => $member) {
+            $groupKey = isset($member['sharing_group_key']) && is_string($member['sharing_group_key'])
+                ? trim($member['sharing_group_key'])
                 : '';
 
-            $confirmationMemberId = ! empty($traveler['customer_confirmation_member_id'])
-                ? (int) $traveler['customer_confirmation_member_id']
+            $confirmationMemberId = ! empty($member['customer_confirmation_member_id'])
+                ? (int) $member['customer_confirmation_member_id']
                 : null;
 
-            $confirmationId = ! empty($traveler['customer_confirmation_id'])
-                ? (int) $traveler['customer_confirmation_id']
+            $confirmationId = ! empty($member['customer_confirmation_id'])
+                ? (int) $member['customer_confirmation_id']
                 : ($confirmationMemberId ? (int) ($confirmationIdMap->get($confirmationMemberId) ?? 0) : 0);
 
-            $sharingPlan = isset($traveler['sharing_plan']) && is_string($traveler['sharing_plan'])
-                ? strtolower(trim($traveler['sharing_plan']))
+            $sharingPlan = isset($member['sharing_plan']) && is_string($member['sharing_plan'])
+                ? strtolower(trim($member['sharing_plan']))
                 : '';
 
-            $travelerType = ! empty($traveler['package_official_id']) ? 'official' : 'member';
+            if ($sharingPlan === '' && $confirmationMemberId) {
+                $sharingPlan = (string) ($confirmationSharingPlanMap->get($confirmationMemberId) ?? '');
+            }
+
+            $memberType = ! empty($member['package_official_id']) ? 'official' : 'member';
 
             $capacity = $this->capacityFromSharingPlan($sharingPlan !== '' ? $sharingPlan : null);
             $bucketKey = $confirmationId > 0 && $sharingPlan !== ''
-                ? $confirmationId.'|'.$sharingPlan.'|'.$travelerType
+                ? $confirmationId.'|'.$sharingPlan.'|'.$memberType
                 : null;
 
             $isExplicitKey = $groupKey !== '' && ! Str::startsWith($groupKey, 'solo-');
@@ -828,22 +919,22 @@ class ManifestService
             }
 
             if ($groupKey === '') {
-                $groupId = $traveler['manifest_sharing_group_id']
-                    ?? $traveler['sharing_group_id']
+                $groupId = $member['manifest_sharing_group_id']
+                    ?? $member['sharing_group_id']
                     ?? null;
 
                 if (! empty($groupId)) {
                     $groupKey = 'group-'.((int) $groupId);
                 } else {
-                    $groupKey = 'solo-'.((int) ($traveler['customer_confirmation_member_id'] ?? $traveler['customer_id'] ?? ($index + 1)));
+                    $groupKey = 'solo-'.((int) ($member['customer_confirmation_member_id'] ?? $member['customer_id'] ?? ($index + 1)));
                 }
             }
 
-            if (isset($groupTypeByKey[$groupKey]) && $groupTypeByKey[$groupKey] !== $travelerType) {
-                $groupKey = $groupKey.'|'.$travelerType;
+            if (isset($groupTypeByKey[$groupKey]) && $groupTypeByKey[$groupKey] !== $memberType) {
+                $groupKey = $groupKey.'|'.$memberType;
             }
 
-            $groupTypeByKey[$groupKey] = $travelerType;
+            $groupTypeByKey[$groupKey] = $memberType;
 
             if ($bucketKey !== null && ! in_array($groupKey, $groupBuckets[$bucketKey] ?? [], true)) {
                 $groupBuckets[$bucketKey][] = $groupKey;
@@ -851,26 +942,26 @@ class ManifestService
 
             $groupSizes[$groupKey] = ($groupSizes[$groupKey] ?? 0) + 1;
 
-            $traveler['sharing_group_key'] = $groupKey;
+            $member['sharing_group_key'] = $groupKey;
 
-            $groupedTravelers[$groupKey][] = $traveler;
+            $groupedMembers[$groupKey][] = $member;
         }
 
         $nonOfficialGroups = [];
         $officialGroups = [];
 
-        foreach ($groupedTravelers as $groupKey => $groupTravelers) {
+        foreach ($groupedMembers as $groupKey => $groupMembers) {
             // Preserve the exact incoming sequence from main tab for member order inside each group.
-            $sortedGroupTravelers = array_values($groupTravelers);
+            $sortedGroupMembers = array_values($groupMembers);
 
-            $isOfficialGroup = collect($sortedGroupTravelers)
-                ->every(fn (array $traveler) => ! empty($traveler['package_official_id']));
+            $isOfficialGroup = collect($sortedGroupMembers)
+                ->every(fn (array $member) => ! empty($member['package_official_id']));
 
             $groupPayload = [
                 'key' => $groupKey,
-                'travelers' => $sortedGroupTravelers,
-                'group_sort_order' => (int) ($sortedGroupTravelers[0]['group_sort_order'] ?? PHP_INT_MAX),
-                'original_index' => (int) ($sortedGroupTravelers[0]['_original_index'] ?? PHP_INT_MAX),
+                'members' => $sortedGroupMembers,
+                'group_sort_order' => (int) ($sortedGroupMembers[0]['group_sort_order'] ?? PHP_INT_MAX),
+                'original_index' => (int) ($sortedGroupMembers[0]['_original_index'] ?? PHP_INT_MAX),
             ];
 
             if ($isOfficialGroup) {
@@ -898,73 +989,123 @@ class ManifestService
         $groupSortOrder = 1;
 
         foreach ($orderedGroups as $groupPayload) {
-            $groupTravelers = $groupPayload['travelers'];
-            $firstTraveler = $groupTravelers[0] ?? [];
+            $groupMembers = $groupPayload['members'];
+            $firstMember = $groupMembers[0] ?? [];
 
             $groupCustomerConfirmationId = null;
 
-            if (! empty($firstTraveler['customer_confirmation_id'])) {
-                $groupCustomerConfirmationId = (int) $firstTraveler['customer_confirmation_id'];
-            } elseif (! empty($firstTraveler['customer_confirmation_member_id'])) {
+            if (! empty($firstMember['customer_confirmation_id'])) {
+                $groupCustomerConfirmationId = (int) $firstMember['customer_confirmation_id'];
+            } elseif (! empty($firstMember['customer_confirmation_member_id'])) {
                 $groupCustomerConfirmationId = CustomerConfirmationMember::query()
-                    ->whereKey((int) $firstTraveler['customer_confirmation_member_id'])
+                    ->whereKey((int) $firstMember['customer_confirmation_member_id'])
                     ->value('customer_confirmation_id');
             }
 
             $manifestSharingGroup = $manifest->manifestSharingGroups()->create([
                 'customer_confirmation_id' => $groupCustomerConfirmationId,
                 'sort_order' => $groupSortOrder,
-                'relation' => $firstTraveler['relationship'] ?? null,
-                'remarks' => $firstTraveler['group_remarks'] ?? null,
+                'relation' => $firstMember['relationship'] ?? null,
+                'remarks' => $firstMember['group_remarks'] ?? null,
             ]);
 
-            foreach (array_values($groupTravelers) as $memberSortOrder => $traveler) {
-                $memberId = isset($traveler['customer_confirmation_member_id'])
-                    ? (int) $traveler['customer_confirmation_member_id']
+            foreach (array_values($groupMembers) as $memberSortOrder => $memberPayload) {
+                $incomingMemberId = isset($memberPayload['id']) ? (int) $memberPayload['id'] : 0;
+                $incomingConfirmationMemberId = isset($memberPayload['customer_confirmation_member_id'])
+                    ? (int) $memberPayload['customer_confirmation_member_id']
+                    : 0;
+                $incomingOfficialId = isset($memberPayload['package_official_id'])
+                    ? (int) $memberPayload['package_official_id']
+                    : 0;
+
+                $existingMember = $incomingMemberId > 0
+                    ? $existingMembersById->get($incomingMemberId)
                     : null;
 
-                $member = $memberId
-                    ? CustomerConfirmationMember::query()->with(['customer.user'])->find($memberId)
+                if (! $existingMember && $incomingConfirmationMemberId > 0) {
+                    $existingMember = $existingMembersByConfirmationMemberId->get($incomingConfirmationMemberId);
+                }
+
+                if (! $existingMember && $incomingOfficialId > 0) {
+                    $existingMember = $existingMembersByOfficialId->get($incomingOfficialId);
+                }
+
+                $confirmationMemberId = isset($memberPayload['customer_confirmation_member_id'])
+                    ? (int) $memberPayload['customer_confirmation_member_id']
                     : null;
 
-                if ($member) {
-                    $this->syncMemberData($member, $traveler);
-                    $this->syncCustomerData($member, $traveler);
+                $confirmationMember = $confirmationMemberId
+                    ? CustomerConfirmationMember::query()->with(['customer.user'])->find($confirmationMemberId)
+                    : null;
+
+                if ($confirmationMember) {
+                    $this->syncMemberData($confirmationMember, $memberPayload);
+                    $this->syncCustomerData($confirmationMember, $memberPayload);
                 }
 
                 $packageOfficial = null;
-                if (! empty($traveler['package_official_id'])) {
-                    $packageOfficial = PackageOfficial::query()->find((int) $traveler['package_official_id']);
+                if (! empty($memberPayload['package_official_id'])) {
+                    $packageOfficial = PackageOfficial::query()->find((int) $memberPayload['package_official_id']);
 
                     if ($packageOfficial) {
-                        $this->syncPackageOfficialData($packageOfficial, $traveler);
+                        $this->syncPackageOfficialData($packageOfficial, $memberPayload);
                     }
                 }
 
-                $createdTraveler = $manifest->travelers()->create([
+                $createdMember = $manifest->members()->create([
                     'manifest_sharing_group_id' => $manifestSharingGroup->id,
-                    'customer_confirmation_member_id' => $member?->id,
+                    'customer_confirmation_member_id' => $confirmationMember?->id,
                     'package_official_id' => $packageOfficial?->id,
-                    ...$this->buildManifestMemberSnapshot($member, $traveler, $packageOfficial),
+                    ...$this->buildManifestMemberSnapshot($confirmationMember, $memberPayload, $packageOfficial),
                     'sort_order' => $memberSortOrder + 1,
-                    'remarks' => $traveler['remarks'] ?? null,
+                    'remarks' => $memberPayload['remarks'] ?? null,
                 ]);
 
-                $createdTraveler->collectionItem()->updateOrCreate(
+                $createdMember->collectionItem()->updateOrCreate(
                     [],
                     [
-                        'course_1' => (bool) ($traveler['course_1'] ?? false),
-                        'course_2' => (bool) ($traveler['course_2'] ?? false),
-                        'lanyard' => (bool) ($traveler['lanyard'] ?? false),
-                        'luggage_tag' => (bool) ($traveler['luggage_tag'] ?? false),
-                        'cabin_tag' => (bool) ($traveler['cabin_tag'] ?? false),
-                        'passport_cover' => (bool) ($traveler['passport_cover'] ?? false),
-                        'umrah_guidebook' => (bool) ($traveler['umrah_guidebook'] ?? false),
-                        'sling_bag' => (bool) ($traveler['sling_bag'] ?? false),
-                        'cabin_size_luggage' => (bool) ($traveler['cabin_size_luggage'] ?? false),
-                        'umrah_essentials' => (bool) ($traveler['umrah_essentials'] ?? false),
+                        'course_1' => array_key_exists('course_1', $memberPayload)
+                            ? (bool) $memberPayload['course_1']
+                            : (bool) ($existingMember?->collectionItem?->course_1 ?? false),
+                        'course_2' => array_key_exists('course_2', $memberPayload)
+                            ? (bool) $memberPayload['course_2']
+                            : (bool) ($existingMember?->collectionItem?->course_2 ?? false),
+                        'lanyard' => array_key_exists('lanyard', $memberPayload)
+                            ? (bool) $memberPayload['lanyard']
+                            : (bool) ($existingMember?->collectionItem?->lanyard ?? false),
+                        'luggage_tag' => array_key_exists('luggage_tag', $memberPayload)
+                            ? (bool) $memberPayload['luggage_tag']
+                            : (bool) ($existingMember?->collectionItem?->luggage_tag ?? false),
+                        'cabin_tag' => array_key_exists('cabin_tag', $memberPayload)
+                            ? (bool) $memberPayload['cabin_tag']
+                            : (bool) ($existingMember?->collectionItem?->cabin_tag ?? false),
+                        'passport_cover' => array_key_exists('passport_cover', $memberPayload)
+                            ? (bool) $memberPayload['passport_cover']
+                            : (bool) ($existingMember?->collectionItem?->passport_cover ?? false),
+                        'umrah_guidebook' => array_key_exists('umrah_guidebook', $memberPayload)
+                            ? (bool) $memberPayload['umrah_guidebook']
+                            : (bool) ($existingMember?->collectionItem?->umrah_guidebook ?? false),
+                        'sling_bag' => array_key_exists('sling_bag', $memberPayload)
+                            ? (bool) $memberPayload['sling_bag']
+                            : (bool) ($existingMember?->collectionItem?->sling_bag ?? false),
+                        'cabin_size_luggage' => array_key_exists('cabin_size_luggage', $memberPayload)
+                            ? (bool) $memberPayload['cabin_size_luggage']
+                            : (bool) ($existingMember?->collectionItem?->cabin_size_luggage ?? false),
+                        'umrah_essentials' => array_key_exists('umrah_essentials', $memberPayload)
+                            ? (bool) $memberPayload['umrah_essentials']
+                            : (bool) ($existingMember?->collectionItem?->umrah_essentials ?? false),
                     ],
                 );
+
+                $existingReceiptRows = $existingMember
+                    ? ($receiptSnapshotsByMemberId[(int) $existingMember->id] ?? [])
+                    : [];
+
+                if ($existingReceiptRows !== []) {
+                    foreach ($existingReceiptRows as $receiptRow) {
+                        $createdMember->files()->create($receiptRow);
+                    }
+                }
             }
 
             $groupSortOrder++;
@@ -1016,15 +1157,42 @@ class ManifestService
             $resolvedMembers = [];
 
             foreach ($roomMembers as $member) {
-                $manifestTravelerId = $this->resolveManifestTravelerId($manifest, is_array($member) ? $member : []);
+                $manifestMemberId = $this->resolveManifestMemberId($manifest, is_array($member) ? $member : []);
 
-                if (! $manifestTravelerId) {
+                if (! $manifestMemberId && is_array($member)) {
+                    $isOfficialRow = ! empty($member['package_official_id']) || ! empty($member['is_official']);
+
+                    if ($isOfficialRow) {
+                        $officialId = isset($member['package_official_id'])
+                            ? (int) $member['package_official_id']
+                            : 0;
+
+                        if ($officialId > 0) {
+                            $manifestMemberId = (int) ($manifest->members()
+                                ->where('package_official_id', $officialId)
+                                ->value('id') ?? 0);
+                        }
+
+                        if (! $manifestMemberId) {
+                            $memberName = trim((string) ($member['name_as_per_passport'] ?? $member['customer_name'] ?? ''));
+
+                            if ($memberName !== '') {
+                                $manifestMemberId = (int) ($manifest->members()
+                                    ->whereNotNull('package_official_id')
+                                    ->where('name', $memberName)
+                                    ->value('id') ?? 0);
+                            }
+                        }
+                    }
+                }
+
+                if (! $manifestMemberId) {
                     continue;
                 }
 
                 $resolvedMembers[] = [
                     ...(is_array($member) ? $member : []),
-                    'manifest_traveler_id' => $manifestTravelerId,
+                    'manifest_member_id' => $manifestMemberId,
                 ];
             }
 
@@ -1058,7 +1226,7 @@ class ManifestService
                 'location' => $baseRoom['location'] ?? null,
                 'relationship' => $baseRoom['relationship'] ?? null,
                 'room_label' => $baseRoom['room_label'] ?? null,
-                'room_number' => $baseRoom['room_number'] ?? $baseRoom['room_no'] ?? null,
+                'room_number' => $baseRoom['room_number'] ?? null,
                 'room_type' => $payload['room_type'],
                 'bed_type' => $payload['bed_type'],
                 'capacity' => $baseRoom['capacity'] ?? ($roomMembers === [] ? null : count($roomMembers)),
@@ -1070,11 +1238,38 @@ class ManifestService
             ]);
 
             foreach ($roomMembers as $index => $member) {
-                $manifestTravelerId = ! empty($member['manifest_traveler_id'])
-                    ? (int) $member['manifest_traveler_id']
-                    : $this->resolveManifestTravelerId($manifest, $member);
+                $manifestMemberId = ! empty($member['manifest_member_id'])
+                    ? (int) $member['manifest_member_id']
+                    : $this->resolveManifestMemberId($manifest, $member);
 
-                if (! $manifestTravelerId) {
+                if (! $manifestMemberId) {
+                    $isOfficialRow = ! empty($member['package_official_id']) || ! empty($member['is_official']);
+
+                    if ($isOfficialRow) {
+                        $officialId = isset($member['package_official_id'])
+                            ? (int) $member['package_official_id']
+                            : 0;
+
+                        if ($officialId > 0) {
+                            $manifestMemberId = (int) ($manifest->members()
+                                ->where('package_official_id', $officialId)
+                                ->value('id') ?? 0);
+                        }
+
+                        if (! $manifestMemberId) {
+                            $memberName = trim((string) ($member['name_as_per_passport'] ?? $member['customer_name'] ?? ''));
+
+                            if ($memberName !== '') {
+                                $manifestMemberId = (int) ($manifest->members()
+                                    ->whereNotNull('package_official_id')
+                                    ->where('name', $memberName)
+                                    ->value('id') ?? 0);
+                            }
+                        }
+                    }
+                }
+
+                if (! $manifestMemberId) {
                     continue;
                 }
 
@@ -1089,34 +1284,13 @@ class ManifestService
                 }
 
                 $createdRoom->roomMembers()->create([
-                    'manifest_traveler_id' => $manifestTravelerId,
+                    'manifest_member_id' => $manifestMemberId,
                     'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                     'remarks' => $member['remarks'] ?? null,
                 ]);
             }
 
             $roomSortOrder++;
-        }
-    }
-
-    /**
-     * Sync payments for a manifest (delete-and-recreate strategy).
-     */
-    private function syncPayments(Manifest $manifest, array $payments): void
-    {
-        $manifest->payments()->delete();
-
-        foreach ($payments as $payment) {
-            $manifest->payments()->create([
-                'manifest_traveler_id' => $payment['manifest_traveler_id'] ?? null,
-                'traveler_name' => $payment['traveler_name'] ?? null,
-                'description' => $payment['description'] ?? null,
-                'amount' => $payment['amount'] ?? 0,
-                'paid_amount' => $payment['paid_amount'] ?? 0,
-                'outstanding_amount' => $payment['outstanding_amount'] ?? 0,
-                'payment_date' => ! empty($payment['payment_date']) ? Carbon::parse($payment['payment_date'])->format('Y-m-d') : null,
-                'status' => $payment['status'] ?? 'pending',
-            ]);
         }
     }
 
@@ -1164,11 +1338,11 @@ class ManifestService
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $travelers
+     * @param  array<int, array<string, mixed>>  $members
      * @param  array<int, array<string, mixed>>  $accommodations
      * @return array<string, array<int, array<string, mixed>>>
      */
-    private function ensureRoomLists(mixed $roomLists, array $flightDetails, array $travelers, array $accommodations): array
+    private function ensureRoomLists(mixed $roomLists, array $flightDetails, array $members, array $accommodations): array
     {
         if (is_array($roomLists) && ! empty($roomLists)) {
             return collect($roomLists)
@@ -1195,63 +1369,70 @@ class ManifestService
             ->values();
 
         if ($hotelAccommodations->isEmpty()) {
-            return ['makkah' => $travelers];
+            return ['makkah' => $members];
         }
 
         return $hotelAccommodations
-            ->mapWithKeys(function (array $accommodation) use ($travelers) {
+            ->mapWithKeys(function (array $accommodation) use ($members) {
                 $key = Str::slug((string) ($accommodation['location'] ?? $accommodation['hotel_name'] ?? 'hotel'));
 
                 if ($key === '') {
                     $key = 'hotel';
                 }
 
-                return [$key => $travelers];
+                return [$key => $members];
             })
             ->toArray();
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $travelers
+     * @param  array<int, array<string, mixed>>  $members
      * @return array<string, array<int, array<string, mixed>>>
      */
-    private function buildRoomListsFromRooms(Manifest $manifest, array $travelers): array
+    private function buildRoomListsFromRooms(Manifest $manifest, array $members): array
     {
         if ($manifest->rooms->isEmpty()) {
             return [];
         }
 
-        $travelerById = collect($travelers)->keyBy('id');
+        $memberById = collect($members)->keyBy('id');
 
         return $manifest->rooms
             ->sortBy('sort_order')
             ->groupBy(fn ($room) => (string) ($room->location ?? 'makkah'))
-            ->map(function ($rooms) use ($travelerById) {
+            ->map(function ($rooms) use ($memberById) {
                 return $rooms
                     ->values()
-                    ->flatMap(function (ManifestRoom $room) use ($travelerById) {
+                    ->flatMap(function (ManifestRoom $room) use ($memberById) {
                         return $room->roomMembers
                             ->sortBy('sort_order')
                             ->values()
-                            ->map(function ($member, int $index) use ($room, $travelerById) {
-                                $traveler = $travelerById->get($member->manifest_traveler_id, []);
+                            ->map(function ($roomMember, int $index) use ($room, $memberById) {
+                                $memberRow = $memberById->get($roomMember->manifest_member_id, []);
 
-                                return array_merge($traveler, [
-                                    'sn' => $member->sort_order ?: ($index + 1),
-                                    'sort_order' => $member->sort_order,
+                                if (! is_array($memberRow)) {
+                                    $memberRow = [];
+                                }
+
+                                $memberSortOrder = isset($memberRow['sort_order'])
+                                    ? (int) $memberRow['sort_order']
+                                    : ($index + 1);
+
+                                return array_merge($memberRow, [
+                                    'sn' => $memberSortOrder,
+                                    'sort_order' => $memberSortOrder,
                                     'sharing_group_key' => 'room-'.$room->id,
-                                    'manifest_traveler_id' => $member->manifest_traveler_id,
+                                    'manifest_member_id' => $roomMember->manifest_member_id,
                                     'room_relationship' => $room->relationship,
                                     'room_label' => $room->room_label,
                                     'room_number' => $room->room_number,
-                                    'room_no' => $room->room_number,
                                     'sharing_plan' => $room->sharing_plan,
                                     'room_type' => $room->room_type,
                                     'bed_type' => $room->bed_type,
                                     'number_of_beds_checked' => (bool) $room->number_of_beds_checked,
                                     'meal' => $room->meal,
                                     'room_remarks' => $room->remarks,
-                                    'remarks' => $member->remarks,
+                                    'remarks' => $memberRow['remarks'] ?? null,
                                 ]);
                             });
                     })
@@ -1263,49 +1444,49 @@ class ManifestService
     /**
      * @param  array<string, mixed>  $memberPayload
      */
-    private function resolveManifestTravelerId(Manifest $manifest, array $memberPayload): ?int
+    private function resolveManifestMemberId(Manifest $manifest, array $memberPayload): ?int
     {
         if (! empty($memberPayload['customer_confirmation_member_id'])) {
-            $travelerId = $manifest->travelers()
+            $memberId = $manifest->members()
                 ->where('customer_confirmation_member_id', (int) $memberPayload['customer_confirmation_member_id'])
                 ->value('id');
 
-            if ($travelerId) {
-                return (int) $travelerId;
+            if ($memberId) {
+                return (int) $memberId;
             }
         }
 
-        if (! empty($memberPayload['manifest_traveler_id'])) {
-            $travelerId = (int) $memberPayload['manifest_traveler_id'];
+        if (! empty($memberPayload['manifest_member_id'])) {
+            $memberId = (int) $memberPayload['manifest_member_id'];
 
-            $exists = $manifest->travelers()
-                ->whereKey($travelerId)
+            $exists = $manifest->members()
+                ->whereKey($memberId)
                 ->exists();
 
             if ($exists) {
-                return $travelerId;
+                return $memberId;
             }
         }
 
         if (! empty($memberPayload['package_official_id'])) {
-            $travelerId = $manifest->travelers()
+            $memberId = $manifest->members()
                 ->where('package_official_id', (int) $memberPayload['package_official_id'])
                 ->value('id');
 
-            if ($travelerId) {
-                return (int) $travelerId;
+            if ($memberId) {
+                return (int) $memberId;
             }
         }
 
         if (! empty($memberPayload['id'])) {
-            $travelerId = (int) $memberPayload['id'];
+            $memberId = (int) $memberPayload['id'];
 
-            $exists = $manifest->travelers()
-                ->whereKey($travelerId)
+            $exists = $manifest->members()
+                ->whereKey($memberId)
                 ->exists();
 
             if ($exists) {
-                return $travelerId;
+                return $memberId;
             }
         }
 
@@ -1313,22 +1494,22 @@ class ManifestService
     }
 
     /**
-     * @param  array<string, mixed>  $traveler
+     * @param  array<string, mixed>  $member
      */
-    private function syncMemberData(CustomerConfirmationMember $member, array $traveler): void
+    private function syncMemberData(CustomerConfirmationMember $member, array $memberPayload): void
     {
         $memberUpdates = [];
 
-        if (array_key_exists('role', $traveler)) {
-            $memberUpdates['role'] = $traveler['role'] ?? null;
+        if (array_key_exists('role', $memberPayload)) {
+            $memberUpdates['role'] = $memberPayload['role'] ?? null;
         }
 
-        if (array_key_exists('sharing_plan', $traveler)) {
-            $memberUpdates['sharing_plan'] = $traveler['sharing_plan'] ?: null;
+        if (array_key_exists('sharing_plan', $memberPayload)) {
+            $memberUpdates['sharing_plan'] = $memberPayload['sharing_plan'] ?: null;
         }
 
-        if (array_key_exists('status', $traveler)) {
-            $memberUpdates['status'] = $traveler['status'] ?: $member->status;
+        if (array_key_exists('status', $memberPayload)) {
+            $memberUpdates['status'] = $memberPayload['status'] ?: $member->status;
         }
 
         if ($memberUpdates !== []) {
@@ -1337,9 +1518,9 @@ class ManifestService
     }
 
     /**
-     * @param  array<string, mixed>  $traveler
+     * @param  array<string, mixed>  $memberPayload
      */
-    private function syncCustomerData(CustomerConfirmationMember $member, array $traveler): void
+    private function syncCustomerData(CustomerConfirmationMember $member, array $memberPayload): void
     {
         $customer = $member->customer;
 
@@ -1349,74 +1530,74 @@ class ManifestService
 
         $customerUpdates = [];
 
-        if (array_key_exists('passport_number', $traveler) || array_key_exists('passport_no', $traveler)) {
-            $customerUpdates['passport_number'] = $traveler['passport_number'] ?? null;
+        if (array_key_exists('passport_number', $memberPayload) || array_key_exists('passport_no', $memberPayload)) {
+            $customerUpdates['passport_number'] = $memberPayload['passport_number'] ?? null;
         }
 
-        if (array_key_exists('nationality', $traveler)) {
-            $customerUpdates['nationality'] = $traveler['nationality'] ?: null;
+        if (array_key_exists('nationality', $memberPayload)) {
+            $customerUpdates['nationality'] = $memberPayload['nationality'] ?: null;
         }
 
-        if (array_key_exists('gender', $traveler)) {
-            $customerUpdates['gender'] = $traveler['gender'] ?: null;
+        if (array_key_exists('gender', $memberPayload)) {
+            $customerUpdates['gender'] = $memberPayload['gender'] ?: null;
         }
 
-        if (array_key_exists('issue_place', $traveler)) {
-            $customerUpdates['passport_place_of_issue'] = $traveler['issue_place'] ?: null;
+        if (array_key_exists('issue_place', $memberPayload)) {
+            $customerUpdates['passport_place_of_issue'] = $memberPayload['issue_place'] ?: null;
         }
 
-        if (array_key_exists('date_of_issue', $traveler)) {
-            $customerUpdates['passport_issue_date'] = ! empty($traveler['date_of_issue'])
-                ? Carbon::parse($traveler['date_of_issue'])->format('Y-m-d')
+        if (array_key_exists('date_of_issue', $memberPayload)) {
+            $customerUpdates['passport_issue_date'] = ! empty($memberPayload['date_of_issue'])
+                ? Carbon::parse($memberPayload['date_of_issue'])->format('Y-m-d')
                 : null;
         }
 
-        if (array_key_exists('date_of_expiry', $traveler)) {
-            $customerUpdates['passport_expiry_date'] = ! empty($traveler['date_of_expiry'])
-                ? Carbon::parse($traveler['date_of_expiry'])->format('Y-m-d')
+        if (array_key_exists('date_of_expiry', $memberPayload)) {
+            $customerUpdates['passport_expiry_date'] = ! empty($memberPayload['date_of_expiry'])
+                ? Carbon::parse($memberPayload['date_of_expiry'])->format('Y-m-d')
                 : null;
         }
 
-        if (array_key_exists('date_of_birth', $traveler)) {
-            $customerUpdates['date_of_birth'] = ! empty($traveler['date_of_birth'])
-                ? Carbon::parse($traveler['date_of_birth'])->format('Y-m-d')
+        if (array_key_exists('date_of_birth', $memberPayload)) {
+            $customerUpdates['date_of_birth'] = ! empty($memberPayload['date_of_birth'])
+                ? Carbon::parse($memberPayload['date_of_birth'])->format('Y-m-d')
                 : null;
         }
 
-        if (array_key_exists('birth_place', $traveler)) {
-            $customerUpdates['place_of_birth'] = $traveler['birth_place'] ?: null;
+        if (array_key_exists('birth_place', $memberPayload)) {
+            $customerUpdates['place_of_birth'] = $memberPayload['birth_place'] ?: null;
         }
 
-        if (array_key_exists('address', $traveler)) {
-            $customerUpdates['address'] = $traveler['address'] ?: null;
+        if (array_key_exists('address', $memberPayload)) {
+            $customerUpdates['address'] = $memberPayload['address'] ?: null;
         }
 
-        if (array_key_exists('first_time_umrah', $traveler) || array_key_exists('is_first_time_umrah', $traveler)) {
-            $customerUpdates['first_time_umrah'] = $traveler['first_time_umrah'] ?? ($traveler['is_first_time_umrah'] ?? null);
+        if (array_key_exists('first_time_umrah', $memberPayload) || array_key_exists('is_first_time_umrah', $memberPayload)) {
+            $customerUpdates['first_time_umrah'] = $memberPayload['first_time_umrah'] ?? ($memberPayload['is_first_time_umrah'] ?? null);
         }
 
-        if (array_key_exists('has_chronic_disease', $traveler)) {
-            $customerUpdates['has_chronic_disease'] = $traveler['has_chronic_disease'];
+        if (array_key_exists('has_chronic_disease', $memberPayload)) {
+            $customerUpdates['has_chronic_disease'] = $memberPayload['has_chronic_disease'];
         }
 
-        if (array_key_exists('chronic_disease_details', $traveler)) {
-            $customerUpdates['chronic_disease_details'] = $traveler['chronic_disease_details'] ?: null;
+        if (array_key_exists('chronic_disease_details', $memberPayload)) {
+            $customerUpdates['chronic_disease_details'] = $memberPayload['chronic_disease_details'] ?: null;
         }
 
-        if (array_key_exists('passport_path', $traveler)) {
-            $customerUpdates['passport_path'] = $traveler['passport_path'] ?: null;
+        if (array_key_exists('passport_path', $memberPayload)) {
+            $customerUpdates['passport_path'] = $memberPayload['passport_path'] ?: null;
         }
 
-        if (array_key_exists('photo_path', $traveler)) {
-            $customerUpdates['photo_path'] = $traveler['photo_path'] ?: null;
+        if (array_key_exists('photo_path', $memberPayload)) {
+            $customerUpdates['photo_path'] = $memberPayload['photo_path'] ?: null;
         }
 
         if ($customerUpdates !== []) {
             $customer->update($customerUpdates);
         }
 
-        $name = trim((string) ($traveler['name_as_per_passport'] ?? ''));
-        $contactNo = trim((string) ($traveler['contact_no'] ?? ''));
+        $name = trim((string) ($memberPayload['name_as_per_passport'] ?? ''));
+        $contactNo = trim((string) ($memberPayload['contact_no'] ?? ''));
 
         if ($customer->user && ($name !== '' || $contactNo !== '')) {
             $customer->user->update([
@@ -1427,82 +1608,82 @@ class ManifestService
     }
 
     /**
-     * @param  array<string, mixed>  $traveler
+     * @param  array<string, mixed>  $memberPayload
      * @return array<string, mixed>
      */
-    private function buildManifestMemberSnapshot(?CustomerConfirmationMember $member, array $traveler, ?PackageOfficial $packageOfficial = null): array
+    private function buildManifestMemberSnapshot(?CustomerConfirmationMember $member, array $memberPayload, ?PackageOfficial $packageOfficial = null): array
     {
         $customer = $member?->customer;
         $user = $customer?->user;
 
         return [
-            'role' => $traveler['role'] ?? $member?->role,
-            'sharing_plan' => $traveler['sharing_plan'] ?? $member?->sharing_plan,
-            'name' => $traveler['name_as_per_passport'] ?? $traveler['customer_name'] ?? $packageOfficial?->name ?? $user?->name,
-            'arabic_name' => $traveler['arabic_name'] ?? null,
-            'contact_number' => $traveler['contact_no'] ?? $packageOfficial?->contact_number ?? $user?->contact,
-            'nationality' => $traveler['nationality'] ?? $packageOfficial?->nationality ?? $customer?->nationality,
-            'passport_number' => $traveler['passport_number'] ?? $packageOfficial?->passport_number ?? $customer?->passport_number,
-            'gender' => $traveler['gender'] ?? $packageOfficial?->gender ?? $customer?->gender,
-            'date_of_birth' => $this->normalizeDateForStorage($traveler['date_of_birth'] ?? $packageOfficial?->date_of_birth ?? $customer?->date_of_birth),
-            'passport_issue_date' => $this->normalizeDateForStorage($traveler['date_of_issue'] ?? $packageOfficial?->passport_issue_date ?? $customer?->passport_issue_date),
-            'passport_expiry_date' => $this->normalizeDateForStorage($traveler['date_of_expiry'] ?? $packageOfficial?->passport_expiry_date ?? $customer?->passport_expiry_date),
-            'passport_place_of_issue' => $traveler['issue_place'] ?? $packageOfficial?->passport_place_of_issue ?? $customer?->passport_place_of_issue,
-            'place_of_birth' => $traveler['birth_place'] ?? $packageOfficial?->place_of_birth ?? $customer?->place_of_birth,
-            'address' => $traveler['address'] ?? $customer?->address,
-            'first_time_umrah' => $traveler['first_time_umrah'] ?? $traveler['is_first_time_umrah'] ?? $customer?->first_time_umrah,
-            'has_chronic_disease' => $traveler['has_chronic_disease'] ?? $customer?->has_chronic_disease,
-            'chronic_disease_details' => $traveler['chronic_disease_details'] ?? $customer?->chronic_disease_details,
-            'passport_path' => $traveler['passport_path'] ?? $customer?->passport_path,
-            'photo_path' => $traveler['photo_path'] ?? $customer?->photo_path,
+            'role' => $memberPayload['role'] ?? $member?->role,
+            'sharing_plan' => $memberPayload['sharing_plan'] ?? $member?->sharing_plan,
+            'name' => $memberPayload['name_as_per_passport'] ?? $memberPayload['customer_name'] ?? $packageOfficial?->name ?? $user?->name,
+            'arabic_name' => $memberPayload['arabic_name'] ?? null,
+            'contact_number' => $memberPayload['contact_no'] ?? $packageOfficial?->contact_number ?? $user?->contact,
+            'nationality' => $memberPayload['nationality'] ?? $packageOfficial?->nationality ?? $customer?->nationality,
+            'passport_number' => $memberPayload['passport_number'] ?? $packageOfficial?->passport_number ?? $customer?->passport_number,
+            'gender' => $memberPayload['gender'] ?? $packageOfficial?->gender ?? $customer?->gender,
+            'date_of_birth' => $this->normalizeDateForStorage($memberPayload['date_of_birth'] ?? $packageOfficial?->date_of_birth ?? $customer?->date_of_birth),
+            'passport_issue_date' => $this->normalizeDateForStorage($memberPayload['date_of_issue'] ?? $packageOfficial?->passport_issue_date ?? $customer?->passport_issue_date),
+            'passport_expiry_date' => $this->normalizeDateForStorage($memberPayload['date_of_expiry'] ?? $packageOfficial?->passport_expiry_date ?? $customer?->passport_expiry_date),
+            'passport_place_of_issue' => $memberPayload['issue_place'] ?? $packageOfficial?->passport_place_of_issue ?? $customer?->passport_place_of_issue,
+            'place_of_birth' => $memberPayload['birth_place'] ?? $packageOfficial?->place_of_birth ?? $customer?->place_of_birth,
+            'address' => $memberPayload['address'] ?? $customer?->address,
+            'first_time_umrah' => $memberPayload['first_time_umrah'] ?? $memberPayload['is_first_time_umrah'] ?? $customer?->first_time_umrah,
+            'has_chronic_disease' => $memberPayload['has_chronic_disease'] ?? $customer?->has_chronic_disease,
+            'chronic_disease_details' => $memberPayload['chronic_disease_details'] ?? $customer?->chronic_disease_details,
+            'passport_path' => $memberPayload['passport_path'] ?? $customer?->passport_path,
+            'photo_path' => $memberPayload['photo_path'] ?? $customer?->photo_path,
         ];
     }
 
     /**
-     * @param  array<string, mixed>  $traveler
+     * @param  array<string, mixed>  $memberPayload
      */
-    private function syncPackageOfficialData(PackageOfficial $packageOfficial, array $traveler): void
+    private function syncPackageOfficialData(PackageOfficial $packageOfficial, array $memberPayload): void
     {
         $updates = [];
 
-        if (array_key_exists('name_as_per_passport', $traveler) || array_key_exists('customer_name', $traveler)) {
-            $updates['name'] = $traveler['name_as_per_passport'] ?? $traveler['customer_name'] ?? $packageOfficial->name;
+        if (array_key_exists('name_as_per_passport', $memberPayload) || array_key_exists('customer_name', $memberPayload)) {
+            $updates['name'] = $memberPayload['name_as_per_passport'] ?? $memberPayload['customer_name'] ?? $packageOfficial->name;
         }
 
-        if (array_key_exists('contact_no', $traveler)) {
-            $updates['contact_number'] = $traveler['contact_no'] ?: null;
+        if (array_key_exists('contact_no', $memberPayload)) {
+            $updates['contact_number'] = $memberPayload['contact_no'] ?: null;
         }
 
-        if (array_key_exists('nationality', $traveler)) {
-            $updates['nationality'] = $traveler['nationality'] ?: null;
+        if (array_key_exists('nationality', $memberPayload)) {
+            $updates['nationality'] = $memberPayload['nationality'] ?: null;
         }
 
-        if (array_key_exists('passport_number', $traveler)) {
-            $updates['passport_number'] = $traveler['passport_number'] ?: null;
+        if (array_key_exists('passport_number', $memberPayload)) {
+            $updates['passport_number'] = $memberPayload['passport_number'] ?: null;
         }
 
-        if (array_key_exists('gender', $traveler)) {
-            $updates['gender'] = $traveler['gender'] ?: null;
+        if (array_key_exists('gender', $memberPayload)) {
+            $updates['gender'] = $memberPayload['gender'] ?: null;
         }
 
-        if (array_key_exists('date_of_birth', $traveler)) {
-            $updates['date_of_birth'] = $this->normalizeDateForStorage($traveler['date_of_birth']);
+        if (array_key_exists('date_of_birth', $memberPayload)) {
+            $updates['date_of_birth'] = $this->normalizeDateForStorage($memberPayload['date_of_birth']);
         }
 
-        if (array_key_exists('date_of_issue', $traveler)) {
-            $updates['passport_issue_date'] = $this->normalizeDateForStorage($traveler['date_of_issue']);
+        if (array_key_exists('date_of_issue', $memberPayload)) {
+            $updates['passport_issue_date'] = $this->normalizeDateForStorage($memberPayload['date_of_issue']);
         }
 
-        if (array_key_exists('date_of_expiry', $traveler)) {
-            $updates['passport_expiry_date'] = $this->normalizeDateForStorage($traveler['date_of_expiry']);
+        if (array_key_exists('date_of_expiry', $memberPayload)) {
+            $updates['passport_expiry_date'] = $this->normalizeDateForStorage($memberPayload['date_of_expiry']);
         }
 
-        if (array_key_exists('issue_place', $traveler)) {
-            $updates['passport_place_of_issue'] = $traveler['issue_place'] ?: null;
+        if (array_key_exists('issue_place', $memberPayload)) {
+            $updates['passport_place_of_issue'] = $memberPayload['issue_place'] ?: null;
         }
 
-        if (array_key_exists('birth_place', $traveler)) {
-            $updates['place_of_birth'] = $traveler['birth_place'] ?: null;
+        if (array_key_exists('birth_place', $memberPayload)) {
+            $updates['place_of_birth'] = $memberPayload['birth_place'] ?: null;
         }
 
         if ($updates !== []) {
@@ -1534,7 +1715,7 @@ class ManifestService
     /**
      * @return array<string, float|string|null>
      */
-    private function buildTravelerFinancialSnapshot(
+    private function buildMemberFinancialSnapshot(
         ?CustomerConfirmationMember $member,
         float $packagePrice,
         bool $isOfficial,
@@ -1770,91 +1951,55 @@ class ManifestService
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $travelers
+     * @param  array<int, array<string, mixed>>  $receiptDocuments
      */
-    private function syncTravelerReceiptDocuments(Manifest $manifest, array $travelers): void
+    private function persistMemberReceiptDocuments(ManifestMember $manifestMember, array $receiptDocuments): void
     {
-        if ($travelers === []) {
-            return;
+        $rowsToPersist = [];
+
+        foreach ($receiptDocuments as $receiptDocument) {
+            if (! is_array($receiptDocument)) {
+                continue;
+            }
+
+            $isRemoved = (bool) ($receiptDocument['removed'] ?? false);
+            if ($isRemoved) {
+                continue;
+            }
+
+            $uploadedPath = $this->storeDocumentFile($receiptDocument['file'] ?? null, 'receipt');
+            $requestedName = $this->normalizeNullableString($receiptDocument['file_name'] ?? null);
+            $defaultFileName = $this->buildDefaultDocumentName($receiptDocument['file'] ?? null, 'receipt');
+            $existingPath = $this->normalizeNullableString($receiptDocument['file_path'] ?? null);
+            $filePath = $uploadedPath ?? $existingPath;
+
+            if (! $filePath) {
+                continue;
+            }
+
+            $rowsToPersist[] = [
+                'field' => 'receipt',
+                'file_name' => $requestedName ?? $defaultFileName ?? pathinfo(basename($filePath), PATHINFO_FILENAME),
+                'file_path' => $filePath,
+            ];
         }
 
-        $manifestTravelersByConfirmationMember = $manifest->travelers()
-            ->whereNotNull('customer_confirmation_member_id')
-            ->get()
-            ->keyBy('customer_confirmation_member_id');
+        $existingReceiptFiles = $manifestMember->files()->where('field', 'receipt')->get();
+        $preservedPaths = collect($rowsToPersist)
+            ->pluck('file_path')
+            ->filter(fn ($path) => is_string($path) && $path !== '')
+            ->all();
 
-        foreach ($travelers as $travelerPayload) {
-            if (! is_array($travelerPayload)) {
-                continue;
+        foreach ($existingReceiptFiles as $existingReceiptFile) {
+            if (! in_array($existingReceiptFile->file_path, $preservedPaths, true) && $existingReceiptFile->file_path) {
+                Storage::disk('public')->delete($existingReceiptFile->file_path);
             }
+        }
 
-            $confirmationMemberId = isset($travelerPayload['customer_confirmation_member_id'])
-                ? (int) $travelerPayload['customer_confirmation_member_id']
-                : 0;
+        $manifestMember->files()->where('field', 'receipt')->delete();
 
-            if ($confirmationMemberId <= 0) {
-                continue;
-            }
-
-            /** @var ManifestMember|null $manifestTraveler */
-            $manifestTraveler = $manifestTravelersByConfirmationMember->get($confirmationMemberId);
-
-            if (! $manifestTraveler) {
-                continue;
-            }
-
-            $receiptDocuments = $travelerPayload['receipt_documents'] ?? [];
-
-            if (! is_array($receiptDocuments)) {
-                continue;
-            }
-
-            $rowsToPersist = [];
-
-            foreach ($receiptDocuments as $receiptDocument) {
-                if (! is_array($receiptDocument)) {
-                    continue;
-                }
-
-                $isRemoved = (bool) ($receiptDocument['removed'] ?? false);
-                if ($isRemoved) {
-                    continue;
-                }
-
-                $uploadedPath = $this->storeDocumentFile($receiptDocument['file'] ?? null, 'receipt');
-                $requestedName = $this->normalizeNullableString($receiptDocument['file_name'] ?? null);
-                $defaultFileName = $this->buildDefaultDocumentName($receiptDocument['file'] ?? null, 'receipt');
-                $existingPath = $this->normalizeNullableString($receiptDocument['file_path'] ?? null);
-                $filePath = $uploadedPath ?? $existingPath;
-
-                if (! $filePath) {
-                    continue;
-                }
-
-                $rowsToPersist[] = [
-                    'field' => 'receipt',
-                    'file_name' => $requestedName ?? $defaultFileName ?? pathinfo(basename($filePath), PATHINFO_FILENAME),
-                    'file_path' => $filePath,
-                ];
-            }
-
-            $existingReceiptFiles = $manifestTraveler->files()->where('field', 'receipt')->get();
-            $preservedPaths = collect($rowsToPersist)
-                ->pluck('file_path')
-                ->filter(fn ($path) => is_string($path) && $path !== '')
-                ->all();
-
-            foreach ($existingReceiptFiles as $existingReceiptFile) {
-                if (! in_array($existingReceiptFile->file_path, $preservedPaths, true) && $existingReceiptFile->file_path) {
-                    Storage::disk('public')->delete($existingReceiptFile->file_path);
-                }
-            }
-
-            $manifestTraveler->files()->where('field', 'receipt')->delete();
-
-            foreach ($rowsToPersist as $row) {
-                $manifestTraveler->files()->create($row);
-            }
+        foreach ($rowsToPersist as $row) {
+            $manifestMember->files()->create($row);
         }
     }
 
@@ -1872,8 +2017,10 @@ class ManifestService
                 ->map(function (ModelFile $file): array {
                     return [
                         'id' => $file->id,
+                        'file' => null,
                         'file_name' => $file->file_name,
                         'file_path' => $file->file_path,
+                        'removed' => false,
                     ];
                 })
                 ->values()

@@ -20,7 +20,7 @@ interface OpsMovementDataTableSchema {
     visa_type: string | null;
     vehicle_type: string | null;
     ticket_type: string | null;
-    total_travelers: number;
+    total_members: number;
     manifests_count: number;
     accommodations: {
         location: string;
@@ -113,7 +113,7 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         cell: ({ row }) => row.original.vehicle_type || '-',
     },
     {
-        accessorKey: 'total_travelers',
+        accessorKey: 'total_members',
         header: 'Total Pax',
         meta: { exportable: true },
     },

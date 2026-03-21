@@ -47,24 +47,24 @@ class ManifestSeederTest extends TestCase
         $this->assertNotNull($manifest->manifest_number);
         $this->assertSame('open', $manifest->package?->status);
 
-        // If travelers exist, they should have customer_confirmation_member_id
-        if ($manifest->travelers()->count() > 0) {
+        // If members exist, they should have customer_confirmation_member_id
+        if ($manifest->members()->count() > 0) {
             $this->assertSame(
-                $manifest->travelers()->count(),
-                $manifest->travelers()->whereNotNull('customer_confirmation_member_id')->count(),
+                $manifest->members()->count(),
+                $manifest->members()->whereNotNull('customer_confirmation_member_id')->count(),
             );
         }
 
         $this->assertNotNull($manifest->id);
     }
 
-    public function test_manifest_seeder_attaches_paid_members_as_travelers(): void
+    public function test_manifest_seeder_attaches_paid_members_as_members(): void
     {
         $user = User::factory()->create();
 
         $package = Package::create([
             'package_number' => 'PKG-PAID',
-            'name' => 'Umrah Paid Travelers',
+            'name' => 'Umrah Paid Members',
             'status' => 'open',
         ]);
 
@@ -256,23 +256,23 @@ class ManifestSeederTest extends TestCase
 
         $manifest = Manifest::query()
             ->whereHas('package.officials')
-            ->with(['package.officials', 'travelers', 'rooms.roomMembers'])
+            ->with(['package.officials', 'members', 'rooms.roomMembers'])
             ->firstOrFail();
 
-        $officialTravelers = $manifest->travelers->whereNotNull('package_official_id')->values();
+        $officialMembers = $manifest->members->whereNotNull('package_official_id')->values();
 
-        $this->assertTrue($officialTravelers->isNotEmpty());
+        $this->assertTrue($officialMembers->isNotEmpty());
 
-        $this->assertTrue($officialTravelers->every(function ($traveler): bool {
-            return $traveler->manifest_sharing_group_id !== null
-                && $traveler->role !== null
-                && $traveler->sharing_plan === 'single';
+        $this->assertTrue($officialMembers->every(function ($member): bool {
+            return $member->manifest_sharing_group_id !== null
+                && $member->role !== null
+                && $member->sharing_plan === 'single';
         }));
 
-        $officialTravelerIds = $officialTravelers->pluck('id')->all();
+        $officialMemberIds = $officialMembers->pluck('id')->all();
 
         $officialRoomMembers = ManifestRoomMember::query()
-            ->whereIn('manifest_traveler_id', $officialTravelerIds)
+            ->whereIn('manifest_member_id', $officialMemberIds)
             ->get();
 
         $this->assertTrue($officialRoomMembers->isNotEmpty());

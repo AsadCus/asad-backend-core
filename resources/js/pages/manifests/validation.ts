@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { manifestSchema, travelerSchema, type TravelerSchema } from './schema';
+import { manifestSchema, memberSchema, type MemberSchema } from './schema';
 
-export const travelerValidationSchema = travelerSchema.superRefine(
+export const memberValidationSchema = memberSchema.superRefine(
     (data, ctx) => {
         // name_as_per_passport
         if (
@@ -19,8 +19,8 @@ export const travelerValidationSchema = travelerSchema.superRefine(
 
 export const manifestValidationSchema = manifestSchema.superRefine(
     (data, ctx) => {
-        const travelers =
-            (data.travelers as TravelerSchema[] | undefined) ?? [];
+        const members =
+            (data.members as MemberSchema[] | undefined) ?? [];
         const packageId = Number(data.package_id ?? 0);
         const inChargeOfficialId = Number(data.in_charge_official_id ?? 0);
 
@@ -45,15 +45,15 @@ export const manifestValidationSchema = manifestSchema.superRefine(
             });
         }
 
-        // Travelers validation
-        if (travelers.length > 0) {
-            travelers.forEach((traveler, index) => {
+        // Members validation
+        if (members.length > 0) {
+            members.forEach((member, index) => {
                 if (
-                    !traveler.name_as_per_passport ||
-                    traveler.name_as_per_passport.trim().length === 0
+                    !member.name_as_per_passport ||
+                    member.name_as_per_passport.trim().length === 0
                 ) {
                     ctx.addIssue({
-                        path: ['travelers', index, 'name_as_per_passport'],
+                        path: ['members', index, 'name_as_per_passport'],
                         message: 'Name as per passport is required.',
                         code: z.ZodIssueCode.custom,
                     });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const travelerSchema = z.object({
+export const memberSchema = z.object({
     id: z.number().optional(),
     customer_id: z.number().nullable().optional(),
     customer_confirmation_member_id: z.number().nullable().optional(),
@@ -46,7 +46,6 @@ export const travelerSchema = z.object({
     receipt_no: z.string().nullable().optional(),
     remarks: z.string().nullable().optional(),
     nationality: z.string().nullable().optional(),
-    room_no: z.string().nullable().optional(),
     room_relationship: z.string().nullable().optional(),
     room_type: z.string().nullable().optional(),
     bed_type: z.string().nullable().optional(),
@@ -91,8 +90,8 @@ const manifestDocumentItemSchema = z.object({
 
 export const roomMemberSchema = z.object({
     id: z.number().optional(),
-    manifest_traveler_id: z.number().optional(),
-    traveler_name: z.string().optional(),
+    manifest_member_id: z.number().optional(),
+    member_name: z.string().optional(),
     role_in_room: z.string().optional(),
 });
 
@@ -121,25 +120,11 @@ export const roomSchema = z.object({
     name_as_per_passport: z.string().optional(),
     relationship: z.string().optional(),
     passport_number: z.string().optional(),
-    room_no: z.string().optional(),
     date_of_birth: z.string().optional(),
     age: z.coerce.number().optional(),
     no_of_beds_checked: z.coerce.number().optional(),
     meal: z.string().optional(),
     remarks: z.string().optional(),
-});
-
-export const paymentSchema = z.object({
-    id: z.number().optional(),
-    manifest_traveler_id: z.number().optional(),
-    traveler_name: z.string().optional(),
-    linked_traveler_name: z.string().optional(),
-    description: z.string().optional(),
-    amount: z.coerce.number().optional(),
-    paid_amount: z.coerce.number().optional(),
-    outstanding_amount: z.coerce.number().optional(),
-    payment_date: z.string().optional(),
-    status: z.string().optional(),
 });
 
 export const sharingGroupMemberSchema = z.object({
@@ -166,12 +151,12 @@ export const manifestSharingGroupSchema = z.object({
 export const manifestSchema = z.object({
     id: z.number().optional(),
     members_count: z.coerce.number().nullable().optional(),
-    package_id: z.coerce.number().nullable().optional(),
-    in_charge_official_id: z.coerce.number().nullable().optional(),
+    package_id: z.number().nullable().optional(),
+    in_charge_official_id: z.number().nullable().optional(),
     manifest_number: z.string().optional(),
     notes: z.string().optional(),
     status: z.string().optional(),
-    travelers: z.array(travelerSchema).optional(),
+    members: z.array(memberSchema).optional(),
     documents: z
         .object({
             flight_tickets: z.array(manifestDocumentItemSchema).optional(),
@@ -182,15 +167,13 @@ export const manifestSchema = z.object({
         })
         .optional(),
     rooms: z.array(roomSchema).optional(),
-    payments: z.array(paymentSchema).optional(),
     sharing_groups: z.array(manifestSharingGroupSchema).optional(),
 });
 
 export type ManifestSchema = z.infer<typeof manifestSchema>;
-export type TravelerSchema = z.infer<typeof travelerSchema>;
+export type MemberSchema = z.infer<typeof memberSchema>;
 export type RoomSchema = z.infer<typeof roomSchema>;
 export type RoomMemberSchema = z.infer<typeof roomMemberSchema>;
-export type PaymentSchema = z.infer<typeof paymentSchema>;
 export type SharingGroupMemberSchema = z.infer<typeof sharingGroupMemberSchema>;
 export type ManifestSharingGroupSchema = z.infer<
     typeof manifestSharingGroupSchema
@@ -216,7 +199,7 @@ export const hotelDetailsSchema = z.object({
 
 export const manifestInformationSchema = z.object({
     id: z.number().optional(),
-    package_id: z.coerce.number().nullable().optional(),
+    package_id: z.number().nullable().optional(),
     manifest_number: z.string().optional(),
     status: z.string().optional(),
     departure_date: z.string().optional(),
@@ -226,7 +209,7 @@ export const manifestInformationSchema = z.object({
 export const manifestApiResponseSchema = z.object({
     manifestInformation: manifestInformationSchema.optional(),
     hotelDetails: hotelDetailsSchema.optional(),
-    travelers: z.record(z.string(), z.array(travelerSchema)).optional(),
+    members: z.record(z.string(), z.array(memberSchema)).optional(),
     roomLists: z.record(z.string(), z.array(roomSchema)).optional(),
     airlinesNameList: z
         .record(

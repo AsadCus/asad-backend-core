@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('manifest_room_members', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manifest_room_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('manifest_traveler_id')->constrained('manifest_members')->cascadeOnDelete();
+            $table->foreignId('manifest_member_id')->constrained('manifest_members')->cascadeOnDelete();
             $table->unsignedInteger('sort_order')->default(1);
             $table->text('remarks')->nullable();
             $table->timestamps();

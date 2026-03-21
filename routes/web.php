@@ -189,22 +189,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('packages-get-for-show/{id}', [PackageController::class, 'getForShow'])->name('packages.get-for-show');
 
     // Manifests
-    Route::resource('manifests', ManifestController::class);
+    Route::resource('manifests', ManifestController::class)->except(['create', 'update']);
     Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
     Route::match(['get', 'post'], 'manifests/{id}/collection-items-pdf', [ManifestController::class, 'exportCollectionItemsPdf'])->name('manifests.collection-items-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/arabic-names-pdf', [ManifestController::class, 'exportArabicNamesPdf'])->name('manifests.arabic-names-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/room-check-pdf', [ManifestController::class, 'exportRoomCheckPdf'])->name('manifests.room-check-pdf');
+    Route::patch('manifests/{manifestId}/sections/core', [ManifestController::class, 'updateCoreSection'])->name('manifests.sections.core.update');
+    Route::patch('manifests/{manifestId}/sections/sharing-groups', [ManifestController::class, 'updateSharingGroupsSection'])->name('manifests.sections.sharing-groups.update');
+    Route::patch('manifests/{manifestId}/sections/rooms', [ManifestController::class, 'updateRoomsSection'])->name('manifests.sections.rooms.update');
+    Route::patch('manifests/{manifestId}/sections/documents', [ManifestController::class, 'updateDocumentsSection'])->name('manifests.sections.documents.update');
+    Route::patch('manifests/{manifestId}/sections/receipt-documents', [ManifestController::class, 'updateReceiptDocumentsSection'])->name('manifests.sections.receipt-documents.update');
 
     // Manifest Rooms
     Route::post('manifests/{manifestId}/rooms', [ManifestController::class, 'addRoom'])->name('manifests.rooms.store');
     Route::put('manifests/rooms/{roomId}', [ManifestController::class, 'updateRoom'])->name('manifests.rooms.update');
     Route::delete('manifests/rooms/{roomId}', [ManifestController::class, 'deleteRoom'])->name('manifests.rooms.destroy');
 
-    // Manifest Payments
-    Route::post('manifests/{manifestId}/payments', [ManifestController::class, 'addPayment'])->name('manifests.payments.store');
-    Route::put('manifests/payments/{paymentId}', [ManifestController::class, 'updatePayment'])->name('manifests.payments.update');
-    Route::delete('manifests/payments/{paymentId}', [ManifestController::class, 'deletePayment'])->name('manifests.payments.destroy');
-    Route::post('manifests/{manifestId}/travelers/{travelerId}/move-holding', [ManifestController::class, 'moveTravelerToHolding'])->name('manifests.travelers.move-holding');
+    Route::post('manifests/{manifestId}/members/{memberId}/move-holding', [ManifestController::class, 'moveMemberToHolding'])->name('manifests.members.move-holding');
 
     // Manifest Sharing Groups
     Route::post('manifests/{manifestId}/sharing-groups', [ManifestController::class, 'attachSharingGroup'])->name('manifests.sharing-groups.attach');

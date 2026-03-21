@@ -15,7 +15,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Clock3 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type TimeFormat = 12 | 24;
 
@@ -127,6 +127,31 @@ export function ProperInput({
     const [selectedHours24, setSelectedHours24] = useState(0);
     const [selectedMinutes, setSelectedMinutes] = useState(0);
     const [selectedMeridiem, setSelectedMeridiem] = useState<'AM' | 'PM'>('AM');
+    const latestLocalRef = useRef(local);
+    const latestValueRef = useRef(String(value ?? ''));
+    const latestOnCommitRef = useRef(onCommit);
+
+    useEffect(() => {
+        latestLocalRef.current = local;
+    }, [local]);
+
+    useEffect(() => {
+        latestValueRef.current = String(value ?? '');
+    }, [value]);
+
+    useEffect(() => {
+        latestOnCommitRef.current = onCommit;
+    }, [onCommit]);
+
+    useEffect(() => {
+        return () => {
+            const valueToCommit = latestLocalRef.current;
+
+            if (latestValueRef.current !== valueToCommit) {
+                latestOnCommitRef.current(valueToCommit);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         const nextLocal = String(value ?? '');

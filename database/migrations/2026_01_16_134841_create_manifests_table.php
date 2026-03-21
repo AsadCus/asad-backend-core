@@ -50,19 +50,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('manifest_payments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('manifest_traveler_id')->nullable()->constrained('manifest_members')->nullOnDelete();
-            $table->string('traveler_name');
-            $table->string('description');
-            $table->decimal('amount', 10, 2)->default(0);
-            $table->decimal('paid_amount', 10, 2)->default(0);
-            $table->decimal('outstanding_amount', 10, 2)->default(0);
-            $table->date('payment_date')->nullable();
-            $table->string('status')->default('pending');
-            $table->timestamps();
-        });
     }
 
     /**
@@ -70,7 +57,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('manifest_payments');
         Schema::dropIfExists('manifest_rooms');
         Schema::dropIfExists('manifest_members');
         Schema::dropIfExists('manifests');

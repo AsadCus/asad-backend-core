@@ -130,7 +130,7 @@ class QuotationStatusTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $traveler = $manifest->travelers()->create([
+        $member = $manifest->members()->create([
             'customer_confirmation_member_id' => $member->id,
             'name' => 'Linked Member',
         ]);
@@ -143,7 +143,7 @@ class QuotationStatusTest extends TestCase
         ]);
 
         $this->assertDatabaseMissing('manifest_members', [
-            'id' => $traveler->id,
+            'id' => $member->id,
         ]);
     }
 

@@ -7,22 +7,22 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { type TravelerWithUI } from '../types';
+import { type MemberWithUI } from '../types';
 
 interface ManifestMemberInformationCardProps {
-    travelers: TravelerWithUI[];
+    members: MemberWithUI[];
 }
 
-function resolveTravelerAge(traveler: TravelerWithUI): number | null {
-    if (typeof traveler.age === 'number' && Number.isFinite(traveler.age)) {
-        return traveler.age;
+function resolveMemberAge(member: MemberWithUI): number | null {
+    if (typeof member.age === 'number' && Number.isFinite(member.age)) {
+        return member.age;
     }
 
-    if (!traveler.date_of_birth) {
+    if (!member.date_of_birth) {
         return null;
     }
 
-    const parsedDate = new Date(traveler.date_of_birth);
+    const parsedDate = new Date(member.date_of_birth);
 
     if (Number.isNaN(parsedDate.getTime())) {
         return null;
@@ -43,21 +43,21 @@ function resolveTravelerAge(traveler: TravelerWithUI): number | null {
 }
 
 export default function ManifestMemberInformationCard({
-    travelers,
+    members,
 }: ManifestMemberInformationCardProps) {
-    const activeTravelers = travelers.filter(
-        (traveler) => traveler.status !== 'cancelled',
+    const activeMembers = members.filter(
+        (member) => member.status !== 'cancelled',
     );
 
-    const jemaahTravelers = activeTravelers.filter(
-        (traveler) => !traveler.package_official_id,
+    const jemaahMembers = activeMembers.filter(
+        (member) => !member.package_official_id,
     );
-    const officialCount = activeTravelers.length - jemaahTravelers.length;
+    const officialCount = activeMembers.length - jemaahMembers.length;
 
-    const counts = jemaahTravelers.reduce(
-        (acc, traveler) => {
-            const age = resolveTravelerAge(traveler);
-            const gender = String(traveler.gender ?? '').toLowerCase();
+    const counts = jemaahMembers.reduce(
+        (acc, member) => {
+            const age = resolveMemberAge(member);
+            const gender = String(member.gender ?? '').toLowerCase();
 
             if (age === null) {
                 return acc;
@@ -110,9 +110,9 @@ export default function ManifestMemberInformationCard({
         { label: 'Boy (below 18)', value: counts.boy },
         { label: 'Girl (below 18)', value: counts.girl },
         { label: 'Infant (below 2)', value: counts.infant },
-        { label: 'Total Jemaah', value: jemaahTravelers.length },
+        { label: 'Total Jemaah', value: jemaahMembers.length },
         { label: 'Official', value: officialCount },
-        { label: 'Grand Total', value: jemaahTravelers.length + officialCount },
+        { label: 'Grand Total', value: jemaahMembers.length + officialCount },
     ];
 
     return (
@@ -122,7 +122,7 @@ export default function ManifestMemberInformationCard({
                     Manifest Member Information
                 </CardTitle>
                 <CardDescription>
-                    Auto-calculated summary based on active travelers in this
+                    Auto-calculated summary based on active members in this
                     manifest.
                 </CardDescription>
             </CardHeader>

@@ -266,7 +266,7 @@
 
                         @if ($memberIndex === 0)
                             <td rowspan="{{ $rowSpan }}">{{ $first['room_label'] ?? 'Room ' . $roomIndex }}</td>
-                            <td rowspan="{{ $rowSpan }}">{{ $first['room_no'] ?? '-' }}</td>
+                            <td rowspan="{{ $rowSpan }}">{{ $first['room_number'] ?? '-' }}</td>
                             <td rowspan="{{ $rowSpan }}">{{ $first['room_type'] ?? '-' }}</td>
                             <td rowspan="{{ $rowSpan }}">{{ $first['bed_type'] ?? '-' }}</td>
                         @endif
