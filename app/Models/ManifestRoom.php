@@ -49,13 +49,13 @@ class ManifestRoom extends Model
         return $this->hasMany(ManifestRoomMember::class, 'manifest_room_id')->orderBy('sort_order')->orderBy('id');
     }
 
-    public function travelers(): BelongsToMany
+    public function members(): BelongsToMany
     {
         return $this->belongsToMany(
             ManifestMember::class,
             'manifest_room_members',
             'manifest_room_id',
-            'manifest_traveler_id',
+            'manifest_member_id',
         )->withPivot(['sort_order', 'remarks'])
             ->withTimestamps();
     }

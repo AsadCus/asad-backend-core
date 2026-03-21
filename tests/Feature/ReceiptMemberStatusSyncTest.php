@@ -330,10 +330,10 @@ class ReceiptMemberStatusSyncTest extends TestCase
 
         $this->assertEquals('unavailable', $data['member']->status);
         $this->assertEquals(0, $data['package']->seats_left);
-        $this->assertFalse($manifest->travelers()->where('customer_confirmation_member_id', $data['member']->id)->exists());
+        $this->assertFalse($manifest->members()->where('customer_confirmation_member_id', $data['member']->id)->exists());
     }
 
-    public function test_cancelling_paid_member_releases_package_seat_and_removes_manifest_traveler_link(): void
+    public function test_cancelling_paid_member_releases_package_seat_and_removes_manifest_member_link(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();
 
@@ -355,9 +355,9 @@ class ReceiptMemberStatusSyncTest extends TestCase
             'payment_method' => 'transfer',
         ]);
 
-        $traveler = $manifest->travelers()->where('customer_confirmation_member_id', $data['member']->id)->first();
+        $member = $manifest->members()->where('customer_confirmation_member_id', $data['member']->id)->first();
 
-        $this->assertNotNull($traveler);
+        $this->assertNotNull($member);
 
         $data['package']->refresh();
         $this->assertEquals(1, $data['package']->seats_left);
@@ -370,7 +370,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertEquals('cancelled', $data['member']->status);
         $this->assertEquals(2, $data['package']->seats_left);
         $this->assertDatabaseMissing('manifest_members', [
-            'id' => $traveler?->id,
+            'id' => $member?->id,
         ]);
     }
 

@@ -22,6 +22,7 @@ use App\Services\ManifestService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -29,7 +30,7 @@ class ManifestWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_store_persists_manifest_documents_arabic_names_and_receipt_documents(): void
+    public function test_store_persists_manifest_documents_arabic_names_and_ignores_receipt_documents_in_full_submit(): void
     {
         Storage::fake('public');
 
@@ -69,7 +70,7 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $member->id,
                     'name_as_per_passport' => 'Yusuf Adam',
@@ -100,12 +101,12 @@ class ManifestWorkflowTest extends TestCase
             ->assertRedirect(route('manifests.index'));
 
         $manifest = Manifest::query()->firstOrFail();
-        $traveler = ManifestMember::query()
+        $member = ManifestMember::query()
             ->where('manifest_id', $manifest->id)
             ->where('customer_confirmation_member_id', $member->id)
             ->firstOrFail();
 
-        $this->assertSame('يوسف ادم', $traveler->arabic_name);
+        $this->assertSame('يوسف ادم', $member->arabic_name);
 
         $this->assertDatabaseHas('model_files', [
             'fileable_type' => Manifest::class,
@@ -114,11 +115,10 @@ class ManifestWorkflowTest extends TestCase
             'file_name' => 'Flight Ticket.pdf',
         ]);
 
-        $this->assertDatabaseHas('model_files', [
+        $this->assertDatabaseMissing('model_files', [
             'fileable_type' => ManifestMember::class,
-            'fileable_id' => $traveler->id,
+            'fileable_id' => $member->id,
             'field' => 'receipt',
-            'file_name' => 'Member Receipt Proof.pdf',
         ]);
 
         $storedManifestFilePath = ModelFile::query()
@@ -127,22 +127,14 @@ class ManifestWorkflowTest extends TestCase
             ->where('field', 'flight_tickets')
             ->value('file_path');
 
-        $storedReceiptFilePath = ModelFile::query()
-            ->where('fileable_type', ManifestMember::class)
-            ->where('fileable_id', $traveler->id)
-            ->where('field', 'receipt')
-            ->value('file_path');
-
         $this->assertNotNull($storedManifestFilePath);
-        $this->assertNotNull($storedReceiptFilePath);
         Storage::disk('public')->assertExists((string) $storedManifestFilePath);
-        Storage::disk('public')->assertExists((string) $storedReceiptFilePath);
 
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
 
         $this->assertNotEmpty($rehydrated['documents']['flight_tickets'] ?? []);
-        $this->assertSame('يوسف ادم', $rehydrated['travelers'][0]['arabic_name'] ?? null);
-        $this->assertNotEmpty($rehydrated['travelers'][0]['receipt_documents'] ?? []);
+        $this->assertSame('يوسف ادم', $rehydrated['members'][0]['arabic_name'] ?? null);
+        $this->assertEmpty($rehydrated['members'][0]['receipt_documents'] ?? []);
     }
 
     public function test_store_accepts_grouped_manifest_payload_and_normalizes_values(): void
@@ -191,7 +183,7 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'sn' => 1,
                     'customer_confirmation_member_id' => $member->id,
@@ -206,7 +198,7 @@ class ManifestWorkflowTest extends TestCase
                         'name_as_per_passport' => 'Ahmad Example',
                         'customer_confirmation_member_id' => $member->id,
                         'room_relationship' => 'Family',
-                        'room_no' => 'M-101',
+                        'room_number' => 'M-101',
                         'room_type' => 'Quad',
                         'bed_type' => 'Single',
                         'meal' => 'Breakfast Only',
@@ -258,7 +250,7 @@ class ManifestWorkflowTest extends TestCase
             'remarks' => 'Room-level note',
         ]);
 
-        $createdTravelerId = (int) ManifestMember::query()
+        $createdMemberId = (int) ManifestMember::query()
             ->where('manifest_id', $manifest->id)
             ->where('customer_confirmation_member_id', $member->id)
             ->value('id');
@@ -267,10 +259,195 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('manifest_room_members', [
             'manifest_room_id' => $createdRoomId,
-            'manifest_traveler_id' => $createdTravelerId,
+            'manifest_member_id' => $createdMemberId,
             'sort_order' => 1,
             'remarks' => 'Member-level note',
         ]);
+    }
+
+    public function test_store_accepts_canonical_submit_payload_with_legacy_parity(): void
+    {
+        $actingUser = User::factory()->create();
+        $customerUser = User::factory()->create([
+            'name' => 'Canonical Member',
+            'contact' => '0112233445',
+        ]);
+
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-CANONICAL-POST-001',
+            'name' => 'Umrah Canonical Submit',
+            'status' => 'open',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'passport_number' => 'P445566',
+            'date_of_birth' => '1992-03-11',
+            'address' => 'Jalan Ampang, Kuala Lumpur',
+            'first_time_umrah' => true,
+            'has_chronic_disease' => false,
+            'passport_path' => 'passports/canonical.pdf',
+            'photo_path' => 'photos/canonical.jpg',
+            'is_active' => true,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'confirmed',
+            'role' => 'spouse',
+            'sharing_plan' => 'double',
+        ]);
+
+        $legacyPayload = [
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'notes' => 'legacy payload',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Canonical Member',
+                    'passport_number' => 'P998877',
+                    'date_of_birth' => '1993-04-21',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'group-legacy-1',
+                ],
+            ],
+            'roomLists' => [
+                'makkah' => [
+                    [
+                        'customer_confirmation_member_id' => $member->id,
+                        'name_as_per_passport' => 'Canonical Member',
+                        'sharing_group_key' => 'group-legacy-1',
+                        'room_relationship' => 'Family',
+                        'room_label' => 'Legacy Room',
+                        'room_number' => 'LK-101',
+                        'room_type' => 'double',
+                        'bed_type' => 'queen',
+                        'sharing_plan' => 'double',
+                        'meal' => 'Breakfast Only',
+                        'room_remarks' => 'Legacy room remark',
+                    ],
+                ],
+            ],
+            'documents' => [
+                'flight_tickets' => [],
+                'visa' => [],
+                'hotel' => [],
+                'passport' => [],
+                'photo' => [],
+            ],
+        ];
+
+        $this->post(route('manifests.store'), $legacyPayload)
+            ->assertRedirect(route('manifests.index'));
+
+        $legacyManifest = Manifest::query()->latest('id')->firstOrFail();
+
+        $canonicalPayload = [
+            'manifest' => [
+                'package_id' => $package->id,
+                'status' => 'draft',
+                'notes' => 'canonical payload',
+            ],
+            'manifest_sharing_groups' => [
+                [
+                    'customer_confirmation_id' => $confirmation->id,
+                    'sort_order' => 1,
+                    'relation' => 'Family',
+                    'remarks' => 'Canonical group remark',
+                    'members' => [
+                        [
+                            'customer_confirmation_member_id' => $member->id,
+                            'role' => 'spouse',
+                            'sharing_plan' => 'double',
+                            'sort_order' => 1,
+                            'patch' => [
+                                'name_as_per_passport' => 'Canonical Member',
+                                'passport_number' => 'P998877',
+                                'date_of_birth' => '1993-04-21',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'manifest_rooms' => [
+                [
+                    'location' => 'makkah',
+                    'sort_order' => 1,
+                    'relationship' => 'Family',
+                    'room_label' => 'Canonical Room',
+                    'room_number' => 'CN-101',
+                    'room_type' => 'double',
+                    'bed_type' => 'queen',
+                    'sharing_plan' => 'double',
+                    'meal' => 'Breakfast Only',
+                    'remarks' => 'Canonical room remark',
+                    'members' => [
+                        [
+                            'customer_confirmation_member_id' => $member->id,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+            'documents' => [
+                'flight_tickets' => [],
+                'visa' => [],
+                'hotel' => [],
+                'passport' => [],
+                'photo' => [],
+            ],
+        ];
+
+        $this->post(route('manifests.store'), $canonicalPayload)
+            ->assertRedirect(route('manifests.index'));
+
+        $canonicalManifest = Manifest::query()->latest('id')->firstOrFail();
+
+        $this->assertNotSame($legacyManifest->id, $canonicalManifest->id);
+
+        $legacyMember = ManifestMember::query()
+            ->where('manifest_id', $legacyManifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->firstOrFail();
+
+        $canonicalMember = ManifestMember::query()
+            ->where('manifest_id', $canonicalManifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->firstOrFail();
+
+        $this->assertSame($legacyMember->passport_number, $canonicalMember->passport_number);
+        $this->assertSame(
+            optional($legacyMember->date_of_birth)->format('Y-m-d'),
+            optional($canonicalMember->date_of_birth)->format('Y-m-d'),
+        );
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $canonicalManifest->id,
+            'location' => 'makkah',
+            'room_number' => 'CN-101',
+            'room_type' => 'double',
+            'bed_type' => 'queen',
+            'sharing_plan' => 'double',
+            'meal' => 'Breakfast Only',
+            'remarks' => 'Canonical room remark',
+        ]);
+
+        $this->assertSame(1, $legacyManifest->members()->count());
+        $this->assertSame(1, $canonicalManifest->members()->count());
+        $this->assertSame(1, $legacyManifest->rooms()->count());
+        $this->assertSame(1, $canonicalManifest->rooms()->count());
     }
 
     public function test_update_persists_collection_items_checklist_fields(): void
@@ -295,7 +472,7 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $member->id,
                     'name_as_per_passport' => 'Checklist Member',
@@ -316,13 +493,13 @@ class ManifestWorkflowTest extends TestCase
         $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
-        $travelerId = (int) ManifestMember::query()
+        $memberId = (int) ManifestMember::query()
             ->where('manifest_id', $manifest->id)
             ->where('customer_confirmation_member_id', $member->id)
             ->value('id');
 
         $this->assertDatabaseHas('manifest_member_collection_items', [
-            'manifest_member_id' => $travelerId,
+            'manifest_member_id' => $memberId,
             'course_1' => 1,
             'course_2' => 0,
             'lanyard' => 1,
@@ -337,9 +514,276 @@ class ManifestWorkflowTest extends TestCase
 
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
 
-        $this->assertTrue((bool) ($rehydrated['travelers'][0]['course_1'] ?? false));
-        $this->assertTrue((bool) ($rehydrated['travelers'][0]['luggage_tag'] ?? false));
-        $this->assertFalse((bool) ($rehydrated['travelers'][0]['cabin_tag'] ?? true));
+        $this->assertTrue((bool) ($rehydrated['members'][0]['course_1'] ?? false));
+        $this->assertTrue((bool) ($rehydrated['members'][0]['luggage_tag'] ?? false));
+        $this->assertFalse((bool) ($rehydrated['members'][0]['cabin_tag'] ?? true));
+    }
+
+    public function test_update_preserves_collection_items_when_checklist_fields_are_omitted(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-COLLECTION-KEEP-001',
+            'name' => 'Umrah Collection Keep',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-COLLECTION-KEEP-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Checklist Keep Member', $actingUser->id);
+
+        $firstSubmitPayload = [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Checklist Keep Member',
+                    'course_1' => true,
+                    'course_2' => true,
+                    'lanyard' => true,
+                    'luggage_tag' => false,
+                ],
+            ],
+        ];
+
+        $this->post(route('manifests.store'), $firstSubmitPayload)
+            ->assertRedirect(route('manifests.index'));
+
+        $secondSubmitPayload = [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Checklist Keep Member',
+                ],
+            ],
+        ];
+
+        $this->post(route('manifests.store'), $secondSubmitPayload)
+            ->assertRedirect(route('manifests.index'));
+
+        $memberId = (int) ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->value('id');
+
+        $this->assertDatabaseHas('manifest_member_collection_items', [
+            'manifest_member_id' => $memberId,
+            'course_1' => 1,
+            'course_2' => 1,
+            'lanyard' => 1,
+            'luggage_tag' => 0,
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $this->assertTrue((bool) ($rehydrated['members'][0]['course_1'] ?? false));
+        $this->assertTrue((bool) ($rehydrated['members'][0]['course_2'] ?? false));
+        $this->assertTrue((bool) ($rehydrated['members'][0]['lanyard'] ?? false));
+        $this->assertFalse((bool) ($rehydrated['members'][0]['luggage_tag'] ?? true));
+    }
+
+    public function test_update_preserves_receipt_files_when_member_receipt_payload_is_omitted(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-RECEIPT-KEEP-001',
+            'name' => 'Umrah Receipt Keep',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-RECEIPT-KEEP-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Receipt Keep Member', $actingUser->id);
+
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Receipt Keep Member',
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $initialMemberId = (int) ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->value('id');
+
+        $this->patch(route('manifests.sections.receipt-documents.update', ['manifestId' => $manifest->id]), [
+            'manifest_member_receipts' => [
+                (string) $initialMemberId => [
+                    [
+                        'file' => UploadedFile::fake()->create('member-receipt.pdf', 100, 'application/pdf'),
+                        'file_name' => 'Member Receipt Keep.pdf',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Receipt Keep Member',
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $updatedMember = ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $updatedMember->id,
+            'field' => 'receipt',
+            'file_name' => 'Member Receipt Keep.pdf',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $this->assertCount(1, $rehydrated['members'][0]['receipt_documents'] ?? []);
+        $this->assertSame('Member Receipt Keep.pdf', $rehydrated['members'][0]['receipt_documents'][0]['file_name'] ?? null);
+    }
+
+    public function test_patch_documents_section_does_not_wipe_namelist_collection_values(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'manifest_member' => $member] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
+            'package_id' => $manifest->package_id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Section Fixture Member',
+                    'course_1' => true,
+                    'course_2' => false,
+                    'lanyard' => true,
+                    'luggage_tag' => true,
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $this->patch(route('manifests.sections.documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'documents' => [
+                'flight_tickets' => [
+                    [
+                        'file' => UploadedFile::fake()->create('c2-docs-proof.pdf', 100, 'application/pdf'),
+                        'file_name' => 'C2 Docs Proof.pdf',
+                    ],
+                ],
+                'visa' => [],
+                'hotel' => [],
+                'passport' => [],
+                'photo' => [],
+            ],
+        ])->assertOk();
+
+        $memberId = (int) ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->value('id');
+
+        $this->assertDatabaseHas('manifest_member_collection_items', [
+            'manifest_member_id' => $memberId,
+            'course_1' => 1,
+            'course_2' => 0,
+            'lanyard' => 1,
+            'luggage_tag' => 1,
+        ]);
+    }
+
+    public function test_patch_rooms_section_does_not_wipe_receipt_files(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patch(route('manifests.sections.receipt-documents.update', ['manifestId' => $manifest->id]), [
+            'manifest_member_receipts' => [
+                (string) $manifestMember->id => [
+                    [
+                        'file' => UploadedFile::fake()->create('c2-rooms-receipt.pdf', 100, 'application/pdf'),
+                        'file_name' => 'C2 Rooms Receipt.pdf',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->patchJson(route('manifests.sections.rooms.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_rooms' => [
+                [
+                    'location' => 'makkah',
+                    'sort_order' => 1,
+                    'relationship' => 'Family',
+                    'room_label' => 'C2 Room',
+                    'room_number' => 'C2-101',
+                    'room_type' => 'double',
+                    'bed_type' => 'king',
+                    'sharing_plan' => 'double',
+                    'meal' => 'Breakfast',
+                    'members' => [
+                        [
+                            'manifest_member_id' => $manifestMember->id,
+                            'customer_confirmation_member_id' => $member->id,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $refreshedMember = ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $refreshedMember->id,
+            'field' => 'receipt',
+            'file_name' => 'C2 Rooms Receipt.pdf',
+        ]);
     }
 
     public function test_manifest_status_updates_package_status_and_rehydrates_from_package(): void
@@ -361,7 +805,7 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'closed',
-            'travelers' => [],
+            'members' => [],
         ];
 
         $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
@@ -374,7 +818,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame('closed', $rehydrated['status']);
     }
 
-    public function test_get_for_edit_show_returns_grouped_travelers_shape(): void
+    public function test_get_for_edit_show_returns_grouped_members_shape(): void
     {
         $package = Package::create([
             'package_number' => 'PKG-002',
@@ -416,12 +860,22 @@ class ManifestWorkflowTest extends TestCase
         $service = app(ManifestService::class);
         $result = $service->getForEditShow($manifest->id);
 
-        $this->assertIsArray($result['travelers']);
-        $this->assertNotEmpty($result['travelers']);
+        $this->assertIsArray($result['members']);
+        $this->assertNotEmpty($result['members']);
 
-        $this->assertSame('Siti Example', $result['travelers'][0]['name_as_per_passport']);
+        $this->assertSame('Siti Example', $result['members'][0]['name_as_per_passport']);
         $this->assertArrayHasKey('roomLists', $result);
         $this->assertArrayHasKey('airlineList', $result);
+        $this->assertArrayHasKey('manifest', $result);
+        $this->assertArrayHasKey('manifest_sharing_groups', $result);
+        $this->assertArrayHasKey('manifest_rooms', $result);
+        $this->assertArrayHasKey('documents', $result);
+
+        $this->assertSame($result['id'], $result['manifest']['id']);
+        $this->assertSame($result['package_id'], $result['manifest']['package_id']);
+        $this->assertSame($result['manifest_number'], $result['manifest']['manifest_number']);
+        $this->assertCount(count($result['sharing_groups']), $result['manifest_sharing_groups']);
+        $this->assertCount(count($result['rooms']), $result['manifest_rooms']);
     }
 
     public function test_update_persists_and_rehydrates_manifest_sharing_group_remarks(): void
@@ -447,7 +901,7 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'sn' => 1,
                     'customer_confirmation_member_id' => $memberOne->id,
@@ -480,7 +934,7 @@ class ManifestWorkflowTest extends TestCase
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
         $this->assertSame(
             'Shared group note from main tab',
-            $rehydrated['travelers'][0]['group_remarks'] ?? null,
+            $rehydrated['members'][0]['group_remarks'] ?? null,
         );
     }
 
@@ -495,34 +949,34 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'open',
         ]);
 
-        $memberOne = $this->createMemberForPackage($package->id, 'Traveler One', $actingUser->id);
-        $memberTwo = $this->createMemberForPackage($package->id, 'Traveler Two', $actingUser->id);
+        $memberOne = $this->createMemberForPackage($package->id, 'Member One', $actingUser->id);
+        $memberTwo = $this->createMemberForPackage($package->id, 'Member Two', $actingUser->id);
 
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'sn' => 1,
-                    'name_as_per_passport' => 'Traveler One',
+                    'name_as_per_passport' => 'Member One',
                 ],
                 [
                     'sn' => 2,
-                    'name_as_per_passport' => 'Traveler Two',
+                    'name_as_per_passport' => 'Member Two',
                 ],
             ],
             'roomLists' => [
                 'makkah' => [
                     [
                         'customer_confirmation_member_id' => $memberOne->id,
-                        'name_as_per_passport' => 'Traveler One',
-                        'room_no' => 'M-201',
+                        'name_as_per_passport' => 'Member One',
+                        'room_number' => 'M-201',
                         'room_type' => 'Double',
                     ],
                     [
                         'customer_confirmation_member_id' => $memberTwo->id,
-                        'name_as_per_passport' => 'Traveler Two',
-                        'room_no' => 'M-202',
+                        'name_as_per_passport' => 'Member Two',
+                        'room_number' => 'M-202',
                         'room_type' => 'Double',
                     ],
                 ],
@@ -548,48 +1002,48 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'open',
         ]);
 
-        $memberA = $this->createMemberForPackage($package->id, 'Traveler A', $actingUser->id);
-        $memberB = $this->createMemberForPackage($package->id, 'Traveler B', $actingUser->id);
+        $memberA = $this->createMemberForPackage($package->id, 'Member A', $actingUser->id);
+        $memberB = $this->createMemberForPackage($package->id, 'Member B', $actingUser->id);
 
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'sn' => 1,
-                    'name_as_per_passport' => 'Traveler A',
+                    'name_as_per_passport' => 'Member A',
                 ],
                 [
                     'sn' => 2,
-                    'name_as_per_passport' => 'Traveler B',
+                    'name_as_per_passport' => 'Member B',
                 ],
             ],
             'roomLists' => [
                 'makkah' => [
                     [
                         'customer_confirmation_member_id' => $memberA->id,
-                        'name_as_per_passport' => 'Traveler A',
-                        'room_no' => 'MK-01',
+                        'name_as_per_passport' => 'Member A',
+                        'room_number' => 'MK-01',
                         'sort_order' => 1,
                     ],
                     [
                         'customer_confirmation_member_id' => $memberB->id,
-                        'name_as_per_passport' => 'Traveler B',
-                        'room_no' => 'MK-02',
+                        'name_as_per_passport' => 'Member B',
+                        'room_number' => 'MK-02',
                         'sort_order' => 2,
                     ],
                 ],
                 'madinah' => [
                     [
                         'customer_confirmation_member_id' => $memberB->id,
-                        'name_as_per_passport' => 'Traveler B',
-                        'room_no' => 'MD-01',
+                        'name_as_per_passport' => 'Member B',
+                        'room_number' => 'MD-01',
                         'sort_order' => 1,
                     ],
                     [
                         'customer_confirmation_member_id' => $memberA->id,
-                        'name_as_per_passport' => 'Traveler A',
-                        'room_no' => 'MD-02',
+                        'name_as_per_passport' => 'Member A',
+                        'room_number' => 'MD-02',
                         'sort_order' => 2,
                     ],
                 ],
@@ -627,8 +1081,8 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'open',
         ]);
 
-        $memberOne = $this->createMemberForPackage($package->id, 'Traveler Room One', $actingUser->id);
-        $memberTwo = $this->createMemberForPackage($package->id, 'Traveler Room Two', $actingUser->id);
+        $memberOne = $this->createMemberForPackage($package->id, 'Member Room One', $actingUser->id);
+        $memberTwo = $this->createMemberForPackage($package->id, 'Member Room Two', $actingUser->id);
 
         $manifest = Manifest::create([
             'package_id' => $package->id,
@@ -640,16 +1094,16 @@ class ManifestWorkflowTest extends TestCase
             'id' => $manifest->id,
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $memberOne->id,
-                    'name_as_per_passport' => 'Traveler Room One',
+                    'name_as_per_passport' => 'Member Room One',
                     'sharing_plan' => 'double',
                     'sharing_group_key' => 'group-makkah-1',
                 ],
                 [
                     'customer_confirmation_member_id' => $memberTwo->id,
-                    'name_as_per_passport' => 'Traveler Room Two',
+                    'name_as_per_passport' => 'Member Room Two',
                     'sharing_plan' => 'double',
                     'sharing_group_key' => 'group-madinah-1',
                 ],
@@ -658,11 +1112,11 @@ class ManifestWorkflowTest extends TestCase
                 'makkah' => [
                     [
                         'customer_confirmation_member_id' => $memberOne->id,
-                        'name_as_per_passport' => 'Traveler Room One',
+                        'name_as_per_passport' => 'Member Room One',
                         'sharing_group_key' => 'group-makkah-1',
                         'room_relationship' => 'Family',
                         'room_label' => 'Makkah Room A',
-                        'room_no' => 'MK-901',
+                        'room_number' => 'MK-901',
                         'room_type' => 'double',
                         'bed_type' => 'king',
                         'sharing_plan' => 'double',
@@ -672,11 +1126,11 @@ class ManifestWorkflowTest extends TestCase
                 'madinah' => [
                     [
                         'customer_confirmation_member_id' => $memberTwo->id,
-                        'name_as_per_passport' => 'Traveler Room Two',
+                        'name_as_per_passport' => 'Member Room Two',
                         'sharing_group_key' => 'group-madinah-1',
                         'room_relationship' => 'Friends',
                         'room_label' => 'Madinah Room B',
-                        'room_no' => 'MD-902',
+                        'room_number' => 'MD-902',
                         'room_type' => 'triple',
                         'bed_type' => 'single',
                         'sharing_plan' => 'triple',
@@ -807,22 +1261,22 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $manifestPackage->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'sn' => 1,
                     'customer_confirmation_member_id' => $member->id,
-                    'name_as_per_passport' => 'Mismatch Traveler',
+                    'name_as_per_passport' => 'Mismatch Member',
                 ],
             ],
         ];
 
         $this->post(route('manifests.store'), $payload)
-            ->assertSessionHasErrors('travelers');
+            ->assertSessionHasErrors('members');
 
         $this->assertSame(0, Manifest::count());
     }
 
-    public function test_update_room_members_uses_current_manifest_traveler_ids_after_reorder(): void
+    public function test_update_room_members_uses_current_manifest_member_ids_after_reorder(): void
     {
         $actingUser = User::factory()->create();
         $this->actingAs($actingUser);
@@ -833,8 +1287,8 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'open',
         ]);
 
-        $memberOne = $this->createMemberForPackage($package->id, 'Traveler One', $actingUser->id);
-        $memberTwo = $this->createMemberForPackage($package->id, 'Traveler Two', $actingUser->id);
+        $memberOne = $this->createMemberForPackage($package->id, 'Member One', $actingUser->id);
+        $memberTwo = $this->createMemberForPackage($package->id, 'Member Two', $actingUser->id);
 
         $manifest = Manifest::create([
             'package_id' => $package->id,
@@ -842,12 +1296,12 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $travelerOne = ManifestMember::create([
+        $memberOne = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberOne->id,
         ]);
 
-        $travelerTwo = ManifestMember::create([
+        $memberTwo = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberTwo->id,
         ]);
@@ -855,39 +1309,39 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
-                    'id' => $travelerOne->id,
+                    'id' => $memberOne->id,
                     'customer_confirmation_member_id' => $memberOne->id,
-                    'name_as_per_passport' => 'Traveler One',
+                    'name_as_per_passport' => 'Member One',
                 ],
                 [
-                    'id' => $travelerTwo->id,
+                    'id' => $memberTwo->id,
                     'customer_confirmation_member_id' => $memberTwo->id,
-                    'name_as_per_passport' => 'Traveler Two',
+                    'name_as_per_passport' => 'Member Two',
                 ],
             ],
             'roomLists' => [
                 'makkah' => [
                     [
-                        'id' => $travelerOne->id,
-                        'manifest_traveler_id' => $travelerOne->id,
+                        'id' => $memberOne->id,
+                        'manifest_member_id' => $memberOne->id,
                         'customer_confirmation_member_id' => $memberOne->id,
                         'sharing_group_key' => 'group-1',
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'RM-1',
+                        'room_number' => 'RM-1',
                     ],
                     [
-                        'id' => $travelerTwo->id,
-                        'manifest_traveler_id' => $travelerTwo->id,
+                        'id' => $memberTwo->id,
+                        'manifest_member_id' => $memberTwo->id,
                         'customer_confirmation_member_id' => $memberTwo->id,
                         'sharing_group_key' => 'group-1',
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'RM-1',
+                        'room_number' => 'RM-1',
                     ],
                 ],
             ],
@@ -897,19 +1351,19 @@ class ManifestWorkflowTest extends TestCase
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
-        $currentTravelerIds = $manifest->travelers()->pluck('id')->all();
+        $currentMemberIds = $manifest->members()->pluck('id')->all();
 
-        $this->assertCount(2, $currentTravelerIds);
+        $this->assertCount(2, $currentMemberIds);
         $this->assertDatabaseCount('manifest_room_members', 2);
 
-        foreach ($currentTravelerIds as $travelerId) {
+        foreach ($currentMemberIds as $memberId) {
             $this->assertDatabaseHas('manifest_room_members', [
-                'manifest_traveler_id' => $travelerId,
+                'manifest_member_id' => $memberId,
             ]);
         }
     }
 
-    public function test_manifest_traveler_can_be_moved_to_holding_confirmation(): void
+    public function test_manifest_member_can_be_moved_to_holding_confirmation(): void
     {
         $actingUser = User::factory()->create();
         $customerUser = User::factory()->create();
@@ -953,20 +1407,20 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'confirmed',
         ]);
 
-        $traveler = ManifestMember::create([
+        $manifestMember = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
         ]);
 
-        $this->postJson(route('manifests.travelers.move-holding', [
+        $this->postJson(route('manifests.members.move-holding', [
             'manifestId' => $manifest->id,
-            'travelerId' => $traveler->id,
+            'memberId' => $manifestMember->id,
         ]), [
             'target_package_id' => $targetPackage->id,
         ])->assertOk();
 
         $this->assertDatabaseMissing('manifest_members', [
-            'id' => $traveler->id,
+            'id' => $manifestMember->id,
         ]);
 
         $this->assertDatabaseHas('customer_confirmation_members', [
@@ -1006,15 +1460,15 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $member = $this->createMemberForPackage($package->id, 'Nullable Room Traveler', $actingUser->id);
+        $member = $this->createMemberForPackage($package->id, 'Nullable Room Member', $actingUser->id);
 
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'sn' => 1,
-                    'name_as_per_passport' => 'Nullable Room Traveler',
+                    'name_as_per_passport' => 'Nullable Room Member',
                     'customer_confirmation_member_id' => $member->id,
                 ],
             ],
@@ -1022,9 +1476,9 @@ class ManifestWorkflowTest extends TestCase
                 'makkah' => [
                     [
                         'sn' => 1,
-                        'name_as_per_passport' => 'Nullable Room Traveler',
+                        'name_as_per_passport' => 'Nullable Room Member',
                         'customer_confirmation_member_id' => $member->id,
-                        'room_no' => null,
+                        'room_number' => null,
                         'room_type' => 'double',
                         'bed_type' => null,
                         'capacity' => 3,
@@ -1066,15 +1520,15 @@ class ManifestWorkflowTest extends TestCase
         $memberTwo = $this->createMemberForPackage($package->id, 'Regroup Two', $actingUser->id);
         $memberThree = $this->createMemberForPackage($package->id, 'Regroup Three', $actingUser->id);
 
-        $travelerOne = ManifestMember::create([
+        $memberOne = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberOne->id,
         ]);
-        $travelerTwo = ManifestMember::create([
+        $memberTwo = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberTwo->id,
         ]);
-        $travelerThree = ManifestMember::create([
+        $memberThree = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberThree->id,
         ]);
@@ -1082,19 +1536,19 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
-                    'id' => $travelerOne->id,
+                    'id' => $memberOne->id,
                     'customer_confirmation_member_id' => $memberOne->id,
                     'name_as_per_passport' => 'Regroup One',
                 ],
                 [
-                    'id' => $travelerTwo->id,
+                    'id' => $memberTwo->id,
                     'customer_confirmation_member_id' => $memberTwo->id,
                     'name_as_per_passport' => 'Regroup Two',
                 ],
                 [
-                    'id' => $travelerThree->id,
+                    'id' => $memberThree->id,
                     'customer_confirmation_member_id' => $memberThree->id,
                     'name_as_per_passport' => 'Regroup Three',
                 ],
@@ -1102,7 +1556,7 @@ class ManifestWorkflowTest extends TestCase
             'roomLists' => [
                 'makkah' => [
                     [
-                        'manifest_traveler_id' => $travelerOne->id,
+                        'manifest_member_id' => $memberOne->id,
                         'customer_confirmation_member_id' => $memberOne->id,
                         'name_as_per_passport' => 'Regroup One',
                         'sharing_group_key' => 'room-double-a',
@@ -1110,11 +1564,11 @@ class ManifestWorkflowTest extends TestCase
                         'room_type' => 'double',
                         'bed_type' => 'king',
                         'room_label' => 'Room 1',
-                        'room_no' => 'MK-501',
+                        'room_number' => 'MK-501',
                         'sort_order' => 1,
                     ],
                     [
-                        'manifest_traveler_id' => $travelerTwo->id,
+                        'manifest_member_id' => $memberTwo->id,
                         'customer_confirmation_member_id' => $memberTwo->id,
                         'name_as_per_passport' => 'Regroup Two',
                         'sharing_group_key' => 'room-double-a',
@@ -1122,11 +1576,11 @@ class ManifestWorkflowTest extends TestCase
                         'room_type' => 'double',
                         'bed_type' => 'king',
                         'room_label' => 'Room 1',
-                        'room_no' => 'MK-501',
+                        'room_number' => 'MK-501',
                         'sort_order' => 2,
                     ],
                     [
-                        'manifest_traveler_id' => $travelerThree->id,
+                        'manifest_member_id' => $memberThree->id,
                         'customer_confirmation_member_id' => $memberThree->id,
                         'name_as_per_passport' => 'Regroup Three',
                         'sharing_group_key' => 'room-single-b',
@@ -1134,7 +1588,7 @@ class ManifestWorkflowTest extends TestCase
                         'room_type' => 'single',
                         'bed_type' => 'single',
                         'room_label' => 'Room 2',
-                        'room_no' => 'MK-502',
+                        'room_number' => 'MK-502',
                         'sort_order' => 1,
                     ],
                 ],
@@ -1174,24 +1628,24 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $member = $this->createMemberForPackage($package->id, 'Sharing Member', $actingUser->id);
-        $member->update([
+        $confirmationMember = $this->createMemberForPackage($package->id, 'Sharing Member', $actingUser->id);
+        $confirmationMember->update([
             'sharing_plan' => 'single',
             'role' => 'Spouse',
         ]);
 
-        $traveler = ManifestMember::create([
+        $manifestMember = ManifestMember::create([
             'manifest_id' => $manifest->id,
-            'customer_confirmation_member_id' => $member->id,
+            'customer_confirmation_member_id' => $confirmationMember->id,
         ]);
 
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
-                    'id' => $traveler->id,
-                    'customer_confirmation_member_id' => $member->id,
+                    'id' => $manifestMember->id,
+                    'customer_confirmation_member_id' => $confirmationMember->id,
                     'name_as_per_passport' => 'Sharing Member',
                     'sharing_plan' => 'double',
                 ],
@@ -1199,8 +1653,8 @@ class ManifestWorkflowTest extends TestCase
             'roomLists' => [
                 'makkah' => [
                     [
-                        'manifest_traveler_id' => $traveler->id,
-                        'customer_confirmation_member_id' => $member->id,
+                        'manifest_member_id' => $manifestMember->id,
+                        'customer_confirmation_member_id' => $confirmationMember->id,
                         'name_as_per_passport' => 'Sharing Member',
                         'sharing_group_key' => 'room-relationship-a',
                         'room_relationship' => 'Family',
@@ -1208,7 +1662,7 @@ class ManifestWorkflowTest extends TestCase
                         'room_type' => 'double',
                         'bed_type' => 'king',
                         'room_label' => 'Room A',
-                        'room_no' => 'MK-700',
+                        'room_number' => 'MK-700',
                         'sort_order' => 1,
                     ],
                 ],
@@ -1218,9 +1672,9 @@ class ManifestWorkflowTest extends TestCase
         $this->post(route('manifests.store'), [...$payload, 'id' => $manifest->id])
             ->assertRedirect(route('manifests.index'));
 
-        $member->refresh();
+        $confirmationMember->refresh();
 
-        $this->assertSame('double', $member->sharing_plan);
+        $this->assertSame('double', $confirmationMember->sharing_plan);
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
             'location' => 'makkah',
@@ -1242,7 +1696,7 @@ class ManifestWorkflowTest extends TestCase
         ]);
 
         $customerUser = User::factory()->create([
-            'name' => 'Traveler Role Relation',
+            'name' => 'Member Role Relation',
             'contact' => '0198877665',
         ]);
 
@@ -1275,10 +1729,10 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $member->id,
-                    'name_as_per_passport' => 'Traveler Role Relation',
+                    'name_as_per_passport' => 'Member Role Relation',
                     'relationship' => 'family',
                     'sharing_group_key' => 'group-role-rel-1',
                 ],
@@ -1340,7 +1794,7 @@ class ManifestWorkflowTest extends TestCase
         $this->post(route('manifests.store'), [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $first->id,
                     'customer_confirmation_id' => $confirmation->id,
@@ -1396,7 +1850,7 @@ class ManifestWorkflowTest extends TestCase
         $manifest = Manifest::query()->firstOrFail();
         $payload = app(ManifestService::class)->getForEditShow((int) $manifest->id);
 
-        $payload['travelers'][] = [
+        $payload['members'][] = [
             'customer_confirmation_member_id' => $fourth->id,
             'customer_confirmation_id' => $confirmation->id,
             'name_as_per_passport' => 'Capacity Member 4',
@@ -1438,7 +1892,7 @@ class ManifestWorkflowTest extends TestCase
             ->all();
 
         $this->assertSame([2, 2], $groupMemberCounts);
-        $this->assertSame([2, 2], $roomMemberCounts);
+        $this->assertSame([1, 2], $roomMemberCounts);
     }
 
     public function test_update_keeps_new_confirmation_members_separate_from_official_group_and_assigns_rooms_per_location(): void
@@ -1478,7 +1932,7 @@ class ManifestWorkflowTest extends TestCase
         app(ManifestService::class)->update([
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'package_official_id' => $official->id,
                     'name_as_per_passport' => 'Official One',
@@ -1513,7 +1967,7 @@ class ManifestWorkflowTest extends TestCase
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'MK-001',
+                        'room_number' => 'MK-001',
                     ],
                     [
                         'customer_confirmation_member_id' => $memberTwo->id,
@@ -1523,7 +1977,7 @@ class ManifestWorkflowTest extends TestCase
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'MK-001',
+                        'room_number' => 'MK-001',
                     ],
                     [
                         'package_official_id' => $official->id,
@@ -1532,7 +1986,7 @@ class ManifestWorkflowTest extends TestCase
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'MK-001',
+                        'room_number' => 'MK-001',
                     ],
                 ],
                 'madinah' => [
@@ -1544,7 +1998,7 @@ class ManifestWorkflowTest extends TestCase
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'MD-001',
+                        'room_number' => 'MD-001',
                     ],
                     [
                         'customer_confirmation_member_id' => $memberTwo->id,
@@ -1554,7 +2008,7 @@ class ManifestWorkflowTest extends TestCase
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'MD-001',
+                        'room_number' => 'MD-001',
                     ],
                     [
                         'package_official_id' => $official->id,
@@ -1563,7 +2017,7 @@ class ManifestWorkflowTest extends TestCase
                         'sharing_plan' => 'double',
                         'room_type' => 'double',
                         'bed_type' => 'king',
-                        'room_no' => 'MD-001',
+                        'room_number' => 'MD-001',
                     ],
                 ],
             ],
@@ -1629,7 +2083,7 @@ class ManifestWorkflowTest extends TestCase
         app(ManifestService::class)->update([
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'package_official_id' => $official->id,
                     'name_as_per_passport' => 'Official Member',
@@ -1659,13 +2113,13 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNull($orderedGroups[1]->customer_confirmation_id);
 
         $result = app(ManifestService::class)->getForEditShow((int) $manifest->id);
-        $travelers = $result['travelers'];
+        $members = $result['members'];
 
-        $this->assertCount(2, $travelers);
-        $this->assertSame($member->id, $travelers[0]['customer_confirmation_member_id']);
-        $this->assertSame($official->id, $travelers[1]['package_official_id']);
-        $this->assertSame(1, (int) ($travelers[0]['group_sort_order'] ?? 0));
-        $this->assertSame(2, (int) ($travelers[1]['group_sort_order'] ?? 0));
+        $this->assertCount(2, $members);
+        $this->assertSame($member->id, $members[0]['customer_confirmation_member_id']);
+        $this->assertSame($official->id, $members[1]['package_official_id']);
+        $this->assertSame(1, (int) ($members[0]['group_sort_order'] ?? 0));
+        $this->assertSame(2, (int) ($members[1]['group_sort_order'] ?? 0));
     }
 
     public function test_update_keeps_member_order_stable_inside_same_sharing_group_across_repeated_updates(): void
@@ -1717,7 +2171,7 @@ class ManifestWorkflowTest extends TestCase
         app(ManifestService::class)->update([
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $memberA->id,
                     'customer_confirmation_id' => $confirmation->id,
@@ -1748,21 +2202,21 @@ class ManifestWorkflowTest extends TestCase
         $service = app(ManifestService::class);
         $payload = $service->getForEditShow((int) $manifest->id);
 
-        $this->assertSame($memberA->id, $payload['travelers'][0]['customer_confirmation_member_id']);
-        $this->assertSame($memberB->id, $payload['travelers'][1]['customer_confirmation_member_id']);
-        $this->assertSame($memberC->id, $payload['travelers'][2]['customer_confirmation_member_id']);
+        $this->assertSame($memberA->id, $payload['members'][0]['customer_confirmation_member_id']);
+        $this->assertSame($memberB->id, $payload['members'][1]['customer_confirmation_member_id']);
+        $this->assertSame($memberC->id, $payload['members'][2]['customer_confirmation_member_id']);
 
         app(ManifestService::class)->update([
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => $payload['travelers'],
+            'members' => $payload['members'],
         ], (int) $manifest->id);
 
         $payloadAfterSecondUpdate = $service->getForEditShow((int) $manifest->id);
 
-        $this->assertSame($memberA->id, $payloadAfterSecondUpdate['travelers'][0]['customer_confirmation_member_id']);
-        $this->assertSame($memberB->id, $payloadAfterSecondUpdate['travelers'][1]['customer_confirmation_member_id']);
-        $this->assertSame($memberC->id, $payloadAfterSecondUpdate['travelers'][2]['customer_confirmation_member_id']);
+        $this->assertSame($memberA->id, $payloadAfterSecondUpdate['members'][0]['customer_confirmation_member_id']);
+        $this->assertSame($memberB->id, $payloadAfterSecondUpdate['members'][1]['customer_confirmation_member_id']);
+        $this->assertSame($memberC->id, $payloadAfterSecondUpdate['members'][2]['customer_confirmation_member_id']);
     }
 
     public function test_update_removes_members_missing_from_room_list_and_drops_empty_rooms(): void
@@ -1786,19 +2240,19 @@ class ManifestWorkflowTest extends TestCase
         $memberTwo = $this->createMemberForPackage($package->id, 'Room Remove Two', $actingUser->id);
         $memberThree = $this->createMemberForPackage($package->id, 'Room Remove Three', $actingUser->id);
 
-        $travelerOne = ManifestMember::create([
+        $memberOne = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberOne->id,
             'name' => 'Room Keep One',
         ]);
 
-        $travelerTwo = ManifestMember::create([
+        $memberTwo = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberTwo->id,
             'name' => 'Room Remove Two',
         ]);
 
-        $travelerThree = ManifestMember::create([
+        $memberThree = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $memberThree->id,
             'name' => 'Room Remove Three',
@@ -1807,21 +2261,21 @@ class ManifestWorkflowTest extends TestCase
         $payload = [
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
-                    'id' => $travelerOne->id,
+                    'id' => $memberOne->id,
                     'customer_confirmation_member_id' => $memberOne->id,
                     'name_as_per_passport' => 'Room Keep One',
                     'sharing_plan' => 'double',
                 ],
                 [
-                    'id' => $travelerTwo->id,
+                    'id' => $memberTwo->id,
                     'customer_confirmation_member_id' => $memberTwo->id,
                     'name_as_per_passport' => 'Room Remove Two',
                     'sharing_plan' => 'double',
                 ],
                 [
-                    'id' => $travelerThree->id,
+                    'id' => $memberThree->id,
                     'customer_confirmation_member_id' => $memberThree->id,
                     'name_as_per_passport' => 'Room Remove Three',
                     'sharing_plan' => 'single',
@@ -1830,7 +2284,7 @@ class ManifestWorkflowTest extends TestCase
             'roomLists' => [
                 'makkah' => [
                     [
-                        'manifest_traveler_id' => $travelerOne->id,
+                        'manifest_member_id' => $memberOne->id,
                         'customer_confirmation_member_id' => $memberOne->id,
                         'name_as_per_passport' => 'Room Keep One',
                         'sharing_group_key' => 'room-keep-a',
@@ -1838,7 +2292,7 @@ class ManifestWorkflowTest extends TestCase
                         'room_type' => 'double',
                         'bed_type' => 'king',
                         'room_label' => 'Room Keep',
-                        'room_no' => 'MK-801',
+                        'room_number' => 'MK-801',
                     ],
                 ],
             ],
@@ -1848,17 +2302,17 @@ class ManifestWorkflowTest extends TestCase
             ->assertRedirect(route('manifests.index'));
 
         $manifest->refresh();
-        $manifest->load(['rooms.roomMembers', 'travelers']);
+        $manifest->load(['rooms.roomMembers', 'members']);
 
         $this->assertCount(1, $manifest->rooms);
         $this->assertSame('MK-801', $manifest->rooms[0]->room_number);
         $this->assertCount(1, $manifest->rooms[0]->roomMembers);
 
-        $persistedTravelerOneId = (int) $manifest->travelers()
+        $persistedMemberOneId = (int) $manifest->members()
             ->where('customer_confirmation_member_id', $memberOne->id)
             ->value('id');
 
-        $this->assertSame($persistedTravelerOneId, (int) $manifest->rooms[0]->roomMembers[0]->manifest_traveler_id);
+        $this->assertSame($persistedMemberOneId, (int) $manifest->rooms[0]->roomMembers[0]->manifest_member_id);
     }
 
     public function test_collection_items_pdf_export_returns_pdf_response(): void
@@ -1894,7 +2348,7 @@ class ManifestWorkflowTest extends TestCase
             'id' => $manifest->id,
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $member->id,
                     'name_as_per_passport' => 'Collection Pdf Member',
@@ -1943,7 +2397,7 @@ class ManifestWorkflowTest extends TestCase
             'package_id' => $package->id,
             'in_charge_official_id' => $official->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $member->id,
                     'name_as_per_passport' => 'Arabic Pdf Member',
@@ -1991,7 +2445,7 @@ class ManifestWorkflowTest extends TestCase
             'id' => $manifest->id,
             'package_id' => $package->id,
             'status' => 'draft',
-            'travelers' => [
+            'members' => [
                 [
                     'customer_confirmation_member_id' => $member->id,
                     'name_as_per_passport' => 'Room Check Member',
@@ -2007,7 +2461,7 @@ class ManifestWorkflowTest extends TestCase
                         'sharing_group_key' => 'room-check-group-1',
                         'room_relationship' => 'Family',
                         'room_label' => 'Room 1',
-                        'room_no' => 'MK-401',
+                        'room_number' => 'MK-401',
                         'room_type' => 'double',
                         'bed_type' => 'king',
                         'number_of_beds_checked' => true,
@@ -2050,7 +2504,7 @@ class ManifestWorkflowTest extends TestCase
         $member = $this->createMemberForPackage($package->id, 'Financial Member', $actingUser->id);
         $member->update(['sharing_plan' => 'double']);
 
-        $manifestTraveler = ManifestMember::create([
+        $manifestMember = ManifestMember::create([
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
             'sharing_plan' => 'double',
@@ -2142,22 +2596,22 @@ class ManifestWorkflowTest extends TestCase
 
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
 
-        $travelerRow = collect($rehydrated['travelers'])
+        $memberRow = collect($rehydrated['members'])
             ->firstWhere('customer_confirmation_member_id', $member->id);
 
-        $this->assertNotNull($travelerRow);
-        $this->assertSame(300.0, (float) ($travelerRow['discount'] ?? 0));
+        $this->assertNotNull($memberRow);
+        $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(
             Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
-            $travelerRow['date_of_deposit_payment']
+            $memberRow['date_of_deposit_payment']
         );
-        $this->assertSame(1000.0, (float) ($travelerRow['deposit_payment'] ?? 0));
+        $this->assertSame(1000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
             Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
-            $travelerRow['date_of_second_payment']
+            $memberRow['date_of_second_payment']
         );
-        $this->assertSame(2000.0, (float) ($travelerRow['second_payment'] ?? 0));
-        $this->assertSame(1700.0, (float) ($travelerRow['balance_due'] ?? 0));
+        $this->assertSame(2000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(1700.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_splits_receipt_amounts_by_carried_members_in_each_receipt(): void
@@ -2304,22 +2758,514 @@ class ManifestWorkflowTest extends TestCase
 
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
 
-        $travelerRow = collect($rehydrated['travelers'])
+        $memberRow = collect($rehydrated['members'])
             ->firstWhere('customer_confirmation_member_id', $primaryMember->id);
 
-        $this->assertNotNull($travelerRow);
-        $this->assertSame(100.0, (float) ($travelerRow['discount'] ?? 0));
+        $this->assertNotNull($memberRow);
+        $this->assertSame(100.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(
             Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
-            $travelerRow['date_of_deposit_payment']
+            $memberRow['date_of_deposit_payment']
         );
-        $this->assertSame(500.0, (float) ($travelerRow['deposit_payment'] ?? 0));
+        $this->assertSame(500.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
             Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
-            $travelerRow['date_of_second_payment']
+            $memberRow['date_of_second_payment']
         );
-        $this->assertSame(1200.0, (float) ($travelerRow['second_payment'] ?? 0));
-        $this->assertSame(3200.0, (float) ($travelerRow['balance_due'] ?? 0));
+        $this->assertSame(1200.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(3200.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_patch_manifest_core_section_updates_manifest_fields_and_package_status(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-SECTION-CORE-001',
+            'name' => 'Section Core Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-SECTION-CORE-001',
+            'notes' => 'Initial notes',
+        ]);
+
+        $this->patchJson(route('manifests.sections.core.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'notes' => 'Core section updated notes',
+            'status' => 'closed',
+        ])->assertOk()
+            ->assertJsonPath('message', 'Manifest core section updated successfully.');
+
+        $manifest->refresh();
+        $package->refresh();
+
+        $this->assertSame('Core section updated notes', $manifest->notes);
+        $this->assertSame('closed', $package->status);
+    }
+
+    public function test_patch_manifest_sharing_groups_section_updates_member_data(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patchJson(route('manifests.sections.sharing-groups.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_sharing_groups' => [
+                [
+                    'id' => null,
+                    'customer_confirmation_id' => $member->customer_confirmation_id,
+                    'sort_order' => 1,
+                    'relation' => 'Family',
+                    'remarks' => 'Section endpoint group',
+                    'members' => [
+                        [
+                            'id' => $manifestMember->id,
+                            'customer_confirmation_member_id' => $member->id,
+                            'role' => 'husband',
+                            'sharing_plan' => 'double',
+                            'sort_order' => 1,
+                            'patch' => [
+                                'passport_number' => 'PATCH-SHARE-001',
+                                'name_as_per_passport' => 'Section Member',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Manifest sharing-groups section updated successfully.');
+
+        $this->assertDatabaseHas('manifest_members', [
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'passport_number' => 'PATCH-SHARE-001',
+            'role' => 'husband',
+        ]);
+    }
+
+    public function test_patch_manifest_rooms_section_updates_room_and_members(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patchJson(route('manifests.sections.rooms.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_rooms' => [
+                [
+                    'location' => 'makkah',
+                    'sort_order' => 1,
+                    'relationship' => 'Family',
+                    'room_label' => 'Section Room 1',
+                    'room_number' => 'SEC-501',
+                    'room_type' => 'double',
+                    'bed_type' => 'king',
+                    'sharing_plan' => 'double',
+                    'meal' => 'Breakfast',
+                    'remarks' => 'Section room remarks',
+                    'members' => [
+                        [
+                            'manifest_member_id' => $manifestMember->id,
+                            'customer_confirmation_member_id' => $member->id,
+                            'sort_order' => 1,
+                            'remarks' => 'Section member remarks',
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Manifest rooms section updated successfully.');
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'location' => 'makkah',
+            'room_number' => 'SEC-501',
+            'room_label' => 'Section Room 1',
+            'remarks' => 'Section room remarks',
+        ]);
+
+        $roomId = (int) Manifest::query()->findOrFail($manifest->id)
+            ->rooms()
+            ->value('id');
+
+        $this->assertDatabaseHas('manifest_room_members', [
+            'manifest_room_id' => $roomId,
+            'manifest_member_id' => $manifestMember->id,
+            'sort_order' => 1,
+            'remarks' => 'Section member remarks',
+        ]);
+    }
+
+    public function test_patch_manifest_documents_section_updates_manifest_documents(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patch(route('manifests.sections.documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'documents' => [
+                'flight_tickets' => [
+                    [
+                        'file' => UploadedFile::fake()->create('section-flight.pdf', 100, 'application/pdf'),
+                        'file_name' => 'Section Flight Ticket.pdf',
+                    ],
+                ],
+                'visa' => [],
+                'hotel' => [],
+                'passport' => [],
+                'photo' => [],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Manifest::class,
+            'fileable_id' => $manifest->id,
+            'field' => 'flight_tickets',
+            'file_name' => 'Section Flight Ticket.pdf',
+        ]);
+    }
+
+    public function test_patch_manifest_receipt_documents_section_adds_manifest_member_receipts(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patch(route('manifests.sections.receipt-documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_member_receipts' => [
+                (string) $manifestMember->id => [
+                    [
+                        'file' => UploadedFile::fake()->create('receipt-add.pdf', 100, 'application/pdf'),
+                        'file_name' => 'Receipt Added.pdf',
+                    ],
+                ],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Manifest receipt-documents section updated successfully.');
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $manifestMember->id,
+            'field' => 'receipt',
+            'file_name' => 'Receipt Added.pdf',
+        ]);
+
+        $storedPath = (string) ModelFile::query()
+            ->where('fileable_type', ManifestMember::class)
+            ->where('fileable_id', $manifestMember->id)
+            ->where('field', 'receipt')
+            ->value('file_path');
+
+        Storage::disk('public')->assertExists($storedPath);
+    }
+
+    public function test_patch_manifest_receipt_documents_section_accepts_manifest_member_receipts_key(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patch(route('manifests.sections.receipt-documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_member_receipts' => [
+                (string) $manifestMember->id => [
+                    [
+                        'file' => UploadedFile::fake()->create('member-receipt-add.pdf', 100, 'application/pdf'),
+                        'file_name' => 'Member Receipt Added.pdf',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $manifestMember->id,
+            'field' => 'receipt',
+            'file_name' => 'Member Receipt Added.pdf',
+        ]);
+    }
+
+    public function test_patch_manifest_rooms_section_accepts_manifest_member_id_alias(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patchJson(route('manifests.sections.rooms.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_rooms' => [
+                [
+                    'location' => 'makkah',
+                    'sort_order' => 1,
+                    'relationship' => 'Family',
+                    'room_label' => 'Member Alias Room',
+                    'room_number' => 'MEM-501',
+                    'room_type' => 'double',
+                    'bed_type' => 'king',
+                    'sharing_plan' => 'double',
+                    'meal' => 'Breakfast',
+                    'members' => [
+                        [
+                            'manifest_member_id' => $manifestMember->id,
+                            'customer_confirmation_member_id' => $member->id,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'room_number' => 'MEM-501',
+        ]);
+
+        $roomId = (int) Manifest::query()->findOrFail($manifest->id)
+            ->rooms()
+            ->value('id');
+
+        $this->assertDatabaseHas('manifest_room_members', [
+            'manifest_room_id' => $roomId,
+            'manifest_member_id' => $manifestMember->id,
+        ]);
+    }
+
+    public function test_get_for_edit_show_canonical_payload_preserves_member_role_and_room_member_ids(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $confirmationMember, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patchJson(route('manifests.sections.rooms.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_rooms' => [
+                [
+                    'location' => 'makkah',
+                    'sort_order' => 1,
+                    'relationship' => 'Family',
+                    'room_label' => 'Canonical Identity Room',
+                    'room_number' => 'CID-501',
+                    'room_type' => 'double',
+                    'bed_type' => 'queen',
+                    'sharing_plan' => 'double',
+                    'meal' => 'Breakfast',
+                    'members' => [
+                        [
+                            'manifest_member_id' => $manifestMember->id,
+                            'customer_confirmation_member_id' => $confirmationMember->id,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $result = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $canonicalGroupMember = $result['manifest_sharing_groups'][0]['members'][0] ?? null;
+        $this->assertIsArray($canonicalGroupMember);
+        $this->assertSame($manifestMember->id, $canonicalGroupMember['id']);
+        $this->assertSame($confirmationMember->id, $canonicalGroupMember['customer_confirmation_member_id']);
+        $this->assertSame('member', $canonicalGroupMember['role']);
+
+        $legacyRoomMember = $result['rooms'][0]['members'][0] ?? null;
+        $canonicalRoomMember = $result['manifest_rooms'][0]['members'][0] ?? null;
+
+        $this->assertIsArray($legacyRoomMember);
+        $this->assertIsArray($canonicalRoomMember);
+        $this->assertSame($legacyRoomMember['id'], $canonicalRoomMember['id']);
+        $this->assertSame($manifestMember->id, $canonicalRoomMember['manifest_member_id']);
+        $this->assertSame($confirmationMember->id, $canonicalRoomMember['customer_confirmation_member_id']);
+    }
+
+    public function test_patch_manifest_receipt_documents_section_removes_manifest_member_receipts(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'manifest_member' => $member] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $existingPath = 'manifests/receipt/existing-receipt.pdf';
+        Storage::disk('public')->put($existingPath, 'existing-receipt');
+
+        $existingFile = $member->files()->create([
+            'field' => 'receipt',
+            'file_name' => 'Existing Receipt.pdf',
+            'file_path' => $existingPath,
+        ]);
+
+        $this->patchJson(route('manifests.sections.receipt-documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_member_receipts' => [
+                (string) $member->id => [
+                    [
+                        'id' => $existingFile->id,
+                        'file_path' => $existingPath,
+                        'removed' => true,
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('model_files', [
+            'id' => $existingFile->id,
+        ]);
+        Storage::disk('public')->assertMissing($existingPath);
+    }
+
+    public function test_patch_manifest_receipt_documents_section_replaces_manifest_member_receipts(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'manifest_member' => $member] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $oldPath = 'manifests/receipt/old-receipt.pdf';
+        Storage::disk('public')->put($oldPath, 'old-receipt');
+
+        $oldFile = $member->files()->create([
+            'field' => 'receipt',
+            'file_name' => 'Old Receipt.pdf',
+            'file_path' => $oldPath,
+        ]);
+
+        $this->patch(route('manifests.sections.receipt-documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_member_receipts' => [
+                (string) $member->id => [
+                    [
+                        'id' => $oldFile->id,
+                        'file_path' => $oldPath,
+                        'removed' => true,
+                    ],
+                    [
+                        'file' => UploadedFile::fake()->create('receipt-replacement.pdf', 100, 'application/pdf'),
+                        'file_name' => 'Replacement Receipt.pdf',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('model_files', [
+            'id' => $oldFile->id,
+        ]);
+        Storage::disk('public')->assertMissing($oldPath);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $member->id,
+            'field' => 'receipt',
+            'file_name' => 'Replacement Receipt.pdf',
+        ]);
+
+        $newPath = (string) ModelFile::query()
+            ->where('fileable_type', ManifestMember::class)
+            ->where('fileable_id', $member->id)
+            ->where('field', 'receipt')
+            ->value('file_path');
+
+        Storage::disk('public')->assertExists($newPath);
+    }
+
+    public function test_store_update_ignores_payments_payload_after_manifest_payment_contract_removal(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
+            'package_id' => $manifest->package_id,
+            'status' => 'draft',
+            'payments' => [
+                [
+                    'manifest_member_id' => $manifestMember->id,
+                    'member_name' => 'Frozen Member Updated',
+                    'description' => 'Attempted update while frozen',
+                    'amount' => 5000,
+                    'paid_amount' => 5000,
+                    'outstanding_amount' => 0,
+                    'payment_date' => '2026-03-22',
+                    'status' => 'paid',
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $manifestData = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $this->assertArrayNotHasKey('payments', $manifestData);
+    }
+
+    public function test_manifest_payment_routes_are_removed_from_active_contract(): void
+    {
+        $this->assertFalse(Route::has('manifests.payments.store'));
+        $this->assertFalse(Route::has('manifests.payments.update'));
+        $this->assertFalse(Route::has('manifests.payments.destroy'));
+    }
+
+    public function test_get_for_edit_show_no_longer_exposes_manifest_payments_contract(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
+            'package_id' => $manifest->package_id,
+            'status' => 'draft',
+            'payments' => [
+                [
+                    'manifest_member_id' => $manifestMember->id,
+                    'member_name' => 'Frozen Member Updated',
+                    'description' => 'Attempted update while frozen',
+                    'amount' => 9999,
+                    'paid_amount' => 9999,
+                    'outstanding_amount' => 0,
+                    'payment_date' => '2026-03-22',
+                    'status' => 'paid',
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $manifestData = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $this->assertArrayNotHasKey('payments', $manifestData);
     }
 
     private function createMemberForPackage(int $packageId, string $customerName, int $createdBy, ?int $confirmationId = null): CustomerConfirmationMember
@@ -2348,5 +3294,57 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'confirmed',
             'role' => 'member',
         ]);
+    }
+
+    /**
+     * @return array{manifest: Manifest, confirmation_member: CustomerConfirmationMember, manifest_member: ManifestMember}
+     */
+    private function createManifestWithSingleMemberFixture(int $createdBy): array
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-SECTION-FIXTURE-'.uniqid(),
+            'name' => 'Section Fixture Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-SECTION-FIXTURE-'.uniqid(),
+            'status' => 'draft',
+        ]);
+
+        $confirmationMember = $this->createMemberForPackage($package->id, 'Section Fixture Member', $createdBy);
+
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $confirmationMember->id,
+                    'name_as_per_passport' => 'Section Member',
+                    'sharing_plan' => 'double',
+                    'sharing_group_key' => 'fixture-group-1',
+                ],
+            ],
+            'documents' => [
+                'flight_tickets' => [],
+                'visa' => [],
+                'hotel' => [],
+                'passport' => [],
+                'photo' => [],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $manifestMember = ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->where('customer_confirmation_member_id', $confirmationMember->id)
+            ->firstOrFail();
+
+        return [
+            'manifest' => $manifest,
+            'confirmation_member' => $confirmationMember,
+            'manifest_member' => $manifestMember,
+        ];
     }
 }

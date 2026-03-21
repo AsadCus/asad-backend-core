@@ -1,5 +1,5 @@
 import { type ValueNumberOptionType } from '@/types';
-import { type ManifestSchema, type TravelerSchema } from './schema';
+import { type ManifestSchema, type MemberSchema } from './schema';
 
 export interface CustomerMemberData {
     id?: number;
@@ -91,15 +91,95 @@ export interface PackageForManifestOption extends ValueNumberOptionType {
 }
 
 export interface ManifestFormData
-    extends Omit<
-        ManifestSchema,
-        'travelers' | 'rooms' | 'payments' | 'sharing_groups'
-    > {
-    travelers?: TravelerSchema[];
-    roomLists?: Record<string, TravelerSchema[]>;
-    airlineList?: TravelerSchema[];
+    extends Omit<ManifestSchema, 'members' | 'rooms' | 'sharing_groups'> {
+    members?: MemberSchema[];
+    roomLists?: Record<string, MemberSchema[]>;
+    airlineList?: MemberSchema[];
     documents?: ManifestDocumentsByField;
     in_charge_official_id?: number | null;
+    manifest?: CanonicalManifestSection;
+    manifest_sharing_groups?: CanonicalManifestSharingGroup[];
+    manifest_rooms?: CanonicalManifestRoom[];
+    manifest_member_receipts?: ManifestMemberReceiptMap;
+}
+
+export type ManifestMemberReceiptMap = Record<string, ManifestDocumentItem[]>;
+
+export interface CanonicalManifestSection {
+    id?: number | null;
+    package_id?: number | null;
+    in_charge_official_id?: number | null;
+    manifest_number?: string | null;
+    status?: string | null;
+    notes?: string | null;
+}
+
+export interface CanonicalManifestSharingGroupMemberPatch {
+    name_as_per_passport?: string | null;
+    arabic_name?: string | null;
+    contact_no?: string | null;
+    passport_number?: string | null;
+    nationality?: string | null;
+    gender?: string | null;
+    date_of_birth?: string | null;
+    date_of_issue?: string | null;
+    date_of_expiry?: string | null;
+    issue_place?: string | null;
+    birth_place?: string | null;
+    address?: string | null;
+    first_time_umrah?: boolean | null;
+    has_chronic_disease?: boolean | null;
+    chronic_disease_details?: string | null;
+    passport_path?: string | null;
+    photo_path?: string | null;
+    status?: string | null;
+}
+
+export interface CanonicalManifestSharingGroupMember {
+    id?: number | null;
+    customer_confirmation_member_id?: number | null;
+    package_official_id?: number | null;
+    role?: string | null;
+    sharing_plan?: string | null;
+    sort_order?: number | null;
+    remarks?: string | null;
+    status?: string | null;
+    patch?: CanonicalManifestSharingGroupMemberPatch;
+}
+
+export interface CanonicalManifestSharingGroup {
+    id?: number | null;
+    customer_confirmation_id?: number | null;
+    sort_order?: number | null;
+    relation?: string | null;
+    remarks?: string | null;
+    members?: CanonicalManifestSharingGroupMember[];
+}
+
+export interface CanonicalManifestRoomMember {
+    id?: number | null;
+    manifest_member_id?: number | null;
+    customer_confirmation_member_id?: number | null;
+    package_official_id?: number | null;
+    sort_order?: number | null;
+    remarks?: string | null;
+}
+
+export interface CanonicalManifestRoom {
+    id?: number | null;
+    location?: string | null;
+    sort_order?: number | null;
+    relationship?: string | null;
+    room_label?: string | null;
+    room_number?: string | null;
+    room_type?: string | null;
+    bed_type?: string | null;
+    sharing_plan?: string | null;
+    capacity?: number | null;
+    meal?: string | null;
+    number_of_beds_checked?: boolean;
+    remarks?: string | null;
+    members?: CanonicalManifestRoomMember[];
 }
 
 export interface ManifestFormProps {
@@ -109,9 +189,9 @@ export interface ManifestFormProps {
     onCancel: () => void;
 }
 
-export type TravelerWithUI = TravelerSchema & {
+export type MemberWithUI = MemberSchema & {
     row_key?: string;
-    manifest_traveler_id?: number;
+    manifest_member_id?: number;
     customer_confirmation_id?: number;
     customer_confirmation_number?: string | null;
     customer_name?: string;

@@ -72,14 +72,14 @@ class ManifestMember extends Model
         return $this->belongsTo(PackageOfficial::class, 'package_official_id');
     }
 
-    public function roomMembers(): HasMany
+    public function roomAssignments(): HasMany
     {
-        return $this->hasMany(ManifestRoomMember::class, 'manifest_traveler_id');
+        return $this->hasMany(ManifestRoomMember::class, 'manifest_member_id');
     }
 
-    public function payments(): HasMany
+    public function roomMembers(): HasMany
     {
-        return $this->hasMany(ManifestPayment::class, 'manifest_traveler_id');
+        return $this->roomAssignments();
     }
 
     public function collectionItem(): HasOne

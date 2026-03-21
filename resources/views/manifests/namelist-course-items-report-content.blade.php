@@ -99,9 +99,9 @@
 
 @section('report-content')
     @php
-        $travelers = collect($manifest['travelers'] ?? [])
-            ->filter(function ($traveler) {
-                return ($traveler['status'] ?? null) !== 'cancelled' && empty($traveler['package_official_id']);
+        $members = collect($manifest['members'] ?? [])
+            ->filter(function ($member) {
+                return ($member['status'] ?? null) !== 'cancelled' && empty($member['package_official_id']);
             })
             ->values();
 
@@ -170,14 +170,14 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($travelers as $index => $traveler)
+            @forelse ($members as $index => $member)
                 <tr>
                     <td class="sn-col">{{ $index + 1 }}</td>
-                    <td class="name-col">{{ $traveler['name_as_per_passport'] ?? '-' }}</td>
+                    <td class="name-col">{{ $member['name_as_per_passport'] ?? '-' }}</td>
                     @foreach (['course_1', 'course_2', 'lanyard', 'luggage_tag', 'cabin_tag', 'passport_cover', 'umrah_guidebook', 'sling_bag', 'cabin_size_luggage', 'umrah_essentials'] as $field)
                         <td>
-                            <span class="print-checkbox {{ !empty($traveler[$field]) ? 'checked' : '' }}">
-                                {{ !empty($traveler[$field]) ? 'X' : '' }}
+                            <span class="print-checkbox {{ !empty($member[$field]) ? 'checked' : '' }}">
+                                {{ !empty($member[$field]) ? 'X' : '' }}
                             </span>
                         </td>
                     @endforeach

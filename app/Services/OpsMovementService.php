@@ -12,7 +12,7 @@ class OpsMovementService
      */
     public function getForDataTable(array $filters = [])
     {
-        $data = Package::with(['accommodations', 'manifests.travelers'])
+        $data = Package::with(['accommodations', 'manifests.members'])
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('package_number', 'like', "%{$value}%")
@@ -25,8 +25,8 @@ class OpsMovementService
             ->orderBy('departure_date', 'desc')
             ->get()
             ->map(function ($package) {
-                $totalTravelers = $package->manifests->sum(function ($m) {
-                    return $m->travelers->count();
+                $totalMembers = $package->manifests->sum(function ($m) {
+                    return $m->members->count();
                 });
 
                 return [
@@ -42,7 +42,7 @@ class OpsMovementService
                     'visa_type' => $package->visa_type,
                     'vehicle_type' => $package->vehicle_type,
                     'ticket_type' => $package->ticket_type,
-                    'total_travelers' => $totalTravelers,
+                    'total_members' => $totalMembers,
                     'manifests_count' => $package->manifests->count(),
                     'accommodations' => $package->accommodations->map(function ($a) {
                         return [
@@ -64,7 +64,7 @@ class OpsMovementService
      */
     public function getForShow($id): array
     {
-        $package = Package::with(['accommodations', 'manifests.travelers'])->findOrFail($id);
+        $package = Package::with(['accommodations', 'manifests.members'])->findOrFail($id);
 
         return [
             'id' => $package->id,
@@ -104,14 +104,14 @@ class OpsMovementService
                     'reference_number' => $m->reference_number,
                     'company_name' => $m->company_name,
                     'status' => $m->status,
-                    'travelers_count' => $m->travelers->count(),
-                    'travelers' => $m->travelers->map(function ($t) {
+                    'members_count' => $m->members->count(),
+                    'members' => $m->members->map(function ($t) {
                         return [
                             'id' => $t->id,
                             'name' => $t->name,
                             'passport_number' => $t->passport_number,
                             'nationality' => $t->nationality,
-                            'traveler_type' => $t->traveler_type,
+                            'member_type' => $t->member_type,
                         ];
                     })->toArray(),
                 ];

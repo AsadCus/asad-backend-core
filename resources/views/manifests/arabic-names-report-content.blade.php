@@ -86,9 +86,9 @@
 
 @section('report-content')
     @php
-        $travelers = collect($manifest['travelers'] ?? [])
-            ->filter(function ($traveler) {
-                return ($traveler['status'] ?? null) !== 'cancelled' && empty($traveler['package_official_id']);
+        $members = collect($manifest['members'] ?? [])
+            ->filter(function ($member) {
+                return ($member['status'] ?? null) !== 'cancelled' && empty($member['package_official_id']);
             })
             ->values();
     @endphp
@@ -123,11 +123,11 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($travelers as $index => $traveler)
+            @forelse ($members as $index => $member)
                 <tr>
                     <td class="col-no">{{ $index + 1 }}</td>
-                    <td class="col-name">{{ $traveler['name_as_per_passport'] ?? '-' }}</td>
-                    <td class="col-arabic arabic-cell">{{ $traveler['arabic_name'] ?? '-' }}</td>
+                    <td class="col-name">{{ $member['name_as_per_passport'] ?? '-' }}</td>
+                    <td class="col-arabic arabic-cell">{{ $member['arabic_name'] ?? '-' }}</td>
                 </tr>
             @empty
                 <tr>

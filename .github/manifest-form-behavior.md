@@ -1,143 +1,87 @@
 # Manifest Form Behavior Specification
 
-This document defines mandatory behavior for the Manifest form so future changes stay consistent across tabs and backend payload normalization.
+This document is the single source of truth for Manifest form behavior, payload structure, save flow, and regression guardrails after the restructure rollout.
 
 ## Scope
 
-- Frontend files under `resources/js/pages/manifests/*`
-- Backend normalization/sync in `app/Http/Controllers/ManifestController.php` and `app/Services/ManifestService.php`
-- Validation and typing in `resources/js/pages/manifests/schema.ts`, `resources/js/pages/manifests/types.ts`, `resources/js/pages/manifests/validation.ts`, and `app/Rules/ManifestRule.php`
-- Restructure strategy source in `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md`
+- Frontend: `resources/js/pages/manifests/*`
+- Backend controller and normalization: `app/Http/Controllers/ManifestController.php`
+- Backend service sync/read mapping: `app/Services/ManifestService.php`
+- Validation: `app/Rules/ManifestRule.php`
+- Frontend schema/types/validation: `resources/js/pages/manifests/schema.ts`, `resources/js/pages/manifests/types.ts`, `resources/js/pages/manifests/validation.ts`
+- Manifest routes: `routes/web.php`
+- Regression suites: `tests/Feature/ManifestWorkflowTest.php`, `tests/Feature/PackageOfficialManifestSyncTest.php`, `tests/Feature/ManifestSeederTest.php`, `tests/Feature/ReceiptMemberStatusSyncTest.php`
 
-## Restructure Alignment Contract
+## Post-Restructure Runtime Contract
 
-This file must stay synchronized with `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` during the full migration.
+### Primary Save Flow
 
-Source-of-truth split:
+Manifest writes are section-first and must use section endpoints in this order:
 
-- `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` defines migration direction, phase plan, and target payload contract.
-- `.github/manifest-form-behavior.md` defines runtime behavior guarantees and implementation guardrails.
+1. `core`
+2. `sharing-groups`
+3. `rooms`
+4. `documents`
+5. `receipt-documents`
 
-Mandatory rule:
+Section save rules:
 
-- Any phase implementation that changes payload shape, naming, endpoint flow, validation assumptions, or cross-tab sync behavior must update both files in the same PR/commit.
+1. Omitted section payload means no change.
+2. Section write failure must not wipe other sections.
+3. Explicit clear operations must be intentional and section-scoped.
 
-## Restructure Phase Workflow (Path A)
+### Legacy Full Submit
 
-Phases follow the strategy document and must preserve current behavior parity:
+Legacy full submit can exist only as compatibility/rollback behavior. New features must not depend on full-submit-only payload semantics.
 
-1. Payload slimming stabilization
-2. Canonical read adapter (GET)
-3. Canonical submit adapter (POST)
-4. Frontend state migration to canonical sections
-5. Section-level patch endpoints
-6. Receipt file endpoint separation
-7. Terminology migration from traveler to member
+## Canonical Payload Structure
 
-For all phases:
+### Canonical GET Shape (Server -> Form)
 
-- Backward compatibility is required until explicit legacy removal phase.
-- Room ordering/grouping persistence and shared-field sync across tabs must not regress.
-- Phase cannot be marked complete without targeted test evidence.
+Top-level canonical keys:
 
-## Phase Status Governance
+- `manifest`
+- `manifest_sharing_groups`
+- `manifest_rooms`
+- `documents`
 
-Phase status must be tracked in `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` and mirrored in this file's phase notes.
+Legacy keys may still be present for compatibility, but new code must consume canonical keys first.
 
-Allowed values:
+### Canonical Write Shapes
 
-- `not-started`
-- `in-progress`
-- `completed`
-- `blocked`
+#### 1) Manifest Core
 
-Governance rules:
+`manifest` contains manifest-level fields only, such as:
 
-1. Only one phase can be `in-progress` at any time.
-2. `completed` requires passing targeted tests and synchronized docs update.
-3. `blocked` requires blocker reason and unblock plan in phase notes.
-4. Next phase cannot start until current `in-progress` phase is `completed` or explicitly `blocked`.
+- `id`
+- `package_id`
+- `in_charge_official_id`
+- `manifest_number`
+- `status`
+- `notes`
 
-## Invocation Behavior For "run manifest restructure"
+#### 2) Sharing Groups
 
-When user provides "run manifest restructure" with this file and `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` as context:
+`manifest_sharing_groups` contains group rows and group member rows.
 
-1. Determine active phase from Phase Status Tracker in restructure file.
-2. Execute the current `in-progress` phase; if none exists, execute earliest `not-started` phase.
-3. Follow phase prompt requirements: analysis first, then implementation, then tests.
-4. Update both files with phase notes and status transition.
-5. Report next actionable phase at the end.
+Group-level ordering and member-level ordering are mandatory:
 
-## Per-Phase Documentation Update Requirement
+1. Primary ordering: `group.sort_order`
+2. Secondary ordering: `member.sort_order`
 
-At phase completion, append a phase note section in both files with the same core facts:
+#### 3) Rooms
 
-- status
-- scope delivered
-- payload keys added/changed/deprecated
-- compatibility aliases still active
-- backend normalization changes
-- frontend state/sync changes
-- tests executed and result summary
-- known risks and next-phase context
-- status transition (`old_status -> new_status`)
+`manifest_rooms` contains room rows and room member rows.
 
-Template:
+Room member identity rules:
 
-```markdown
-### Phase X Completion Notes
+1. Prefer manifest member identity fields.
+2. Fallback aliases may be accepted only for compatibility.
+3. Do not add redundant customer confirmation identifiers in room member rows when they can be derived server-side.
 
-- Status: completed
-- Date:
-- Scope delivered:
-- Payload contract changes:
-- Compatibility aliases still active:
-- Backend behavior changes:
-- Frontend behavior changes:
-- Tests executed and results:
-- Known risks / follow-up:
-- Context for next phase:
-```
+#### 4) Documents
 
-## Naming Transition Rule (Traveler -> Member)
-
-During migration:
-
-- Existing `traveler` terms may remain only where compatibility is required.
-- New logic should prefer `member` naming when safe.
-- Do not break existing payload consumers while aliases are active.
-- Final target is consistent `member` terminology across payload keys, comments, and variable names.
-
-## Tab Layout Contract
-
-The Manifest form tab UI is split into three horizontal tab-list rows and must remain consistent:
-
-### Row 1: Main Traveler List
-
-- `Main` — Full traveler list with shared fields (passport, nationality, gender, dates, etc.)
-
-### Row 2: Room & Airline Lists
-
-- `Airline Name List` — Traveler list for flight manifests with airline-specific fields
-- `Room List - {Location}` — Dynamic room tabs (one per accommodation location) for room assignment by location
-- `Room List for Official to Check - {Location}` — Dynamic official check tabs (one per accommodation location, read-only/reference)
-- `Namelist Course & Collection Items` — Course assignments and collection checklist for each traveler
-
-### Row 3: Document & Member Data Tabs
-
-- **Manifest-level document upload tabs** (`documents` payload):
-    - `Flight Tickets` — Manifest-level flight document files
-    - `Visa` — Manifest-level visa document files
-    - `Hotel` — Manifest-level hotel document files
-    - `Passport` — Manifest-level passport document files
-    - `Photo` — Manifest-level photo document files
-- **Additional data tabs** (not manifest documents):
-    - `Arabic Names` — Traveler list with editable `arabic_name` field; not a file upload tab
-    - `Receipt` — Traveler-level multi-file receipt uploads (`receipt_documents` payload per traveler)
-
-### Manifest Document Definition
-
-Manifest documents are the five file upload tabs in Row 3:
+`documents` is a manifest-level object keyed by:
 
 - `flight_tickets`
 - `visa`
@@ -145,72 +89,100 @@ Manifest documents are the five file upload tabs in Row 3:
 - `passport`
 - `photo`
 
-Each is stored in the `documents` object keyed by field name. Each field contains an array of document entries with `id`, `file`, `file_name`, `file_path`, and `removed` flag.
+Each document entry supports:
 
-## Canonical Data Shape
+- `id`
+- `file`
+- `file_name`
+- `file_path`
+- `removed`
 
-- Use dynamic `roomLists` only as `Record<string, TravelerRow[]>`.
-- Do not introduce or reintroduce fixed keys like `roomListMakkah`, `roomListMadinah`, or `roomListOthers`.
-- Keep `travelers` as the canonical list for shared traveler/customer/member data.
-- `airlineList` and every room list entry are projections of the same traveler entities, not separate independent records.
+#### 5) Receipt Documents
 
-Transition note:
+Receipt file updates are section-scoped and must not rely on unrelated full payload writes.
 
-- During restructure phases, canonical section keys (`manifest`, `manifest_sharing_groups`, `manifest_rooms`, `documents`) may exist in parallel with legacy keys.
-- Implementation must preserve behavior parity while dual-shape compatibility remains active.
+## Tab Behavior Contract
 
-## Field Unification Rules
+The UI remains split into three rows:
 
-- Passport field must be `passport_number` only.
-- Do not add alias fields such as `ppt_no`, `passport_no`, or duplicated passport keys.
-- For relationship/role fields, keep consistency between traveler-level role and room-level relationship mapping.
+### Row 1: Main
 
-## Cross-Tab Sync Contract
+- Main member list with shared identity/profile fields.
 
-When a shared field is edited in any tab, update the same traveler across all tabs immediately.
+### Row 2: Room and Airline Views
 
-Shared fields that must stay synchronized:
+- Airline list
+- Dynamic room list tabs per location
+- Dynamic official check tabs per location
+- Namelist course and collection items tab
+
+### Row 3: Documents and Additional Member Data
+
+- Manifest-level document tabs: flight tickets, visa, hotel, passport, photo
+- Arabic names tab
+- Receipt tab
+
+## Canonical Data and Naming Rules
+
+1. Keep `roomLists` dynamic (`Record<string, TravelerRow[]>`) where compatibility structures are still required.
+2. Do not reintroduce fixed room list keys such as location-specific hardcoded properties.
+3. Passport must use `passport_number` only.
+4. Shared member entities remain the source for projections shown in airline/room/checklist views.
+5. New code must use member-first naming for symbols, helpers, and payload handling.
+6. Compatibility aliases are allowed only when needed for external contract safety and must be isolated in normalization layers.
+
+## Cross-Tab Synchronization Rules
+
+When a shared field changes in one tab, the same member data must stay synchronized in all tabs.
+
+Shared fields that must stay in sync:
 
 - `passport_number`
 - `nationality`
 - `gender`
 - `date_of_birth`
-- `age` (derived from `date_of_birth`)
+- `age` (derived)
 - `date_of_issue`
 - `date_of_expiry`
 - `issue_place`
-- `role` and room relationship equivalents when applicable
+- `role` and room relationship equivalents
 
-### Travelers/Main Tab Required Columns
+## Persistence Guardrails
 
-- Status badge style should match the visual pattern used for confirmation member status badges.
-- Include these columns/data points:
-    - package category (from confirmation package category)
-    - sign-up date (from enquiry `created_at`, fallback to confirmation `created_at`)
-    - first time umrah (`customer.first_time_umrah`)
-    - room type (from member `sharing_plan`)
-    - passport number
-    - gender
-    - date of birth + age
+1. Repeated submit without namelist edits must preserve namelist values.
+2. Receipt files must remain after unrelated section saves.
+3. Room regrouping/reordering must persist after save and reload.
+4. Document CRUD must remain isolated from member receipt persistence.
 
-## Backend Responsibilities
+## Backend Guardrails
 
-- Controller/service normalization must accept and persist dynamic `roomLists` ordering and grouping.
-- Sync methods must propagate shared traveler updates to underlying member/customer sources where required by business rules.
-- Keep room regroup/reorder persistence behavior intact when saving and reloading.
+1. Normalize compatibility inputs in one place, then sync using canonical internal shape.
+2. Keep deterministic ordering and grouping behavior.
+3. Prevent hidden cross-section clearing when a section is omitted.
+4. Reuse existing sync helpers rather than adding parallel one-off pipelines.
 
-## Validation and Tests
+## Validation and Test Requirements
 
-- Validation rules and TypeScript schemas must use the same field names and constraints.
-- Any behavior change must update/add tests that cover:
-    - grouped payload normalization
-    - room list reorder/regroup persistence
-    - shared field sync across tabs
-    - passport field unification
+Any behavior or contract change must include targeted regression evidence.
 
-## Implementation Guardrails
+Minimum test matrix:
 
-- Prefer extending existing manifest helpers before introducing new parallel transformation paths.
-- Avoid one-off per-tab mappings that can drift from canonical traveler data.
-- If a new field is introduced, define it once in schema/types and wire sync from canonical traveler source.
-- Before starting any new phase implementation prompt, read this file and `MANIFEST_PAYLOAD_RESTRUCTURE_FOUNDATION.md` together.
+1. `tests/Feature/ManifestWorkflowTest.php`
+2. `tests/Feature/PackageOfficialManifestSyncTest.php`
+3. `tests/Feature/ManifestSeederTest.php`
+4. `tests/Feature/ReceiptMemberStatusSyncTest.php`
+
+Coverage expectations for touched behavior:
+
+1. Grouped payload normalization.
+2. Room reorder/regroup persistence.
+3. Cross-tab shared-field synchronization.
+4. Receipt persistence across unrelated saves.
+5. Manifest document CRUD isolation.
+
+## Change Management Rules
+
+1. This file is authoritative for manifest runtime behavior and payload structure.
+2. If a compatibility alias is introduced or removed, document the reason, rollback path, and affected tests in the same change.
+3. Do not add new legacy-key dependencies to frontend runtime paths.
+4. Keep changes incremental and prove parity with focused tests before broader cleanup.
