@@ -45,14 +45,14 @@ class ManifestSeeder extends Seeder
                 ->get();
 
             $paidMembers->each(function (CustomerConfirmationMember $member): void {
-                if (! empty($member->role)) {
+                if (! empty($member->relationship)) {
                     return;
                 }
 
                 $role = $this->resolveMemberRole($member);
 
                 if ($role !== null) {
-                    $member->update(['role' => $role]);
+                    $member->update(['relationship' => $role]);
                 }
             });
 
@@ -76,7 +76,7 @@ class ManifestSeeder extends Seeder
                 $manifestSharingGroup = $manifest->manifestSharingGroups()->create([
                     'customer_confirmation_id' => $firstMember?->customer_confirmation_id,
                     'sort_order' => $groupIndex + 1,
-                    'relation' => $groupRelation ?? $firstMember?->role,
+                    'group_relationship' => $groupRelation ?? $firstMember?->relationship,
                     'remarks' => null,
                 ]);
 
@@ -136,13 +136,12 @@ class ManifestSeeder extends Seeder
                     $room = $manifest->rooms()->create([
                         'sort_order' => $roomCounter,
                         'location' => $defaultLocation,
-                        'relationship' => $firstMember?->role,
+                        'group_relationship' => $firstMember?->relationship,
                         'room_label' => 'Room '.$roomCounter,
                         'room_number' => null,
                         'room_type' => $sharingPlan,
                         'bed_type' => $this->bedTypeFromRoomType($sharingPlan),
                         'capacity' => $capacity,
-                        'sharing_plan' => $sharingPlan,
                         'status' => 'pending',
                         'meal' => $defaultMeal,
                         'remarks' => null,
@@ -222,14 +221,14 @@ class ManifestSeeder extends Seeder
             $officialGroup = $manifest->manifestSharingGroups()->create([
                 'customer_confirmation_id' => null,
                 'sort_order' => $groupSortOrder,
-                'relation' => 'official',
+                'group_relationship' => 'official',
                 'remarks' => $officialGroupMarker,
             ]);
 
             $createdOfficialMembers->push($manifest->members()->create([
                 'manifest_sharing_group_id' => $officialGroup->id,
                 'package_official_id' => $official->id,
-                'role' => $official->type,
+                'relationship' => $official->type,
                 'sharing_plan' => 'single',
                 'name' => $official->name,
                 'contact_number' => $official->contact_number,
@@ -277,12 +276,11 @@ class ManifestSeeder extends Seeder
                 $room = $manifest->rooms()->create([
                     'sort_order' => $roomSortOrder,
                     'location' => $location['key'],
-                    'relationship' => 'official',
+                    'group_relationship' => 'official',
                     'room_label' => 'Official Room '.($index + 1),
                     'room_type' => 'single',
                     'bed_type' => 'single',
                     'capacity' => 1,
-                    'sharing_plan' => 'single',
                     'status' => 'pending',
                     'meal' => $location['meal'],
                     'number_of_beds_checked' => false,
@@ -342,7 +340,7 @@ class ManifestSeeder extends Seeder
     {
         $roles = $members
             ->map(function (CustomerConfirmationMember $member): string {
-                return strtolower((string) ($member->role ?: $this->resolveMemberRole($member)));
+                return strtolower((string) ($member->relationship ?: $this->resolveMemberRole($member)));
             })
             ->filter()
             ->values();

@@ -508,7 +508,6 @@ class ReceiptMemberStatusSyncTest extends TestCase
             'manifest_id' => $manifest->id,
             'source_quotation_id' => $quotationOne->id,
             'room_type' => 'triple',
-            'sharing_plan' => 'triple',
             'capacity' => 3,
         ]);
 
@@ -541,7 +540,6 @@ class ReceiptMemberStatusSyncTest extends TestCase
             'manifest_id' => $manifest->id,
             'source_quotation_id' => $quotationTwo->id,
             'room_type' => 'triple',
-            'sharing_plan' => 'triple',
             'capacity' => 3,
         ]);
 

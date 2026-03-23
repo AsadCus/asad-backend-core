@@ -58,7 +58,7 @@ class PackageOfficialManifestSyncTest extends TestCase
         $this->assertSame('Ustaz Adam', $officialMembers->first()?->name);
         $this->assertSame('0101001001', $officialMembers->first()?->contact_number);
         $this->assertSame('OFF-0001', $officialMembers->first()?->passport_number);
-        $this->assertSame('mutawif', $officialMembers->first()?->role);
+        $this->assertSame('mutawif', $officialMembers->first()?->relationship);
         $this->assertSame('single', $officialMembers->first()?->sharing_plan);
 
         $package->refresh();
