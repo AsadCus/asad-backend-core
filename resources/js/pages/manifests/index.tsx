@@ -142,6 +142,11 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                                     }
                                 }
                             }}
+                            onRowDoubleClick={(row) => {
+                                if (row.id) {
+                                    router.get(edit(row.id).url);
+                                }
+                            }}
                             initialState={{
                                 pagination: {
                                     pageSize: 50,

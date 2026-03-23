@@ -442,7 +442,7 @@ class ManifestWorkflowTest extends TestCase
             'room_number' => 'CN-101',
             'room_type' => 'double',
             'bed_type' => 'queen',
-            'sharing_plan' => 'double',
+            'sharing_plan' => null,
             'meal' => 'Breakfast Only',
             'remarks' => 'Canonical room remark',
         ]);
@@ -1195,7 +1195,7 @@ class ManifestWorkflowTest extends TestCase
             'room_number' => 'MK-901',
             'room_type' => 'double',
             'bed_type' => 'king',
-            'sharing_plan' => 'double',
+            'sharing_plan' => null,
             'meal' => 'Breakfast Only',
         ]);
 
@@ -1207,7 +1207,7 @@ class ManifestWorkflowTest extends TestCase
             'room_number' => 'MD-902',
             'room_type' => 'triple',
             'bed_type' => 'single',
-            'sharing_plan' => 'triple',
+            'sharing_plan' => null,
             'meal' => 'Full Board',
         ]);
 
@@ -1685,12 +1685,12 @@ class ManifestWorkflowTest extends TestCase
 
         $confirmationMember->refresh();
 
-        $this->assertSame('double', $confirmationMember->sharing_plan);
+        $this->assertSame('single', $confirmationMember->sharing_plan);
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
             'location' => 'makkah',
             'group_relationship' => 'Family',
-            'sharing_plan' => 'double',
+            'sharing_plan' => null,
             'room_label' => 'Room A',
         ]);
     }

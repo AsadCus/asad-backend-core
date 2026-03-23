@@ -48,7 +48,6 @@ class ManifestController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        // dd($request->all());
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $manifestId = isset($requestPayload['id']) ? (int) $requestPayload['id'] : 0;
         $normalizedPayload = $this->normalizeManifestPayload($requestPayload);
@@ -193,6 +192,7 @@ class ManifestController extends Controller
         }
 
         $updatedManifest = $this->manifestService->update($validated, $manifest->id);
+        // dd($updatedManifest);
 
         return response()->json([
             'message' => 'Manifest core section updated successfully.',
@@ -1297,6 +1297,12 @@ class ManifestController extends Controller
                     $sharingPlan = strtolower(trim($resolvedMember['sharing_plan']));
                 }
 
+                $roomType = $this->normalizeRoomType($row['room_type'] ?? null);
+
+                if ($roomType === null) {
+                    $roomType = $this->roomTypeFromSharingPlan($sharingPlan !== '' ? $sharingPlan : null) ?? 'single';
+                }
+
                 $confirmationMemberId = isset($row['customer_confirmation_member_id'])
                     ? (int) $row['customer_confirmation_member_id']
                     : 0;
@@ -1321,9 +1327,9 @@ class ManifestController extends Controller
                     || ! empty($row['is_official'])
                     || (is_array($resolvedMember) && ! empty($resolvedMember['package_official_id']));
 
-                $capacity = $this->capacityFromSharingPlan($sharingPlan !== '' ? $sharingPlan : null);
-                $bucketKey = $confirmationId > 0 && $sharingPlan !== ''
-                    ? $confirmationId.'|'.$sharingPlan.'|'.($isOfficial ? 'official' : 'member')
+                $capacity = $this->capacityFromRoomType($roomType);
+                $bucketKey = $confirmationId > 0
+                    ? $confirmationId.'|'.$roomType.'|'.($sharingPlan !== '' ? $sharingPlan : 'single').'|'.($isOfficial ? 'official' : 'member')
                     : 0;
 
                 if ($bucketKey === 0) {
@@ -1385,6 +1391,8 @@ class ManifestController extends Controller
                     $row['sharing_plan'] = $sharingPlan;
                 }
 
+                $row['room_type'] = $roomType;
+
                 $grouped[$groupKey][] = $row;
             }
 
@@ -1401,7 +1409,6 @@ class ManifestController extends Controller
                     'room_number' => $first['room_number'] ?? null,
                     'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
                     'bed_type' => $this->normalizeBedType($first['bed_type'] ?? null),
-                    'sharing_plan' => $first['sharing_plan'] ?? null,
                     'capacity' => count($members),
                     'meal' => $first['meal'] ?? null,
                     'number_of_beds_checked' => (bool) ($first['number_of_beds_checked'] ?? false),
@@ -1473,13 +1480,24 @@ class ManifestController extends Controller
         }, $normalized);
     }
 
-    private function capacityFromSharingPlan(?string $sharingPlan): int
+    private function capacityFromRoomType(?string $roomType): int
     {
-        return match (strtolower((string) $sharingPlan)) {
+        return match (strtolower((string) $roomType)) {
             'quad' => 4,
             'triple' => 3,
-            'double' => 2,
+            'double', 'twin' => 2,
             default => 1,
+        };
+    }
+
+    private function roomTypeFromSharingPlan(?string $sharingPlan): ?string
+    {
+        return match (strtolower((string) $sharingPlan)) {
+            'quad' => 'quad',
+            'triple' => 'triple',
+            'double' => 'double',
+            'single' => 'single',
+            default => null,
         };
     }
 

@@ -156,7 +156,7 @@ function normalizeDocumentEntriesForSubmit(
 function createEmptyBudgetItem(): OpsBudgetItemSchema {
     return {
         item_name: '',
-        unit_price: 0,
+        unit_price: null,
         quantity: 1,
         remarks: '',
     };
@@ -212,7 +212,7 @@ export default function OpsMovementForm({
                 ? initialData.budget
                 : [createEmptyBudgetTitle(0)],
     });
-    const { data, setData, processing, put, transform } = form;
+    const { data, setData, processing, post, transform } = form;
     const errors =
         (form as unknown as { errors?: Record<string, string> }).errors ?? {};
     const clearFormErrors = (): void => {
@@ -485,9 +485,15 @@ export default function OpsMovementForm({
             return;
         }
 
-        transform(() => editablePayload as unknown as OpsMovementSchema);
+        transform(
+            () =>
+                ({
+                    ...editablePayload,
+                    _method: 'patch',
+                }) as unknown as OpsMovementSchema,
+        );
 
-        put(`/ops-movements/${data.id}`, {
+        post(`/ops-movements/${data.id}`, {
             preserveScroll: true,
             forceFormData: true,
             onError: (validationErrors) => {
@@ -530,20 +536,47 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Ops Movement Info
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Core operational details derived from package
+                                and manifest, with editable ops references.
+                            </p>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Travel Date Range">
+                            <FormField
+                                label="Travel Date Range"
+                                fieldRequirementsProps={{
+                                    hint: 'Departure to return range for this movement, derived from package dates.',
+                                    example: '01 April 2026 - 10 April 2026',
+                                }}
+                            >
                                 <CopyableText
                                     value={data.departure_return_range}
                                 />
                             </FormField>
-                            <FormField label="First Hotel">
+                            <FormField
+                                label="First Hotel"
+                                fieldRequirementsProps={{
+                                    hint: 'First hotel destination from package accommodation sequence.',
+                                }}
+                            >
                                 <CopyableText value={data.first_hotel_name} />
                             </FormField>
-                            <FormField label="Visa Type">
+                            <FormField
+                                label="Visa Type"
+                                fieldRequirementsProps={{
+                                    hint: 'Package visa category used for this movement.',
+                                }}
+                            >
                                 <CopyableText value={data.visa_type} />
                             </FormField>
-                            <FormField label="Ops Base" error={errors.ops_base}>
+                            <FormField
+                                label="Ops Base"
+                                fieldRequirementsProps={{
+                                    hint: 'Operational base or control location for this trip.',
+                                    example: 'Makkah Ops Desk A',
+                                }}
+                                error={errors.ops_base}
+                            >
                                 <ProperInput
                                     value={data.ops_base ?? ''}
                                     disabled={processing}
@@ -553,14 +586,28 @@ export default function OpsMovementForm({
                                     placeholder="Enter ops base"
                                 />
                             </FormField>
-                            <FormField label="Package Number">
+                            <FormField
+                                label="Package Number"
+                                fieldRequirementsProps={{
+                                    hint: 'Source package identifier.',
+                                }}
+                            >
                                 <CopyableText value={data.package_number} />
                             </FormField>
-                            <FormField label="Manifest Number">
+                            <FormField
+                                label="Manifest Number"
+                                fieldRequirementsProps={{
+                                    hint: 'Linked manifest identifier for operations.',
+                                }}
+                            >
                                 <CopyableText value={data.manifest_number} />
                             </FormField>
                             <FormField
                                 label="Infotech Ref"
+                                fieldRequirementsProps={{
+                                    hint: 'External system reference used by operations.',
+                                    example: 'INF-OPS-2026-0042',
+                                }}
                                 error={errors.infotech_ref}
                                 className="md:col-span-2"
                             >
@@ -581,6 +628,10 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Pax / Passengers
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Passenger totals split by adult, child,
+                                official, and wheelchair counts.
+                            </p>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormField label="Adult (Non-Official)">{`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} male / ${data.passengers?.adult_female ?? 0} female)`}</FormField>
@@ -603,6 +654,10 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">Hotels</CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Accommodation list from package with editable IC
+                                notes per hotel location.
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.accommodations ?? []).map(
@@ -666,6 +721,11 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">Officials</CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Official names come from package; hotel field is
+                                a remark for whether they stay in a dedicated
+                                hotel or with jemaah.
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.officials ?? []).map((official, index) => (
@@ -678,6 +738,9 @@ export default function OpsMovementForm({
                                     </FormField>
                                     <FormField
                                         label="Hotel"
+                                        fieldRequirementsProps={{
+                                            hint: 'Hotel remark for official. Note whether they stay at official hotel or follow jemaah hotel.',
+                                        }}
                                         error={getError(
                                             `officials.${index}.hotel`,
                                         )}
@@ -705,6 +768,10 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Flight Ticket
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Flight details are package-sourced, with
+                                editable operational notes for DOA and IC.
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.flights ?? []).map((flight, index) => (
@@ -820,6 +887,10 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Bus / Vehicle
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Ground transport details for the movement,
+                                including driver assignment info.
+                            </p>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormField
@@ -875,6 +946,10 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">Train</CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Train movement narrative and package train
+                                ticket references.
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <FormField
@@ -1141,6 +1216,11 @@ export default function OpsMovementForm({
                                         <CardTitle className="text-lg">
                                             <FormField
                                                 label={`Title ${titleIndex + 1}`}
+                                                layout="inline"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Budget section title grouping related cost items.',
+                                                    example: 'Hotel Logistics',
+                                                }}
                                             >
                                                 <ProperInput
                                                     value={section.title ?? ''}
@@ -1185,136 +1265,126 @@ export default function OpsMovementForm({
                                             return (
                                                 <div
                                                     key={`budget-item-${titleIndex}-${itemIndex}`}
-                                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-12"
+                                                    className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
                                                 >
-                                                    <div className="md:col-span-3">
-                                                        <FormField label="Item Name">
-                                                            <ProperInput
-                                                                value={
-                                                                    item.item_name ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            item_name:
-                                                                                value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Enter item"
-                                                            />
-                                                        </FormField>
-                                                    </div>
-                                                    <div className="md:col-span-2">
-                                                        <FormField
-                                                            label="Unit Price"
-                                                            error={getError(
-                                                                `budget.${titleIndex}.items.${itemIndex}.unit_price`,
+                                                    <FormField label="Item Name">
+                                                        <ProperInput
+                                                            value={
+                                                                item.item_name ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                processing
+                                                            }
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        item_name:
+                                                                            value,
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="Enter item"
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Unit Price"
+                                                        error={getError(
+                                                            `budget.${titleIndex}.items.${itemIndex}.unit_price`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={
+                                                                item.unit_price ===
+                                                                    null ||
+                                                                item.unit_price ===
+                                                                    undefined
+                                                                    ? ''
+                                                                    : String(
+                                                                          item.unit_price,
+                                                                      )
+                                                            }
+                                                            disabled={
+                                                                processing
+                                                            }
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        unit_price:
+                                                                            value ===
+                                                                            ''
+                                                                                ? null
+                                                                                : toDecimal(
+                                                                                      value,
+                                                                                  ),
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="0.00"
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Quantity"
+                                                        error={getError(
+                                                            `budget.${titleIndex}.items.${itemIndex}.quantity`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={String(
+                                                                item.quantity ??
+                                                                    0,
                                                             )}
-                                                        >
-                                                            <ProperInput
-                                                                value={String(
-                                                                    item.unit_price ??
-                                                                        0,
-                                                                )}
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            unit_price:
-                                                                                toDecimal(
-                                                                                    value,
-                                                                                ),
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="0.00"
-                                                            />
-                                                        </FormField>
-                                                    </div>
-                                                    <div className="md:col-span-2">
-                                                        <FormField
-                                                            label="Quantity"
-                                                            error={getError(
-                                                                `budget.${titleIndex}.items.${itemIndex}.quantity`,
-                                                            )}
-                                                        >
-                                                            <ProperInput
-                                                                value={String(
-                                                                    item.quantity ??
-                                                                        0,
-                                                                )}
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            quantity:
-                                                                                toDecimal(
-                                                                                    value,
-                                                                                ),
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="0.00"
-                                                            />
-                                                        </FormField>
-                                                    </div>
-                                                    <div className="md:col-span-2">
-                                                        <FormField label="Total (Saudi Riyal)">
-                                                            <CopyableText
-                                                                value={
-                                                                    lineTotal
-                                                                }
-                                                            />
-                                                        </FormField>
-                                                    </div>
-                                                    <div className="md:col-span-2">
-                                                        <FormField label="Remarks">
-                                                            <ProperInput
-                                                                value={
-                                                                    item.remarks ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            remarks:
+                                                            disabled={
+                                                                processing
+                                                            }
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        quantity:
+                                                                            toDecimal(
                                                                                 value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Remarks"
-                                                            />
-                                                        </FormField>
-                                                    </div>
-                                                    <div className="flex items-end md:col-span-1">
+                                                                            ),
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="0.00"
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Total (Saudi Riyal)">
+                                                        <CopyableText
+                                                            value={lineTotal}
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Remarks">
+                                                        <ProperInput
+                                                            value={
+                                                                item.remarks ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                processing
+                                                            }
+                                                            textarea
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        remarks:
+                                                                            value,
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="Remarks"
+                                                        />
+                                                    </FormField>
+                                                    <div className="flex items-center justify-end">
                                                         <Button
                                                             type="button"
                                                             variant="ghost"

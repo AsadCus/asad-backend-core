@@ -14,7 +14,7 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { store } from '@/routes/manifests';
+import { index as manifestsIndex, store } from '@/routes/manifests';
 import manifestSections from '@/routes/manifests/sections';
 import { useForm } from '@inertiajs/react';
 import {
@@ -92,8 +92,6 @@ const MANIFEST_DOCUMENT_TABS: Array<{
         accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
     },
 ];
-
-// const ENABLE_LEGACY_FULL_SUBMIT_FALLBACK = true;
 
 function createEmptyDocumentEntry(): ManifestDocumentItem {
     return {
@@ -739,7 +737,11 @@ function buildRoomRowsFromMembers(
             accommodation_key: accommodationKey,
             sharing_plan:
                 existing?.sharing_plan ?? member.sharing_plan ?? 'single',
-            room_relationship: existing?.room_relationship ?? '',
+            room_relationship:
+                existing?.room_relationship ??
+                member.group_relationship ??
+                member.relationship ??
+                '',
             room_type:
                 existing?.room_type ??
                 member.room_type ??
@@ -794,6 +796,26 @@ function capacityFromSharingPlan(sharingPlan?: string | null): number {
     }
 
     if (plan === 'double') {
+        return 2;
+    }
+
+    return 1;
+}
+
+function capacityFromRoomType(roomType?: string | null): number {
+    const normalizedRoomType = String(roomType ?? '')
+        .toLowerCase()
+        .trim();
+
+    if (normalizedRoomType === 'quad') {
+        return 4;
+    }
+
+    if (normalizedRoomType === 'triple') {
+        return 3;
+    }
+
+    if (normalizedRoomType === 'double' || normalizedRoomType === 'twin') {
         return 2;
     }
 
@@ -1511,6 +1533,33 @@ function buildSubmitPayload(
         manifest_sharing_groups: canonicalSharingGroups,
         manifest_rooms: canonicalRooms,
     };
+}
+
+function validateRoomCapacityOnSubmit(
+    rooms: CanonicalManifestRoom[] | undefined,
+): Record<string, string> {
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+        return {};
+    }
+
+    const errors: Record<string, string> = {};
+
+    rooms.forEach((room, roomIndex) => {
+        const membersCount = Array.isArray(room.members)
+            ? room.members.length
+            : 0;
+        const maxCapacity = capacityFromRoomType(room.room_type ?? null);
+
+        if (membersCount > maxCapacity) {
+            const roomTypeLabel = String(
+                room.room_type ?? 'single',
+            ).toUpperCase();
+            errors[`rooms.${roomIndex}.remarks`] =
+                `Room is over capacity for ${roomTypeLabel}: ${membersCount}/${maxCapacity} pax.`;
+        }
+    });
+
+    return errors;
 }
 
 type SectionRequestResult = {
@@ -2546,6 +2595,26 @@ export default function ManifestForm({
             roomListsState,
             (defaults.manifest_members ?? []) as MemberWithUI[],
         );
+        const roomCapacityErrors = validateRoomCapacityOnSubmit(
+            submitPayload.manifest_rooms,
+        );
+
+        if (Object.keys(roomCapacityErrors).length > 0) {
+            Object.entries(roomCapacityErrors).forEach(([field, message]) => {
+                setFormError(field, message);
+            });
+
+            const firstRoomErrorPath = Object.keys(roomCapacityErrors)[0];
+
+            if (firstRoomErrorPath) {
+                navigateToErrorField(firstRoomErrorPath);
+            }
+
+            scrollToErrorBanner();
+
+            return;
+        }
+
         const manifestMemberReceiptsPayload =
             buildManifestMemberReceiptsPayload(
                 (data.manifest_members ?? []) as MemberWithUI[],
@@ -2575,25 +2644,6 @@ export default function ManifestForm({
                 },
             });
         };
-
-        /*
-         * Legacy full-submit fallback kept for reference only.
-         * Section-by-section updates are now the primary and only edit-mode submit path.
-         */
-        // const submitWithLegacyFullPayload = () => {
-        //     form.transform(() => submitPayload);
-        //
-        //     post(store().url, {
-        //         preserveScroll: 'errors',
-        //         forceFormData: true,
-        //         onError: handleError,
-        //         onFinish: () => {
-        //             form.transform(
-        //                 (currentData: ManifestFormData) => currentData,
-        //             );
-        //         },
-        //     });
-        // };
 
         if (isEdit && submitPayload.id) {
             const sectionRequests = [
@@ -2701,18 +2751,6 @@ export default function ManifestForm({
                             result.errors?.section_save,
                         );
 
-                        // const hasValidationErrors =
-                        //     result.isValidationError === true;
-
-                        // if (
-                        //     ENABLE_LEGACY_FULL_SUBMIT_FALLBACK &&
-                        //     !hasValidationErrors
-                        // ) {
-                        //     submitWithFullPayload();
-
-                        //     return;
-                        // }
-
                         handleError(
                             result.errors ?? {
                                 section_save:
@@ -2728,7 +2766,7 @@ export default function ManifestForm({
                     updateSaveProgressStep(sectionRequest.key, 'success');
                 }
 
-                window.location.assign(store().url);
+                window.location.assign(manifestsIndex().url);
             } finally {
                 setIsSectionSaving(false);
                 setShowSaveProgressPopup(false);

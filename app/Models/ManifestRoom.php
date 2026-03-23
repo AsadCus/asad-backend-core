@@ -20,7 +20,6 @@ class ManifestRoom extends Model
         'room_type',
         'bed_type',
         'capacity',
-        'sharing_plan',
         'status',
         'meal',
         'number_of_beds_checked',

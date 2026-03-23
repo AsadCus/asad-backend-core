@@ -170,6 +170,30 @@ function getCapacityForSharingPlan(sharingPlan?: string): number {
     return SHARING_PLAN_CAPACITY[sharingPlan.toLowerCase()] ?? Infinity;
 }
 
+function getCapacityForRoomType(roomType?: string): number {
+    const normalizedRoomType = String(roomType ?? '')
+        .toLowerCase()
+        .trim();
+
+    if (normalizedRoomType === 'quad') {
+        return 4;
+    }
+
+    if (normalizedRoomType === 'triple') {
+        return 3;
+    }
+
+    if (normalizedRoomType === 'double' || normalizedRoomType === 'twin') {
+        return 2;
+    }
+
+    if (normalizedRoomType === 'single') {
+        return 1;
+    }
+
+    return Infinity;
+}
+
 function getBedTypeFromRoomType(roomType?: string): string {
     const value = String(roomType ?? '').toLowerCase();
 
@@ -179,28 +203,6 @@ function getBedTypeFromRoomType(roomType?: string): string {
 
     if (value === 'single' || value === 'twin' || value === 'triple') {
         return 'single';
-    }
-
-    return '';
-}
-
-function getRoomTypeFromSharingPlan(sharingPlan?: string): string {
-    const value = String(sharingPlan ?? '').toLowerCase();
-
-    if (value === 'single') {
-        return 'single';
-    }
-
-    if (value === 'double') {
-        return 'double';
-    }
-
-    if (value === 'triple') {
-        return 'triple';
-    }
-
-    if (value === 'quad') {
-        return 'quad';
     }
 
     return '';
@@ -565,40 +567,6 @@ export default function ManifestDatatable({
         field: keyof MemberWithUI,
         value: string | number | string[],
     ) => {
-        if (
-            (mode === 'room' || mode === 'room_check') &&
-            field === 'sharing_plan' &&
-            typeof value === 'string'
-        ) {
-            const source = rows[flatIndex];
-            const groupKey =
-                source.sharing_group_key ??
-                `solo-${source.customer_confirmation_member_id ?? flatIndex}`;
-            const normalizedSharingPlan = value.toLowerCase();
-            const roomType = getRoomTypeFromSharingPlan(normalizedSharingPlan);
-
-            const next = rows.map((row, index) => {
-                const rowKey =
-                    row.sharing_group_key ??
-                    `solo-${row.customer_confirmation_member_id ?? index}`;
-
-                if (rowKey !== groupKey) {
-                    return row;
-                }
-
-                return {
-                    ...row,
-                    sharing_plan: normalizedSharingPlan,
-                    room_type: roomType || row.room_type,
-                    bed_type: getBedTypeFromRoomType(roomType) || row.bed_type,
-                };
-            });
-
-            onRowsChange(next);
-
-            return;
-        }
-
         const next = [...rows];
 
         if (field === 'date_of_birth' && typeof value === 'string') {
@@ -631,19 +599,6 @@ export default function ManifestDatatable({
             typeof value === 'string'
         ) {
             patch.bed_type = getBedTypeFromRoomType(value);
-        }
-
-        if (
-            (mode === 'room' || mode === 'room_check') &&
-            field === 'sharing_plan' &&
-            typeof value === 'string'
-        ) {
-            const normalizedSharingPlan = value.toLowerCase();
-            const roomType = getRoomTypeFromSharingPlan(normalizedSharingPlan);
-
-            patch.sharing_plan = normalizedSharingPlan;
-            patch.room_type = roomType;
-            patch.bed_type = getBedTypeFromRoomType(roomType);
         }
 
         const next = rows.map((row, rowIndex) => {
@@ -776,7 +731,6 @@ export default function ManifestDatatable({
                       room_relationship: targetShared.room_relationship,
                       room_label: targetShared.room_label,
                       room_number: targetShared.room_number,
-                      sharing_plan: targetShared.sharing_plan,
                       room_type: targetShared.room_type,
                       bed_type: targetShared.bed_type,
                       meal: targetShared.meal,
@@ -845,50 +799,123 @@ export default function ManifestDatatable({
             return;
         }
 
-        const planBuckets = new Map<string, GroupMember[]>();
-
-        group.members.forEach((member) => {
-            const sharingPlan = String(
-                member.member.sharing_plan ?? 'single',
-            ).toLowerCase();
-
-            if (!planBuckets.has(sharingPlan)) {
-                planBuckets.set(sharingPlan, []);
-            }
-
-            planBuckets.get(sharingPlan)?.push(member);
-        });
-
         const splitGroups: GroupData[] = [];
         let splitIndex = 1;
 
-        planBuckets.forEach((members, sharingPlan) => {
+        if (mode === 'members') {
+            const planBuckets = new Map<string, GroupMember[]>();
+
+            group.members.forEach((member) => {
+                const sharingPlan = String(
+                    member.member.sharing_plan ?? 'single',
+                ).toLowerCase();
+
+                if (!planBuckets.has(sharingPlan)) {
+                    planBuckets.set(sharingPlan, []);
+                }
+
+                planBuckets.get(sharingPlan)?.push(member);
+            });
+
+            planBuckets.forEach((members, sharingPlan) => {
+                const capacity = Math.max(
+                    getCapacityForSharingPlan(sharingPlan),
+                    1,
+                );
+
+                for (
+                    let memberIndex = 0;
+                    memberIndex < members.length;
+                    memberIndex += capacity
+                ) {
+                    const chunk = members.slice(
+                        memberIndex,
+                        memberIndex + capacity,
+                    );
+
+                    const nextKey =
+                        splitGroups.length === 0
+                            ? group.key
+                            : `split-${group.key}-${splitIndex++}`;
+
+                    splitGroups.push({
+                        key: nextKey,
+                        members: chunk.map((member) => ({
+                            ...member,
+                            member: {
+                                ...member.member,
+                                sharing_group_key: nextKey,
+                                sharing_plan: sharingPlan,
+                            },
+                        })),
+                    });
+                }
+            });
+        }
+
+        if (mode === 'room') {
+            const roomType = String(
+                group.members[0]?.member.room_type ?? '',
+            ).toLowerCase();
+            const normalizedRoomType =
+                roomType.length > 0 ? roomType : 'single';
             const capacity = Math.max(
-                getCapacityForSharingPlan(sharingPlan),
+                getCapacityForRoomType(normalizedRoomType),
                 1,
             );
+            const planBuckets = new Map<string, GroupMember[]>();
 
-            for (let index = 0; index < members.length; index += capacity) {
-                const chunk = members.slice(index, index + capacity);
+            group.members.forEach((member) => {
+                const memberSharingPlan = String(
+                    member.member.sharing_plan ?? 'single',
+                )
+                    .toLowerCase()
+                    .trim();
+                const bucketKey =
+                    memberSharingPlan.length > 0 ? memberSharingPlan : 'single';
 
-                const nextKey =
-                    splitGroups.length === 0
-                        ? group.key
-                        : `split-${group.key}-${splitIndex++}`;
+                if (!planBuckets.has(bucketKey)) {
+                    planBuckets.set(bucketKey, []);
+                }
 
-                splitGroups.push({
-                    key: nextKey,
-                    members: chunk.map((member) => ({
-                        ...member,
-                        member: {
-                            ...member.member,
-                            sharing_group_key: nextKey,
-                            sharing_plan: sharingPlan,
-                        },
-                    })),
-                });
-            }
-        });
+                planBuckets.get(bucketKey)?.push(member);
+            });
+
+            planBuckets.forEach((members, sharingPlan) => {
+                for (
+                    let memberIndex = 0;
+                    memberIndex < members.length;
+                    memberIndex += capacity
+                ) {
+                    const chunk = members.slice(
+                        memberIndex,
+                        memberIndex + capacity,
+                    );
+
+                    const nextKey =
+                        splitGroups.length === 0
+                            ? group.key
+                            : `split-${group.key}-${splitIndex++}`;
+
+                    splitGroups.push({
+                        key: nextKey,
+                        members: chunk.map((member) => ({
+                            ...member,
+                            member: {
+                                ...member.member,
+                                sharing_group_key: nextKey,
+                                sharing_plan: sharingPlan,
+                                room_type: normalizedRoomType,
+                                bed_type:
+                                    getBedTypeFromRoomType(
+                                        normalizedRoomType,
+                                    ) || member.member.bed_type,
+                            },
+                        })),
+                    });
+                }
+            });
+        }
 
         if (splitGroups.length <= 1) {
             toast.error('No split needed for this group.');
@@ -994,21 +1021,6 @@ export default function ManifestDatatable({
             ) {
                 toast.error(
                     'Cannot move: member must stay within the same customer confirmation group.',
-                );
-
-                return;
-            }
-        }
-
-        if (mode === 'room') {
-            const sharingPlan =
-                targetGroup.members[0]?.member.sharing_plan ?? '';
-            const capacity = getCapacityForSharingPlan(sharingPlan);
-            const currentCount = targetGroup.members.length;
-
-            if (Number.isFinite(capacity) && currentCount >= capacity) {
-                toast.error(
-                    `Cannot move: ${(sharingPlan || 'this').toString()} room is at full capacity (${capacity} pax)`,
                 );
 
                 return;
@@ -1278,7 +1290,7 @@ export default function ManifestDatatable({
             ? groupLeadMember?.customer_confirmation_number
             : null;
         const capacity = isRoomMode
-            ? getCapacityForSharingPlan(roomInfo?.sharing_plan)
+            ? getCapacityForRoomType(roomInfo?.room_type)
             : Infinity;
         const capacityLabel = Number.isFinite(capacity)
             ? `${item.memberCount}/${capacity}`

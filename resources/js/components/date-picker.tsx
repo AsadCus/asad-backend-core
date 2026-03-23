@@ -111,8 +111,8 @@ export function DatePickerField({
                         ? `${formatDateForDisplay(new Date())} 00:00`
                         : formatDateForDisplay(new Date())
                 }
-                className="pr-10"
-                disabled={disabled}
+                className={`pr-10 ${disabled ? 'bg-muted/40' : ''}`}
+                readOnly={disabled}
                 onChange={(e) => {
                     onChange(e.target.value);
                     if (useTime) {
@@ -132,6 +132,11 @@ export function DatePickerField({
                     if (e.key === 'ArrowDown') {
                         e.preventDefault();
                         setOpen(true);
+                    }
+                }}
+                onFocus={(e) => {
+                    if (disabled) {
+                        e.currentTarget.select();
                     }
                 }}
             />

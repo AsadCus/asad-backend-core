@@ -11,6 +11,8 @@ interface FormFieldProps {
     children: React.ReactNode;
     htmlFor?: string;
     className?: string;
+    layout?: 'stacked' | 'inline';
+    ignoreFieldRequirementsTabFocus?: boolean;
 }
 
 export function FormField({
@@ -20,13 +22,24 @@ export function FormField({
     children,
     htmlFor,
     className = '',
+    layout = 'stacked',
+    ignoreFieldRequirementsTabFocus = true,
 }: FormFieldProps) {
+    const isInline = layout === 'inline';
+
     return (
-        <div className={`grid w-full items-center gap-3 ${className}`}>
-            <Label htmlFor={htmlFor}>
+        <div
+            className={`grid w-full items-center gap-3 ${
+                isInline ? 'md:grid-cols-[minmax(0,1fr)_auto] md:gap-4' : ''
+            } ${className}`}
+        >
+            <Label htmlFor={htmlFor} className={isInline ? 'pt-2' : ''}>
                 {label}
                 {fieldRequirementsProps && (
-                    <FieldRequirements {...fieldRequirementsProps} />
+                    <FieldRequirements
+                        {...fieldRequirementsProps}
+                        ignoreTabFocus={ignoreFieldRequirementsTabFocus}
+                    />
                 )}
             </Label>
             <div className="relative">

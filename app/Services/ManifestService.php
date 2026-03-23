@@ -288,7 +288,6 @@ class ManifestService
                 'room_type' => $room->room_type,
                 'bed_type' => $room->bed_type,
                 'capacity' => $room->capacity,
-                'sharing_plan' => $room->sharing_plan,
                 'status' => $room->status,
                 'meal' => $room->meal,
                 'number_of_beds_checked' => (bool) $room->number_of_beds_checked,
@@ -379,7 +378,6 @@ class ManifestService
                 'room_number' => $room['room_number'] ?? null,
                 'room_type' => $room['room_type'] ?? null,
                 'bed_type' => $room['bed_type'] ?? null,
-                'sharing_plan' => $room['sharing_plan'] ?? null,
                 'capacity' => $room['capacity'] ?? null,
                 'meal' => $room['meal'] ?? null,
                 'number_of_beds_checked' => $room['number_of_beds_checked'] ?? false,
@@ -452,8 +450,11 @@ class ManifestService
                 'notes' => $data['notes'] ?? $manifest->notes,
             ];
 
-            if (Schema::hasColumn('manifests', 'in_charge_official_id')) {
-                $manifestAttributes['in_charge_official_id'] = $data['in_charge_official_id'] ?? null;
+            if (
+                Schema::hasColumn('manifests', 'in_charge_official_id')
+                && array_key_exists('in_charge_official_id', $data)
+            ) {
+                $manifestAttributes['in_charge_official_id'] = $data['in_charge_official_id'];
             }
 
             $manifest->update($manifestAttributes);
@@ -567,7 +568,6 @@ class ManifestService
                 'room_type' => $data['room_type'] ?? null,
                 'bed_type' => $data['bed_type'] ?? null,
                 'capacity' => $data['capacity'] ?? null,
-                'sharing_plan' => $data['sharing_plan'] ?? null,
                 'status' => $data['status'] ?? 'pending',
                 'meal' => $data['meal'] ?? null,
                 'remarks' => $data['remarks'] ?? null,
@@ -613,7 +613,6 @@ class ManifestService
                 'room_type' => $data['room_type'] ?? $room->room_type,
                 'bed_type' => $data['bed_type'] ?? $room->bed_type,
                 'capacity' => $data['capacity'] ?? $room->capacity,
-                'sharing_plan' => $data['sharing_plan'] ?? $room->sharing_plan,
                 'status' => $data['status'] ?? $room->status,
                 'meal' => $data['meal'] ?? $room->meal,
                 'remarks' => $data['remarks'] ?? $room->remarks,
@@ -1139,10 +1138,6 @@ class ManifestService
         $roomPayloads = [];
 
         foreach ($flatRooms as $roomIndex => $room) {
-            $sharingPlan = isset($room['sharing_plan']) && is_string($room['sharing_plan'])
-                ? strtolower(trim($room['sharing_plan']))
-                : null;
-
             $roomType = isset($room['room_type']) && is_string($room['room_type'])
                 ? strtolower(trim($room['room_type']))
                 : null;
@@ -1204,7 +1199,6 @@ class ManifestService
                     ->sortBy(fn (array $member) => (int) ($member['sort_order'] ?? PHP_INT_MAX))
                     ->values()
                     ->all(),
-                'sharing_plan' => $sharingPlan,
                 'room_type' => $roomType,
                 'bed_type' => $bedType,
                 'original_index' => $roomIndex,
@@ -1231,7 +1225,6 @@ class ManifestService
                 'room_type' => $payload['room_type'],
                 'bed_type' => $payload['bed_type'],
                 'capacity' => $baseRoom['capacity'] ?? ($roomMembers === [] ? null : count($roomMembers)),
-                'sharing_plan' => $payload['sharing_plan'],
                 'status' => $baseRoom['status'] ?? 'pending',
                 'meal' => $baseRoom['meal'] ?? null,
                 'number_of_beds_checked' => (bool) ($baseRoom['number_of_beds_checked'] ?? false),
@@ -1272,16 +1265,6 @@ class ManifestService
 
                 if (! $manifestMemberId) {
                     continue;
-                }
-
-                if (! empty($member['customer_confirmation_member_id']) && array_key_exists('sharing_plan', $member)) {
-                    $confirmationMember = CustomerConfirmationMember::query()->find((int) $member['customer_confirmation_member_id']);
-
-                    if ($confirmationMember) {
-                        $this->syncMemberData($confirmationMember, [
-                            'sharing_plan' => $member['sharing_plan'],
-                        ]);
-                    }
                 }
 
                 $createdRoom->roomMembers()->create([
@@ -1427,7 +1410,7 @@ class ManifestService
                                     'room_relationship' => $room->group_relationship,
                                     'room_label' => $room->room_label,
                                     'room_number' => $room->room_number,
-                                    'sharing_plan' => $room->sharing_plan,
+                                    'sharing_plan' => $memberRow['sharing_plan'] ?? null,
                                     'room_type' => $room->room_type,
                                     'bed_type' => $room->bed_type,
                                     'number_of_beds_checked' => (bool) $room->number_of_beds_checked,
@@ -1503,10 +1486,6 @@ class ManifestService
 
         if (array_key_exists('relationship', $memberPayload) || array_key_exists('role', $memberPayload)) {
             $memberUpdates['relationship'] = $memberPayload['relationship'] ?? $memberPayload['role'] ?? null;
-        }
-
-        if (array_key_exists('sharing_plan', $memberPayload)) {
-            $memberUpdates['sharing_plan'] = $memberPayload['sharing_plan'] ?: null;
         }
 
         if (array_key_exists('status', $memberPayload)) {

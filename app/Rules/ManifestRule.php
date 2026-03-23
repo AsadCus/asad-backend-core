@@ -122,7 +122,6 @@ class ManifestRule
             'rooms.*.room_type' => ['nullable', 'string', 'in:single,twin,double,triple,quad'],
             'rooms.*.bed_type' => ['nullable', 'string', 'in:single,king,queen'],
             'rooms.*.capacity' => ['nullable', 'integer', 'min:1'],
-            'rooms.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'rooms.*.status' => ['nullable', 'string', 'in:pending,filled,finalized'],
             'rooms.*.room_label' => ['nullable', 'string', 'max:255'],
             'rooms.*.meal' => ['nullable', 'string', 'max:255'],
@@ -133,7 +132,6 @@ class ManifestRule
             'rooms.*.members.*.manifest_member_id' => ['nullable', 'integer'],
             'rooms.*.members.*.customer_confirmation_member_id' => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
             'rooms.*.members.*.package_official_id' => ['nullable', 'integer', 'exists:package_officials,id'],
-            'rooms.*.members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'rooms.*.members.*.sort_order' => ['nullable', 'integer', 'min:1'],
             'rooms.*.members.*.remarks' => ['nullable', 'string'],
         ];
@@ -153,7 +151,6 @@ class ManifestRule
             'room_type' => ['nullable', 'string', 'in:single,twin,double,triple,quad'],
             'bed_type' => ['nullable', 'string', 'in:single,king,queen'],
             'capacity' => ['nullable', 'integer', 'min:1'],
-            'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'status' => ['nullable', 'string', 'in:pending,filled,finalized'],
             'room_label' => ['nullable', 'string', 'max:255'],
             'meal' => ['nullable', 'string', 'max:255'],
@@ -163,7 +160,6 @@ class ManifestRule
             'members.*.manifest_member_id' => ['nullable', 'integer'],
             'members.*.customer_confirmation_member_id' => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
             'members.*.package_official_id' => ['nullable', 'integer', 'exists:package_officials,id'],
-            'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'members.*.sort_order' => ['nullable', 'integer', 'min:1'],
             'members.*.remarks' => ['nullable', 'string'],
         ];

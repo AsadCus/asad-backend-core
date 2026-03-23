@@ -161,6 +161,11 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                                 }
                             }
                         }}
+                        onRowDoubleClick={(row) => {
+                            if (row.id) {
+                                router.get(show(row.id).url);
+                            }
+                        }}
                         initialState={{
                             pagination: {
                                 pageSize: 50,
