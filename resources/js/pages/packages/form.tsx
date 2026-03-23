@@ -23,7 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { isBeforeToday, parseDisplayDate } from '@/lib/utils';
 import { store, update } from '@/routes/packages';
 import { useForm } from '@inertiajs/react';
-import { AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { genderOptions } from '../customer/schema';
 import {
@@ -84,6 +84,7 @@ const defaultOfficials: OfficialSchema[] = [
     {
         type: 'mutawif',
         name: '',
+        hotel: '',
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -97,6 +98,7 @@ const defaultOfficials: OfficialSchema[] = [
     {
         type: 'mutawifah',
         name: '',
+        hotel: '',
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -110,6 +112,7 @@ const defaultOfficials: OfficialSchema[] = [
     {
         type: 'official',
         name: '',
+        hotel: '',
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -165,6 +168,7 @@ export default function PackageForm({
         vehicle_driver_name: '',
         vehicle_driver_contact_number: '',
         ticket_type: '',
+        train_description: '',
         included: '',
         not_included: '',
         offer: '',
@@ -191,6 +195,16 @@ export default function PackageForm({
     } = useForm<PackageSchema>(defaultData);
 
     const lastAppliedPrefillRef = useRef<string | null>(null);
+    const errorBannerRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (Object.keys(errors).length > 0 && !isView) {
+            errorBannerRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }
+    }, [errors, isView]);
 
     useEffect(() => {
         if (!isCreate || !prefillData) {
@@ -296,6 +310,7 @@ export default function PackageForm({
             {
                 location: '',
                 hotel_name: '',
+                ic: '',
                 type_of_meal: '',
                 check_in: '',
                 check_out: '',
@@ -442,6 +457,7 @@ export default function PackageForm({
             {
                 type: '',
                 name: '',
+                hotel: '',
                 contact_number: '',
                 nationality: '',
                 passport_number: '',
@@ -511,12 +527,14 @@ export default function PackageForm({
             <form onSubmit={submit} className="space-y-4">
                 {/* Error Alert */}
                 {Object.keys(errors).length > 0 && !isView && (
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                            Please fix the errors below and try again
-                        </AlertDescription>
-                    </Alert>
+                    <div ref={errorBannerRef}>
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                Please fix the errors below and try again.
+                            </AlertDescription>
+                        </Alert>
+                    </div>
                 )}
 
                 {/* Package Information */}
@@ -531,7 +549,7 @@ export default function PackageForm({
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div
-                            className={`grid grid-cols-1 gap-4 ${
+                            className={`grid grid-cols-1 items-start gap-4 ${
                                 showPackageNumberField
                                     ? 'md:grid-cols-3'
                                     : 'md:grid-cols-2'
@@ -609,7 +627,7 @@ export default function PackageForm({
                             </FormField>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                             <FormField
                                 label="Departure Date"
                                 fieldRequirementsProps={{
@@ -707,7 +725,7 @@ export default function PackageForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                             {sharingPlanPriceLabels.map(({ key, label }) => (
                                 <FormField
                                     key={key}
@@ -743,7 +761,7 @@ export default function PackageForm({
                             ))}
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                             {infantAndChildPriceLabels.map(({ key, label }) => (
                                 <FormField
                                     key={key}
@@ -839,7 +857,7 @@ export default function PackageForm({
                                                 </Button>
                                             )}
                                         </div>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                             <FormField
                                                 label="Description"
                                                 fieldRequirementsProps={{
@@ -917,7 +935,7 @@ export default function PackageForm({
                                                 />
                                             </FormField>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                             <FormField
                                                 label="Airline"
                                                 fieldRequirementsProps={{
@@ -1099,7 +1117,7 @@ export default function PackageForm({
                                                     </Button>
                                                 )}
                                             </div>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="From"
                                                     fieldRequirementsProps={{
@@ -1253,7 +1271,7 @@ export default function PackageForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-1">
                             <FormField
                                 label="Visa Type"
                                 htmlFor="visa_type"
@@ -1273,7 +1291,7 @@ export default function PackageForm({
                                 />
                             </FormField>
                         </div>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                             <FormField
                                 label="Vehicle Type"
                                 htmlFor="vehicle_type"
@@ -1352,7 +1370,26 @@ export default function PackageForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-1">
+                            <FormField
+                                label="Train Description"
+                                htmlFor="train_description"
+                                fieldRequirementsProps={{
+                                    hint: 'General notes shown for train operations',
+                                }}
+                                error={getError('train_description')}
+                            >
+                                <ProperInput
+                                    id="train_description"
+                                    value={data.train_description || ''}
+                                    disabled={isView || processing}
+                                    textarea
+                                    onCommit={(v) =>
+                                        setData('train_description', v || null)
+                                    }
+                                    placeholder="Enter train operation description"
+                                />
+                            </FormField>
                             <FormField
                                 label="Train Ticket Type"
                                 htmlFor="ticket_type"
@@ -1601,7 +1638,7 @@ export default function PackageForm({
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                                 <FormField
                                                     label="Location"
                                                     fieldRequirementsProps={{
@@ -1659,6 +1696,33 @@ export default function PackageForm({
                                                     />
                                                 </FormField>
                                                 <FormField
+                                                    label="IC"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Free-text in charge reference',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.ic`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.ic ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'ic',
+                                                                v,
+                                                            )
+                                                        }
+                                                        placeholder="Enter IC"
+                                                    />
+                                                </FormField>
+                                                <FormField
                                                     label="Meal Type"
                                                     fieldRequirementsProps={{
                                                         hint: 'Enter meal type',
@@ -1690,7 +1754,7 @@ export default function PackageForm({
                                                 </FormField>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="Check In"
                                                     fieldRequirementsProps={{
@@ -1878,7 +1942,7 @@ export default function PackageForm({
                                                     )}
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                     <FormField
                                                         label="Date"
                                                         fieldRequirementsProps={{
@@ -1926,7 +1990,7 @@ export default function PackageForm({
                                                     </FormField>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                     <FormField
                                                         label="Women Passengers"
                                                         fieldRequirementsProps={{
@@ -1993,7 +2057,7 @@ export default function PackageForm({
                                                     </FormField>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                     <FormField
                                                         label="Men Passengers"
                                                         fieldRequirementsProps={{
@@ -2157,7 +2221,7 @@ export default function PackageForm({
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                                 <FormField
                                                     label="Type"
                                                     fieldRequirementsProps={{
@@ -2218,6 +2282,32 @@ export default function PackageForm({
                                                     />
                                                 </FormField>
                                                 <FormField
+                                                    label="Hotel"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Hotel remark for official (official hotel or follows jemaah hotel)',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.hotel`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.hotel ?? ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'hotel',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="Enter hotel"
+                                                    />
+                                                </FormField>
+                                                <FormField
                                                     label="Contact Number"
                                                     fieldRequirementsProps={{
                                                         hint: 'Enter contact number',
@@ -2246,7 +2336,7 @@ export default function PackageForm({
                                                 </FormField>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Nationality"
                                                     fieldRequirementsProps={{
@@ -2333,7 +2423,7 @@ export default function PackageForm({
                                                 </FormField>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Date of Birth"
                                                     fieldRequirementsProps={{
@@ -2438,7 +2528,7 @@ export default function PackageForm({
                                                 </FormField>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="Passport Place of Issue"
                                                     fieldRequirementsProps={{
@@ -2634,11 +2724,20 @@ export default function PackageForm({
                                 className="min-w-[140px]"
                                 disabled={processing}
                             >
-                                {isEdit
-                                    ? 'Update'
-                                    : onSuccess
-                                      ? 'Create & Continue'
-                                      : 'Create'}
+                                {processing && (
+                                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                )}
+                                {processing
+                                    ? isEdit
+                                        ? 'Updating...'
+                                        : onSuccess
+                                          ? 'Creating...'
+                                          : 'Creating...'
+                                    : isEdit
+                                      ? 'Update'
+                                      : onSuccess
+                                        ? 'Create & Continue'
+                                        : 'Create'}
                             </Button>
                         </>
                     )}

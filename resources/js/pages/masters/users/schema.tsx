@@ -91,7 +91,15 @@ export type UserFormMode = 'create' | 'edit' | 'view';
 export function validateUserData(data: UserSchema, mode: UserFormMode) {
     return userSchema
         .superRefine((currentData, ctx) => {
-            if (mode === 'create' && !currentData.password?.trim()) {
+            const requiresManualPassword =
+                currentData.role !== 'customer' &&
+                currentData.role !== 'supplier';
+
+            if (
+                mode === 'create' &&
+                requiresManualPassword &&
+                !currentData.password?.trim()
+            ) {
                 ctx.addIssue({
                     code: 'custom',
                     path: ['password'],

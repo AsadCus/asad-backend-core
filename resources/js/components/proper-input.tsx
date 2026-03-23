@@ -194,14 +194,17 @@ export function ProperInput({
         commit(nextValue);
     };
 
+    const isReadOnlyMode = Boolean(disabled);
+
     if (textarea) {
         return (
             <Textarea
                 id={id}
                 value={local}
                 placeholder={placeholder}
-                disabled={disabled}
+                readOnly={isReadOnlyMode}
                 className={cn(
+                    isReadOnlyMode ? 'bg-muted/40' : '',
                     size === 'compact'
                         ? 'min-h-[36px] px-2 py-1 text-base sm:min-h-[48px]'
                         : '',
@@ -209,6 +212,11 @@ export function ProperInput({
                 )}
                 onChange={(e) => setLocal(e.target.value)}
                 onBlur={() => commit()}
+                onFocus={(e) => {
+                    if (isReadOnlyMode) {
+                        e.currentTarget.select();
+                    }
+                }}
             />
         );
     }
@@ -230,8 +238,9 @@ export function ProperInput({
                     type="text"
                     value={local}
                     placeholder={timeFormat === 24 ? 'HH:mm' : 'hh:mm AM/PM'}
-                    disabled={disabled}
+                    readOnly={isReadOnlyMode}
                     className={cn(
+                        isReadOnlyMode ? 'bg-muted/40' : '',
                         'pr-10',
                         size === 'compact'
                             ? 'h-6 px-2 py-1 text-base sm:h-7'
@@ -250,6 +259,11 @@ export function ProperInput({
                         }
                     }}
                     onBlur={() => commit()}
+                    onFocus={(e) => {
+                        if (isReadOnlyMode) {
+                            e.currentTarget.select();
+                        }
+                    }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
@@ -289,6 +303,7 @@ export function ProperInput({
                                     onValueChange={(nextHourRaw) => {
                                         const nextHourValue =
                                             Number(nextHourRaw);
+
                                         if (Number.isNaN(nextHourValue)) {
                                             return;
                                         }

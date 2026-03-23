@@ -14,7 +14,7 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { store } from '@/routes/manifests';
+import { index as manifestsIndex, store } from '@/routes/manifests';
 import manifestSections from '@/routes/manifests/sections';
 import { useForm } from '@inertiajs/react';
 import {
@@ -68,6 +68,12 @@ const MANIFEST_DOCUMENT_TABS: Array<{
         accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
     },
     {
+        key: 'train_tickets',
+        label: 'Train Tickets',
+        hint: 'Upload train ticket files for this manifest.',
+        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+    },
+    {
         key: 'hotel',
         label: 'Hotel',
         hint: 'Upload hotel-related documents.',
@@ -86,8 +92,6 @@ const MANIFEST_DOCUMENT_TABS: Array<{
         accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
     },
 ];
-
-const ENABLE_LEGACY_FULL_SUBMIT_FALLBACK = true;
 
 function createEmptyDocumentEntry(): ManifestDocumentItem {
     return {
@@ -146,6 +150,7 @@ function buildManifestDocumentFileName(
 
 function buildEmptyManifestDocuments(): ManifestDocumentsByField {
     return {
+        train_tickets: [createEmptyDocumentEntry()],
         flight_tickets: [createEmptyDocumentEntry()],
         visa: [createEmptyDocumentEntry()],
         hotel: [createEmptyDocumentEntry()],
@@ -192,8 +197,10 @@ function toMemberWithUI(
 
     return {
         ...(row as MemberWithUI),
-        role: String(row.role ?? ''),
-        relationship: String(row.relationship ?? ''),
+        relationship: String(row.relationship ?? row.role ?? ''),
+        group_relationship: String(
+            row.group_relationship ?? row.relation ?? '',
+        ),
         arabic_name: String(
             row.arabic_name ??
                 convertNameToArabic(String(row.name_as_per_passport ?? '')),
@@ -354,7 +361,10 @@ function buildMembersFromCanonicalGroups(
                             officialId ??
                             fallbackMember?.package_official_id ??
                             null,
-                        role: member.role ?? fallbackMember?.role ?? null,
+                        relationship:
+                            member.relationship ??
+                            fallbackMember?.relationship ??
+                            null,
                         sharing_plan:
                             member.sharing_plan ??
                             fallbackMember?.sharing_plan ??
@@ -372,9 +382,9 @@ function buildMembersFromCanonicalGroups(
                             null,
                         sharing_group_id:
                             groupId ?? fallbackMember?.sharing_group_id ?? null,
-                        relationship:
-                            group.relation ??
-                            fallbackMember?.relationship ??
+                        group_relationship:
+                            group.group_relationship ??
+                            fallbackMember?.group_relationship ??
                             null,
                         group_remarks:
                             group.remarks ??
@@ -468,7 +478,8 @@ function buildRoomListsFromCanonicalRooms(
                         room.sharing_plan ??
                         fallbackMember?.sharing_plan ??
                         null,
-                    room_relationship: room.relationship ?? null,
+                    room_relationship:
+                        room.group_relationship ?? room.relationship ?? null,
                     room_label: room.room_label ?? null,
                     room_number: room.room_number ?? null,
                     room_type: room.room_type ?? null,
@@ -552,7 +563,13 @@ function calculateAgeFromDob(dateValue?: string | null): number | null {
 
 function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
     const legacyMembers = normalizeMainTabOrdering(
-        flattenGroupedRows(initialData?.members ?? []),
+        flattenGroupedRows(
+            ((initialData as Record<string, unknown> | undefined)?.[
+                'members'
+            ] as unknown[]) ??
+                initialData?.manifest_members ??
+                [],
+        ),
     );
     const members = normalizeMainTabOrdering(
         buildMembersFromCanonicalGroups(
@@ -564,6 +581,12 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
     const sourceDocuments = initialData?.documents;
     const fallbackDocuments = buildEmptyManifestDocuments();
     const documents: ManifestDocumentsByField = {
+        train_tickets: sourceDocuments?.train_tickets?.length
+            ? sourceDocuments.train_tickets.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
+            : fallbackDocuments.train_tickets,
         flight_tickets: sourceDocuments?.flight_tickets?.length
             ? sourceDocuments.flight_tickets.map((doc) => ({
                   ...doc,
@@ -600,34 +623,6 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
         initialData?.manifest_rooms,
         members,
     );
-    const roomLists =
-        Object.keys(canonicalRoomLists).length > 0
-            ? canonicalRoomLists
-            : (initialData?.roomLists ?? {});
-
-    const normalizedRoomLists = Object.fromEntries(
-        Object.entries(roomLists)
-            .map(([key, rows]) => [key, flattenGroupedRows(rows)])
-            .filter(([, rows]) => rows.length > 0),
-    );
-
-    const airlineList = flattenGroupedRows(initialData?.airlineList ?? members);
-
-    const canonicalManifest = {
-        id: initialData?.manifest?.id ?? initialData?.id,
-        package_id:
-            initialData?.manifest?.package_id ?? initialData?.package_id ?? 0,
-        in_charge_official_id:
-            initialData?.manifest?.in_charge_official_id ??
-            initialData?.in_charge_official_id ??
-            null,
-        manifest_number:
-            initialData?.manifest?.manifest_number ??
-            initialData?.manifest_number ??
-            '',
-        status: initialData?.manifest?.status ?? initialData?.status ?? 'open',
-        notes: initialData?.manifest?.notes ?? initialData?.notes ?? '',
-    };
 
     const canonicalSharingGroups =
         initialData?.manifest_sharing_groups &&
@@ -640,7 +635,7 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
             ? initialData.manifest_rooms
             : buildCanonicalRoomsFromRoomLists(
                   Object.fromEntries(
-                      Object.entries(normalizedRoomLists).map(([key, rows]) => [
+                      Object.entries(canonicalRoomLists).map(([key, rows]) => [
                           key,
                           rows as Array<Record<string, unknown>>,
                       ]),
@@ -648,17 +643,14 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
               );
 
     return {
-        id: canonicalManifest.id,
-        package_id: canonicalManifest.package_id ?? 0,
-        in_charge_official_id: canonicalManifest.in_charge_official_id ?? null,
-        manifest_number: canonicalManifest.manifest_number ?? '',
-        status: canonicalManifest.status ?? 'open',
-        notes: canonicalManifest.notes ?? '',
-        members,
-        roomLists: normalizedRoomLists,
-        airlineList,
+        id: initialData?.id,
+        package_id: initialData?.package_id ?? 0,
+        in_charge_official_id: initialData?.in_charge_official_id ?? null,
+        manifest_number: initialData?.manifest_number ?? '',
+        status: initialData?.status ?? 'open',
+        notes: initialData?.notes ?? '',
+        manifest_members: members,
         documents,
-        manifest: canonicalManifest,
         manifest_sharing_groups: canonicalSharingGroups,
         manifest_rooms: canonicalRooms,
     };
@@ -725,8 +717,9 @@ function buildRoomRowsFromMembers(
             ...member,
             ...existing,
             is_official: member.package_official_id !== null,
-            role: member.role ?? existing?.role,
             relationship: member.relationship ?? existing?.relationship,
+            group_relationship:
+                member.group_relationship ?? existing?.group_relationship,
             row_key:
                 existing?.row_key ??
                 member.row_key ??
@@ -744,7 +737,11 @@ function buildRoomRowsFromMembers(
             accommodation_key: accommodationKey,
             sharing_plan:
                 existing?.sharing_plan ?? member.sharing_plan ?? 'single',
-            room_relationship: existing?.room_relationship ?? '',
+            room_relationship:
+                existing?.room_relationship ??
+                member.group_relationship ??
+                member.relationship ??
+                '',
             room_type:
                 existing?.room_type ??
                 member.room_type ??
@@ -799,6 +796,26 @@ function capacityFromSharingPlan(sharingPlan?: string | null): number {
     }
 
     if (plan === 'double') {
+        return 2;
+    }
+
+    return 1;
+}
+
+function capacityFromRoomType(roomType?: string | null): number {
+    const normalizedRoomType = String(roomType ?? '')
+        .toLowerCase()
+        .trim();
+
+    if (normalizedRoomType === 'quad') {
+        return 4;
+    }
+
+    if (normalizedRoomType === 'triple') {
+        return 3;
+    }
+
+    if (normalizedRoomType === 'double' || normalizedRoomType === 'twin') {
         return 2;
     }
 
@@ -1167,8 +1184,8 @@ function toMemberSubmitRow(
             member.customer_confirmation_member_id ?? null,
         customer_id: member.customer_id ?? null,
         package_official_id: member.package_official_id ?? null,
-        role: member.role ?? null,
         relationship: member.relationship ?? null,
+        group_relationship: member.group_relationship ?? null,
         group_remarks: member.group_remarks ?? null,
         sharing_plan: member.sharing_plan ?? null,
         sharing_group_key:
@@ -1195,6 +1212,7 @@ function toMemberSubmitRow(
         'address',
         'first_time_umrah',
         'has_chronic_disease',
+        'is_using_wheelchair',
         'chronic_disease_details',
         'passport_path',
         'photo_path',
@@ -1291,7 +1309,7 @@ function buildCanonicalSharingGroupsFromMembers(
                     toPositiveIntegerOrNull(member.customer_confirmation_id) ??
                     null,
                 sort_order: groupSortOrder,
-                relation: member.relationship ?? null,
+                group_relationship: member.group_relationship ?? null,
                 remarks: member.group_remarks ?? null,
                 members: [],
             });
@@ -1319,6 +1337,7 @@ function buildCanonicalSharingGroupsFromMembers(
             'address',
             'first_time_umrah',
             'has_chronic_disease',
+            'is_using_wheelchair',
             'chronic_disease_details',
             'passport_path',
             'photo_path',
@@ -1355,7 +1374,7 @@ function buildCanonicalSharingGroupsFromMembers(
             package_official_id: toPositiveIntegerOrNull(
                 member.package_official_id,
             ),
-            role: member.role ?? null,
+            relationship: member.relationship ?? null,
             sharing_plan: member.sharing_plan ?? null,
             sort_order: memberSortOrder,
             remarks: member.remarks ?? null,
@@ -1411,7 +1430,7 @@ function buildCanonicalRoomsFromRoomLists(
                         : null,
                     location,
                     sort_order: roomIndex + 1,
-                    relationship:
+                    group_relationship:
                         String(base.room_relationship ?? '').trim() || null,
                     room_label: String(base.room_label ?? '').trim() || null,
                     room_number: String(base.room_number ?? '').trim() || null,
@@ -1452,10 +1471,11 @@ function buildCanonicalRoomsFromRoomLists(
 
 function buildSubmitPayload(
     data: ManifestFormData,
+    roomLists: Record<string, MemberWithUI[]>,
     baselineMembers: MemberWithUI[] = [],
 ): ManifestFormData {
     const baselineMemberMap = buildMemberBaselineMap(baselineMembers);
-    const memberRows = ((data.members ?? []) as MemberWithUI[]).map(
+    const memberRows = ((data.manifest_members ?? []) as MemberWithUI[]).map(
         (member, index) =>
             toMemberSubmitRow(
                 member,
@@ -1464,8 +1484,8 @@ function buildSubmitPayload(
             ),
     );
 
-    const roomLists = Object.fromEntries(
-        Object.entries(data.roomLists ?? {}).map(([key, rows]) => {
+    const normalizedRoomLists = Object.fromEntries(
+        Object.entries(roomLists).map(([key, rows]) => {
             return [
                 key,
                 ((rows ?? []) as MemberWithUI[]).map((row, index) =>
@@ -1475,25 +1495,12 @@ function buildSubmitPayload(
         }),
     );
 
-    const canonicalManifest = {
-        id: data.id ?? data.manifest?.id ?? null,
-        package_id: data.package_id ?? data.manifest?.package_id ?? null,
-        in_charge_official_id:
-            data.in_charge_official_id ??
-            data.manifest?.in_charge_official_id ??
-            null,
-        manifest_number:
-            data.manifest_number ?? data.manifest?.manifest_number ?? '',
-        status: data.status ?? data.manifest?.status ?? null,
-        notes: data.notes ?? data.manifest?.notes ?? null,
-    };
-
     const canonicalSharingGroups = buildCanonicalSharingGroupsFromMembers(
-        (data.members ?? []) as MemberWithUI[],
+        (data.manifest_members ?? []) as MemberWithUI[],
     );
     const canonicalRooms = buildCanonicalRoomsFromRoomLists(
         Object.fromEntries(
-            Object.entries(roomLists).map(([key, rows]) => [
+            Object.entries(normalizedRoomLists).map(([key, rows]) => [
                 key,
                 rows as Array<Record<string, unknown>>,
             ]),
@@ -1502,9 +1509,16 @@ function buildSubmitPayload(
 
     return {
         ...data,
-        airlineList: [],
-        roomLists,
+        id: data.id,
+        package_id: data.package_id,
+        in_charge_official_id: data.in_charge_official_id,
+        manifest_number: data.manifest_number ?? '',
+        status: data.status,
+        notes: data.notes,
         documents: {
+            train_tickets: normalizeDocumentEntriesForSubmit(
+                data.documents?.train_tickets,
+            ),
             flight_tickets: normalizeDocumentEntriesForSubmit(
                 data.documents?.flight_tickets,
             ),
@@ -1515,11 +1529,37 @@ function buildSubmitPayload(
             ),
             photo: normalizeDocumentEntriesForSubmit(data.documents?.photo),
         },
-        members: memberRows as MemberWithUI[],
-        manifest: canonicalManifest,
+        manifest_members: memberRows as MemberWithUI[],
         manifest_sharing_groups: canonicalSharingGroups,
         manifest_rooms: canonicalRooms,
     };
+}
+
+function validateRoomCapacityOnSubmit(
+    rooms: CanonicalManifestRoom[] | undefined,
+): Record<string, string> {
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+        return {};
+    }
+
+    const errors: Record<string, string> = {};
+
+    rooms.forEach((room, roomIndex) => {
+        const membersCount = Array.isArray(room.members)
+            ? room.members.length
+            : 0;
+        const maxCapacity = capacityFromRoomType(room.room_type ?? null);
+
+        if (membersCount > maxCapacity) {
+            const roomTypeLabel = String(
+                room.room_type ?? 'single',
+            ).toUpperCase();
+            errors[`rooms.${roomIndex}.remarks`] =
+                `Room is over capacity for ${roomTypeLabel}: ${membersCount}/${maxCapacity} pax.`;
+        }
+    });
+
+    return errors;
 }
 
 type SectionRequestResult = {
@@ -1549,12 +1589,13 @@ function normalizeSectionErrors(
 async function submitSectionPayload(
     url: string,
     payload: Record<string, unknown>,
-    options: { forceFormData?: boolean } = {},
+    options: { forceFormData?: boolean; validateOnly?: boolean } = {},
 ): Promise<SectionRequestResult> {
     const csrfToken = document
         .querySelector('meta[name="csrf-token"]')
         ?.getAttribute('content');
     const useFormData = options.forceFormData ?? false;
+    const validateOnly = options.validateOnly ?? false;
 
     const appendFormValue = (
         formData: FormData,
@@ -1616,11 +1657,18 @@ async function submitSectionPayload(
 
     const buildRequestBody = (): BodyInit => {
         if (!useFormData) {
-            return JSON.stringify(payload);
+            return JSON.stringify({
+                ...payload,
+                ...(validateOnly ? { validate_only: true } : {}),
+            });
         }
 
         const formData = new FormData();
         formData.append('_method', 'patch');
+
+        if (validateOnly) {
+            formData.append('validate_only', '1');
+        }
 
         Object.entries(payload).forEach(([key, value]) => {
             appendFormValue(formData, key, value);
@@ -1735,32 +1783,44 @@ const SAVE_PROGRESS_TEMPLATE: SaveProgressStep[] = [
     },
 ];
 
-function buildManifestMemberReceiptsPayload(
-    members: MemberWithUI[],
-): Record<string, ManifestDocumentItem[]> {
-    return members.reduce<Record<string, ManifestDocumentItem[]>>(
-        (payload, member) => {
-            const manifestMemberId = toPositiveIntegerOrNull(
-                member.manifest_member_id ?? member.id,
-            );
-            const receiptDocuments = normalizeDocumentEntriesForSubmit(
-                member.receipt_documents,
-            );
+function buildManifestMemberReceiptsPayload(members: MemberWithUI[]): Array<{
+    manifest_member_id: number | null;
+    customer_confirmation_member_id: number | null;
+    receipt_documents: ManifestDocumentItem[];
+}> {
+    return members.reduce<
+        Array<{
+            manifest_member_id: number | null;
+            customer_confirmation_member_id: number | null;
+            receipt_documents: ManifestDocumentItem[];
+        }>
+    >((payload, member) => {
+        const manifestMemberId = toPositiveIntegerOrNull(
+            member.manifest_member_id,
+        );
+        const confirmationMemberId = toPositiveIntegerOrNull(
+            member.customer_confirmation_member_id,
+        );
+        const receiptDocuments = normalizeDocumentEntriesForSubmit(
+            member.receipt_documents,
+        );
 
-            if (
-                receiptDocuments.length === 0 ||
-                !Number.isFinite(Number(manifestMemberId))
-            ) {
-                return payload;
-            }
-
-            const key = String(manifestMemberId);
-            payload[key] = receiptDocuments;
-
+        if (receiptDocuments.length === 0) {
             return payload;
-        },
-        {},
-    );
+        }
+
+        if (manifestMemberId === null && confirmationMemberId === null) {
+            return payload;
+        }
+
+        payload.push({
+            manifest_member_id: manifestMemberId,
+            customer_confirmation_member_id: confirmationMemberId,
+            receipt_documents: receiptDocuments,
+        });
+
+        return payload;
+    }, []);
 }
 
 export default function ManifestForm({
@@ -1824,6 +1884,31 @@ export default function ManifestForm({
             .length;
     }, [saveProgressSteps]);
 
+    const [roomListsState, setRoomListsState] = useState<
+        Record<string, MemberWithUI[]>
+    >(() => {
+        return buildRoomListsFromCanonicalRooms(
+            defaults.manifest_rooms,
+            ((defaults.manifest_members ?? []) as MemberWithUI[]) ?? [],
+        );
+    });
+    const [airlineRowsState, setAirlineRowsState] = useState<MemberWithUI[]>(
+        () => ((defaults.manifest_members ?? []) as MemberWithUI[]) ?? [],
+    );
+
+    useEffect(() => {
+        const canonicalRooms = buildCanonicalRoomsFromRoomLists(
+            Object.fromEntries(
+                Object.entries(roomListsState ?? {}).map(([key, rows]) => [
+                    key,
+                    rows as Array<Record<string, unknown>>,
+                ]),
+            ),
+        );
+
+        setFormData('manifest_rooms', canonicalRooms);
+    }, [roomListsState, setFormData]);
+
     const updateSaveProgressStep = useCallback(
         (
             key: SaveProgressStepKey,
@@ -1860,10 +1945,17 @@ export default function ManifestForm({
         return member.status === 'cancelled';
     }, []);
 
-    const selectedPackage = useMemo(
-        () => packageOptions.find((item) => item.value === data.package_id),
-        [packageOptions, data.package_id],
-    );
+    const selectedPackage = useMemo(() => {
+        const selectedPackageId = Number(data.package_id ?? 0);
+
+        if (!Number.isFinite(selectedPackageId) || selectedPackageId < 1) {
+            return undefined;
+        }
+
+        return packageOptions.find((item) => {
+            return Number(item.value) === selectedPackageId;
+        });
+    }, [packageOptions, data.package_id]);
 
     const selectedPackageOfficials = useMemo(() => {
         return selectedPackage?.officials ?? [];
@@ -1929,7 +2021,7 @@ export default function ManifestForm({
 
         return roomTabs.map((tab) => {
             const tabRows =
-                ((data.roomLists ?? {})[tab.key] as MemberWithUI[]) ?? [];
+                ((roomListsState ?? {})[tab.key] as MemberWithUI[]) ?? [];
             const groupCount = countRoomGroups(tabRows);
             const range = {
                 tabKey: tab.key,
@@ -1941,7 +2033,7 @@ export default function ManifestForm({
 
             return range;
         });
-    }, [data.roomLists, roomTabs]);
+    }, [roomListsState, roomTabs]);
 
     const resolveErrorTab = useCallback(
         (path: string): string => {
@@ -2008,10 +2100,10 @@ export default function ManifestForm({
     );
 
     useEffect(() => {
-        const currentMembers = ((data.members ?? []) as MemberWithUI[]).filter(
-            (member) => !isCancelledMember(member),
-        );
-        const currentRoomLists = data.roomLists ?? {};
+        const currentMembers = (
+            (data.manifest_members ?? []) as MemberWithUI[]
+        ).filter((member) => !isCancelledMember(member));
+        const currentRoomLists = roomListsState ?? {};
 
         const syncedRoomLists = Object.fromEntries(
             roomTabs.map((tab) => [
@@ -2066,12 +2158,12 @@ export default function ManifestForm({
         });
 
         if (keysChanged || membershipChanged) {
-            setFormData('roomLists', syncedRoomLists);
+            setRoomListsState(syncedRoomLists);
         }
     }, [
         roomTabs,
-        data.members,
-        data.roomLists,
+        data.manifest_members,
+        roomListsState,
         isCancelledMember,
         setFormData,
     ]);
@@ -2090,7 +2182,7 @@ export default function ManifestForm({
         (nextMembers: MemberWithUI[]) => {
             const groupedMembers = syncMemberSharingGroups(
                 nextMembers,
-                ((data.members ?? []) as MemberWithUI[]) ?? [],
+                ((data.manifest_members ?? []) as MemberWithUI[]) ?? [],
             );
 
             const orderedMembers = normalizeMainTabOrdering(groupedMembers);
@@ -2098,7 +2190,6 @@ export default function ManifestForm({
             const membersWithSn = orderedMembers.map((row, index) => ({
                 ...row,
                 sn: index + 1,
-                role: row.role ?? undefined,
                 relationship: row.relationship ?? undefined,
                 passport_number: row.passport_number ?? undefined,
                 age: calculateAgeFromDob(row.date_of_birth) ?? row.age ?? null,
@@ -2126,7 +2217,7 @@ export default function ManifestForm({
             const nextRoomLists = Object.fromEntries(
                 roomTabs.map((tab) => {
                     const key = tab.key;
-                    const rows = (data.roomLists ?? {})[key] ?? [];
+                    const rows = (roomListsState ?? {})[key] ?? [];
 
                     return [
                         key,
@@ -2149,7 +2240,6 @@ export default function ManifestForm({
                                     passport_number:
                                         memberUpdate.passport_number ??
                                         row.passport_number,
-                                    role: memberUpdate.role ?? row.role,
                                     nationality:
                                         memberUpdate.nationality ??
                                         row.nationality,
@@ -2193,7 +2283,7 @@ export default function ManifestForm({
                         memberIndex,
                     );
 
-                    const existing = (data.airlineList ?? []).find(
+                    const existing = (airlineRowsState ?? []).find(
                         (row: unknown, existingIndex: number) =>
                             memberIdentityKey(
                                 row as MemberWithUI,
@@ -2227,9 +2317,11 @@ export default function ManifestForm({
                         contact_no: member.contact_no ?? existing?.contact_no,
                         package_price:
                             member.package_price ?? existing?.package_price,
-                        role: member.role ?? existing?.role,
                         relationship:
                             member.relationship ?? existing?.relationship,
+                        group_relationship:
+                            member.group_relationship ??
+                            existing?.group_relationship,
                         sharing_plan:
                             member.sharing_plan ?? existing?.sharing_plan,
                         row_key:
@@ -2241,14 +2333,14 @@ export default function ManifestForm({
                 })
                 .filter((member) => !isCancelledMember(member));
 
-            setFormData('members', membersWithSn);
-            setFormData('roomLists', nextRoomLists);
-            setFormData('airlineList', nextAirline);
+            setFormData('manifest_members', membersWithSn);
+            setRoomListsState(nextRoomLists);
+            setAirlineRowsState(nextAirline);
         },
         [
-            data.airlineList,
-            data.roomLists,
-            data.members,
+            airlineRowsState,
+            roomListsState,
+            data.manifest_members,
             isCancelledMember,
             roomTabs,
             setFormData,
@@ -2264,7 +2356,7 @@ export default function ManifestForm({
             }
 
             const currentNonCancelledMembers = (
-                (data.members ?? []) as MemberWithUI[]
+                (data.manifest_members ?? []) as MemberWithUI[]
             ).filter((member) => !isCancelledMember(member));
 
             const baseRows = buildRoomRowsFromMembers(
@@ -2278,14 +2370,14 @@ export default function ManifestForm({
                 sort_order: index + 1,
             }));
 
-            setFormData('roomLists', {
-                ...(data.roomLists ?? {}),
+            setRoomListsState({
+                ...(roomListsState ?? {}),
                 [tabKey]: baseRows,
             });
         },
         [
-            data.roomLists,
-            data.members,
+            roomListsState,
+            data.manifest_members,
             isCancelledMember,
             roomTabs,
             setFormData,
@@ -2297,7 +2389,7 @@ export default function ManifestForm({
             const membership = new Set<string>();
 
             roomTabs.forEach((tab) => {
-                const rows = ((data.roomLists ?? {})[tab.key] ?? []) as
+                const rows = ((roomListsState ?? {})[tab.key] ?? []) as
                     | MemberWithUI[]
                     | undefined;
 
@@ -2319,7 +2411,7 @@ export default function ManifestForm({
 
             return Array.from(membership);
         },
-        [data.roomLists, roomTabs],
+        [roomListsState, roomTabs],
     );
 
     const handleRoomAssignmentChange = useCallback(
@@ -2348,7 +2440,7 @@ export default function ManifestForm({
             }
 
             const currentRoomLists =
-                (data.roomLists as Record<string, MemberWithUI[]>) ?? {};
+                (roomListsState as Record<string, MemberWithUI[]>) ?? {};
             const nextRoomLists: Record<string, MemberWithUI[]> = {
                 ...currentRoomLists,
             };
@@ -2407,9 +2499,9 @@ export default function ManifestForm({
                 }
             });
 
-            setFormData('roomLists', nextRoomLists);
+            setRoomListsState(nextRoomLists);
         },
-        [data.roomLists, roomTabs, setFormData],
+        [roomListsState, roomTabs, setFormData],
     );
 
     const updateManifestDocuments = useCallback(
@@ -2434,54 +2526,57 @@ export default function ManifestForm({
                     : convertNameToArabic(arabicName),
             );
 
-            const nextMembers = ((data.members ?? []) as MemberWithUI[]).map(
-                (row, index) => {
-                    if (
-                        memberIdentityKey(row, index) !==
-                        memberIdentityKey(member, 0)
-                    ) {
-                        return row;
-                    }
+            const nextMembers = (
+                (data.manifest_members ?? []) as MemberWithUI[]
+            ).map((row, index) => {
+                if (
+                    memberIdentityKey(row, index) !==
+                    memberIdentityKey(member, 0)
+                ) {
+                    return row;
+                }
 
-                    return {
-                        ...row,
-                        arabic_name: sanitizedArabicName,
-                    };
-                },
-            );
+                return {
+                    ...row,
+                    arabic_name: sanitizedArabicName,
+                };
+            });
 
-            setFormData('members', nextMembers);
+            setFormData('manifest_members', nextMembers);
         },
-        [data.members, setFormData],
+        [data.manifest_members, setFormData],
     );
 
     const updateMemberReceiptDocuments = useCallback(
         (member: MemberWithUI, rows: ManifestDocumentItem[]) => {
-            const nextMembers = ((data.members ?? []) as MemberWithUI[]).map(
-                (row, index) => {
-                    if (
-                        memberIdentityKey(row, index) !==
-                        memberIdentityKey(member, 0)
-                    ) {
-                        return row;
-                    }
+            const nextMembers = (
+                (data.manifest_members ?? []) as MemberWithUI[]
+            ).map((row, index) => {
+                if (
+                    memberIdentityKey(row, index) !==
+                    memberIdentityKey(member, 0)
+                ) {
+                    return row;
+                }
 
-                    return {
-                        ...row,
-                        receipt_documents: rows,
-                    };
-                },
-            );
+                return {
+                    ...row,
+                    receipt_documents: rows,
+                };
+            });
 
-            setFormData('members', nextMembers);
+            setFormData('manifest_members', nextMembers);
         },
-        [data.members, setFormData],
+        [data.manifest_members, setFormData],
     );
 
     const submit = async (event: React.FormEvent) => {
         event.preventDefault();
 
-        const validationResult = manifestValidationSchema.safeParse(data);
+        const validationResult = manifestValidationSchema.safeParse({
+            ...data,
+            members: data.manifest_members,
+        });
 
         clearFormErrors();
 
@@ -2497,11 +2592,32 @@ export default function ManifestForm({
 
         const submitPayload = buildSubmitPayload(
             data,
-            (defaults.members ?? []) as MemberWithUI[],
+            roomListsState,
+            (defaults.manifest_members ?? []) as MemberWithUI[],
         );
+        const roomCapacityErrors = validateRoomCapacityOnSubmit(
+            submitPayload.manifest_rooms,
+        );
+
+        if (Object.keys(roomCapacityErrors).length > 0) {
+            Object.entries(roomCapacityErrors).forEach(([field, message]) => {
+                setFormError(field, message);
+            });
+
+            const firstRoomErrorPath = Object.keys(roomCapacityErrors)[0];
+
+            if (firstRoomErrorPath) {
+                navigateToErrorField(firstRoomErrorPath);
+            }
+
+            scrollToErrorBanner();
+
+            return;
+        }
+
         const manifestMemberReceiptsPayload =
             buildManifestMemberReceiptsPayload(
-                (data.members ?? []) as MemberWithUI[],
+                (data.manifest_members ?? []) as MemberWithUI[],
             );
 
         submitPayload.manifest_member_receipts = manifestMemberReceiptsPayload;
@@ -2514,7 +2630,7 @@ export default function ManifestForm({
             scrollToErrorBanner();
         };
 
-        const submitWithLegacyFullPayload = () => {
+        const submitWithFullPayload = () => {
             form.transform(() => submitPayload);
 
             post(store().url, {
@@ -2535,12 +2651,11 @@ export default function ManifestForm({
                     key: 'manifest' as const,
                     url: manifestSections.core.update.url(submitPayload.id),
                     payload: {
-                        package_id: submitPayload.manifest?.package_id ?? null,
+                        package_id: submitPayload.package_id ?? null,
                         in_charge_official_id:
-                            submitPayload.manifest?.in_charge_official_id ??
-                            null,
-                        notes: submitPayload.manifest?.notes ?? null,
-                        status: submitPayload.manifest?.status ?? null,
+                            submitPayload.in_charge_official_id ?? null,
+                        notes: submitPayload.notes ?? null,
+                        status: submitPayload.status ?? null,
                     },
                     forceFormData: false,
                 },
@@ -2593,6 +2708,32 @@ export default function ManifestForm({
 
             try {
                 for (const sectionRequest of sectionRequests) {
+                    const preflightResult = await submitSectionPayload(
+                        sectionRequest.url,
+                        sectionRequest.payload,
+                        {
+                            forceFormData: sectionRequest.forceFormData,
+                            validateOnly: true,
+                        },
+                    );
+
+                    if (!preflightResult.ok) {
+                        handleError(
+                            preflightResult.errors ?? {
+                                section_save:
+                                    'Unable to validate one or more manifest sections.',
+                            },
+                        );
+
+                        setShowSaveProgressPopup(false);
+
+                        return;
+                    }
+                }
+
+                setSaveProgressSteps(SAVE_PROGRESS_TEMPLATE);
+
+                for (const sectionRequest of sectionRequests) {
                     updateSaveProgressStep(sectionRequest.key, 'running');
 
                     const result = await submitSectionPayload(
@@ -2610,18 +2751,6 @@ export default function ManifestForm({
                             result.errors?.section_save,
                         );
 
-                        const hasValidationErrors =
-                            result.isValidationError === true;
-
-                        if (
-                            ENABLE_LEGACY_FULL_SUBMIT_FALLBACK &&
-                            !hasValidationErrors
-                        ) {
-                            submitWithLegacyFullPayload();
-
-                            return;
-                        }
-
                         handleError(
                             result.errors ?? {
                                 section_save:
@@ -2637,7 +2766,7 @@ export default function ManifestForm({
                     updateSaveProgressStep(sectionRequest.key, 'success');
                 }
 
-                window.location.assign(store().url);
+                window.location.assign(manifestsIndex().url);
             } finally {
                 setIsSectionSaving(false);
                 setShowSaveProgressPopup(false);
@@ -2646,7 +2775,7 @@ export default function ManifestForm({
             return;
         }
 
-        submitWithLegacyFullPayload();
+        submitWithFullPayload();
     };
 
     const renderError = (path: string) => {
@@ -2693,14 +2822,14 @@ export default function ManifestForm({
                 ([memberIndex, issues]) => ({
                     memberIndex,
                     memberName:
-                        ((data.members ?? []) as MemberWithUI[])[memberIndex]
-                            ?.name_as_per_passport ||
-                        `Member ${memberIndex + 1}`,
+                        ((data.manifest_members ?? []) as MemberWithUI[])[
+                            memberIndex
+                        ]?.name_as_per_passport || `Member ${memberIndex + 1}`,
                     issues,
                 }),
             ),
         };
-    }, [formErrors, data.members]);
+    }, [formErrors, data.manifest_members]);
 
     const sectionStatuses = useMemo(() => {
         const errorEntries = Object.entries(formErrors).filter(([, message]) =>
@@ -2718,7 +2847,7 @@ export default function ManifestForm({
 
         const selectedFlights = selectedPackage?.flights ?? [];
         const activeMemberCount = (
-            ((data.members ?? []) as MemberWithUI[]).filter(
+            ((data.manifest_members ?? []) as MemberWithUI[]).filter(
                 (member) => !isCancelledMember(member),
             ) ?? []
         ).length;
@@ -2755,7 +2884,7 @@ export default function ManifestForm({
         formErrors,
         data.package_id,
         data.status,
-        data.members,
+        data.manifest_members,
         hotelAccommodations.length,
         isCancelledMember,
         selectedPackage,
@@ -2794,10 +2923,10 @@ export default function ManifestForm({
     );
 
     const nonCancelledMembers = useMemo(() => {
-        return ((data.members ?? []) as MemberWithUI[]).filter(
+        return ((data.manifest_members ?? []) as MemberWithUI[]).filter(
             (member) => !isCancelledMember(member),
         );
-    }, [data.members, isCancelledMember]);
+    }, [data.manifest_members, isCancelledMember]);
 
     const nonCancelledNonOfficialMembers = useMemo(() => {
         return nonCancelledMembers.filter(
@@ -2806,7 +2935,7 @@ export default function ManifestForm({
     }, [nonCancelledMembers]);
 
     useEffect(() => {
-        const members = (data.members ?? []) as MemberWithUI[];
+        const members = (data.manifest_members ?? []) as MemberWithUI[];
         const previousMap = previousNameByIdentityRef.current;
         let hasChanges = false;
 
@@ -2867,9 +2996,9 @@ export default function ManifestForm({
         });
 
         if (hasChanges) {
-            setFormData('members', nextMembers);
+            setFormData('manifest_members', nextMembers);
         }
-    }, [data.members, setFormData]);
+    }, [data.manifest_members, setFormData]);
 
     useEffect(() => {
         const inChargeOfficialId = Number(data.in_charge_official_id ?? 0);
@@ -2918,21 +3047,21 @@ export default function ManifestForm({
                 throw new Error('Failed to move member to holding.');
             }
 
-            const nextMembers = ((data.members ?? []) as MemberWithUI[]).map(
-                (row) => {
-                    if (
-                        row.customer_confirmation_member_id ===
-                        member.customer_confirmation_member_id
-                    ) {
-                        return {
-                            ...row,
-                            status: 'cancelled' as const,
-                        };
-                    }
+            const nextMembers = (
+                (data.manifest_members ?? []) as MemberWithUI[]
+            ).map((row) => {
+                if (
+                    row.customer_confirmation_member_id ===
+                    member.customer_confirmation_member_id
+                ) {
+                    return {
+                        ...row,
+                        status: 'cancelled' as const,
+                    };
+                }
 
-                    return row;
-                },
-            );
+                return row;
+            });
 
             updateFromMembers(nextMembers);
         } catch (error) {
@@ -2973,6 +3102,9 @@ export default function ManifestForm({
         },
         [],
     );
+
+    console.log(data);
+    console.log(formErrors);
 
     return (
         <div className="mx-auto w-full">
@@ -3127,7 +3259,9 @@ export default function ManifestForm({
                         required={false}
                     >
                         <ManifestMemberInformationCard
-                            members={(data.members ?? []) as MemberWithUI[]}
+                            members={
+                                (data.manifest_members ?? []) as MemberWithUI[]
+                            }
                         />
                     </FormSection>
 
@@ -3227,6 +3361,12 @@ export default function ManifestForm({
                                     Visa
                                 </TabsTrigger>
                                 <TabsTrigger
+                                    value="document-train-tickets"
+                                    className="text-lg"
+                                >
+                                    Train Tickets
+                                </TabsTrigger>
+                                <TabsTrigger
                                     value="document-hotel"
                                     className="text-lg"
                                 >
@@ -3264,7 +3404,9 @@ export default function ManifestForm({
                     <TabsContent value="main" className="space-y-4">
                         <ManifestDatatable
                             mode="members"
-                            rows={(data.members ?? []) as MemberWithUI[]}
+                            rows={
+                                (data.manifest_members ?? []) as MemberWithUI[]
+                            }
                             disabled={isView}
                             allowReorder
                             errorPrefix="members"
@@ -3284,7 +3426,7 @@ export default function ManifestForm({
 
                     {roomTabs.map((tab) => {
                         const roomRows =
-                            ((data.roomLists ?? {})[tab.key] as
+                            ((roomListsState ?? {})[tab.key] as
                                 | MemberWithUI[]
                                 | undefined) ?? [];
                         const roomRange = roomErrorRanges.find(
@@ -3329,8 +3471,8 @@ export default function ManifestForm({
                                             }),
                                         );
 
-                                        setFormData('roomLists', {
-                                            ...(data.roomLists ?? {}),
+                                        setRoomListsState({
+                                            ...(roomListsState ?? {}),
                                             [tab.key]: normalizedRows,
                                         });
                                     }}
@@ -3356,7 +3498,7 @@ export default function ManifestForm({
 
                     {officialCheckTabs.map((tab) => {
                         const sourceRoomRows =
-                            ((data.roomLists ?? {})[
+                            ((roomListsState ?? {})[
                                 tab.sourceRoomKey
                             ] as MemberWithUI[]) ?? [];
 
@@ -3418,8 +3560,8 @@ export default function ManifestForm({
                                             }),
                                         );
 
-                                        setFormData('roomLists', {
-                                            ...(data.roomLists ?? {}),
+                                        setRoomListsState({
+                                            ...(roomListsState ?? {}),
                                             [tab.sourceRoomKey]: normalizedRows,
                                         });
                                     }}
@@ -3432,7 +3574,7 @@ export default function ManifestForm({
                         <ManifestDatatable
                             mode="airline"
                             rows={(
-                                (data.airlineList ?? []) as MemberWithUI[]
+                                (airlineRowsState ?? []) as MemberWithUI[]
                             ).filter((row) => !isCancelledMember(row))}
                             disabled={isView}
                             allowReorder
@@ -3463,7 +3605,8 @@ export default function ManifestForm({
                                 );
 
                                 const nextMembers = (
-                                    (data.members ?? []) as MemberWithUI[]
+                                    (data.manifest_members ??
+                                        []) as MemberWithUI[]
                                 ).map((member, memberIndex) => {
                                     const updated = airlineMap.get(
                                         memberIdentityKey(member, memberIndex),
@@ -3481,10 +3624,12 @@ export default function ManifestForm({
                                         passport_number:
                                             updated.passport_number ??
                                             member.passport_number,
-                                        role: updated.role ?? member.role,
                                         relationship:
                                             updated.relationship ??
                                             member.relationship,
+                                        group_relationship:
+                                            updated.group_relationship ??
+                                            member.group_relationship,
                                         sharing_plan:
                                             updated.sharing_plan ??
                                             member.sharing_plan,
@@ -3529,7 +3674,7 @@ export default function ManifestForm({
                                 );
 
                                 const nextRoomLists = Object.fromEntries(
-                                    Object.entries(data.roomLists ?? {}).map(
+                                    Object.entries(roomListsState ?? {}).map(
                                         ([key, roomRows]) => [
                                             key,
                                             (roomRows as MemberWithUI[]).map(
@@ -3554,12 +3699,12 @@ export default function ManifestForm({
                                                         passport_number:
                                                             memberUpdate.passport_number ??
                                                             roomRow.passport_number,
-                                                        role:
-                                                            memberUpdate.role ??
-                                                            roomRow.role,
                                                         relationship:
                                                             memberUpdate.relationship ??
                                                             roomRow.relationship,
+                                                        group_relationship:
+                                                            memberUpdate.group_relationship ??
+                                                            roomRow.group_relationship,
                                                         sharing_plan:
                                                             memberUpdate.sharing_plan ??
                                                             roomRow.sharing_plan,
@@ -3602,9 +3747,9 @@ export default function ManifestForm({
                                     ),
                                 );
 
-                                setFormData('members', nextMembers);
-                                setFormData('airlineList', normalizedAirline);
-                                setFormData('roomLists', nextRoomLists);
+                                setFormData('manifest_members', nextMembers);
+                                setAirlineRowsState(normalizedAirline);
+                                setRoomListsState(nextRoomLists);
                             }}
                         />
                     </TabsContent>
@@ -3654,7 +3799,8 @@ export default function ManifestForm({
                                 );
 
                                 const nextMembers = (
-                                    (data.members ?? []) as MemberWithUI[]
+                                    (data.manifest_members ??
+                                        []) as MemberWithUI[]
                                 ).map((member, memberIndex) => {
                                     const updatedChecklist = checklistMap.get(
                                         memberIdentityKey(member, memberIndex),
@@ -3684,7 +3830,7 @@ export default function ManifestForm({
                                     };
                                 });
 
-                                setFormData('members', nextMembers);
+                                setFormData('manifest_members', nextMembers);
                             }}
                         />
                     </TabsContent>
@@ -4047,6 +4193,16 @@ export default function ManifestForm({
                                                         disabled={isView}
                                                         inputProps={{
                                                             dir: 'rtl',
+                                                            onInput: (
+                                                                event,
+                                                            ) => {
+                                                                updateMemberArabicName(
+                                                                    member,
+                                                                    event
+                                                                        .currentTarget
+                                                                        .value,
+                                                                );
+                                                            },
                                                         }}
                                                         className="text-right"
                                                     />

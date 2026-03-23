@@ -35,6 +35,7 @@ class PackageRule
 
             // Train Ticket
             'ticket_type' => ['nullable', 'string', 'max:255'],
+            'train_description' => ['nullable', 'string'],
 
             // Package Inclusions
             'included' => ['nullable', 'string'],
@@ -48,6 +49,7 @@ class PackageRule
             'accommodations' => ['nullable', 'array'],
             'accommodations.*.location' => ['required', 'string', 'max:255'],
             'accommodations.*.hotel_name' => ['required', 'string', 'max:255'],
+            'accommodations.*.ic' => ['nullable', 'string', 'max:255'],
             'accommodations.*.type_of_meal' => ['nullable', 'string', 'max:255'],
             'accommodations.*.check_in' => ['nullable', 'date'],
             'accommodations.*.check_out' => ['nullable', 'date'],
@@ -91,6 +93,7 @@ class PackageRule
             'officials' => ['nullable', 'array'],
             'officials.*.type' => ['nullable', 'string', 'max:255'],
             'officials.*.name' => ['nullable', 'string', 'max:255'],
+            'officials.*.hotel' => ['nullable', 'string', 'max:255'],
             'officials.*.contact_number' => ['nullable', 'string', 'max:255'],
             'officials.*.nationality' => ['nullable', 'string', 'max:100'],
             'officials.*.passport_number' => ['nullable', 'string', 'max:100'],

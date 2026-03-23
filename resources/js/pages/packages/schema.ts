@@ -4,6 +4,7 @@ export const accommodationSchema = z.object({
     id: z.number().optional(),
     location: z.string().optional(),
     hotel_name: z.string().optional(),
+    ic: z.string().nullable().optional(),
     type_of_meal: z.string().nullable().optional(),
     check_in: z.string().nullable().optional(),
     check_out: z.string().nullable().optional(),
@@ -52,6 +53,7 @@ export const officialSchema = z.object({
     id: z.number().optional(),
     type: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
+    hotel: z.string().nullable().optional(),
     contact_number: z.string().nullable().optional(),
     nationality: z.string().nullable().optional(),
     passport_number: z.string().nullable().optional(),
@@ -97,6 +99,7 @@ export const packageSchema = z.object({
 
     // Train
     ticket_type: z.string().nullable().optional(),
+    train_description: z.string().nullable().optional(),
 
     // Inclusions
     included: z.string().nullable().optional(),

@@ -16,7 +16,7 @@ class CustomerConfirmationMember extends Model
         'is_leader',
         'status',
         'sharing_plan',
-        'role',
+        'relationship',
     ];
 
     protected function casts(): array
@@ -24,7 +24,7 @@ class CustomerConfirmationMember extends Model
         return [
             'is_leader' => 'boolean',
             'sharing_plan' => 'string',
-            'role' => 'string',
+            'relationship' => 'string',
         ];
     }
 

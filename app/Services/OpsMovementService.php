@@ -2,7 +2,13 @@
 
 namespace App\Services;
 
+use App\Helpers\NumberGenerator;
+use App\Models\Manifest;
 use App\Models\Package;
+use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class OpsMovementService
 {
@@ -29,8 +35,13 @@ class OpsMovementService
                     return $m->members->count();
                 });
 
+                $primaryManifest = $package->manifests->sortBy('id')->first();
+
                 return [
                     'id' => $package->id,
+                    'ops_movement_number' => $primaryManifest
+                        ? $this->buildOpsMovementNumber($primaryManifest)
+                        : null,
                     'package_number' => $package->package_number,
                     'name' => $package->name,
                     'status' => $package->status,
@@ -46,8 +57,10 @@ class OpsMovementService
                     'manifests_count' => $package->manifests->count(),
                     'accommodations' => $package->accommodations->map(function ($a) {
                         return [
+                            'id' => $a->id,
                             'location' => $a->location,
                             'hotel_name' => $a->hotel_name,
+                            'ic' => $a->ic,
                             'type_of_meal' => $a->type_of_meal,
                             'check_in' => $a->check_in_formatted,
                             'check_out' => $a->check_out_formatted,
@@ -64,58 +77,401 @@ class OpsMovementService
      */
     public function getForShow($id): array
     {
-        $package = Package::with(['accommodations', 'manifests.members'])->findOrFail($id);
+        $package = Package::with([
+            'accommodations',
+            'flights',
+            'trainTickets',
+            'officials',
+            'manifests.members',
+            'manifests.files',
+        ])->findOrFail($id);
+
+        $manifest = $package->manifests->sortBy('id')->first();
+        $extension = $manifest?->ops_movement_extension ?? [];
+        $flightOpsMap = collect($extension['flights'] ?? [])->keyBy('id');
+        $documents = $this->buildOpsMovementDocumentPayload($manifest);
+        $budget = $this->normalizeBudgetPayload($extension['budget'] ?? []);
+        $nonOfficialMembers = collect($manifest?->members ?? [])
+            ->filter(fn ($member) => $member->package_official_id === null && $member->status !== 'cancelled')
+            ->values();
+        $officialMembers = collect($manifest?->members ?? [])
+            ->filter(fn ($member) => $member->package_official_id !== null && $member->status !== 'cancelled')
+            ->values();
+
+        $adultMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) >= 18);
+        $childMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) < 18 && $this->resolveAge($member->date_of_birth) >= 2);
 
         return [
             'id' => $package->id,
+            'manifest_id' => $manifest?->id,
+            'ops_movement_number' => $manifest ? $this->buildOpsMovementNumber($manifest) : null,
             'package_number' => $package->package_number,
+            'manifest_number' => $manifest?->manifest_number,
             'name' => $package->name,
             'status' => $package->status,
-            'launched' => $package->launched,
-            'price_single' => $package->price_single,
-            'price_double' => $package->price_double,
-            'price_triple' => $package->price_triple,
-            'price_quad' => $package->price_quad,
-            'child_with_bed_price' => $package->child_with_bed_price,
-            'child_no_bed_price' => $package->child_no_bed_price,
-            'infant_price' => $package->infant_price,
             'departure_date' => $package->departure_date_formatted,
             'return_date' => $package->return_date_formatted,
-            'total_seats' => $package->total_seats,
-            'seats_left' => $package->seats_left,
+            'departure_return_range' => $this->buildDateRangeLabel($package->departure_date, $package->return_date),
+            'first_hotel_name' => $package->accommodations->first()?->hotel_name,
             'visa_type' => $package->visa_type,
+            'ops_base' => $extension['ops_base'] ?? null,
+            'infotech_ref' => $extension['infotech_ref'] ?? null,
+            'documents' => $documents,
+            'budget' => $budget,
             'vehicle_type' => $package->vehicle_type,
-            'ticket_type' => $package->ticket_type,
-            'included' => $package->included,
-            'not_included' => $package->not_included,
-            'remarks' => $package->remarks,
-            'accommodations' => $package->accommodations->map(function ($a) {
+            'vehicle_driver_name' => $package->vehicle_driver_name,
+            'vehicle_driver_contact_number' => $package->vehicle_driver_contact_number,
+            'train_description' => $package->train_description,
+            'passengers' => [
+                'adult_total' => $adultMembers->count(),
+                'adult_male' => $adultMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'male')->count(),
+                'adult_female' => $adultMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'female')->count(),
+                'child_total' => $childMembers->count(),
+                'child_boy' => $childMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'male')->count(),
+                'child_girl' => $childMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'female')->count(),
+                'official_total' => $officialMembers->count(),
+                'wheelchair_non_official_total' => $nonOfficialMembers->filter(fn ($member) => $member->is_using_wheelchair === true)->count(),
+                'grand_total' => $nonOfficialMembers->count() + $officialMembers->count(),
+            ],
+            'accommodations' => $package->accommodations->map(function ($accommodation) {
                 return [
-                    'location' => $a->location,
-                    'hotel_name' => $a->hotel_name,
-                    'type_of_meal' => $a->type_of_meal,
-                    'check_in' => $a->check_in_formatted,
-                    'check_out' => $a->check_out_formatted,
+                    'id' => $accommodation->id,
+                    'location' => $accommodation->location,
+                    'hotel_name' => $accommodation->hotel_name,
+                    'ic' => $accommodation->ic,
+                    'type_of_meal' => $accommodation->type_of_meal,
+                    'check_in' => $accommodation->check_in_formatted,
+                    'check_out' => $accommodation->check_out_formatted,
                 ];
-            })->toArray(),
-            'manifests' => $package->manifests->map(function ($m) {
+            })->values()->toArray(),
+            'officials' => $package->officials->map(function ($official) {
                 return [
-                    'id' => $m->id,
-                    'reference_number' => $m->reference_number,
-                    'company_name' => $m->company_name,
-                    'status' => $m->status,
-                    'members_count' => $m->members->count(),
-                    'members' => $m->members->map(function ($t) {
-                        return [
-                            'id' => $t->id,
-                            'name' => $t->name,
-                            'passport_number' => $t->passport_number,
-                            'nationality' => $t->nationality,
-                            'member_type' => $t->member_type,
-                        ];
-                    })->toArray(),
+                    'id' => $official->id,
+                    'name' => $official->name,
+                    'hotel' => $official->hotel,
                 ];
-            })->toArray(),
+            })->values()->toArray(),
+            'flights' => $package->flights->map(function ($flight) use ($flightOpsMap) {
+                $flightOps = $flightOpsMap->get($flight->id, []);
+
+                return [
+                    'id' => $flight->id,
+                    'description' => $flight->description,
+                    'from' => $flight->from,
+                    'departure_datetime' => $flight->departure_datetime_formatted,
+                    'airline' => $flight->airline,
+                    'pnr' => $flight->pnr,
+                    'doa_by' => $flightOps['doa_by'] ?? null,
+                    'doa_datetime' => $flightOps['doa_datetime'] ?? null,
+                    'ic' => $flightOps['ic'] ?? null,
+                    'to' => $flight->to,
+                    'arrival_datetime' => $flight->arrival_datetime_formatted,
+                ];
+            })->values()->toArray(),
+            'train_tickets' => $package->trainTickets->map(function ($ticket) {
+                return [
+                    'id' => $ticket->id,
+                    'from' => $ticket->from,
+                    'to' => $ticket->to,
+                    'travel_date' => $ticket->travel_date_formatted,
+                    'travel_time' => $ticket->travel_time,
+                ];
+            })->values()->toArray(),
         ];
+    }
+
+    /**
+     * Update editable ops movement fields.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function update(int $packageId, array $payload): array
+    {
+        return DB::transaction(function () use ($packageId, $payload): array {
+            $package = Package::with([
+                'accommodations',
+                'officials',
+                'manifests',
+            ])->findOrFail($packageId);
+
+            $manifest = $package->manifests->sortBy('id')->first();
+
+            if (! $manifest) {
+                $manifest = Manifest::create([
+                    'package_id' => $package->id,
+                    'manifest_number' => NumberGenerator::generate('manifest'),
+                ]);
+            }
+
+            $package->update([
+                'vehicle_type' => $payload['vehicle_type'] ?? $package->vehicle_type,
+                'vehicle_driver_name' => $payload['vehicle_driver_name'] ?? $package->vehicle_driver_name,
+                'vehicle_driver_contact_number' => $payload['vehicle_driver_contact_number'] ?? $package->vehicle_driver_contact_number,
+                'train_description' => $payload['train_description'] ?? $package->train_description,
+            ]);
+
+            foreach (($payload['accommodations'] ?? []) as $accommodationPayload) {
+                if (empty($accommodationPayload['id'])) {
+                    continue;
+                }
+
+                $accommodation = $package->accommodations
+                    ->firstWhere('id', (int) $accommodationPayload['id']);
+
+                if (! $accommodation) {
+                    continue;
+                }
+
+                $accommodation->update([
+                    'ic' => $accommodationPayload['ic'] ?? null,
+                ]);
+            }
+
+            foreach (($payload['officials'] ?? []) as $officialPayload) {
+                if (empty($officialPayload['id'])) {
+                    continue;
+                }
+
+                $official = $package->officials
+                    ->firstWhere('id', (int) $officialPayload['id']);
+
+                if (! $official) {
+                    continue;
+                }
+
+                $official->update([
+                    'hotel' => $officialPayload['hotel'] ?? null,
+                ]);
+            }
+
+            $extension = $manifest->ops_movement_extension ?? [];
+            $extension['ops_base'] = $payload['ops_base'] ?? null;
+            $extension['infotech_ref'] = $payload['infotech_ref'] ?? null;
+            $extension['flights'] = collect($payload['flights'] ?? [])
+                ->filter(fn ($flightPayload) => ! empty($flightPayload['id']))
+                ->map(function ($flightPayload) {
+                    return [
+                        'id' => (int) $flightPayload['id'],
+                        'doa_by' => $flightPayload['doa_by'] ?? null,
+                        'doa_datetime' => $flightPayload['doa_datetime'] ?? null,
+                        'ic' => $flightPayload['ic'] ?? null,
+                    ];
+                })
+                ->values()
+                ->toArray();
+            $extension['budget'] = $this->normalizeBudgetPayload($payload['budget'] ?? []);
+
+            if (array_key_exists('documents', $payload) && is_array($payload['documents'])) {
+                $this->syncOpsMovementDocuments($manifest, $payload['documents']);
+            }
+
+            $manifest->update([
+                'ops_movement_extension' => $extension,
+            ]);
+
+            return $this->getForShow($packageId);
+        });
+    }
+
+    private function resolveAge(mixed $dateOfBirth): int
+    {
+        if (! $dateOfBirth) {
+            return -1;
+        }
+
+        return Carbon::parse($dateOfBirth)->age;
+    }
+
+    private function buildDateRangeLabel(?Carbon $departureDate, ?Carbon $returnDate): ?string
+    {
+        if (! $departureDate || ! $returnDate) {
+            return null;
+        }
+
+        if ($departureDate->isSameMonth($returnDate) && $departureDate->isSameYear($returnDate)) {
+            return $departureDate->translatedFormat('j').' - '.$returnDate->translatedFormat('j F Y');
+        }
+
+        return $departureDate->translatedFormat('j F Y').' - '.$returnDate->translatedFormat('j F Y');
+    }
+
+    private function buildOpsMovementNumber(Manifest $manifest): string
+    {
+        $year = (int) ($manifest->package?->departure_date?->format('Y')
+            ?? $manifest->created_at?->format('Y')
+            ?? now()->format('Y'));
+
+        $sequence = Manifest::query()
+            ->whereYear('created_at', $year)
+            ->where('id', '<=', $manifest->id)
+            ->count();
+
+        return 'KTG'.$sequence.'-'.substr((string) $year, -2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $documents
+     */
+    private function syncOpsMovementDocuments(Manifest $manifest, array $documents): void
+    {
+        $allowedFields = ['itinerary', 'booklet'];
+        $existingFiles = $manifest->files()->whereIn('field', $allowedFields)->get()->groupBy('field');
+        $rowsToPersist = [];
+
+        foreach ($allowedFields as $field) {
+            $entries = $documents[$field] ?? [];
+
+            if (! is_array($entries)) {
+                continue;
+            }
+
+            foreach ($entries as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
+                $isRemoved = (bool) ($entry['removed'] ?? false);
+                if ($isRemoved) {
+                    continue;
+                }
+
+                $uploadedPath = $this->storeDocumentFile($entry['file'] ?? null, "ops-{$field}");
+                $requestedName = $this->normalizeNullableString($entry['file_name'] ?? null);
+                $existingPath = $this->normalizeNullableString($entry['file_path'] ?? null);
+                $filePath = $uploadedPath ?? $existingPath;
+
+                if (! $filePath) {
+                    continue;
+                }
+
+                $rowsToPersist[] = [
+                    'field' => $field,
+                    'file_name' => $requestedName ?? pathinfo(basename($filePath), PATHINFO_FILENAME),
+                    'file_path' => $filePath,
+                ];
+            }
+        }
+
+        $preservedPaths = collect($rowsToPersist)
+            ->pluck('file_path')
+            ->filter(fn ($path) => is_string($path) && $path !== '')
+            ->all();
+
+        foreach ($existingFiles->flatten() as $existingFile) {
+            if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
+                Storage::disk('public')->delete($existingFile->file_path);
+            }
+        }
+
+        $manifest->files()->whereIn('field', $allowedFields)->delete();
+
+        foreach ($rowsToPersist as $row) {
+            $manifest->files()->create($row);
+        }
+    }
+
+    /**
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function buildOpsMovementDocumentPayload(?Manifest $manifest): array
+    {
+        $allowedFields = ['itinerary', 'booklet'];
+
+        if (! $manifest) {
+            return collect($allowedFields)
+                ->mapWithKeys(fn (string $field) => [$field => []])
+                ->all();
+        }
+
+        $grouped = $manifest->files->whereIn('field', $allowedFields)->groupBy('field');
+
+        return collect($allowedFields)
+            ->mapWithKeys(function (string $field) use ($grouped): array {
+                return [
+                    $field => ($grouped->get($field) ?? collect())
+                        ->map(function ($file): array {
+                            return [
+                                'id' => $file->id,
+                                'file' => null,
+                                'file_name' => $file->file_name,
+                                'file_path' => $file->file_path,
+                                'removed' => false,
+                            ];
+                        })
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeBudgetPayload(mixed $budget): array
+    {
+        if (! is_array($budget)) {
+            return [];
+        }
+
+        $sections = array_is_list($budget) ? $budget : [];
+        $normalized = [];
+
+        foreach ($sections as $sectionIndex => $section) {
+            if (! is_array($section)) {
+                continue;
+            }
+
+            $itemsInput = isset($section['items']) && is_array($section['items'])
+                ? (array_is_list($section['items']) ? $section['items'] : [])
+                : [];
+            $items = [];
+
+            foreach ($itemsInput as $itemIndex => $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $items[] = [
+                    'item_name' => $this->normalizeNullableString($item['item_name'] ?? null),
+                    'unit_price' => is_numeric($item['unit_price'] ?? null) ? (float) $item['unit_price'] : 0.0,
+                    'quantity' => is_numeric($item['quantity'] ?? null) ? (float) $item['quantity'] : 0.0,
+                    'remarks' => $this->normalizeNullableString($item['remarks'] ?? null),
+                    'sort_order' => isset($item['sort_order']) && is_numeric($item['sort_order'])
+                        ? (int) $item['sort_order']
+                        : ($itemIndex + 1),
+                ];
+            }
+
+            $normalized[] = [
+                'title' => $this->normalizeNullableString($section['title'] ?? null),
+                'sort_order' => isset($section['sort_order']) && is_numeric($section['sort_order'])
+                    ? (int) $section['sort_order']
+                    : ($sectionIndex + 1),
+                'items' => $items,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function storeDocumentFile(mixed $file, string $field): ?string
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        return $file->store("manifests/{$field}", 'public');
+    }
+
+    private function normalizeNullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

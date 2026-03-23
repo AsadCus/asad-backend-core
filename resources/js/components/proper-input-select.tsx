@@ -20,6 +20,7 @@ import {
     type MultiSelectOption,
     type MultiSelectProps,
 } from './multi-select';
+import { Input } from './ui/input';
 import {
     Select,
     SelectContent,
@@ -187,6 +188,27 @@ export function ProperInputSelect({
     const displayLabel = selected
         ? truncateLabel(selected.label, truncate)
         : placeholder;
+
+    if (disabled && mode !== 'multi') {
+        const copyValue = selected?.label ?? '';
+
+        return (
+            <>
+                <Input
+                    id={id}
+                    name={name}
+                    value={copyValue}
+                    placeholder={placeholder}
+                    readOnly
+                    className={cn('bg-muted/40', className)}
+                    onFocus={(event) => event.currentTarget.select()}
+                />
+                {name && (
+                    <input type="hidden" name={name} value={selectedValue} />
+                )}
+            </>
+        );
+    }
 
     if (mode === 'multi') {
         const selectedValues = Array.isArray(value)

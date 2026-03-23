@@ -449,6 +449,23 @@ export default function CustomerFormFields({
                         />
                     </FormField>
 
+                    <FormField
+                        label="Using wheelchair"
+                        fieldRequirementsProps={{
+                            hint: 'Indicate whether wheelchair assistance is needed',
+                        }}
+                        htmlFor={fieldPath('is_using_wheelchair')}
+                    >
+                        <BooleanSelect
+                            id={fieldPath('is_using_wheelchair')}
+                            value={!!customer.is_using_wheelchair}
+                            onChange={(v) => {
+                                onUpdateCustomer('is_using_wheelchair', v);
+                            }}
+                            disabled={disabled}
+                        />
+                    </FormField>
+
                     {customer.has_chronic_disease === true && (
                         <FormField
                             label="Disease Details"

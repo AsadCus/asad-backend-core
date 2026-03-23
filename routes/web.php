@@ -211,8 +211,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('manifests/{manifestId}/sharing-groups', [ManifestController::class, 'attachSharingGroup'])->name('manifests.sharing-groups.attach');
     Route::delete('manifests/{manifestId}/sharing-groups/{sharingGroupId}', [ManifestController::class, 'detachSharingGroup'])->name('manifests.sharing-groups.detach');
 
-    // Ops Movements (read-only view from packages + manifests)
-    Route::resource('ops-movements', OpsMovementController::class)->only(['index', 'show']);
+    // Ops Movements (form view from packages + manifests)
+    Route::resource('ops-movements', OpsMovementController::class)->only(['index', 'show', 'update']);
 });
 
 Route::fallback(function () {

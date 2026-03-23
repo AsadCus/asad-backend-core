@@ -17,7 +17,7 @@ class ManifestMember extends Model
         'manifest_sharing_group_id',
         'customer_confirmation_member_id',
         'package_official_id',
-        'role',
+        'relationship',
         'sharing_plan',
         'name',
         'arabic_name',
@@ -33,6 +33,7 @@ class ManifestMember extends Model
         'address',
         'first_time_umrah',
         'has_chronic_disease',
+        'is_using_wheelchair',
         'chronic_disease_details',
         'passport_path',
         'photo_path',
@@ -49,6 +50,7 @@ class ManifestMember extends Model
         'passport_expiry_date' => 'date',
         'first_time_umrah' => 'boolean',
         'has_chronic_disease' => 'boolean',
+        'is_using_wheelchair' => 'boolean',
         'sort_order' => 'integer',
     ];
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
+use App\Models\ModelFile;
 use App\Rules\ManifestRule;
 use App\Services\CustomerConfirmationService;
 use App\Services\ManifestService;
@@ -47,7 +48,6 @@ class ManifestController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        // dd($request->all());
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $manifestId = isset($requestPayload['id']) ? (int) $requestPayload['id'] : 0;
         $normalizedPayload = $this->normalizeManifestPayload($requestPayload);
@@ -182,7 +182,17 @@ class ManifestController extends Controller
         );
 
         $validated = validator($payload, $rules)->validate();
+
+        if ($request->boolean('validate_only')) {
+            return response()->json([
+                'message' => 'Manifest core section validated successfully.',
+                'manifest_id' => $manifest->id,
+                'validated' => true,
+            ]);
+        }
+
         $updatedManifest = $this->manifestService->update($validated, $manifest->id);
+        // dd($updatedManifest);
 
         return response()->json([
             'message' => 'Manifest core section updated successfully.',
@@ -202,6 +212,15 @@ class ManifestController extends Controller
         $validated = validator($normalized, $rules)->validate();
         $validated['package_id'] = $manifest->package_id;
         $this->ensureMemberPackageMatchesManifestPackage($validated);
+
+        if ($request->boolean('validate_only')) {
+            return response()->json([
+                'message' => 'Manifest sharing-groups section validated successfully.',
+                'manifest_id' => $manifest->id,
+                'validated' => true,
+            ]);
+        }
+
         $this->manifestService->update($validated, $manifest->id);
 
         return response()->json([
@@ -220,6 +239,15 @@ class ManifestController extends Controller
             ['rooms'],
         );
         $validated = validator($normalized, $rules)->validate();
+
+        if ($request->boolean('validate_only')) {
+            return response()->json([
+                'message' => 'Manifest rooms section validated successfully.',
+                'manifest_id' => $manifest->id,
+                'validated' => true,
+            ]);
+        }
+
         $this->manifestService->update($validated, $manifest->id);
 
         return response()->json([
@@ -238,6 +266,15 @@ class ManifestController extends Controller
             ['documents'],
         );
         $validated = validator($normalized, $rules)->validate();
+
+        if ($request->boolean('validate_only')) {
+            return response()->json([
+                'message' => 'Manifest documents section validated successfully.',
+                'manifest_id' => $manifest->id,
+                'validated' => true,
+            ]);
+        }
+
         $this->manifestService->update($validated, $manifest->id);
 
         return response()->json([
@@ -256,6 +293,15 @@ class ManifestController extends Controller
             ['manifest_member_receipts'],
         );
         $validated = validator($normalized, $rules)->validate();
+
+        if ($request->boolean('validate_only')) {
+            return response()->json([
+                'message' => 'Manifest receipt-documents section validated successfully.',
+                'manifest_id' => $manifest->id,
+                'validated' => true,
+            ]);
+        }
+
         $this->manifestService->syncMemberReceiptDocumentsSection(
             $manifest,
             $validated['manifest_member_receipts'] ?? [],
@@ -601,6 +647,14 @@ class ManifestController extends Controller
      */
     private function normalizeManifestPayload(array $payload): array
     {
+        if (! array_key_exists('members', $payload)) {
+            $canonicalMembers = Arr::get($payload, 'manifest_members');
+
+            if (is_array($canonicalMembers)) {
+                $payload['members'] = $canonicalMembers;
+            }
+        }
+
         $this->applyCanonicalManifestFields($payload);
         $this->applyCanonicalMembers($payload);
         $this->applyCanonicalRoomLists($payload);
@@ -730,14 +784,14 @@ class ManifestController extends Controller
                     'package_official_id' => isset($member['package_official_id'])
                         ? (int) $member['package_official_id']
                         : null,
-                    'role' => $member['role'] ?? null,
+                    'relationship' => $member['relationship'] ?? $member['role'] ?? null,
                     'sharing_plan' => $member['sharing_plan'] ?? null,
                     'sort_order' => isset($member['sort_order']) ? (int) $member['sort_order'] : ($memberIndex + 1),
                     'group_sort_order' => $groupSortOrder,
                     'sharing_group_key' => $groupKey,
                     'manifest_sharing_group_id' => $groupId,
                     'sharing_group_id' => $groupId,
-                    'relationship' => $group['relation'] ?? null,
+                    'group_relationship' => $group['group_relationship'] ?? $group['relation'] ?? $group['relationship'] ?? null,
                     'group_remarks' => $group['remarks'] ?? null,
                     'remarks' => $member['remarks'] ?? null,
                     'status' => $member['status'] ?? null,
@@ -830,7 +884,7 @@ class ManifestController extends Controller
                     'sort_order' => isset($member['sort_order']) ? (int) $member['sort_order'] : ($memberIndex + 1),
                     'sharing_group_key' => $groupKey,
                     'sharing_plan' => $member['sharing_plan'] ?? ($room['sharing_plan'] ?? null),
-                    'room_relationship' => $room['relationship'] ?? null,
+                    'room_relationship' => $room['group_relationship'] ?? $room['relationship'] ?? null,
                     'room_label' => $room['room_label'] ?? null,
                     'room_number' => $room['room_number'] ?? null,
                     'room_type' => $room['room_type'] ?? null,
@@ -939,14 +993,49 @@ class ManifestController extends Controller
         $sectionPayload = Arr::get($payload, 'manifest_member_receipts');
         $normalized = [];
 
-        if (is_array($sectionPayload) && ! array_is_list($sectionPayload)) {
-            $manifestMemberIds = ManifestMember::query()
-                ->where('manifest_id', $manifestId)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-            $manifestMemberIdSet = array_fill_keys($manifestMemberIds, true);
+        $manifestMemberIds = ManifestMember::query()
+            ->where('manifest_id', $manifestId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $manifestMemberIdSet = array_fill_keys($manifestMemberIds, true);
+        $confirmationMemberIds = ManifestMember::query()
+            ->where('manifest_id', $manifestId)
+            ->whereNotNull('customer_confirmation_member_id')
+            ->pluck('customer_confirmation_member_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $confirmationMemberIdSet = array_fill_keys($confirmationMemberIds, true);
 
+        if (is_array($sectionPayload) && array_is_list($sectionPayload)) {
+            foreach ($sectionPayload as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $resolvedManifestMemberId = isset($item['manifest_member_id'])
+                    ? (int) $item['manifest_member_id']
+                    : 0;
+                $resolvedConfirmationMemberId = isset($item['customer_confirmation_member_id'])
+                    ? (int) $item['customer_confirmation_member_id']
+                    : 0;
+                $entries = isset($item['receipt_documents']) && is_array($item['receipt_documents'])
+                    ? $item['receipt_documents']
+                    : [];
+
+                $normalized[] = [
+                    'manifest_member_id' => isset($manifestMemberIdSet[$resolvedManifestMemberId])
+                        ? $resolvedManifestMemberId
+                        : null,
+                    'customer_confirmation_member_id' => isset($confirmationMemberIdSet[$resolvedConfirmationMemberId])
+                        ? $resolvedConfirmationMemberId
+                        : null,
+                    'receipt_documents' => $this->normalizeReceiptDocumentEntries($entries),
+                ];
+            }
+        }
+
+        if (is_array($sectionPayload) && ! array_is_list($sectionPayload)) {
             foreach ($sectionPayload as $key => $entries) {
                 if (! is_array($entries)) {
                     continue;
@@ -956,16 +1045,12 @@ class ManifestController extends Controller
 
                 $normalized[] = [
                     'manifest_member_id' => isset($manifestMemberIdSet[$resolvedId]) ? $resolvedId : null,
-                    'customer_confirmation_member_id' => isset($manifestMemberIdSet[$resolvedId]) ? null : ($resolvedId > 0 ? $resolvedId : null),
-                    'receipt_documents' => $this->normalizeDocumentEntries($entries),
+                    'customer_confirmation_member_id' => isset($manifestMemberIdSet[$resolvedId])
+                        ? null
+                        : (isset($confirmationMemberIdSet[$resolvedId]) ? $resolvedId : null),
+                    'receipt_documents' => $this->normalizeReceiptDocumentEntries($entries),
                 ];
             }
-        }
-
-        if ($normalized === []) {
-            throw ValidationException::withMessages([
-                'manifest_member_receipts' => 'The manifest_member_receipts section is required.',
-            ]);
         }
 
         return [
@@ -1086,6 +1171,8 @@ class ManifestController extends Controller
         $normalizedRooms = [];
 
         $memberByManifestId = [];
+        $memberByConfirmationMemberId = [];
+        $memberByPackageOfficialId = [];
         foreach ($members as $member) {
             if (! is_array($member)) {
                 continue;
@@ -1094,6 +1181,20 @@ class ManifestController extends Controller
             $manifestMemberId = isset($member['id']) ? (int) $member['id'] : 0;
             if ($manifestMemberId > 0) {
                 $memberByManifestId[$manifestMemberId] = $member;
+            }
+
+            $confirmationMemberId = isset($member['customer_confirmation_member_id'])
+                ? (int) $member['customer_confirmation_member_id']
+                : 0;
+            if ($confirmationMemberId > 0 && $manifestMemberId > 0) {
+                $memberByConfirmationMemberId[$confirmationMemberId] = $member;
+            }
+
+            $packageOfficialId = isset($member['package_official_id'])
+                ? (int) $member['package_official_id']
+                : 0;
+            if ($packageOfficialId > 0 && $manifestMemberId > 0) {
+                $memberByPackageOfficialId[$packageOfficialId] = $member;
             }
         }
 
@@ -1163,12 +1264,43 @@ class ManifestController extends Controller
                     ? (int) $row['manifest_member_id']
                     : (isset($row['id']) ? (int) $row['id'] : 0);
 
+                if ($manifestMemberId > 0 && ! isset($memberByManifestId[$manifestMemberId])) {
+                    $manifestMemberId = 0;
+                }
+
                 $resolvedMember = $manifestMemberId > 0
                     ? ($memberByManifestId[$manifestMemberId] ?? null)
                     : null;
 
+                if (! is_array($resolvedMember)) {
+                    $fallbackConfirmationMemberId = isset($row['customer_confirmation_member_id'])
+                        ? (int) $row['customer_confirmation_member_id']
+                        : 0;
+                    $fallbackPackageOfficialId = isset($row['package_official_id'])
+                        ? (int) $row['package_official_id']
+                        : 0;
+
+                    if ($fallbackConfirmationMemberId > 0) {
+                        $resolvedMember = $memberByConfirmationMemberId[$fallbackConfirmationMemberId] ?? null;
+                    }
+
+                    if (! is_array($resolvedMember) && $fallbackPackageOfficialId > 0) {
+                        $resolvedMember = $memberByPackageOfficialId[$fallbackPackageOfficialId] ?? null;
+                    }
+
+                    if (is_array($resolvedMember) && isset($resolvedMember['id'])) {
+                        $manifestMemberId = (int) $resolvedMember['id'];
+                    }
+                }
+
                 if ($sharingPlan === '' && is_array($resolvedMember) && isset($resolvedMember['sharing_plan']) && is_string($resolvedMember['sharing_plan'])) {
                     $sharingPlan = strtolower(trim($resolvedMember['sharing_plan']));
+                }
+
+                $roomType = $this->normalizeRoomType($row['room_type'] ?? null);
+
+                if ($roomType === null) {
+                    $roomType = $this->roomTypeFromSharingPlan($sharingPlan !== '' ? $sharingPlan : null) ?? 'single';
                 }
 
                 $confirmationMemberId = isset($row['customer_confirmation_member_id'])
@@ -1195,9 +1327,9 @@ class ManifestController extends Controller
                     || ! empty($row['is_official'])
                     || (is_array($resolvedMember) && ! empty($resolvedMember['package_official_id']));
 
-                $capacity = $this->capacityFromSharingPlan($sharingPlan !== '' ? $sharingPlan : null);
-                $bucketKey = $confirmationId > 0 && $sharingPlan !== ''
-                    ? $confirmationId.'|'.$sharingPlan.'|'.($isOfficial ? 'official' : 'member')
+                $capacity = $this->capacityFromRoomType($roomType);
+                $bucketKey = $confirmationId > 0
+                    ? $confirmationId.'|'.$roomType.'|'.($sharingPlan !== '' ? $sharingPlan : 'single').'|'.($isOfficial ? 'official' : 'member')
                     : 0;
 
                 if ($bucketKey === 0) {
@@ -1243,7 +1375,7 @@ class ManifestController extends Controller
 
                 $groupSizes[$groupKey] = ($groupSizes[$groupKey] ?? 0) + 1;
 
-                if ($manifestMemberId > 0 && empty($row['manifest_member_id'])) {
+                if ($manifestMemberId > 0) {
                     $row['manifest_member_id'] = $manifestMemberId;
                 }
 
@@ -1259,6 +1391,8 @@ class ManifestController extends Controller
                     $row['sharing_plan'] = $sharingPlan;
                 }
 
+                $row['room_type'] = $roomType;
+
                 $grouped[$groupKey][] = $row;
             }
 
@@ -1270,12 +1404,11 @@ class ManifestController extends Controller
                 $normalizedRooms[] = [
                     'sort_order' => $roomGroupSortOrder,
                     'location' => is_string($location) ? $location : null,
-                    'relationship' => $first['room_relationship'] ?? null,
+                    'group_relationship' => $first['room_relationship'] ?? null,
                     'room_label' => $first['room_label'] ?? null,
                     'room_number' => $first['room_number'] ?? null,
                     'room_type' => $this->normalizeRoomType($first['room_type'] ?? null),
                     'bed_type' => $this->normalizeBedType($first['bed_type'] ?? null),
-                    'sharing_plan' => $first['sharing_plan'] ?? null,
                     'capacity' => count($members),
                     'meal' => $first['meal'] ?? null,
                     'number_of_beds_checked' => (bool) ($first['number_of_beds_checked'] ?? false),
@@ -1311,13 +1444,60 @@ class ManifestController extends Controller
         return $normalizedRooms;
     }
 
-    private function capacityFromSharingPlan(?string $sharingPlan): int
+    /**
+     * @param  array<int, mixed>  $entries
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeReceiptDocumentEntries(array $entries): array
     {
-        return match (strtolower((string) $sharingPlan)) {
+        $normalized = $this->normalizeDocumentEntries($entries);
+
+        $documentIds = collect($normalized)
+            ->pluck('id')
+            ->filter(fn ($id) => is_int($id) && $id > 0)
+            ->values()
+            ->all();
+
+        if ($documentIds === []) {
+            return $normalized;
+        }
+
+        $existingDocumentIdSet = ModelFile::query()
+            ->whereIn('id', $documentIds)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $existingDocumentIdSet = array_fill_keys($existingDocumentIdSet, true);
+
+        return array_map(function (array $entry) use ($existingDocumentIdSet): array {
+            $id = isset($entry['id']) ? (int) $entry['id'] : null;
+
+            if ($id && ! isset($existingDocumentIdSet[$id])) {
+                $entry['id'] = null;
+            }
+
+            return $entry;
+        }, $normalized);
+    }
+
+    private function capacityFromRoomType(?string $roomType): int
+    {
+        return match (strtolower((string) $roomType)) {
             'quad' => 4,
             'triple' => 3,
-            'double' => 2,
+            'double', 'twin' => 2,
             default => 1,
+        };
+    }
+
+    private function roomTypeFromSharingPlan(?string $sharingPlan): ?string
+    {
+        return match (strtolower((string) $sharingPlan)) {
+            'quad' => 'quad',
+            'triple' => 'triple',
+            'double' => 'double',
+            'single' => 'single',
+            default => null,
         };
     }
 
@@ -1360,7 +1540,7 @@ class ManifestController extends Controller
      */
     private function normalizeManifestDocuments(mixed $documents): array
     {
-        $allowedFields = ['flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
+        $allowedFields = ['train_tickets', 'flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
 
         if (! is_array($documents)) {
             return collect($allowedFields)

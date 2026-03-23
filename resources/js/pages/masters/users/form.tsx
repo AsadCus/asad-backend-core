@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -11,7 +12,8 @@ import {
 import CustomerFormFields from '@/pages/customer/form-fields';
 import { OptionType, SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { AdminFormFields } from './components/admin-form-fields';
 import { UserPasswordFields } from './components/password-fields';
 import { SalesFormFields } from './components/sales-form-fields';
@@ -145,6 +147,16 @@ export function UserForm({
     );
 
     const [role, setRole] = useState(data?.role ?? 'admin');
+    const errorBannerRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (Object.keys(errors).length > 0 && !isView) {
+            errorBannerRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }
+    }, [errors, isView]);
 
     useEffect(() => {
         if (
@@ -334,6 +346,17 @@ export function UserForm({
     return (
         <div className="mx-auto w-full">
             <form onSubmit={submit} className="space-y-4">
+                {Object.keys(errors).length > 0 && !isView && (
+                    <div ref={errorBannerRef}>
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                Please fix the errors below and try again.
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+                )}
+
                 <Card>
                     <CardContent className="space-y-6">
                         {isAdmin === false &&
@@ -516,7 +539,16 @@ export function UserForm({
                             className="min-w-[140px]"
                             disabled={processing}
                         >
-                            {isEdit ? 'Update' : 'Create'}
+                            {processing && (
+                                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            )}
+                            {processing
+                                ? isEdit
+                                    ? 'Updating...'
+                                    : 'Creating...'
+                                : isEdit
+                                  ? 'Update'
+                                  : 'Create'}
                         </Button>
                     )}
                 </div>

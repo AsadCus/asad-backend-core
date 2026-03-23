@@ -12,6 +12,7 @@ class PackageAccommodation extends Model
         'package_id',
         'location',
         'hotel_name',
+        'ic',
         'type_of_meal',
         'check_in',
         'check_out',

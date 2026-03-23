@@ -15,7 +15,15 @@ class Manifest extends Model
         'in_charge_official_id',
         'manifest_number',
         'notes',
+        'ops_movement_extension',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'ops_movement_extension' => 'array',
+        ];
+    }
 
     public function package(): BelongsTo
     {

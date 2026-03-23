@@ -44,6 +44,7 @@ class CustomerUserService
                 $user->place_of_birth = $user->customer->place_of_birth ?? '';
                 $user->first_time_umrah = $user->customer->first_time_umrah ?? false;
                 $user->has_chronic_disease = $user->customer->has_chronic_disease ?? false;
+                $user->is_using_wheelchair = $user->customer->is_using_wheelchair ?? false;
                 $user->chronic_disease_details = $user->customer->chronic_disease_details ?? '';
                 $user->passport_path = $user->customer->passport_path;
                 $user->photo_path = $user->customer->photo_path;
@@ -82,6 +83,7 @@ class CustomerUserService
                 'place_of_birth' => $data['place_of_birth'] ?? null,
                 'first_time_umrah' => $data['first_time_umrah'] ?? null,
                 'has_chronic_disease' => $data['has_chronic_disease'] ?? false,
+                'is_using_wheelchair' => $data['is_using_wheelchair'] ?? false,
                 'chronic_disease_details' => $data['chronic_disease_details'] ?? null,
                 'branch_id' => $data['branch_id'] ?? null,
                 'handled_by' => $data['handled_by'] ?? null,
@@ -140,6 +142,7 @@ class CustomerUserService
             'place_of_birth' => $user->customer->place_of_birth ?? '',
             'first_time_umrah' => $user->customer->first_time_umrah ?? false,
             'has_chronic_disease' => $user->customer->has_chronic_disease ?? false,
+            'is_using_wheelchair' => $user->customer->is_using_wheelchair ?? false,
             'chronic_disease_details' => $user->customer->chronic_disease_details ?? '',
             'passport_path' => $user->customer->passport_path,
             'photo_path' => $user->customer->photo_path,
@@ -178,6 +181,7 @@ class CustomerUserService
                     'place_of_birth' => $data['place_of_birth'] ?? null,
                     'first_time_umrah' => $data['first_time_umrah'] ?? null,
                     'has_chronic_disease' => $data['has_chronic_disease'] ?? false,
+                    'is_using_wheelchair' => $data['is_using_wheelchair'] ?? false,
                     'chronic_disease_details' => $data['chronic_disease_details'] ?? null,
                     'branch_id' => $data['branch_id'] ?? null,
                     'handled_by' => $data['handled_by'] ?? null,

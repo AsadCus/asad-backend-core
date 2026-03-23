@@ -13,6 +13,7 @@ export interface FieldRequirementsProps {
     example?: string;
     format?: string;
     children?: ReactNode;
+    ignoreTabFocus?: boolean;
 }
 
 export function FieldRequirements({
@@ -21,6 +22,7 @@ export function FieldRequirements({
     example,
     format,
     children,
+    ignoreTabFocus = true,
 }: FieldRequirementsProps) {
     if (!hint && !example && !format && !children) {
         return required ? (
@@ -35,6 +37,7 @@ export function FieldRequirements({
             <Tooltip>
                 <TooltipTrigger
                     type="button"
+                    tabIndex={ignoreTabFocus ? -1 : 0}
                     className="inline-flex items-center gap-1 transition-opacity hover:opacity-80"
                 >
                     {required && <span className="text-red-500">*</span>}

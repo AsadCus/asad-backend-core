@@ -106,24 +106,24 @@ export default function ConfirmedCustomerFormFields({
                 </FormField>
 
                 <FormField
-                    label="Role"
-                    htmlFor={fieldPath('role')}
-                    error={getError(fieldPath('role'))}
+                    label="Relationship"
+                    htmlFor={fieldPath('relationship')}
+                    error={getError(fieldPath('relationship'))}
                     className="md:col-span-2"
                     fieldRequirementsProps={{
                         required: false,
-                        hint: "Customer's role in the booking",
+                        hint: "Customer's relationship in the booking",
                         example: 'Parent, Child, or Family Member',
                         format: 'Up to 255 characters',
                     }}
                 >
                     <ProperInput
-                        id={fieldPath('role')}
-                        value={customer.role ?? ''}
+                        id={fieldPath('relationship')}
+                        value={customer.relationship ?? ''}
                         onCommit={(value) =>
-                            onUpdateCustomer('role', value || null)
+                            onUpdateCustomer('relationship', value || null)
                         }
-                        placeholder="Enter role"
+                        placeholder="Enter relationship"
                         disabled={disabled}
                     />
                 </FormField>
