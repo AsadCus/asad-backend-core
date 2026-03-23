@@ -132,6 +132,7 @@ export default function PublicCustomerForm({
                                                     place_of_birth: '',
                                                     first_time_umrah: false,
                                                     has_chronic_disease: false,
+                                                    is_using_wheelchair: false,
                                                     chronic_disease_details: '',
                                                 },
                                             ],

@@ -84,6 +84,7 @@ const defaultOfficials: OfficialSchema[] = [
     {
         type: 'mutawif',
         name: '',
+        hotel: '',
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -97,6 +98,7 @@ const defaultOfficials: OfficialSchema[] = [
     {
         type: 'mutawifah',
         name: '',
+        hotel: '',
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -110,6 +112,7 @@ const defaultOfficials: OfficialSchema[] = [
     {
         type: 'official',
         name: '',
+        hotel: '',
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -165,6 +168,7 @@ export default function PackageForm({
         vehicle_driver_name: '',
         vehicle_driver_contact_number: '',
         ticket_type: '',
+        train_description: '',
         included: '',
         not_included: '',
         offer: '',
@@ -296,6 +300,7 @@ export default function PackageForm({
             {
                 location: '',
                 hotel_name: '',
+                ic: '',
                 type_of_meal: '',
                 check_in: '',
                 check_out: '',
@@ -442,6 +447,7 @@ export default function PackageForm({
             {
                 type: '',
                 name: '',
+                hotel: '',
                 contact_number: '',
                 nationality: '',
                 passport_number: '',
@@ -1354,6 +1360,25 @@ export default function PackageForm({
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
                             <FormField
+                                label="Train Description"
+                                htmlFor="train_description"
+                                fieldRequirementsProps={{
+                                    hint: 'General notes shown for train operations',
+                                }}
+                                error={getError('train_description')}
+                            >
+                                <ProperInput
+                                    id="train_description"
+                                    value={data.train_description || ''}
+                                    disabled={isView || processing}
+                                    textarea
+                                    onCommit={(v) =>
+                                        setData('train_description', v || null)
+                                    }
+                                    placeholder="Enter train operation description"
+                                />
+                            </FormField>
+                            <FormField
                                 label="Train Ticket Type"
                                 htmlFor="ticket_type"
                                 fieldRequirementsProps={{
@@ -1601,7 +1626,7 @@ export default function PackageForm({
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                                                 <FormField
                                                     label="Location"
                                                     fieldRequirementsProps={{
@@ -1656,6 +1681,33 @@ export default function PackageForm({
                                                             )
                                                         }
                                                         placeholder="Hotel name"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="IC"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Free-text in charge reference',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.ic`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.ic ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'ic',
+                                                                v,
+                                                            )
+                                                        }
+                                                        placeholder="Enter IC"
                                                     />
                                                 </FormField>
                                                 <FormField
@@ -2157,7 +2209,7 @@ export default function PackageForm({
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                                                 <FormField
                                                     label="Type"
                                                     fieldRequirementsProps={{
@@ -2215,6 +2267,32 @@ export default function PackageForm({
                                                             )
                                                         }
                                                         placeholder="Enter name"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Hotel"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Assigned hotel for this official',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.hotel`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.hotel ?? ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'hotel',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="Enter hotel"
                                                     />
                                                 </FormField>
                                                 <FormField

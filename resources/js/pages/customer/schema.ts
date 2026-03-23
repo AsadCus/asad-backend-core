@@ -30,10 +30,11 @@ export const customerSchema = z.object({
     place_of_birth: z.string(),
     first_time_umrah: z.boolean().nullable().optional(),
     has_chronic_disease: z.boolean().nullable().optional(),
+    is_using_wheelchair: z.boolean().nullable().optional(),
     chronic_disease_details: z.string().nullable().optional(),
     status: z.string().optional(),
     sharing_plan: z.string().nullable().optional(),
-    role: z.string().nullable().optional(),
+    relationship: z.string().nullable().optional(),
     // Image uploads (File on submit, string path from server)
     passport_file: z.any().optional(),
     photo_file: z.any().optional(),
@@ -111,6 +112,7 @@ export interface CustomerOption extends OptionType {
     place_of_birth?: string;
     first_time_umrah?: boolean;
     has_chronic_disease?: boolean;
+    is_using_wheelchair?: boolean | null;
     chronic_disease_details?: string;
     passport_document?: ModelFileSchema | null;
     photo_document?: ModelFileSchema | null;
@@ -149,7 +151,7 @@ export interface CustomerConfirmationMemberDatatableSchema {
     is_leader: boolean;
     status?: string;
     sharing_plan?: string | null;
-    role?: string | null;
+    relationship?: string | null;
     has_quotation?: boolean;
     paid_amount: number;
     total_amount: number;
@@ -222,10 +224,11 @@ export const emptyMember = (isLeader = false): CustomerSchema => ({
     place_of_birth: '',
     first_time_umrah: null,
     has_chronic_disease: false,
+    is_using_wheelchair: false,
     chronic_disease_details: '',
     status: 'draft',
     sharing_plan: null,
-    role: null,
+    relationship: null,
     passport_file: undefined,
     photo_file: undefined,
     passport_file_name: null,

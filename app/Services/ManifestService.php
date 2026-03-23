@@ -201,8 +201,8 @@ class ManifestService
                     'name_as_per_passport' => $member->name ?? $packageOfficial?->name ?? $user?->name,
                     'arabic_name' => $member->arabic_name,
                     'contact_no' => $member->contact_number ?? $packageOfficial?->contact_number ?? $user?->contact,
-                    'role' => $member->role ?? $confirmationMember?->role,
-                    'relationship' => $member->sharingGroup?->relation,
+                    'relationship' => $member->relationship ?? $confirmationMember?->relationship,
+                    'group_relationship' => $member->sharingGroup?->group_relationship,
                     'group_remarks' => $member->sharingGroup?->remarks,
                     'sharing_plan' => $sharingPlan,
                     'course_1' => (bool) ($collectionItem?->course_1 ?? false),
@@ -244,6 +244,7 @@ class ManifestService
                     'address' => $member->address ?? $customer?->address,
                     'first_time_umrah' => $member->first_time_umrah ?? $customer?->first_time_umrah,
                     'has_chronic_disease' => $member->has_chronic_disease ?? $customer?->has_chronic_disease,
+                    'is_using_wheelchair' => $member->is_using_wheelchair ?? $customer?->is_using_wheelchair,
                     'chronic_disease_details' => $member->chronic_disease_details ?? $customer?->chronic_disease_details,
                     'passport_path' => $member->passport_path ?? $customer?->passport_path,
                     'photo_path' => $member->photo_path ?? $customer?->photo_path,
@@ -281,7 +282,7 @@ class ManifestService
                 'id' => $room->id,
                 'sort_order' => $room->sort_order,
                 'location' => $room->location,
-                'relationship' => $room->relationship,
+                'group_relationship' => $room->group_relationship,
                 'room_label' => $room->room_label,
                 'room_number' => $room->room_number,
                 'room_type' => $room->room_type,
@@ -301,7 +302,7 @@ class ManifestService
                         'id' => $roomMember->id,
                         'manifest_member_id' => $roomMember->manifest_member_id,
                         'member_name' => $roomMember->member?->name ?? $official?->name ?? $customer?->user?->name,
-                        'role_in_room' => $member?->role,
+                        'role_in_room' => $member?->relationship,
                         'sort_order' => $roomMember->sort_order,
                         'remarks' => $roomMember->remarks,
                         'customer_confirmation_member_id' => $member?->id,
@@ -316,7 +317,7 @@ class ManifestService
                 'id' => $manifestSharingGroup->id,
                 'customer_confirmation_id' => $manifestSharingGroup->customer_confirmation_id,
                 'sort_order' => $manifestSharingGroup->sort_order,
-                'relation' => $manifestSharingGroup->relation,
+                'group_relationship' => $manifestSharingGroup->group_relationship,
                 'remarks' => $manifestSharingGroup->remarks,
                 'members' => $manifestSharingGroup->members->map(function ($member) {
                     $confirmationMember = $member->confirmationMember;
@@ -325,7 +326,7 @@ class ManifestService
                         'id' => $member->id,
                         'customer_confirmation_member_id' => $member->customer_confirmation_member_id,
                         'package_official_id' => $member->package_official_id,
-                        'role_in_group' => $member->role ?? $confirmationMember?->role,
+                        'role_in_group' => $member->relationship ?? $confirmationMember?->relationship,
                         'sort_order' => $member->sort_order,
                         'sharing_plan' => $member->sharing_plan,
                         'remarks' => $member->remarks,
@@ -351,14 +352,14 @@ class ManifestService
                 'id' => $group['id'] ?? null,
                 'customer_confirmation_id' => $group['customer_confirmation_id'] ?? null,
                 'sort_order' => $group['sort_order'] ?? null,
-                'relation' => $group['relation'] ?? null,
+                'group_relationship' => $group['group_relationship'] ?? $group['relation'] ?? null,
                 'remarks' => $group['remarks'] ?? null,
                 'members' => array_map(function (array $member): array {
                     return [
                         'id' => $member['id'] ?? null,
                         'customer_confirmation_member_id' => $member['customer_confirmation_member_id'] ?? null,
                         'package_official_id' => $member['package_official_id'] ?? null,
-                        'role' => $member['role'] ?? $member['role_in_group'] ?? null,
+                        'relationship' => $member['relationship'] ?? $member['role'] ?? $member['role_in_group'] ?? null,
                         'sharing_plan' => $member['sharing_plan'] ?? null,
                         'sort_order' => $member['sort_order'] ?? null,
                         'remarks' => $member['remarks'] ?? null,
@@ -373,7 +374,7 @@ class ManifestService
                 'id' => $room['id'] ?? null,
                 'location' => $room['location'] ?? null,
                 'sort_order' => $room['sort_order'] ?? null,
-                'relationship' => $room['relationship'] ?? null,
+                'group_relationship' => $room['group_relationship'] ?? $room['relationship'] ?? null,
                 'room_label' => $room['room_label'] ?? null,
                 'room_number' => $room['room_number'] ?? null,
                 'room_type' => $room['room_type'] ?? null,
@@ -560,7 +561,7 @@ class ManifestService
             $room = $manifest->rooms()->create([
                 'sort_order' => $data['sort_order'] ?? (((int) $manifest->rooms()->max('sort_order')) + 1),
                 'location' => $data['location'] ?? null,
-                'relationship' => $data['relationship'] ?? null,
+                'group_relationship' => $data['group_relationship'] ?? $data['relationship'] ?? null,
                 'room_label' => $data['room_label'] ?? null,
                 'room_number' => $data['room_number'] ?? null,
                 'room_type' => $data['room_type'] ?? null,
@@ -606,7 +607,7 @@ class ManifestService
             $room->update([
                 'sort_order' => $data['sort_order'] ?? $room->sort_order,
                 'location' => $data['location'] ?? $room->location,
-                'relationship' => $data['relationship'] ?? $room->relationship,
+                'group_relationship' => $data['group_relationship'] ?? $data['relationship'] ?? $room->group_relationship,
                 'room_label' => $data['room_label'] ?? $room->room_label,
                 'room_number' => $data['room_number'] ?? $room->room_number,
                 'room_type' => $data['room_type'] ?? $room->room_type,
@@ -676,7 +677,7 @@ class ManifestService
             'customer_confirmation_id' => $customerConfirmationId,
         ], [
             'sort_order' => ((int) ManifestSharingGroup::query()->where('manifest_id', $manifestId)->max('sort_order')) + 1,
-            'relation' => null,
+            'group_relationship' => null,
             'remarks' => null,
         ]);
 
@@ -758,7 +759,7 @@ class ManifestService
                             'is_leader' => $member->is_leader,
                             'status' => $member->status ?? 'draft',
                             'sharing_plan' => $member->sharing_plan,
-                            'role' => $member->role,
+                            'relationship' => $member->relationship,
                             'name' => $user?->name ?? '-',
                             'email' => $user?->email ?? '-',
                             'contact' => $user?->contact ?? '-',
@@ -1005,7 +1006,7 @@ class ManifestService
             $manifestSharingGroup = $manifest->manifestSharingGroups()->create([
                 'customer_confirmation_id' => $groupCustomerConfirmationId,
                 'sort_order' => $groupSortOrder,
-                'relation' => $firstMember['relationship'] ?? null,
+                'group_relationship' => $firstMember['group_relationship'] ?? $firstMember['relationship'] ?? null,
                 'remarks' => $firstMember['group_remarks'] ?? null,
             ]);
 
@@ -1224,7 +1225,7 @@ class ManifestService
             $createdRoom = $manifest->rooms()->create([
                 'sort_order' => $roomSortOrder,
                 'location' => $baseRoom['location'] ?? null,
-                'relationship' => $baseRoom['relationship'] ?? null,
+                'group_relationship' => $baseRoom['group_relationship'] ?? $baseRoom['relationship'] ?? null,
                 'room_label' => $baseRoom['room_label'] ?? null,
                 'room_number' => $baseRoom['room_number'] ?? null,
                 'room_type' => $payload['room_type'],
@@ -1423,7 +1424,7 @@ class ManifestService
                                     'sort_order' => $memberSortOrder,
                                     'sharing_group_key' => 'room-'.$room->id,
                                     'manifest_member_id' => $roomMember->manifest_member_id,
-                                    'room_relationship' => $room->relationship,
+                                    'room_relationship' => $room->group_relationship,
                                     'room_label' => $room->room_label,
                                     'room_number' => $room->room_number,
                                     'sharing_plan' => $room->sharing_plan,
@@ -1500,8 +1501,8 @@ class ManifestService
     {
         $memberUpdates = [];
 
-        if (array_key_exists('role', $memberPayload)) {
-            $memberUpdates['role'] = $memberPayload['role'] ?? null;
+        if (array_key_exists('relationship', $memberPayload) || array_key_exists('role', $memberPayload)) {
+            $memberUpdates['relationship'] = $memberPayload['relationship'] ?? $memberPayload['role'] ?? null;
         }
 
         if (array_key_exists('sharing_plan', $memberPayload)) {
@@ -1580,6 +1581,10 @@ class ManifestService
             $customerUpdates['has_chronic_disease'] = $memberPayload['has_chronic_disease'];
         }
 
+        if (array_key_exists('is_using_wheelchair', $memberPayload)) {
+            $customerUpdates['is_using_wheelchair'] = $memberPayload['is_using_wheelchair'];
+        }
+
         if (array_key_exists('chronic_disease_details', $memberPayload)) {
             $customerUpdates['chronic_disease_details'] = $memberPayload['chronic_disease_details'] ?: null;
         }
@@ -1617,7 +1622,7 @@ class ManifestService
         $user = $customer?->user;
 
         return [
-            'role' => $memberPayload['role'] ?? $member?->role,
+            'relationship' => $memberPayload['relationship'] ?? $memberPayload['role'] ?? $member?->relationship,
             'sharing_plan' => $memberPayload['sharing_plan'] ?? $member?->sharing_plan,
             'name' => $memberPayload['name_as_per_passport'] ?? $memberPayload['customer_name'] ?? $packageOfficial?->name ?? $user?->name,
             'arabic_name' => $memberPayload['arabic_name'] ?? null,
@@ -1633,6 +1638,7 @@ class ManifestService
             'address' => $memberPayload['address'] ?? $customer?->address,
             'first_time_umrah' => $memberPayload['first_time_umrah'] ?? $memberPayload['is_first_time_umrah'] ?? $customer?->first_time_umrah,
             'has_chronic_disease' => $memberPayload['has_chronic_disease'] ?? $customer?->has_chronic_disease,
+            'is_using_wheelchair' => $memberPayload['is_using_wheelchair'] ?? $customer?->is_using_wheelchair,
             'chronic_disease_details' => $memberPayload['chronic_disease_details'] ?? $customer?->chronic_disease_details,
             'passport_path' => $memberPayload['passport_path'] ?? $customer?->passport_path,
             'photo_path' => $memberPayload['photo_path'] ?? $customer?->photo_path,
@@ -1893,7 +1899,7 @@ class ManifestService
      */
     private function syncManifestDocuments(Manifest $manifest, array $documents): void
     {
-        $allowedFields = ['flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
+        $allowedFields = ['train_tickets', 'flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
         $existingFiles = $manifest->files()->get()->groupBy('field');
         $rowsToPersist = [];
 
@@ -1937,13 +1943,17 @@ class ManifestService
             ->filter(fn ($path) => is_string($path) && $path !== '')
             ->all();
 
-        foreach ($existingFiles->flatten() as $existingFile) {
+        $existingManagedFiles = collect($allowedFields)
+            ->flatMap(fn (string $field) => $existingFiles->get($field, collect()))
+            ->values();
+
+        foreach ($existingManagedFiles as $existingFile) {
             if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
                 Storage::disk('public')->delete($existingFile->file_path);
             }
         }
 
-        $manifest->files()->delete();
+        $manifest->files()->whereIn('field', $allowedFields)->delete();
 
         foreach ($rowsToPersist as $row) {
             $manifest->files()->create($row);
@@ -2008,7 +2018,7 @@ class ManifestService
      */
     private function buildManifestDocumentPayload(Manifest $manifest): array
     {
-        $allowedFields = ['flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
+        $allowedFields = ['train_tickets', 'flight_tickets', 'visa', 'hotel', 'passport', 'photo'];
         $grouped = $manifest->files->groupBy('field');
         $documents = [];
 

@@ -389,8 +389,8 @@ export default function ManifestDatatable({
                 );
             }
 
-            if (field === 'role') {
-                const fallbackPath = getErrorPath(flatIndex, 'relationship');
+            if (field === 'relationship') {
+                const fallbackPath = getErrorPath(flatIndex, 'role');
                 const fallbackMessage = errors[fallbackPath];
 
                 if (fallbackMessage) {
@@ -1089,10 +1089,10 @@ export default function ManifestDatatable({
             {(mode === 'members' ||
                 mode === 'room' ||
                 mode === 'room_check') && (
-                <TableHead className="min-w-40">Role</TableHead>
+                <TableHead className="min-w-40">Relationship</TableHead>
             )}
             {mode === 'members' && (
-                <TableHead className="min-w-40">Relation</TableHead>
+                <TableHead className="min-w-40">Group</TableHead>
             )}
             {mode === 'members' && (
                 <TableHead className="min-w-40">Package Category</TableHead>
@@ -1224,7 +1224,7 @@ export default function ManifestDatatable({
                 </TableHead>
             )}
             {(mode === 'room' || mode === 'room_check') && (
-                <TableHead className="min-w-60">Relationship</TableHead>
+                <TableHead className="min-w-60">Group</TableHead>
             )}
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Passport No</TableHead>
@@ -1376,11 +1376,13 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell>
                             <ProperInput
-                                value={groupLeadMember?.relationship ?? ''}
+                                value={
+                                    groupLeadMember?.group_relationship ?? ''
+                                }
                                 onCommit={(value) =>
                                     updateGroupField(
                                         item.groupKey,
-                                        'relationship',
+                                        'group_relationship',
                                         value,
                                     )
                                 }
@@ -1864,17 +1866,21 @@ export default function ManifestDatatable({
                         <ProperInput
                             id={
                                 errorPrefix
-                                    ? getErrorPath(flatIndex, 'role')
+                                    ? getErrorPath(flatIndex, 'relationship')
                                     : undefined
                             }
-                            value={member.role ?? member.relationship ?? ''}
+                            value={member.relationship ?? ''}
                             onCommit={(value) =>
-                                updateMemberField(flatIndex, 'role', value)
+                                updateMemberField(
+                                    flatIndex,
+                                    'relationship',
+                                    value,
+                                )
                             }
                             disabled={memberDisabled}
                             size="default"
                         />
-                        {renderCellError(flatIndex, 'role')}
+                        {renderCellError(flatIndex, 'relationship')}
                     </TableCell>
                 )}
 

@@ -13,7 +13,7 @@ export interface CustomerMemberData {
         | 'unavailable'
         | 'cancelled';
     sharing_plan?: string | null;
-    role?: string | null;
+    relationship?: string | null;
     name?: string;
     email?: string;
     contact?: string;
@@ -92,18 +92,21 @@ export interface PackageForManifestOption extends ValueNumberOptionType {
 
 export interface ManifestFormData
     extends Omit<ManifestSchema, 'members' | 'rooms' | 'sharing_groups'> {
-    members?: MemberSchema[];
-    roomLists?: Record<string, MemberSchema[]>;
-    airlineList?: MemberSchema[];
+    manifest_members?: MemberSchema[];
     documents?: ManifestDocumentsByField;
     in_charge_official_id?: number | null;
-    manifest?: CanonicalManifestSection;
     manifest_sharing_groups?: CanonicalManifestSharingGroup[];
     manifest_rooms?: CanonicalManifestRoom[];
     manifest_member_receipts?: ManifestMemberReceiptMap;
 }
 
-export type ManifestMemberReceiptMap = Record<string, ManifestDocumentItem[]>;
+export type ManifestMemberReceiptMap = ManifestMemberReceiptRow[];
+
+export interface ManifestMemberReceiptRow {
+    manifest_member_id?: number | null;
+    customer_confirmation_member_id?: number | null;
+    receipt_documents?: ManifestDocumentItem[];
+}
 
 export interface CanonicalManifestSection {
     id?: number | null;
@@ -129,6 +132,7 @@ export interface CanonicalManifestSharingGroupMemberPatch {
     address?: string | null;
     first_time_umrah?: boolean | null;
     has_chronic_disease?: boolean | null;
+    is_using_wheelchair?: boolean | null;
     chronic_disease_details?: string | null;
     passport_path?: string | null;
     photo_path?: string | null;
@@ -139,7 +143,7 @@ export interface CanonicalManifestSharingGroupMember {
     id?: number | null;
     customer_confirmation_member_id?: number | null;
     package_official_id?: number | null;
-    role?: string | null;
+    relationship?: string | null;
     sharing_plan?: string | null;
     sort_order?: number | null;
     remarks?: string | null;
@@ -151,7 +155,7 @@ export interface CanonicalManifestSharingGroup {
     id?: number | null;
     customer_confirmation_id?: number | null;
     sort_order?: number | null;
-    relation?: string | null;
+    group_relationship?: string | null;
     remarks?: string | null;
     members?: CanonicalManifestSharingGroupMember[];
 }
@@ -169,6 +173,7 @@ export interface CanonicalManifestRoom {
     id?: number | null;
     location?: string | null;
     sort_order?: number | null;
+    group_relationship?: string | null;
     relationship?: string | null;
     room_label?: string | null;
     room_number?: string | null;
@@ -216,14 +221,15 @@ export type MemberWithUI = MemberSchema & {
         | 'unavailable'
         | 'cancelled'
         | string;
-    role?: string | null;
     relationship?: string | null;
+    group_relationship?: string | null;
     sharing_plan?: string | null;
     arabic_name?: string | null;
     receipt_documents?: ManifestDocumentItem[];
 };
 
 export type ManifestDocumentFieldKey =
+    | 'train_tickets'
     | 'flight_tickets'
     | 'visa'
     | 'hotel'

@@ -14,7 +14,7 @@ class ManifestRoom extends Model
         'source_quotation_id',
         'sort_order',
         'location',
-        'relationship',
+        'group_relationship',
         'room_label',
         'room_number',
         'room_type',

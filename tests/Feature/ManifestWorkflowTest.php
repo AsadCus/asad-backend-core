@@ -84,6 +84,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'documents' => [
+                'train_tickets' => [],
                 'flight_tickets' => [
                     [
                         'file' => UploadedFile::fake()->create('flight-ticket.pdf', 120, 'application/pdf'),
@@ -177,7 +178,7 @@ class ManifestWorkflowTest extends TestCase
             'customer_id' => $customer->id,
             'is_leader' => true,
             'status' => 'draft',
-            'role' => 'spouse',
+            'relationship' => 'spouse',
         ]);
 
         $payload = [
@@ -242,7 +243,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
             'location' => 'makkah',
-            'relationship' => 'Family',
+            'group_relationship' => 'Family',
             'room_number' => 'M-101',
             'room_type' => 'quad',
             'bed_type' => 'single',
@@ -305,7 +306,7 @@ class ManifestWorkflowTest extends TestCase
             'customer_id' => $customer->id,
             'is_leader' => true,
             'status' => 'confirmed',
-            'role' => 'spouse',
+            'relationship' => 'spouse',
             'sharing_plan' => 'double',
         ]);
 
@@ -341,6 +342,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'documents' => [
+                'train_tickets' => [],
                 'flight_tickets' => [],
                 'visa' => [],
                 'hotel' => [],
@@ -364,12 +366,12 @@ class ManifestWorkflowTest extends TestCase
                 [
                     'customer_confirmation_id' => $confirmation->id,
                     'sort_order' => 1,
-                    'relation' => 'Family',
+                    'group_relationship' => 'Family',
                     'remarks' => 'Canonical group remark',
                     'members' => [
                         [
                             'customer_confirmation_member_id' => $member->id,
-                            'role' => 'spouse',
+                            'relationship' => 'spouse',
                             'sharing_plan' => 'double',
                             'sort_order' => 1,
                             'patch' => [
@@ -402,6 +404,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'documents' => [
+                'train_tickets' => [],
                 'flight_tickets' => [],
                 'visa' => [],
                 'hotel' => [],
@@ -701,6 +704,7 @@ class ManifestWorkflowTest extends TestCase
             'manifestId' => $manifest->id,
         ]), [
             'documents' => [
+                'train_tickets' => [],
                 'flight_tickets' => [
                     [
                         'file' => UploadedFile::fake()->create('c2-docs-proof.pdf', 100, 'application/pdf'),
@@ -1139,6 +1143,12 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'documents' => [
+                'train_tickets' => [
+                    [
+                        'file' => UploadedFile::fake()->create('train-update.pdf', 120, 'application/pdf'),
+                        'file_name' => 'Train Update.pdf',
+                    ],
+                ],
                 'flight_tickets' => [
                     [
                         'file' => UploadedFile::fake()->create('flight-update.pdf', 120, 'application/pdf'),
@@ -1180,7 +1190,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
             'location' => 'makkah',
-            'relationship' => 'Family',
+            'group_relationship' => 'Family',
             'room_label' => 'Makkah Room A',
             'room_number' => 'MK-901',
             'room_type' => 'double',
@@ -1192,7 +1202,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
             'location' => 'madinah',
-            'relationship' => 'Friends',
+            'group_relationship' => 'Friends',
             'room_label' => 'Madinah Room B',
             'room_number' => 'MD-902',
             'room_type' => 'triple',
@@ -1201,7 +1211,7 @@ class ManifestWorkflowTest extends TestCase
             'meal' => 'Full Board',
         ]);
 
-        foreach (['flight_tickets', 'visa', 'hotel', 'passport', 'photo'] as $field) {
+        foreach (['train_tickets', 'flight_tickets', 'visa', 'hotel', 'passport', 'photo'] as $field) {
             $this->assertDatabaseHas('model_files', [
                 'fileable_type' => Manifest::class,
                 'fileable_id' => $manifest->id,
@@ -1213,6 +1223,7 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertNotEmpty($rehydrated['roomLists']['makkah'] ?? []);
         $this->assertNotEmpty($rehydrated['roomLists']['madinah'] ?? []);
+        $this->assertNotEmpty($rehydrated['documents']['train_tickets'] ?? []);
         $this->assertNotEmpty($rehydrated['documents']['flight_tickets'] ?? []);
         $this->assertNotEmpty($rehydrated['documents']['visa'] ?? []);
         $this->assertNotEmpty($rehydrated['documents']['hotel'] ?? []);
@@ -1631,7 +1642,7 @@ class ManifestWorkflowTest extends TestCase
         $confirmationMember = $this->createMemberForPackage($package->id, 'Sharing Member', $actingUser->id);
         $confirmationMember->update([
             'sharing_plan' => 'single',
-            'role' => 'Spouse',
+            'relationship' => 'Spouse',
         ]);
 
         $manifestMember = ManifestMember::create([
@@ -1678,7 +1689,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertDatabaseHas('manifest_rooms', [
             'manifest_id' => $manifest->id,
             'location' => 'makkah',
-            'relationship' => 'Family',
+            'group_relationship' => 'Family',
             'sharing_plan' => 'double',
             'room_label' => 'Room A',
         ]);
@@ -1716,7 +1727,7 @@ class ManifestWorkflowTest extends TestCase
             'customer_confirmation_id' => $confirmation->id,
             'customer_id' => $customer->id,
             'status' => 'confirmed',
-            'role' => 'wife',
+            'relationship' => 'wife',
             'sharing_plan' => 'double',
         ]);
 
@@ -1733,7 +1744,7 @@ class ManifestWorkflowTest extends TestCase
                 [
                     'customer_confirmation_member_id' => $member->id,
                     'name_as_per_passport' => 'Member Role Relation',
-                    'relationship' => 'family',
+                    'group_relationship' => 'family',
                     'sharing_group_key' => 'group-role-rel-1',
                 ],
             ],
@@ -1745,8 +1756,8 @@ class ManifestWorkflowTest extends TestCase
         $member->refresh();
         $manifest->refresh();
 
-        $this->assertSame('wife', $member->role);
-        $this->assertSame('family', $manifest->manifestSharingGroups()->value('relation'));
+        $this->assertSame('wife', $member->relationship);
+        $this->assertSame('family', $manifest->manifestSharingGroups()->value('group_relationship'));
     }
 
     public function test_update_adds_new_member_into_existing_confirmation_room_capacity_before_creating_new_group(): void
@@ -1781,7 +1792,7 @@ class ManifestWorkflowTest extends TestCase
                 'customer_id' => $customer->id,
                 'is_leader' => $index === 1,
                 'status' => 'confirmed',
-                'role' => 'member',
+                'relationship' => 'member',
                 'sharing_plan' => 'double',
             ]));
         }
@@ -2063,7 +2074,7 @@ class ManifestWorkflowTest extends TestCase
             'customer_id' => $customer->id,
             'is_leader' => true,
             'status' => 'confirmed',
-            'role' => 'member',
+            'relationship' => 'member',
             'sharing_plan' => 'double',
         ]);
 
@@ -2151,7 +2162,7 @@ class ManifestWorkflowTest extends TestCase
                 'customer_confirmation_id' => $confirmation->id,
                 'customer_id' => $customer->id,
                 'status' => 'confirmed',
-                'role' => 'member',
+                'relationship' => 'member',
                 'sharing_plan' => 'triple',
             ]);
         };
@@ -2657,7 +2668,7 @@ class ManifestWorkflowTest extends TestCase
                 'customer_id' => $customer->id,
                 'is_leader' => false,
                 'status' => 'confirmed',
-                'role' => 'member',
+                'relationship' => 'member',
                 'sharing_plan' => 'double',
             ]);
         })->values();
@@ -2792,11 +2803,17 @@ class ManifestWorkflowTest extends TestCase
             'manifest_number' => 'MAN-SECTION-CORE-001',
             'notes' => 'Initial notes',
         ]);
+        $official = PackageOfficial::create([
+            'package_id' => $package->id,
+            'name' => 'Section Core Official',
+            'type' => 'mutawif',
+        ]);
 
         $this->patchJson(route('manifests.sections.core.update', [
             'manifestId' => $manifest->id,
         ]), [
             'notes' => 'Core section updated notes',
+            'in_charge_official_id' => $official->id,
             'status' => 'closed',
         ])->assertOk()
             ->assertJsonPath('message', 'Manifest core section updated successfully.');
@@ -2805,6 +2822,7 @@ class ManifestWorkflowTest extends TestCase
         $package->refresh();
 
         $this->assertSame('Core section updated notes', $manifest->notes);
+        $this->assertSame($official->id, $manifest->in_charge_official_id);
         $this->assertSame('closed', $package->status);
     }
 
@@ -2823,13 +2841,13 @@ class ManifestWorkflowTest extends TestCase
                     'id' => null,
                     'customer_confirmation_id' => $member->customer_confirmation_id,
                     'sort_order' => 1,
-                    'relation' => 'Family',
+                    'group_relationship' => 'Family',
                     'remarks' => 'Section endpoint group',
                     'members' => [
                         [
                             'id' => $manifestMember->id,
                             'customer_confirmation_member_id' => $member->id,
-                            'role' => 'husband',
+                            'relationship' => 'husband',
                             'sharing_plan' => 'double',
                             'sort_order' => 1,
                             'patch' => [
@@ -2847,7 +2865,7 @@ class ManifestWorkflowTest extends TestCase
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
             'passport_number' => 'PATCH-SHARE-001',
-            'role' => 'husband',
+            'relationship' => 'husband',
         ]);
     }
 
@@ -2865,7 +2883,7 @@ class ManifestWorkflowTest extends TestCase
                 [
                     'location' => 'makkah',
                     'sort_order' => 1,
-                    'relationship' => 'Family',
+                    'group_relationship' => 'Family',
                     'room_label' => 'Section Room 1',
                     'room_number' => 'SEC-501',
                     'room_type' => 'double',
@@ -2906,6 +2924,46 @@ class ManifestWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_patch_manifest_rooms_section_validate_only_does_not_persist_updates(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patchJson(route('manifests.sections.rooms.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'validate_only' => true,
+            'manifest_rooms' => [
+                [
+                    'location' => 'makkah',
+                    'sort_order' => 1,
+                    'relationship' => 'Family',
+                    'room_label' => 'Validate Only Room',
+                    'room_number' => 'VAL-501',
+                    'room_type' => 'double',
+                    'bed_type' => 'king',
+                    'sharing_plan' => 'double',
+                    'meal' => 'Breakfast',
+                    'members' => [
+                        [
+                            'manifest_member_id' => $manifestMember->id,
+                            'customer_confirmation_member_id' => $member->id,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('validated', true);
+
+        $this->assertDatabaseMissing('manifest_rooms', [
+            'manifest_id' => $manifest->id,
+            'room_number' => 'VAL-501',
+        ]);
+    }
+
     public function test_patch_manifest_documents_section_updates_manifest_documents(): void
     {
         Storage::fake('public');
@@ -2919,6 +2977,12 @@ class ManifestWorkflowTest extends TestCase
             'manifestId' => $manifest->id,
         ]), [
             'documents' => [
+                'train_tickets' => [
+                    [
+                        'file' => UploadedFile::fake()->create('section-train.pdf', 100, 'application/pdf'),
+                        'file_name' => 'Section Train Ticket.pdf',
+                    ],
+                ],
                 'flight_tickets' => [
                     [
                         'file' => UploadedFile::fake()->create('section-flight.pdf', 100, 'application/pdf'),
@@ -2937,6 +3001,13 @@ class ManifestWorkflowTest extends TestCase
             'fileable_id' => $manifest->id,
             'field' => 'flight_tickets',
             'file_name' => 'Section Flight Ticket.pdf',
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Manifest::class,
+            'fileable_id' => $manifest->id,
+            'field' => 'train_tickets',
+            'file_name' => 'Section Train Ticket.pdf',
         ]);
     }
 
@@ -3007,6 +3078,55 @@ class ManifestWorkflowTest extends TestCase
             'field' => 'receipt',
             'file_name' => 'Member Receipt Added.pdf',
         ]);
+    }
+
+    public function test_patch_manifest_receipt_documents_section_accepts_list_payload_shape(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patch(route('manifests.sections.receipt-documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_member_receipts' => [
+                [
+                    'manifest_member_id' => $manifestMember->id,
+                    'customer_confirmation_member_id' => $member->id,
+                    'receipt_documents' => [
+                        [
+                            'file' => UploadedFile::fake()->create('receipt-list-shape.pdf', 100, 'application/pdf'),
+                            'file_name' => 'Receipt List Shape.pdf',
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $manifestMember->id,
+            'field' => 'receipt',
+            'file_name' => 'Receipt List Shape.pdf',
+        ]);
+    }
+
+    public function test_patch_manifest_receipt_documents_section_allows_empty_payload(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patchJson(route('manifests.sections.receipt-documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_member_receipts' => [],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Manifest receipt-documents section updated successfully.');
     }
 
     public function test_patch_manifest_rooms_section_accepts_manifest_member_id_alias(): void
@@ -3094,7 +3214,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertIsArray($canonicalGroupMember);
         $this->assertSame($manifestMember->id, $canonicalGroupMember['id']);
         $this->assertSame($confirmationMember->id, $canonicalGroupMember['customer_confirmation_member_id']);
-        $this->assertSame('member', $canonicalGroupMember['role']);
+        $this->assertSame('member', $canonicalGroupMember['relationship']);
 
         $legacyRoomMember = $result['rooms'][0]['members'][0] ?? null;
         $canonicalRoomMember = $result['manifest_rooms'][0]['members'][0] ?? null;
@@ -3292,7 +3412,7 @@ class ManifestWorkflowTest extends TestCase
             'customer_id' => $customer->id,
             'is_leader' => true,
             'status' => 'confirmed',
-            'role' => 'member',
+            'relationship' => 'member',
         ]);
     }
 
@@ -3328,6 +3448,7 @@ class ManifestWorkflowTest extends TestCase
                 ],
             ],
             'documents' => [
+                'train_tickets' => [],
                 'flight_tickets' => [],
                 'visa' => [],
                 'hotel' => [],

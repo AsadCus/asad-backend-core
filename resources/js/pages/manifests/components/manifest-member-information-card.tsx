@@ -53,6 +53,9 @@ export default function ManifestMemberInformationCard({
         (member) => !member.package_official_id,
     );
     const officialCount = activeMembers.length - jemaahMembers.length;
+    const wheelchairCount = jemaahMembers.filter(
+        (member) => member.is_using_wheelchair === true,
+    ).length;
 
     const counts = jemaahMembers.reduce(
         (acc, member) => {
@@ -112,6 +115,7 @@ export default function ManifestMemberInformationCard({
         { label: 'Infant (below 2)', value: counts.infant },
         { label: 'Total Jemaah', value: jemaahMembers.length },
         { label: 'Official', value: officialCount },
+        { label: 'Wheelchair (Non-Official)', value: wheelchairCount },
         { label: 'Grand Total', value: jemaahMembers.length + officialCount },
     ];
 

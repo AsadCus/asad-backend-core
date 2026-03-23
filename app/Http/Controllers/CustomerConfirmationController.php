@@ -147,6 +147,7 @@ class CustomerConfirmationController extends Controller
             'place_of_birth' => ['nullable', 'string', 'max:255'],
             'first_time_umrah' => ['nullable', 'boolean'],
             'has_chronic_disease' => ['nullable', 'boolean'],
+            'is_using_wheelchair' => ['nullable', 'boolean'],
             'chronic_disease_details' => ['nullable', 'string', 'max:1000'],
             'passport_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
@@ -156,6 +157,7 @@ class CustomerConfirmationController extends Controller
             'photo_file_removed' => ['nullable', 'boolean'],
             'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled,unavailable'],
             'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
+            'relationship' => ['nullable', 'string', 'max:255'],
             'role' => ['nullable', 'string', 'max:255'],
         ]);
 

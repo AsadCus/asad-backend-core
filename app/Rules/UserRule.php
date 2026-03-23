@@ -41,6 +41,7 @@ class UserRule
             $rules['place_of_birth'] = 'required|string|max:255';
             $rules['first_time_umrah'] = 'nullable|boolean';
             $rules['has_chronic_disease'] = 'nullable|boolean';
+            $rules['is_using_wheelchair'] = 'nullable|boolean';
             $rules['chronic_disease_details'] = 'nullable|string|max:1000';
             $rules['passport_file'] = 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120';
             $rules['photo_file'] = 'nullable|file|mimes:jpg,jpeg,png|max:5120';

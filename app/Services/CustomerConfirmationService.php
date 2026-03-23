@@ -56,7 +56,7 @@ class CustomerConfirmationService
                     'is_leader' => (bool) ($member['is_leader'] ?? false),
                     'status' => $member['status'] ?? 'draft',
                     'sharing_plan' => $member['sharing_plan'] ?? null,
-                    'role' => $member['role'] ?? null,
+                    'relationship' => $member['relationship'] ?? $member['role'] ?? null,
                 ]);
             }
 
@@ -143,6 +143,7 @@ class CustomerConfirmationService
             'place_of_birth',
             'first_time_umrah',
             'has_chronic_disease',
+            'is_using_wheelchair',
             'chronic_disease_details',
         ];
 
@@ -174,6 +175,7 @@ class CustomerConfirmationService
             'place_of_birth',
             'first_time_umrah',
             'has_chronic_disease',
+            'is_using_wheelchair',
             'chronic_disease_details',
         ];
 
@@ -342,7 +344,7 @@ class CustomerConfirmationService
                             'is_leader' => $member->is_leader,
                             'status' => $member->status ?? 'draft',
                             'sharing_plan' => $member->sharing_plan,
-                            'role' => $member->role,
+                            'relationship' => $member->relationship,
                             'has_quotation' => $member->quotationItems->isNotEmpty(),
                             'paid_amount' => round($paidAmount, 2),
                             'total_amount' => round((float) $totalAmount, 2),
@@ -417,6 +419,7 @@ class CustomerConfirmationService
                     'place_of_birth' => $customer->place_of_birth ?? '',
                     'first_time_umrah' => $customer->first_time_umrah ?? false,
                     'has_chronic_disease' => $customer->has_chronic_disease ?? false,
+                    'is_using_wheelchair' => $customer->is_using_wheelchair ?? false,
                     'chronic_disease_details' => $customer->chronic_disease_details ?? '',
                     'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
                     'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
@@ -456,7 +459,7 @@ class CustomerConfirmationService
                     'status' => $member->status ?? 'draft',
                     'has_quotation' => $member->quotationItems->isNotEmpty(),
                     'sharing_plan' => $member->sharing_plan,
-                    'role' => $member->role,
+                    'relationship' => $member->relationship,
                     'name' => $user?->name ?? '',
                     'email' => $user?->email ?? '',
                     'contact_number' => $user?->contact ?? '',
@@ -473,6 +476,7 @@ class CustomerConfirmationService
                     'place_of_birth' => $customer?->place_of_birth ?? '',
                     'first_time_umrah' => $customer?->first_time_umrah ?? false,
                     'has_chronic_disease' => $customer?->has_chronic_disease ?? false,
+                    'is_using_wheelchair' => $customer?->is_using_wheelchair ?? false,
                     'chronic_disease_details' => $customer?->chronic_disease_details ?? '',
                     'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
                     'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
@@ -537,7 +541,7 @@ class CustomerConfirmationService
                         'is_leader' => (bool) ($memberData['is_leader'] ?? false),
                         'status' => $this->resolveMemberStatusOnGroupUpdate($matchedMember, $memberData),
                         'sharing_plan' => $incomingSharingPlan,
-                        'role' => $memberData['role'] ?? null,
+                        'relationship' => $memberData['relationship'] ?? $memberData['role'] ?? null,
                     ]);
 
                     $updatedMemberIds[] = $matchedMember->id;
@@ -551,7 +555,7 @@ class CustomerConfirmationService
                     'is_leader' => (bool) ($memberData['is_leader'] ?? false),
                     'status' => $memberData['status'] ?? 'draft',
                     'sharing_plan' => $memberData['sharing_plan'] ?? null,
-                    'role' => $memberData['role'] ?? null,
+                    'relationship' => $memberData['relationship'] ?? $memberData['role'] ?? null,
                 ]);
 
                 $updatedMemberIds[] = $createdMember->id;
@@ -741,7 +745,7 @@ class CustomerConfirmationService
             $member->update([
                 'status' => $data['status'] ?? $member->status,
                 'sharing_plan' => $data['sharing_plan'] ?? $member->sharing_plan,
-                'role' => $data['role'] ?? $member->role,
+                'relationship' => $data['relationship'] ?? $data['role'] ?? $member->relationship,
             ]);
 
             if (in_array($member->status, ['cancelled', 'unavailable'], true)) {
@@ -764,7 +768,7 @@ class CustomerConfirmationService
                 'is_leader' => $member->is_leader,
                 'status' => $member->status,
                 'sharing_plan' => $member->sharing_plan,
-                'role' => $member->role,
+                'relationship' => $member->relationship,
                 'name' => $member->customer?->user?->name ?? '',
                 'email' => $member->customer?->user?->email ?? '',
                 'contact_number' => $member->customer?->user?->contact ?? '',
@@ -781,6 +785,7 @@ class CustomerConfirmationService
                 'place_of_birth' => $member->customer?->place_of_birth ?? '',
                 'first_time_umrah' => $member->customer?->first_time_umrah ?? false,
                 'has_chronic_disease' => $member->customer?->has_chronic_disease ?? false,
+                'is_using_wheelchair' => $member->customer?->is_using_wheelchair ?? false,
                 'chronic_disease_details' => $member->customer?->chronic_disease_details ?? '',
                 'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
                 'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
@@ -868,7 +873,7 @@ class CustomerConfirmationService
                     'is_leader' => $index === 0,
                     'status' => 'draft',
                     'sharing_plan' => $sourceMembersById[$member->id]?->sharing_plan,
-                    'role' => $sourceMembersById[$member->id]?->role,
+                    'relationship' => $sourceMembersById[$member->id]?->relationship,
                 ]);
 
                 $memberIdMap[$member->id] = $createdMember->id;
@@ -948,7 +953,7 @@ class CustomerConfirmationService
                         'is_leader' => (bool) $member->is_leader,
                         'status' => $member->status,
                         'sharing_plan' => $member->sharing_plan,
-                        'role' => $member->role,
+                        'relationship' => $member->relationship,
                         'name' => $user?->name,
                         'email' => $user?->email,
                         'contact_number' => $user?->contact,
@@ -965,6 +970,7 @@ class CustomerConfirmationService
                         'place_of_birth' => $customer?->place_of_birth,
                         'first_time_umrah' => $customer?->first_time_umrah,
                         'has_chronic_disease' => $customer?->has_chronic_disease,
+                        'is_using_wheelchair' => $customer?->is_using_wheelchair,
                         'chronic_disease_details' => $customer?->chronic_disease_details,
                     ];
                 })

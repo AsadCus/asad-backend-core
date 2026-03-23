@@ -722,7 +722,7 @@ export default function ConfirmedCustomerIndex({
                 (memberDialogData as { status?: string }).status ?? '',
             ),
             sharing_plan: String(memberDialogData.sharing_plan ?? ''),
-            role: String(memberDialogData.role ?? ''),
+            relationship: String(memberDialogData.relationship ?? ''),
             passport_file:
                 memberDialogData.passport_file instanceof File
                     ? memberDialogData.passport_file

@@ -24,6 +24,7 @@ class CustomerConfirmationRule
             'members.*.address' => ['nullable', 'string', 'max:500'],
             'members.*.is_leader' => ['required', 'boolean'],
             'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
+            'members.*.relationship' => ['nullable', 'string', 'max:255'],
             'members.*.role' => ['nullable', 'string', 'max:255'],
 
             // Biodata per member
@@ -38,6 +39,7 @@ class CustomerConfirmationRule
             'members.*.date_of_birth' => ['nullable', 'date'],
             'members.*.place_of_birth' => ['nullable', 'string', 'max:255'],
             'members.*.has_chronic_disease' => ['nullable', 'boolean'],
+            'members.*.is_using_wheelchair' => ['nullable', 'boolean'],
             'members.*.chronic_disease_details' => ['nullable', 'string', 'max:1000'],
 
             // Image uploads per member

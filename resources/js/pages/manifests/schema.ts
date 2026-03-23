@@ -29,6 +29,7 @@ export const memberSchema = z.object({
     address: z.string().nullable().optional(),
     first_time_umrah: z.boolean().nullable().optional(),
     has_chronic_disease: z.boolean().nullable().optional(),
+    is_using_wheelchair: z.boolean().nullable().optional(),
     chronic_disease_details: z.string().nullable().optional(),
     passport_path: z.string().nullable().optional(),
     photo_path: z.string().nullable().optional(),
@@ -159,6 +160,7 @@ export const manifestSchema = z.object({
     members: z.array(memberSchema).optional(),
     documents: z
         .object({
+            train_tickets: z.array(manifestDocumentItemSchema).optional(),
             flight_tickets: z.array(manifestDocumentItemSchema).optional(),
             visa: z.array(manifestDocumentItemSchema).optional(),
             hotel: z.array(manifestDocumentItemSchema).optional(),

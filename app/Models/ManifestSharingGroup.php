@@ -13,7 +13,7 @@ class ManifestSharingGroup extends Model
         'customer_confirmation_id',
         'source_quotation_id',
         'sort_order',
-        'relation',
+        'group_relationship',
         'remarks',
     ];
 

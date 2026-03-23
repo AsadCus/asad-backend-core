@@ -11,6 +11,7 @@ class PackageOfficial extends Model
         'package_id',
         'type',
         'name',
+        'hotel',
         'contact_number',
         'nationality',
         'passport_number',

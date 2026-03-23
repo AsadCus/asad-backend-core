@@ -39,6 +39,7 @@ class Package extends Model
 
         // Train Ticket
         'ticket_type',
+        'train_description',
 
         // Package Inclusions
         'included',
