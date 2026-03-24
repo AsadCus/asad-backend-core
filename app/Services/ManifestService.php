@@ -1290,6 +1290,40 @@ class ManifestService
                 $savedRoom = $existingRoomsById->get($incomingRoomId);
             }
 
+            if (! $savedRoom) {
+                $incomingRoomMemberIds = collect($roomMembers)
+                    ->map(function (array $member) use ($manifest): int {
+                        $manifestMemberId = ! empty($member['manifest_member_id'])
+                            ? (int) $member['manifest_member_id']
+                            : $this->resolveManifestMemberId($manifest, $member);
+
+                        return (int) $manifestMemberId;
+                    })
+                    ->filter(fn (int $memberId): bool => $memberId > 0)
+                    ->sort()
+                    ->values()
+                    ->all();
+
+                if ($incomingRoomMemberIds !== []) {
+                    $savedRoom = $manifest->rooms
+                        ->first(function (ManifestRoom $room) use ($incomingRoomMemberIds, $retainedRoomIds): bool {
+                            if (in_array((int) $room->id, $retainedRoomIds, true)) {
+                                return false;
+                            }
+
+                            $existingRoomMemberIds = $room->roomMembers
+                                ->pluck('manifest_member_id')
+                                ->map(fn ($memberId) => (int) $memberId)
+                                ->filter(fn (int $memberId): bool => $memberId > 0)
+                                ->sort()
+                                ->values()
+                                ->all();
+
+                            return $existingRoomMemberIds === $incomingRoomMemberIds;
+                        });
+                }
+            }
+
             if ($savedRoom) {
                 $savedRoom->update($roomAttributes);
                 $savedRoom->loadMissing('roomMembers');

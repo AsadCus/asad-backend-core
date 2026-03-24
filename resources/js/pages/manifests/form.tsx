@@ -7,6 +7,12 @@ import { ProperInputSelect } from '@/components/proper-input-select';
 import { Accordion } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -21,6 +27,7 @@ import {
     AlertCircle,
     ArrowLeft,
     CheckCircle2,
+    ChevronDown,
     CircleDashed,
     Download,
     Loader2,
@@ -470,6 +477,8 @@ function buildRoomListsFromCanonicalRooms(
                         officialId ??
                         fallbackMember?.package_official_id ??
                         null,
+                    manifest_room_id: roomId,
+                    room_member_id: toPositiveIntegerOrNull(member.id),
                     sort_order:
                         toPositiveIntegerOrNull(member.sort_order) ??
                         memberIndex + 1,
@@ -1263,7 +1272,9 @@ function toRoomListSubmitRow(
 
     return {
         manifest_member_id: manifestMemberId,
-        id: row.id ?? null,
+        id: manifestMemberId,
+        manifest_room_id: toPositiveIntegerOrNull(row.manifest_room_id),
+        room_member_id: toPositiveIntegerOrNull(row.room_member_id),
         customer_confirmation_member_id:
             row.customer_confirmation_member_id ?? null,
         package_official_id: row.package_official_id ?? null,
@@ -1420,9 +1431,12 @@ function buildCanonicalRoomsFromRoomLists(
             ([groupKey, members], roomIndex) => {
                 const base = members[0] ?? {};
                 const groupIdMatch = groupKey.match(/^(?:room-)?(\d+)$/);
+                const payloadRoomId = toPositiveIntegerOrNull(
+                    base.manifest_room_id,
+                );
                 const canonicalRoomId = groupIdMatch
                     ? Number.parseInt(groupIdMatch[1], 10)
-                    : toPositiveIntegerOrNull(base.id);
+                    : payloadRoomId;
 
                 rooms.push({
                     id: Number.isFinite(canonicalRoomId)
@@ -1444,6 +1458,10 @@ function buildCanonicalRoomsFromRoomLists(
                         (base.room_remarks as string | null | undefined) ??
                         null,
                     members: members.map((member, memberIndex) => ({
+                        id: toPositiveIntegerOrNull(member.room_member_id),
+                        room_member_id: toPositiveIntegerOrNull(
+                            member.room_member_id,
+                        ),
                         manifest_member_id: toPositiveIntegerOrNull(
                             member.manifest_member_id ?? member.id,
                         ),
@@ -2348,27 +2366,45 @@ export default function ManifestForm({
     );
 
     const resetRoomListTab = useCallback(
-        (tabKey: string) => {
+        (tabKey: string, sourceTabKey: 'main' | string = 'main') => {
             const targetTab = roomTabs.find((tab) => tab.key === tabKey);
 
             if (!targetTab) {
                 return;
             }
 
-            const currentNonCancelledMembers = (
-                (data.manifest_members ?? []) as MemberWithUI[]
-            ).filter((member) => !isCancelledMember(member));
+            let baseRows: MemberWithUI[] = [];
 
-            const baseRows = buildRoomRowsFromMembers(
-                currentNonCancelledMembers,
-                [],
-                targetTab.key,
-                targetTab.accommodation.type_of_meal ?? '',
-            ).map((row, index) => ({
-                ...row,
-                sn: index + 1,
-                sort_order: index + 1,
-            }));
+            if (sourceTabKey === 'main') {
+                const currentNonCancelledMembers = (
+                    (data.manifest_members ?? []) as MemberWithUI[]
+                ).filter((member) => !isCancelledMember(member));
+
+                baseRows = buildRoomRowsFromMembers(
+                    currentNonCancelledMembers,
+                    [],
+                    targetTab.key,
+                    targetTab.accommodation.type_of_meal ?? '',
+                ).map((row, index) => ({
+                    ...row,
+                    sn: index + 1,
+                    sort_order: index + 1,
+                }));
+            } else {
+                const sourceRows =
+                    ((roomListsState ?? {})[sourceTabKey] as
+                        | MemberWithUI[]
+                        | undefined) ?? [];
+
+                baseRows = sourceRows
+                    .filter((member) => !isCancelledMember(member))
+                    .map((row, index) => ({
+                        ...row,
+                        accommodation_key: targetTab.key,
+                        sort_order: index + 1,
+                        sn: index + 1,
+                    }));
+            }
 
             setRoomListsState({
                 ...(roomListsState ?? {}),
@@ -3465,25 +3501,258 @@ export default function ManifestForm({
                                             }),
                                         );
 
-                                        setRoomListsState({
-                                            ...(roomListsState ?? {}),
+                                        const roomRowsByTab: Record<
+                                            string,
+                                            MemberWithUI[]
+                                        > = {
+                                            ...((roomListsState as Record<
+                                                string,
+                                                MemberWithUI[]
+                                            >) ?? {}),
                                             [tab.key]: normalizedRows,
+                                        };
+
+                                        const updatedFromRoomMap = new Map(
+                                            normalizedRows.map(
+                                                (row, rowIndex) => [
+                                                    memberIdentityKey(
+                                                        row,
+                                                        rowIndex,
+                                                    ),
+                                                    row,
+                                                ],
+                                            ),
+                                        );
+
+                                        const nextMembers = (
+                                            (data.manifest_members ??
+                                                []) as MemberWithUI[]
+                                        ).map((member, memberIndex) => {
+                                            const updated =
+                                                updatedFromRoomMap.get(
+                                                    memberIdentityKey(
+                                                        member,
+                                                        memberIndex,
+                                                    ),
+                                                );
+
+                                            if (!updated) {
+                                                return member;
+                                            }
+
+                                            return {
+                                                ...member,
+                                                name_as_per_passport:
+                                                    updated.name_as_per_passport ??
+                                                    member.name_as_per_passport,
+                                                passport_number:
+                                                    updated.passport_number ??
+                                                    member.passport_number,
+                                                relationship:
+                                                    updated.relationship ??
+                                                    member.relationship,
+                                                group_relationship:
+                                                    updated.group_relationship ??
+                                                    member.group_relationship,
+                                                sharing_plan:
+                                                    updated.sharing_plan ??
+                                                    member.sharing_plan,
+                                                nationality:
+                                                    updated.nationality ??
+                                                    member.nationality,
+                                                gender:
+                                                    updated.gender ??
+                                                    member.gender,
+                                                date_of_birth:
+                                                    updated.date_of_birth ??
+                                                    member.date_of_birth,
+                                                date_of_issue:
+                                                    updated.date_of_issue ??
+                                                    member.date_of_issue,
+                                                date_of_expiry:
+                                                    updated.date_of_expiry ??
+                                                    member.date_of_expiry,
+                                                issue_place:
+                                                    updated.issue_place ??
+                                                    member.issue_place,
+                                                birth_place:
+                                                    updated.birth_place ??
+                                                    member.birth_place,
+                                                contact_no:
+                                                    updated.contact_no ??
+                                                    member.contact_no,
+                                                package_price:
+                                                    updated.package_price ??
+                                                    member.package_price,
+                                                remarks:
+                                                    updated.remarks ??
+                                                    member.remarks,
+                                                status:
+                                                    updated.status ??
+                                                    member.status,
+                                                age:
+                                                    calculateAgeFromDob(
+                                                        updated.date_of_birth ??
+                                                            member.date_of_birth,
+                                                    ) ?? member.age,
+                                            };
                                         });
+
+                                        const memberMap = new Map(
+                                            nextMembers.map(
+                                                (member, memberIndex) => [
+                                                    memberIdentityKey(
+                                                        member,
+                                                        memberIndex,
+                                                    ),
+                                                    member,
+                                                ],
+                                            ),
+                                        );
+
+                                        const nextRoomLists =
+                                            Object.fromEntries(
+                                                Object.entries(
+                                                    roomRowsByTab,
+                                                ).map(
+                                                    ([roomKey, roomRows]) => [
+                                                        roomKey,
+                                                        roomRows.map(
+                                                            (
+                                                                roomRow,
+                                                                roomIndex,
+                                                            ) => {
+                                                                const memberUpdate =
+                                                                    memberMap.get(
+                                                                        memberIdentityKey(
+                                                                            roomRow,
+                                                                            roomIndex,
+                                                                        ),
+                                                                    );
+
+                                                                if (
+                                                                    !memberUpdate
+                                                                ) {
+                                                                    return roomRow;
+                                                                }
+
+                                                                return {
+                                                                    ...roomRow,
+                                                                    name_as_per_passport:
+                                                                        memberUpdate.name_as_per_passport ??
+                                                                        roomRow.name_as_per_passport,
+                                                                    passport_number:
+                                                                        memberUpdate.passport_number ??
+                                                                        roomRow.passport_number,
+                                                                    relationship:
+                                                                        memberUpdate.relationship ??
+                                                                        roomRow.relationship,
+                                                                    group_relationship:
+                                                                        memberUpdate.group_relationship ??
+                                                                        roomRow.group_relationship,
+                                                                    sharing_plan:
+                                                                        memberUpdate.sharing_plan ??
+                                                                        roomRow.sharing_plan,
+                                                                    nationality:
+                                                                        memberUpdate.nationality ??
+                                                                        roomRow.nationality,
+                                                                    gender:
+                                                                        memberUpdate.gender ??
+                                                                        roomRow.gender,
+                                                                    date_of_birth:
+                                                                        memberUpdate.date_of_birth ??
+                                                                        roomRow.date_of_birth,
+                                                                    date_of_issue:
+                                                                        memberUpdate.date_of_issue ??
+                                                                        roomRow.date_of_issue,
+                                                                    date_of_expiry:
+                                                                        memberUpdate.date_of_expiry ??
+                                                                        roomRow.date_of_expiry,
+                                                                    issue_place:
+                                                                        memberUpdate.issue_place ??
+                                                                        roomRow.issue_place,
+                                                                    birth_place:
+                                                                        memberUpdate.birth_place ??
+                                                                        roomRow.birth_place,
+                                                                    contact_no:
+                                                                        memberUpdate.contact_no ??
+                                                                        roomRow.contact_no,
+                                                                    package_price:
+                                                                        memberUpdate.package_price ??
+                                                                        roomRow.package_price,
+                                                                    remarks:
+                                                                        memberUpdate.remarks ??
+                                                                        roomRow.remarks,
+                                                                    status:
+                                                                        memberUpdate.status ??
+                                                                        roomRow.status,
+                                                                    age:
+                                                                        calculateAgeFromDob(
+                                                                            memberUpdate.date_of_birth ??
+                                                                                roomRow.date_of_birth,
+                                                                        ) ??
+                                                                        roomRow.age,
+                                                                };
+                                                            },
+                                                        ),
+                                                    ],
+                                                ),
+                                            );
+
+                                        setFormData(
+                                            'manifest_members',
+                                            nextMembers,
+                                        );
+                                        setRoomListsState(nextRoomLists);
                                     }}
                                 />
 
                                 {!isView && (
                                     <div className="flex justify-end">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() =>
-                                                resetRoomListTab(tab.key)
-                                            }
-                                        >
-                                            Reset This Room List to Main
-                                            Structure
-                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                >
+                                                    Reset This Room List
+                                                    Structure
+                                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                    onClick={() =>
+                                                        resetRoomListTab(
+                                                            tab.key,
+                                                            'main',
+                                                        )
+                                                    }
+                                                >
+                                                    Copy From Main Tab
+                                                </DropdownMenuItem>
+                                                {roomTabs
+                                                    .filter(
+                                                        (roomTab) =>
+                                                            roomTab.key !==
+                                                            tab.key,
+                                                    )
+                                                    .map((roomTab) => (
+                                                        <DropdownMenuItem
+                                                            key={`reset-source-${tab.key}-${roomTab.key}`}
+                                                            onClick={() =>
+                                                                resetRoomListTab(
+                                                                    tab.key,
+                                                                    roomTab.key,
+                                                                )
+                                                            }
+                                                        >
+                                                            Copy From Room List:{' '}
+                                                            {roomTab.label}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 )}
                             </TabsContent>

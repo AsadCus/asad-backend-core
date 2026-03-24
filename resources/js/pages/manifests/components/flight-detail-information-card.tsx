@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import { ProperInput } from '@/components/proper-input';
 import {
     Card,
     CardContent,
@@ -6,7 +7,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { type PackageFlightOption } from '../types';
 
 interface FlightDetailInformationCardProps {
@@ -44,32 +44,51 @@ export default function FlightDetailInformationCard({
                         </p>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                             <FormField label="From">
-                                <Input value={flight.from ?? ''} disabled />
+                                <ProperInput
+                                    value={flight.from ?? ''}
+                                    onCommit={() => undefined}
+                                    disabled
+                                />
                             </FormField>
                             <FormField label="To">
-                                <Input value={flight.to ?? ''} disabled />
+                                <ProperInput
+                                    value={flight.to ?? ''}
+                                    onCommit={() => undefined}
+                                    disabled
+                                />
                             </FormField>
                             <FormField label="Description">
-                                <Input
+                                <ProperInput
                                     value={flight.description ?? ''}
+                                    onCommit={() => undefined}
                                     disabled
                                 />
                             </FormField>
                             <FormField label="Airline">
-                                <Input value={flight.airline ?? ''} disabled />
+                                <ProperInput
+                                    value={flight.airline ?? ''}
+                                    onCommit={() => undefined}
+                                    disabled
+                                />
                             </FormField>
                             <FormField label="PNR">
-                                <Input value={flight.pnr ?? ''} disabled />
+                                <ProperInput
+                                    value={flight.pnr ?? ''}
+                                    onCommit={() => undefined}
+                                    disabled
+                                />
                             </FormField>
                             <FormField label="Departure Datetime">
-                                <Input
+                                <ProperInput
                                     value={flight.departure_datetime ?? ''}
+                                    onCommit={() => undefined}
                                     disabled
                                 />
                             </FormField>
                             <FormField label="Arrival Datetime">
-                                <Input
+                                <ProperInput
                                     value={flight.arrival_datetime ?? ''}
+                                    onCommit={() => undefined}
                                     disabled
                                 />
                             </FormField>

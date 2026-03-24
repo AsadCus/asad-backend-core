@@ -469,4 +469,94 @@ class PackageOfficialManifestSyncTest extends TestCase
 
         $this->assertTrue($officialMemberIds->isNotEmpty());
     }
+
+    public function test_package_update_preserves_user_managed_official_group_and_room_assignment(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Official Manual Placement Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'officials' => [
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Manual',
+                    'contact_number' => '0181111111',
+                ],
+            ],
+            'accommodations' => [
+                [
+                    'location' => 'Makkah',
+                    'hotel_name' => 'Manual Hotel',
+                    'type_of_meal' => 'Breakfast Only',
+                ],
+            ],
+        ]);
+
+        $manifest = $package->manifests()->firstOrFail();
+        $officialMember = $manifest->members()
+            ->whereNotNull('package_official_id')
+            ->firstOrFail();
+
+        $customGroup = $manifest->manifestSharingGroups()->create([
+            'customer_confirmation_id' => null,
+            'sort_order' => 999,
+            'group_relationship' => 'family',
+            'remarks' => 'manual-group',
+        ]);
+
+        $officialMember->update([
+            'manifest_sharing_group_id' => $customGroup->id,
+        ]);
+
+        $customRoom = $manifest->rooms()->create([
+            'sort_order' => 999,
+            'location' => 'makkah',
+            'group_relationship' => 'family',
+            'room_label' => 'Manual Room',
+            'room_type' => 'single',
+            'bed_type' => 'single',
+            'capacity' => 1,
+            'status' => 'assigned',
+            'meal' => 'Breakfast Only',
+            'number_of_beds_checked' => false,
+            'remarks' => null,
+        ]);
+
+        $existingAssignment = $officialMember->roomAssignments()->firstOrFail();
+        $existingAssignment->update([
+            'manifest_room_id' => $customRoom->id,
+        ]);
+
+        $official = $package->officials()->firstOrFail();
+
+        app(PackageService::class)->update([
+            'officials' => [
+                [
+                    'id' => $official->id,
+                    'type' => 'official',
+                    'name' => 'Ops Manual Updated',
+                    'contact_number' => '0181111112',
+                ],
+            ],
+        ], (int) $package->id);
+
+        $officialMember->refresh();
+        $existingAssignment->refresh();
+
+        $this->assertSame((int) $customGroup->id, (int) $officialMember->manifest_sharing_group_id);
+        $this->assertSame((int) $customRoom->id, (int) $existingAssignment->manifest_room_id);
+
+        $this->assertDatabaseHas('manifest_members', [
+            'id' => $officialMember->id,
+            'manifest_sharing_group_id' => $customGroup->id,
+            'name' => 'Ops Manual Updated',
+            'contact_number' => '0181111112',
+        ]);
+
+        $this->assertDatabaseHas('manifest_room_members', [
+            'id' => $existingAssignment->id,
+            'manifest_room_id' => $customRoom->id,
+            'manifest_member_id' => $officialMember->id,
+        ]);
+    }
 }

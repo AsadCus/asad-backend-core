@@ -1,5 +1,7 @@
 import { FormField } from '@/components/form-field';
+import { DatePickerField } from '@/components/date-picker';
 import { ProperInput } from '@/components/proper-input';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import {
     Card,
     CardContent,
@@ -7,14 +9,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { type ManifestFormData, type PackageForManifestOption } from '../types';
 
 const STATUS_OPTIONS = ['open', 'closed'];
@@ -57,7 +51,12 @@ export default function ManifestInformationCard({
                             hint: 'Select package',
                         }}
                     >
-                        <Select
+                        <ProperInputSelect
+                            mode="classic"
+                            options={dataPackage.map((item) => ({
+                                label: item.label,
+                                value: String(item.value),
+                            }))}
                             value={String(data.package_id || '')}
                             onValueChange={(value) => {
                                 const nextPackageId = Number(value);
@@ -75,22 +74,9 @@ export default function ManifestInformationCard({
                                     setData('status', nextPackage.status);
                                 }
                             }}
+                            placeholder="Select package"
                             disabled={isView || !!data.id}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select package" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {dataPackage.map((item) => (
-                                    <SelectItem
-                                        key={item.value}
-                                        value={String(item.value)}
-                                    >
-                                        {item.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        />
                         {renderError('package_id')}
                     </FormField>
 
@@ -102,36 +88,31 @@ export default function ManifestInformationCard({
                                 hint: 'Auto-generated manifest identifier',
                             }}
                         >
-                            <Input
+                            <ProperInput
                                 id="manifest_number"
-                                type="text"
                                 value={data.manifest_number}
-                                disabled={true}
-                                className="bg-muted"
+                                onCommit={() => undefined}
+                                disabled
                             />
                         </FormField>
                     )}
 
                     <FormField label="Status" htmlFor="status">
-                        <Select
+                        <ProperInputSelect
+                            mode="classic"
+                            options={STATUS_OPTIONS.map((status) => ({
+                                label:
+                                    status.charAt(0).toUpperCase() +
+                                    status.slice(1),
+                                value: status,
+                            }))}
                             value={
                                 data.status ?? selectedPackage?.status ?? 'open'
                             }
                             onValueChange={(value) => setData('status', value)}
+                            placeholder="Select status"
                             disabled={isView}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_OPTIONS.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                        {status.charAt(0).toUpperCase() +
-                                            status.slice(1)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        />
                         {renderError('status')}
                     </FormField>
                 </div>
@@ -144,11 +125,11 @@ export default function ManifestInformationCard({
                             hint: 'From package',
                         }}
                     >
-                        <Input
+                        <DatePickerField
                             id="departure_date"
                             value={selectedPackage?.departure_date || '-'}
-                            disabled={true}
-                            className="bg-muted"
+                            disabled
+                            onChange={() => undefined}
                         />
                     </FormField>
 
@@ -159,11 +140,11 @@ export default function ManifestInformationCard({
                             hint: 'From package',
                         }}
                     >
-                        <Input
+                        <DatePickerField
                             id="return_date"
                             value={selectedPackage?.return_date || '-'}
-                            disabled={true}
-                            className="bg-muted"
+                            disabled
+                            onChange={() => undefined}
                         />
                     </FormField>
 

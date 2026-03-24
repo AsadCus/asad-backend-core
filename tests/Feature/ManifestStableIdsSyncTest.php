@@ -202,4 +202,83 @@ class ManifestStableIdsSyncTest extends TestCase
         $this->assertDatabaseHas('manifest_sharing_groups', ['id' => $groupOneId]);
         $this->assertDatabaseHas('manifest_sharing_groups', ['id' => $groupOfficialId]);
     }
+
+    public function test_manifest_edit_payload_keeps_room_order_by_sort_order(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-ROOM-ORDER-001',
+            'name' => 'Room Order Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-ROOM-ORDER-001',
+        ]);
+
+        app(ManifestService::class)->update([
+            'package_id' => $package->id,
+            'status' => 'open',
+            'members' => [
+                [
+                    'name_as_per_passport' => 'Member A',
+                    'sharing_group_key' => 'group-a',
+                    'group_sort_order' => 1,
+                    'sort_order' => 1,
+                    'relationship' => 'leader',
+                    'sharing_plan' => 'single',
+                ],
+                [
+                    'name_as_per_passport' => 'Member B',
+                    'sharing_group_key' => 'group-b',
+                    'group_sort_order' => 2,
+                    'sort_order' => 1,
+                    'relationship' => 'member',
+                    'sharing_plan' => 'single',
+                ],
+            ],
+            'rooms' => [
+                [
+                    'location' => 'makkah',
+                    'room_label' => 'Room Priority 1',
+                    'room_type' => 'single',
+                    'bed_type' => 'single',
+                    'capacity' => 1,
+                    'status' => 'assigned',
+                    'members' => [
+                        [
+                            'name_as_per_passport' => 'Member A',
+                            'sharing_group_key' => 'group-a',
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+                [
+                    'location' => 'makkah',
+                    'room_label' => 'Room Priority 2',
+                    'room_type' => 'single',
+                    'bed_type' => 'single',
+                    'capacity' => 1,
+                    'status' => 'assigned',
+                    'members' => [
+                        [
+                            'name_as_per_passport' => 'Member B',
+                            'sharing_group_key' => 'group-b',
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ], (int) $manifest->id);
+
+        $payload = app(ManifestService::class)->getForEditShow((int) $manifest->id);
+        $manifestRooms = array_values($payload['manifest_rooms'] ?? []);
+
+        $this->assertCount(2, $manifestRooms);
+        $this->assertSame('Room Priority 1', $manifestRooms[0]['room_label']);
+        $this->assertSame('Room Priority 2', $manifestRooms[1]['room_label']);
+    }
 }
