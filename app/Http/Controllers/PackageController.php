@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Rules\PackageRule;
-use App\Services\Report\ReportTemplateService;
+use App\Services\CountryService;
 use App\Services\PackageService;
+use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,12 +17,15 @@ class PackageController extends Controller
 
     protected $packageRule;
 
+    protected $countryService;
+
     protected $reportTemplateService;
 
-    public function __construct(PackageService $packageService, PackageRule $packageRule, ReportTemplateService $reportTemplateService)
+    public function __construct(PackageService $packageService, PackageRule $packageRule, CountryService $countryService, ReportTemplateService $reportTemplateService)
     {
         $this->packageService = $packageService;
         $this->packageRule = $packageRule;
+        $this->countryService = $countryService;
         $this->reportTemplateService = $reportTemplateService;
     }
 
@@ -42,7 +46,9 @@ class PackageController extends Controller
      */
     public function create()
     {
-        return Inertia::render('packages/create');
+        return Inertia::render('packages/create', [
+            'dataCountry' => $this->countryService->getForFilter(),
+        ]);
     }
 
     /**
@@ -66,6 +72,7 @@ class PackageController extends Controller
 
         return Inertia::render('packages/show', [
             'data' => $package,
+            'dataCountry' => $this->countryService->getForFilter(),
         ]);
     }
 
@@ -86,6 +93,7 @@ class PackageController extends Controller
 
         return Inertia::render('packages/edit', [
             'data' => $package,
+            'dataCountry' => $this->countryService->getForFilter(),
         ]);
     }
 

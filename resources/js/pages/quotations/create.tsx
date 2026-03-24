@@ -4,15 +4,29 @@ import { index as quotationIndex } from '@/routes/quotation';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
+import { z } from 'zod';
 import { UserSchema } from '../masters/users/schema';
 import { QuotationForm } from './form';
-import { paymentMethods, paymentPlans, statuses } from './schema';
+import {
+    paymentMethods,
+    paymentPlans,
+    quotationExtensionSchema,
+    statuses,
+} from './schema';
 
 interface CreateQuotationProps {
     data: {
         customerConfirmations: [];
         quotationItems: [];
         quotationNotes: [];
+        paymentMethods?: { label: string; value: string }[];
+        quotationExtensionMasters?: Array<
+            z.infer<typeof quotationExtensionSchema> & {
+                payment_methods?: string[];
+                is_active?: boolean;
+            }
+        >;
+        defaultExtensions?: z.infer<typeof quotationExtensionSchema>[];
     };
     prefilledCustomerId?: string;
     prefilledCustomerData?: UserSchema;
@@ -52,11 +66,13 @@ export default function CreateQuotation({
                     <QuotationForm
                         mode="create"
                         paymentPlans={paymentPlans}
-                        paymentMethods={paymentMethods}
+                        paymentMethods={data.paymentMethods ?? paymentMethods}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
                         quotationItems={data.quotationItems}
                         quotationNotes={data.quotationNotes}
+                        extensionMasters={data.quotationExtensionMasters}
+                        defaultExtensions={data.defaultExtensions}
                         prefilledCustomerId={prefilledCustomerId}
                         prefilledCustomerData={prefilledCustomerData}
                         onCancel={handleCancel}

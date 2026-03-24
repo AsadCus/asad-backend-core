@@ -91,6 +91,8 @@ export const opsMovementSchema = z.object({
     vehicle_driver_name: z.string().nullable().optional(),
     vehicle_driver_contact_number: z.string().nullable().optional(),
     train_description: z.string().nullable().optional(),
+    visa_submitted_to_z_umrah: z.boolean().optional(),
+    visa_approved: z.boolean().optional(),
     passengers: opsPassengerSummarySchema.optional(),
     accommodations: z.array(opsAccommodationSchema).optional(),
     officials: z.array(opsOfficialSchema).optional(),

@@ -29,12 +29,24 @@ class ManifestService
 
     public function getForDataTable(array $filters = [])
     {
+        $authUser = auth()->user();
+        $authCountryId = $authUser?->branch?->country_id ? (int) $authUser->branch->country_id : null;
+        $isCountryScopedRole =
+            $authUser !== null
+            && (method_exists($authUser, 'hasRole'))
+            && ($authUser->hasRole('admin') || $authUser->hasRole('sales'));
+
         $data = Manifest::with('package')
             ->withCount([
                 'members as members_count' => function ($query) {
                     $query->whereNull('package_official_id');
                 },
             ])
+            ->when($isCountryScopedRole && $authCountryId !== null, function ($query) use ($authCountryId) {
+                $query->whereHas('package', function ($packageQuery) use ($authCountryId) {
+                    $packageQuery->where('country_id', $authCountryId);
+                });
+            })
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('manifest_number', 'like', "%{$value}%")
@@ -783,13 +795,13 @@ class ManifestService
      * Parse date fields in-place from various formats to Y-m-d.
      */
     /**
-     * Sync members for a manifest (delete-and-recreate strategy).
+     * Sync members for a manifest while preserving existing IDs.
      *
      * Accepts either a flat array of members or a grouped Record<groupId, MemberSchema[]> from the frontend.
      */
     private function syncMembers(Manifest $manifest, array $members): void
     {
-        $manifest->loadMissing('members.collectionItem', 'members.files');
+        $manifest->loadMissing('members.collectionItem', 'members.files', 'manifestSharingGroups');
 
         $existingMembersById = $manifest->members
             ->keyBy(fn (ManifestMember $member) => (int) $member->id);
@@ -802,34 +814,8 @@ class ManifestService
             ->filter(fn (ManifestMember $member) => $member->package_official_id !== null)
             ->keyBy(fn (ManifestMember $member) => (int) $member->package_official_id);
 
-        $receiptSnapshotsByMemberId = $manifest->members
-            ->mapWithKeys(function (ManifestMember $member): array {
-                return [
-                    (int) $member->id => $member->files
-                        ->where('field', 'receipt')
-                        ->map(fn (ModelFile $file): array => [
-                            'field' => 'receipt',
-                            'file_name' => $file->file_name,
-                            'file_path' => $file->file_path,
-                        ])
-                        ->values()
-                        ->all(),
-                ];
-            })
-            ->all();
-
-        $previousMemberIds = $manifest->members()->pluck('id');
-
-        if ($previousMemberIds->isNotEmpty()) {
-            ModelFile::query()
-                ->where('fileable_type', ManifestMember::class)
-                ->whereIn('fileable_id', $previousMemberIds->all())
-                ->where('field', 'receipt')
-                ->delete();
-        }
-
-        $manifest->manifestSharingGroups()->delete();
-        $manifest->members()->delete();
+        $existingGroupsById = $manifest->manifestSharingGroups
+            ->keyBy(fn (ManifestSharingGroup $group) => (int) $group->id);
 
         $flatMembers = collect($this->flattenGroupedData($members))
             ->values()
@@ -987,6 +973,8 @@ class ManifestService
         $orderedGroups = [...$nonOfficialGroups, ...$officialGroups];
 
         $groupSortOrder = 1;
+        $retainedGroupIds = [];
+        $retainedMemberIds = [];
 
         foreach ($orderedGroups as $groupPayload) {
             $groupMembers = $groupPayload['members'];
@@ -1002,12 +990,39 @@ class ManifestService
                     ->value('customer_confirmation_id');
             }
 
-            $manifestSharingGroup = $manifest->manifestSharingGroups()->create([
+            $incomingGroupId = isset($firstMember['manifest_sharing_group_id'])
+                ? (int) $firstMember['manifest_sharing_group_id']
+                : 0;
+
+            if ($incomingGroupId <= 0 && isset($firstMember['sharing_group_id'])) {
+                $incomingGroupId = (int) $firstMember['sharing_group_id'];
+            }
+
+            if ($incomingGroupId <= 0 && is_string($groupPayload['key'] ?? null) && Str::startsWith((string) $groupPayload['key'], 'group-')) {
+                $incomingGroupId = (int) Str::after((string) $groupPayload['key'], 'group-');
+            }
+
+            $groupAttributes = [
                 'customer_confirmation_id' => $groupCustomerConfirmationId,
                 'sort_order' => $groupSortOrder,
                 'group_relationship' => $firstMember['group_relationship'] ?? $firstMember['relationship'] ?? null,
                 'remarks' => $firstMember['group_remarks'] ?? null,
-            ]);
+            ];
+
+            $manifestSharingGroup = null;
+
+            if ($incomingGroupId > 0) {
+                /** @var ManifestSharingGroup|null $manifestSharingGroup */
+                $manifestSharingGroup = $existingGroupsById->get($incomingGroupId);
+            }
+
+            if ($manifestSharingGroup) {
+                $manifestSharingGroup->update($groupAttributes);
+            } else {
+                $manifestSharingGroup = $manifest->manifestSharingGroups()->create($groupAttributes);
+            }
+
+            $retainedGroupIds[] = (int) $manifestSharingGroup->id;
 
             foreach (array_values($groupMembers) as $memberSortOrder => $memberPayload) {
                 $incomingMemberId = isset($memberPayload['id']) ? (int) $memberPayload['id'] : 0;
@@ -1052,16 +1067,25 @@ class ManifestService
                     }
                 }
 
-                $createdMember = $manifest->members()->create([
+                $memberAttributes = [
                     'manifest_sharing_group_id' => $manifestSharingGroup->id,
                     'customer_confirmation_member_id' => $confirmationMember?->id,
                     'package_official_id' => $packageOfficial?->id,
                     ...$this->buildManifestMemberSnapshot($confirmationMember, $memberPayload, $packageOfficial),
                     'sort_order' => $memberSortOrder + 1,
                     'remarks' => $memberPayload['remarks'] ?? null,
-                ]);
+                ];
 
-                $createdMember->collectionItem()->updateOrCreate(
+                if ($existingMember && (int) $existingMember->manifest_id === (int) $manifest->id) {
+                    $existingMember->update($memberAttributes);
+                    $savedMember = $existingMember->fresh(['collectionItem']);
+                } else {
+                    $savedMember = $manifest->members()->create($memberAttributes);
+                }
+
+                $retainedMemberIds[] = (int) $savedMember->id;
+
+                $savedMember->collectionItem()->updateOrCreate(
                     [],
                     [
                         'course_1' => array_key_exists('course_1', $memberPayload)
@@ -1096,19 +1120,42 @@ class ManifestService
                             : (bool) ($existingMember?->collectionItem?->umrah_essentials ?? false),
                     ],
                 );
-
-                $existingReceiptRows = $existingMember
-                    ? ($receiptSnapshotsByMemberId[(int) $existingMember->id] ?? [])
-                    : [];
-
-                if ($existingReceiptRows !== []) {
-                    foreach ($existingReceiptRows as $receiptRow) {
-                        $createdMember->files()->create($receiptRow);
-                    }
-                }
             }
 
             $groupSortOrder++;
+        }
+
+        $retainedMemberIds = array_values(array_unique($retainedMemberIds));
+        $existingMemberIds = $existingMembersById->keys()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $memberIdsToDelete = array_values(array_diff($existingMemberIds, $retainedMemberIds));
+
+        if ($memberIdsToDelete !== []) {
+            ModelFile::query()
+                ->where('fileable_type', ManifestMember::class)
+                ->whereIn('fileable_id', $memberIdsToDelete)
+                ->delete();
+
+            $manifest->members()
+                ->whereIn('id', $memberIdsToDelete)
+                ->delete();
+        }
+
+        $retainedGroupIds = array_values(array_unique($retainedGroupIds));
+        $existingGroupIds = $existingGroupsById->keys()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $groupIdsToDelete = array_values(array_diff($existingGroupIds, $retainedGroupIds));
+
+        if ($groupIdsToDelete !== []) {
+            $manifest->manifestSharingGroups()
+                ->whereIn('id', $groupIdsToDelete)
+                ->delete();
         }
     }
 
@@ -1123,15 +1170,14 @@ class ManifestService
     }
 
     /**
-     * Sync rooms for a manifest (delete-and-recreate strategy).
+     * Sync rooms for a manifest while preserving existing IDs.
      */
     private function syncRooms(Manifest $manifest, array $rooms): void
     {
-        // Delete existing room members first, then rooms
-        foreach ($manifest->rooms as $room) {
-            $room->roomMembers()->delete();
-        }
-        $manifest->rooms()->delete();
+        $manifest->loadMissing('rooms.roomMembers', 'members');
+
+        $existingRoomsById = $manifest->rooms
+            ->keyBy(fn (ManifestRoom $room) => (int) $room->id);
 
         $flatRooms = $this->flattenGroupedData($rooms);
 
@@ -1206,6 +1252,7 @@ class ManifestService
         }
 
         $roomSortOrder = 1;
+        $retainedRoomIds = [];
 
         $orderedRoomPayloads = collect($roomPayloads)
             ->sortBy(fn (array $payload) => (int) ($payload['original_index'] ?? PHP_INT_MAX))
@@ -1216,7 +1263,12 @@ class ManifestService
             $baseRoom = $payload['base'];
             $roomMembers = $payload['members'];
 
-            $createdRoom = $manifest->rooms()->create([
+            $incomingRoomId = isset($baseRoom['id']) ? (int) $baseRoom['id'] : 0;
+            if ($incomingRoomId <= 0 && isset($baseRoom['manifest_room_id'])) {
+                $incomingRoomId = (int) $baseRoom['manifest_room_id'];
+            }
+
+            $roomAttributes = [
                 'sort_order' => $roomSortOrder,
                 'location' => $baseRoom['location'] ?? null,
                 'group_relationship' => $baseRoom['group_relationship'] ?? $baseRoom['relationship'] ?? null,
@@ -1229,7 +1281,29 @@ class ManifestService
                 'meal' => $baseRoom['meal'] ?? null,
                 'number_of_beds_checked' => (bool) ($baseRoom['number_of_beds_checked'] ?? false),
                 'remarks' => $baseRoom['remarks'] ?? null,
-            ]);
+            ];
+
+            $savedRoom = null;
+
+            if ($incomingRoomId > 0) {
+                /** @var ManifestRoom|null $savedRoom */
+                $savedRoom = $existingRoomsById->get($incomingRoomId);
+            }
+
+            if ($savedRoom) {
+                $savedRoom->update($roomAttributes);
+                $savedRoom->loadMissing('roomMembers');
+            } else {
+                $savedRoom = $manifest->rooms()->create($roomAttributes);
+            }
+
+            $retainedRoomIds[] = (int) $savedRoom->id;
+
+            $existingRoomMembersById = $savedRoom->roomMembers
+                ->keyBy('id');
+            $existingRoomMembersByManifestMemberId = $savedRoom->roomMembers
+                ->keyBy('manifest_member_id');
+            $retainedRoomMemberIds = [];
 
             foreach ($roomMembers as $index => $member) {
                 $manifestMemberId = ! empty($member['manifest_member_id'])
@@ -1267,14 +1341,64 @@ class ManifestService
                     continue;
                 }
 
-                $createdRoom->roomMembers()->create([
+                $incomingRoomMemberId = isset($member['room_member_id']) ? (int) $member['room_member_id'] : 0;
+                if ($incomingRoomMemberId <= 0 && isset($member['manifest_room_member_id'])) {
+                    $incomingRoomMemberId = (int) $member['manifest_room_member_id'];
+                }
+                if ($incomingRoomMemberId <= 0 && isset($member['id'])) {
+                    $incomingRoomMemberId = (int) $member['id'];
+                }
+
+                $existingRoomMember = $incomingRoomMemberId > 0
+                    ? $existingRoomMembersById->get($incomingRoomMemberId)
+                    : null;
+
+                if (! $existingRoomMember) {
+                    $existingRoomMember = $existingRoomMembersByManifestMemberId->get($manifestMemberId);
+                }
+
+                $roomMemberAttributes = [
                     'manifest_member_id' => $manifestMemberId,
                     'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                     'remarks' => $member['remarks'] ?? null,
-                ]);
+                ];
+
+                if ($existingRoomMember) {
+                    $existingRoomMember->update($roomMemberAttributes);
+                    $retainedRoomMemberIds[] = (int) $existingRoomMember->id;
+                } else {
+                    $createdRoomMember = $savedRoom->roomMembers()->create($roomMemberAttributes);
+                    $retainedRoomMemberIds[] = (int) $createdRoomMember->id;
+                }
+            }
+
+            if ($retainedRoomMemberIds === []) {
+                $savedRoom->roomMembers()->delete();
+            } else {
+                $savedRoom->roomMembers()
+                    ->whereNotIn('id', $retainedRoomMemberIds)
+                    ->delete();
             }
 
             $roomSortOrder++;
+        }
+
+        $retainedRoomIds = array_values(array_unique($retainedRoomIds));
+        $existingRoomIds = $existingRoomsById->keys()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $roomIdsToDelete = array_values(array_diff($existingRoomIds, $retainedRoomIds));
+
+        if ($roomIdsToDelete !== []) {
+            $manifest->rooms()
+                ->whereIn('id', $roomIdsToDelete)
+                ->get()
+                ->each(function (ManifestRoom $room): void {
+                    $room->roomMembers()->delete();
+                    $room->delete();
+                });
         }
     }
 

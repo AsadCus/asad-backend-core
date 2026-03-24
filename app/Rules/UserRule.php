@@ -19,7 +19,11 @@ class UserRule
         }
 
         if ($role === 'sales') {
-            $rules['branch_id'] = 'required';
+            $rules['branch_id'] = 'required|integer|exists:branches,id';
+        }
+
+        if ($role === 'admin') {
+            $rules['branch_id'] = 'required|integer|exists:branches,id';
         }
 
         if ($role === 'supplier') {

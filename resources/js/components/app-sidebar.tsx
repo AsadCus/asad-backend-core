@@ -122,6 +122,11 @@ export function AppSidebar() {
                               ],
                           },
                           {
+                              title: 'Country',
+                              href: '/master/country',
+                              icon: Globe,
+                          },
+                          {
                               title: 'Branch',
                               href: branch.index.url(),
                               icon: Map,
@@ -131,6 +136,15 @@ export function AppSidebar() {
                               href: financialYear.index.url(),
                               icon: Landmark,
                           },
+                          ...(permissions.includes('quotation view')
+                              ? [
+                                    {
+                                        title: 'Products and Services',
+                                        icon: ListOrdered,
+                                        href: quotationItem.index.url(),
+                                    },
+                                ]
+                              : []),
                       ],
                   },
               ]
@@ -150,11 +164,6 @@ export function AppSidebar() {
                       subItems: [
                           ...(permissions.includes('quotation view')
                               ? [
-                                    {
-                                        title: 'Products and Services',
-                                        icon: ListOrdered,
-                                        href: quotationItem.index.url(),
-                                    },
                                     {
                                         title: 'Quotation',
                                         icon: ReceiptText,

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Country;
+use Illuminate\Support\Facades\DB;
 
 class CountryService
 {
@@ -59,5 +60,67 @@ class CountryService
         });
 
         return $data;
+    }
+
+    public function store(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            $country = Country::create([
+                'name' => $data['name'],
+                'adjective' => $data['adjective'] ?? null,
+            ]);
+
+            activity()
+                ->performedOn($country)
+                ->withProperties(['subject_type' => 'Country', 'subject_id' => $country->id ?? null])
+                ->log('Country created successfully #'.($country->id ?? null));
+
+            return $country;
+        });
+    }
+
+    public function getForEditShow($id)
+    {
+        $country = Country::findOrFail($id);
+
+        return [
+            'id' => $country->id,
+            'name' => $country->name,
+            'adjective' => $country->adjective,
+        ];
+    }
+
+    public function update(array $data, $id)
+    {
+        return DB::transaction(function () use ($data, $id) {
+            $country = Country::findOrFail($id);
+
+            $country->update([
+                'name' => $data['name'],
+                'adjective' => $data['adjective'] ?? null,
+            ]);
+
+            activity()
+                ->performedOn($country)
+                ->withProperties(['subject_type' => 'Country', 'subject_id' => $country->id ?? null])
+                ->log('Country updated successfully #'.($country->id ?? null));
+
+            return $country;
+        });
+    }
+
+    public function delete($id)
+    {
+        $country = Country::find($id);
+        if (! $country) {
+            return false;
+        }
+
+        activity()
+            ->performedOn($country)
+            ->withProperties(['subject_type' => 'Country', 'subject_id' => $country->id ?? null])
+            ->log('Country deleted successfully #'.($country->id ?? null));
+
+        return $country->delete();
     }
 }

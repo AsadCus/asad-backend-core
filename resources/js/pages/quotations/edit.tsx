@@ -4,10 +4,12 @@ import { index as quotationIndex } from '@/routes/quotation';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
+import { z } from 'zod';
 import { QuotationForm } from './form';
 import {
     paymentMethods,
     paymentPlans,
+    quotationExtensionSchema,
     QuotationSchema,
     statuses,
 } from './schema';
@@ -16,6 +18,13 @@ interface EditQuotationProps {
     data: {
         data: QuotationSchema;
         customerConfirmations: [];
+        paymentMethods?: { label: string; value: string }[];
+        quotationExtensionMasters?: Array<
+            z.infer<typeof quotationExtensionSchema> & {
+                payment_methods?: string[];
+                is_active?: boolean;
+            }
+        >;
     };
 }
 
@@ -48,9 +57,10 @@ export default function EditQuotation({ data }: EditQuotationProps) {
                         mode="edit"
                         initialData={data.data}
                         paymentPlans={paymentPlans}
-                        paymentMethods={paymentMethods}
+                        paymentMethods={data.paymentMethods ?? paymentMethods}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
+                        extensionMasters={data.quotationExtensionMasters}
                         onCancel={handleCancel}
                     />
                 </div>

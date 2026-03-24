@@ -11,9 +11,12 @@ class AdminUserService
 {
     public function getForDataTable()
     {
-        return User::role('admin')->with('roles')->get()->map(function ($user) {
+        return User::role('admin')->with('roles', 'branch.country')->get()->map(function ($user) {
             $user->role = 'admin';
             $user->contact = $user->contact ?? '';
+            $user->branch_id = (string) ($user->branch_id ?? '');
+            $user->branch_name = $user->branch?->name ?? '-';
+            $user->country_name = $user->branch?->country?->name ?? '-';
 
             return $user;
         });
@@ -26,6 +29,7 @@ class AdminUserService
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'contact' => $data['contact'] ?? null,
+                'branch_id' => $data['branch_id'] ?? null,
                 'password' => isset($data['password'])
                     ? Hash::make($data['password'])
                     : Hash::make('password'),
@@ -44,7 +48,7 @@ class AdminUserService
 
     public function getForEditShow($id)
     {
-        $user = User::role('admin')->findOrFail($id);
+        $user = User::role('admin')->with('branch.country')->findOrFail($id);
 
         return [
             'id' => $user->id,
@@ -52,7 +56,10 @@ class AdminUserService
             'email' => $user->email,
             'contact' => $user->contact ?? '',
             'role' => 'admin',
-            'branch_id' => '',
+            'country_id' => '',
+            'country_name' => $user->branch?->country?->name ?? '',
+            'branch_id' => $user->branch_id ? (string) $user->branch_id : '',
+            'branch_name' => $user->branch?->name ?? '',
             'company_name' => '',
             'customer_id' => null,
             'customer_number' => '',
@@ -87,6 +94,7 @@ class AdminUserService
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'contact' => $data['contact'] ?? null,
+                'branch_id' => $data['branch_id'] ?? null,
                 'password' => isset($data['password']) && $data['password']
                     ? Hash::make($data['password'])
                     : $user->password,

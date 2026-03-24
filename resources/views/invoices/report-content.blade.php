@@ -316,15 +316,6 @@
                     @foreach ($rootItems as $item)
                         @php renderItem($item, $items, 0, $counter, $subtotal, 0); @endphp
                     @endforeach
-                    {{-- @foreach ($data['extensions'] ?? [] as $extension)
-                        <tr class="item-row">
-                            <td class="col-desc">
-                                {{ $extension['name'] ?? 'Quotation Extension' }}
-                            </td>
-                            <td class="col-rate"></td>
-                            <td class="col-total">{{ formatCurrency($extension['amount'] ?? 0) }}</td>
-                        </tr>
-                    @endforeach --}}
                 </tbody>
             </table>
 
@@ -334,10 +325,12 @@
                     <span class="total-amount">{{ formatCurrency($data['subtotal_amount'] ?? $subtotal) }}</span>
                 </div>
                 @if (!empty($data['extensions']) && count($data['extensions']) > 0)
-                    <div>
-                        <span class="total-label">Quotation Extension:&nbsp;</span>
-                        <span class="total-amount">{{ formatCurrency($data['extension_total_amount'] ?? 0) }}</span>
-                    </div>
+                    @foreach ($data['extensions'] as $extension)
+                        <div>
+                            <span class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:&nbsp;</span>
+                            <span class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</span>
+                        </div>
+                    @endforeach
                 @endif
                 <div>
                     <span class="total-label">Total Amount:&nbsp;</span>

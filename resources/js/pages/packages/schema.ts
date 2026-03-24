@@ -70,6 +70,7 @@ export const packageSchema = z.object({
     package_number: z.string().optional(),
     name: z.string().optional(),
     status: z.string().optional(),
+    country_id: z.string().optional(),
 
     price_single: z.union([z.string(), z.number()]).nullable().optional(),
     price_double: z.union([z.string(), z.number()]).nullable().optional(),
@@ -123,6 +124,13 @@ export const packageSchema = z.object({
 
     // Rawdah Tasreeh
     rawdah_tasreehs: z.array(rawdahTasreehSchema).optional(),
+    rawdah_member_counts: z
+        .object({
+            total: z.number().optional(),
+            women: z.number().optional(),
+            men: z.number().optional(),
+        })
+        .optional(),
 
     // Officials
     officials: z.array(officialSchema).optional(),

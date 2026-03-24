@@ -188,8 +188,11 @@ class ReceiptService
 
             $allocated[] = [
                 'id' => $extension->id,
+                'quotation_extension_master_id' => $extension->quotation_extension_master_id,
                 'name' => $extension->name,
                 'type' => $extension->type,
+                'calculation_mode' => $extension->calculation_mode,
+                'calculation_value' => $this->formatService->cleanDecimal($extension->calculation_value),
                 'sort_order' => $extension->sort_order,
                 'amount' => $this->formatService->cleanDecimal($amount),
             ];

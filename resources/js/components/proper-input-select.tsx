@@ -189,8 +189,15 @@ export function ProperInputSelect({
         ? truncateLabel(selected.label, truncate)
         : placeholder;
 
+    const isGroupHeaderOption = (optionValue: string): boolean =>
+        optionValue.startsWith('__group__:');
+
+    const hasGroupHeaders = singleOptions.some((option) =>
+        isGroupHeaderOption(String(option.value)),
+    );
+
     if (disabled && mode !== 'multi') {
-        const copyValue = selected?.label ?? '';
+        const copyValue = selected?.label?.trim().length ? selected.label : '-';
 
         return (
             <>
@@ -200,7 +207,10 @@ export function ProperInputSelect({
                     value={copyValue}
                     placeholder={placeholder}
                     readOnly
-                    className={cn('bg-muted/40', className)}
+                    className={cn(
+                        'bg-muted/40 text-muted-foreground',
+                        className,
+                    )}
                     onFocus={(event) => event.currentTarget.select()}
                 />
                 {name && (
@@ -353,13 +363,31 @@ export function ProperInputSelect({
                                     const isSelected =
                                         String(selectedValue) ===
                                         String(option.value);
+                                    const isGroupHeader = isGroupHeaderOption(
+                                        String(option.value),
+                                    );
+
+                                    if (isGroupHeader) {
+                                        return (
+                                            <div
+                                                key={option.value}
+                                                className="px-2 py-1.5 text-sm font-semibold text-foreground"
+                                            >
+                                                {option.label}
+                                            </div>
+                                        );
+                                    }
+
                                     return (
                                         <CommandItem
                                             key={option.value}
                                             onSelect={() =>
                                                 onOptionSelect(option.value)
                                             }
-                                            className="relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-base outline-hidden select-none focus:bg-accent focus:text-accent-foreground"
+                                            className={cn(
+                                                'relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-base outline-hidden select-none focus:bg-accent focus:text-accent-foreground',
+                                                hasGroupHeaders ? 'pl-5' : '',
+                                            )}
                                         >
                                             <span className="line-clamp-1">
                                                 {option.label}

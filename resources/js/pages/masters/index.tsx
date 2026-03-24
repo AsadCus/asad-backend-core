@@ -11,9 +11,17 @@ import { index } from '@/routes/master';
 import branch from '@/routes/master/branch';
 import financialYear from '@/routes/master/financial-year';
 import { create as createUser } from '@/routes/master/user';
+import quotationItem from '@/routes/quotation-items';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Building, Calendar, Plus, Users } from 'lucide-react';
+import {
+    Building,
+    Calendar,
+    Globe,
+    ListOrdered,
+    Plus,
+    Users,
+} from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -25,8 +33,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface MasterProps {
     stats: {
         users: number;
+        countries: number;
         branches: number;
         fiscalYears: number;
+        productsAndServices: number;
     };
 }
 
@@ -40,6 +50,15 @@ export default function Master({ stats }: MasterProps) {
             hasAddButton: true,
             onAdd: () => router.get(createUser().url),
             onClick: () => router.get('/master/user'),
+        },
+        {
+            title: 'Country',
+            description: 'Manage country options',
+            icon: Globe,
+            count: stats.countries,
+            hasAddButton: true,
+            onAdd: () => router.get('/master/country/create'),
+            onClick: () => router.get('/master/country'),
         },
         {
             title: 'Branch',
@@ -58,6 +77,15 @@ export default function Master({ stats }: MasterProps) {
             hasAddButton: true,
             onAdd: () => router.get(financialYear.create().url),
             onClick: () => router.get(financialYear.index.url()),
+        },
+        {
+            title: 'Products & Services',
+            description: 'Manage item and extension defaults',
+            icon: ListOrdered,
+            count: stats.productsAndServices,
+            hasAddButton: false,
+            onAdd: () => undefined,
+            onClick: () => router.get(quotationItem.index.url()),
         },
     ];
 

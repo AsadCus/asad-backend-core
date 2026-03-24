@@ -296,6 +296,128 @@ class PackageOfficialManifestSyncTest extends TestCase
             ->count());
     }
 
+    public function test_package_update_preserves_existing_official_ids_when_updating_officials(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Official Stable ID Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'officials' => [
+                [
+                    'type' => 'mutawif',
+                    'name' => 'Guide One',
+                    'contact_number' => '0194000001',
+                ],
+                [
+                    'type' => 'official',
+                    'name' => 'Ops One',
+                    'contact_number' => '0194000002',
+                ],
+            ],
+        ]);
+
+        $officials = $package->officials()->orderBy('id')->get()->values();
+        $this->assertCount(2, $officials);
+
+        $firstOfficialId = (int) $officials[0]->id;
+        $secondOfficialId = (int) $officials[1]->id;
+
+        app(PackageService::class)->update([
+            'officials' => [
+                [
+                    'id' => $firstOfficialId,
+                    'type' => 'mutawif',
+                    'name' => 'Guide One Updated',
+                    'contact_number' => '0194999991',
+                ],
+                [
+                    'id' => $secondOfficialId,
+                    'type' => 'official',
+                    'name' => 'Ops One',
+                    'contact_number' => '0194000002',
+                ],
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Two New',
+                    'contact_number' => '0194000003',
+                ],
+            ],
+        ], (int) $package->id);
+
+        $package->refresh();
+        $manifest = $package->manifests()->firstOrFail();
+
+        $updatedOfficials = $package->officials()->orderBy('id')->get();
+        $this->assertCount(3, $updatedOfficials);
+
+        $this->assertTrue($updatedOfficials->contains(fn ($official): bool => (int) $official->id === $firstOfficialId));
+        $this->assertTrue($updatedOfficials->contains(fn ($official): bool => (int) $official->id === $secondOfficialId));
+
+        $this->assertDatabaseHas('package_officials', [
+            'id' => $firstOfficialId,
+            'name' => 'Guide One Updated',
+            'contact_number' => '0194999991',
+        ]);
+
+        $this->assertDatabaseHas('manifest_members', [
+            'manifest_id' => $manifest->id,
+            'package_official_id' => $firstOfficialId,
+            'name' => 'Guide One Updated',
+            'contact_number' => '0194999991',
+        ]);
+    }
+
+    public function test_package_update_assigns_officials_into_manifest_sharing_groups_for_manifest_form_visibility(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Official Group Visibility Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'officials' => [
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Grouped',
+                    'contact_number' => '0195000001',
+                ],
+            ],
+        ]);
+
+        $manifest = $package->manifests()->firstOrFail();
+        $official = $package->officials()->firstOrFail();
+
+        app(PackageService::class)->update([
+            'officials' => [
+                [
+                    'id' => $official->id,
+                    'type' => 'official',
+                    'name' => 'Ops Grouped Updated',
+                    'contact_number' => '0195000002',
+                ],
+            ],
+        ], (int) $package->id);
+
+        $officialMember = $manifest->members()
+            ->where('package_official_id', $official->id)
+            ->firstOrFail();
+
+        $this->assertNotNull($officialMember->manifest_sharing_group_id);
+
+        $this->assertDatabaseHas('manifest_sharing_groups', [
+            'id' => (int) $officialMember->manifest_sharing_group_id,
+            'manifest_id' => $manifest->id,
+            'group_relationship' => 'official',
+            'remarks' => '[package-official-group] '.$official->id,
+        ]);
+
+        $payload = app(ManifestService::class)->getForEditShow((int) $manifest->id);
+        $canonicalGroups = collect($payload['manifest_sharing_groups'] ?? []);
+        $foundOfficialInCanonicalGroups = $canonicalGroups
+            ->flatMap(fn (array $group) => $group['members'] ?? [])
+            ->contains(fn (array $member): bool => (int) ($member['package_official_id'] ?? 0) === (int) $official->id);
+
+        $this->assertTrue($foundOfficialInCanonicalGroups);
+    }
+
     public function test_updating_manifest_persists_official_room_members_with_id_fallback(): void
     {
         $actingUser = User::factory()->create();

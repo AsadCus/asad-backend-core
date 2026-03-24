@@ -4,7 +4,7 @@ import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from '@inertiajs/react';
@@ -53,16 +53,16 @@ function CopyableText({
 }: {
     value: string | number | null | undefined;
 }) {
+    const normalizedValue =
+        value === null || value === undefined || String(value).trim() === ''
+            ? '-'
+            : String(value);
+
     return (
-        <Input
-            value={
-                value === null || value === undefined || value === ''
-                    ? '-'
-                    : String(value)
-            }
-            readOnly
-            onFocus={(event) => event.currentTarget.select()}
-            className="bg-muted/40"
+        <ProperInput
+            value={normalizedValue}
+            onCommit={() => undefined}
+            disabled
         />
     );
 }
@@ -248,6 +248,8 @@ export default function OpsMovementForm({
             vehicle_driver_contact_number:
                 data.vehicle_driver_contact_number ?? null,
             train_description: data.train_description ?? null,
+            visa_submitted_to_z_umrah: Boolean(data.visa_submitted_to_z_umrah),
+            visa_approved: Boolean(data.visa_approved),
             accommodations: (data.accommodations ?? []).map(
                 (accommodation) => ({
                     id: accommodation.id,
@@ -991,6 +993,51 @@ export default function OpsMovementForm({
                             ))}
                         </CardContent>
                     </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">Visa</CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Visa processing checklist for this movement.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <FormField
+                                label="Submitted to Z Umrah"
+                                error={errors.visa_submitted_to_z_umrah}
+                                layout="inline"
+                            >
+                                <Checkbox
+                                    checked={Boolean(
+                                        data.visa_submitted_to_z_umrah,
+                                    )}
+                                    disabled={processing}
+                                    onCheckedChange={(checked) =>
+                                        setFormData(
+                                            'visa_submitted_to_z_umrah',
+                                            Boolean(checked),
+                                        )
+                                    }
+                                />
+                            </FormField>
+                            <FormField
+                                label="Approved"
+                                error={errors.visa_approved}
+                                layout="inline"
+                            >
+                                <Checkbox
+                                    checked={Boolean(data.visa_approved)}
+                                    disabled={processing}
+                                    onCheckedChange={(checked) =>
+                                        setFormData(
+                                            'visa_approved',
+                                            Boolean(checked),
+                                        )
+                                    }
+                                />
+                            </FormField>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 {OPS_DOCUMENT_TABS.map((tab) => {
@@ -1306,6 +1353,10 @@ export default function OpsMovementForm({
                                                                           item.unit_price,
                                                                       )
                                                             }
+                                                            type="number"
+                                                            inputProps={{
+                                                                step: 'any',
+                                                            }}
                                                             disabled={
                                                                 processing
                                                             }
@@ -1338,6 +1389,11 @@ export default function OpsMovementForm({
                                                                 item.quantity ??
                                                                     0,
                                                             )}
+                                                            type="number"
+                                                            inputProps={{
+                                                                min: 0,
+                                                                step: 'any',
+                                                            }}
                                                             disabled={
                                                                 processing
                                                             }

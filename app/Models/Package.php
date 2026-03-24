@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Helpers\NumberGenerator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Package extends Model
@@ -13,6 +14,7 @@ class Package extends Model
         'package_number',
         'name',
         'status',
+        'country_id',
 
         // Pricing
         'price_single',
@@ -67,6 +69,11 @@ class Package extends Model
     public function accommodations(): HasMany
     {
         return $this->hasMany(PackageAccommodation::class);
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
     }
 
     public function flights(): HasMany

@@ -5,8 +5,11 @@ import { quotationItemSchema } from './items/schema';
 export const quotationExtensionSchema = z.object({
     _key: z.string().optional(),
     id: z.number().optional(),
+    quotation_extension_master_id: z.number().nullable().optional(),
     name: z.string(),
     type: z.string(),
+    calculation_mode: z.string().nullable().optional(),
+    calculation_value: z.union([z.string(), z.number()]).nullable().optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),
     sort_order: z.number().optional(),
 });
@@ -86,6 +89,7 @@ export const paymentMethods = [
     { label: 'Cash', value: 'cash' },
     { label: 'Bank Transfer', value: 'transfer' },
     { label: 'Paynow', value: 'paynow' },
+    { label: 'Credit Card', value: 'credit_card' },
 ];
 
 export const statuses = [

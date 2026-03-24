@@ -37,17 +37,41 @@ interface MasterUserProps {
         customer: number;
         supplier: number;
     };
+    countryStats: {
+        admin: {
+            totalCountries: number;
+            breakdown: Array<{ country: string; count: number }>;
+        };
+        sales: {
+            totalCountries: number;
+            breakdown: Array<{ country: string; count: number }>;
+        };
+    };
 }
 
 export default function MasterUser({
     // data,
     // dataRole,
     roleStats,
+    countryStats,
 }: MasterUserProps) {
+    const countrySummary = (
+        entries: Array<{ country: string; count: number }>,
+    ): string => {
+        if (!entries.length) {
+            return 'No country assignment yet';
+        }
+
+        return entries
+            .slice(0, 2)
+            .map((entry) => `${entry.country} (${entry.count})`)
+            .join(', ');
+    };
+
     const roleMenus = [
         {
             title: 'Administrator',
-            description: 'System administrators',
+            description: `Assigned countries: ${countryStats.admin.totalCountries} (${countrySummary(countryStats.admin.breakdown)})`,
             icon: Shield,
             count: roleStats.admin,
             href: masterAdmin.index.url(),
@@ -56,7 +80,7 @@ export default function MasterUser({
         },
         {
             title: 'Sales',
-            description: 'Sales personnel',
+            description: `Assigned countries: ${countryStats.sales.totalCountries} (${countrySummary(countryStats.sales.breakdown)})`,
             icon: TrendingUp,
             count: roleStats.sales,
             href: masterSales.index.url(),

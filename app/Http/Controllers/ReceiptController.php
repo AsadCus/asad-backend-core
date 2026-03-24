@@ -155,6 +155,7 @@ class ReceiptController extends Controller
             'cash' => 'Cash',
             'transfer' => 'Bank Transfer',
             'paynow' => 'Paynow',
+            'credit_card' => 'Credit Card',
             default => ucfirst($paymentMethod),
         };
 
@@ -182,6 +183,7 @@ class ReceiptController extends Controller
                 'cash' => 'Cash',
                 'transfer' => 'Bank Transfer',
                 'paynow' => 'Paynow',
+                'credit_card' => 'Credit Card',
                 default => ucfirst($paymentMethod),
             };
 

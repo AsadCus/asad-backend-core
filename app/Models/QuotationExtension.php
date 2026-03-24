@@ -9,8 +9,11 @@ class QuotationExtension extends Model
 {
     protected $fillable = [
         'quotation_id',
+        'quotation_extension_master_id',
         'name',
         'type',
+        'calculation_mode',
+        'calculation_value',
         'amount',
         'sort_order',
     ];
@@ -19,6 +22,8 @@ class QuotationExtension extends Model
     {
         return [
             'quotation_id' => 'integer',
+            'quotation_extension_master_id' => 'integer',
+            'calculation_value' => 'decimal:4',
             'amount' => 'decimal:2',
             'sort_order' => 'integer',
         ];
@@ -27,5 +32,10 @@ class QuotationExtension extends Model
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(Quotation::class);
+    }
+
+    public function extensionMaster(): BelongsTo
+    {
+        return $this->belongsTo(QuotationExtensionMaster::class, 'quotation_extension_master_id');
     }
 }

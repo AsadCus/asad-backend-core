@@ -13,7 +13,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import NoteForm from '@/pages/notes/form';
 import { NoteSchema } from '@/pages/notes/schema';
 import { OptionType } from '@/types';
-import { Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import React from 'react';
 import { ProperInput } from '../../../components/proper-input';
@@ -51,7 +51,6 @@ export default function QuotationDetailSection({
     paymentMethods = [],
     quotationNotes = [],
     noteErrors = [],
-    availableMembers = [],
     status,
 }: Props) {
     const sharingPlanCosts = [
@@ -77,21 +76,8 @@ export default function QuotationDetailSection({
         },
     ];
 
-    const memberOptions = availableMembers.map((member) => ({
-        value: String(member.member_id),
-        label: member.sharing_plan
-            ? `${member.name} (${member.sharing_plan})`
-            : member.name,
-    }));
-
-    const memberSharingPlanById = Object.fromEntries(
-        availableMembers.map((member) => [
-            member.member_id,
-            member.sharing_plan,
-        ]),
-    );
-
     const extensions = data.extensions ?? [];
+
     const subtotalAmount = items.reduce((sum, item) => {
         if (item.is_header) {
             return sum;
@@ -99,10 +85,33 @@ export default function QuotationDetailSection({
 
         return sum + Number(item.quantity ?? 0) * Number(item.rate ?? 0);
     }, 0);
-    const extensionTotalAmount = extensions.reduce(
-        (sum, extension) => sum + Number(extension.amount ?? 0),
-        0,
-    );
+
+    const calculateExtensionAmount = (
+        extension: (typeof extensions)[number],
+        baseSubtotal: number,
+    ): number => {
+        const type = String(extension.type ?? 'discount');
+        const calculationMode = String(extension.calculation_mode ?? 'fixed');
+
+        if (type !== 'tax' && type !== 'credit_card') {
+            return Number(extension.amount ?? 0);
+        }
+
+        const calculationValue = Number(
+            extension.calculation_value ?? extension.amount ?? 0,
+        );
+
+        if (calculationMode === 'percentage') {
+            return (baseSubtotal * calculationValue) / 100;
+        }
+
+        return calculationValue;
+    };
+
+    const extensionTotalAmount = extensions.reduce((sum, extension) => {
+        return sum + calculateExtensionAmount(extension, subtotalAmount);
+    }, 0);
+
     const totalAmount = subtotalAmount + extensionTotalAmount;
 
     const handleExtensionChange = (
@@ -110,11 +119,36 @@ export default function QuotationDetailSection({
         patch: Partial<(typeof extensions)[number]>,
     ) => {
         const next = [...extensions];
-        next[index] = {
-            ...next[index],
+        const current = next[index];
+        const merged = {
+            ...current,
             ...patch,
             sort_order: index + 1,
         };
+
+        const type = String(merged.type ?? 'discount');
+        const calculationMode = String(merged.calculation_mode ?? 'fixed');
+
+        if (type === 'tax' || type === 'credit_card') {
+            const calculationValue = Number(
+                merged.calculation_value ?? merged.amount ?? 0,
+            );
+            const computedAmount =
+                calculationMode === 'percentage'
+                    ? (subtotalAmount * calculationValue) / 100
+                    : calculationValue;
+
+            next[index] = {
+                ...merged,
+                amount: computedAmount,
+            };
+        } else {
+            next[index] = {
+                ...merged,
+                amount: Number(merged.amount ?? 0),
+            };
+        }
+
         setData('extensions', next);
     };
 
@@ -125,7 +159,9 @@ export default function QuotationDetailSection({
                 _key: nanoid(),
                 name: 'Discount',
                 type: 'discount',
-                amount: 0,
+                calculation_mode: 'fixed',
+                calculation_value: null,
+                amount: null,
                 sort_order: extensions.length + 1,
             },
         ]);
@@ -156,7 +192,6 @@ export default function QuotationDetailSection({
                     className="grid grid-cols-1 items-start gap-4 pt-2 md:grid-cols-2"
                 >
                     <section className="order-1 grid grid-cols-1 items-start gap-4 md:col-span-1 lg:order-1">
-                        {/* Description */}
                         <FormField
                             label="Description"
                             htmlFor="description"
@@ -178,7 +213,6 @@ export default function QuotationDetailSection({
                     </section>
 
                     <section className="order-2 grid grid-cols-1 items-start gap-4 md:col-span-1 lg:order-2">
-                        {/* Payment Plan */}
                         <FormField
                             label="Payment Plan"
                             htmlFor="payment_plan"
@@ -211,7 +245,6 @@ export default function QuotationDetailSection({
                             {renderError('payment_plan')}
                         </FormField>
 
-                        {/* Payment Method */}
                         <FormField
                             label="Payment Method"
                             htmlFor="payment_method"
@@ -295,9 +328,7 @@ export default function QuotationDetailSection({
                         renderError={renderError}
                         disabled={isView}
                         showOptionalColumn={false}
-                        showMemberColumn
-                        memberOptions={memberOptions}
-                        memberSharingPlanById={memberSharingPlanById}
+                        showMemberColumn={false}
                     />
 
                     <div className="space-y-3 rounded-md border p-4">
@@ -310,78 +341,190 @@ export default function QuotationDetailSection({
                             </span>
                         </div>
 
-                        {extensions.map((extension, index) => (
-                            <div
-                                key={extension._key ?? `extension-${index}`}
-                                className={cn(
-                                    'grid items-end gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                                    isView &&
-                                        'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]',
-                                )}
-                            >
-                                <FormField label="Extension Name">
-                                    <ProperInput
-                                        value={extension.name ?? ''}
-                                        placeholder="Discount"
-                                        disabled={isView}
-                                        onCommit={(value) =>
-                                            handleExtensionChange(index, {
-                                                name: value,
-                                            })
-                                        }
-                                    />
-                                    {renderError(`extensions.${index}.name`)}
-                                </FormField>
+                        {extensions.map((extension, index) => {
+                            const isCalculatedType =
+                                extension.type === 'tax' ||
+                                extension.type === 'credit_card';
 
-                                <FormField label="Type">
-                                    <Select
-                                        disabled={isView}
-                                        value={extension.type ?? 'discount'}
-                                        onValueChange={(value) =>
-                                            handleExtensionChange(index, {
-                                                type: value,
-                                            })
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="discount">
-                                                Discount
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {renderError(`extensions.${index}.type`)}
-                                </FormField>
+                            return (
+                                <div
+                                    key={extension._key ?? `extension-${index}`}
+                                    className={cn(
+                                        'grid items-end gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+                                        !isCalculatedType &&
+                                            'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+                                        isView &&
+                                            'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]',
+                                    )}
+                                >
+                                    <FormField label="Extension Name">
+                                        <ProperInput
+                                            value={extension.name ?? ''}
+                                            placeholder="Discount"
+                                            disabled={isView}
+                                            onCommit={(value) =>
+                                                handleExtensionChange(index, {
+                                                    name: value,
+                                                })
+                                            }
+                                        />
+                                        {renderError(
+                                            `extensions.${index}.name`,
+                                        )}
+                                    </FormField>
 
-                                <FormField label="Amount">
-                                    <ProperInput
-                                        value={extension.amount ?? ''}
-                                        type="number"
-                                        inputProps={{ step: 'any' }}
-                                        disabled={isView}
-                                        onCommit={(value) =>
-                                            handleExtensionChange(index, {
-                                                amount: Number(value),
-                                            })
-                                        }
-                                    />
-                                    {renderError(`extensions.${index}.amount`)}
-                                </FormField>
+                                    <FormField label="Type">
+                                        <Select
+                                            disabled={isView}
+                                            value={extension.type ?? 'discount'}
+                                            onValueChange={(value) =>
+                                                handleExtensionChange(index, {
+                                                    type: value,
+                                                    calculation_mode:
+                                                        value === 'tax' ||
+                                                        value === 'credit_card'
+                                                            ? (extension.calculation_mode ??
+                                                              'fixed')
+                                                            : 'fixed',
+                                                    calculation_value:
+                                                        value === 'tax' ||
+                                                        value === 'credit_card'
+                                                            ? (extension.calculation_value ??
+                                                              extension.amount ??
+                                                              0)
+                                                            : null,
+                                                })
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="discount">
+                                                    Discount
+                                                </SelectItem>
+                                                <SelectItem value="tax">
+                                                    Tax
+                                                </SelectItem>
+                                                <SelectItem value="credit_card">
+                                                    Credit Card
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {renderError(
+                                            `extensions.${index}.type`,
+                                        )}
+                                    </FormField>
 
-                                {!isView && (
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        onClick={() => removeExtension(index)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
+                                    {isCalculatedType && (
+                                        <FormField label="Calculation">
+                                            <Select
+                                                disabled={isView}
+                                                value={
+                                                    extension.calculation_mode ??
+                                                    'fixed'
+                                                }
+                                                onValueChange={(value) =>
+                                                    handleExtensionChange(
+                                                        index,
+                                                        {
+                                                            calculation_mode:
+                                                                value,
+                                                        },
+                                                    )
+                                                }
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Calculation" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="fixed">
+                                                        Fixed Amount
+                                                    </SelectItem>
+                                                    <SelectItem value="percentage">
+                                                        Percentage
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {renderError(
+                                                `extensions.${index}.calculation_mode`,
+                                            )}
+                                        </FormField>
+                                    )}
+
+                                    {isCalculatedType && (
+                                        <FormField
+                                            label={
+                                                extension.calculation_mode ===
+                                                'percentage'
+                                                    ? 'Value (%)'
+                                                    : 'Value'
+                                            }
+                                        >
+                                            <ProperInput
+                                                value={
+                                                    extension.calculation_value ??
+                                                    extension.amount ??
+                                                    ''
+                                                }
+                                                type="number"
+                                                inputProps={{ step: 'any' }}
+                                                placeholder="0.00"
+                                                disabled={isView}
+                                                onCommit={(value) =>
+                                                    handleExtensionChange(
+                                                        index,
+                                                        {
+                                                            calculation_value:
+                                                                Number(value),
+                                                        },
+                                                    )
+                                                }
+                                            />
+                                            {renderError(
+                                                `extensions.${index}.calculation_value`,
+                                            )}
+                                        </FormField>
+                                    )}
+
+                                    <FormField label="Amount">
+                                        <ProperInput
+                                            value={calculateExtensionAmount(
+                                                extension,
+                                                subtotalAmount,
+                                            )}
+                                            type="number"
+                                            inputProps={{ step: 'any' }}
+                                            placeholder="0.00"
+                                            disabled={
+                                                isView || isCalculatedType
+                                            }
+                                            onCommit={(value) =>
+                                                handleExtensionChange(index, {
+                                                    amount: Number(value),
+                                                })
+                                            }
+                                        />
+                                        {renderError(
+                                            `extensions.${index}.amount`,
+                                        )}
+                                    </FormField>
+
+                                    {!isView && (
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            onClick={() =>
+                                                removeExtension(index)
+                                            }
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            );
+                        })}
 
                         {!isView && (
                             <div>
@@ -390,7 +533,8 @@ export default function QuotationDetailSection({
                                     variant="outline"
                                     onClick={addDiscountExtension}
                                 >
-                                    + Add Discount
+                                    <Plus className="h-4 w-4" />
+                                    Add
                                 </Button>
                             </div>
                         )}
@@ -416,6 +560,7 @@ export default function QuotationDetailSection({
                 <div className="mx-auto w-full">
                     <NoteForm
                         mode="quotation"
+                        model="quotation"
                         notes={quotationNotes}
                         onChange={(v) => setData('notes', v)}
                         disabled={isView}

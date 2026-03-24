@@ -2375,13 +2375,7 @@ export default function ManifestForm({
                 [tabKey]: baseRows,
             });
         },
-        [
-            roomListsState,
-            data.manifest_members,
-            isCancelledMember,
-            roomTabs,
-            setFormData,
-        ],
+        [roomListsState, data.manifest_members, isCancelledMember, roomTabs],
     );
 
     const getMemberAssignedLocations = useCallback(
@@ -2501,7 +2495,7 @@ export default function ManifestForm({
 
             setRoomListsState(nextRoomLists);
         },
-        [roomListsState, roomTabs, setFormData],
+        [roomListsState, roomTabs],
     );
 
     const updateManifestDocuments = useCallback(

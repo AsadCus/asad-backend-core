@@ -48,6 +48,16 @@ const columns: ColumnDef<UserSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'branch_name',
+        header: 'Branch',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'country_name',
+        header: 'Country',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'role',
         header: 'Role',
         meta: { exportable: true },

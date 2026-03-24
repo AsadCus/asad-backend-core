@@ -195,16 +195,18 @@ export function ProperInput({
     };
 
     const isReadOnlyMode = Boolean(disabled);
+    const resolvedReadOnlyValue =
+        isReadOnlyMode && local.trim().length === 0 ? '-' : local;
 
     if (textarea) {
         return (
             <Textarea
                 id={id}
-                value={local}
+                value={resolvedReadOnlyValue}
                 placeholder={placeholder}
                 readOnly={isReadOnlyMode}
                 className={cn(
-                    isReadOnlyMode ? 'bg-muted/40' : '',
+                    isReadOnlyMode ? 'bg-muted/40 text-muted-foreground' : '',
                     size === 'compact'
                         ? 'min-h-[36px] px-2 py-1 text-base sm:min-h-[48px]'
                         : '',
@@ -236,11 +238,13 @@ export function ProperInput({
                 <Input
                     id={id}
                     type="text"
-                    value={local}
+                    value={resolvedReadOnlyValue}
                     placeholder={timeFormat === 24 ? 'HH:mm' : 'hh:mm AM/PM'}
                     readOnly={isReadOnlyMode}
                     className={cn(
-                        isReadOnlyMode ? 'bg-muted/40' : '',
+                        isReadOnlyMode
+                            ? 'bg-muted/40 text-muted-foreground'
+                            : '',
                         'pr-10',
                         size === 'compact'
                             ? 'h-6 px-2 py-1 text-base sm:h-7'
@@ -309,7 +313,6 @@ export function ProperInput({
                                         }
 
                                         if (timeFormat === 24) {
-                                            setSelectedHours24(nextHourValue);
                                             emitSelectedTime(
                                                 nextHourValue,
                                                 selectedMinutes,
@@ -443,14 +446,20 @@ export function ProperInput({
             type={type}
             value={local}
             placeholder={placeholder}
-            disabled={disabled}
+            readOnly={isReadOnlyMode}
             className={cn(
+                isReadOnlyMode ? 'bg-muted/40 text-muted-foreground' : '',
                 size === 'compact' ? 'h-6 px-2 py-1 text-base sm:h-7' : '',
                 className,
             )}
             inputMode={type === 'number' ? 'decimal' : undefined}
             onChange={(e) => setLocal(e.target.value)}
             onBlur={() => commit()}
+            onFocus={(e) => {
+                if (isReadOnlyMode) {
+                    e.currentTarget.select();
+                }
+            }}
             onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();

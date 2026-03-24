@@ -118,6 +118,8 @@ class OpsMovementWorkflowTest extends TestCase
             'vehicle_driver_name' => 'Driver Updated',
             'vehicle_driver_contact_number' => '0181231231',
             'train_description' => 'Train used for inter-city movement.',
+            'visa_submitted_to_z_umrah' => true,
+            'visa_approved' => true,
             'accommodations' => [
                 [
                     'id' => $accommodation->id,
@@ -203,6 +205,8 @@ class OpsMovementWorkflowTest extends TestCase
 
         $this->assertSame('KL Base', data_get($manifest->ops_movement_extension, 'ops_base'));
         $this->assertSame('INFO-9988', data_get($manifest->ops_movement_extension, 'infotech_ref'));
+        $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_submitted_to_z_umrah'));
+        $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_approved'));
         $this->assertSame('Amir', data_get($manifest->ops_movement_extension, 'flights.0.doa_by'));
         $this->assertSame('IC-FLT-01', data_get($manifest->ops_movement_extension, 'flights.0.ic'));
         $this->assertSame('Transportation', data_get($manifest->ops_movement_extension, 'budget.0.title'));
@@ -229,6 +233,8 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('IC-HOTEL-01', data_get($opsMovement, 'accommodations.0.ic'));
         $this->assertSame('Ops Itinerary.pdf', data_get($opsMovement, 'documents.itinerary.0.file_name'));
         $this->assertSame('Ops Booklet.pdf', data_get($opsMovement, 'documents.booklet.0.file_name'));
+        $this->assertTrue((bool) data_get($opsMovement, 'visa_submitted_to_z_umrah'));
+        $this->assertTrue((bool) data_get($opsMovement, 'visa_approved'));
         $this->assertSame('Transportation', data_get($opsMovement, 'budget.0.title'));
     }
 }

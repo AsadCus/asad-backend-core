@@ -11,6 +11,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\Master\AdminController as MasterAdminController;
 use App\Http\Controllers\Master\BranchController as MasterBranchController;
+use App\Http\Controllers\Master\CountryController as MasterCountryController;
 use App\Http\Controllers\Master\CustomerController as MasterCustomerController;
 use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearController;
 use App\Http\Controllers\Master\MasterController;
@@ -86,6 +87,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::resource('user', MasterUserController::class);
 
+        Route::resource('country', MasterCountryController::class);
+
         Route::resource('branch', MasterBranchController::class);
 
         Route::resource('financial-year', MasterFinancialYearController::class);
@@ -121,8 +124,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('quotation/{id}/expire', [QuotationController::class, 'expireQuotation'])->name('quotation.expire');
     Route::put('quotation/{id}/cancel', [QuotationController::class, 'cancelQuotation'])->name('quotation.cancel');
 
-    Route::resource('quotation-items', QuotationItemController::class);
-    Route::get('quotation-items-list', [QuotationItemController::class, 'getQuotationItemMastersForOptions'])->name('quotation-items-list');
+    Route::resource('product-services', QuotationItemController::class)->names('quotation-items');
+    Route::post('product-services/payment-methods', [QuotationItemController::class, 'storePaymentMethodMasters'])->name('quotation-items.payment-methods.store');
+    Route::post('product-services/extensions', [QuotationItemController::class, 'storeExtensionMasters'])->name('quotation-items.extensions.store');
+    Route::get('product-services-list', [QuotationItemController::class, 'getQuotationItemMastersForOptions'])->name('quotation-items-list');
 
     // Order
     Route::resource('order', OrderController::class);

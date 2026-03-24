@@ -102,7 +102,6 @@ export default function Branch({ dataBranch, dataCountry }: BranchProps) {
                                 columnVisibility: {
                                     id: false,
                                     country_id: false,
-                                    country_name: false,
                                 },
                             }}
                             renderFilter={(table) => (
