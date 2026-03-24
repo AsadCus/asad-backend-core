@@ -81,6 +81,9 @@ class ReportTemplateService
                 'manifest_arabic_names' => $settings->getModuleTemplate('manifest_arabic_names'),
                 'manifest_namelist_course_items' => $settings->getModuleTemplate('manifest_namelist_course_items'),
                 'manifest_room_check' => $settings->getModuleTemplate('manifest_room_check'),
+                'ops_movement' => $settings->getModuleTemplate('ops_movement'),
+                'ops_movement_pif' => $settings->getModuleTemplate('ops_movement_pif'),
+                'ops_movement_budget' => $settings->getModuleTemplate('ops_movement_budget'),
             ],
         ];
     }

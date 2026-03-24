@@ -173,17 +173,25 @@ Full spec: `.github/date-formatting-standard.md`
 
 Full spec: `.github/manifest-form-behavior.md`
 
-- `roomLists` shape is `Record<string, TravelerRow[]>` — never use fixed keys like `roomListMakkah`.
-- `travelers` is the canonical list. `airlineList` and room lists are projections of it — not independent records.
+- `roomLists` shape is `Record<string, RoomSchema[]>` — never use fixed keys like `roomListMakkah`.
+- `members` is the canonical list. `airlinesNameList`, `roomLists`, and `sharing_groups` are projections of it — not independent records.
 - Passport field is `passport_number` only. No aliases (`ppt_no`, `passport_no`).
 - These shared fields must sync across ALL tabs when edited in any tab:
   `passport_number`, `nationality`, `gender`, `date_of_birth`, `age`, `date_of_issue`, `date_of_expiry`, `issue_place`, `role`.
-- New fields must be defined once in `schema.ts` / `types.ts` and wired from the canonical traveler source.
+- New fields must be defined once in `schema.ts` / `types.ts` and wired from the canonical member source.
 - Extend existing manifest helpers before introducing new transformation paths.
 
 ---
 
-## 8. Testing Rules
+## 8. Report Templates & Branding Rules
+
+- **Global Branding**: Report templates use a Global Branding configuration to manage company details and assets (e.g., logos, signatures, stamps).
+- **Module-Specific Templates**: Each module (e.g., Manifests, Ops Movements) maintains its respective report templates (e.g., Namelist, Room Check, Arabic Names, PIF) which are generated dynamically via Blade templates.
+- **Preview Functionality**: Always ensure report templates provide an accurate real-time live preview utilizing the backend preview endpoint before finalizing UI components or PDF export logic.
+
+---
+
+## 9. Testing Rules
 
 - Every change must have a corresponding test — new or updated.
 - Feature tests by default. Unit tests for isolated logic only.
@@ -194,7 +202,7 @@ Full spec: `.github/manifest-form-behavior.md`
 
 ---
 
-## 9. Actions That Require Approval
+## 10. Actions That Require Approval
 
 | Action | Approval From |
 |---|---|
@@ -207,7 +215,7 @@ Full spec: `.github/manifest-form-behavior.md`
 
 ---
 
-## 10. Anti-Hallucination Checklist
+## 11. Anti-Hallucination Checklist
 
 Run through this before writing any code:
 
@@ -225,7 +233,7 @@ Run through this before writing any code:
 
 ---
 
-## 11. Skill-Level Guidance
+## 12. Skill-Level Guidance
 
 ### Junior
 - Read at least 2–3 sibling files before writing anything new.
@@ -256,7 +264,7 @@ Run through this before writing any code:
 
 ---
 
-## 12. Reference Map
+## 13. Reference Map
 
 | Purpose | File |
 |---|---|

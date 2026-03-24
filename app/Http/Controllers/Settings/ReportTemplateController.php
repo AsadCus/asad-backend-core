@@ -406,13 +406,16 @@ class ReportTemplateController extends Controller
         // Map of blade view: module key -> view name
         $viewMap = [
             'quotation' => 'quotations.report-content',
-            'invoice'   => 'invoices.report-content',
-            'receipt'   => 'receipts.report-content',
-            'sales'     => 'sales.report-content',
-            'package'   => 'packages.report-content',
+            'invoice' => 'invoices.report-content',
+            'receipt' => 'receipts.report-content',
+            'sales' => 'sales.report-content',
+            'package' => 'packages.report-content',
             'manifest_arabic_names' => 'manifests.arabic-names-report-content',
-            'manifest_namelist_course_items'  => 'manifests.namelist-course-items-report-content',
+            'manifest_namelist_course_items' => 'manifests.namelist-course-items-report-content',
             'manifest_room_check' => 'manifests.room-check-report-content',
+            'ops_movement' => 'ops-movements.report-content',
+            'ops_movement_pif' => 'ops-movements.pif-report-content',
+            'ops_movement_budget' => 'ops-movements.budget-report-content',
         ];
 
         $viewName = $viewMap[$moduleKey] ?? 'quotations.report-content';
@@ -425,28 +428,28 @@ class ReportTemplateController extends Controller
         // Resolve logos from saved DB paths (not re-uploaded within preview)
         $settings = ReportSetting::current();
         $logo = $settings->logo_path ? [
-            'url' => '/storage/' . $settings->logo_path,
-            'absolute' => storage_path('app/public/' . $settings->logo_path),
+            'url' => '/storage/'.$settings->logo_path,
+            'absolute' => storage_path('app/public/'.$settings->logo_path),
         ] : ['url' => '/logo-primary.png', 'absolute' => null];
 
         $stamp = $settings->stamp_path ? [
-            'url' => '/storage/' . $settings->stamp_path,
-            'absolute' => storage_path('app/public/' . $settings->stamp_path),
+            'url' => '/storage/'.$settings->stamp_path,
+            'absolute' => storage_path('app/public/'.$settings->stamp_path),
         ] : ['url' => null, 'absolute' => null];
 
         $signature = $settings->signature_path ? [
-            'url' => '/storage/' . $settings->signature_path,
-            'absolute' => storage_path('app/public/' . $settings->signature_path),
+            'url' => '/storage/'.$settings->signature_path,
+            'absolute' => storage_path('app/public/'.$settings->signature_path),
         ] : ['url' => null, 'absolute' => null];
 
         $customStamp = $settings->custom_stamp_path ? [
-            'url' => '/storage/' . $settings->custom_stamp_path,
-            'absolute' => storage_path('app/public/' . $settings->custom_stamp_path),
+            'url' => '/storage/'.$settings->custom_stamp_path,
+            'absolute' => storage_path('app/public/'.$settings->custom_stamp_path),
         ] : ['url' => null, 'absolute' => null];
 
         $customSignature = $settings->custom_signature_path ? [
-            'url' => '/storage/' . $settings->custom_signature_path,
-            'absolute' => storage_path('app/public/' . $settings->custom_signature_path),
+            'url' => '/storage/'.$settings->custom_signature_path,
+            'absolute' => storage_path('app/public/'.$settings->custom_signature_path),
         ] : ['url' => null, 'absolute' => null];
 
         // Build module template settings from request
@@ -454,80 +457,80 @@ class ReportTemplateController extends Controller
         $moduleConfig = $moduleTemplates[$moduleKey] ?? [];
 
         $branding = [
-            'company_name'    => $request->input('company_name', $settings->company_name),
+            'company_name' => $request->input('company_name', $settings->company_name),
             'company_address' => $request->input('company_address', $settings->company_address),
-            'company_phone'   => $request->input('company_phone', $settings->company_phone),
-            'company_email'   => $request->input('company_email', $settings->company_email),
-            'title_color'     => $brandColor,
-            'signature_stamp_layout'        => $signatureStampLayout,
+            'company_phone' => $request->input('company_phone', $settings->company_phone),
+            'company_email' => $request->input('company_email', $settings->company_email),
+            'title_color' => $brandColor,
+            'signature_stamp_layout' => $signatureStampLayout,
             'custom_signature_stamp_layout' => is_array($customLayout) ? $customLayout : ($settings->custom_signature_stamp_layout ?? []),
-            'logo_url'                => $logo['url'],
-            'stamp_url'               => $stamp['url'],
-            'signature_url'           => $signature['url'],
-            'custom_stamp_url'        => $customStamp['url'],
-            'custom_signature_url'    => $customSignature['url'],
-            'logo_path_absolute'             => $logo['absolute'],
-            'stamp_path_absolute'            => $stamp['absolute'],
-            'signature_path_absolute'        => $signature['absolute'],
-            'custom_stamp_path_absolute'     => $customStamp['absolute'],
+            'logo_url' => $logo['url'],
+            'stamp_url' => $stamp['url'],
+            'signature_url' => $signature['url'],
+            'custom_stamp_url' => $customStamp['url'],
+            'custom_signature_url' => $customSignature['url'],
+            'logo_path_absolute' => $logo['absolute'],
+            'stamp_path_absolute' => $stamp['absolute'],
+            'signature_path_absolute' => $signature['absolute'],
+            'custom_stamp_path_absolute' => $customStamp['absolute'],
             'custom_signature_path_absolute' => $customSignature['absolute'],
-            'footer_text'                    => $moduleConfig['footer_text'] ?? $settings->footer_text ?? '',
-            'show_stamp'                     => (bool) ($moduleConfig['show_stamp'] ?? false),
-            'show_signature'                 => (bool) ($moduleConfig['show_signature'] ?? false),
-            'show_signature_stamp_name'      => (bool) ($moduleConfig['show_signature_stamp_name'] ?? false),
-            'show_signature_stamp_date'      => (bool) ($moduleConfig['show_signature_stamp_date'] ?? false),
+            'footer_text' => $moduleConfig['footer_text'] ?? $settings->footer_text ?? '',
+            'show_stamp' => (bool) ($moduleConfig['show_stamp'] ?? false),
+            'show_signature' => (bool) ($moduleConfig['show_signature'] ?? false),
+            'show_signature_stamp_name' => (bool) ($moduleConfig['show_signature_stamp_name'] ?? false),
+            'show_signature_stamp_date' => (bool) ($moduleConfig['show_signature_stamp_date'] ?? false),
         ];
 
         // Dummy data for each template type (safe, minimal)
         $data = [
             // shared
-            'customer_name'            => 'Sample Customer',
-            'customer_address'         => '123 Sample Street, Singapore 123456',
-            'customer_contact'         => '91234567',
-            'customer_email'           => 'sample@example.com',
-            'customer_number'          => 'CUST-001',
-            'description'              => 'Sample Service Description',
+            'customer_name' => 'Sample Customer',
+            'customer_address' => '123 Sample Street, Singapore 123456',
+            'customer_contact' => '91234567',
+            'customer_email' => 'sample@example.com',
+            'customer_number' => 'CUST-001',
+            'description' => 'Sample Service Description',
             // quotation
-            'quotation_number'         => 'QUO-2025-0001',
-            'payment_plan_label'       => 'Full Payment',
-            'sales_registration_number'=> null,
+            'quotation_number' => 'QUO-2025-0001',
+            'payment_plan_label' => 'Full Payment',
+            'sales_registration_number' => null,
             // invoice
-            'invoice_number'           => 'INV-2025-0001',
-            'order_number'             => 'ORD-2025-0001',
-            'invoice_date'             => date('d/m/Y'),
-            'due_date'                 => null,
+            'invoice_number' => 'INV-2025-0001',
+            'order_number' => 'ORD-2025-0001',
+            'invoice_date' => date('d/m/Y'),
+            'due_date' => null,
             // receipt
-            'receipt_number'           => 'RCT-2025-0001',
-            'payment_date'             => date('d/m/Y'),
-            'payment_method'           => 'Bank Transfer',
+            'receipt_number' => 'RCT-2025-0001',
+            'payment_date' => date('d/m/Y'),
+            'payment_method' => 'Bank Transfer',
             // sales
-            'sales_number'             => 'SAL-2025-0001',
-            'consultant'               => 'Sample Consultant',
+            'sales_number' => 'SAL-2025-0001',
+            'consultant' => 'Sample Consultant',
             // package
-            'package_code'             => 'PKG-0001',
-            'package_name'             => 'Sample Package Tour',
-            'tour_start'               => date('d/m/Y'),
-            'tour_end'                 => date('d/m/Y', strtotime('+7 days')),
-            'pax'                      => 2,
+            'package_code' => 'PKG-0001',
+            'package_name' => 'Sample Package Tour',
+            'tour_start' => date('d/m/Y'),
+            'tour_end' => date('d/m/Y', strtotime('+7 days')),
+            'pax' => 2,
             // totals
-            'subtotal_amount'          => 1500.00,
-            'total_amount'             => 1500.00,
-            'extension_total_amount'   => 0,
-            'extensions'               => [],
-            'notes'                    => [],
+            'subtotal_amount' => 1500.00,
+            'total_amount' => 1500.00,
+            'extension_total_amount' => 0,
+            'extensions' => [],
+            'notes' => [],
         ];
 
         $items = [
             [
-                'id'          => 1,
-                'parent_id'   => null,
-                'parent_key'  => null,
-                '_key'        => 'item-1',
+                'id' => 1,
+                'parent_id' => null,
+                'parent_key' => null,
+                '_key' => 'item-1',
                 'description' => 'Sample Item Description',
-                'rate'        => 1500.00,
-                'quantity'    => 1,
-                'sort_order'  => 1,
-                'is_header'   => false,
+                'rate' => 1500.00,
+                'quantity' => 1,
+                'sort_order' => 1,
+                'is_header' => false,
             ],
         ];
 
@@ -561,7 +564,7 @@ class ReportTemplateController extends Controller
                     'date_of_birth' => '01/01/1980',
                     'age' => 45,
                     'meal' => 'Full Board',
-                    'status' => 'confirmed'
+                    'status' => 'confirmed',
                 ],
                 [
                     'sharing_group_key' => 'group-1',
@@ -569,21 +572,132 @@ class ReportTemplateController extends Controller
                     'passport_number' => 'A87654321',
                     'date_of_birth' => '01/01/1985',
                     'age' => 40,
-                    'status' => 'confirmed'
-                ]
+                    'status' => 'confirmed',
+                ],
+            ],
+        ];
+
+        $opsMovement = [
+            'package_number' => 'PKG-OPS-0001',
+            'manifest_number' => 'MNF-OPS-0001',
+            'ops_movement_number' => 'KTG01-26',
+            'name' => 'Sample Ops Movement Package',
+            'departure_return_range' => date('d/m/Y').' - '.date('d/m/Y', strtotime('+10 days')),
+            'visa_type' => 'Umrah',
+            'first_hotel_name' => 'Sample Hotel',
+            'ops_base' => 'Makkah Desk',
+            'infotech_ref' => 'INFO-1234',
+            'vehicle_type' => 'Bus',
+            'vehicle_driver_name' => 'Sample Driver',
+            'vehicle_driver_contact_number' => '+60123456789',
+            'train_description' => 'Sample train movement notes',
+            'passengers' => [
+                'adult_total' => 20,
+                'adult_male' => 11,
+                'adult_female' => 9,
+                'child_total' => 2,
+                'child_boy' => 1,
+                'child_girl' => 1,
+                'official_total' => 2,
+                'wheelchair_non_official_total' => 1,
+                'grand_total' => 24,
+            ],
+            'passenger_details' => [
+                [
+                    'name' => 'Ahmad Bin Abu',
+                    'role' => 'passenger',
+                    'passport_number' => 'A12345678',
+                    'gender' => 'male',
+                    'age' => 45,
+                ],
+                [
+                    'name' => 'Siti Binti Ali',
+                    'role' => 'passenger',
+                    'passport_number' => 'A87654321',
+                    'gender' => 'female',
+                    'age' => 40,
+                ],
+            ],
+            'pif' => [
+                'tour_leaders' => [
+                    ['type' => 'saudi', 'name' => 'TL Saudi', 'contact_number' => '+9665000001'],
+                    ['type' => 'singapore', 'name' => 'TL Singapore', 'contact_number' => '+6591000002'],
+                ],
+            ],
+            'accommodations' => [
+                [
+                    'location' => 'Makkah',
+                    'hotel_name' => 'Sample Makkah Hotel',
+                    'check_in' => date('d/m/Y', strtotime('+1 days')),
+                    'check_out' => date('d/m/Y', strtotime('+5 days')),
+                    'type_of_meal' => 'Full Board',
+                    'ic' => 'IC-001',
+                    'room_counts' => ['single' => 2, 'double' => 4, 'triple' => 1, 'quad' => 0],
+                ],
+            ],
+            'officials' => [
+                ['name' => 'Official A', 'hotel' => 'Sample Makkah Hotel'],
+            ],
+            'flights' => [
+                [
+                    'description' => 'Departure',
+                    'from' => 'KUL',
+                    'to' => 'JED',
+                    'departure_datetime' => date('d/m/Y H:i', strtotime('+1 days 08:00')),
+                    'arrival_datetime' => date('d/m/Y H:i', strtotime('+1 days 14:00')),
+                    'airline' => 'SV',
+                    'pnr' => 'SV123',
+                    'doa_by' => 'Amir',
+                    'doa_datetime' => date('d/m/Y H:i', strtotime('+1 days 06:30')),
+                    'ic' => 'IC-FLT-001',
+                ],
+            ],
+            'transportation_plans' => [
+                [
+                    'from' => 'Airport',
+                    'to' => 'Hotel',
+                    'travel_date' => date('d/m/Y', strtotime('+1 days')),
+                    'travel_time' => '15:30',
+                    'remarks' => 'Arrival transfer',
+                ],
+            ],
+            'rawdah_tasreehs' => [
+                [
+                    'date' => date('d/m/Y', strtotime('+6 days')),
+                    'women_passengers' => 10,
+                    'women_time' => '08:00',
+                    'men_passengers' => 11,
+                    'men_time' => '10:00',
+                    'remarks' => 'Group slot A',
+                ],
+            ],
+            'budget' => [
+                [
+                    'title' => 'Transportation',
+                    'items' => [
+                        [
+                            'item_name' => 'Bus transfer',
+                            'unit_price' => 500,
+                            'quantity' => 2,
+                            'remarks' => 'Airport to hotel',
+                        ],
+                    ],
+                ],
             ],
         ];
 
         try {
-            $html = view($viewName, compact('branding', 'data', 'items', 'manifest'))->render();
+            $html = view($viewName, compact('branding', 'data', 'items', 'manifest', 'opsMovement'))->render();
+
             return response()->json(['html' => $html]);
         } catch (\Throwable $e) {
             // Fallback to quotation view if module-specific view fails
             try {
                 $html = view('quotations.report-content', compact('branding', 'data', 'items'))->render();
+
                 return response()->json(['html' => $html]);
             } catch (\Throwable $e2) {
-                return response()->json(['html' => '<p style="color:red;padding:12px;">Preview unavailable: ' . e($e->getMessage()) . '</p>']);
+                return response()->json(['html' => '<p style="color:red;padding:12px;">Preview unavailable: '.e($e->getMessage()).'</p>']);
             }
         }
     }

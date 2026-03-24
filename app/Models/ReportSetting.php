@@ -97,6 +97,27 @@ class ReportSetting extends Model
             'show_signature_stamp_name' => false,
             'show_signature_stamp_date' => false,
         ],
+        'ops_movement' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'ops_movement_pif' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'ops_movement_budget' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
     ];
 
     /**

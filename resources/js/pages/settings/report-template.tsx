@@ -64,6 +64,9 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     { key: 'manifest_arabic_names', label: 'Manifest - Arabic Names', document_type: 'MANIFEST' },
     { key: 'manifest_namelist_course_items', label: 'Manifest - Namelist & Course Items', document_type: 'MANIFEST' },
     { key: 'manifest_room_check', label: 'Manifest - Room Check', document_type: 'MANIFEST' },
+    { key: 'ops_movement', label: 'Ops Movement', document_type: 'OPS MOVEMENT' },
+    { key: 'ops_movement_budget', label: 'Ops Movement - Budget', document_type: 'OPS MOVEMENT' },
+    { key: 'ops_movement_pif', label: 'Ops Movement - PIF', document_type: 'OPS MOVEMENT' },
 ];
 
 const DEFAULT_LOGO_FILE_NAME = 'logo-primary.png';

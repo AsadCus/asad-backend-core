@@ -101,7 +101,11 @@ export function PdfPreview({
         };
     }, [fetchPreview]);
 
-    const isLandscape = selectedModule === 'manifest_namelist_course_items' || selectedModule === 'manifest_room_check';
+    const isLandscape =
+        selectedModule === 'manifest_namelist_course_items' ||
+        selectedModule === 'manifest_room_check' ||
+        selectedModule === 'ops_movement' ||
+        selectedModule === 'ops_movement_budget';
     const aspectRatioPadding = isLandscape ? '70.7%' : '141.4%';
 
     return (

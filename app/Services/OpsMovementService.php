@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class OpsMovementService
 {
@@ -81,9 +82,12 @@ class OpsMovementService
             'accommodations',
             'flights',
             'trainTickets',
+            'transportationPlans',
+            'rawdahTasreehs',
             'officials',
             'manifests.members',
             'manifests.files',
+            'manifests.rooms',
         ])->findOrFail($id);
 
         $manifest = $package->manifests->sortBy('id')->first();
@@ -91,11 +95,41 @@ class OpsMovementService
         $flightOpsMap = collect($extension['flights'] ?? [])->keyBy('id');
         $documents = $this->buildOpsMovementDocumentPayload($manifest);
         $budget = $this->normalizeBudgetPayload($extension['budget'] ?? []);
+        $tourLeaders = $this->normalizeTourLeaders(data_get($extension, 'pif.tour_leaders'));
+        $roomTypeCountsByLocation = collect($manifest?->rooms ?? [])
+            ->groupBy(function ($room): string {
+                return Str::lower(trim((string) ($room->location ?? '')));
+            })
+            ->map(function ($roomsByLocation): array {
+                $counts = [
+                    'single' => 0,
+                    'double' => 0,
+                    'triple' => 0,
+                    'quad' => 0,
+                ];
+
+                foreach ($roomsByLocation as $room) {
+                    $roomType = Str::lower(trim((string) ($room->room_type ?? '')));
+
+                    if ($roomType === 'twin') {
+                        $roomType = 'double';
+                    }
+
+                    if (array_key_exists($roomType, $counts)) {
+                        $counts[$roomType]++;
+                    }
+                }
+
+                return $counts;
+            });
         $nonOfficialMembers = collect($manifest?->members ?? [])
             ->filter(fn ($member) => $member->package_official_id === null && $member->status !== 'cancelled')
             ->values();
         $officialMembers = collect($manifest?->members ?? [])
             ->filter(fn ($member) => $member->package_official_id !== null && $member->status !== 'cancelled')
+            ->values();
+        $activeMembers = collect($manifest?->members ?? [])
+            ->filter(fn ($member) => $member->status !== 'cancelled')
             ->values();
 
         $adultMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) >= 18);
@@ -118,10 +152,29 @@ class OpsMovementService
             'infotech_ref' => $extension['infotech_ref'] ?? null,
             'documents' => $documents,
             'budget' => $budget,
+            'pif' => [
+                'tour_leaders' => $tourLeaders,
+            ],
             'vehicle_type' => $package->vehicle_type,
             'vehicle_driver_name' => $package->vehicle_driver_name,
             'vehicle_driver_contact_number' => $package->vehicle_driver_contact_number,
             'train_description' => $package->train_description,
+            'passenger_details' => $activeMembers->map(function ($member) {
+                return [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'relationship' => $member->relationship,
+                    'contact_number' => $member->contact_number,
+                    'nationality' => $member->nationality,
+                    'passport_number' => $member->passport_number,
+                    'gender' => $member->gender,
+                    'date_of_birth_formatted' => $member->date_of_birth
+                        ? Carbon::parse($member->date_of_birth)->translatedFormat('d F Y')
+                        : null,
+                    'age' => $this->resolveAge($member->date_of_birth),
+                    'role' => $member->package_official_id ? 'official' : 'passenger',
+                ];
+            })->values()->toArray(),
             'passengers' => [
                 'adult_total' => $adultMembers->count(),
                 'adult_male' => $adultMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'male')->count(),
@@ -133,7 +186,7 @@ class OpsMovementService
                 'wheelchair_non_official_total' => $nonOfficialMembers->filter(fn ($member) => $member->is_using_wheelchair === true)->count(),
                 'grand_total' => $nonOfficialMembers->count() + $officialMembers->count(),
             ],
-            'accommodations' => $package->accommodations->map(function ($accommodation) {
+            'accommodations' => $package->accommodations->map(function ($accommodation) use ($roomTypeCountsByLocation) {
                 return [
                     'id' => $accommodation->id,
                     'location' => $accommodation->location,
@@ -142,6 +195,15 @@ class OpsMovementService
                     'type_of_meal' => $accommodation->type_of_meal,
                     'check_in' => $accommodation->check_in_formatted,
                     'check_out' => $accommodation->check_out_formatted,
+                    'room_counts' => $roomTypeCountsByLocation->get(
+                        Str::lower(trim((string) ($accommodation->location ?? ''))),
+                        [
+                            'single' => 0,
+                            'double' => 0,
+                            'triple' => 0,
+                            'quad' => 0,
+                        ],
+                    ),
                 ];
             })->values()->toArray(),
             'officials' => $package->officials->map(function ($official) {
@@ -175,6 +237,27 @@ class OpsMovementService
                     'to' => $ticket->to,
                     'travel_date' => $ticket->travel_date_formatted,
                     'travel_time' => $ticket->travel_time,
+                ];
+            })->values()->toArray(),
+            'transportation_plans' => $package->transportationPlans->map(function ($plan) {
+                return [
+                    'id' => $plan->id,
+                    'from' => $plan->from,
+                    'to' => $plan->to,
+                    'travel_date' => $plan->travel_date_formatted,
+                    'travel_time' => $plan->travel_time,
+                    'remarks' => $plan->remarks,
+                ];
+            })->values()->toArray(),
+            'rawdah_tasreehs' => $package->rawdahTasreehs->map(function ($tasreeh) {
+                return [
+                    'id' => $tasreeh->id,
+                    'date' => $tasreeh->date_formatted,
+                    'women_passengers' => $tasreeh->women_passengers,
+                    'women_time' => $tasreeh->women_time,
+                    'men_passengers' => $tasreeh->men_passengers,
+                    'men_time' => $tasreeh->men_time,
+                    'remarks' => $tasreeh->remarks,
                 ];
             })->values()->toArray(),
         ];
@@ -260,6 +343,9 @@ class OpsMovementService
                 ->values()
                 ->toArray();
             $extension['budget'] = $this->normalizeBudgetPayload($payload['budget'] ?? []);
+            $extension['pif'] = [
+                'tour_leaders' => $this->normalizeTourLeaders(data_get($payload, 'pif.tour_leaders')),
+            ];
 
             if (array_key_exists('documents', $payload) && is_array($payload['documents'])) {
                 $this->syncOpsMovementDocuments($manifest, $payload['documents']);
@@ -473,5 +559,52 @@ class OpsMovementService
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @return array<int, array{type: string, name: ?string, contact_number: ?string}>
+     */
+    private function normalizeTourLeaders(mixed $tourLeaders): array
+    {
+        if (! is_array($tourLeaders) || ! array_is_list($tourLeaders)) {
+            return $this->defaultTourLeaders();
+        }
+
+        $normalized = collect($tourLeaders)
+            ->filter(fn ($tourLeader) => is_array($tourLeader))
+            ->map(function ($tourLeader): array {
+                return [
+                    'type' => $this->normalizeNullableString($tourLeader['type'] ?? null) ?? 'saudi',
+                    'name' => $this->normalizeNullableString($tourLeader['name'] ?? null),
+                    'contact_number' => $this->normalizeNullableString($tourLeader['contact_number'] ?? null),
+                ];
+            })
+            ->values()
+            ->all();
+
+        if (count($normalized) === 0) {
+            return $this->defaultTourLeaders();
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return array<int, array{type: string, name: ?string, contact_number: ?string}>
+     */
+    private function defaultTourLeaders(): array
+    {
+        return [
+            [
+                'type' => 'saudi',
+                'name' => null,
+                'contact_number' => null,
+            ],
+            [
+                'type' => 'singapore',
+                'name' => null,
+                'contact_number' => null,
+            ],
+        ];
     }
 }
