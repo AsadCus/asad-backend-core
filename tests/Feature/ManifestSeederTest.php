@@ -240,8 +240,8 @@ class ManifestSeederTest extends TestCase
         $this->assertSame(3, $manifest->rooms()->count());
         $this->assertSame(5, $manifest->rooms()->withCount('roomMembers')->get()->sum('room_members_count'));
 
-        $doubleRooms = $manifest->rooms()->where('sharing_plan', 'double')->orderBy('id')->get();
-        $singleRooms = $manifest->rooms()->where('sharing_plan', 'single')->orderBy('id')->get();
+        $doubleRooms = $manifest->rooms()->where('room_type', 'double')->orderBy('id')->get();
+        $singleRooms = $manifest->rooms()->where('room_type', 'single')->orderBy('id')->get();
 
         $this->assertCount(2, $doubleRooms);
         $this->assertCount(1, $singleRooms);
@@ -265,7 +265,7 @@ class ManifestSeederTest extends TestCase
 
         $this->assertTrue($officialMembers->every(function ($member): bool {
             return $member->manifest_sharing_group_id !== null
-                && $member->role !== null
+                && $member->relationship !== null
                 && $member->sharing_plan === 'single';
         }));
 

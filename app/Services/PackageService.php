@@ -817,7 +817,7 @@ class PackageService
 
             $manifest->members()->create([
                 'package_official_id' => $official->id,
-                'role' => $official->type,
+                'relationship' => $official->type,
                 'sharing_plan' => 'single',
                 ...$payload,
             ]);
@@ -915,13 +915,12 @@ class PackageService
                 $roomPayload = [
                     'sort_order' => $currentSortOrder,
                     'location' => $location['key'],
-                    'relationship' => 'official',
+                    'group_relationship' => 'official',
                     'room_label' => 'Official Room '.($index + 1),
                     'room_number' => null,
                     'room_type' => 'single',
                     'bed_type' => 'single',
                     'capacity' => 1,
-                    'sharing_plan' => 'single',
                     'status' => 'pending',
                     'meal' => $location['meal'],
                     'remarks' => $officialRoomMarker,
