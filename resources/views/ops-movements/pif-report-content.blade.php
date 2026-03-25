@@ -123,7 +123,6 @@
             <th>Carrier</th>
             <th>From</th>
             <th>To</th>
-            <th>Date</th>
             <th>ETD</th>
             <th>ETA</th>
             <th>Remarks</th>
@@ -133,14 +132,13 @@
                 <td>{{ $flight['airline'] ?? '-' }}</td>
                 <td>{{ $flight['from'] ?? '-' }}</td>
                 <td>{{ $flight['to'] ?? '-' }}</td>
-                <td>{{ $flight['flight_date'] ?? '-' }}</td>
                 <td>{{ $flight['departure_datetime'] ?? '-' }}</td>
                 <td>{{ $flight['arrival_datetime'] ?? '-' }}</td>
                 <td>{{ $flight['remarks'] ?? '-' }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="7" class="text-center">No flight schedule data.</td>
+                <td colspan="6" class="text-center">No flight schedule data.</td>
             </tr>
         @endforelse
     </table>

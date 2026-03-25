@@ -103,6 +103,14 @@
             <th>Infotech Ref</th>
             <td>{{ $opsMovement['infotech_ref'] ?? '-' }}</td>
         </tr>
+        <tr>
+            <th>Visa Submitted (Z Umrah)</th>
+            <td>{{ !empty($opsMovement['visa_submitted_to_z_umrah']) ? 'Yes' : 'No' }}</td>
+            <th>Visa Approved</th>
+            <td>{{ !empty($opsMovement['visa_approved']) ? 'Yes' : 'No' }}</td>
+            <th></th>
+            <td></td>
+        </tr>
     </table>
 
     {{-- PAX / Passengers Summary --}}

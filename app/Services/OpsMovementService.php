@@ -247,6 +247,22 @@ class OpsMovementService
                     'remarks' => $tasreeh->remarks,
                 ];
             })->values()->toArray(),
+            'passenger_details' => $activeMembers->map(function ($member) {
+                $dob = $member->date_of_birth;
+
+                return [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'relationship' => $member->relationship,
+                    'contact_number' => $member->contact_number,
+                    'nationality' => $member->nationality,
+                    'passport_number' => $member->passport_number,
+                    'gender' => $member->gender,
+                    'date_of_birth_formatted' => $dob ? $dob->translatedFormat('d F Y') : null,
+                    'age' => $dob ? Carbon::parse($dob)->age : null,
+                    'role' => $member->package_official_id ? 'official' : 'member',
+                ];
+            })->values()->toArray(),
         ];
     }
 
