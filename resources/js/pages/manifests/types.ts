@@ -5,13 +5,7 @@ export interface CustomerMemberData {
     id?: number;
     customer_id?: number;
     is_leader?: boolean;
-    status?:
-        | 'draft'
-        | 'pending_payment'
-        | 'partially_paid'
-        | 'confirmed'
-        | 'unavailable'
-        | 'cancelled';
+    status?: 'pending_payment' | 'partially_paid' | 'fully_paid' | 'cancelled';
     sharing_plan?: string | null;
     relationship?: string | null;
     name?: string;
@@ -217,11 +211,9 @@ export type MemberWithUI = MemberSchema & {
     date_of_sign_up?: string | null;
     is_first_time_umrah?: boolean | null;
     status?:
-        | 'draft'
         | 'pending_payment'
         | 'partially_paid'
-        | 'confirmed'
-        | 'unavailable'
+        | 'fully_paid'
         | 'cancelled'
         | string;
     relationship?: string | null;

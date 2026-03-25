@@ -9,6 +9,9 @@ class OpsMovementRule
         return [
             'ops_base' => ['nullable', 'string', 'max:255'],
             'infotech_ref' => ['nullable', 'string', 'max:255'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'doa_by' => ['nullable', 'string', 'max:255'],
+            'doa_datetime' => ['nullable', 'date'],
             'train_description' => ['nullable', 'string'],
             'vehicle_type' => ['nullable', 'string', 'max:255'],
             'vehicle_driver_name' => ['nullable', 'string', 'max:255'],
@@ -26,8 +29,6 @@ class OpsMovementRule
 
             'flights' => ['nullable', 'array'],
             'flights.*.id' => ['required', 'integer', 'exists:package_flights,id'],
-            'flights.*.doa_by' => ['nullable', 'string', 'max:255'],
-            'flights.*.doa_datetime' => ['nullable', 'date'],
             'flights.*.ic' => ['nullable', 'string', 'max:255'],
 
             'documents' => ['nullable', 'array'],

@@ -19,15 +19,23 @@ export const opsMovementValidationSchema = opsMovementSchema.superRefine(
             });
         }
 
-        (data.flights ?? []).forEach((flight, index) => {
-            if ((flight.doa_by ?? '').length > 255) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['flights', index, 'doa_by'],
-                    message: 'DOA by cannot exceed 255 characters.',
-                });
-            }
+        if ((data.location ?? '').length > 255) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['location'],
+                message: 'Location cannot exceed 255 characters.',
+            });
+        }
 
+        if ((data.doa_by ?? '').length > 255) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['doa_by'],
+                message: 'Doa by cannot exceed 255 characters.',
+            });
+        }
+
+        (data.flights ?? []).forEach((flight, index) => {
             if ((flight.ic ?? '').length > 255) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,

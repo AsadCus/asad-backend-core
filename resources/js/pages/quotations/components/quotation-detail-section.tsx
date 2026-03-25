@@ -92,14 +92,21 @@ export default function QuotationDetailSection({
     ): number => {
         const type = String(extension.type ?? 'discount');
         const calculationMode = String(extension.calculation_mode ?? 'fixed');
+        const calculationValue = Number(
+            extension.calculation_value ?? extension.amount ?? 0,
+        );
+
+        if (type === 'discount') {
+            if (calculationMode === 'percentage') {
+                return -Math.abs((baseSubtotal * calculationValue) / 100);
+            }
+
+            return -Math.abs(calculationValue);
+        }
 
         if (type !== 'tax' && type !== 'credit_card') {
             return Number(extension.amount ?? 0);
         }
-
-        const calculationValue = Number(
-            extension.calculation_value ?? extension.amount ?? 0,
-        );
 
         if (calculationMode === 'percentage') {
             return (baseSubtotal * calculationValue) / 100;
@@ -128,6 +135,26 @@ export default function QuotationDetailSection({
 
         const type = String(merged.type ?? 'discount');
         const calculationMode = String(merged.calculation_mode ?? 'fixed');
+
+        if (type === 'discount') {
+            const normalizedValue = Math.abs(
+                Number(merged.calculation_value ?? merged.amount ?? 0),
+            );
+            const computedAmount =
+                calculationMode === 'percentage'
+                    ? (subtotalAmount * normalizedValue) / 100
+                    : normalizedValue;
+
+            next[index] = {
+                ...merged,
+                calculation_value: normalizedValue,
+                amount: -Math.abs(computedAmount),
+            };
+
+            setData('extensions', next);
+
+            return;
+        }
 
         if (type === 'tax' || type === 'credit_card') {
             const calculationValue = Number(
@@ -345,14 +372,21 @@ export default function QuotationDetailSection({
                             const isCalculatedType =
                                 extension.type === 'tax' ||
                                 extension.type === 'credit_card';
+                            const isDiscountType =
+                                extension.type === 'discount';
+                            const hasCalculationInput =
+                                isCalculatedType || isDiscountType;
+                            const hasValueInput =
+                                hasCalculationInput;
 
                             return (
                                 <div
                                     key={extension._key ?? `extension-${index}`}
                                     className={cn(
-                                        'grid items-end gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                                        !isCalculatedType &&
-                                            'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+                                        !hasCalculationInput &&
+                                            'grid items-end gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+                                        hasCalculationInput &&
+                                            'grid items-end gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
                                         isView &&
                                             'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]',
                                     )}
@@ -382,13 +416,17 @@ export default function QuotationDetailSection({
                                                     type: value,
                                                     calculation_mode:
                                                         value === 'tax' ||
-                                                        value === 'credit_card'
+                                                        value ===
+                                                            'credit_card' ||
+                                                        value === 'discount'
                                                             ? (extension.calculation_mode ??
                                                               'fixed')
                                                             : 'fixed',
                                                     calculation_value:
                                                         value === 'tax' ||
-                                                        value === 'credit_card'
+                                                        value ===
+                                                            'credit_card' ||
+                                                        value === 'discount'
                                                             ? (extension.calculation_value ??
                                                               extension.amount ??
                                                               0)
@@ -416,7 +454,7 @@ export default function QuotationDetailSection({
                                         )}
                                     </FormField>
 
-                                    {isCalculatedType && (
+                                    {hasCalculationInput && (
                                         <FormField label="Calculation">
                                             <Select
                                                 disabled={isView}
@@ -452,23 +490,35 @@ export default function QuotationDetailSection({
                                         </FormField>
                                     )}
 
-                                    {isCalculatedType && (
+                                    {hasValueInput && (
                                         <FormField
                                             label={
                                                 extension.calculation_mode ===
-                                                'percentage'
+                                                    'percentage' &&
+                                                isCalculatedType
                                                     ? 'Value (%)'
                                                     : 'Value'
                                             }
                                         >
                                             <ProperInput
                                                 value={
-                                                    extension.calculation_value ??
-                                                    extension.amount ??
-                                                    ''
+                                                    isDiscountType
+                                                        ? Math.abs(
+                                                              Number(
+                                                                  extension.calculation_value ??
+                                                                      extension.amount ??
+                                                                      0,
+                                                              ),
+                                                          )
+                                                        : (extension.calculation_value ??
+                                                          extension.amount ??
+                                                          '')
                                                 }
                                                 type="number"
-                                                inputProps={{ step: 'any' }}
+                                                inputProps={{
+                                                    step: 'any',
+                                                    min: 0,
+                                                }}
                                                 placeholder="0.00"
                                                 disabled={isView}
                                                 onCommit={(value) =>
@@ -496,9 +546,7 @@ export default function QuotationDetailSection({
                                             type="number"
                                             inputProps={{ step: 'any' }}
                                             placeholder="0.00"
-                                            disabled={
-                                                isView || isCalculatedType
-                                            }
+                                            disabled={isView || hasValueInput}
                                             onCommit={(value) =>
                                                 handleExtensionChange(index, {
                                                     amount: Number(value),

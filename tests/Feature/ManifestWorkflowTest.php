@@ -1450,7 +1450,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertDatabaseHas('customer_confirmation_members', [
             'customer_confirmation_id' => $newConfirmation->id,
             'customer_id' => $customer->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
     }
 
@@ -2618,10 +2618,15 @@ class ManifestWorkflowTest extends TestCase
         );
         $this->assertSame(1000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             $memberRow['date_of_second_payment']
         );
-        $this->assertSame(2000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(1500.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            $memberRow['date_of_third_payment']
+        );
+        $this->assertSame(500.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(1700.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
@@ -2780,10 +2785,15 @@ class ManifestWorkflowTest extends TestCase
         );
         $this->assertSame(500.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             $memberRow['date_of_second_payment']
         );
-        $this->assertSame(1200.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(1000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            $memberRow['date_of_third_payment']
+        );
+        $this->assertSame(200.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(3200.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 

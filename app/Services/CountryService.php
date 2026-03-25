@@ -20,6 +20,7 @@ class CountryService
             return [
                 'id' => $q->id,
                 'name' => $q->name,
+                'adjective' => $q->adjective,
             ];
         });
 

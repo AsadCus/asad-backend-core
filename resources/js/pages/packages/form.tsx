@@ -675,20 +675,20 @@ export default function PackageForm({
                             </FormField>
 
                             <FormField
-                                label="Country"
+                                label="Package Location"
                                 fieldRequirementsProps={{
-                                    hint: 'Country scope for this package',
+                                    hint: 'Location scope for this package',
                                 }}
                                 error={getError('country_id')}
                             >
                                 <ProperInputSelect
-                                    disabled={isView || processing}
+                                    disabled={isView || processing || isEdit}
                                     options={countries}
                                     value={data.country_id ?? ''}
                                     onValueChange={(value) =>
                                         setData('country_id', String(value))
                                     }
-                                    placeholder="Select country"
+                                    placeholder="Select package location"
                                 />
                             </FormField>
                         </div>

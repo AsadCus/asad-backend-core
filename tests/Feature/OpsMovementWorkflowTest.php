@@ -161,6 +161,9 @@ class OpsMovementWorkflowTest extends TestCase
         $payload = [
             'ops_base' => 'KL Base',
             'infotech_ref' => 'INFO-9988',
+            'location' => 'KLIA Terminal 1',
+            'doa_by' => 'Amir',
+            'doa_datetime' => '2026-01-08 05:30:00',
             'vehicle_type' => 'Bus Updated',
             'vehicle_driver_name' => 'Driver Updated',
             'vehicle_driver_contact_number' => '0181231231',
@@ -182,8 +185,6 @@ class OpsMovementWorkflowTest extends TestCase
             'flights' => [
                 [
                     'id' => $flight->id,
-                    'doa_by' => 'Amir',
-                    'doa_datetime' => '2026-01-08 05:30:00',
                     'ic' => 'IC-FLT-01',
                 ],
             ],
@@ -274,9 +275,10 @@ class OpsMovementWorkflowTest extends TestCase
 
         $this->assertSame('KL Base', data_get($manifest->ops_movement_extension, 'ops_base'));
         $this->assertSame('INFO-9988', data_get($manifest->ops_movement_extension, 'infotech_ref'));
+        $this->assertSame('KLIA Terminal 1', data_get($manifest->ops_movement_extension, 'location'));
+        $this->assertSame('Amir', data_get($manifest->ops_movement_extension, 'doa_by'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_submitted_to_z_umrah'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_approved'));
-        $this->assertSame('Amir', data_get($manifest->ops_movement_extension, 'flights.0.doa_by'));
         $this->assertSame('IC-FLT-01', data_get($manifest->ops_movement_extension, 'flights.0.ic'));
         $this->assertSame('Transportation', data_get($manifest->ops_movement_extension, 'budget.0.title'));
         $this->assertSame(500.5, data_get($manifest->ops_movement_extension, 'budget.0.items.0.unit_price'));

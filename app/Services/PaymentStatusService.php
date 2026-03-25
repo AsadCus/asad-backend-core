@@ -16,9 +16,6 @@ class PaymentStatusService
 
     /**
      * Minimum status required for auto-linking CC members to manifest.
-     *
-     * Mode B (default): only members who reach 'partially_paid' or above.
-     * To link on 'pending_payment' instead, change this to 'pending_payment'.
      */
     private const AUTO_LINK_MINIMUM_STATUS = 'partially_paid';
 
@@ -112,7 +109,7 @@ class PaymentStatusService
             })->count();
 
             if ($paidInvoicesCount === $memberInvoices->count()) {
-                $newStatus = 'confirmed';
+                $newStatus = 'fully_paid';
             } elseif ($paidInvoicesCount > 0) {
                 $newStatus = 'partially_paid';
             } else {
@@ -128,8 +125,8 @@ class PaymentStatusService
                 if (! $hasAvailableSeat) {
                     CustomerConfirmationMember::query()
                         ->where('id', $memberId)
-                        ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed', 'unavailable'])
-                        ->update(['status' => 'unavailable']);
+                        ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid'])
+                        ->update(['status' => 'pending_payment']);
 
                     ManifestMember::query()
                         ->where('customer_confirmation_member_id', $memberId)
@@ -143,7 +140,7 @@ class PaymentStatusService
 
             CustomerConfirmationMember::query()
                 ->where('id', $memberId)
-                ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed', 'unavailable'])
+                ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid'])
                 ->update(['status' => $newStatus]);
 
             if ($packageId > 0) {
@@ -183,7 +180,7 @@ class PaymentStatusService
      */
     private function getAutoLinkEligibleStatuses(): array
     {
-        $statuses = ['confirmed'];
+        $statuses = ['fully_paid'];
 
         if (self::AUTO_LINK_MINIMUM_STATUS === 'partially_paid') {
             $statuses[] = 'partially_paid';

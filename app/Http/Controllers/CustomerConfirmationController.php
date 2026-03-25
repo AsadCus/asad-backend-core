@@ -155,7 +155,7 @@ class CustomerConfirmationController extends Controller
             'photo_file_name' => ['nullable', 'string', 'max:255'],
             'passport_file_removed' => ['nullable', 'boolean'],
             'photo_file_removed' => ['nullable', 'boolean'],
-            'status' => ['required', 'string', 'in:draft,pending_payment,partially_paid,confirmed,cancelled,unavailable'],
+            'status' => ['required', 'string', 'in:pending_payment,partially_paid,fully_paid,cancelled'],
             'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'relationship' => ['nullable', 'string', 'max:255'],
             'role' => ['nullable', 'string', 'max:255'],
@@ -195,6 +195,31 @@ class CustomerConfirmationController extends Controller
         $successMessage = count($quotations).' quotation(s) created successfully.';
 
         return redirect()->route('quotation.index')->with('success', $successMessage);
+    }
+
+    /**
+     * Create refund receipt(s) for one or more customer confirmation members.
+     */
+    public function createRefunds(Request $request, string $id): RedirectResponse
+    {
+        CustomerConfirmation::query()->findOrFail((int) $id);
+
+        $validated = $request->validate([
+            'member_refunds' => ['required', 'array', 'min:1'],
+            'member_refunds.*.member_id' => ['required', 'integer', 'exists:customer_confirmation_members,id'],
+            'member_refunds.*.mode' => ['required', 'string', 'in:percentage,fixed'],
+            'member_refunds.*.percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'member_refunds.*.amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $result = $this->customerConfirmationService->createRefundReceipts(
+            (int) $id,
+            $validated['member_refunds'],
+        );
+
+        return redirect()
+            ->route('receipt.index')
+            ->with('success', $result['count'].' refund receipt(s) created successfully.');
     }
 
     /**

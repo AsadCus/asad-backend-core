@@ -347,4 +347,23 @@ class QuotationExtensionWorkflowTest extends TestCase
         $this->assertSame('manual_cash', $options[1]['value']);
         $this->assertCount(2, $options);
     }
+
+    public function test_store_payment_method_masters_generates_value_from_name(): void
+    {
+        app(QuotationService::class)->storePaymentMethodMasters([
+            [
+                'name' => 'Credit Card (Terminal)',
+                'value' => '',
+                'is_active' => true,
+                'sort_order' => 1,
+            ],
+        ]);
+
+        $this->assertDatabaseHas('payment_method_masters', [
+            'name' => 'Credit Card (Terminal)',
+            'value' => 'credit_card_terminal',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+    }
 }

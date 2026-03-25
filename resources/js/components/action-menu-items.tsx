@@ -255,6 +255,10 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('refund') && (
+                <Item onClick={() => onAction?.('refund', row)}>Refund</Item>
+            )}
+
             {actions.includes('handle-customer') && !handledBy && (
                 <Item onClick={() => onAction?.('handle-customer', row)}>
                     Handle

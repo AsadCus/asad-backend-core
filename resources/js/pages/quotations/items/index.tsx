@@ -32,7 +32,7 @@ interface PaymentMethodMasterSchema {
     _key?: string;
     id?: number;
     name: string;
-    value: string;
+    value?: string;
     is_active?: boolean;
     sort_order?: number;
 }
@@ -431,6 +431,10 @@ export default function MastersQuotationIndex({
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <div className="mx-auto w-full">
                         <form onSubmit={submit} className="space-y-6 py-2">
+                            <h3 className="text-lg font-semibold">
+                                Products & Service Master
+                            </h3>
+
                             <QuotationItemTableForm
                                 mode={'master'}
                                 items={data.items}
@@ -500,7 +504,7 @@ export default function MastersQuotationIndex({
                                                 key={key}
                                                 className="grid gap-3 rounded-lg border p-3 md:grid-cols-12"
                                             >
-                                                <div className="md:col-span-4">
+                                                <div className="md:col-span-8">
                                                     <FormField label="Name">
                                                         <ProperInput
                                                             value={
@@ -519,35 +523,6 @@ export default function MastersQuotationIndex({
                                                                 processingPaymentMethods
                                                             }
                                                             placeholder="Payment method name"
-                                                        />
-                                                    </FormField>
-                                                </div>
-
-                                                <div className="md:col-span-4">
-                                                    <FormField label="Value">
-                                                        <ProperInput
-                                                            value={
-                                                                paymentMethod.value ??
-                                                                ''
-                                                            }
-                                                            onCommit={(value) =>
-                                                                handlePaymentMethodChange(
-                                                                    key,
-                                                                    {
-                                                                        value: value
-                                                                            .trim()
-                                                                            .toLowerCase()
-                                                                            .replace(
-                                                                                /\s+/g,
-                                                                                '_',
-                                                                            ),
-                                                                    },
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                processingPaymentMethods
-                                                            }
-                                                            placeholder="payment_method_key"
                                                         />
                                                     </FormField>
                                                 </div>

@@ -3,6 +3,7 @@ import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { FormField } from '@/components/form-field';
+import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
@@ -287,10 +288,10 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
     },
     {
         accessorKey: 'status',
-        header: 'Status',
+        header: 'Payment Status',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const status = row.original.status ?? 'draft';
+            const status = row.original.status ?? 'pending_payment';
             const statusColor =
                 confirmationMemberStatusColors[status] ??
                 'bg-gray-100 text-gray-800';
@@ -325,6 +326,18 @@ interface ConfirmedCustomerProps {
     packageOptions?: OptionType[];
     pageTitle?: string;
     indexUrl?: string;
+}
+
+type RefundMode = 'percentage' | 'fixed';
+
+interface RefundDraftRow {
+    member_id: number;
+    member_name: string;
+    paid_amount: number;
+    selected: boolean;
+    mode: RefundMode;
+    percentage: string;
+    amount: string;
 }
 
 export default function ConfirmedCustomerIndex({
@@ -390,6 +403,12 @@ export default function ConfirmedCustomerIndex({
         {},
     );
     const [isGeneratingQuotations, setIsGeneratingQuotations] = useState(false);
+
+    const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+    const [refundGroup, setRefundGroup] =
+        useState<CustomerConfirmationDatatableSchema | null>(null);
+    const [refundRows, setRefundRows] = useState<RefundDraftRow[]>([]);
+    const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
 
     const isMemberView = memberDialogMode === 'view';
 
@@ -678,7 +697,7 @@ export default function ConfirmedCustomerIndex({
             memberDialogData.status == null ||
             memberDialogData.status.toString().trim().length === 0
         ) {
-            errors.status = 'Status is required.';
+            errors.status = 'Payment status is required.';
         }
 
         setMemberDialogErrors(errors);
@@ -828,6 +847,168 @@ export default function ConfirmedCustomerIndex({
         );
     };
 
+    const normalizeRefundAmount = (value: string): number | null => {
+        if (value.trim() === '') {
+            return null;
+        }
+
+        const parsed = Number(value);
+
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            return null;
+        }
+
+        return parsed;
+    };
+
+    const computeRefundAmount = (row: RefundDraftRow): number | null => {
+        if (row.mode === 'percentage') {
+            const percentage = normalizeRefundAmount(row.percentage);
+
+            if (percentage === null || percentage <= 0 || percentage > 100) {
+                return null;
+            }
+
+            return Number(((row.paid_amount * percentage) / 100).toFixed(2));
+        }
+
+        const fixedAmount = normalizeRefundAmount(row.amount);
+
+        if (
+            fixedAmount === null ||
+            fixedAmount <= 0 ||
+            fixedAmount > row.paid_amount
+        ) {
+            return null;
+        }
+
+        return Number(fixedAmount.toFixed(2));
+    };
+
+    const openRefundDialog = (
+        group: CustomerConfirmationDatatableSchema,
+        singleMemberId?: number,
+    ) => {
+        const refundableMembers = group.members.filter(
+            (member) => member.status !== 'cancelled' && (member.paid_amount ?? 0) > 0,
+        );
+
+        if (refundableMembers.length === 0) {
+            toast.error('No paid members are available for refund.');
+
+            return;
+        }
+
+        if (singleMemberId) {
+            const targetMember = refundableMembers.find(
+                (member) => member.id === singleMemberId,
+            );
+
+            if (!targetMember) {
+                toast.error('Selected member has no paid amount to refund.');
+
+                return;
+            }
+
+            setRefundRows([
+                {
+                    member_id: targetMember.id,
+                    member_name: targetMember.name,
+                    paid_amount: Number(targetMember.paid_amount ?? 0),
+                    selected: true,
+                    mode: 'percentage',
+                    percentage: '',
+                    amount: '',
+                },
+            ]);
+        } else {
+            setRefundRows(
+                refundableMembers.map((member) => ({
+                    member_id: member.id,
+                    member_name: member.name,
+                    paid_amount: Number(member.paid_amount ?? 0),
+                    selected: true,
+                    mode: 'percentage',
+                    percentage: '',
+                    amount: '',
+                })),
+            );
+        }
+
+        setRefundGroup(group);
+        setRefundDialogOpen(true);
+    };
+
+    const updateRefundRow = (
+        memberId: number,
+        updater: (prev: RefundDraftRow) => RefundDraftRow,
+    ) => {
+        setRefundRows((prevRows) =>
+            prevRows.map((row) =>
+                row.member_id === memberId ? updater(row) : row,
+            ),
+        );
+    };
+
+    const submitRefunds = () => {
+        if (!refundGroup) {
+            return;
+        }
+
+        const selectedRows = refundRows.filter((row) => row.selected);
+
+        if (selectedRows.length === 0) {
+            toast.error('Please select at least one member to refund.');
+
+            return;
+        }
+
+        const memberRefunds = selectedRows.map((row) => {
+            const amount = computeRefundAmount(row);
+
+            if (amount === null) {
+                return null;
+            }
+
+            return {
+                member_id: row.member_id,
+                mode: row.mode,
+                percentage:
+                    row.mode === 'percentage'
+                        ? Number(row.percentage || 0)
+                        : null,
+                amount: row.mode === 'fixed' ? amount : null,
+            };
+        });
+
+        if (memberRefunds.some((row) => row === null)) {
+            toast.error(
+                'Please enter valid refund values that do not exceed paid amount.',
+            );
+
+            return;
+        }
+
+        setIsSubmittingRefund(true);
+
+        router.post(
+            `/customer-confirmations/${refundGroup.id}/refunds`,
+            {
+                member_refunds: memberRefunds,
+            },
+            {
+                preserveState: false,
+                preserveScroll: true,
+                onError: () => {
+                    toast.error('Failed to create refund receipt.');
+                },
+                onFinish: () => {
+                    setIsSubmittingRefund(false);
+                },
+            },
+        );
+    };
+
     const renderGroupSubComponent = (
         row: Row<CustomerConfirmationDatatableSchema>,
     ) => {
@@ -843,6 +1024,10 @@ export default function ConfirmedCustomerIndex({
 
                     if (member.status !== 'cancelled') {
                         rowActions.push('move-members', 'cancel-member');
+                    }
+
+                    if (member.status !== 'cancelled' && (member.paid_amount ?? 0) > 0) {
+                        rowActions.push('refund');
                     }
 
                     return rowActions;
@@ -869,6 +1054,11 @@ export default function ConfirmedCustomerIndex({
 
                     if (action === 'move-members') {
                         openMoveDialog(row.original, [member.id]);
+                        return;
+                    }
+
+                    if (action === 'refund') {
+                        openRefundDialog(row.original, member.id);
                         return;
                     }
 
@@ -922,6 +1112,16 @@ export default function ConfirmedCustomerIndex({
                                     'move-members',
                                 ];
 
+                                const hasRefundableMembers = group.members.some(
+                                    (member) =>
+                                        member.status !== 'cancelled' &&
+                                        (member.paid_amount ?? 0) > 0,
+                                );
+
+                                if (hasRefundableMembers) {
+                                    rowActions.push('refund');
+                                }
+
                                 if (group.can_create_quotation) {
                                     rowActions.push('create-quotation');
                                 }
@@ -960,6 +1160,8 @@ export default function ConfirmedCustomerIndex({
                                         row
                                     ) {
                                         openQuotationDialog(row.original);
+                                    } else if (action === 'refund' && row) {
+                                        openRefundDialog(row.original);
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Customer Confirmation',
@@ -1191,7 +1393,7 @@ export default function ConfirmedCustomerIndex({
 
                                             <Badge variant="outline">
                                                 {confirmationMemberStatusLabels[
-                                                    member.status ?? 'draft'
+                                                    member.status ?? 'pending_payment'
                                                 ] ?? member.status}
                                             </Badge>
                                         </label>
@@ -1315,6 +1517,233 @@ export default function ConfirmedCustomerIndex({
                                             Save
                                         </Button>
                                     )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+                <DialogContent className="flex max-h-[95%] max-w-[95%] flex-col md:min-w-3xl">
+                    <DialogHeader className="gap-0">
+                        <DialogTitle className="text-xl">
+                            Create Refund Receipt
+                        </DialogTitle>
+                        <DialogDescription>
+                            Set refund mode per member. Percentage calculates
+                            amount automatically from paid amount.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                        {refundGroup && (
+                            <div className="space-y-4">
+                                <div className="space-y-3 rounded-md border p-3">
+                                    {refundRows.map((row) => {
+                                        const isSingleRow =
+                                            refundRows.length === 1;
+                                        const computedAmount =
+                                            computeRefundAmount(row);
+
+                                        return (
+                                            <div
+                                                key={row.member_id}
+                                                className="space-y-3 rounded-md border p-3"
+                                            >
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        {!isSingleRow && (
+                                                            <Checkbox
+                                                                checked={
+                                                                    row.selected
+                                                                }
+                                                                onCheckedChange={(
+                                                                    value,
+                                                                ) => {
+                                                                    updateRefundRow(
+                                                                        row.member_id,
+                                                                        (
+                                                                            prev,
+                                                                        ) => ({
+                                                                            ...prev,
+                                                                            selected:
+                                                                                Boolean(
+                                                                                    value,
+                                                                                ),
+                                                                        }),
+                                                                    );
+                                                                }}
+                                                            />
+                                                        )}
+                                                        <span className="font-medium">
+                                                            {row.member_name}
+                                                        </span>
+                                                    </div>
+
+                                                    <Badge variant="outline">
+                                                        Paid:{' '}
+                                                        {formatCurrency(
+                                                            row.paid_amount,
+                                                        )}
+                                                    </Badge>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                    <FormField label="Refund Type">
+                                                        <ProperInputSelect
+                                                            options={[
+                                                                {
+                                                                    label: 'Percentage',
+                                                                    value: 'percentage',
+                                                                },
+                                                                {
+                                                                    label: 'Fixed Amount',
+                                                                    value: 'fixed',
+                                                                },
+                                                            ]}
+                                                            value={row.mode}
+                                                            onValueChange={(
+                                                                value,
+                                                            ) => {
+                                                                const nextMode =
+                                                                    (value as RefundMode) ||
+                                                                    'percentage';
+
+                                                                updateRefundRow(
+                                                                    row.member_id,
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        mode: nextMode,
+                                                                        percentage:
+                                                                            nextMode ===
+                                                                            'percentage'
+                                                                                ? prev.percentage
+                                                                                : '',
+                                                                        amount:
+                                                                            nextMode ===
+                                                                            'fixed'
+                                                                                ? prev.amount
+                                                                                : '',
+                                                                    }),
+                                                                );
+                                                            }}
+                                                            disabled={
+                                                                !row.selected ||
+                                                                isSubmittingRefund
+                                                            }
+                                                            searchable={false}
+                                                        />
+                                                    </FormField>
+
+                                                    {row.mode ===
+                                                        'percentage' && (
+                                                        <FormField label="Percentage (%)">
+                                                            <ProperInput
+                                                                value={
+                                                                    row.percentage
+                                                                }
+                                                                onCommit={(
+                                                                    value,
+                                                                ) => {
+                                                                    updateRefundRow(
+                                                                        row.member_id,
+                                                                        (
+                                                                            prev,
+                                                                        ) => ({
+                                                                            ...prev,
+                                                                            percentage:
+                                                                                value,
+                                                                        }),
+                                                                    );
+                                                                }}
+                                                                placeholder="Enter percentage"
+                                                                disabled={
+                                                                    !row.selected ||
+                                                                    isSubmittingRefund
+                                                                }
+                                                                type="number"
+                                                                inputProps={{
+                                                                    min: 0,
+                                                                    max: 100,
+                                                                    step: '0.01',
+                                                                }}
+                                                            />
+                                                        </FormField>
+                                                    )}
+
+                                                    <FormField label="Amount">
+                                                        <ProperInput
+                                                            value={
+                                                                row.mode ===
+                                                                'percentage'
+                                                                    ? computedAmount ===
+                                                                      null
+                                                                        ? ''
+                                                                        : computedAmount.toFixed(
+                                                                              2,
+                                                                          )
+                                                                    : row.amount
+                                                            }
+                                                            onCommit={(
+                                                                value,
+                                                            ) => {
+                                                                if (
+                                                                    row.mode ===
+                                                                    'percentage'
+                                                                ) {
+                                                                    return;
+                                                                }
+
+                                                                updateRefundRow(
+                                                                    row.member_id,
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        amount: value,
+                                                                    }),
+                                                                );
+                                                            }}
+                                                            placeholder="Enter amount"
+                                                            disabled={
+                                                                !row.selected ||
+                                                                isSubmittingRefund ||
+                                                                row.mode ===
+                                                                    'percentage'
+                                                            }
+                                                            type="number"
+                                                            inputProps={{
+                                                                min: 0,
+                                                                max: row.paid_amount,
+                                                                step: '0.01',
+                                                            }}
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            setRefundDialogOpen(false)
+                                        }
+                                        disabled={isSubmittingRefund}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onClick={submitRefunds}
+                                        disabled={isSubmittingRefund}
+                                    >
+                                        {isSubmittingRefund
+                                            ? 'Creating...'
+                                            : 'Create Refund Receipt'}
+                                    </Button>
                                 </div>
                             </div>
                         )}

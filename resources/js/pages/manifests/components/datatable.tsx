@@ -1,4 +1,5 @@
 import { DatePickerField } from '@/components/date-picker';
+import { ImagePreviewDialog } from '@/components/image-preview-dialog';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +52,8 @@ import {
     ChevronDown,
     ChevronRight,
     EllipsisVertical,
+    ExternalLink,
+    FileText,
     GripVertical,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -113,6 +116,9 @@ const SHARING_PLAN_CAPACITY: Record<string, number> = {
     single: 1,
 };
 
+const MANIFEST_DATATABLE_EXPANDED_STORAGE_PREFIX =
+    'manifest-datatable-expanded';
+
 const PACKAGE_CATEGORY_LABELS = Object.fromEntries(
     packageCategoryOptions.map((option) => [option.value, option.label]),
 ) as Record<string, string>;
@@ -160,6 +166,46 @@ interface ManifestDatatableProps {
 
 function normalizeRoomLocationKey(value: string): string {
     return value.trim().toLowerCase();
+}
+
+function normalizeDocumentPath(path?: string | null): string {
+    const trimmed = String(path ?? '').trim();
+
+    if (trimmed.length === 0) {
+        return '';
+    }
+
+    if (/^https?:\/\//i.test(trimmed)) {
+        return trimmed;
+    }
+
+    const normalized = trimmed.replace(/^\/+/, '').replace(/^storage\//i, '');
+
+    return `/storage/${normalized}`;
+}
+
+function isImageDocument(pathOrName?: string | null): boolean {
+    const value = String(pathOrName ?? '').toLowerCase();
+
+    return /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(value);
+}
+
+function documentLabel(path?: string | null, fileName?: string | null): string {
+    const preferredName = String(fileName ?? '').trim();
+
+    if (preferredName.length > 0) {
+        return preferredName;
+    }
+
+    const normalizedPath = String(path ?? '').trim();
+
+    if (normalizedPath.length === 0) {
+        return 'Document';
+    }
+
+    const fileNameFromPath = normalizedPath.split('/').pop() ?? normalizedPath;
+
+    return decodeURIComponent(fileNameFromPath);
 }
 
 function getCapacityForSharingPlan(sharingPlan?: string): number {
@@ -435,7 +481,51 @@ export default function ManifestDatatable({
         }));
     }, [rows, isGrouped]);
 
-    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const expandedStorageKey = useMemo(() => {
+        const pathname =
+            typeof window !== 'undefined' ? window.location.pathname : 'ssr';
+        const locationKey = normalizeRoomLocationKey(
+            String(currentRoomLocationKey ?? 'none'),
+        );
+
+        return `${MANIFEST_DATATABLE_EXPANDED_STORAGE_PREFIX}::${pathname}::${mode}::${locationKey}`;
+    }, [currentRoomLocationKey, mode]);
+
+    const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+        if (typeof window === 'undefined') {
+            return {};
+        }
+
+        try {
+            const raw = window.localStorage.getItem(expandedStorageKey);
+
+            if (!raw) {
+                return {};
+            }
+
+            const parsed = JSON.parse(raw);
+
+            if (!parsed || typeof parsed !== 'object') {
+                return {};
+            }
+
+            return parsed as Record<string, boolean>;
+        } catch {
+            return {};
+        }
+    });
+
+    const expandAllGroups = useCallback(() => {
+        setExpanded(
+            Object.fromEntries(groups.map((group) => [group.key, true])),
+        );
+    }, [groups]);
+
+    const collapseAllGroups = useCallback(() => {
+        setExpanded(
+            Object.fromEntries(groups.map((group) => [group.key, false])),
+        );
+    }, [groups]);
 
     useEffect(() => {
         setExpanded((prev) => {
@@ -452,6 +542,21 @@ export default function ManifestDatatable({
             return changed ? next : prev;
         });
     }, [groups]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        try {
+            window.localStorage.setItem(
+                expandedStorageKey,
+                JSON.stringify(expanded),
+            );
+        } catch {
+            // Ignore storage write errors and keep table interaction functional.
+        }
+    }, [expanded, expandedStorageKey]);
 
     const toggleExpanded = useCallback((key: string) => {
         setExpanded((prev) => ({
@@ -1168,7 +1273,24 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-35">Second Payment</TableHead>
             )}
             {mode === 'members' && (
+                <TableHead className="min-w-55">
+                    Date of Third Payment
+                </TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-35">Third Payment</TableHead>
+            )}
+            {mode === 'members' && (
                 <TableHead className="min-w-35">Balance Due</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-40">Receipt 1</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-40">Receipt 2</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-50">Receipt 3</TableHead>
             )}
             {mode === 'airline' && (
                 <TableHead className="min-w-40">Passport No</TableHead>
@@ -1402,6 +1524,11 @@ export default function ManifestDatatable({
                                 size="default"
                             />
                         </TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
                         <TableCell />
                         <TableCell />
                         <TableCell />
@@ -1755,6 +1882,98 @@ export default function ManifestDatatable({
         const memberDisabled = mode === 'room_check' || disabled;
         const remarksDisabled = disabled;
         const isOfficialMemberRow = isOfficialMember(member);
+        const receiptDocuments = (member.receipt_documents ?? [])
+            .filter((document) => {
+                return (
+                    !document.removed &&
+                    (document.file_path || document.file_name)
+                );
+            })
+            .sort((left, right) => {
+                return Number(left.id ?? 0) - Number(right.id ?? 0);
+            });
+
+        const renderReceiptDocument = (
+            document?: {
+                file_path?: string | null;
+                file_name?: string | null;
+            },
+            fallbackValue?: string | null,
+        ) => {
+            const href = normalizeDocumentPath(document?.file_path);
+            const label = documentLabel(document?.file_path, document?.file_name);
+            const isImage = isImageDocument(
+                document?.file_path ?? document?.file_name,
+            );
+
+            if (href.length === 0) {
+                return (
+                    <div className="text-sm text-muted-foreground">
+                        {String(fallbackValue ?? '').trim() || '-'}
+                    </div>
+                );
+            }
+
+            if (isImage) {
+                return (
+                    <div className="flex items-center gap-2">
+                        <ImagePreviewDialog
+                            imageSrc={href}
+                            imageAlt={label}
+                            title={label}
+                            thumbnailSize={48}
+                        />
+                    </div>
+                );
+            }
+
+            return (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs hover:bg-muted/40"
+                    title={label}
+                >
+                    <FileText className="h-4 w-4" />
+                    <span className="max-w-[120px] truncate">{label}</span>
+                    <ExternalLink className="h-3 w-3" />
+                </a>
+            );
+        };
+
+        const renderReceiptDocumentCell = (receiptIndex: number) => {
+            const fallbackValue =
+                receiptIndex === 0
+                    ? member.receipt_1
+                    : receiptIndex === 1
+                      ? member.receipt_2
+                      : member.receipt_3;
+
+            if (receiptIndex < 2) {
+                const document = receiptDocuments[receiptIndex];
+
+                return renderReceiptDocument(document, fallbackValue);
+            }
+
+            const thirdAndLaterDocuments = receiptDocuments.slice(2);
+
+            if (thirdAndLaterDocuments.length === 0) {
+                return renderReceiptDocument(undefined, fallbackValue);
+            }
+
+            return (
+                <div className="flex flex-wrap items-center gap-2">
+                    {thirdAndLaterDocuments.map((document, documentIndex) => (
+                        <div
+                            key={`${member.row_key ?? member.id ?? flatIndex}-receipt-3-${document.id ?? documentIndex}`}
+                        >
+                            {renderReceiptDocument(document)}
+                        </div>
+                    ))}
+                </div>
+            );
+        };
 
         const canToggleRoomAssignment =
             isOfficialRoomMember && (mode === 'room' || mode === 'members');
@@ -2245,6 +2464,38 @@ export default function ManifestDatatable({
                     <TableCell>
                         <ProperInput
                             value={
+                                !isOfficialMemberRow
+                                    ? (member.date_of_third_payment ?? '')
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialMemberRow &&
+                                member.third_payment !== null &&
+                                member.third_payment !== undefined
+                                    ? String(member.third_payment)
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
                                 !isOfficialMemberRow &&
                                 member.balance_due !== null &&
                                 member.balance_due !== undefined
@@ -2263,8 +2514,39 @@ export default function ManifestDatatable({
                         {isOfficialMemberRow ? (
                             <span className="text-muted-foreground">-</span>
                         ) : (
+                            renderReceiptDocumentCell(0)
+                        )}
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        {isOfficialMemberRow ? (
+                            <span className="text-muted-foreground">-</span>
+                        ) : (
+                            renderReceiptDocumentCell(1)
+                        )}
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        {isOfficialMemberRow ? (
+                            <span className="text-muted-foreground">-</span>
+                        ) : (
+                            renderReceiptDocumentCell(2)
+                        )}
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        {isOfficialMemberRow ? (
+                            <span className="text-muted-foreground">-</span>
+                        ) : (
                             (() => {
-                                const status = member.status ?? 'draft';
+                                const status =
+                                    member.status ?? 'pending_payment';
                                 const statusColor =
                                     confirmationMemberStatusColors[status] ??
                                     'bg-gray-100 text-gray-800';
@@ -3298,6 +3580,26 @@ export default function ManifestDatatable({
 
     return (
         <div className="overflow-hidden rounded-md border">
+            {isGrouped && groups.length > 0 && (
+                <div className="flex items-center justify-end gap-2 border-b bg-muted/20 px-3 py-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={expandAllGroups}
+                    >
+                        Expand All
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={collapseAllGroups}
+                    >
+                        Collapse All
+                    </Button>
+                </div>
+            )}
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}

@@ -13,7 +13,7 @@ class PackageSeatService
      *
      * @var string[]
      */
-    private const OCCUPYING_STATUSES = ['partially_paid', 'confirmed'];
+    private const OCCUPYING_STATUSES = ['partially_paid', 'fully_paid', 'confirmed'];
 
     public function occupiedSeatsCount(int $packageId): int
     {

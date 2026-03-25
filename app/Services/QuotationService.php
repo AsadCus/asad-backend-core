@@ -17,6 +17,7 @@ use App\Models\QuotationItem;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class QuotationService
 {
@@ -158,7 +159,7 @@ class QuotationService
                 ->filter(fn ($row) => is_array($row))
                 ->map(function (array $row, int $index) {
                     $name = trim((string) ($row['name'] ?? ''));
-                    $value = trim((string) ($row['value'] ?? ''));
+                    $value = Str::of($name)->lower()->slug('_')->value();
 
                     return [
                         'id' => ! empty($row['id']) ? (int) $row['id'] : null,
@@ -768,7 +769,7 @@ class QuotationService
         if (! empty($currentMemberIds)) {
             CustomerConfirmationMember::query()
                 ->whereIn('id', $currentMemberIds)
-                ->where('status', 'draft')
+                ->whereIn('status', ['pending_payment'])
                 ->update(['status' => 'pending_payment']);
         }
 
@@ -793,7 +794,7 @@ class QuotationService
         CustomerConfirmationMember::query()
             ->whereIn('id', $toRevertMemberIds)
             ->where('status', 'pending_payment')
-            ->update(['status' => 'draft']);
+            ->update(['status' => 'pending_payment']);
     }
 
     public function getCustomerConfirmationCreateOptions(?int $includeConfirmationId = null): array
@@ -802,7 +803,7 @@ class QuotationService
             ->with(['members.customer.user', 'members.quotationItems'])
             ->where(function ($query) use ($includeConfirmationId) {
                 $query->whereHas('members', function ($memberQuery) {
-                    $memberQuery->where('status', 'draft')
+                    $memberQuery->whereIn('status', ['pending_payment'])
                         ->whereDoesntHave('quotationItems');
                 });
 
@@ -817,7 +818,7 @@ class QuotationService
                     ?? $confirmation->members->first();
 
                 $eligibleCount = $confirmation->members
-                    ->filter(fn (CustomerConfirmationMember $member) => $member->status === 'draft' && $member->quotationItems->isEmpty())
+                    ->filter(fn (CustomerConfirmationMember $member) => in_array($member->status, ['pending_payment'], true) && $member->quotationItems->isEmpty())
                     ->count();
 
                 return [
@@ -864,7 +865,7 @@ class QuotationService
                 CustomerConfirmationMember::query()
                     ->whereIn('id', $linkedMemberIds)
                     ->where('status', '!=', 'cancelled')
-                    ->update(['status' => 'draft']);
+                    ->update(['status' => 'pending_payment']);
             }
 
             $quotation->update([
@@ -975,8 +976,8 @@ class QuotationService
 
         CustomerConfirmationMember::query()
             ->whereIn('id', $memberIds)
-            ->whereIn('status', ['pending_payment', 'partially_paid', 'confirmed'])
-            ->update(['status' => 'draft']);
+            ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid'])
+            ->update(['status' => 'pending_payment']);
     }
 
     /**
