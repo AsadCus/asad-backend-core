@@ -282,8 +282,8 @@ export default function OpsMovementForm({
             vehicle_driver_contact_number:
                 data.vehicle_driver_contact_number ?? null,
             train_description: data.train_description ?? null,
-            visa_submitted_to_z_umrah: data.visa_submitted_to_z_umrah ? 1 : 0,
-            visa_approved: data.visa_approved ? 1 : 0,
+            visa_submitted_to_z_umrah: data.visa_submitted_to_z_umrah ? true : false,
+            visa_approved: data.visa_approved ? true : false,
             accommodations: (data.accommodations ?? []).map(
                 (accommodation) => ({
                     id: accommodation.id,

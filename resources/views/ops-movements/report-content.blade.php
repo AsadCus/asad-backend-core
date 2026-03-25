@@ -208,8 +208,8 @@
                 <td>{{ $flight['arrival_datetime'] ?? '-' }}</td>
                 <td>{{ $flight['airline'] ?? '-' }}</td>
                 <td>{{ $flight['pnr'] ?? '-' }}</td>
-                <td>{{ $flight['doa_by'] ?? '-' }}</td>
-                <td>{{ $flight['doa_datetime'] ?? '-' }}</td>
+                <td>{{ $opsMovement['doa_by'] ?? '-' }}</td>
+                <td>{{ $opsMovement['doa_datetime'] ?? '-' }}</td>
                 <td>{{ $flight['ic'] ?? '-' }}</td>
             </tr>
         @empty

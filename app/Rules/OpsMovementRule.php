@@ -16,8 +16,8 @@ class OpsMovementRule
             'vehicle_type' => ['nullable', 'string', 'max:255'],
             'vehicle_driver_name' => ['nullable', 'string', 'max:255'],
             'vehicle_driver_contact_number' => ['nullable', 'string', 'max:255'],
-            'visa_submitted_to_z_umrah' => ['nullable', 'boolean'],
-            'visa_approved' => ['nullable', 'boolean'],
+            'visa_submitted_to_z_umrah' => ['nullable', 'in:0,1,true,false'],
+            'visa_approved' => ['nullable', 'in:0,1,true,false'],
 
             'accommodations' => ['nullable', 'array'],
             'accommodations.*.id' => ['required', 'integer', 'exists:package_accommodations,id'],

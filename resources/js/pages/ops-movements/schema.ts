@@ -10,10 +10,10 @@ export const opsAccommodationSchema = z.object({
     check_out: z.string().nullable().optional(),
     room_counts: z
         .object({
-            single: z.number().optional(),
-            double: z.number().optional(),
-            triple: z.number().optional(),
-            quad: z.number().optional(),
+            single: z.number().nullable().optional().or(z.literal(null)),
+            double: z.number().nullable().optional().or(z.literal(null)),
+            triple: z.number().nullable().optional().or(z.literal(null)),
+            quad: z.number().nullable().optional().or(z.literal(null)),
         })
         .optional(),
 });
@@ -53,7 +53,7 @@ export const opsPassengerDetailSchema = z.object({
     passport_number: z.string().nullable().optional(),
     gender: z.string().nullable().optional(),
     date_of_birth_formatted: z.string().nullable().optional(),
-    age: z.number().optional(),
+    age: z.number().nullable().optional().or(z.literal(null)),
     role: z.string().nullable().optional(),
 });
 
@@ -69,9 +69,9 @@ export const opsTransportationPlanSchema = z.object({
 export const opsRawdahTasreehSchema = z.object({
     id: z.number(),
     date: z.string().nullable().optional(),
-    women_passengers: z.number().nullable().optional(),
+    women_passengers: z.number().nullable().optional().or(z.literal(null)),
     women_time: z.string().nullable().optional(),
-    men_passengers: z.number().nullable().optional(),
+    men_passengers: z.number().nullable().optional().or(z.literal(null)),
     men_time: z.string().nullable().optional(),
     remarks: z.string().nullable().optional(),
 });
@@ -96,28 +96,28 @@ export const opsDocumentItemSchema = z.object({
 
 export const opsBudgetItemSchema = z.object({
     item_name: z.string().nullable().optional(),
-    unit_price: z.coerce.number().nullable().optional(),
-    quantity: z.coerce.number().nullable().optional(),
+    unit_price: z.coerce.number().nullable().optional().or(z.literal(null)),
+    quantity: z.coerce.number().nullable().optional().or(z.literal(null)),
     remarks: z.string().nullable().optional(),
-    sort_order: z.coerce.number().nullable().optional(),
+    sort_order: z.coerce.number().nullable().optional().or(z.literal(null)),
 });
 
 export const opsBudgetTitleSchema = z.object({
     title: z.string().nullable().optional(),
-    sort_order: z.coerce.number().nullable().optional(),
+    sort_order: z.coerce.number().nullable().optional().or(z.literal(null)),
     items: z.array(opsBudgetItemSchema).optional(),
 });
 
 export const opsPassengerSummarySchema = z.object({
-    adult_total: z.number().optional(),
-    adult_male: z.number().optional(),
-    adult_female: z.number().optional(),
-    child_total: z.number().optional(),
-    child_boy: z.number().optional(),
-    child_girl: z.number().optional(),
-    official_total: z.number().optional(),
-    wheelchair_non_official_total: z.number().optional(),
-    grand_total: z.number().optional(),
+    adult_total: z.number().nullable().optional().or(z.literal(null)),
+    adult_male: z.number().nullable().optional().or(z.literal(null)),
+    adult_female: z.number().nullable().optional().or(z.literal(null)),
+    child_total: z.number().nullable().optional().or(z.literal(null)),
+    child_boy: z.number().nullable().optional().or(z.literal(null)),
+    child_girl: z.number().nullable().optional().or(z.literal(null)),
+    official_total: z.number().nullable().optional().or(z.literal(null)),
+    wheelchair_non_official_total: z.number().nullable().optional().or(z.literal(null)),
+    grand_total: z.number().nullable().optional().or(z.literal(null)),
 });
 
 export const opsMovementSchema = z.object({
