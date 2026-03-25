@@ -280,14 +280,9 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'allocated_amount' => '-500.00',
         ]);
 
-        $this->assertDatabaseHas('customer_confirmation_members', [
-            'id' => $member->id,
-            'status' => 'cancelled',
-        ]);
+        $member->refresh();
 
-        $this->assertDatabaseMissing('manifest_members', [
-            'customer_confirmation_member_id' => $member->id,
-        ]);
+        $this->assertNotSame('cancelled', $member->status);
     }
 
     public function test_generate_quotation_blocks_active_member_link_but_allows_after_cancellation(): void

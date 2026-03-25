@@ -663,7 +663,7 @@ class CustomerConfirmationFormTest extends TestCase
             'name' => 'Doc Upload Member',
             'email' => 'doc-upload-member@test.com',
             'contact_number' => '0128888000',
-            'status' => 'draft',
+            'status' => 'pending_payment',
             'passport_file' => $passportFile,
             'passport_file_name' => 'Member Passport Final.pdf',
         ]);

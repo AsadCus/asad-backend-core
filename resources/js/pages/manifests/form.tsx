@@ -397,8 +397,7 @@ function buildMembersFromCanonicalGroups(
                             group.remarks ??
                             fallbackMember?.group_remarks ??
                             null,
-                        remarks:
-                            member.remarks ?? fallbackMember?.remarks ?? null,
+                        remarks: member.remarks ?? null,
                         status: member.status ?? fallbackMember?.status ?? null,
                     },
                     nextMembers.length,
@@ -496,7 +495,7 @@ function buildRoomListsFromCanonicalRooms(
                     number_of_beds_checked: !!room.number_of_beds_checked,
                     meal: room.meal ?? null,
                     room_remarks: room.remarks ?? null,
-                    remarks: member.remarks ?? fallbackMember?.remarks ?? null,
+                    remarks: member.remarks ?? null,
                 },
                 memberIndex,
             );
@@ -1051,7 +1050,7 @@ function syncRoomRowsWithMembers(
                     row.number_of_beds_checked ??
                     member.number_of_beds_checked ??
                     false,
-                remarks: row.remarks ?? member.remarks,
+                remarks: row.remarks,
                 room_remarks: row.room_remarks ?? member.room_remarks,
                 meal: row.meal ?? member.meal ?? defaultMealPlan ?? '',
                 age:
@@ -3590,9 +3589,6 @@ export default function ManifestForm({
                                                 package_price:
                                                     updated.package_price ??
                                                     member.package_price,
-                                                remarks:
-                                                    updated.remarks ??
-                                                    member.remarks,
                                                 status:
                                                     updated.status ??
                                                     member.status,
@@ -3683,9 +3679,6 @@ export default function ManifestForm({
                                                                 package_price:
                                                                     memberUpdate.package_price ??
                                                                     roomRow.package_price,
-                                                                remarks:
-                                                                    memberUpdate.remarks ??
-                                                                    roomRow.remarks,
                                                                 status:
                                                                     memberUpdate.status ??
                                                                     roomRow.status,

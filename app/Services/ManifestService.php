@@ -2025,9 +2025,14 @@ class ManifestService
             ? round((float) ($receiptShareById[(int) $secondReceipt->id] ?? 0), 2)
             : null;
 
-        $thirdPayment = $latestThirdPaymentReceipt
-            ? round($thirdAndLaterAmount, 2)
+        $thirdPaymentAmount = max(
+            $paidAmount - (float) ($depositPayment ?? 0) - (float) ($secondPayment ?? 0),
+            0
+        );
+        $thirdPayment = $thirdPaymentAmount > 0
+            ? round($thirdPaymentAmount, 2)
             : null;
+        $thirdPaymentDateSource = $latestThirdPaymentReceipt ?? $receipts->last();
 
         $balanceDue = round(max(
             $packagePrice
@@ -2044,7 +2049,9 @@ class ManifestService
             'deposit_payment' => $depositPayment,
             'date_of_second_payment' => $this->formatDateForUi($secondReceipt?->receipt_date),
             'second_payment' => $secondPayment,
-            'date_of_third_payment' => $this->formatDateForUi($latestThirdPaymentReceipt?->receipt_date),
+            'date_of_third_payment' => $thirdPayment !== null
+                ? $this->formatDateForUi($thirdPaymentDateSource?->receipt_date)
+                : null,
             'third_payment' => $thirdPayment,
             'balance_due' => $balanceDue,
         ];

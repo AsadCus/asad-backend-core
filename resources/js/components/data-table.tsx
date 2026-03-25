@@ -21,6 +21,7 @@ import {
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
+    PaginationState,
     Row,
     RowData,
     RowSelectionState,
@@ -36,7 +37,7 @@ import {
     ChevronRight,
     ChevronsUpDown,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActionColumn, ActionType } from './action-column';
 import { ActionMenuItems } from './action-menu-items';
 import { DataTablePagination } from './data-table-pagination';
@@ -71,6 +72,79 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     addButtonText?: string;
     searchFilterMode?: 'inside' | 'outside';
     columnFilterMode?: 'inside' | 'outside';
+    settingsKey?: string;
+}
+
+interface DataTablePersistedState {
+    version: 1;
+    sorting: SortingState;
+    columnFilters: ColumnFiltersState;
+    columnVisibility: VisibilityState;
+    globalFilter: string;
+    density: string;
+    expanded: ExpandedState;
+    pagination: PaginationState;
+    searchQuery: string;
+}
+
+const DATATABLE_STORAGE_PREFIX = 'datatable-settings';
+
+function readPersistedState(key: string): DataTablePersistedState | undefined {
+    if (typeof window === 'undefined') {
+        return undefined;
+    }
+
+    try {
+        const raw = window.localStorage.getItem(key);
+
+        if (!raw) {
+            return undefined;
+        }
+
+        const parsed = JSON.parse(raw) as DataTablePersistedState;
+
+        if (parsed?.version !== 1) {
+            return undefined;
+        }
+
+        return parsed;
+    } catch {
+        return undefined;
+    }
+}
+
+function writePersistedState(
+    key: string,
+    state: DataTablePersistedState,
+): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    try {
+        window.localStorage.setItem(key, JSON.stringify(state));
+    } catch {
+        // Ignore storage errors (quota/private mode) and keep UI usable.
+    }
+}
+
+function columnStorageId<TData extends RowData>(
+    column: ColumnDef<TData, unknown>,
+    index: number,
+): string {
+    if ('id' in column && typeof column.id === 'string') {
+        return column.id;
+    }
+
+    if (
+        'accessorKey' in column &&
+        typeof column.accessorKey === 'string' &&
+        column.accessorKey.length > 0
+    ) {
+        return column.accessorKey;
+    }
+
+    return `col-${index}`;
 }
 
 export function DataTable<TData extends RowData, TValue = unknown>({
@@ -90,19 +164,63 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     addButtonText,
     searchFilterMode = 'inside',
     columnFilterMode = 'inside',
+    settingsKey,
 }: DataTableProps<TData, TValue>) {
-    const [searchQuery, setSearchQuery] = useState<string>('');
-    const [sorting, setSorting] = useState<SortingState>([]);
+    const hasActionsColumn = columns.some(
+        (col) => 'id' in col && col.id === 'actions',
+    );
+
+    const defaultStorageKey = useMemo(() => {
+        const pathname =
+            typeof window !== 'undefined' ? window.location.pathname : 'ssr';
+        const baseColumns = columns.map((column, index) =>
+            columnStorageId(column as ColumnDef<TData, unknown>, index),
+        );
+        const signature = [
+            ...(enableExpand ? ['expander'] : []),
+            ...baseColumns,
+            ...(!hasActionsColumn && actions.length > 0 ? ['actions'] : []),
+        ].join('|');
+
+        return `${DATATABLE_STORAGE_PREFIX}::${pathname}::${url ?? 'no-url'}::${signature}`;
+    }, [actions.length, columns, enableExpand, hasActionsColumn, url]);
+
+    const storageKey = settingsKey ?? defaultStorageKey;
+    const persistedState = useMemo(
+        () => readPersistedState(storageKey),
+        [storageKey],
+    );
+
+    const [searchQuery, setSearchQuery] = useState<string>(
+        persistedState?.searchQuery ?? '',
+    );
+    const [sorting, setSorting] = useState<SortingState>(
+        persistedState?.sorting ?? [],
+    );
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
-        initialState?.columnFilters ?? [],
+        persistedState?.columnFilters ?? initialState?.columnFilters ?? [],
     );
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-        initialState?.columnVisibility ?? {},
+        persistedState?.columnVisibility ??
+            initialState?.columnVisibility ??
+            {},
     );
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-    const [globalFilter, setGlobalFilter] = useState('');
-    const [density, setDensity] = useState<string>('flexible');
-    const [expanded, setExpanded] = useState<ExpandedState>({});
+    const [globalFilter, setGlobalFilter] = useState(
+        persistedState?.globalFilter ?? '',
+    );
+    const [density, setDensity] = useState<string>(
+        persistedState?.density ?? 'flexible',
+    );
+    const [expanded, setExpanded] = useState<ExpandedState>(
+        persistedState?.expanded ?? {},
+    );
+    const [pagination, setPagination] = useState<PaginationState>(
+        persistedState?.pagination ?? {
+            pageIndex: initialState?.pagination?.pageIndex ?? 0,
+            pageSize: initialState?.pagination?.pageSize ?? 10,
+        },
+    );
 
     const includesValue: FilterFn<TData> = (
         row,
@@ -191,10 +309,6 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         },
     };
 
-    const hasActionsColumn = columns.some(
-        (col) => 'id' in col && col.id === 'actions',
-    );
-
     const finalColumns: ColumnDef<TData, TValue>[] = [
         ...(enableExpand ? [expandColumn] : []),
         ...columns,
@@ -269,11 +383,13 @@ export function DataTable<TData extends RowData, TValue = unknown>({
             rowSelection,
             globalFilter,
             expanded,
+            pagination,
         },
         onExpandedChange: setExpanded,
         getExpandedRowModel: enableExpand ? getExpandedRowModel() : undefined,
         getRowCanExpand: () => !!enableExpand && !!renderSubComponent,
         globalFilterFn: 'includesString',
+        onPaginationChange: setPagination,
         onColumnVisibilityChange: setColumnVisibility,
         onColumnFiltersChange: setColumnFilters,
         onSortingChange: setSorting,
@@ -286,6 +402,30 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         getFacetedRowModel: getFacetedRowModel(),
         getFacetedUniqueValues: getFacetedUniqueValues(),
     });
+
+    useEffect(() => {
+        writePersistedState(storageKey, {
+            version: 1,
+            sorting,
+            columnFilters,
+            columnVisibility,
+            globalFilter,
+            density,
+            expanded,
+            pagination,
+            searchQuery,
+        });
+    }, [
+        storageKey,
+        sorting,
+        columnFilters,
+        columnVisibility,
+        globalFilter,
+        density,
+        expanded,
+        pagination,
+        searchQuery,
+    ]);
 
     const displayRows = table.getRowModel().rows;
 
