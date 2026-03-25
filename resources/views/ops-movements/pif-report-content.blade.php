@@ -72,7 +72,6 @@
         $opsMovement = is_array($opsMovement ?? null) ? $opsMovement : [];
 
         $tourLeaders = collect(data_get($opsMovement, 'pif.tour_leaders', []));
-        $passengers = collect($opsMovement['passenger_details'] ?? []);
         $flights = collect($opsMovement['flights'] ?? []);
         $accommodations = collect($opsMovement['accommodations'] ?? []);
         $rawdahRows = collect($opsMovement['rawdah_tasreehs'] ?? []);
@@ -116,32 +115,6 @@
         @endforelse
     </table>
 
-    {{-- Passenger Details - Member List --}}
-    <div class="section-title">Passenger Details - Member List</div>
-    <table class="section-table">
-        <tr>
-            <th style="width: 5%;" class="text-center">No</th>
-            <th style="width: 28%;">Name</th>
-            <th style="width: 16%;">Role</th>
-            <th style="width: 20%;">Passport Number</th>
-            <th style="width: 14%;">Gender</th>
-            <th style="width: 17%;" class="text-right">Age</th>
-        </tr>
-        @forelse ($passengers as $index => $passenger)
-            <tr>
-                <td class="text-center">{{ $index + 1 }}</td>
-                <td>{{ $passenger['name'] ?? '-' }}</td>
-                <td>{{ $passenger['role'] ?? '-' }}</td>
-                <td>{{ $passenger['passport_number'] ?? '-' }}</td>
-                <td>{{ $passenger['gender'] ?? '-' }}</td>
-                <td class="text-right">{{ (int) ($passenger['age'] ?? 0) }}</td>
-            </tr>
-        @empty
-            <tr>
-                <td colspan="6" class="text-center">No passenger data.</td>
-            </tr>
-        @endforelse
-    </table>
 
     {{-- Flight Schedule --}}
     <div class="section-title">Flight Schedule</div>
