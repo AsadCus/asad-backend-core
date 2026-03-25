@@ -159,22 +159,8 @@ class OpsMovementService
             'vehicle_driver_name' => $package->vehicle_driver_name,
             'vehicle_driver_contact_number' => $package->vehicle_driver_contact_number,
             'train_description' => $package->train_description,
-            'passenger_details' => $activeMembers->map(function ($member) {
-                return [
-                    'id' => $member->id,
-                    'name' => $member->name,
-                    'relationship' => $member->relationship,
-                    'contact_number' => $member->contact_number,
-                    'nationality' => $member->nationality,
-                    'passport_number' => $member->passport_number,
-                    'gender' => $member->gender,
-                    'date_of_birth_formatted' => $member->date_of_birth
-                        ? Carbon::parse($member->date_of_birth)->translatedFormat('d F Y')
-                        : null,
-                    'age' => $this->resolveAge($member->date_of_birth),
-                    'role' => $member->package_official_id ? 'official' : 'passenger',
-                ];
-            })->values()->toArray(),
+            'visa_submitted_to_z_umrah' => (bool) ($extension['visa_submitted_to_z_umrah'] ?? false),
+            'visa_approved' => (bool) ($extension['visa_approved'] ?? false),
             'passengers' => [
                 'adult_total' => $adultMembers->count(),
                 'adult_male' => $adultMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'male')->count(),
@@ -330,6 +316,8 @@ class OpsMovementService
             $extension = $manifest->ops_movement_extension ?? [];
             $extension['ops_base'] = $payload['ops_base'] ?? null;
             $extension['infotech_ref'] = $payload['infotech_ref'] ?? null;
+            $extension['visa_submitted_to_z_umrah'] = (bool) ($payload['visa_submitted_to_z_umrah'] ?? false);
+            $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
             $extension['flights'] = collect($payload['flights'] ?? [])
                 ->filter(fn ($flightPayload) => ! empty($flightPayload['id']))
                 ->map(function ($flightPayload) {

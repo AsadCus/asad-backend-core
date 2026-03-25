@@ -19,9 +19,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { isBeforeToday, parseDisplayDate } from '@/lib/utils';
 import { store, update } from '@/routes/packages';
+import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -133,6 +133,7 @@ interface PackageFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: PackageSchema;
     prefillData?: Partial<PackageSchema>;
+    countries?: OptionType[];
     onCancel?: () => void;
     onSuccess?: (data: PackageSchema) => void;
 }
@@ -141,6 +142,7 @@ export default function PackageForm({
     mode,
     initialData,
     prefillData,
+    countries = [],
     onCancel,
     onSuccess,
 }: PackageFormProps) {
@@ -151,6 +153,7 @@ export default function PackageForm({
     const defaultData: PackageSchema = initialData || {
         name: '',
         status: 'open',
+        country_id: '',
         price_single: null,
         price_double: null,
         price_triple: null,
@@ -178,6 +181,11 @@ export default function PackageForm({
         train_tickets: [],
         transportation_plans: [],
         rawdah_tasreehs: [],
+        rawdah_member_counts: {
+            total: 0,
+            women: 0,
+            men: 0,
+        },
         officials: [...defaultOfficials],
         ...prefillData,
     };
@@ -258,6 +266,46 @@ export default function PackageForm({
             };
         });
     }, [data.ticket_type, data.train_tickets, setData]);
+
+    const rawdahWomenPassengers = Number(data.rawdah_member_counts?.women ?? 0);
+    const rawdahMenPassengers = Number(data.rawdah_member_counts?.men ?? 0);
+
+    useEffect(() => {
+        const currentRows = data.rawdah_tasreehs ?? [];
+
+        if (currentRows.length === 0) {
+            return;
+        }
+
+        let hasChanges = false;
+        const nextRows = currentRows.map((row) => {
+            if (
+                row.women_passengers === rawdahWomenPassengers &&
+                row.men_passengers === rawdahMenPassengers
+            ) {
+                return row;
+            }
+
+            hasChanges = true;
+
+            return {
+                ...row,
+                women_passengers: rawdahWomenPassengers,
+                men_passengers: rawdahMenPassengers,
+            };
+        });
+
+        if (!hasChanges) {
+            return;
+        }
+
+        setData('rawdah_tasreehs', nextRows);
+    }, [
+        data.rawdah_tasreehs,
+        rawdahWomenPassengers,
+        rawdahMenPassengers,
+        setData,
+    ]);
 
     function validateClientSide(): boolean {
         clearErrors();
@@ -422,9 +470,9 @@ export default function PackageForm({
             ...current,
             {
                 date: '',
-                women_passengers: null,
+                women_passengers: rawdahWomenPassengers,
                 women_time: '',
-                men_passengers: null,
+                men_passengers: rawdahMenPassengers,
                 men_time: '',
                 remarks: '',
             },
@@ -551,8 +599,8 @@ export default function PackageForm({
                         <div
                             className={`grid grid-cols-1 items-start gap-4 ${
                                 showPackageNumberField
-                                    ? 'md:grid-cols-3'
-                                    : 'md:grid-cols-2'
+                                    ? 'md:grid-cols-4'
+                                    : 'md:grid-cols-3'
                             }`}
                         >
                             {/* Group Number (auto-generated, read-only) */}
@@ -624,6 +672,24 @@ export default function PackageForm({
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </FormField>
+
+                            <FormField
+                                label="Country"
+                                fieldRequirementsProps={{
+                                    hint: 'Country scope for this package',
+                                }}
+                                error={getError('country_id')}
+                            >
+                                <ProperInputSelect
+                                    disabled={isView || processing}
+                                    options={countries}
+                                    value={data.country_id ?? ''}
+                                    onValueChange={(value) =>
+                                        setData('country_id', String(value))
+                                    }
+                                    placeholder="Select country"
+                                />
                             </FormField>
                         </div>
 
@@ -1900,12 +1966,9 @@ export default function PackageForm({
                             <div className="space-y-4">
                                 {(data.rawdah_tasreehs || []).map(
                                     (tasreeh, index) => {
-                                        const womenCount = Number(
-                                            tasreeh.women_passengers ?? 0,
-                                        );
-                                        const menCount = Number(
-                                            tasreeh.men_passengers ?? 0,
-                                        );
+                                        const womenCount =
+                                            rawdahWomenPassengers;
+                                        const menCount = rawdahMenPassengers;
                                         const totalCount =
                                             (Number.isFinite(womenCount)
                                                 ? womenCount
@@ -1994,36 +2057,17 @@ export default function PackageForm({
                                                     <FormField
                                                         label="Women Passengers"
                                                         fieldRequirementsProps={{
-                                                            hint: 'Total women passengers',
+                                                            hint: 'Auto-filled from non-official manifest members',
                                                         }}
                                                         error={getError(
                                                             `rawdah_tasreehs.${index}.women_passengers`,
                                                         )}
                                                     >
-                                                        <ProperInput
+                                                        <Input
                                                             type="number"
-                                                            value={
-                                                                tasreeh.women_passengers ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateRawdahTasreeh(
-                                                                    index,
-                                                                    'women_passengers',
-                                                                    v === ''
-                                                                        ? null
-                                                                        : Number(
-                                                                              v,
-                                                                          ),
-                                                                )
-                                                            }
-                                                            inputProps={{
-                                                                min: '0',
-                                                            }}
+                                                            value={womenCount}
+                                                            disabled={true}
+                                                            className="bg-muted"
                                                         />
                                                     </FormField>
                                                     <FormField
@@ -2061,36 +2105,17 @@ export default function PackageForm({
                                                     <FormField
                                                         label="Men Passengers"
                                                         fieldRequirementsProps={{
-                                                            hint: 'Total men passengers',
+                                                            hint: 'Auto-filled from non-official manifest members',
                                                         }}
                                                         error={getError(
                                                             `rawdah_tasreehs.${index}.men_passengers`,
                                                         )}
                                                     >
-                                                        <ProperInput
+                                                        <Input
                                                             type="number"
-                                                            value={
-                                                                tasreeh.men_passengers ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateRawdahTasreeh(
-                                                                    index,
-                                                                    'men_passengers',
-                                                                    v === ''
-                                                                        ? null
-                                                                        : Number(
-                                                                              v,
-                                                                          ),
-                                                                )
-                                                            }
-                                                            inputProps={{
-                                                                min: '0',
-                                                            }}
+                                                            value={menCount}
+                                                            disabled={true}
+                                                            className="bg-muted"
                                                         />
                                                     </FormField>
                                                     <FormField
@@ -2632,15 +2657,13 @@ export default function PackageForm({
                                 }}
                                 error={getError('not_included')}
                             >
-                                <Textarea
+                                <ProperInput
                                     id="not_included"
                                     value={data.not_included || ''}
                                     disabled={isView || processing}
-                                    onChange={(e) =>
-                                        setData(
-                                            'not_included',
-                                            e.target.value || null,
-                                        )
+                                    textarea
+                                    onCommit={(e) =>
+                                        setData('not_included', e || null)
                                     }
                                     placeholder="List excluded items (e.g., personal expenses, tips...)"
                                 />
@@ -2653,12 +2676,13 @@ export default function PackageForm({
                                 }}
                                 error={getError('offer')}
                             >
-                                <Textarea
+                                <ProperInput
                                     id="offer"
                                     value={data.offer || ''}
                                     disabled={isView || processing}
-                                    onChange={(e) =>
-                                        setData('offer', e.target.value || null)
+                                    textarea
+                                    onCommit={(e) =>
+                                        setData('offer', e || null)
                                     }
                                     placeholder="Describe any special offers or promotions..."
                                 />

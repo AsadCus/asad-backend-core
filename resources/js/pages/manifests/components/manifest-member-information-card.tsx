@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import { ProperInput } from '@/components/proper-input';
 import {
     Card,
     CardContent,
@@ -6,7 +7,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { type MemberWithUI } from '../types';
 
 interface ManifestMemberInformationCardProps {
@@ -133,7 +133,11 @@ export default function ManifestMemberInformationCard({
             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {infoItems.map((item) => (
                     <FormField key={item.label} label={item.label}>
-                        <Input value={String(item.value)} disabled />
+                        <ProperInput
+                            value={String(item.value)}
+                            onCommit={() => undefined}
+                            disabled
+                        />
                     </FormField>
                 ))}
             </CardContent>

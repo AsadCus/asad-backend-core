@@ -68,6 +68,8 @@ export function DatePickerField({
     const [month, setMonth] = useState<Date | undefined>(selectedDate);
     const [hours, setHours] = useState(initialTime.hours);
     const [minutes, setMinutes] = useState(initialTime.minutes);
+    const resolvedReadOnlyValue =
+        disabled && (!value || value.trim().length === 0) ? '-' : (value ?? '');
 
     function emitDateTime(date: Date | undefined, h: number, m: number) {
         const dateStr = formatDateForDisplay(date);
@@ -105,13 +107,13 @@ export function DatePickerField({
         <div className="relative">
             <Input
                 id={id}
-                value={value ?? ''}
+                value={resolvedReadOnlyValue}
                 placeholder={
                     useTime
                         ? `${formatDateForDisplay(new Date())} 00:00`
                         : formatDateForDisplay(new Date())
                 }
-                className={`pr-10 ${disabled ? 'bg-muted/40' : ''}`}
+                className={`pr-10 ${disabled ? 'bg-muted/40 text-muted-foreground' : ''}`}
                 readOnly={disabled}
                 onChange={(e) => {
                     onChange(e.target.value);

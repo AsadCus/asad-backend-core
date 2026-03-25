@@ -12,6 +12,8 @@ const baseUserSchema = z
         send_email: z.boolean().optional(),
         contact: z.string().optional(),
         role: z.enum(['admin', 'sales', 'supplier', 'customer']),
+        country_id: z.string().optional(),
+        country_name: z.string().optional(),
         branch_id: z.string().optional(),
         branch_name: z.string().optional(),
         company_name: z.string().optional(),

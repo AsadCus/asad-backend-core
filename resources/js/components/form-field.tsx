@@ -32,7 +32,7 @@ export function FormField({
             className={`grid w-full items-center gap-3 ${isInline ? 'md:grid-cols-[minmax(0,1fr)_auto] md:gap-4' : ''
                 } ${className}`}
         >
-            <Label htmlFor={htmlFor} className={isInline ? 'pt-2' : ''}>
+            <Label htmlFor={htmlFor}>
                 {label}
                 {fieldRequirementsProps && (
                     <FieldRequirements

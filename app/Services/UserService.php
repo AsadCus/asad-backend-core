@@ -75,6 +75,39 @@ class UserService
         return User::role($role)->count();
     }
 
+    public function getCountryStatsByRole(string $role): array
+    {
+        $countryCounts = [];
+
+        if ($role === 'admin') {
+            $admins = User::role('admin')->with('branch.country')->get();
+
+            foreach ($admins as $admin) {
+                $countryName = $admin->branch?->country?->name ?? 'Unassigned';
+                $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+            }
+        }
+
+        if ($role === 'sales') {
+            $salesUsers = User::role('sales')->with('sales.branch.country')->get();
+
+            foreach ($salesUsers as $salesUser) {
+                $countryName = $salesUser->sales?->branch?->country?->name ?? 'Unassigned';
+                $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+            }
+        }
+
+        arsort($countryCounts);
+
+        return [
+            'totalCountries' => count($countryCounts),
+            'breakdown' => collect($countryCounts)
+                ->map(fn ($count, $country) => ['country' => $country, 'count' => $count])
+                ->values()
+                ->all(),
+        ];
+    }
+
     public function store(array $data)
     {
         return $this->resolveRoleService($data['role'])->store($data);
@@ -100,11 +133,11 @@ class UserService
         }
 
         return activity()
-                ->performedOn($user)
-                ->withProperties(['subject_type' => 'User', 'subject_id' => $user->id ?? null])
-                ->log('User deleted successfully #'.($user->id ?? null));
+            ->performedOn($user)
+            ->withProperties(['subject_type' => 'User', 'subject_id' => $user->id ?? null])
+            ->log('User deleted successfully #'.($user->id ?? null));
 
-            $user->delete();
+        $user->delete();
     }
 
     private function resolveRoleService(string $role): object

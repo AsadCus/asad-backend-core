@@ -78,9 +78,13 @@ class PackageService
             return [
                 'value' => $q->id,
                 'label' => $q->name,
+                'package_number' => $q->package_number,
                 'status' => $q->status,
                 'departure_date' => $q->departure_date_formatted,
                 'return_date' => $q->return_date_formatted,
+                'total_seats' => $q->total_seats,
+                'seats_left' => $q->seats_left,
+                'is_private' => str_starts_with(strtolower((string) $q->name), 'private -'),
                 'officials' => $q->officials->map(function ($official) {
                     return [
                         'id' => $official->id,
@@ -125,6 +129,7 @@ class PackageService
                 'package_number' => $packageNumber,
                 'name' => $data['name'],
                 'status' => $data['status'] ?? 'open',
+                'country_id' => $data['country_id'] ?? null,
                 'price_single' => $data['price_single'] ?? 0,
                 'price_double' => $data['price_double'] ?? 0,
                 'price_triple' => $data['price_triple'] ?? 0,
@@ -195,6 +200,7 @@ class PackageService
             'transportationPlans',
             'rawdahTasreehs',
             'officials',
+            'manifests.members',
         ])->findOrFail($id);
 
         $occupiedSeats = $this->packageSeatService->occupiedSeatsCount((int) $package->id);
@@ -202,12 +208,28 @@ class PackageService
             ? null
             : max(0, (int) $package->total_seats - $occupiedSeats);
 
+        $nonOfficialMembers = $package->manifests
+            ->flatMap(fn ($manifest) => $manifest->members)
+            ->filter(function ($member): bool {
+                return $member->package_official_id === null
+                    && $member->status !== 'cancelled';
+            })
+            ->values();
+
+        $rawdahWomenPassengers = $nonOfficialMembers
+            ->filter(fn ($member): bool => strtolower((string) ($member->gender ?? '')) === 'female')
+            ->count();
+        $rawdahMenPassengers = $nonOfficialMembers
+            ->filter(fn ($member): bool => strtolower((string) ($member->gender ?? '')) === 'male')
+            ->count();
+
         return [
             'id' => $package->id,
             'package_number' => $package->package_number,
             'name' => $package->name,
             'status' => $package->status,
             'launched' => $package->launched,
+            'country_id' => $package->country_id ? (string) $package->country_id : '',
             'price_single' => $this->formatService->cleanDecimal($package->price_single),
             'price_double' => $this->formatService->cleanDecimal($package->price_double),
             'price_triple' => $this->formatService->cleanDecimal($package->price_triple),
@@ -294,13 +316,18 @@ class PackageService
                     'nationality' => $o->nationality,
                     'passport_number' => $o->passport_number,
                     'gender' => $o->gender,
-                    'date_of_birth' => $o->date_of_birth?->format('Y-m-d'),
-                    'passport_issue_date' => $o->passport_issue_date?->format('Y-m-d'),
-                    'passport_expiry_date' => $o->passport_expiry_date?->format('Y-m-d'),
+                    'date_of_birth' => $o->date_of_birth_formatted,
+                    'passport_issue_date' => $o->passport_issue_date_formatted,
+                    'passport_expiry_date' => $o->passport_expiry_date_formatted,
                     'passport_place_of_issue' => $o->passport_place_of_issue,
                     'place_of_birth' => $o->place_of_birth,
                 ];
             })->toArray(),
+            'rawdah_member_counts' => [
+                'total' => $nonOfficialMembers->count(),
+                'women' => $rawdahWomenPassengers,
+                'men' => $rawdahMenPassengers,
+            ],
         ];
     }
 
@@ -312,6 +339,7 @@ class PackageService
             $package->update([
                 'name' => $data['name'] ?? $package->name,
                 'status' => $data['status'] ?? $package->status,
+                'country_id' => $data['country_id'] ?? $package->country_id,
                 'price_single' => $data['price_single'] ?? $package->price_single,
                 'price_double' => $data['price_double'] ?? $package->price_double,
                 'price_triple' => $data['price_triple'] ?? $package->price_triple,
@@ -737,16 +765,29 @@ class PackageService
     }
 
     /**
-     * Sync officials for a package (delete + recreate).
+     * Sync officials for a package while preserving existing IDs.
      *
      * @param  array<int, array<string, mixed>>  $officials
      */
     private function syncOfficials(Package $package, array $officials): void
     {
-        $package->officials()->delete();
+        $existingOfficials = $package->officials()->get()->keyBy('id');
+        $existingOfficialsByPassport = $package->officials()
+            ->get()
+            ->filter(fn ($official) => ! empty($official->passport_number))
+            ->keyBy(fn ($official) => strtolower(trim((string) $official->passport_number)));
+        $existingOfficialsByNameContact = $package->officials()
+            ->get()
+            ->filter(function ($official): bool {
+                return ! empty($official->name) && ! empty($official->contact_number);
+            })
+            ->keyBy(function ($official): string {
+                return strtolower(trim((string) $official->name)).'|'.trim((string) $official->contact_number);
+            });
+        $retainedOfficialIds = [];
 
         foreach ($officials as $index => $official) {
-            $package->officials()->create([
+            $payload = [
                 'type' => $official['type'] ?? null,
                 'name' => $official['name'] ?? null,
                 'hotel' => $official['hotel'] ?? null,
@@ -760,8 +801,50 @@ class PackageService
                 'passport_place_of_issue' => $official['passport_place_of_issue'] ?? null,
                 'place_of_birth' => $official['place_of_birth'] ?? null,
                 'sort_order' => $index,
-            ]);
+            ];
+
+            $officialId = isset($official['id']) ? (int) $official['id'] : null;
+
+            if ($officialId && $existingOfficials->has($officialId)) {
+                $existingOfficial = $existingOfficials->get($officialId);
+                $existingOfficial->update($payload);
+                $retainedOfficialIds[] = $officialId;
+
+                continue;
+            }
+
+            $matchedOfficial = null;
+
+            $passportNumber = strtolower(trim((string) ($official['passport_number'] ?? '')));
+            if ($passportNumber !== '') {
+                $matchedOfficial = $existingOfficialsByPassport->get($passportNumber);
+            }
+
+            if (! $matchedOfficial) {
+                $nameContactKey = strtolower(trim((string) ($official['name'] ?? ''))).'|'.trim((string) ($official['contact_number'] ?? ''));
+                if ($nameContactKey !== '|') {
+                    $matchedOfficial = $existingOfficialsByNameContact->get($nameContactKey);
+                }
+            }
+
+            if ($matchedOfficial) {
+                $matchedOfficial->update($payload);
+                $retainedOfficialIds[] = (int) $matchedOfficial->id;
+
+                continue;
+            }
+
+            $createdOfficial = $package->officials()->create($payload);
+            $retainedOfficialIds[] = (int) $createdOfficial->id;
         }
+
+        if (count($retainedOfficialIds) > 0) {
+            $package->officials()->whereNotIn('id', $retainedOfficialIds)->delete();
+
+            return;
+        }
+
+        $package->officials()->delete();
     }
 
     private function syncPackageOfficialsIntoManifests(Package $package): void
@@ -776,6 +859,7 @@ class PackageService
     private function syncManifestOfficialMembers(Manifest $manifest, Package $package): void
     {
         $officialMemberMarker = '[package-official]';
+        $officialGroupMarker = '[package-official-group]';
 
         $package->load('officials');
 
@@ -788,12 +872,54 @@ class PackageService
             ->filter(fn ($member) => $member->package_official_id !== null)
             ->keyBy(fn ($member) => (int) $member->package_official_id);
 
-        $activeOfficialIds = [];
+        $existingOfficialGroups = $manifest->manifestSharingGroups()
+            ->whereNull('customer_confirmation_id')
+            ->where('remarks', 'like', $officialGroupMarker.'%')
+            ->get()
+            ->mapWithKeys(function ($group) use ($officialGroupMarker) {
+                $suffix = trim((string) \Illuminate\Support\Str::after((string) $group->remarks, $officialGroupMarker));
+                $officialId = (int) $suffix;
 
-        foreach ($package->officials as $official) {
+                if ($officialId <= 0) {
+                    return [];
+                }
+
+                return [$officialId => $group];
+            });
+
+        $baseOfficialGroupSort = (int) ($manifest->manifestSharingGroups()
+            ->where(function ($query) use ($officialGroupMarker): void {
+                $query->whereNull('remarks')
+                    ->orWhere('remarks', 'not like', $officialGroupMarker.'%');
+            })
+            ->max('sort_order') ?? 0);
+
+        $activeOfficialIds = [];
+        $activeOfficialGroupIds = [];
+
+        foreach ($package->officials as $officialIndex => $official) {
             $activeOfficialIds[] = (int) $official->id;
 
             $existingMember = $existingOfficialMembers->get((int) $official->id);
+            $existingMemberGroupId = $existingMember
+                ? (int) ($existingMember->manifest_sharing_group_id ?? 0)
+                : 0;
+
+            $officialGroup = $existingOfficialGroups->get((int) $official->id);
+            $groupPayload = [
+                'customer_confirmation_id' => null,
+                'sort_order' => $baseOfficialGroupSort + $officialIndex + 1,
+                'group_relationship' => 'official',
+                'remarks' => $officialGroupMarker.' '.$official->id,
+            ];
+
+            if ($officialGroup) {
+                $officialGroup->update($groupPayload);
+            } else {
+                $officialGroup = $manifest->manifestSharingGroups()->create($groupPayload);
+            }
+
+            $activeOfficialGroupIds[] = (int) $officialGroup->id;
 
             $payload = [
                 'name' => $official->name,
@@ -810,12 +936,18 @@ class PackageService
             ];
 
             if ($existingMember) {
-                $existingMember->update($payload);
+                $existingMember->update([
+                    ...$payload,
+                    'manifest_sharing_group_id' => $existingMemberGroupId > 0
+                        ? $existingMemberGroupId
+                        : $officialGroup->id,
+                ]);
 
                 continue;
             }
 
             $manifest->members()->create([
+                'manifest_sharing_group_id' => $officialGroup->id,
                 'package_official_id' => $official->id,
                 'relationship' => $official->type,
                 'sharing_plan' => 'single',
@@ -834,6 +966,17 @@ class PackageService
                 ->delete();
         }
 
+        if ($activeOfficialGroupIds === []) {
+            $manifest->manifestSharingGroups()
+                ->where('remarks', 'like', $officialGroupMarker.'%')
+                ->delete();
+        } else {
+            $manifest->manifestSharingGroups()
+                ->where('remarks', 'like', $officialGroupMarker.'%')
+                ->whereNotIn('id', $activeOfficialGroupIds)
+                ->delete();
+        }
+
         $this->syncManifestOfficialRooms($manifest, $package);
     }
 
@@ -845,6 +988,7 @@ class PackageService
             ->whereNotNull('package_official_id')
             ->orderBy('sort_order')
             ->orderBy('id')
+            ->with('roomAssignments')
             ->get();
 
         if ($officialMembers->isEmpty()) {
@@ -858,130 +1002,80 @@ class PackageService
             return;
         }
 
-        $package->loadMissing('accommodations');
-
-        $locations = $package->accommodations
-            ->filter(fn ($accommodation) => ! empty($accommodation->hotel_name))
-            ->map(function ($accommodation) {
-                $location = (string) ($accommodation->location ?? $accommodation->hotel_name ?? 'makkah');
-
-                return [
-                    'key' => \Illuminate\Support\Str::slug($location) ?: 'makkah',
-                    'meal' => $accommodation->type_of_meal,
-                ];
-            })
-            ->unique('key')
-            ->values();
-
-        if ($locations->isEmpty()) {
-            $locations = collect([
-                ['key' => 'makkah', 'meal' => null],
-            ]);
-        }
-
-        $expectedCombos = [];
-
-        foreach ($locations as $location) {
-            foreach ($officialMembers as $officialMember) {
-                $expectedCombos[] = $location['key'].'|'.$officialMember->id;
-            }
-        }
+        $activeOfficialMemberIds = $officialMembers
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
 
         $officialRoomCandidates = $manifest->rooms()
             ->where('remarks', 'like', $officialRoomMarker.'%')
             ->with('roomMembers')
             ->get();
 
-        $roomMap = $officialRoomCandidates
-            ->mapWithKeys(function ($room) {
-                $officialRoomMember = $room->roomMembers->first();
+        $officialRoomCandidates->each(function ($room) use ($activeOfficialMemberIds): void {
+            $memberIds = $room->roomMembers
+                ->pluck('manifest_member_id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
 
-                if (! $officialRoomMember) {
-                    return [];
-                }
+            if ($memberIds === []) {
+                $room->roomMembers()->delete();
+                $room->delete();
 
-                return [
-                    ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_member_id => $room,
-                ];
-            });
-
-        $currentSortOrder = 1;
-
-        foreach ($locations as $location) {
-            foreach ($officialMembers as $index => $officialMember) {
-                $comboKey = $location['key'].'|'.$officialMember->id;
-                $existingRoom = $roomMap->get($comboKey);
-
-                $roomPayload = [
-                    'sort_order' => $currentSortOrder,
-                    'location' => $location['key'],
-                    'group_relationship' => 'official',
-                    'room_label' => 'Official Room '.($index + 1),
-                    'room_number' => null,
-                    'room_type' => 'single',
-                    'bed_type' => 'single',
-                    'capacity' => 1,
-                    'status' => 'pending',
-                    'meal' => $location['meal'],
-                    'remarks' => $officialRoomMarker,
-                ];
-
-                if ($existingRoom) {
-                    $existingRoom->update($roomPayload);
-
-                    $memberRow = $existingRoom->roomMembers->first();
-                    if ($memberRow) {
-                        $memberRow->update([
-                            'manifest_member_id' => $officialMember->id,
-                            'sort_order' => 1,
-                        ]);
-                    } else {
-                        $existingRoom->roomMembers()->create([
-                            'manifest_member_id' => $officialMember->id,
-                            'sort_order' => 1,
-                            'is_assigned' => true,
-                            'remarks' => null,
-                        ]);
-                    }
-                } else {
-                    $newRoom = $manifest->rooms()->create([
-                        ...$roomPayload,
-                        'number_of_beds_checked' => false,
-                    ]);
-
-                    $newRoom->roomMembers()->create([
-                        'manifest_member_id' => $officialMember->id,
-                        'sort_order' => 1,
-                        'is_assigned' => true,
-                        'remarks' => null,
-                    ]);
-                }
-
-                $currentSortOrder++;
+                return;
             }
-        }
 
-        $manifest->rooms()
-            ->where('remarks', 'like', $officialRoomMarker.'%')
-            ->with('roomMembers')
-            ->get()
-            ->each(function ($room) use ($expectedCombos): void {
-                $officialRoomMember = $room->roomMembers->first();
-
-                if (! $officialRoomMember) {
-                    $room->roomMembers()->delete();
-                    $room->delete();
-
-                    return;
-                }
-
-                $comboKey = ($room->location ?? 'makkah').'|'.$officialRoomMember->manifest_member_id;
-
-                if (! in_array($comboKey, $expectedCombos, true)) {
-                    $room->roomMembers()->delete();
-                    $room->delete();
-                }
+            $hasActiveOfficial = collect($memberIds)->contains(function ($memberId) use ($activeOfficialMemberIds): bool {
+                return in_array((int) $memberId, $activeOfficialMemberIds, true);
             });
+
+            if (! $hasActiveOfficial) {
+                $room->roomMembers()->delete();
+                $room->delete();
+            }
+        });
+
+        $package->loadMissing('accommodations');
+
+        $defaultAccommodation = $package->accommodations
+            ->first(fn ($accommodation) => ! empty($accommodation->hotel_name));
+        $defaultLocation = $defaultAccommodation
+            ? (\Illuminate\Support\Str::slug((string) ($defaultAccommodation->location ?? $defaultAccommodation->hotel_name)) ?: 'makkah')
+            : 'makkah';
+        $defaultMeal = $defaultAccommodation->type_of_meal ?? null;
+
+        $nextSortOrder = (int) (($manifest->rooms()->max('sort_order') ?? 0) + 1);
+
+        $officialMembers->each(function ($officialMember) use ($manifest, $officialRoomMarker, $defaultLocation, $defaultMeal, &$nextSortOrder): void {
+            if ($officialMember->roomAssignments()->exists()) {
+                return;
+            }
+
+            $room = $manifest->rooms()->create([
+                'sort_order' => $nextSortOrder,
+                'location' => $defaultLocation,
+                'group_relationship' => 'official',
+                'room_label' => 'Official Room',
+                'room_number' => null,
+                'room_type' => 'single',
+                'bed_type' => 'single',
+                'capacity' => 1,
+                'status' => 'pending',
+                'meal' => $defaultMeal,
+                'number_of_beds_checked' => false,
+                'remarks' => $officialRoomMarker,
+            ]);
+
+            $room->roomMembers()->create([
+                'manifest_member_id' => $officialMember->id,
+                'sort_order' => 1,
+                'remarks' => null,
+            ]);
+
+            $nextSortOrder++;
+        });
     }
 
     /**

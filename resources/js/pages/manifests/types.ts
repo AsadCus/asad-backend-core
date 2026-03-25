@@ -162,6 +162,7 @@ export interface CanonicalManifestSharingGroup {
 
 export interface CanonicalManifestRoomMember {
     id?: number | null;
+    room_member_id?: number | null;
     manifest_member_id?: number | null;
     customer_confirmation_member_id?: number | null;
     package_official_id?: number | null;
@@ -197,6 +198,8 @@ export interface ManifestFormProps {
 export type MemberWithUI = MemberSchema & {
     row_key?: string;
     manifest_member_id?: number;
+    manifest_room_id?: number;
+    room_member_id?: number;
     customer_confirmation_id?: number;
     customer_confirmation_number?: string | null;
     customer_name?: string;

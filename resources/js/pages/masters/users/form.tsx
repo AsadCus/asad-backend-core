@@ -74,6 +74,7 @@ export function UserForm({
         send_email: false,
         contact: '',
         role: determinedRole,
+        country_id: '',
         branch_id: '',
         company_name: '',
         nric_number: '',
@@ -418,12 +419,14 @@ export function UserForm({
                                     name: data.name,
                                     email: data.email,
                                     contact: data.contact,
+                                    branch_id: data.branch_id,
                                 }}
                                 errors={
                                     errors as Partial<
                                         Record<keyof UserSchema, string>
                                     >
                                 }
+                                branches={branches}
                                 isView={isView}
                                 onChange={(field, value) =>
                                     setData(field, value)

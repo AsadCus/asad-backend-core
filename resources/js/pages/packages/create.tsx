@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/packages';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import PackageForm from './form';
@@ -12,7 +12,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreatePackage() {
+interface CreatePackageProps {
+    dataCountry: OptionType[];
+}
+
+export default function CreatePackage({ dataCountry }: CreatePackageProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -26,7 +30,11 @@ export default function CreatePackage() {
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
-                    <PackageForm mode="create" onCancel={handleCancel} />
+                    <PackageForm
+                        mode="create"
+                        countries={dataCountry}
+                        onCancel={handleCancel}
+                    />
                 </div>
             </div>
         </AppLayout>

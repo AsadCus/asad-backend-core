@@ -20,9 +20,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ViewUserProps {
-    data: UserSchema[];
+    data: UserSchema;
     dataRole: [];
     dataBranch: [];
+    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
@@ -34,6 +35,7 @@ export default function ViewUser({
     data,
     dataRole,
     dataBranch,
+    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,
@@ -65,6 +67,7 @@ export default function ViewUser({
                         mode="view"
                         initialData={data}
                         branches={dataBranch}
+                        countries={dataCountry}
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}

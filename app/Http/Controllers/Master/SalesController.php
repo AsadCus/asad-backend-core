@@ -63,7 +63,7 @@ class SalesController extends Controller
     {
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/create', [
@@ -92,9 +92,9 @@ class SalesController extends Controller
         }
 
         activity()
-                ->performedOn($user)
-                ->withProperties(['subject_type' => 'Sales', 'subject_id' => $user->id ?? null])
-                ->log('Sales created successfully #'.($user->id ?? null));
+            ->performedOn($user)
+            ->withProperties(['subject_type' => 'Sales', 'subject_id' => $user->id ?? null])
+            ->log('Sales created successfully #'.($user->id ?? null));
 
         return redirect()->intended(route('master.user.sales.index'))->with('success', 'Sales created successfully.');
     }
@@ -107,7 +107,7 @@ class SalesController extends Controller
         $data = $this->salesUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/view', [
@@ -128,7 +128,7 @@ class SalesController extends Controller
         $data = $this->salesUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/edit', [

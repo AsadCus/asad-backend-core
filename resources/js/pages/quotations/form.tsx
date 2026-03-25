@@ -27,6 +27,17 @@ interface QuotationFormProps {
     customerConfirmations?: OptionType[];
     quotationItems?: QuotationItemSchema[];
     quotationNotes?: NoteSchema[];
+    extensionMasters?: Array<{
+        id?: number;
+        name: string;
+        type: string;
+        calculation_mode?: string | null;
+        calculation_value?: string | number | null;
+        payment_methods?: string[];
+        is_active?: boolean;
+        sort_order?: number;
+    }>;
+    defaultExtensions?: QuotationSchema['extensions'];
     prefilledCustomerId?: string;
     prefilledCustomerData?: UserSchema;
     onCancel?: () => void;
@@ -131,6 +142,8 @@ export function QuotationForm({
     customerConfirmations = [],
     quotationItems = [],
     quotationNotes = [],
+    extensionMasters = [],
+    defaultExtensions = [],
     prefilledCustomerId,
     prefilledCustomerData,
     onCancel,
@@ -179,15 +192,39 @@ export function QuotationForm({
                 extension._key ??
                 (extension.id ? `id-${extension.id}` : nanoid()),
             type: extension.type || 'discount',
+            calculation_mode: extension.calculation_mode ?? 'fixed',
+            calculation_value: extension.calculation_value ?? extension.amount,
+            quotation_extension_master_id:
+                extension.quotation_extension_master_id ?? null,
             name: extension.name || 'Discount',
             sort_order: extension.sort_order ?? 1,
+        }),
+    );
+
+    const normalizedDefaultExtensions = (defaultExtensions ?? []).map(
+        (extension, index) => ({
+            ...extension,
+            _key:
+                extension._key ??
+                (extension.id ? `id-${extension.id}` : nanoid()),
+            id: extension.id,
+            quotation_extension_master_id:
+                extension.quotation_extension_master_id ?? null,
+            name: extension.name || 'Discount',
+            type: extension.type || 'discount',
+            calculation_mode: extension.calculation_mode ?? 'fixed',
+            calculation_value: extension.calculation_value ?? extension.amount,
+            amount: extension.amount ?? 0,
+            sort_order: extension.sort_order ?? index + 1,
         }),
     );
 
     const defaultData: QuotationSchema = {
         ...(initialData ?? initialFormState),
         notes: initialNotes,
-        extensions: normalizedExtensions,
+        extensions: initialData
+            ? normalizedExtensions
+            : normalizedDefaultExtensions,
         ...(prefilledCustomerId && prefilledCustomerData
             ? {
                   customer_id: Number.parseInt(prefilledCustomerId, 10),
@@ -235,6 +272,101 @@ export function QuotationForm({
 
     const [packagePrices, setPackagePrices] =
         useState<PackagePrices>(EMPTY_PACKAGE_PRICES);
+
+    const activeExtensionMasters = useMemo(
+        () =>
+            extensionMasters
+                .filter((master) => master.is_active !== false)
+                .sort(
+                    (left, right) =>
+                        Number(left.sort_order ?? 0) -
+                        Number(right.sort_order ?? 0),
+                ),
+        [extensionMasters],
+    );
+
+    useEffect(() => {
+        if (activeExtensionMasters.length === 0) {
+            return;
+        }
+
+        setData((prev) => {
+            const existingExtensions = prev.extensions ?? [];
+            const existingAutoByMasterId = new Map(
+                existingExtensions
+                    .filter(
+                        (extension) =>
+                            Number(
+                                extension.quotation_extension_master_id ?? 0,
+                            ) > 0,
+                    )
+                    .map((extension) => [
+                        Number(extension.quotation_extension_master_id),
+                        extension,
+                    ]),
+            );
+
+            const manualExtensions = existingExtensions.filter(
+                (extension) =>
+                    Number(extension.quotation_extension_master_id ?? 0) <= 0,
+            );
+
+            const applicableMasters = activeExtensionMasters.filter(
+                (master) => {
+                    const methods = master.payment_methods ?? [];
+                    if (!methods.length) {
+                        return true;
+                    }
+
+                    return methods.includes(String(prev.payment_method ?? ''));
+                },
+            );
+
+            const autoExtensions = applicableMasters.map((master, index) => {
+                const masterId = Number(master.id ?? 0);
+                const existing = existingAutoByMasterId.get(masterId);
+                const calculationMode =
+                    existing?.calculation_mode ??
+                    master.calculation_mode ??
+                    'fixed';
+                const calculationValue =
+                    existing?.calculation_value ??
+                    master.calculation_value ??
+                    0;
+                const fixedAmount =
+                    calculationMode === 'fixed'
+                        ? Number(calculationValue ?? 0)
+                        : Number(existing?.amount ?? 0);
+
+                return {
+                    _key:
+                        existing?._key ??
+                        (existing?.id ? `id-${existing.id}` : nanoid()),
+                    id: existing?.id,
+                    quotation_extension_master_id: masterId || null,
+                    name: existing?.name ?? master.name,
+                    type: existing?.type ?? master.type,
+                    calculation_mode: calculationMode,
+                    calculation_value: calculationValue,
+                    amount: fixedAmount,
+                    sort_order: index + 1,
+                };
+            });
+
+            const mergedExtensions = [
+                ...autoExtensions,
+                ...manualExtensions,
+            ].map((extension, index) => ({
+                ...extension,
+                sort_order: index + 1,
+            }));
+
+            return {
+                ...prev,
+                extensions: mergedExtensions,
+            };
+        });
+    }, [activeExtensionMasters, data.payment_method, setData]);
 
     // customer
     useEffect(() => {

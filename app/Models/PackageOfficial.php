@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -37,5 +38,26 @@ class PackageOfficial extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class);
+    }
+
+    public function getDateOfBirthFormattedAttribute(): ?string
+    {
+        return $this->date_of_birth
+            ? Carbon::parse($this->date_of_birth)->translatedFormat('d F Y')
+            : null;
+    }
+
+    public function getPassportIssueDateFormattedAttribute(): ?string
+    {
+        return $this->passport_issue_date
+            ? Carbon::parse($this->passport_issue_date)->translatedFormat('d F Y')
+            : null;
+    }
+
+    public function getPassportExpiryDateFormattedAttribute(): ?string
+    {
+        return $this->passport_expiry_date
+            ? Carbon::parse($this->passport_expiry_date)->translatedFormat('d F Y')
+            : null;
     }
 }

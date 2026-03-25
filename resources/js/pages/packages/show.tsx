@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/packages';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { Eye } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -11,6 +11,7 @@ import { type PackageSchema } from './schema';
 
 interface ShowPackageProps {
     data: PackageSchema;
+    dataCountry: OptionType[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,9 +21,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function ShowPackage({ data }: ShowPackageProps) {
-    const [previewModalOpen, setPreviewModalOpen] = useState(false);
-
+export default function ShowPackage({ data, dataCountry }: ShowPackageProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -48,6 +47,7 @@ export default function ShowPackage({ data }: ShowPackageProps) {
                     <PackageForm
                         mode="view"
                         initialData={data}
+                        countries={dataCountry}
                         onCancel={handleCancel}
                     />
                 </div>

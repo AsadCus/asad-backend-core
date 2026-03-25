@@ -107,6 +107,14 @@ export interface CustomerConfirmationFormProps {
     onCancel?: () => void;
 }
 
+interface CustomerConfirmationPackageOption extends OptionType {
+    package_number?: string;
+    departure_date?: string | null;
+    return_date?: string | null;
+    seats_left?: number | null;
+    is_private?: boolean;
+}
+
 export default function CustomerConfirmationForm({
     mode = 'create',
     enquiryId,
@@ -261,12 +269,101 @@ export default function CustomerConfirmationForm({
     const form = useForm<CustomerConfirmationFormData>(defaultData);
     const { data, setData, post, processing, clearErrors, setError } = form;
     const errors: Record<string, string | undefined> = form.errors;
+    const normalizedPackageOptions =
+        packageOptions as CustomerConfirmationPackageOption[];
     const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
     const isPrivateWithLinkedPackage =
         isEdit &&
         (effectiveLinkedEnquiry?.type ?? enquiryType ?? '').toLowerCase() ===
             'private' &&
         !!initialData?.package_id;
+
+    const groupedPackageOptions = useMemo(() => {
+        const selectedPackageId = Number(data.package_id ?? 0);
+        const visiblePackages = normalizedPackageOptions
+            .filter((option) => {
+                const packageId = Number(option.value ?? 0);
+                const isCurrentSelection =
+                    selectedPackageId > 0 && packageId === selectedPackageId;
+                const seatsLeft = Number(option.seats_left ?? 0);
+                const isPrivatePackage =
+                    Boolean(option.is_private) ||
+                    /^private\s*-/i.test((option.label ?? '').trim());
+
+                if (isCurrentSelection) {
+                    return true;
+                }
+
+                return seatsLeft > 0 && !isPrivatePackage;
+            })
+            .sort((left, right) => {
+                const leftDate = parseDisplayDate(left.departure_date);
+                const rightDate = parseDisplayDate(right.departure_date);
+
+                if (leftDate && rightDate) {
+                    return leftDate.getTime() - rightDate.getTime();
+                }
+
+                if (leftDate) {
+                    return -1;
+                }
+
+                if (rightDate) {
+                    return 1;
+                }
+
+                return String(left.label).localeCompare(String(right.label));
+            });
+
+        const options: CustomerConfirmationPackageOption[] = [];
+        let previousGroupKey = '';
+
+        visiblePackages.forEach((option) => {
+            const departureDate = parseDisplayDate(option.departure_date);
+            const returnDate = parseDisplayDate(option.return_date);
+
+            const groupKey = departureDate
+                ? departureDate.toLocaleDateString('en-US', {
+                      month: 'long',
+                      year: 'numeric',
+                  })
+                : 'No Departure Date';
+
+            if (groupKey !== previousGroupKey) {
+                options.push({
+                    value: `__group__:${groupKey}`,
+                    label: groupKey,
+                });
+                previousGroupKey = groupKey;
+            }
+
+            const departureDay = departureDate
+                ? String(departureDate.getDate()).padStart(2, '0')
+                : null;
+            const returnLabel = returnDate
+                ? formatDateForDisplay(returnDate)
+                : null;
+            const departureLabel = departureDate
+                ? formatDateForDisplay(departureDate)
+                : null;
+            const dateRangeLabel =
+                departureDay && returnLabel
+                    ? `${departureDay} - ${returnLabel}`
+                    : (departureLabel ?? '');
+
+            const seatsLeft = Number(option.seats_left ?? 0);
+            const seatsLeftLabel = Number.isFinite(seatsLeft)
+                ? ` (${seatsLeft} Seats Left)`
+                : '';
+
+            options.push({
+                ...option,
+                label: `${dateRangeLabel} ${option.label}${seatsLeftLabel}`.trim(),
+            });
+        });
+
+        return options;
+    }, [normalizedPackageOptions, data.package_id]);
 
     useEffect(() => {
         const enquiryCreatedAt = effectiveLinkedEnquiry?.created_at;
@@ -617,7 +714,7 @@ export default function CustomerConfirmationForm({
         setActiveTab(`customer-${Math.max(0, newIdx)}`);
     };
 
-    const updateCustomer = (
+    const applyCustomerUpdate = (
         index: number,
         field: keyof CustomerMemberFormData,
         value: string | boolean | File | null,
@@ -638,6 +735,22 @@ export default function CustomerConfirmationForm({
                 members: next,
             };
         });
+    };
+
+    const updateCustomer = (
+        index: number,
+        field: keyof CustomerMemberFormData,
+        value: string | boolean | File | null,
+    ) => {
+        if (field === 'is_leader' && value === true) {
+            applyCustomerUpdate(index, field, value);
+
+            return;
+        }
+
+        window.setTimeout(() => {
+            applyCustomerUpdate(index, field, value);
+        }, 0);
     };
 
     // Submit
@@ -990,7 +1103,7 @@ export default function CustomerConfirmationForm({
                                 ) : (
                                     <ProperInputSelect
                                         id="package_id"
-                                        options={packageOptions}
+                                        options={groupedPackageOptions}
                                         value={
                                             data.package_id
                                                 ? String(data.package_id)
@@ -998,6 +1111,14 @@ export default function CustomerConfirmationForm({
                                         }
                                         onValueChange={(nextValue) => {
                                             if (Array.isArray(nextValue)) {
+                                                return;
+                                            }
+
+                                            if (
+                                                String(nextValue).startsWith(
+                                                    '__group__:',
+                                                )
+                                            ) {
                                                 return;
                                             }
 
@@ -1016,7 +1137,7 @@ export default function CustomerConfirmationForm({
                                             (isPublic &&
                                                 Boolean(data.package_id))
                                         }
-                                        truncate={30}
+                                        truncate={100}
                                     />
                                 )}
                             </FormField>
@@ -1237,6 +1358,9 @@ export default function CustomerConfirmationForm({
                                                         index={idx}
                                                         isView={isView}
                                                         processing={processing}
+                                                        showStatusField={
+                                                            !isPublic
+                                                        }
                                                         getError={getError}
                                                         sharingPlanSelectOptions={
                                                             memberSharingPlanOptions

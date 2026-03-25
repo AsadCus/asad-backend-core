@@ -9,6 +9,7 @@ class PackageRule
         return [
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:open,closed'],
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
 
             // Pricing
             'price_single' => ['nullable', 'numeric', 'min:0'],

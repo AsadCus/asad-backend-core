@@ -51,6 +51,11 @@ class UserController extends Controller
             'supplier' => $this->userService->countByRole('supplier'),
         ];
 
+        $countryStats = [
+            'admin' => $this->userService->getCountryStatsByRole('admin'),
+            'sales' => $this->userService->getCountryStatsByRole('sales'),
+        ];
+
         return Inertia::render('masters/users/index', [
             // 'data' => $dataUser,
             // 'dataRole' => $dataRole,
@@ -58,6 +63,7 @@ class UserController extends Controller
             // 'dataCountry' => $dataCountry,
             // 'dataSales' => $dataSales,
             'roleStats' => $roleStats,
+            'countryStats' => $countryStats,
         ]);
     }
 
@@ -68,7 +74,7 @@ class UserController extends Controller
     {
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/create', [
@@ -101,7 +107,7 @@ class UserController extends Controller
         $data = $this->userService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/view', [
@@ -121,7 +127,7 @@ class UserController extends Controller
         $data = $this->userService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/edit', [

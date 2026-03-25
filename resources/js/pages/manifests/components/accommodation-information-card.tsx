@@ -1,4 +1,6 @@
 import { FormField } from '@/components/form-field';
+import { DatePickerField } from '@/components/date-picker';
+import { ProperInput } from '@/components/proper-input';
 import {
     Card,
     CardContent,
@@ -6,7 +8,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { type PackageAccommodationOption } from '../types';
 
 interface AccommodationInformationCardProps {
@@ -31,19 +32,41 @@ export default function AccommodationInformationCard({
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-5">
                 <FormField label="Hotel">
-                    <Input value={accommodation.hotel_name ?? ''} disabled />
+                    <ProperInput
+                        value={accommodation.hotel_name ?? ''}
+                        onCommit={() => undefined}
+                        disabled
+                    />
                 </FormField>
                 <FormField label="Location">
-                    <Input value={accommodation.location ?? ''} disabled />
+                    <ProperInput
+                        value={accommodation.location ?? ''}
+                        onCommit={() => undefined}
+                        disabled
+                    />
                 </FormField>
                 <FormField label="Check In">
-                    <Input value={accommodation.check_in ?? ''} disabled />
+                    <DatePickerField
+                        id={`accommodation-check-in-${accommodation.id ?? String(accommodation.location ?? accommodation.hotel_name ?? 'row').toLowerCase().replace(/\s+/g, '-')}`}
+                        value={accommodation.check_in ?? ''}
+                        disabled
+                        onChange={() => undefined}
+                    />
                 </FormField>
                 <FormField label="Check Out">
-                    <Input value={accommodation.check_out ?? ''} disabled />
+                    <DatePickerField
+                        id={`accommodation-check-out-${accommodation.id ?? String(accommodation.location ?? accommodation.hotel_name ?? 'row').toLowerCase().replace(/\s+/g, '-')}`}
+                        value={accommodation.check_out ?? ''}
+                        disabled
+                        onChange={() => undefined}
+                    />
                 </FormField>
                 <FormField label="Meal Plan">
-                    <Input value={accommodation.type_of_meal ?? ''} disabled />
+                    <ProperInput
+                        value={accommodation.type_of_meal ?? ''}
+                        onCommit={() => undefined}
+                        disabled
+                    />
                 </FormField>
             </CardContent>
         </Card>

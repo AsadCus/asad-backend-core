@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/packages';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import PackageForm from './form';
@@ -8,6 +8,7 @@ import { type PackageSchema } from './schema';
 
 interface EditPackageProps {
     data: PackageSchema;
+    dataCountry: OptionType[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -17,7 +18,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function EditPackage({ data }: EditPackageProps) {
+export default function EditPackage({ data, dataCountry }: EditPackageProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -34,6 +35,7 @@ export default function EditPackage({ data }: EditPackageProps) {
                     <PackageForm
                         mode="edit"
                         initialData={data}
+                        countries={dataCountry}
                         onCancel={handleCancel}
                     />
                 </div>

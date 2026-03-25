@@ -42,7 +42,7 @@ class Manifest extends Model
 
     public function rooms(): HasMany
     {
-        return $this->hasMany(ManifestRoom::class);
+        return $this->hasMany(ManifestRoom::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function files(): MorphMany

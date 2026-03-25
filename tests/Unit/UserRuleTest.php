@@ -3,8 +3,8 @@
 namespace Tests\Unit;
 
 use App\Rules\UserRule;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
 
 class UserRuleTest extends TestCase
@@ -37,6 +37,22 @@ class UserRuleTest extends TestCase
         ];
 
         $validator = Validator::make($payload, $rule->rules('sales'));
+
+        $this->assertTrue($validator->fails());
+        $this->assertArrayHasKey('branch_id', $validator->errors()->toArray());
+    }
+
+    public function test_admin_role_requires_branch_id(): void
+    {
+        $rule = new UserRule;
+
+        $payload = [
+            'name' => 'Admin One',
+            'email' => 'admin.one@example.com',
+            'role' => 'admin',
+        ];
+
+        $validator = Validator::make($payload, $rule->rules('admin'));
 
         $this->assertTrue($validator->fails());
         $this->assertArrayHasKey('branch_id', $validator->errors()->toArray());

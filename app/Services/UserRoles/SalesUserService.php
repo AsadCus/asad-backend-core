@@ -12,10 +12,12 @@ class SalesUserService
 {
     public function getForDataTable()
     {
-        return User::role('sales')->with('roles', 'sales.branch')->get()->map(function ($user) {
+        return User::role('sales')->with('roles', 'sales.branch.country')->get()->map(function ($user) {
             $user->role = 'sales';
             $user->contact = $user->contact ?? '';
             $user->branch_id = (string) ($user->sales->branch_id ?? '');
+            $user->branch_name = $user->sales->branch?->name ?? '-';
+            $user->country_name = $user->sales->branch?->country?->name ?? '-';
 
             return $user;
         });
@@ -28,6 +30,7 @@ class SalesUserService
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'contact' => $data['contact'] ?? null,
+                'branch_id' => $data['branch_id'] ?? null,
                 'password' => isset($data['password'])
                     ? Hash::make($data['password'])
                     : Hash::make('password'),
@@ -51,7 +54,7 @@ class SalesUserService
 
     public function getForEditShow($id)
     {
-        $user = User::role('sales')->with('sales')->findOrFail($id);
+        $user = User::role('sales')->with('sales.branch.country')->findOrFail($id);
 
         return [
             'id' => $user->id,
@@ -59,7 +62,10 @@ class SalesUserService
             'email' => $user->email,
             'contact' => $user->contact ?? '',
             'role' => 'sales',
+            'country_id' => '',
+            'country_name' => $user->sales?->branch?->country?->name ?? '',
             'branch_id' => (string) ($user->sales->branch_id ?? ''),
+            'branch_name' => $user->sales?->branch?->name ?? '',
             'company_name' => '',
             'customer_id' => null,
             'customer_number' => '',
@@ -94,6 +100,7 @@ class SalesUserService
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'contact' => $data['contact'] ?? null,
+                'branch_id' => $data['branch_id'] ?? $user->branch_id,
                 'password' => isset($data['password']) && $data['password']
                     ? Hash::make($data['password'])
                     : $user->password,

@@ -267,10 +267,12 @@
                 <span class="total-amount">{{ formatCurrency($subtotal) }}</span>
             </div>
             @if (!empty($data['extensions']) && count($data['extensions']) > 0)
-                <div>
-                    <span class="total-label">Quotation Extension:&nbsp;</span>
-                    <span class="total-amount">{{ formatCurrency($data['extension_total_amount'] ?? 0) }}</span>
-                </div>
+                @foreach ($data['extensions'] as $extension)
+                    <div>
+                        <span class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:&nbsp;</span>
+                        <span class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</span>
+                    </div>
+                @endforeach
             @endif
             <div>
                 <span class="total-label">Total Amount:&nbsp;</span>

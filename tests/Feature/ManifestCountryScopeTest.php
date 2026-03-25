@@ -1,0 +1,124 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Branch;
+use App\Models\Country;
+use App\Models\Manifest;
+use App\Models\Package;
+use App\Models\User;
+use App\Services\ManifestService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
+
+class ManifestCountryScopeTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_admin_with_country_sees_only_manifests_in_same_country(): void
+    {
+        $adminRole = Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+
+        $countryA = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $countryB = Country::create([
+            'name' => 'Indonesia',
+            'adjective' => 'Indonesian',
+        ]);
+
+        $branchA = Branch::create([
+            'name' => 'KL Branch',
+            'country_id' => $countryA->id,
+        ]);
+
+        $adminUser = User::factory()->create([
+            'branch_id' => $branchA->id,
+        ]);
+        $adminUser->assignRole($adminRole);
+
+        $packageA = Package::create([
+            'package_number' => 'PKG-COUNTRY-A',
+            'name' => 'Package Country A',
+            'status' => 'open',
+            'country_id' => $countryA->id,
+        ]);
+
+        $packageB = Package::create([
+            'package_number' => 'PKG-COUNTRY-B',
+            'name' => 'Package Country B',
+            'status' => 'open',
+            'country_id' => $countryB->id,
+        ]);
+
+        $manifestA = Manifest::create([
+            'package_id' => $packageA->id,
+            'manifest_number' => 'MAN-COUNTRY-A',
+        ]);
+
+        Manifest::create([
+            'package_id' => $packageB->id,
+            'manifest_number' => 'MAN-COUNTRY-B',
+        ]);
+
+        $this->actingAs($adminUser);
+
+        $manifests = app(ManifestService::class)->getForDataTable();
+
+        $this->assertCount(1, $manifests);
+        $this->assertSame($manifestA->id, $manifests->first()['id']);
+    }
+
+    public function test_admin_without_country_sees_all_manifests(): void
+    {
+        $adminRole = Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+
+        $countryA = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $countryB = Country::create([
+            'name' => 'Indonesia',
+            'adjective' => 'Indonesian',
+        ]);
+
+        $adminUser = User::factory()->create([
+            'branch_id' => null,
+        ]);
+        $adminUser->assignRole($adminRole);
+
+        $packageA = Package::create([
+            'package_number' => 'PKG-COUNTRY-A2',
+            'name' => 'Package Country A2',
+            'status' => 'open',
+            'country_id' => $countryA->id,
+        ]);
+
+        $packageB = Package::create([
+            'package_number' => 'PKG-COUNTRY-B2',
+            'name' => 'Package Country B2',
+            'status' => 'open',
+            'country_id' => $countryB->id,
+        ]);
+
+        Manifest::create([
+            'package_id' => $packageA->id,
+            'manifest_number' => 'MAN-COUNTRY-A2',
+        ]);
+
+        Manifest::create([
+            'package_id' => $packageB->id,
+            'manifest_number' => 'MAN-COUNTRY-B2',
+        ]);
+
+        $this->actingAs($adminUser);
+
+        $manifests = app(ManifestService::class)->getForDataTable();
+
+        $this->assertCount(2, $manifests);
+    }
+}

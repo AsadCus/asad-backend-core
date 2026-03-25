@@ -10,6 +10,7 @@ interface ConfirmedCustomerFormFieldsProps {
     fieldPrefix?: string;
     isView: boolean;
     processing: boolean;
+    showStatusField?: boolean;
     getError: (path: string) => string | undefined;
     sharingPlanSelectOptions?: Array<{ label: string; value: string }>;
     onUpdateCustomer: (
@@ -33,6 +34,7 @@ export default function ConfirmedCustomerFormFields({
     fieldPrefix,
     isView,
     processing,
+    showStatusField = true,
     getError,
     sharingPlanSelectOptions,
     onUpdateCustomer,
@@ -47,32 +49,34 @@ export default function ConfirmedCustomerFormFields({
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
-                <FormField
-                    label="Status"
-                    htmlFor={fieldPath('status')}
-                    error={getError(fieldPath('status'))}
-                    fieldRequirementsProps={{
-                        required: true,
-                        hint: 'Current booking status',
-                        example: 'confirmed',
-                        format: 'draft, pending payment, partially paid, confirmed, unavailable, or cancelled',
-                    }}
-                >
-                    <ProperInputSelect
-                        id={fieldPath('status')}
-                        mode="classic"
-                        options={statusOptions.map((option) => ({
-                            label: option.label,
-                            value: option.value,
-                        }))}
-                        value={customer.status ?? 'draft'}
-                        onValueChange={(value) =>
-                            onUpdateCustomer('status', String(value))
-                        }
-                        placeholder="Select status"
-                        disabled={disabled}
-                    />
-                </FormField>
+                {showStatusField && (
+                    <FormField
+                        label="Status"
+                        htmlFor={fieldPath('status')}
+                        error={getError(fieldPath('status'))}
+                        fieldRequirementsProps={{
+                            required: true,
+                            hint: 'Current booking status',
+                            example: 'confirmed',
+                            format: 'draft, pending payment, partially paid, confirmed, unavailable, or cancelled',
+                        }}
+                    >
+                        <ProperInputSelect
+                            id={fieldPath('status')}
+                            mode="classic"
+                            options={statusOptions.map((option) => ({
+                                label: option.label,
+                                value: option.value,
+                            }))}
+                            value={customer.status ?? 'draft'}
+                            onValueChange={(value) =>
+                                onUpdateCustomer('status', String(value))
+                            }
+                            placeholder="Select status"
+                            disabled={disabled}
+                        />
+                    </FormField>
+                )}
 
                 <FormField
                     label="Sharing Plan"

@@ -9,8 +9,10 @@ use App\Models\CustomerConfirmationMember;
 use App\Models\FinancialTransaction;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
+use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
 use App\Models\QuotationExtension;
+use App\Models\QuotationExtensionMaster;
 use App\Models\QuotationItem;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -18,6 +20,13 @@ use Illuminate\Support\Facades\DB;
 
 class QuotationService
 {
+    private const DEFAULT_PAYMENT_METHODS = [
+        ['label' => 'Cash', 'value' => 'cash'],
+        ['label' => 'Bank Transfer', 'value' => 'transfer'],
+        ['label' => 'Paynow', 'value' => 'paynow'],
+        ['label' => 'Credit Card', 'value' => 'credit_card'],
+    ];
+
     protected $formatService;
 
     protected $quotationItemService;
@@ -100,6 +109,255 @@ class QuotationService
         });
 
         return $data;
+    }
+
+    public function getPaymentMethodOptions(): array
+    {
+        $methods = PaymentMethodMaster::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (PaymentMethodMaster $master) => [
+                'label' => $master->name,
+                'value' => $master->value,
+            ])
+            ->values()
+            ->all();
+
+        if (empty($methods)) {
+            return self::DEFAULT_PAYMENT_METHODS;
+        }
+
+        return $methods;
+    }
+
+    public function getPaymentMethodMastersForMasterPage(): array
+    {
+        return PaymentMethodMaster::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(function (PaymentMethodMaster $master) {
+                return [
+                    'id' => $master->id,
+                    'name' => $master->name,
+                    'value' => $master->value,
+                    'is_active' => (bool) $master->is_active,
+                    'sort_order' => (int) ($master->sort_order ?? 0),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function storePaymentMethodMasters(array $paymentMethods): void
+    {
+        DB::transaction(function () use ($paymentMethods) {
+            $sanitized = collect($paymentMethods)
+                ->filter(fn ($row) => is_array($row))
+                ->map(function (array $row, int $index) {
+                    $name = trim((string) ($row['name'] ?? ''));
+                    $value = trim((string) ($row['value'] ?? ''));
+
+                    return [
+                        'id' => ! empty($row['id']) ? (int) $row['id'] : null,
+                        'name' => $name,
+                        'value' => $value,
+                        'is_active' => (bool) ($row['is_active'] ?? true),
+                        'sort_order' => (int) ($row['sort_order'] ?? ($index + 1)),
+                    ];
+                })
+                ->filter(fn ($row) => $row['name'] !== '' && $row['value'] !== '')
+                ->unique('value')
+                ->values();
+
+            $incomingIds = $sanitized
+                ->pluck('id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            PaymentMethodMaster::query()
+                ->when(! empty($incomingIds), fn ($query) => $query->whereNotIn('id', $incomingIds))
+                ->when(empty($incomingIds), fn ($query) => $query)
+                ->delete();
+
+            foreach ($sanitized as $row) {
+                if ($row['id']) {
+                    PaymentMethodMaster::query()
+                        ->where('id', $row['id'])
+                        ->update([
+                            'name' => $row['name'],
+                            'value' => $row['value'],
+                            'is_active' => $row['is_active'],
+                            'sort_order' => $row['sort_order'],
+                        ]);
+
+                    continue;
+                }
+
+                PaymentMethodMaster::query()->create([
+                    'name' => $row['name'],
+                    'value' => $row['value'],
+                    'is_active' => $row['is_active'],
+                    'sort_order' => $row['sort_order'],
+                ]);
+            }
+        });
+    }
+
+    public function getSupportedPaymentMethodValues(): array
+    {
+        return collect($this->getPaymentMethodOptions())
+            ->pluck('value')
+            ->map(fn ($value) => (string) $value)
+            ->filter(fn ($value) => $value !== '')
+            ->values()
+            ->all();
+    }
+
+    public function getExtensionMastersForMasterPage(): array
+    {
+        $supportedPaymentMethods = $this->getSupportedPaymentMethodValues();
+
+        return QuotationExtensionMaster::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(function (QuotationExtensionMaster $master) use ($supportedPaymentMethods) {
+                return [
+                    'id' => $master->id,
+                    'name' => $master->name,
+                    'type' => $master->type,
+                    'calculation_mode' => $master->calculation_mode,
+                    'calculation_value' => $this->formatService->cleanDecimal($master->calculation_value),
+                    'payment_methods' => array_values(array_filter(
+                        (array) ($master->payment_methods ?? []),
+                        fn ($method) => in_array((string) $method, $supportedPaymentMethods, true)
+                    )),
+                    'is_active' => (bool) $master->is_active,
+                    'sort_order' => (int) ($master->sort_order ?? 0),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function storeExtensionMasters(array $extensions): void
+    {
+        $supportedPaymentMethods = $this->getSupportedPaymentMethodValues();
+
+        DB::transaction(function () use ($extensions, $supportedPaymentMethods) {
+            $sanitized = collect($extensions)
+                ->filter(fn ($row) => is_array($row))
+                ->map(function (array $row, int $index) use ($supportedPaymentMethods) {
+                    $paymentMethods = collect((array) ($row['payment_methods'] ?? []))
+                        ->map(fn ($method) => (string) $method)
+                        ->filter(fn ($method) => in_array($method, $supportedPaymentMethods, true))
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    return [
+                        'id' => ! empty($row['id']) ? (int) $row['id'] : null,
+                        'name' => trim((string) ($row['name'] ?? '')),
+                        'type' => (string) ($row['type'] ?? 'discount'),
+                        'calculation_mode' => (string) ($row['calculation_mode'] ?? 'fixed'),
+                        'calculation_value' => $this->formatService->cleanDecimal($row['calculation_value'] ?? 0) ?? 0,
+                        'payment_methods' => $paymentMethods,
+                        'is_active' => (bool) ($row['is_active'] ?? true),
+                        'sort_order' => (int) ($row['sort_order'] ?? ($index + 1)),
+                    ];
+                })
+                ->filter(fn ($row) => $row['name'] !== '')
+                ->values();
+
+            $incomingIds = $sanitized
+                ->pluck('id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            QuotationExtensionMaster::query()
+                ->when(! empty($incomingIds), fn ($query) => $query->whereNotIn('id', $incomingIds))
+                ->when(empty($incomingIds), fn ($query) => $query)
+                ->delete();
+
+            foreach ($sanitized as $row) {
+                if ($row['id']) {
+                    QuotationExtensionMaster::query()
+                        ->where('id', $row['id'])
+                        ->update([
+                            'name' => $row['name'],
+                            'type' => $row['type'],
+                            'calculation_mode' => $row['calculation_mode'],
+                            'calculation_value' => $row['calculation_value'],
+                            'payment_methods' => $row['payment_methods'],
+                            'is_active' => $row['is_active'],
+                            'sort_order' => $row['sort_order'],
+                        ]);
+
+                    continue;
+                }
+
+                QuotationExtensionMaster::query()->create([
+                    'name' => $row['name'],
+                    'type' => $row['type'],
+                    'calculation_mode' => $row['calculation_mode'],
+                    'calculation_value' => $row['calculation_value'],
+                    'payment_methods' => $row['payment_methods'],
+                    'is_active' => $row['is_active'],
+                    'sort_order' => $row['sort_order'],
+                ]);
+            }
+        });
+    }
+
+    public function getDefaultExtensionsForCreate(?string $paymentMethod = null): array
+    {
+        return QuotationExtensionMaster::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->filter(function (QuotationExtensionMaster $master) use ($paymentMethod): bool {
+                $methods = collect((array) ($master->payment_methods ?? []))
+                    ->map(fn ($method) => (string) $method)
+                    ->filter(fn ($method) => $method !== '')
+                    ->values()
+                    ->all();
+
+                if (empty($methods)) {
+                    return true;
+                }
+
+                if (! $paymentMethod) {
+                    return false;
+                }
+
+                return in_array((string) $paymentMethod, $methods, true);
+            })
+            ->values()
+            ->map(function (QuotationExtensionMaster $master, int $index) {
+                $amount = (float) ($master->calculation_mode === 'fixed'
+                    ? ($master->calculation_value ?? 0)
+                    : 0);
+
+                return [
+                    'id' => null,
+                    'quotation_extension_master_id' => $master->id,
+                    'name' => $master->name,
+                    'type' => $master->type,
+                    'calculation_mode' => $master->calculation_mode,
+                    'calculation_value' => $this->formatService->cleanDecimal($master->calculation_value),
+                    'amount' => $this->formatService->cleanDecimal($amount),
+                    'sort_order' => $index + 1,
+                ];
+            })
+            ->all();
     }
 
     public function store(array $data = []): Quotation
@@ -187,8 +445,11 @@ class QuotationService
             'extensions' => $quotation->quotationExtensions->sortBy('sort_order')->map(function (QuotationExtension $extension) {
                 return [
                     'id' => $extension->id,
+                    'quotation_extension_master_id' => $extension->quotation_extension_master_id,
                     'name' => $extension->name,
                     'type' => $extension->type,
+                    'calculation_mode' => $extension->calculation_mode,
+                    'calculation_value' => $this->formatService->cleanDecimal($extension->calculation_value),
                     'amount' => $this->formatService->cleanDecimal($extension->amount),
                     'sort_order' => $extension->sort_order,
                 ];
@@ -760,16 +1021,45 @@ class QuotationService
 
     private function syncQuotationExtensions(Quotation $quotation, array $extensions): void
     {
+        $itemSubtotal = (float) ($quotation->quotationItems()
+            ->where('is_header', false)
+            ->get()
+            ->sum(function (QuotationItem $item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            }));
+
         $sanitizedExtensions = collect($extensions)
             ->filter(fn ($extension) => is_array($extension))
             ->map(function (array $extension, int $index) {
+                $calculationMode = (string) ($extension['calculation_mode'] ?? 'fixed');
+                if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    $calculationMode = 'fixed';
+                }
+
+                $calculationValue = $this->formatService->cleanDecimal(
+                    $extension['calculation_value'] ?? $extension['amount'] ?? 0
+                ) ?? 0;
+
                 return [
                     'id' => ! empty($extension['id']) ? (int) $extension['id'] : null,
+                    'quotation_extension_master_id' => ! empty($extension['quotation_extension_master_id'])
+                        ? (int) $extension['quotation_extension_master_id']
+                        : null,
                     'name' => (string) ($extension['name'] ?? ''),
                     'type' => (string) ($extension['type'] ?? 'discount'),
-                    'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0) ?? 0,
+                    'calculation_mode' => $calculationMode,
+                    'calculation_value' => $calculationValue,
                     'sort_order' => (int) ($extension['sort_order'] ?? ($index + 1)),
                 ];
+            })
+            ->map(function (array $extension) use ($itemSubtotal) {
+                $amount = $extension['calculation_mode'] === 'percentage'
+                    ? ($itemSubtotal * ((float) $extension['calculation_value'] / 100))
+                    : (float) $extension['calculation_value'];
+
+                $extension['amount'] = $this->formatService->cleanDecimal($amount) ?? 0;
+
+                return $extension;
             })
             ->values();
 
@@ -790,8 +1080,11 @@ class QuotationService
                 $quotation->quotationExtensions()
                     ->where('id', $extension['id'])
                     ->update([
+                        'quotation_extension_master_id' => $extension['quotation_extension_master_id'],
                         'name' => $extension['name'],
                         'type' => $extension['type'],
+                        'calculation_mode' => $extension['calculation_mode'],
+                        'calculation_value' => $extension['calculation_value'],
                         'amount' => $extension['amount'],
                         'sort_order' => $extension['sort_order'],
                     ]);
@@ -800,8 +1093,11 @@ class QuotationService
             }
 
             $quotation->quotationExtensions()->create([
+                'quotation_extension_master_id' => $extension['quotation_extension_master_id'],
                 'name' => $extension['name'],
                 'type' => $extension['type'],
+                'calculation_mode' => $extension['calculation_mode'],
+                'calculation_value' => $extension['calculation_value'],
                 'amount' => $extension['amount'],
                 'sort_order' => $extension['sort_order'],
             ]);

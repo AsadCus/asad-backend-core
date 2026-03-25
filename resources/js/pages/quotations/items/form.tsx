@@ -112,6 +112,9 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 }: QuotationItemTableFormProps<T>) {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+    const isLinkedMemberItem = (item: T): boolean =>
+        Number(item.customer_confirmation_member_id ?? 0) > 0;
+
     const getItemKey = (item: T) => item._key;
 
     const getSourceIndex = (key: string) =>
@@ -221,6 +224,21 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
     const removeItem = (index: number) => {
         const target = items[index];
+
+        if (isLinkedMemberItem(target)) {
+            return;
+        }
+
+        const hasLinkedMemberChild = items.some(
+            (item) =>
+                isLinkedMemberItem(item) &&
+                (item.parent_key === target._key ||
+                    (target.id && item.parent_id === target.id)),
+        );
+
+        if (hasLinkedMemberChild) {
+            return;
+        }
 
         onChange(
             normalizeSortOrder(
@@ -444,7 +462,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         {mode === 'master' ? (
                             <ProperInput
                                 value={item.description ?? ''}
-                                disabled={disabled}
+                                disabled={disabled || isLinkedMemberItem(item)}
                                 textarea={!item.is_header}
                                 size="compact"
                                 className={
@@ -459,7 +477,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         ) : (
                             <ItemDescriptionCombobox
                                 value={item.description ?? ''}
-                                disabled={disabled}
+                                disabled={disabled || isLinkedMemberItem(item)}
                                 isHeader={item.is_header ?? false}
                                 isChild={!!(item.parent_id || item.parent_key)}
                                 existingItemKeys={existingItemKeys}
@@ -564,7 +582,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                 return (
                     <Checkbox
                         checked={item.is_header ?? false}
-                        disabled={disabled}
+                        disabled={disabled || isLinkedMemberItem(item)}
                         onCheckedChange={(v) =>
                             updateItemByKey(item._key, {
                                 is_header: Boolean(v),
@@ -713,6 +731,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                             value={item.rate ?? ''}
                             type="number"
                             inputProps={{ step: 'any' }}
+                            placeholder="0.00"
                             disabled={disabled}
                             size="compact"
                             onCommit={(v) =>
@@ -758,6 +777,15 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
                 const index = getSourceIndex(row.original.item._key);
                 const item = row.original.item;
+                const isLockedMemberItem = isLinkedMemberItem(item);
+                const hasLockedMemberChildren = items.some(
+                    (child) =>
+                        isLinkedMemberItem(child) &&
+                        (child.parent_key === item._key ||
+                            (item.id && child.parent_id === item.id)),
+                );
+                const disableRemove =
+                    isLockedMemberItem || hasLockedMemberChildren;
 
                 return (
                     <div className="flex items-center gap-1">
@@ -835,9 +863,14 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                         !item.parent_id &&
                                         !item.parent_key && (
                                             <DropdownMenuItem
-                                                onClick={() =>
-                                                    insertChild(index)
-                                                }
+                                                disabled={isLockedMemberItem}
+                                                onClick={() => {
+                                                    if (isLockedMemberItem) {
+                                                        return;
+                                                    }
+
+                                                    insertChild(index);
+                                                }}
                                             >
                                                 <CornerDownRight
                                                     size={14}
@@ -848,7 +881,14 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                         )}
 
                                     <DropdownMenuItem
-                                        onClick={() => duplicateItem(index)}
+                                        disabled={isLockedMemberItem}
+                                        onClick={() => {
+                                            if (isLockedMemberItem) {
+                                                return;
+                                            }
+
+                                            duplicateItem(index);
+                                        }}
                                     >
                                         <Copy size={14} className="mr-2" />
                                         Duplicate
@@ -856,7 +896,14 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
                                     <DropdownMenuItem
                                         className="text-red-600"
-                                        onClick={() => removeItem(index)}
+                                        disabled={disableRemove}
+                                        onClick={() => {
+                                            if (disableRemove) {
+                                                return;
+                                            }
+
+                                            removeItem(index);
+                                        }}
                                     >
                                         <Trash2 size={14} className="mr-2" />
                                         Remove
@@ -873,6 +920,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                         size="icon"
                                         variant="ghost"
                                         className="h-6 w-6 text-red-600 hover:text-red-700"
+                                        disabled={disableRemove}
                                         onClick={() => removeItem(index)}
                                     >
                                         <X size={14} />
