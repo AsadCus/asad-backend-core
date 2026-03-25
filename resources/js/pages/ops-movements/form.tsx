@@ -2,9 +2,9 @@ import { DatePickerField } from '@/components/date-picker';
 import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from '@inertiajs/react';
@@ -187,6 +187,11 @@ function formatSar(value: number): string {
     }).format(value)}`;
 }
 
+const YES_NO_OPTIONS = [
+    { label: 'Yes', value: 'yes' },
+    { label: 'No', value: 'no' },
+];
+
 export default function OpsMovementForm({
     initialData,
     onCancel,
@@ -262,10 +267,11 @@ export default function OpsMovementForm({
             })),
             flights: (data.flights ?? []).map((flight) => ({
                 id: flight.id,
-                doa_by: flight.doa_by ?? null,
-                doa_datetime: flight.doa_datetime ?? null,
                 ic: flight.ic ?? null,
             })),
+            location: data.location ?? null,
+            doa_by: data.doa_by ?? null,
+            doa_datetime: data.doa_datetime ?? null,
             documents: {
                 itinerary: normalizeDocumentEntriesForSubmit(
                     data.documents?.itinerary,
@@ -666,7 +672,7 @@ export default function OpsMovementForm({
                                 (accommodation, index) => (
                                     <div
                                         key={accommodation.id}
-                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                        className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-6"
                                     >
                                         <FormField label="Location">
                                             <CopyableText
@@ -768,14 +774,63 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">
-                                Flight Ticket
+                                Flight Info
                             </CardTitle>
                             <p className="text-sm text-muted-foreground">
                                 Flight details are package-sourced, with
-                                editable operational notes for DOA and IC.
+                                editable operational info for location, Doa, and
+                                IC.
                             </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3">
+                                <FormField
+                                    label="Location"
+                                    error={getError('location')}
+                                >
+                                    <ProperInput
+                                        value={data.location ?? ''}
+                                        disabled={processing}
+                                        textarea
+                                        onCommit={(value) =>
+                                            setFormData('location', value)
+                                        }
+                                        placeholder="Enter location"
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Doa By"
+                                    error={getError('doa_by')}
+                                >
+                                    <ProperInput
+                                        value={data.doa_by ?? ''}
+                                        disabled={processing}
+                                        onCommit={(value) =>
+                                            setFormData('doa_by', value)
+                                        }
+                                        placeholder="Enter Doa by"
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Doa Datetime"
+                                    error={getError('doa_datetime')}
+                                >
+                                    <DatePickerField
+                                        id="doa_datetime"
+                                        value={data.doa_datetime || ''}
+                                        fromYear={new Date().getFullYear() - 2}
+                                        toYear={new Date().getFullYear() + 5}
+                                        disabled={processing}
+                                        useTime
+                                        onChange={(value) =>
+                                            setFormData(
+                                                'doa_datetime',
+                                                value || null,
+                                            )
+                                        }
+                                    />
+                                </FormField>
+                            </div>
                             {(data.flights ?? []).map((flight, index) => (
                                 <div
                                     key={flight.id}
@@ -783,101 +838,62 @@ export default function OpsMovementForm({
                                 >
                                     <div className="text-lg font-semibold text-muted-foreground">
                                         {flight.description ||
-                                            `Flight ${index + 1}`}
+                                            (index === 0
+                                                ? 'Departure'
+                                                : index === 1
+                                                  ? 'Return'
+                                                  : `Flight ${index + 1}`)}
                                     </div>
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                                        <FormField label="From">
-                                            <CopyableText value={flight.from} />
-                                        </FormField>
-                                        <FormField label="Departure Datetime">
-                                            <CopyableText
-                                                value={
-                                                    flight.departure_datetime
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField label="Airline">
-                                            <CopyableText
-                                                value={flight.airline}
-                                            />
-                                        </FormField>
+                                    <div className="grid grid-cols-1 gap-4">
                                         <FormField label="Flight No">
                                             <CopyableText value={flight.pnr} />
                                         </FormField>
-                                        <FormField
-                                            label="DOA By"
-                                            error={getError(
-                                                `flights.${index}.doa_by`,
-                                            )}
-                                        >
-                                            <ProperInput
-                                                value={flight.doa_by ?? ''}
-                                                disabled={processing}
-                                                onCommit={(value) =>
-                                                    updateFlight(
-                                                        index,
-                                                        'doa_by',
-                                                        value,
-                                                    )
-                                                }
-                                                placeholder="Enter DOA by"
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="DOA Datetime"
-                                            error={getError(
-                                                `flights.${index}.doa_datetime`,
-                                            )}
-                                        >
-                                            <DatePickerField
-                                                id={`doa_datetime_${index}`}
-                                                value={
-                                                    flight.doa_datetime || ''
-                                                }
-                                                fromYear={
-                                                    new Date().getFullYear() - 2
-                                                }
-                                                toYear={
-                                                    new Date().getFullYear() + 5
-                                                }
-                                                disabled={processing}
-                                                useTime
-                                                onChange={(value) =>
-                                                    updateFlight(
-                                                        index,
-                                                        'doa_datetime',
-                                                        value || null,
-                                                    )
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="IC"
-                                            error={getError(
-                                                `flights.${index}.ic`,
-                                            )}
-                                        >
-                                            <ProperInput
-                                                value={flight.ic ?? ''}
-                                                disabled={processing}
-                                                onCommit={(value) =>
-                                                    updateFlight(
-                                                        index,
-                                                        'ic',
-                                                        value,
-                                                    )
-                                                }
-                                                placeholder="Enter IC"
-                                            />
-                                        </FormField>
-                                        <FormField label="To">
-                                            <CopyableText value={flight.to} />
-                                        </FormField>
-                                        <FormField label="Arrival Datetime">
-                                            <CopyableText
-                                                value={flight.arrival_datetime}
-                                            />
-                                        </FormField>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                                            <FormField label="From">
+                                                <CopyableText value={flight.from} />
+                                            </FormField>
+                                            <FormField label="Departure Datetime">
+                                                <CopyableText
+                                                    value={
+                                                        flight.departure_datetime
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField label="To">
+                                                <CopyableText value={flight.to} />
+                                            </FormField>
+                                            <FormField label="Arrival Datetime">
+                                                <CopyableText
+                                                    value={flight.arrival_datetime}
+                                                />
+                                            </FormField>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <FormField label="Airline">
+                                                <CopyableText
+                                                    value={flight.airline}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="In Charge"
+                                                error={getError(
+                                                    `flights.${index}.ic`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={flight.ic ?? ''}
+                                                    disabled={processing}
+                                                    onCommit={(value) =>
+                                                        updateFlight(
+                                                            index,
+                                                            'ic',
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Enter in charge"
+                                                />
+                                            </FormField>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -1005,35 +1021,41 @@ export default function OpsMovementForm({
                             <FormField
                                 label="Submitted to Z Umrah"
                                 error={errors.visa_submitted_to_z_umrah}
-                                layout="inline"
                             >
-                                <Checkbox
-                                    checked={Boolean(
-                                        data.visa_submitted_to_z_umrah,
-                                    )}
+                                <ProperInputSelect
+                                    mode="classic"
+                                    options={YES_NO_OPTIONS}
+                                    value={
+                                        data.visa_submitted_to_z_umrah
+                                            ? 'yes'
+                                            : 'no'
+                                    }
                                     disabled={processing}
-                                    onCheckedChange={(checked) =>
+                                    onValueChange={(value) =>
                                         setFormData(
                                             'visa_submitted_to_z_umrah',
-                                            Boolean(checked),
+                                            value === 'yes',
                                         )
                                     }
+                                    searchable={false}
                                 />
                             </FormField>
                             <FormField
                                 label="Approved"
                                 error={errors.visa_approved}
-                                layout="inline"
                             >
-                                <Checkbox
-                                    checked={Boolean(data.visa_approved)}
+                                <ProperInputSelect
+                                    mode="classic"
+                                    options={YES_NO_OPTIONS}
+                                    value={data.visa_approved ? 'yes' : 'no'}
                                     disabled={processing}
-                                    onCheckedChange={(checked) =>
+                                    onValueChange={(value) =>
                                         setFormData(
                                             'visa_approved',
-                                            Boolean(checked),
+                                            value === 'yes',
                                         )
                                     }
+                                    searchable={false}
                                 />
                             </FormField>
                         </CardContent>
@@ -1480,7 +1502,7 @@ export default function OpsMovementForm({
                                             Add Item
                                         </Button>
                                         <p className="text-lg font-semibold">
-                                            {`${section.title} (SAR):`}{' '}
+                                            {`${section.title} (Saudi Riyal):`}{' '}
                                             <span className="text-primary">
                                                 {formatSar(sectionRow.total)}
                                             </span>
@@ -1495,7 +1517,7 @@ export default function OpsMovementForm({
                         <CardContent>
                             <div className="flex items-center justify-end">
                                 <p className="text-lg font-semibold">
-                                    {`Grand Total (SAR):`}{' '}
+                                    {`Grand Total (Saudi Riyal):`}{' '}
                                     <span className="text-primary">
                                         {formatSar(budgetTotals.grandTotal)}
                                     </span>

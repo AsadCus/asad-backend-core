@@ -187,20 +187,16 @@ export interface CustomerConfirmationDatatableSchema {
 }
 
 export const confirmationMemberStatusColors: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-800',
     pending_payment: 'bg-amber-100 text-amber-800',
     partially_paid: 'bg-blue-100 text-blue-800',
-    confirmed: 'bg-green-100 text-green-800',
-    unavailable: 'bg-orange-100 text-orange-800',
+    fully_paid: 'bg-green-100 text-green-800',
     cancelled: 'bg-red-100 text-red-800',
 };
 
 export const confirmationMemberStatusLabels: Record<string, string> = {
-    draft: 'Draft',
     pending_payment: 'Pending Payment',
     partially_paid: 'Partially Paid',
-    confirmed: 'Confirmed',
-    unavailable: 'Unavailable',
+    fully_paid: 'Fully Paid',
     cancelled: 'Cancelled',
 };
 
@@ -226,7 +222,7 @@ export const emptyMember = (isLeader = false): CustomerSchema => ({
     has_chronic_disease: false,
     is_using_wheelchair: false,
     chronic_disease_details: '',
-    status: 'draft',
+    status: 'pending_payment',
     sharing_plan: null,
     relationship: null,
     passport_file: undefined,

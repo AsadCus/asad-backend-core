@@ -23,6 +23,7 @@ class CustomerConfirmationRule
             'members.*.nric_number' => ['nullable', 'string', 'max:50'],
             'members.*.address' => ['nullable', 'string', 'max:500'],
             'members.*.is_leader' => ['required', 'boolean'],
+            'members.*.status' => ['nullable', 'string', 'in:pending_payment,partially_paid,fully_paid,cancelled'],
             'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'members.*.relationship' => ['nullable', 'string', 'max:255'],
             'members.*.role' => ['nullable', 'string', 'max:255'],

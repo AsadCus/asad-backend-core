@@ -102,7 +102,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         );
     }
 
-    public function test_full_payment_receipt_sets_member_to_confirmed(): void
+    public function test_full_payment_receipt_sets_member_to_fully_paid(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();
 
@@ -114,7 +114,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         ]);
 
         $data['member']->refresh();
-        $this->assertEquals('confirmed', $data['member']->status);
+        $this->assertEquals('fully_paid', $data['member']->status);
     }
 
     public function test_partial_payment_receipt_sets_member_to_partially_paid(): void
@@ -146,7 +146,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertEquals('partially_paid', $data['member']->status);
     }
 
-    public function test_installment_receipts_set_member_to_confirmed_when_all_linked_invoices_paid(): void
+    public function test_installment_receipts_set_member_to_fully_paid_when_all_linked_invoices_paid(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();
 
@@ -181,7 +181,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         ]);
 
         $data['member']->refresh();
-        $this->assertEquals('confirmed', $data['member']->status);
+        $this->assertEquals('fully_paid', $data['member']->status);
     }
 
     public function test_deleting_receipt_reverts_member_to_pending_payment(): void
@@ -196,7 +196,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         ]);
 
         $data['member']->refresh();
-        $this->assertEquals('confirmed', $data['member']->status);
+        $this->assertEquals('fully_paid', $data['member']->status);
 
         $receipt->delete();
 
@@ -222,12 +222,9 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertEquals('cancelled', $data['member']->status);
     }
 
-    public function test_receipt_does_not_affect_draft_members(): void
+    public function test_receipt_moves_pending_payment_member_to_fully_paid_when_invoice_is_fully_paid(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();
-
-        // Set member to draft (not yet in payment flow)
-        $data['member']->update(['status' => 'draft']);
 
         Receipt::create([
             'invoice_id' => $data['depositInvoice']->id,
@@ -237,7 +234,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         ]);
 
         $data['member']->refresh();
-        $this->assertEquals('draft', $data['member']->status);
+        $this->assertEquals('fully_paid', $data['member']->status);
     }
 
     public function test_receipt_on_non_confirmation_quotation_does_not_fail(): void
@@ -303,7 +300,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
     }
 
-    public function test_when_package_is_full_paid_member_becomes_unavailable_and_not_linked_to_manifest(): void
+    public function test_when_package_is_full_paid_member_reverts_to_pending_payment_and_is_not_linked_to_manifest(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();
 
@@ -328,7 +325,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $data['member']->refresh();
         $data['package']->refresh();
 
-        $this->assertEquals('unavailable', $data['member']->status);
+        $this->assertEquals('pending_payment', $data['member']->status);
         $this->assertEquals(0, $data['package']->seats_left);
         $this->assertFalse($manifest->members()->where('customer_confirmation_member_id', $data['member']->id)->exists());
     }

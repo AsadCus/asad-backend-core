@@ -35,7 +35,7 @@ class QuotationStatusTest extends TestCase
         $this->assertSame(QuotationStatus::Cancelled, $cancelled->fresh()->status);
     }
 
-    public function test_cancel_quotation_resets_linked_confirmation_members_to_draft(): void
+    public function test_cancel_quotation_resets_linked_confirmation_members_to_pending_payment(): void
     {
         $user = User::factory()->create();
         $customer = Customer::create([
@@ -75,7 +75,7 @@ class QuotationStatusTest extends TestCase
 
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
     }
 
@@ -103,7 +103,7 @@ class QuotationStatusTest extends TestCase
         $member = CustomerConfirmationMember::create([
             'customer_confirmation_id' => $confirmation->id,
             'customer_id' => $customer->id,
-            'status' => 'confirmed',
+            'status' => 'fully_paid',
         ]);
 
         $quotation = Quotation::create([
@@ -139,7 +139,7 @@ class QuotationStatusTest extends TestCase
 
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
 
         $this->assertDatabaseMissing('manifest_members', [
@@ -147,7 +147,7 @@ class QuotationStatusTest extends TestCase
         ]);
     }
 
-    public function test_reject_quotation_resets_linked_confirmation_members_to_draft(): void
+    public function test_reject_quotation_resets_linked_confirmation_members_to_pending_payment(): void
     {
         $user = User::factory()->create();
         $customer = Customer::create([
@@ -187,7 +187,7 @@ class QuotationStatusTest extends TestCase
 
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
     }
 
@@ -206,7 +206,7 @@ class QuotationStatusTest extends TestCase
         $member = CustomerConfirmationMember::create([
             'customer_confirmation_id' => $confirmation->id,
             'customer_id' => $customer->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
 
         app(QuotationService::class)->store([
@@ -236,7 +236,7 @@ class QuotationStatusTest extends TestCase
         ]);
     }
 
-    public function test_update_quotation_reverts_removed_member_to_draft_when_unlinked(): void
+    public function test_update_quotation_reverts_removed_member_to_pending_payment_when_unlinked(): void
     {
         $userA = User::factory()->create();
         $customerA = Customer::create([
@@ -263,7 +263,7 @@ class QuotationStatusTest extends TestCase
         $memberB = CustomerConfirmationMember::create([
             'customer_confirmation_id' => $confirmation->id,
             'customer_id' => $customerB->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
 
         $quotation = Quotation::create([
@@ -307,7 +307,7 @@ class QuotationStatusTest extends TestCase
 
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $memberA->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
 
         $this->assertDatabaseHas('customer_confirmation_members', [
@@ -316,7 +316,7 @@ class QuotationStatusTest extends TestCase
         ]);
     }
 
-    public function test_delete_quotation_resets_linked_confirmation_members_to_draft(): void
+    public function test_delete_quotation_resets_linked_confirmation_members_to_pending_payment(): void
     {
         $user = User::factory()->create();
         $customer = Customer::create([
@@ -356,7 +356,7 @@ class QuotationStatusTest extends TestCase
 
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
-            'status' => 'draft',
+            'status' => 'pending_payment',
         ]);
     }
 }

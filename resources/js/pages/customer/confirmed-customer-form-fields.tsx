@@ -11,6 +11,7 @@ interface ConfirmedCustomerFormFieldsProps {
     isView: boolean;
     processing: boolean;
     showStatusField?: boolean;
+    forceStatusDisabled?: boolean;
     getError: (path: string) => string | undefined;
     sharingPlanSelectOptions?: Array<{ label: string; value: string }>;
     onUpdateCustomer: (
@@ -20,11 +21,9 @@ interface ConfirmedCustomerFormFieldsProps {
 }
 
 const statusOptions = [
-    { value: 'draft', label: 'Draft' },
     { value: 'pending_payment', label: 'Pending Payment' },
     { value: 'partially_paid', label: 'Partially Paid' },
-    { value: 'confirmed', label: 'Confirmed' },
-    { value: 'unavailable', label: 'Unavailable' },
+    { value: 'fully_paid', label: 'Fully Paid' },
     { value: 'cancelled', label: 'Cancelled' },
 ] as const;
 
@@ -35,6 +34,7 @@ export default function ConfirmedCustomerFormFields({
     isView,
     processing,
     showStatusField = true,
+    forceStatusDisabled = false,
     getError,
     sharingPlanSelectOptions,
     onUpdateCustomer,
@@ -51,14 +51,14 @@ export default function ConfirmedCustomerFormFields({
             <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                 {showStatusField && (
                     <FormField
-                        label="Status"
+                        label="Payment Status"
                         htmlFor={fieldPath('status')}
                         error={getError(fieldPath('status'))}
                         fieldRequirementsProps={{
                             required: true,
-                            hint: 'Current booking status',
-                            example: 'confirmed',
-                            format: 'draft, pending payment, partially paid, confirmed, unavailable, or cancelled',
+                            hint: 'Current member payment status',
+                            example: 'fully_paid',
+                            format: 'pending payment, partially paid, fully paid, or cancelled',
                         }}
                     >
                         <ProperInputSelect
@@ -68,12 +68,12 @@ export default function ConfirmedCustomerFormFields({
                                 label: option.label,
                                 value: option.value,
                             }))}
-                            value={customer.status ?? 'draft'}
+                            value={customer.status ?? 'pending_payment'}
                             onValueChange={(value) =>
                                 onUpdateCustomer('status', String(value))
                             }
-                            placeholder="Select status"
-                            disabled={disabled}
+                            placeholder="Select payment status"
+                            disabled={disabled || forceStatusDisabled}
                         />
                     </FormField>
                 )}

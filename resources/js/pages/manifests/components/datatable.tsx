@@ -1168,7 +1168,24 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-35">Second Payment</TableHead>
             )}
             {mode === 'members' && (
+                <TableHead className="min-w-55">
+                    Date of Third Payment
+                </TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-35">Third Payment</TableHead>
+            )}
+            {mode === 'members' && (
                 <TableHead className="min-w-35">Balance Due</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-40">Receipt 1</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-40">Receipt 2</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-50">Receipt 3</TableHead>
             )}
             {mode === 'airline' && (
                 <TableHead className="min-w-40">Passport No</TableHead>
@@ -1402,6 +1419,11 @@ export default function ManifestDatatable({
                                 size="default"
                             />
                         </TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
                         <TableCell />
                         <TableCell />
                         <TableCell />
@@ -2245,6 +2267,38 @@ export default function ManifestDatatable({
                     <TableCell>
                         <ProperInput
                             value={
+                                !isOfficialMemberRow
+                                    ? (member.date_of_third_payment ?? '')
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialMemberRow &&
+                                member.third_payment !== null &&
+                                member.third_payment !== undefined
+                                    ? String(member.third_payment)
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
                                 !isOfficialMemberRow &&
                                 member.balance_due !== null &&
                                 member.balance_due !== undefined
@@ -2260,11 +2314,57 @@ export default function ManifestDatatable({
 
                 {mode === 'members' && (
                     <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialMemberRow
+                                    ? (member.receipt_1 ?? '')
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialMemberRow
+                                    ? (member.receipt_2 ?? '')
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialMemberRow
+                                    ? (member.receipt_3 ?? '')
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
                         {isOfficialMemberRow ? (
                             <span className="text-muted-foreground">-</span>
                         ) : (
                             (() => {
-                                const status = member.status ?? 'draft';
+                                const status =
+                                    member.status ?? 'pending_payment';
                                 const statusColor =
                                     confirmationMemberStatusColors[status] ??
                                     'bg-gray-100 text-gray-800';

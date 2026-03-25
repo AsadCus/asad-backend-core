@@ -1078,7 +1078,13 @@ function syncRoomRowsWithMembers(
     const missingMembers = activeMembers.filter((member, index) => {
         const identity = memberIdentityKey(member, index);
 
-        return !seenIdentities.has(identity);
+        if (seenIdentities.has(identity)) {
+            return false;
+        }
+
+        // Officials are assigned to rooms explicitly from the Main tab actions.
+        // Do not auto-append them here, otherwise an unassigned official gets re-added.
+        return !member.package_official_id;
     });
 
     const appendedRows =
@@ -2215,7 +2221,7 @@ export default function ManifestForm({
                     row.status ??
                     (row.customer_confirmation_member_id
                         ? 'pending_payment'
-                        : 'confirmed'),
+                        : 'fully_paid'),
                 sharing_group_key:
                     row.sharing_group_key ??
                     `solo-${row.customer_confirmation_member_id ?? row.customer_id ?? index + 1}`,
@@ -3614,89 +3620,85 @@ export default function ManifestForm({
                                             Object.fromEntries(
                                                 Object.entries(
                                                     roomRowsByTab,
-                                                ).map(
-                                                    ([roomKey, roomRows]) => [
-                                                        roomKey,
-                                                        roomRows.map(
-                                                            (
-                                                                roomRow,
-                                                                roomIndex,
-                                                            ) => {
-                                                                const memberUpdate =
-                                                                    memberMap.get(
-                                                                        memberIdentityKey(
-                                                                            roomRow,
-                                                                            roomIndex,
-                                                                        ),
-                                                                    );
+                                                ).map(([roomKey, roomRows]) => [
+                                                    roomKey,
+                                                    roomRows.map(
+                                                        (
+                                                            roomRow,
+                                                            roomIndex,
+                                                        ) => {
+                                                            const memberUpdate =
+                                                                memberMap.get(
+                                                                    memberIdentityKey(
+                                                                        roomRow,
+                                                                        roomIndex,
+                                                                    ),
+                                                                );
 
-                                                                if (
-                                                                    !memberUpdate
-                                                                ) {
-                                                                    return roomRow;
-                                                                }
+                                                            if (!memberUpdate) {
+                                                                return roomRow;
+                                                            }
 
-                                                                return {
-                                                                    ...roomRow,
-                                                                    name_as_per_passport:
-                                                                        memberUpdate.name_as_per_passport ??
-                                                                        roomRow.name_as_per_passport,
-                                                                    passport_number:
-                                                                        memberUpdate.passport_number ??
-                                                                        roomRow.passport_number,
-                                                                    relationship:
-                                                                        memberUpdate.relationship ??
-                                                                        roomRow.relationship,
-                                                                    group_relationship:
-                                                                        memberUpdate.group_relationship ??
-                                                                        roomRow.group_relationship,
-                                                                    sharing_plan:
-                                                                        memberUpdate.sharing_plan ??
-                                                                        roomRow.sharing_plan,
-                                                                    nationality:
-                                                                        memberUpdate.nationality ??
-                                                                        roomRow.nationality,
-                                                                    gender:
-                                                                        memberUpdate.gender ??
-                                                                        roomRow.gender,
-                                                                    date_of_birth:
+                                                            return {
+                                                                ...roomRow,
+                                                                name_as_per_passport:
+                                                                    memberUpdate.name_as_per_passport ??
+                                                                    roomRow.name_as_per_passport,
+                                                                passport_number:
+                                                                    memberUpdate.passport_number ??
+                                                                    roomRow.passport_number,
+                                                                relationship:
+                                                                    memberUpdate.relationship ??
+                                                                    roomRow.relationship,
+                                                                group_relationship:
+                                                                    memberUpdate.group_relationship ??
+                                                                    roomRow.group_relationship,
+                                                                sharing_plan:
+                                                                    memberUpdate.sharing_plan ??
+                                                                    roomRow.sharing_plan,
+                                                                nationality:
+                                                                    memberUpdate.nationality ??
+                                                                    roomRow.nationality,
+                                                                gender:
+                                                                    memberUpdate.gender ??
+                                                                    roomRow.gender,
+                                                                date_of_birth:
+                                                                    memberUpdate.date_of_birth ??
+                                                                    roomRow.date_of_birth,
+                                                                date_of_issue:
+                                                                    memberUpdate.date_of_issue ??
+                                                                    roomRow.date_of_issue,
+                                                                date_of_expiry:
+                                                                    memberUpdate.date_of_expiry ??
+                                                                    roomRow.date_of_expiry,
+                                                                issue_place:
+                                                                    memberUpdate.issue_place ??
+                                                                    roomRow.issue_place,
+                                                                birth_place:
+                                                                    memberUpdate.birth_place ??
+                                                                    roomRow.birth_place,
+                                                                contact_no:
+                                                                    memberUpdate.contact_no ??
+                                                                    roomRow.contact_no,
+                                                                package_price:
+                                                                    memberUpdate.package_price ??
+                                                                    roomRow.package_price,
+                                                                remarks:
+                                                                    memberUpdate.remarks ??
+                                                                    roomRow.remarks,
+                                                                status:
+                                                                    memberUpdate.status ??
+                                                                    roomRow.status,
+                                                                age:
+                                                                    calculateAgeFromDob(
                                                                         memberUpdate.date_of_birth ??
-                                                                        roomRow.date_of_birth,
-                                                                    date_of_issue:
-                                                                        memberUpdate.date_of_issue ??
-                                                                        roomRow.date_of_issue,
-                                                                    date_of_expiry:
-                                                                        memberUpdate.date_of_expiry ??
-                                                                        roomRow.date_of_expiry,
-                                                                    issue_place:
-                                                                        memberUpdate.issue_place ??
-                                                                        roomRow.issue_place,
-                                                                    birth_place:
-                                                                        memberUpdate.birth_place ??
-                                                                        roomRow.birth_place,
-                                                                    contact_no:
-                                                                        memberUpdate.contact_no ??
-                                                                        roomRow.contact_no,
-                                                                    package_price:
-                                                                        memberUpdate.package_price ??
-                                                                        roomRow.package_price,
-                                                                    remarks:
-                                                                        memberUpdate.remarks ??
-                                                                        roomRow.remarks,
-                                                                    status:
-                                                                        memberUpdate.status ??
-                                                                        roomRow.status,
-                                                                    age:
-                                                                        calculateAgeFromDob(
-                                                                            memberUpdate.date_of_birth ??
-                                                                                roomRow.date_of_birth,
-                                                                        ) ??
-                                                                        roomRow.age,
-                                                                };
-                                                            },
-                                                        ),
-                                                    ],
-                                                ),
+                                                                            roomRow.date_of_birth,
+                                                                    ) ??
+                                                                    roomRow.age,
+                                                            };
+                                                        },
+                                                    ),
+                                                ]),
                                             );
 
                                         setFormData(

@@ -13,6 +13,7 @@ use App\Models\ModelFile;
 use App\Models\PackageOfficial;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -199,6 +200,10 @@ class ManifestService
                     $packagePrice,
                     $member->package_official_id !== null,
                 );
+                $receiptFiles = $member->files
+                    ->where('field', 'receipt')
+                    ->values();
+                $receiptDocumentColumns = $this->buildReceiptDocumentColumns($receiptFiles);
 
                 return [
                     'id' => $member->id,
@@ -242,7 +247,12 @@ class ManifestService
                     'deposit_payment' => $financialSnapshot['deposit_payment'],
                     'date_of_second_payment' => $financialSnapshot['date_of_second_payment'],
                     'second_payment' => $financialSnapshot['second_payment'],
+                    'date_of_third_payment' => $financialSnapshot['date_of_third_payment'],
+                    'third_payment' => $financialSnapshot['third_payment'],
                     'balance_due' => $financialSnapshot['balance_due'],
+                    'receipt_1' => $receiptDocumentColumns['receipt_1'],
+                    'receipt_2' => $receiptDocumentColumns['receipt_2'],
+                    'receipt_3' => $receiptDocumentColumns['receipt_3'],
                     'is_first_time_umrah' => $member->first_time_umrah ?? $customer?->first_time_umrah,
                     'passport_number' => $member->passport_number ?? $packageOfficial?->passport_number ?? $customer?->passport_number,
                     'nationality' => $member->nationality ?? $packageOfficial?->nationality ?? $customer?->nationality,
@@ -261,8 +271,7 @@ class ManifestService
                     'passport_path' => $member->passport_path ?? $customer?->passport_path,
                     'photo_path' => $member->photo_path ?? $customer?->photo_path,
                     'remarks' => $member->remarks,
-                    'receipt_documents' => $member->files
-                        ->where('field', 'receipt')
+                    'receipt_documents' => $receiptFiles
                         ->map(fn (ModelFile $file) => [
                             'id' => $file->id,
                             'file_name' => $file->file_name,
@@ -270,7 +279,7 @@ class ManifestService
                         ])
                         ->values()
                         ->toArray(),
-                    'status' => $confirmationMember?->status ?? 'draft',
+                    'status' => $confirmationMember?->status ?? 'pending_payment',
                 ];
             })
             ->toArray();
@@ -742,7 +751,7 @@ class ManifestService
                 $leader = $confirmation->members->firstWhere('is_leader', true);
 
                 $activeMembers = $confirmation->members
-                    ->filter(fn ($member) => ($member->status ?? 'draft') !== 'cancelled')
+                    ->filter(fn ($member) => ($member->status ?? 'pending_payment') !== 'cancelled')
                     ->values();
 
                 return [
@@ -768,7 +777,7 @@ class ManifestService
                             'customer_id' => $member->customer_id,
                             'customer_confirmation_number' => $confirmation->number,
                             'is_leader' => $member->is_leader,
-                            'status' => $member->status ?? 'draft',
+                            'status' => $member->status ?? 'pending_payment',
                             'sharing_plan' => $member->sharing_plan,
                             'relationship' => $member->relationship,
                             'name' => $user?->name ?? '-',
@@ -1870,6 +1879,8 @@ class ManifestService
                 'deposit_payment' => null,
                 'date_of_second_payment' => null,
                 'second_payment' => null,
+                'date_of_third_payment' => null,
+                'third_payment' => null,
                 'balance_due' => null,
             ];
         }
@@ -1929,12 +1940,13 @@ class ManifestService
             });
 
         $firstReceipt = $receipts->get(0);
-        $followUpReceipts = $receipts->slice(1)->values();
-        $latestFollowUpReceipt = $followUpReceipts->last();
+        $secondReceipt = $receipts->get(1);
+        $thirdAndLaterReceipts = $receipts->slice(2)->values();
+        $latestThirdPaymentReceipt = $thirdAndLaterReceipts->last();
 
         $paidAmountFromReceipts = (float) $receiptShareById->sum();
 
-        $followUpAmount = (float) $followUpReceipts->sum(function ($receipt) use ($receiptShareById): float {
+        $thirdAndLaterAmount = (float) $thirdAndLaterReceipts->sum(function ($receipt) use ($receiptShareById): float {
             return (float) ($receiptShareById[(int) $receipt->id] ?? 0);
         });
 
@@ -2009,15 +2021,20 @@ class ManifestService
             ? round((float) ($receiptShareById[(int) $firstReceipt->id] ?? 0), 2)
             : null;
 
-        $secondPayment = $latestFollowUpReceipt
-            ? round($followUpAmount, 2)
+        $secondPayment = $secondReceipt
+            ? round((float) ($receiptShareById[(int) $secondReceipt->id] ?? 0), 2)
+            : null;
+
+        $thirdPayment = $latestThirdPaymentReceipt
+            ? round($thirdAndLaterAmount, 2)
             : null;
 
         $balanceDue = round(max(
             $packagePrice
                 - $discount
                 - (float) ($depositPayment ?? 0)
-                - (float) ($secondPayment ?? 0),
+                - (float) ($secondPayment ?? 0)
+                - (float) ($thirdPayment ?? 0),
             0
         ), 2);
 
@@ -2025,9 +2042,43 @@ class ManifestService
             'discount' => round($discount, 2),
             'date_of_deposit_payment' => $this->formatDateForUi($firstReceipt?->receipt_date),
             'deposit_payment' => $depositPayment,
-            'date_of_second_payment' => $this->formatDateForUi($latestFollowUpReceipt?->receipt_date),
+            'date_of_second_payment' => $this->formatDateForUi($secondReceipt?->receipt_date),
             'second_payment' => $secondPayment,
+            'date_of_third_payment' => $this->formatDateForUi($latestThirdPaymentReceipt?->receipt_date),
+            'third_payment' => $thirdPayment,
             'balance_due' => $balanceDue,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, ModelFile>  $receiptFiles
+     * @return array{receipt_1: string|null, receipt_2: string|null, receipt_3: string|null}
+     */
+    private function buildReceiptDocumentColumns(Collection $receiptFiles): array
+    {
+        $documentNames = $receiptFiles
+            ->sortBy('id')
+            ->values()
+            ->map(function (ModelFile $file): ?string {
+                $name = $this->normalizeNullableString($file->file_name);
+
+                if ($name !== null) {
+                    return $name;
+                }
+
+                return $this->normalizeNullableString(
+                    pathinfo((string) ($file->file_path ?? ''), PATHINFO_FILENAME)
+                );
+            })
+            ->filter()
+            ->values();
+
+        $receipt3 = $documentNames->slice(2)->implode(', ');
+
+        return [
+            'receipt_1' => $documentNames->get(0),
+            'receipt_2' => $documentNames->get(1),
+            'receipt_3' => $receipt3 !== '' ? $receipt3 : null,
         ];
     }
 

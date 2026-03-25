@@ -1358,8 +1358,9 @@ export default function CustomerConfirmationForm({
                                                         index={idx}
                                                         isView={isView}
                                                         processing={processing}
-                                                        showStatusField={
-                                                            !isPublic
+                                                        showStatusField={true}
+                                                        forceStatusDisabled={
+                                                            isPublic
                                                         }
                                                         getError={getError}
                                                         sharingPlanSelectOptions={

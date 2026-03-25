@@ -116,6 +116,9 @@ class OpsMovementService
             'visa_type' => $package->visa_type,
             'ops_base' => $extension['ops_base'] ?? null,
             'infotech_ref' => $extension['infotech_ref'] ?? null,
+            'location' => $extension['location'] ?? null,
+            'doa_by' => $extension['doa_by'] ?? data_get($extension, 'flights.0.doa_by'),
+            'doa_datetime' => $extension['doa_datetime'] ?? data_get($extension, 'flights.0.doa_datetime'),
             'documents' => $documents,
             'budget' => $budget,
             'vehicle_type' => $package->vehicle_type,
@@ -163,8 +166,6 @@ class OpsMovementService
                     'departure_datetime' => $flight->departure_datetime_formatted,
                     'airline' => $flight->airline,
                     'pnr' => $flight->pnr,
-                    'doa_by' => $flightOps['doa_by'] ?? null,
-                    'doa_datetime' => $flightOps['doa_datetime'] ?? null,
                     'ic' => $flightOps['ic'] ?? null,
                     'to' => $flight->to,
                     'arrival_datetime' => $flight->arrival_datetime_formatted,
@@ -249,6 +250,9 @@ class OpsMovementService
             $extension = $manifest->ops_movement_extension ?? [];
             $extension['ops_base'] = $payload['ops_base'] ?? null;
             $extension['infotech_ref'] = $payload['infotech_ref'] ?? null;
+            $extension['location'] = $payload['location'] ?? null;
+            $extension['doa_by'] = $payload['doa_by'] ?? null;
+            $extension['doa_datetime'] = $payload['doa_datetime'] ?? null;
             $extension['visa_submitted_to_z_umrah'] = (bool) ($payload['visa_submitted_to_z_umrah'] ?? false);
             $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
             $extension['flights'] = collect($payload['flights'] ?? [])
@@ -256,8 +260,6 @@ class OpsMovementService
                 ->map(function ($flightPayload) {
                     return [
                         'id' => (int) $flightPayload['id'],
-                        'doa_by' => $flightPayload['doa_by'] ?? null,
-                        'doa_datetime' => $flightPayload['doa_datetime'] ?? null,
                         'ic' => $flightPayload['ic'] ?? null,
                     ];
                 })
