@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const privateEnquirySchema = z.object({
     id: z.number().optional(),
     enquiry_id: z.number().nullable().optional(),
+    enquiry_number: z.string().nullable().optional(),
+    number_format_id: z.number().nullable().optional(),
     status: z.string().optional(),
     status_label: z.string().optional(),
     name: z.string().optional(),

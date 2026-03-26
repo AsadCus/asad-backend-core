@@ -160,6 +160,7 @@ export const manifestSchema = z.object({
     package_id: z.number().nullable().optional(),
     in_charge_official_id: z.number().nullable().optional(),
     manifest_number: z.string().optional(),
+    number_format_id: z.number().nullable().optional(),
     notes: z.string().optional(),
     status: z.string().optional(),
     members: z.array(memberSchema).optional(),

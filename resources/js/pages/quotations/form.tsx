@@ -1,4 +1,5 @@
 import { FormProgressHeader } from '@/components/form-progress-header';
+import ModelNumberInput from '@/components/model-number-input';
 import { Accordion } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -192,6 +193,7 @@ export function QuotationForm({
     const initialFormState: QuotationSchema = {
         id: undefined,
         quotation_number: '',
+        number_format_id: null,
         quotation_date: today,
         expiry_date: today,
         customer_id: undefined,
@@ -1509,8 +1511,24 @@ export function QuotationForm({
                 />
             )}
 
-            {/* Quotation Number Box */}
-            {data.quotation_number && (
+            {!isView && (
+                <ModelNumberInput
+                    modelKey="quotation"
+                    label="Quotation Number"
+                    value={data.quotation_number ?? ''}
+                    formatId={data.number_format_id ?? null}
+                    onValueChange={(nextValue) =>
+                        setData('quotation_number', nextValue)
+                    }
+                    onFormatIdChange={(nextFormatId) =>
+                        setData('number_format_id', nextFormatId)
+                    }
+                    disabled={processing}
+                    error={errors.quotation_number}
+                />
+            )}
+
+            {isView && data.quotation_number && (
                 <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                     <p className="text-base text-muted-foreground">
                         Quotation No.

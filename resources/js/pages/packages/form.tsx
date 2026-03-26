@@ -1,5 +1,6 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -151,6 +152,8 @@ export default function PackageForm({
     const isCreate = mode === 'create';
 
     const defaultData: PackageSchema = initialData || {
+        package_number: '',
+        package_number_format_id: null,
         name: '',
         status: 'open',
         country_id: '',
@@ -567,8 +570,7 @@ export default function PackageForm({
     };
 
     const occupiedSeats = Number(data.occupied_seats ?? 0);
-    const showPackageNumberField =
-        (isEdit || isView) && Boolean(data.package_number);
+    const showPackageNumberField = isView && Boolean(data.package_number);
 
     return (
         <div className="mx-auto w-full">
@@ -603,7 +605,29 @@ export default function PackageForm({
                                     : 'md:grid-cols-3'
                             }`}
                         >
-                            {/* Group Number (auto-generated, read-only) */}
+                            {!isView && (
+                                <ModelNumberInput
+                                    modelKey="package"
+                                    label="Package Number"
+                                    value={data.package_number ?? ''}
+                                    formatId={
+                                        data.package_number_format_id ?? null
+                                    }
+                                    onValueChange={(nextValue) =>
+                                        setData('package_number', nextValue)
+                                    }
+                                    onFormatIdChange={(nextFormatId) =>
+                                        setData(
+                                            'package_number_format_id',
+                                            nextFormatId,
+                                        )
+                                    }
+                                    disabled={processing}
+                                    error={getError('package_number')}
+                                />
+                            )}
+
+                            {/* Group Number (view only) */}
                             {showPackageNumberField && (
                                 <FormField
                                     label="Package Number"

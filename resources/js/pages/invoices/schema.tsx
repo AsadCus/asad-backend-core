@@ -26,6 +26,7 @@ export const invoiceSchema = z.object({
     _key: z.string(),
     id: z.number().optional(),
     invoice_number: z.string().nullable().optional(),
+    number_format_id: z.number().nullable().optional(),
     customer_id: z.string().nullable().optional(),
     customer_number: z.string().nullable().optional(),
     customer_name: z.string().nullable().optional(),
