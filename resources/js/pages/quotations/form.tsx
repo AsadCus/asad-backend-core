@@ -534,6 +534,11 @@ export function QuotationForm({
                     };
                 });
 
+            const existingDiscount = existingExtensions.find(
+                (extension) =>
+                    String(extension.type ?? 'discount') === 'discount',
+            );
+
             const manualDiscount = manualExtensions.find(
                 (extension) =>
                     String(extension.type ?? 'discount') === 'discount',
@@ -551,6 +556,7 @@ export function QuotationForm({
             ];
 
             const discountExtension =
+                existingDiscount ??
                 manualDiscount ??
                 autoExtensions.find(
                     (extension) =>

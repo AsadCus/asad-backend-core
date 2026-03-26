@@ -22,6 +22,13 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
@@ -142,6 +149,7 @@ export default function ExtensionMasterCombobox({
     const selectedText = selectedOption
         ? getOptionLabel(selectedOption)
         : placeholder;
+    const popoverAlign = triggerMode === 'button' ? 'start' : 'end';
 
     const isPopoverOpen = open ?? uncontrolledOpen;
 
@@ -292,7 +300,7 @@ export default function ExtensionMasterCombobox({
                         </div>
                     )}
                 </PopoverTrigger>
-                <PopoverContent className="w-fit p-0" align="end">
+                <PopoverContent className="w-fit p-0" align={popoverAlign}>
                     <Command shouldFilter={false}>
                         <CommandInput
                             placeholder={`Search ${extensionType}...`}
@@ -425,21 +433,27 @@ export default function ExtensionMasterCombobox({
                             <Label htmlFor={`new-${extensionType}-mode`}>
                                 Calculation
                             </Label>
-                            <select
-                                id={`new-${extensionType}-mode`}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            <Select
                                 value={newCalculationMode}
                                 disabled={isCreating}
-                                onChange={(event) =>
+                                onValueChange={(value) =>
                                     setNewCalculationMode(
-                                        event.target
-                                            .value as typeof newCalculationMode,
+                                        value as typeof newCalculationMode,
                                     )
                                 }
                             >
-                                <option value="fixed">Fixed Amount</option>
-                                <option value="percentage">Percentage</option>
-                            </select>
+                                <SelectTrigger id={`new-${extensionType}-mode`}>
+                                    <SelectValue placeholder="Select calculation mode" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="fixed">
+                                        Fixed Amount
+                                    </SelectItem>
+                                    <SelectItem value="percentage">
+                                        Percentage
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="space-y-1">

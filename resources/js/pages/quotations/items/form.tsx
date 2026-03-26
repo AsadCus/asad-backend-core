@@ -290,7 +290,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
             description: '',
             parent_id: null,
             parent_key: null,
-            quantity: null,
+            quantity: 1,
             rate: null,
             amount: null,
             is_header: true,
@@ -353,7 +353,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
             description: '',
             parent_id: parent.id ?? null,
             parent_key: parent._key,
-            quantity: null,
+            quantity: 1,
             rate: null,
             amount: null,
             is_header: true,
@@ -1007,6 +1007,54 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
             cell: ({ row }) => {
                 const { item } = row.original;
                 const index = getSourceIndex(item._key);
+                const parsedQuantity = Number(item.quantity ?? 0);
+                const displayQuantity =
+                    item.quantity == null ||
+                    String(item.quantity).trim() === '' ||
+                    !Number.isFinite(parsedQuantity) ||
+                    parsedQuantity <= 0
+                        ? ''
+                        : item.quantity;
+
+                if (item.is_header) {
+                    return (
+                        <div className="text-center text-muted-foreground"></div>
+                    );
+                }
+
+                return (
+                    <div className="relative flex w-full flex-col gap-1">
+                        <ProperInput
+                            value={displayQuantity}
+                            type="number"
+                            inputProps={{ step: 'any', min: 0 }}
+                            disabled={disabled}
+                            // size="compact"
+                            onCommit={(value) => {
+                                const nextQuantity = Number(value);
+
+                                updateItemByKey(item._key, {
+                                    quantity:
+                                        Number.isFinite(nextQuantity) &&
+                                        nextQuantity > 0
+                                            ? nextQuantity
+                                            : 1,
+                                } as Partial<T>);
+                            }}
+                            placeholder="1"
+                        />
+                        {renderError?.(`items.${index}.quantity`)}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'rate',
+            header: 'Cost',
+            meta: { className: 'sm:table-cell w-[12%]' },
+            cell: ({ row }) => {
+                const { item } = row.original;
+                const index = getSourceIndex(item._key);
                 const parsedRate = Number(item.rate ?? 0);
                 const displayRate =
                     item.rate == null ||
@@ -1025,40 +1073,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                 return (
                     <div className="relative flex w-full flex-col gap-1">
                         <ProperInput
-                                value={displayRate}
-                            type="number"
-                            inputProps={{ step: 'any' }}
-                            disabled={disabled}
-                            // size="compact"
-                            onCommit={(v) =>
-                                updateItemByKey(item._key, {
-                                    quantity: Number(v),
-                                } as Partial<T>)
-                            }
-                        />
-                        {renderError?.(`items.${index}.quantity`)}
-                    </div>
-                );
-            },
-        },
-        {
-            id: 'rate',
-            header: 'Cost',
-            meta: { className: 'sm:table-cell w-[12%]' },
-            cell: ({ row }) => {
-                const { item } = row.original;
-                const index = getSourceIndex(item._key);
-
-                if (item.is_header) {
-                    return (
-                        <div className="text-center text-muted-foreground"></div>
-                    );
-                }
-
-                return (
-                    <div className="relative flex w-full flex-col gap-1">
-                        <ProperInput
-                            value={item.rate ?? null}
+                            value={displayRate}
                             type="number"
                             inputProps={{ step: 'any' }}
                             placeholder="0.00"
