@@ -23,7 +23,6 @@ interface ViewUserProps {
     data: UserSchema;
     dataRole: [];
     dataBranch: [];
-    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
@@ -34,7 +33,6 @@ export default function ViewUser({
     data,
     dataRole,
     dataBranch,
-    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,

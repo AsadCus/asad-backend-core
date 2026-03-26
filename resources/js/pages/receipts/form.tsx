@@ -1,5 +1,4 @@
 import { DatePickerField } from '@/components/date-picker';
-import ModelNumberInput from '@/components/model-number-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,10 +98,6 @@ export default function ReceiptForm({
         return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
-    const modelNumberError =
-        (errors as Record<string, string | undefined>).receipt_number ??
-        (errors as Record<string, string | undefined>).number_format_id;
-
     return (
         <div
             className="mx-auto max-h-[90vh] w-full overflow-y-auto p-2"
@@ -112,22 +107,6 @@ export default function ReceiptForm({
             }}
         >
             <form onSubmit={handleSubmit} className="space-y-4">
-                <ModelNumberInput
-                    modelKey="receipt"
-                    label="Receipt Number"
-                    value={data.receipt_number ?? ''}
-                    formatId={data.number_format_id ?? null}
-                    onValueChange={(value) =>
-                        setData('receipt_number', value)
-                    }
-                    onFormatIdChange={(formatId) =>
-                        setData('number_format_id', formatId)
-                    }
-                    disabled={processing}
-                    error={modelNumberError}
-                    hint="Choose a format, then adjust number if needed."
-                />
-
                 <div className="grid items-start gap-4 md:grid-cols-2">
                     {/* Invoice */}
                     <div className="grid w-full items-center gap-3">

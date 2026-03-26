@@ -22,7 +22,6 @@ interface CreateUserProps {
     data: UserSchema[];
     dataRole: [];
     dataBranch: [];
-    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
@@ -48,7 +47,6 @@ export function resolveUserRoleLabel({
 export default function CreateUser({
     dataRole,
     dataBranch,
-    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,

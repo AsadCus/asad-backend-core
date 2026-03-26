@@ -223,6 +223,26 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         return withTrailingEmptyTax(rawTaxes);
     };
 
+    const clearTaxInput = (item: T, taxIndex: number): void => {
+        const nextTaxes = getDisplayTaxes(item).map((currentTax, index) => {
+            if (index !== taxIndex) {
+                return currentTax;
+            }
+
+            return {
+                ...currentTax,
+                quotation_extension_master_id: null,
+                name: null,
+                calculation_mode: null,
+                calculation_value: null,
+            };
+        });
+
+        updateItemByKey(item._key, {
+            taxes: withTrailingEmptyTax(nextTaxes),
+        } as Partial<T>);
+    };
+
     const updateItemByKey = (key: string, patch: Partial<T>) => {
         onChange(
             items.map((item) =>
@@ -1129,6 +1149,10 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                 );
                 const disableRemove =
                     isLockedMemberItem || hasLockedMemberChildren;
+                const canMoveToAnotherInvoice =
+                    item.is_header === true &&
+                    item.parent_id == null &&
+                    item.parent_key == null;
 
                 return (
                     <div className="flex items-center gap-1">
@@ -1170,7 +1194,8 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                     {onMoveItem &&
                                         invoices &&
                                         typeof currentInvoiceIndex ===
-                                            'number' && (
+                                            'number' &&
+                                        canMoveToAnotherInvoice && (
                                             <>
                                                 <DropdownMenuItem
                                                     disabled
@@ -1640,6 +1665,25 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                                                     }}
                                                                                 />
                                                                             </div>
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                disabled={
+                                                                                    disabled ||
+                                                                                    isEmptyTax(
+                                                                                        tax,
+                                                                                    )
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    clearTaxInput(
+                                                                                        item,
+                                                                                        taxIndex,
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                Clear
+                                                                            </Button>
                                                                         </div>
                                                                         {renderError?.(
                                                                             `items.${sourceIndex}.taxes.${taxIndex}.quotation_extension_master_id`,

@@ -1,6 +1,5 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import ModelNumberInput from '@/components/model-number-input';
 import {
     Card,
     CardContent,
@@ -121,10 +120,6 @@ export default function PrivateEnquiryForm({
         return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
-    const modelNumberError =
-        (errors as Record<string, string | undefined>).enquiry_number ??
-        (errors as Record<string, string | undefined>).number_format_id;
-
     const handleReset = () => {
         reset();
     };
@@ -141,24 +136,6 @@ export default function PrivateEnquiryForm({
                             Please fix the errors below and try again
                         </AlertDescription>
                     </Alert>
-                )}
-
-                {!isView && (
-                    <ModelNumberInput
-                        modelKey="private_enquiry"
-                        label="Enquiry Number"
-                        value={data.enquiry_number ?? ''}
-                        formatId={data.number_format_id ?? null}
-                        onValueChange={(value) =>
-                            setData('enquiry_number', value)
-                        }
-                        onFormatIdChange={(formatId) =>
-                            setData('number_format_id', formatId)
-                        }
-                        disabled={processing}
-                        error={modelNumberError}
-                        hint="Choose a format, then adjust number if needed."
-                    />
                 )}
 
                 {isView && data.enquiry_number && (

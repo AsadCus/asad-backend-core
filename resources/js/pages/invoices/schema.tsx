@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+export const invoiceItemTaxSchema = z.object({
+    _key: z.string().optional(),
+    id: z.number().optional(),
+    quotation_item_id: z.number().nullable().optional(),
+    quotation_extension_master_id: z.number().nullable().optional(),
+    name: z.string().nullable().optional(),
+    calculation_mode: z.string().nullable().optional(),
+    calculation_value: z.union([z.string(), z.number()]).nullable().optional(),
+    sort_order: z.number().optional(),
+});
+
 export const invoiceItemSchema = z.object({
     _key: z.string(),
     id: z.number().optional(),
@@ -16,11 +27,24 @@ export const invoiceItemSchema = z.object({
     is_header: z.boolean().nullable().optional(),
     quantity: z.union([z.string(), z.number()]).nullable().optional(),
     rate: z.union([z.string(), z.number()]).nullable().optional(),
+    taxes: z.array(invoiceItemTaxSchema).optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),
     sort_order: z.number().optional(),
 });
 
 export type InvoiceItemSchema = z.infer<typeof invoiceItemSchema>;
+
+export const invoiceExtensionSchema = z.object({
+    _key: z.string().optional(),
+    id: z.number().nullable().optional(),
+    quotation_extension_master_id: z.number().nullable().optional(),
+    name: z.string().nullable().optional(),
+    type: z.string().nullable().optional(),
+    calculation_mode: z.string().nullable().optional(),
+    calculation_value: z.union([z.string(), z.number()]).nullable().optional(),
+    amount: z.union([z.string(), z.number()]).nullable().optional(),
+    sort_order: z.number().optional(),
+});
 
 export const invoiceSchema = z.object({
     _key: z.string(),
@@ -45,6 +69,7 @@ export const invoiceSchema = z.object({
     has_receipt: z.boolean().optional(),
     receipt_id: z.number().nullable().optional(),
     description: z.string().nullable().optional(),
+    extensions: z.array(invoiceExtensionSchema).optional(),
     items: z.array(invoiceItemSchema),
 });
 

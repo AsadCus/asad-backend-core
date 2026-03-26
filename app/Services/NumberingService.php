@@ -560,9 +560,7 @@ class NumberingService
     ): NumberingSequence {
         $sequenceYear = $sequenceYearOverride;
         if ($sequenceYear === null) {
-            $sequenceYear = $format->include_year
-                ? now()->format($this->normalizeYearFormat($format->year_format))
-                : null;
+            $sequenceYear = $this->currentSequenceYear($format);
         }
 
         $query = NumberingSequence::query()
@@ -611,6 +609,22 @@ class NumberingService
 
     private function composeNumber(NumberingFormat $format, int $increment): string
     {
+        $template = $this->resolveTemplate($format);
+        if ($template !== null) {
+            return strtr($template, [
+                '%DD%' => now()->format('d'),
+                '%MM%' => now()->format('m'),
+                '%YY%' => now()->format('y'),
+                '%YYYY%' => now()->format('Y'),
+                '%I%' => str_pad(
+                    (string) $increment,
+                    max(1, (int) $format->increment_padding),
+                    '0',
+                    STR_PAD_LEFT,
+                ),
+            ]);
+        }
+
         $parts = [];
 
         if ($format->prefix !== null && trim((string) $format->prefix) !== '') {
@@ -647,6 +661,49 @@ class NumberingService
 
     private function parseNumber(NumberingFormat $format, string $number): ?array
     {
+        $template = $this->resolveTemplate($format);
+        if ($template !== null) {
+            $escaped = preg_quote($template, '/');
+            $pattern = str_replace(
+                [
+                    '%YYYY%',
+                    '%YY%',
+                    '%MM%',
+                    '%DD%',
+                    '%I%',
+                ],
+                [
+                    '(?P<year4>\\d{4})',
+                    '(?P<year2>\\d{2})',
+                    '(?P<month>\\d{2})',
+                    '(?P<day>\\d{2})',
+                    '(?P<increment>\\d{'.max(1, (int) $format->increment_padding).',})',
+                ],
+                $escaped,
+            );
+
+            if (! preg_match('/^'.$pattern.'$/', $number, $matches)) {
+                return null;
+            }
+
+            $increment = (int) ($matches['increment'] ?? 0);
+            if ($increment <= 0) {
+                return null;
+            }
+
+            $sequenceYear = null;
+            if (str_contains($template, '%YYYY%')) {
+                $sequenceYear = (string) ($matches['year4'] ?? '');
+            } elseif (str_contains($template, '%YY%')) {
+                $sequenceYear = (string) ($matches['year2'] ?? '');
+            }
+
+            return [
+                'sequence_year' => $sequenceYear,
+                'increment' => $increment,
+            ];
+        }
+
         $separator = preg_quote($this->normalizeSeparator($format->separator), '/');
         $parts = [];
 
@@ -711,5 +768,41 @@ class NumberingService
         $format = trim((string) $value);
 
         return $format === '' ? 'Y' : $format;
+    }
+
+    private function resolveTemplate(NumberingFormat $format): ?string
+    {
+        $template = trim((string) $format->name);
+
+        if ($template === '') {
+            return null;
+        }
+
+        if (! str_contains($template, '%') || ! str_contains($template, '%I%')) {
+            return null;
+        }
+
+        return $template;
+    }
+
+    private function currentSequenceYear(NumberingFormat $format): ?string
+    {
+        $template = $this->resolveTemplate($format);
+
+        if ($template !== null) {
+            if (str_contains($template, '%YYYY%')) {
+                return now()->format('Y');
+            }
+
+            if (str_contains($template, '%YY%')) {
+                return now()->format('y');
+            }
+
+            return null;
+        }
+
+        return $format->include_year
+            ? now()->format($this->normalizeYearFormat($format->year_format))
+            : null;
     }
 }

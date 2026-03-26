@@ -318,7 +318,7 @@ class QuotationExtensionWorkflowTest extends TestCase
         $this->assertSame('Credit Card Interest', $creditCardDefaults[1]['name']);
     }
 
-    public function test_store_quotation_percentage_discount_uses_subtotal_plus_item_tax_as_base(): void
+    public function test_store_quotation_percentage_discount_uses_subtotal_as_base(): void
     {
         $user = User::factory()->create();
         $customer = Customer::create([
@@ -368,12 +368,12 @@ class QuotationExtensionWorkflowTest extends TestCase
         $quotation->refresh();
 
         $this->assertSame(1000.0, (float) $quotation->item_subtotal_amount);
-        $this->assertSame(-10.0, (float) $quotation->extension_total_amount);
-        $this->assertSame(990.0, (float) $quotation->total_amount);
+        $this->assertSame(0.0, (float) $quotation->extension_total_amount);
+        $this->assertSame(1000.0, (float) $quotation->total_amount);
         $this->assertDatabaseHas('quotation_extensions', [
             'quotation_id' => $quotation->id,
             'name' => 'Promo 10%',
-            'amount' => '-110.00',
+            'amount' => '-100.00',
         ]);
     }
 

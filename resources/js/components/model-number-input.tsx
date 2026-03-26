@@ -2,6 +2,14 @@ import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -11,6 +19,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -28,19 +41,14 @@ import {
     updateFormat,
 } from '@/lib/numbering-formats';
 import { cn } from '@/lib/utils';
-import { Loader2, Settings2, Sparkles, Trash2 } from 'lucide-react';
+import { Check, Loader2, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 interface NumberingFormatFormState {
     id: number | null;
-    name: string;
-    prefix: string;
-    separator: string;
-    include_year: boolean;
-    year_format: string;
+    format: string;
     increment_padding: number;
     increment_start: number;
-    increment_scope: 'format' | 'model';
     is_default: boolean;
     is_active: boolean;
     sort_order: number;
@@ -60,17 +68,106 @@ interface ModelNumberInputProps {
 
 const DEFAULT_FORMAT_FORM: NumberingFormatFormState = {
     id: null,
-    name: '',
-    prefix: '',
-    separator: '-',
-    include_year: true,
-    year_format: 'Y',
+    format: '%I%',
     increment_padding: 4,
     increment_start: 1,
-    increment_scope: 'format',
     is_default: false,
     is_active: true,
     sort_order: 1,
+};
+
+const FORMAT_TOKENS = [
+    {
+        label: 'Transaction Date',
+        value: '%DD%',
+        hint: 'Day (01-31)',
+    },
+    {
+        label: 'Transaction Month',
+        value: '%MM%',
+        hint: 'Month (01-12)',
+    },
+    {
+        label: 'Transaction Year (YY)',
+        value: '%YY%',
+        hint: '2-digit year',
+    },
+    {
+        label: 'Transaction Year (YYYY)',
+        value: '%YYYY%',
+        hint: '4-digit year',
+    },
+    {
+        label: 'Increment (Next Number)',
+        value: '%I%',
+        hint: 'Auto sequence number',
+    },
+] as const;
+
+const hasTemplateToken = (value: string): boolean =>
+    /%(DD|MM|YY|YYYY|I)%/.test(value);
+
+const toLegacyTemplate = (format: NumberingFormatRecord): string => {
+    const parts: string[] = [];
+
+    if ((format.prefix ?? '').trim().length > 0) {
+        parts.push((format.prefix ?? '').trim());
+    }
+
+    if (format.include_year) {
+        parts.push(format.year_format === 'y' ? '%YY%' : '%YYYY%');
+    }
+
+    parts.push('%I%');
+
+    return parts.join(format.separator || '-');
+};
+
+const toFormatString = (format?: NumberingFormatRecord | null): string => {
+    if (!format) {
+        return DEFAULT_FORMAT_FORM.format;
+    }
+
+    const candidate = format.name.trim();
+
+    if (hasTemplateToken(candidate)) {
+        return candidate;
+    }
+
+    return toLegacyTemplate(format);
+};
+
+const getTemplateMetadata = (
+    template: string,
+): {
+    includeYear: boolean;
+    yearFormat: string;
+    prefix: string;
+    separator: string;
+} => {
+    const includeYYYY = template.includes('%YYYY%');
+    const includeYY = template.includes('%YY%');
+    const includeYear = includeYYYY || includeYY;
+
+    const firstTokenIndex = template.search(/%(DD|MM|YY|YYYY|I)%/);
+    const prefix =
+        firstTokenIndex > 0 ? template.slice(0, firstTokenIndex).trim() : '';
+
+    let separator = '-';
+    if (template.includes('/')) {
+        separator = '/';
+    } else if (template.includes('_')) {
+        separator = '_';
+    } else if (template.includes('.')) {
+        separator = '.';
+    }
+
+    return {
+        includeYear,
+        yearFormat: includeYYYY ? 'Y' : 'y',
+        prefix,
+        separator,
+    };
 };
 
 const toFormState = (
@@ -82,14 +179,9 @@ const toFormState = (
 
     return {
         id: format.id,
-        name: format.name,
-        prefix: format.prefix ?? '',
-        separator: format.separator,
-        include_year: format.include_year,
-        year_format: format.year_format,
+        format: toFormatString(format),
         increment_padding: format.increment_padding,
         increment_start: format.increment_start,
-        increment_scope: format.increment_scope,
         is_default: format.is_default,
         is_active: format.is_active,
         sort_order: format.sort_order,
@@ -99,37 +191,55 @@ const toFormState = (
 const toPayload = (
     state: NumberingFormatFormState,
     modelKey: string,
+    incrementScope: 'format' | 'model',
 ): NumberingFormatPayload => ({
     model_key: modelKey,
-    name: state.name.trim(),
-    prefix: state.prefix.trim(),
-    separator: state.separator.trim(),
-    include_year: state.include_year,
-    year_format: state.year_format.trim() || 'Y',
+    name: state.format.trim(),
+    prefix: getTemplateMetadata(state.format).prefix,
+    separator: getTemplateMetadata(state.format).separator,
+    include_year: getTemplateMetadata(state.format).includeYear,
+    year_format: getTemplateMetadata(state.format).yearFormat,
     increment_padding: Math.max(1, Number(state.increment_padding || 1)),
     increment_start: Math.max(1, Number(state.increment_start || 1)),
-    increment_scope: state.increment_scope,
+    increment_scope: incrementScope,
     is_default: state.is_default,
     is_active: state.is_active,
     sort_order: Math.max(1, Number(state.sort_order || 1)),
 });
 
-const buildFormatPreview = (state: NumberingFormatFormState): string => {
-    const parts: string[] = [];
-
-    if (state.prefix.trim().length > 0) {
-        parts.push(state.prefix.trim());
-    }
-
-    if (state.include_year) {
-        parts.push(state.year_format === 'y' ? '26' : '2026');
-    }
-
-    parts.push(
-        String(state.increment_start).padStart(state.increment_padding, '0'),
+const buildFormatPreview = (
+    template: string,
+    incrementStart: number,
+    incrementPadding: number,
+): string => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const yearFull = String(today.getFullYear());
+    const yearShort = yearFull.slice(-2);
+    const increment = String(Math.max(1, incrementStart)).padStart(
+        Math.max(1, incrementPadding),
+        '0',
     );
 
-    return parts.join(state.separator || '-');
+    return (template.trim() || '%I%')
+        .replace(/%DD%/g, day)
+        .replace(/%MM%/g, month)
+        .replace(/%YYYY%/g, yearFull)
+        .replace(/%YY%/g, yearShort)
+        .replace(/%I%/g, increment);
+};
+
+const normalizeScope = (
+    formats: NumberingFormatRecord[],
+): 'format' | 'model' => {
+    if (formats.length === 0) {
+        return 'model';
+    }
+
+    return formats.every((format) => format.increment_scope === 'model')
+        ? 'model'
+        : 'format';
 };
 
 export default function ModelNumberInput({
@@ -144,12 +254,16 @@ export default function ModelNumberInput({
     hint,
 }: ModelNumberInputProps) {
     const [formats, setFormats] = useState<NumberingFormatRecord[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [isSuggesting, setIsSuggesting] = useState(false);
     const [openDialog, setOpenDialog] = useState(false);
+    const [openFormatSelector, setOpenFormatSelector] = useState(false);
+    const [openTokenSelector, setOpenTokenSelector] = useState(false);
     const [dialogError, setDialogError] = useState<string | null>(null);
     const [editingFormat, setEditingFormat] =
         useState<NumberingFormatFormState>(DEFAULT_FORMAT_FORM);
+    const [modelIncrementScope, setModelIncrementScope] = useState<
+        'format' | 'model'
+    >('model');
 
     const selectedFormat = useMemo(
         () => formats.find((format) => format.id === formatId) ?? null,
@@ -157,12 +271,12 @@ export default function ModelNumberInput({
     );
 
     const loadFormats = async (): Promise<void> => {
-        setIsLoading(true);
         setDialogError(null);
 
         try {
             const nextFormats = await fetchFormats(modelKey);
             setFormats(nextFormats);
+            setModelIncrementScope(normalizeScope(nextFormats));
 
             if (!formatId) {
                 const defaultFormat = nextFormats.find(
@@ -171,6 +285,10 @@ export default function ModelNumberInput({
 
                 if (defaultFormat) {
                     onFormatIdChange(defaultFormat.id);
+
+                    if (!disabled) {
+                        await handleSuggest(defaultFormat.id);
+                    }
                 }
             }
         } catch (exception) {
@@ -180,7 +298,7 @@ export default function ModelNumberInput({
                     : 'Unable to load model number formats.',
             );
         } finally {
-            setIsLoading(false);
+            // no-op
         }
     };
 
@@ -219,6 +337,25 @@ export default function ModelNumberInput({
         }
     };
 
+    const applyScopeForAllFormats = async (
+        nextScope: 'format' | 'model',
+        skipId?: number,
+    ): Promise<void> => {
+        const updates = formats
+            .filter((format) => format.id !== skipId)
+            .filter((format) => format.increment_scope !== nextScope)
+            .map((format) =>
+                updateFormat(
+                    format.id,
+                    toPayload(toFormState(format), modelKey, nextScope),
+                ),
+            );
+
+        if (updates.length > 0) {
+            await Promise.all(updates);
+        }
+    };
+
     const handleOpenDialog = (): void => {
         setDialogError(null);
         setEditingFormat(toFormState(selectedFormat));
@@ -227,19 +364,30 @@ export default function ModelNumberInput({
 
     const resetFormatForm = (): void => {
         setEditingFormat(toFormState(null));
+        setDialogError(null);
     };
 
     const handleSaveFormat = async (): Promise<void> => {
         setDialogError(null);
 
-        if (editingFormat.name.trim().length === 0) {
-            setDialogError('Format name is required.');
+        if (editingFormat.format.trim().length === 0) {
+            setDialogError('Format is required.');
+
+            return;
+        }
+
+        if (!editingFormat.format.includes('%I%')) {
+            setDialogError('Format must include %I% for the increment value.');
 
             return;
         }
 
         try {
-            const payload = toPayload(editingFormat, modelKey);
+            const payload = toPayload(
+                editingFormat,
+                modelKey,
+                modelIncrementScope,
+            );
 
             let persisted: NumberingFormatRecord;
             if (editingFormat.id) {
@@ -248,6 +396,7 @@ export default function ModelNumberInput({
                 persisted = await createFormat(payload);
             }
 
+            await applyScopeForAllFormats(modelIncrementScope, persisted.id);
             await loadFormats();
             onFormatIdChange(persisted.id);
             setEditingFormat(toFormState(persisted));
@@ -299,90 +448,147 @@ export default function ModelNumberInput({
                 fieldRequirementsProps={{
                     hint:
                         hint ??
-                        'You can edit this number manually or choose a format to suggest the next number.',
+                        'Use format picker to auto-generate, then adjust manually if needed.',
                 }}
             >
-                <div className="space-y-2">
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
-                        <Select
-                            value={formatId ? String(formatId) : '__none__'}
-                            onValueChange={(nextValue) => {
-                                if (nextValue === '__none__') {
-                                    onFormatIdChange(null);
+                <Popover
+                    open={openFormatSelector}
+                    onOpenChange={(nextOpen) => {
+                        if (disabled) {
+                            setOpenFormatSelector(false);
 
-                                    return;
+                            return;
+                        }
+
+                        setOpenFormatSelector(nextOpen);
+                    }}
+                >
+                    <PopoverTrigger asChild>
+                        <div className="relative">
+                            <Input
+                                value={value ?? ''}
+                                onChange={(event) =>
+                                    onValueChange(event.target.value)
                                 }
-
-                                void handleFormatChange(nextValue);
-                            }}
-                            disabled={disabled || isLoading}
-                        >
-                            <SelectTrigger>
-                                <SelectValue
-                                    placeholder={
-                                        isLoading
-                                            ? 'Loading formats...'
-                                            : 'Select number format'
+                                onClick={() => {
+                                    if (!disabled) {
+                                        setOpenFormatSelector(true);
                                     }
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="__none__">
-                                    No format selected
-                                </SelectItem>
-                                {formats.map((format) => (
-                                    <SelectItem
-                                        key={format.id}
-                                        value={String(format.id)}
-                                    >
-                                        {format.name}
-                                        {format.is_default ? ' (Default)' : ''}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleOpenDialog}
-                            disabled={disabled}
-                            size="icon"
-                            className="w-full md:w-10"
-                        >
-                            <Settings2 className="h-4 w-4" />
-                            <span className="sr-only">
-                                Configure model number formats
-                            </span>
-                        </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
-                        <Input
-                            value={value ?? ''}
-                            onChange={(event) =>
-                                onValueChange(event.target.value)
-                            }
-                            disabled={disabled}
-                            placeholder="Enter model number"
-                        />
-
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            disabled={disabled || isSuggesting}
-                            onClick={() => void handleSuggest()}
-                            className="w-full md:w-auto"
-                        >
-                            {isSuggesting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Sparkles className="mr-2 h-4 w-4" />
+                                }}
+                                disabled={disabled}
+                                placeholder="Enter model number"
+                                className="pr-11"
+                            />
+                            {!disabled && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        handleOpenDialog();
+                                    }}
+                                    disabled={disabled}
+                                    size="icon"
+                                    className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2"
+                                >
+                                    {isSuggesting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Settings2 className="h-4 w-4" />
+                                    )}
+                                    <span className="sr-only">
+                                        Configure model number formats
+                                    </span>
+                                </Button>
                             )}
-                            Suggest next
-                        </Button>
-                    </div>
-                </div>
+                        </div>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-fit p-0" align="start">
+                        <Command>
+                            <CommandInput placeholder="Search format..." />
+                            <CommandList>
+                                <CommandEmpty>
+                                    No formats available for this model.
+                                </CommandEmpty>
+                                <CommandGroup heading="Available formats">
+                                    <CommandItem
+                                        value="no-format-selected"
+                                        onSelect={() => {
+                                            onFormatIdChange(null);
+                                            setOpenFormatSelector(false);
+                                        }}
+                                    >
+                                        No format selected
+                                        <Check
+                                            className={cn(
+                                                'ml-auto h-4 w-4',
+                                                !formatId
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0',
+                                            )}
+                                        />
+                                    </CommandItem>
+
+                                    {formats.map((format) => {
+                                        const formatValue =
+                                            toFormatString(format);
+
+                                        return (
+                                            <CommandItem
+                                                key={format.id}
+                                                value={`${formatValue} ${format.id}`}
+                                                onSelect={() => {
+                                                    void handleFormatChange(
+                                                        String(format.id),
+                                                    );
+                                                    setOpenFormatSelector(
+                                                        false,
+                                                    );
+                                                }}
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">
+                                                        {formatValue}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {format.is_default
+                                                            ? 'Default'
+                                                            : 'Custom'}
+                                                    </span>
+                                                </div>
+                                                <Check
+                                                    className={cn(
+                                                        'ml-auto h-4 w-4',
+                                                        format.id === formatId
+                                                            ? 'opacity-100'
+                                                            : 'opacity-0',
+                                                    )}
+                                                />
+                                            </CommandItem>
+                                        );
+                                    })}
+                                </CommandGroup>
+
+                                <div className="border-t p-2">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="w-full justify-start"
+                                        onClick={() => {
+                                            resetFormatForm();
+                                            setOpenDialog(true);
+                                            setOpenFormatSelector(false);
+                                        }}
+                                    >
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Create format
+                                    </Button>
+                                </div>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
             </FormField>
 
             <Dialog open={openDialog} onOpenChange={setOpenDialog}>
@@ -396,8 +602,17 @@ export default function ModelNumberInput({
 
                     <div className="grid gap-4 md:grid-cols-[1.25fr_1fr]">
                         <div className="space-y-3">
-                            <div className="text-sm font-medium">
-                                Available Formats
+                            <div className="flex items-center justify-between">
+                                <div className="text-base font-medium">
+                                    Available Formats
+                                </div>
+                                <Button
+                                    size={'sm'}
+                                    type="button"
+                                    onClick={resetFormatForm}
+                                >
+                                    New
+                                </Button>
                             </div>
 
                             <div className="space-y-2">
@@ -412,24 +627,26 @@ export default function ModelNumberInput({
                                     <div
                                         key={format.id}
                                         className={cn(
-                                            'rounded-md border p-3',
+                                            'cursor-pointer rounded-md border p-3 transition-colors hover:bg-muted/40',
                                             editingFormat.id === format.id &&
                                                 'border-primary bg-primary/5',
                                         )}
+                                        onClick={() =>
+                                            setEditingFormat(
+                                                toFormState(format),
+                                            )
+                                        }
                                     >
                                         <div className="flex items-center justify-between gap-2">
                                             <div>
                                                 <p className="text-sm font-semibold">
-                                                    {format.name}
+                                                    {toFormatString(format)}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {format.prefix ??
-                                                        'No prefix'}
-                                                    {format.include_year
-                                                        ? `${format.separator}${format.year_format}`
-                                                        : ''}
-                                                    {format.separator}
-                                                    {'#'.repeat(
+                                                    Preview:{' '}
+                                                    {buildFormatPreview(
+                                                        toFormatString(format),
+                                                        format.increment_start,
                                                         format.increment_padding,
                                                     )}
                                                 </p>
@@ -439,24 +656,13 @@ export default function ModelNumberInput({
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        setEditingFormat(
-                                                            toFormState(format),
-                                                        )
-                                                    }
-                                                >
-                                                    Edit
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
                                                     size="icon"
-                                                    onClick={() =>
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
                                                         void handleDeleteFormat(
                                                             format.id,
-                                                        )
-                                                    }
+                                                        );
+                                                    }}
                                                 >
                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                 </Button>
@@ -469,87 +675,104 @@ export default function ModelNumberInput({
 
                         <div className="space-y-3 rounded-md border p-3">
                             <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold">
+                                <h4 className="text-base font-semibold">
                                     {editingFormat.id
                                         ? 'Edit Format'
                                         : 'Create Format'}
                                 </h4>
-                                {editingFormat.id && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={resetFormatForm}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Increment Scope (All Formats)</Label>
+                                <Select
+                                    value={modelIncrementScope}
+                                    onValueChange={(nextValue) =>
+                                        setModelIncrementScope(
+                                            nextValue as 'format' | 'model',
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select scope" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="model">
+                                            Shared model sequence
+                                        </SelectItem>
+                                        <SelectItem value="format">
+                                            Separate per format sequence
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="format_value">Format</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="format_value"
+                                        value={editingFormat.format}
+                                        onChange={(event) =>
+                                            setEditingFormat((current) => ({
+                                                ...current,
+                                                format: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="KGT-%DD%-%MM%-%YY%-%I%"
+                                    />
+                                    <Popover
+                                        open={openTokenSelector}
+                                        onOpenChange={setOpenTokenSelector}
                                     >
-                                        New
-                                    </Button>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="format_name">Format Name</Label>
-                                <Input
-                                    id="format_name"
-                                    value={editingFormat.name}
-                                    onChange={(event) =>
-                                        setEditingFormat((current) => ({
-                                            ...current,
-                                            name: event.target.value,
-                                        }))
-                                    }
-                                    placeholder="Default"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="format_prefix">Prefix</Label>
-                                <Input
-                                    id="format_prefix"
-                                    value={editingFormat.prefix}
-                                    onChange={(event) =>
-                                        setEditingFormat((current) => ({
-                                            ...current,
-                                            prefix: event.target.value,
-                                        }))
-                                    }
-                                    placeholder="KTG"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="format_separator">
-                                        Separator
-                                    </Label>
-                                    <Input
-                                        id="format_separator"
-                                        value={editingFormat.separator}
-                                        onChange={(event) =>
-                                            setEditingFormat((current) => ({
-                                                ...current,
-                                                separator: event.target.value,
-                                            }))
-                                        }
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="format_year">
-                                        Year Format
-                                    </Label>
-                                    <Input
-                                        id="format_year"
-                                        value={editingFormat.year_format}
-                                        onChange={(event) =>
-                                            setEditingFormat((current) => ({
-                                                ...current,
-                                                year_format:
-                                                    event.target.value || 'Y',
-                                            }))
-                                        }
-                                        disabled={!editingFormat.include_year}
-                                        placeholder="Y"
-                                    />
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                    Add format token
+                                                </span>
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                            className="w-72 p-1"
+                                            align="end"
+                                        >
+                                            <div className="space-y-1">
+                                                {FORMAT_TOKENS.map((token) => (
+                                                    <Button
+                                                        key={token.value}
+                                                        type="button"
+                                                        variant="ghost"
+                                                        className="h-auto w-full justify-start py-2"
+                                                        onClick={() => {
+                                                            setEditingFormat(
+                                                                (current) => ({
+                                                                    ...current,
+                                                                    format: `${current.format}${token.value}`,
+                                                                }),
+                                                            );
+                                                            setOpenTokenSelector(
+                                                                false,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <span className="flex flex-col items-start">
+                                                            <span className="font-medium">
+                                                                {token.label}
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {token.hint} (
+                                                                {token.value})
+                                                            </span>
+                                                        </span>
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
 
@@ -596,47 +819,7 @@ export default function ModelNumberInput({
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label>Increment Scope</Label>
-                                <Select
-                                    value={editingFormat.increment_scope}
-                                    onValueChange={(nextValue) =>
-                                        setEditingFormat((current) => ({
-                                            ...current,
-                                            increment_scope: nextValue as
-                                                | 'format'
-                                                | 'model',
-                                        }))
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select scope" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="format">
-                                            Per format sequence
-                                        </SelectItem>
-                                        <SelectItem value="model">
-                                            Shared model sequence
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
                             <div className="grid grid-cols-2 gap-2">
-                                <label className="flex items-center gap-2 text-sm">
-                                    <Checkbox
-                                        checked={editingFormat.include_year}
-                                        onCheckedChange={(checked) =>
-                                            setEditingFormat((current) => ({
-                                                ...current,
-                                                include_year: Boolean(checked),
-                                            }))
-                                        }
-                                    />
-                                    Include year
-                                </label>
-
                                 <label className="flex items-center gap-2 text-sm">
                                     <Checkbox
                                         checked={editingFormat.is_default}
@@ -665,7 +848,12 @@ export default function ModelNumberInput({
                             </div>
 
                             <div className="rounded-md border bg-muted/30 p-2 text-xs">
-                                Preview: {buildFormatPreview(editingFormat)}
+                                Preview:{' '}
+                                {buildFormatPreview(
+                                    editingFormat.format,
+                                    editingFormat.increment_start,
+                                    editingFormat.increment_padding,
+                                )}
                             </div>
 
                             {dialogError && (

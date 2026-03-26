@@ -23,7 +23,6 @@ interface EditUserProps {
     data: UserSchema;
     dataRole: [];
     dataBranch: [];
-    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
@@ -34,7 +33,6 @@ export default function EditUser({
     data,
     dataRole,
     dataBranch,
-    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,

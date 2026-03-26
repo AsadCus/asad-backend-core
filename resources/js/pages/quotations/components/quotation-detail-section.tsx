@@ -100,7 +100,7 @@ export default function QuotationDetailSection({
         },
     ];
 
-    const extensions = data.extensions ?? [];
+    const extensions = React.useMemo(() => data.extensions ?? [], [data.extensions]);
 
     const extensionMasters = React.useMemo(
         () =>
@@ -298,7 +298,7 @@ export default function QuotationDetailSection({
         [extensions],
     );
 
-    const discountBaseAmount = subtotalAmount + itemTaxTotal;
+    const discountBaseAmount = subtotalAmount;
 
     const discountAmount = discountExtension
         ? (() => {

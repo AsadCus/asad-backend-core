@@ -379,8 +379,8 @@ class CustomerConfirmationService
     {
         $allocatedAmount = (float) $member->receiptAllocations->sum('allocated_amount');
 
-        if ($allocatedAmount > 0) {
-            return $allocatedAmount;
+        if ($member->receiptAllocations->isNotEmpty()) {
+            return round($allocatedAmount, 2);
         }
 
         $paidQuotationIds = $member->quotationItems
@@ -1877,52 +1877,12 @@ class CustomerConfirmationService
 
                 $refundAmount = $this->resolveRequestedRefundAmount($paidAmount, $refundPayload);
 
-                $sourceQuotationItem = QuotationItem::query()
-                    ->with('quotation.order')
-                    ->where('customer_confirmation_member_id', $member->id)
-                    ->whereHas('quotation.order')
-                    ->orderByDesc('id')
-                    ->first();
-
-                if (! $sourceQuotationItem || ! $sourceQuotationItem->quotation?->order) {
-                    throw ValidationException::withMessages([
-                        'member_refunds' => 'No order found for selected member refund.',
-                    ]);
-                }
-
-                $quotationId = (int) $sourceQuotationItem->quotation_id;
-                $orderId = (int) $sourceQuotationItem->quotation->order->id;
-                $sortOrder = ((int) QuotationItem::query()
-                    ->where('quotation_id', $quotationId)
-                    ->max('sort_order')) + 1;
-
                 $memberName = $member->customer?->user?->name ?? 'Member #'.$member->id;
                 $refundDescription = 'Refund - '.$memberName;
 
-                $refundItem = QuotationItem::create([
-                    'quotation_id' => $quotationId,
-                    'customer_confirmation_member_id' => $member->id,
-                    'description' => $refundDescription,
-                    'is_header' => false,
-                    'quantity' => 1,
-                    'rate' => -$refundAmount,
-                    'sort_order' => $sortOrder,
-                ]);
-
-                $refundInvoice = Invoice::create([
-                    'order_id' => $orderId,
-                    'type' => null,
-                    'description' => $refundDescription,
-                    'amount' => -$refundAmount,
-                    'invoice_date' => now()->format('Y-m-d'),
-                    'due_date' => now()->format('Y-m-d'),
-                    'status' => 'issued',
-                ]);
-
-                $refundInvoice->quotationItems()->sync([$refundItem->id]);
-
                 $refundReceipt = Receipt::create([
-                    'invoice_id' => $refundInvoice->id,
+                    'invoice_id' => null,
+                    'receipt_number' => $this->numberingService->ensureNumber('receipt', null),
                     'amount' => -$refundAmount,
                     'receipt_date' => now()->format('Y-m-d'),
                     'payment_method' => 'refund',

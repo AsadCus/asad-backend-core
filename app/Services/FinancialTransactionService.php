@@ -314,7 +314,7 @@ class FinancialTransactionService
                 'financial_year_id' => $newFiscalYear ? $newFiscalYear->id : $transaction->financial_year_id,
                 'metadata' => [
                     'receipt_number' => $receipt->receipt_number,
-                    'invoice_number' => $invoice->invoice_number,
+                    'invoice_number' => $invoice?->invoice_number,
                     'payment_method' => $receipt->payment_method,
                     'reference' => $receipt->reference,
                 ],
@@ -399,18 +399,27 @@ class FinancialTransactionService
         ];
     }
 
-    public function getPaymentCategorySummary(string $period = 'daily', ?int $financialYearId = null): array
-    {
-        [$resolvedPeriod, $startDate, $endDate, $periodLabel] = $this->resolvePaymentPeriodRange($period, $financialYearId);
+    public function getPaymentCategorySummary(
+        string $period = 'daily',
+        ?int $financialYearId = null,
+        ?string $timezone = null,
+        ?string $rangeStartUtc = null,
+        ?string $rangeEndUtc = null,
+    ): array {
+        [$resolvedPeriod, $startDate, $endDate, $periodLabel] = $this->resolvePaymentPeriodRange(
+            $period,
+            $financialYearId,
+            $timezone,
+            $rangeStartUtc,
+            $rangeEndUtc,
+        );
 
         $receipts = Receipt::query()
             ->with([
                 'invoice.quotationItems.parent.parent',
             ])
-            ->whereBetween('receipt_date', [
-                $startDate->copy()->startOfDay(),
-                $endDate->copy()->endOfDay(),
-            ])
+            ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
+            ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
             ->get();
 
         $categoryTotals = [];
@@ -533,13 +542,53 @@ class FinancialTransactionService
     /**
      * @return array{0: string, 1: Carbon, 2: Carbon, 3: string}
      */
-    private function resolvePaymentPeriodRange(string $period, ?int $financialYearId = null): array
-    {
+    private function resolvePaymentPeriodRange(
+        string $period,
+        ?int $financialYearId = null,
+        ?string $timezone = null,
+        ?string $rangeStartUtc = null,
+        ?string $rangeEndUtc = null,
+    ): array {
         $resolvedPeriod = in_array($period, ['daily', 'monthly', 'yearly'], true)
             ? $period
             : 'daily';
 
-        $now = Carbon::now();
+        $timezoneName = is_string($timezone) && trim($timezone) !== ''
+            ? trim($timezone)
+            : config('app.timezone', 'UTC');
+
+        $isValidTimezone = in_array($timezoneName, timezone_identifiers_list(), true);
+
+        if (! $isValidTimezone) {
+            $timezoneName = config('app.timezone', 'UTC');
+        }
+
+        if (
+            is_string($rangeStartUtc) && trim($rangeStartUtc) !== '' &&
+            is_string($rangeEndUtc) && trim($rangeEndUtc) !== ''
+        ) {
+            try {
+                $startDate = Carbon::parse($rangeStartUtc, 'UTC')
+                    ->setTimezone($timezoneName)
+                    ->startOfDay();
+                $endDate = Carbon::parse($rangeEndUtc, 'UTC')
+                    ->setTimezone($timezoneName)
+                    ->endOfDay();
+
+                return [
+                    $resolvedPeriod,
+                    $startDate,
+                    $endDate,
+                    $resolvedPeriod === 'daily'
+                        ? 'Daily'
+                        : ($resolvedPeriod === 'monthly' ? 'Monthly' : 'Yearly'),
+                ];
+            } catch (\Throwable) {
+                // Fallback to default period resolution below.
+            }
+        }
+
+        $now = Carbon::now($timezoneName);
 
         if ($resolvedPeriod === 'yearly') {
             if ($financialYearId) {

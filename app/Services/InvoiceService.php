@@ -86,6 +86,7 @@ class InvoiceService
                 ),
                 'type' => $data['type'] ?? null,
                 'description' => $data['description'],
+                'extensions' => $this->normalizeInvoiceExtensions($data['extensions'] ?? []),
                 'amount' => $data['amount'],
                 'invoice_date' => $data['invoice_date'],
                 'due_date' => $data['due_date'] ?? null,
@@ -131,10 +132,28 @@ class InvoiceService
         $itemTaxTotal = (float) collect($itemTaxExtensions)
             ->sum(fn (array $extension): float => (float) ($extension['amount'] ?? 0));
 
-        $quotationExtensions = $this->allocateExtensionsForTargetTotal(
-            $i->order?->quotation?->quotationExtensions ?? collect(),
-            round($extensionTotalAmount - $itemTaxTotal, 2),
-        );
+        $storedInvoiceExtensions = $this->normalizeInvoiceExtensions($i->extensions ?? []);
+
+        $quotationExtensions = ! empty($storedInvoiceExtensions)
+            ? collect($storedInvoiceExtensions)
+                ->map(function (array $extension) {
+                    return [
+                        'id' => $extension['id'] ?? null,
+                        'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                        'name' => $extension['name'] ?? 'Extension',
+                        'type' => $extension['type'] ?? 'discount',
+                        'calculation_mode' => $extension['calculation_mode'] ?? null,
+                        'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                        'sort_order' => $extension['sort_order'] ?? null,
+                        'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0),
+                    ];
+                })
+                ->values()
+                ->all()
+            : $this->allocateExtensionsForTargetTotal(
+                $i->order?->quotation?->quotationExtensions ?? collect(),
+                round($extensionTotalAmount - $itemTaxTotal, 2),
+            );
 
         $extensions = array_values(array_merge($itemTaxExtensions, $quotationExtensions));
 
@@ -321,6 +340,7 @@ class InvoiceService
                 'invoice_number' => $resolvedInvoiceNumber,
                 'type' => $data['type'] ?? null,
                 'description' => $data['description'],
+                'extensions' => $this->normalizeInvoiceExtensions($data['extensions'] ?? []),
                 'amount' => $data['amount'],
                 'invoice_date' => $data['invoice_date'],
                 'due_date' => $data['due_date'] ?? null,
@@ -354,5 +374,39 @@ class InvoiceService
     public function delete($id)
     {
         return Invoice::find($id)?->delete() ?? false;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeInvoiceExtensions(array $extensions): array
+    {
+        return collect($extensions)
+            ->filter(fn ($extension) => is_array($extension))
+            ->map(function (array $extension, int $index) {
+                $calculationMode = (string) ($extension['calculation_mode'] ?? 'fixed');
+                if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    $calculationMode = 'fixed';
+                }
+
+                return [
+                    'id' => $extension['id'] ?? null,
+                    'quotation_extension_master_id' => ! empty($extension['quotation_extension_master_id'])
+                        ? (int) $extension['quotation_extension_master_id']
+                        : null,
+                    'name' => (string) ($extension['name'] ?? 'Extension'),
+                    'type' => (string) ($extension['type'] ?? 'discount'),
+                    'calculation_mode' => $calculationMode,
+                    'calculation_value' => $this->formatService->cleanDecimal(
+                        $extension['calculation_value'] ?? 0
+                    ) ?? 0,
+                    'amount' => $this->formatService->cleanDecimal(
+                        $extension['amount'] ?? 0
+                    ) ?? 0,
+                    'sort_order' => (int) ($extension['sort_order'] ?? ($index + 1)),
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

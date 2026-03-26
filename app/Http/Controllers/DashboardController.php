@@ -233,10 +233,16 @@ class DashboardController extends Controller
     {
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
+        $timezone = $request->input('timezone');
+        $rangeStartUtc = $request->input('range_start_utc');
+        $rangeEndUtc = $request->input('range_end_utc');
 
         $data = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
+            is_string($timezone) ? $timezone : null,
+            is_string($rangeStartUtc) ? $rangeStartUtc : null,
+            is_string($rangeEndUtc) ? $rangeEndUtc : null,
         );
 
         return response()->json($data);
@@ -246,10 +252,16 @@ class DashboardController extends Controller
     {
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
+        $timezone = $request->input('timezone');
+        $rangeStartUtc = $request->input('range_start_utc');
+        $rangeEndUtc = $request->input('range_end_utc');
 
         $summary = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
+            is_string($timezone) ? $timezone : null,
+            is_string($rangeStartUtc) ? $rangeStartUtc : null,
+            is_string($rangeEndUtc) ? $rangeEndUtc : null,
         );
 
         $pdf = Pdf::loadView('reports.dashboard-payment-summary', [

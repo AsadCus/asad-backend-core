@@ -36,6 +36,7 @@ import {
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Download } from 'lucide-react';
+import { DateTime } from 'luxon';
 import { useCallback, useEffect, useState } from 'react';
 import { UserSchema } from './masters/users/schema';
 
@@ -178,7 +179,6 @@ export default function Dashboard({ data }: DashboardProps) {
     const isSales = auth.roles.includes('sales');
 
     // State for API fetched data
-    const [isLoadingData, setIsLoadingData] = useState(false);
     const [fiscalYearTotalSalesData, setFiscalYearTotalSalesData] =
         useState<FiscalYearTotalSalesType | null>(null);
     const [paymentSummaryPeriod, setPaymentSummaryPeriod] = useState<
@@ -189,12 +189,64 @@ export default function Dashboard({ data }: DashboardProps) {
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
         useState(false);
 
+    const buildPaymentSummaryParams = useCallback(
+        (period: 'daily' | 'monthly' | 'yearly', yearId?: number) => {
+            const params = new URLSearchParams({ period });
+
+            if (yearId) {
+                params.set('financial_year_id', String(yearId));
+            }
+
+            const userTimezone = Intl.DateTimeFormat().resolvedOptions()
+                .timeZone;
+
+            if (userTimezone) {
+                params.set('timezone', userTimezone);
+            }
+
+            // Keep yearly + selected financial year on backend fiscal-year boundaries.
+            if (period === 'yearly' && yearId) {
+                return params;
+            }
+
+            const nowInUserTimezone = DateTime.now().setZone(
+                userTimezone || 'UTC',
+            );
+
+            const localRangeStart =
+                period === 'monthly'
+                    ? nowInUserTimezone.startOf('month')
+                    : period === 'yearly'
+                      ? nowInUserTimezone.startOf('year')
+                      : nowInUserTimezone.startOf('day');
+            const localRangeEnd =
+                period === 'monthly'
+                    ? nowInUserTimezone.endOf('month')
+                    : period === 'yearly'
+                      ? nowInUserTimezone.endOf('year')
+                      : nowInUserTimezone.endOf('day');
+
+            const rangeStartUtc = localRangeStart.toUTC().toISO();
+            const rangeEndUtc = localRangeEnd.toUTC().toISO();
+
+            if (rangeStartUtc) {
+                params.set('range_start_utc', rangeStartUtc);
+            }
+
+            if (rangeEndUtc) {
+                params.set('range_end_utc', rangeEndUtc);
+            }
+
+            return params;
+        },
+        [],
+    );
+
     // Fetch dashboard data for admin
     const fetchAdminDashboardData = useCallback(
         async (yearId?: number) => {
             if (!isAdmin) return;
 
-            setIsLoadingData(true);
             try {
                 const queryOptions = yearId
                     ? { query: { financial_year_id: yearId.toString() } }
@@ -210,8 +262,6 @@ export default function Dashboard({ data }: DashboardProps) {
                 }
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
-            } finally {
-                setIsLoadingData(false);
             }
         },
         [isAdmin],
@@ -224,11 +274,7 @@ export default function Dashboard({ data }: DashboardProps) {
             setIsLoadingPaymentSummary(true);
 
             try {
-                const params = new URLSearchParams({ period });
-
-                if (yearId) {
-                    params.set('financial_year_id', String(yearId));
-                }
+                const params = buildPaymentSummaryParams(period, yearId);
 
                 const response = await fetch(
                     `/dashboard/payment-summary-by-period?${params.toString()}`,
@@ -245,21 +291,20 @@ export default function Dashboard({ data }: DashboardProps) {
                 setIsLoadingPaymentSummary(false);
             }
         },
-        [isAdmin],
+        [buildPaymentSummaryParams, isAdmin],
     );
 
     const handleExportPaymentSummaryPdf = useCallback(() => {
-        const params = new URLSearchParams({ period: paymentSummaryPeriod });
-
-        if (data.selectedYearId) {
-            params.set('financial_year_id', String(data.selectedYearId));
-        }
+        const params = buildPaymentSummaryParams(
+            paymentSummaryPeriod,
+            data.selectedYearId,
+        );
 
         window.open(
             `/dashboard/export-payment-summary-pdf?${params.toString()}`,
             '_blank',
         );
-    }, [data.selectedYearId, paymentSummaryPeriod]);
+    }, [buildPaymentSummaryParams, data.selectedYearId, paymentSummaryPeriod]);
 
     const paymentSectionTitle =
         paymentSummaryPeriod === 'daily'

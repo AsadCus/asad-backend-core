@@ -4,8 +4,13 @@ import { QuotationSchema } from '@/pages/quotations/schema';
 import { nanoid } from 'nanoid';
 
 type QuotationExtensionInput = {
+    type?: string | null;
     amount?: number | string | null;
 };
+
+function isTaxExtension(extension: QuotationExtensionInput): boolean {
+    return String(extension.type ?? '').trim().toLowerCase() === 'tax';
+}
 
 export function autoFillInvoiceDates(
     invoices: InvoiceSchema[],
@@ -29,7 +34,10 @@ function roundToCents(value: number): number {
 function sumExtensions(extensions: QuotationExtensionInput[] = []): number {
     return roundToCents(
         extensions.reduce(
-            (sum, extension) => sum + Number(extension.amount ?? 0),
+            (sum, extension) =>
+                isTaxExtension(extension)
+                    ? sum
+                    : sum + Number(extension.amount ?? 0),
             0,
         ),
     );
@@ -249,8 +257,8 @@ function buildInstallmentItems(
                 ...item,
                 _key: nanoid(),
                 id: undefined,
-                parent_id: null,
-                parent_key: null,
+                parent_id: item.parent_id ?? null,
+                parent_key: item.parent_key ?? null,
                 description: `${item.description ?? 'Package'} (Deposit)`,
                 quantity,
                 rate: roundToCents(depositAmount / quantity),
@@ -263,8 +271,8 @@ function buildInstallmentItems(
                 ...item,
                 _key: nanoid(),
                 id: undefined,
-                parent_id: null,
-                parent_key: null,
+                parent_id: item.parent_id ?? null,
+                parent_key: item.parent_key ?? null,
                 description: `${item.description ?? 'Package'} (50%)`,
                 quantity,
                 rate: roundToCents(fiftyPercentAmount / quantity),
@@ -277,8 +285,8 @@ function buildInstallmentItems(
                 ...item,
                 _key: nanoid(),
                 id: undefined,
-                parent_id: null,
-                parent_key: null,
+                parent_id: item.parent_id ?? null,
+                parent_key: item.parent_key ?? null,
                 description: `${item.description ?? 'Package'} (Balance)`,
                 quantity,
                 rate: roundToCents(balanceAmount / quantity),
@@ -372,26 +380,41 @@ export function quotationItemsToInvoiceItems(
 ): InvoiceItemSchema[] {
     if (!quotation.items?.length) return [];
 
-    const keyMap = new Map<number, string>();
-
-    quotation.items.forEach((item) => {
-        if (item.id) keyMap.set(item.id, `id-${item.id}`);
+    const keyMapById = new Map<number, string>();
+    const resolvedKeys = quotation.items.map((item, index) => {
+        return item._key ?? (item.id ? `id-${item.id}` : `quotation-item-${index}`);
     });
 
-    return quotation.items.map((item) => ({
-        _key: item.id ? `id-${item.id}` : nanoid(),
+    quotation.items.forEach((item, index) => {
+        if (item.id) {
+            keyMapById.set(item.id, resolvedKeys[index]);
+        }
+    });
+
+    return quotation.items.map((item, index) => ({
+        _key: resolvedKeys[index],
         id: item.id ?? undefined,
         parent_id: item.parent_id ?? null,
         customer_confirmation_member_id:
             item.customer_confirmation_member_id ?? null,
         sharing_plan: item.sharing_plan ?? null,
-        parent_key: item.parent_id
-            ? (keyMap.get(item.parent_id) ?? null)
-            : null,
+        parent_key:
+            item.parent_key ??
+            (item.parent_id ? (keyMapById.get(item.parent_id) ?? null) : null),
         description: item.description,
         is_header: item.is_header,
         quantity: item.quantity,
         rate: item.rate,
+        taxes: (item.taxes ?? []).map((tax, taxIndex) => ({
+            _key: tax._key ?? (tax.id ? `tax-${tax.id}` : `tax-${index}-${taxIndex}`),
+            id: tax.id,
+            quotation_item_id: tax.quotation_item_id ?? null,
+            quotation_extension_master_id: tax.quotation_extension_master_id ?? null,
+            name: tax.name ?? null,
+            calculation_mode: tax.calculation_mode ?? null,
+            calculation_value: tax.calculation_value ?? null,
+            sort_order: tax.sort_order ?? taxIndex + 1,
+        })),
         amount: item.amount,
         sort_order: item.sort_order,
     }));

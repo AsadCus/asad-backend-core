@@ -1,5 +1,5 @@
-import { FormField } from '@/components/form-field';
 import { DatePickerField } from '@/components/date-picker';
+import { FormField } from '@/components/form-field';
 import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
@@ -48,23 +48,6 @@ export default function ManifestInformationCard({
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {!isView && (
-                    <ModelNumberInput
-                        modelKey="manifest"
-                        label="Manifest Number"
-                        value={data.manifest_number ?? ''}
-                        formatId={data.number_format_id ?? null}
-                        onValueChange={(value) =>
-                            setData('manifest_number', value)
-                        }
-                        onFormatIdChange={(formatId) =>
-                            setData('number_format_id', formatId)
-                        }
-                        error={modelNumberError}
-                        hint="Choose a format, then adjust number if needed."
-                    />
-                )}
-
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                     <FormField
                         label="Package"
@@ -138,6 +121,23 @@ export default function ManifestInformationCard({
                         />
                         {renderError('status')}
                     </FormField>
+
+                    {!isView && (
+                        <ModelNumberInput
+                            modelKey="manifest"
+                            label="Manifest Number"
+                            value={data.manifest_number ?? ''}
+                            formatId={data.number_format_id ?? null}
+                            onValueChange={(value) =>
+                                setData('manifest_number', value)
+                            }
+                            onFormatIdChange={(formatId) =>
+                                setData('number_format_id', formatId)
+                            }
+                            error={modelNumberError}
+                            hint="Select a format from the number input to auto-generate manifest number."
+                        />
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">

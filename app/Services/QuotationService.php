@@ -1152,6 +1152,82 @@ class QuotationService
         app(PackageSeatService::class)->recalculateForPackageId($packageId);
     }
 
+    public function syncQuotationExtensionsFromOrderInvoices(Quotation $quotation, array $invoices): void
+    {
+        $aggregatedExtensions = collect($invoices)
+            ->filter(fn ($invoice) => is_array($invoice))
+            ->flatMap(function (array $invoice) {
+                return collect($invoice['extensions'] ?? [])->filter(fn ($extension) => is_array($extension));
+            })
+            ->values()
+            ->reduce(function (Collection $carry, array $extension) {
+                $type = strtolower(trim((string) ($extension['type'] ?? 'discount')));
+
+                // Tax extensions are item-level and should not be persisted as quotation-level extensions.
+                if ($type === 'tax') {
+                    return $carry;
+                }
+
+                $calculationMode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    $calculationMode = 'fixed';
+                }
+
+                $name = trim((string) ($extension['name'] ?? ''));
+                if ($name === '') {
+                    $name = Str::headline(str_replace('_', ' ', $type));
+                }
+
+                $masterId = ! empty($extension['quotation_extension_master_id'])
+                    ? (int) $extension['quotation_extension_master_id']
+                    : null;
+
+                $normalizedValue = $this->formatService->cleanDecimal(
+                    $extension['calculation_value'] ?? $extension['amount'] ?? 0
+                ) ?? 0;
+
+                $groupKey = implode('|', [
+                    (string) ($masterId ?? 0),
+                    strtolower($name),
+                    $type,
+                    $calculationMode,
+                ]);
+
+                if (! $carry->has($groupKey)) {
+                    $carry->put($groupKey, [
+                        'quotation_extension_master_id' => $masterId,
+                        'name' => $name,
+                        'type' => $type,
+                        'calculation_mode' => $calculationMode,
+                        'calculation_value' => 0,
+                        'sort_order' => $carry->count() + 1,
+                    ]);
+                }
+
+                $current = $carry->get($groupKey);
+
+                if (! is_array($current)) {
+                    return $carry;
+                }
+
+                if ($calculationMode === 'percentage') {
+                    $current['calculation_value'] = abs((float) $normalizedValue);
+                } else {
+                    $current['calculation_value'] =
+                        (float) ($current['calculation_value'] ?? 0) + (float) $normalizedValue;
+                }
+
+                $carry->put($groupKey, $current);
+
+                return $carry;
+            }, collect())
+            ->values()
+            ->all();
+
+        $this->syncQuotationExtensions($quotation, $aggregatedExtensions);
+        $this->syncConvertedOrderInvoiceAndReceiptAmounts($quotation);
+    }
+
     private function syncQuotationExtensions(Quotation $quotation, array $extensions): void
     {
         $itemSubtotal = (float) ($quotation->quotationItems()
@@ -1159,27 +1235,6 @@ class QuotationService
             ->get()
             ->sum(function (QuotationItem $item): float {
                 return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
-            }));
-
-        $itemTaxTotal = (float) ($quotation->quotationItems()
-            ->with('taxes')
-            ->where('is_header', false)
-            ->get()
-            ->sum(function (QuotationItem $item): float {
-                $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
-
-                return (float) $item->taxes->sum(function ($tax) use ($lineAmount): float {
-                    $calculationMode = (string) ($tax->calculation_mode ?? '');
-                    $calculationValue = (float) ($tax->calculation_value ?? 0);
-
-                    if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
-                        return 0;
-                    }
-
-                    return $calculationMode === 'percentage'
-                        ? ($lineAmount * $calculationValue / 100)
-                        : $calculationValue;
-                });
             }));
 
         $incomingExtensions = collect($extensions)
@@ -1222,7 +1277,7 @@ class QuotationService
             })
             ->values();
 
-        $discountBaseAmount = $itemSubtotal + $itemTaxTotal;
+        $discountBaseAmount = $itemSubtotal;
 
         $discountExtension = $incomingExtensions
             ->filter(fn (array $extension) => (string) ($extension['type'] ?? 'discount') === 'discount')

@@ -128,11 +128,73 @@ class DashboardTest extends TestCase
         $response->assertHeader('content-type', 'application/pdf');
     }
 
+    public function test_dashboard_payment_summary_includes_receipts_without_invoice_as_others(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        Receipt::withoutEvents(function (): void {
+            Receipt::create([
+                'invoice_id' => null,
+                'amount' => -125,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'refund',
+                'description' => 'Refund - Test Member',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+
+        $categories = collect($response->json('categories'));
+        $others = $categories->firstWhere('category', 'Others');
+
+        $this->assertNotNull($others);
+        $this->assertSame(-125.0, (float) ($others['amount'] ?? 0));
+    }
+
     public function test_removed_salesperson_monthly_dashboard_endpoints_are_not_registered(): void
     {
         $routes = app('router')->getRoutes();
 
         $this->assertNull($routes->getByName('dashboard.sales-period-options'));
         $this->assertNull($routes->getByName('dashboard.quotation-converted-by-salesperson'));
+    }
+
+    public function test_dashboard_payment_summary_uses_timezone_aware_utc_range_for_daily_period(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        Receipt::withoutEvents(function (): void {
+            Receipt::create([
+                'invoice_id' => null,
+                'amount' => 100,
+                'receipt_date' => '2026-03-27',
+                'payment_method' => 'transfer',
+                'description' => 'Timezone range included',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => null,
+                'amount' => 200,
+                'receipt_date' => '2026-03-26',
+                'payment_method' => 'transfer',
+                'description' => 'Timezone range excluded',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+            'timezone' => 'Asia/Singapore',
+            'range_start_utc' => '2026-03-26T16:00:00Z',
+            'range_end_utc' => '2026-03-27T15:59:59Z',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('period', 'daily');
+        $response->assertJsonPath('receipt_count', 1);
+        $response->assertJsonPath('total_amount', 100);
     }
 }

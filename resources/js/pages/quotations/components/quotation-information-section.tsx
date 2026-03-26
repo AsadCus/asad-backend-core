@@ -2,6 +2,7 @@ import { Combobox } from '@/components/combobox';
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
 import { FormSection } from '@/components/form-section';
+import ModelNumberInput from '@/components/model-number-input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatCurrency, parseDisplayDate } from '@/lib/utils';
@@ -35,6 +36,7 @@ interface Props {
     onCustomerConfirmationChange?: (value: string | number) => void;
     onSelectedMembersChange?: (memberIds: number[]) => void;
     onCustomerChange?: (value: string | number) => void;
+    quotationNumberError?: string;
     status: 'incomplete' | 'complete' | 'error';
 }
 
@@ -53,6 +55,7 @@ export default function QuotationInformationSection({
     onCustomerConfirmationChange,
     onSelectedMembersChange,
     onCustomerChange,
+    quotationNumberError,
     status,
 }: Props) {
     const addressLines = useMemo(
@@ -75,7 +78,13 @@ export default function QuotationInformationSection({
             >
                 {/* Customer */}
                 <section className="order-1 grid grid-cols-1 items-start gap-4 md:col-span-2 md:grid-cols-1 lg:order-1">
-                    <FormField label="Customer Confirmation">
+                    <FormField
+                        label="Customer Confirmation"
+                        fieldRequirementsProps={{
+                            required: false,
+                            hint: 'Optional: select a customer confirmation record for this quotation',
+                        }}
+                    >
                         <Combobox
                             disabled={isView || disableCustomerConfirmation}
                             value={data.customer_confirmation_id ?? ''}
@@ -164,7 +173,14 @@ export default function QuotationInformationSection({
                         </FormField>
                     )}
 
-                    <FormField label="Customer" htmlFor="customer_id">
+                    <FormField
+                        label="Customer"
+                        htmlFor="customer_id"
+                        fieldRequirementsProps={{
+                            required: true,
+                            hint: 'Select one customer as the quotation owner',
+                        }}
+                    >
                         <div id="customer_id" tabIndex={-1}>
                             <Combobox
                                 disabled={
@@ -215,6 +231,25 @@ export default function QuotationInformationSection({
                 </section>
 
                 <section className="order-2 grid grid-cols-1 items-start gap-4 md:col-span-2 lg:order-2">
+                    {!isView && (
+                        <div className="md:ml-auto md:w-72">
+                            <ModelNumberInput
+                                modelKey="quotation"
+                                label="Quotation Number"
+                                value={data.quotation_number ?? ''}
+                                formatId={data.number_format_id ?? null}
+                                onValueChange={(value) =>
+                                    setData('quotation_number', value)
+                                }
+                                onFormatIdChange={(formatId) =>
+                                    setData('number_format_id', formatId)
+                                }
+                                error={quotationNumberError}
+                                hint="Select a format from the number input to auto-generate the quotation number."
+                            />
+                        </div>
+                    )}
+
                     {/* Quote Date */}
                     <div className="md:ml-auto md:w-72">
                         <FormField

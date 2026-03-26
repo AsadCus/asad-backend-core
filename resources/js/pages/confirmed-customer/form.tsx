@@ -1205,26 +1205,6 @@ export default function CustomerConfirmationForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="px-3 md:px-6">
-                        {!isView && !isPublic && (
-                            <div className="mb-4">
-                                <ModelNumberInput
-                                    modelKey="customer_confirmation"
-                                    label="Confirmation Number"
-                                    value={data.number ?? ''}
-                                    formatId={data.number_format_id ?? null}
-                                    onValueChange={(value) =>
-                                        setData('number', value)
-                                    }
-                                    onFormatIdChange={(formatId) =>
-                                        setData('number_format_id', formatId)
-                                    }
-                                    disabled={processing}
-                                    error={modelNumberError}
-                                    hint="Choose a format, then adjust number if needed."
-                                />
-                            </div>
-                        )}
-
                         {data.number && (
                             <div className="mb-4 flex items-center gap-2">
                                 <Label className="font-semibold">
@@ -1324,6 +1304,24 @@ export default function CustomerConfirmationForm({
                                     disabled={isView || processing}
                                 />
                             </FormField>
+
+                            {!isView && !isPublic && (
+                                <ModelNumberInput
+                                    modelKey="customer_confirmation"
+                                    label="Confirmation Number"
+                                    value={data.number ?? ''}
+                                    formatId={data.number_format_id ?? null}
+                                    onValueChange={(value) =>
+                                        setData('number', value)
+                                    }
+                                    onFormatIdChange={(formatId) =>
+                                        setData('number_format_id', formatId)
+                                    }
+                                    disabled={processing}
+                                    error={modelNumberError}
+                                    hint="Select a format from the number input to auto-generate confirmation number."
+                                />
+                            )}
 
                             <FormField
                                 label="Date of Application"

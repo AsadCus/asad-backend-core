@@ -570,8 +570,7 @@ export default function PackageForm({
     };
 
     const occupiedSeats = Number(data.occupied_seats ?? 0);
-    const showPackageNumberField =
-        isView && Boolean(data.package_number);
+    const showPackageNumberField = isView && Boolean(data.package_number);
 
     return (
         <div className="mx-auto w-full">
@@ -599,27 +598,6 @@ export default function PackageForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        {!isView && (
-                            <ModelNumberInput
-                                modelKey="package"
-                                label="Package Number"
-                                value={data.package_number ?? ''}
-                                formatId={data.package_number_format_id ?? null}
-                                onValueChange={(value) =>
-                                    setData('package_number', value)
-                                }
-                                onFormatIdChange={(formatId) =>
-                                    setData('package_number_format_id', formatId)
-                                }
-                                disabled={processing}
-                                error={
-                                    getError('package_number') ??
-                                    getError('package_number_format_id')
-                                }
-                                hint="Choose or configure a package number format."
-                            />
-                        )}
-
                         <div
                             className={`grid grid-cols-1 items-start gap-4 ${
                                 showPackageNumberField
@@ -649,23 +627,20 @@ export default function PackageForm({
                                 />
                             )}
 
-                            {/* Group Number (view only) */}
+                            {/* Package Number (view only) */}
                             {showPackageNumberField && (
-                                <FormField
+                                <ModelNumberInput
+                                    modelKey="package"
                                     label="Package Number"
-                                    htmlFor="package_number"
-                                    fieldRequirementsProps={{
-                                        hint: 'Auto-generated package identifier',
-                                    }}
-                                >
-                                    <Input
-                                        id="package_number"
-                                        type="text"
-                                        value={data.package_number}
-                                        disabled={true}
-                                        className="bg-muted"
-                                    />
-                                </FormField>
+                                    value={data.package_number ?? ''}
+                                    formatId={
+                                        data.package_number_format_id ?? null
+                                    }
+                                    onValueChange={() => undefined}
+                                    onFormatIdChange={() => undefined}
+                                    disabled
+                                    hint="Auto-generated package identifier"
+                                />
                             )}
 
                             {/* Package Name */}

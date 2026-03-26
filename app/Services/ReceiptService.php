@@ -126,10 +126,29 @@ class ReceiptService
         $itemTaxTotal = (float) collect($itemTaxExtensions)
             ->sum(fn (array $extension): float => (float) ($extension['amount'] ?? 0));
 
-        $quotationExtensions = $this->allocateExtensionsForTargetTotal(
-            $invoice?->order?->quotation?->quotationExtensions ?? collect(),
-            round($extensionTotalAmount - $itemTaxTotal, 2),
-        );
+        $storedInvoiceExtensions = collect($invoice?->extensions ?? [])
+            ->filter(fn ($extension) => is_array($extension))
+            ->map(function (array $extension) {
+                return [
+                    'id' => $extension['id'] ?? null,
+                    'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                    'name' => $extension['name'] ?? 'Extension',
+                    'type' => $extension['type'] ?? 'discount',
+                    'calculation_mode' => $extension['calculation_mode'] ?? null,
+                    'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                    'sort_order' => $extension['sort_order'] ?? null,
+                    'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $quotationExtensions = ! empty($storedInvoiceExtensions)
+            ? $storedInvoiceExtensions
+            : $this->allocateExtensionsForTargetTotal(
+                $invoice?->order?->quotation?->quotationExtensions ?? collect(),
+                round($extensionTotalAmount - $itemTaxTotal, 2),
+            );
 
         $extensions = array_values(array_merge($itemTaxExtensions, $quotationExtensions));
 

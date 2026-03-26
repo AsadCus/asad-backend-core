@@ -122,6 +122,7 @@ class OrderService
                     'invoice_number' => $invoice['invoice_number'] ?? null,
                     'number_format_id' => isset($invoice['number_format_id']) ? (int) $invoice['number_format_id'] : null,
                     'description' => $invoice['description'],
+                    'extensions' => $invoice['extensions'] ?? [],
                     'amount' => $invoice['amount'],
                     'invoice_date' => $invoice['invoice_date'],
                     'due_date' => $invoice['due_date'],
@@ -129,6 +130,11 @@ class OrderService
                     'items' => $invoice['items'] ?? [],
                 ]);
             }
+
+            $this->quotationService->syncQuotationExtensionsFromOrderInvoices(
+                $order->quotation,
+                $incomingInvoices,
+            );
 
             activity()
                 ->performedOn($order)
@@ -159,6 +165,18 @@ class OrderService
                 'order_id' => $invoice->order_id,
                 'type' => $invoice->type,
                 'description' => $invoice->description,
+                'extensions' => collect($invoice->extensions ?? [])->map(function ($extension) {
+                    return [
+                        'id' => $extension['id'] ?? null,
+                        'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                        'name' => $extension['name'] ?? '',
+                        'type' => $extension['type'] ?? 'discount',
+                        'calculation_mode' => $extension['calculation_mode'] ?? 'fixed',
+                        'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                        'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? null),
+                        'sort_order' => $extension['sort_order'] ?? null,
+                    ];
+                })->values(),
                 'amount' => $this->formatService->cleanDecimal($invoice->amount),
                 'invoice_date' => $invoice->invoice_date_formatted,
                 'due_date' => $invoice->due_date_formatted,
@@ -266,6 +284,7 @@ class OrderService
                             ...$invoiceData,
                             'invoice_number' => $invoiceData['invoice_number'] ?? null,
                             'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
+                            'extensions' => $invoiceData['extensions'] ?? [],
                             'delete_missing_quotation_items' => false,
                         ],
                         $existingInvoiceId
@@ -277,6 +296,7 @@ class OrderService
                         ...$invoiceData,
                         'invoice_number' => $invoiceData['invoice_number'] ?? null,
                         'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
+                        'extensions' => $invoiceData['extensions'] ?? [],
                         'order_id' => $order->id,
                         'delete_missing_quotation_items' => false,
                     ]);
@@ -333,6 +353,11 @@ class OrderService
                 $linkedQuotationItemIds,
             );
 
+            $this->quotationService->syncQuotationExtensionsFromOrderInvoices(
+                $order->quotation,
+                $incomingInvoices,
+            );
+
             return $order->fresh('invoices.quotationItems');
         });
     }
@@ -381,6 +406,7 @@ class OrderService
 
                     $fingerprint = implode('|', [
                         (string) ($item['parent_id'] ?? ''),
+                        strtolower(trim((string) ($item['parent_key'] ?? ''))),
                         (string) ($item['customer_confirmation_member_id'] ?? ''),
                         strtolower(trim((string) ($item['description'] ?? ''))),
                         (string) ((int) (! empty($item['is_header']))),
