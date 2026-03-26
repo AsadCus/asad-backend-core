@@ -117,7 +117,6 @@ interface DashboardProps {
         nationality: [];
         religion: [];
         educationLevel: [];
-        supplier: [];
         chartData?: {
             financial?: {
                 'this-year': Array<{
@@ -164,7 +163,6 @@ interface DashboardProps {
             nationalities: ValueNumberOptionType[];
             religions: ValueNumberOptionType[];
             education_levels: ValueNumberOptionType[];
-            suppliers: ValueNumberOptionType[];
         };
         enquiries?: EnquiryRowType[];
         enquirySummary?: EnquirySummaryType;

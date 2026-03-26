@@ -61,7 +61,6 @@ class Maid extends Model
 
         // others
         'status',
-        'supplier_id',
         'remaining_loan',
         'monthly_salary',
         'commission',
@@ -167,11 +166,6 @@ class Maid extends Model
         return $this->belongsTo(EducationLevel::class, 'education_level_id');
     }
 
-    public function supplier(): BelongsTo
-    {
-        return $this->belongsTo(Supplier::class, 'supplier_id');
-    }
-
     public function attributes(): HasMany
     {
         return $this->hasMany(MaidAttribute::class, 'maid_id');
@@ -241,9 +235,7 @@ class Maid extends Model
     public function getTotalCostOfMaid(): ?float
     {
         $cost = (float) ($this->cost_of_maid ?? 0);
-        $maidCommission = (float) ($this->commission ?? 0);
-        $supplierCommission = (float) ($this->supplier->commission ?? 0);
-        $commission = $this->commission !== null ? $maidCommission : $supplierCommission;
+        $commission = (float) ($this->commission ?? 0);
 
         return $cost - $commission;
     }

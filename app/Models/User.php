@@ -67,11 +67,6 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
-    public function supplier(): HasOne
-    {
-        return $this->hasOne(Supplier::class, 'user_id');
-    }
-
     public function customer(): HasOne
     {
         return $this->hasOne(Customer::class, 'user_id');

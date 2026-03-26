@@ -26,7 +26,6 @@ interface CreateUserProps {
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
-    isSupplier: boolean;
     isCustomer: boolean;
     submitUrl?: string;
 }
@@ -34,17 +33,14 @@ interface CreateUserProps {
 export function resolveUserRoleLabel({
     isAdmin,
     isSales,
-    isSupplier,
     isCustomer,
 }: {
     isAdmin: boolean;
     isSales: boolean;
-    isSupplier: boolean;
     isCustomer: boolean;
 }) {
     if (isAdmin) return 'Admin';
     if (isSales) return 'Sales';
-    if (isSupplier) return 'Supplier';
     if (isCustomer) return 'Customer';
     return 'User';
 }
@@ -56,7 +52,6 @@ export default function CreateUser({
     dataSales,
     isAdmin = false,
     isSales = false,
-    isSupplier = false,
     isCustomer = false,
     submitUrl,
 }: CreateUserProps) {
@@ -67,7 +62,6 @@ export default function CreateUser({
     const roleLabel = resolveUserRoleLabel({
         isAdmin,
         isSales,
-        isSupplier,
         isCustomer,
     });
 
@@ -84,13 +78,11 @@ export default function CreateUser({
                     <UserForm
                         mode="create"
                         branches={dataBranch}
-                        countries={dataCountry}
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
                         isAdmin={isAdmin}
                         isSales={isSales}
-                        isSupplier={isSupplier}
                         isCustomer={isCustomer}
                         submitUrl={submitUrl}
                     />

@@ -19,12 +19,15 @@ class OrderService
 
     protected $quotationService;
 
-    public function __construct(InvoiceService $invoiceService, FormatService $formatService, QuotationItemService $quotationItemService, QuotationService $quotationService)
+    protected $numberingService;
+
+    public function __construct(InvoiceService $invoiceService, FormatService $formatService, QuotationItemService $quotationItemService, QuotationService $quotationService, NumberingService $numberingService)
     {
         $this->invoiceService = $invoiceService;
         $this->formatService = $formatService;
         $this->quotationItemService = $quotationItemService;
         $this->quotationService = $quotationService;
+        $this->numberingService = $numberingService;
     }
 
     public function get()
@@ -101,6 +104,12 @@ class OrderService
             $incomingInvoices = $this->normalizeIncomingInvoices(array_values($data['invoices'] ?? []));
 
             $order = Order::create([
+                'order_number' => $this->numberingService->ensureNumber(
+                    'order',
+                    $data['order_number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'quotation_id' => $data['quotation_id'],
                 'payment_plan' => $data['payment_plan'],
             ]);
@@ -110,6 +119,8 @@ class OrderService
             foreach ($incomingInvoices as $invoice) {
                 $this->invoiceService->store([
                     'order_id' => $order->id,
+                    'invoice_number' => $invoice['invoice_number'] ?? null,
+                    'number_format_id' => isset($invoice['number_format_id']) ? (int) $invoice['number_format_id'] : null,
                     'description' => $invoice['description'],
                     'amount' => $invoice['amount'],
                     'invoice_date' => $invoice['invoice_date'],
@@ -133,6 +144,7 @@ class OrderService
         $o = Order::with([
             'quotation',
             'invoices.quotationItems.confirmationMember',
+            'invoices.quotationItems.taxes',
         ])->findOrFail($id);
 
         return [
@@ -162,6 +174,15 @@ class OrderService
                     'is_header' => $item->is_header,
                     'quantity' => $this->formatService->cleanDecimal($item->quantity),
                     'rate' => $this->formatService->cleanDecimal($item->rate),
+                    'taxes' => $item->taxes->map(fn ($tax) => [
+                        'id' => $tax->id,
+                        'quotation_item_id' => $tax->quotation_item_id,
+                        'quotation_extension_master_id' => $tax->quotation_extension_master_id,
+                        'name' => $tax->name,
+                        'calculation_mode' => $tax->calculation_mode,
+                        'calculation_value' => $this->formatService->cleanDecimal($tax->calculation_value),
+                        'sort_order' => $tax->sort_order,
+                    ])->values(),
                     'sort_order' => $item->sort_order,
                 ]),
             ]),
@@ -173,7 +194,18 @@ class OrderService
         return DB::transaction(function () use ($data, $id) {
             $order = Order::with(['invoices.receipt', 'quotation'])->findOrFail($id);
             $order->quotation()->where('is_locked', false)->update(['is_locked' => true]);
+
+            $resolvedOrderNumber = array_key_exists('order_number', $data)
+                ? $this->numberingService->ensureNumber(
+                    'order',
+                    $data['order_number'],
+                    (int) $order->id,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                )
+                : $order->order_number;
+
             $order->update([
+                'order_number' => $resolvedOrderNumber,
                 'payment_plan' => $data['payment_plan'],
             ]);
 
@@ -232,6 +264,8 @@ class OrderService
                     $invoice = $this->invoiceService->update(
                         [
                             ...$invoiceData,
+                            'invoice_number' => $invoiceData['invoice_number'] ?? null,
+                            'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
                             'delete_missing_quotation_items' => false,
                         ],
                         $existingInvoiceId
@@ -241,6 +275,8 @@ class OrderService
                 } else {
                     $invoice = $this->invoiceService->store([
                         ...$invoiceData,
+                        'invoice_number' => $invoiceData['invoice_number'] ?? null,
+                        'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
                         'order_id' => $order->id,
                         'delete_missing_quotation_items' => false,
                     ]);
@@ -329,6 +365,20 @@ class OrderService
                 }
 
                 if (! $itemId) {
+                    $taxFingerprint = collect($item['taxes'] ?? [])
+                        ->filter(fn ($tax) => is_array($tax))
+                        ->map(function (array $tax) {
+                            return implode(':', [
+                                (string) ($tax['quotation_extension_master_id'] ?? ''),
+                                strtolower(trim((string) ($tax['name'] ?? ''))),
+                                strtolower(trim((string) ($tax['calculation_mode'] ?? ''))),
+                                (string) ($tax['calculation_value'] ?? ''),
+                                (string) ($tax['sort_order'] ?? ''),
+                            ]);
+                        })
+                        ->values()
+                        ->implode(',');
+
                     $fingerprint = implode('|', [
                         (string) ($item['parent_id'] ?? ''),
                         (string) ($item['customer_confirmation_member_id'] ?? ''),
@@ -336,6 +386,7 @@ class OrderService
                         (string) ((int) (! empty($item['is_header']))),
                         (string) ($item['quantity'] ?? ''),
                         (string) ($item['rate'] ?? ''),
+                        $taxFingerprint,
                         (string) ($item['sort_order'] ?? ''),
                     ]);
 

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Helpers\NumberGenerator;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
@@ -21,6 +20,8 @@ use Illuminate\Support\Str;
 
 class ManifestService
 {
+    public function __construct(private NumberingService $numberingService) {}
+
     public function get()
     {
         $data = Manifest::get();
@@ -109,7 +110,12 @@ class ManifestService
         return DB::transaction(function () use ($data) {
             $manifestAttributes = [
                 'package_id' => $data['package_id'],
-                'manifest_number' => NumberGenerator::generate('manifest'),
+                'manifest_number' => $this->numberingService->ensureNumber(
+                    'manifest',
+                    $data['manifest_number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'notes' => $data['notes'] ?? null,
             ];
 
@@ -468,6 +474,14 @@ class ManifestService
 
             $manifestAttributes = [
                 'package_id' => $data['package_id'] ?? $manifest->package_id,
+                'manifest_number' => array_key_exists('manifest_number', $data)
+                    ? $this->numberingService->ensureNumber(
+                        'manifest',
+                        $data['manifest_number'],
+                        (int) $manifest->id,
+                        isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                    )
+                    : $manifest->manifest_number,
                 'notes' => $data['notes'] ?? $manifest->notes,
             ];
 

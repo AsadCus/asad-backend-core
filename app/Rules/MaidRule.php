@@ -80,7 +80,6 @@ class MaidRule
             ],
 
             'status' => 'required|string|in:unavailable,available,interviewing,pending,assigned',
-            'supplier_id' => 'required|exists:suppliers,id',
             'rest_days_per_month' => 'nullable|integer|min:0|max:8',
             'other_remarks' => 'nullable|string|max:500',
             'remaining_loan' => 'nullable|numeric|min:0|regex:/^\d+(\.\d{1,2})?$/',

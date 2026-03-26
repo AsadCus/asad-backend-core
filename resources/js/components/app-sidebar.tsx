@@ -27,7 +27,6 @@ import user, { create as createUser } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
 import masterSales from '@/routes/master/user/sales';
-// import masterSupplier from '@/routes/master/user/supplier';
 import opsMovements from '@/routes/ops-movements';
 import order from '@/routes/order';
 import packages from '@/routes/packages';
@@ -38,7 +37,6 @@ import receipt from '@/routes/receipt';
 import sales from '@/routes/sales';
 import userLogs from '@/routes/user-logs';
 // import schedule from '@/routes/schedule';
-// import supplier from '@/routes/supplier';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
@@ -115,10 +113,6 @@ export function AppSidebar() {
                                       title: 'Customer',
                                       href: masterCustomer.index.url(),
                                   },
-                                  //   {
-                                  //       title: 'Supplier',
-                                  //       href: masterSupplier.index.url(),
-                                  //   },
                               ],
                           },
                           {
@@ -202,15 +196,6 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        // ...(permissions.includes('supplier view')
-        //     ? [
-        //           {
-        //               title: 'Supplier',
-        //               href: supplier.index.url(),
-        //               icon: FilePlus,
-        //           },
-        //       ]
-        //     : []),
         ...(permissions.includes('customer view')
             ? [
                   {

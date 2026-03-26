@@ -9,6 +9,14 @@ import {
 import { type NavItem } from '@/types';
 import { type ComponentPropsWithoutRef } from 'react';
 
+const toHrefString = (href: NavItem['href']): string | undefined => {
+    if (typeof href === 'string') {
+        return href;
+    }
+
+    return href?.url;
+};
+
 export function NavFooter({
     items,
     className,
@@ -23,32 +31,36 @@ export function NavFooter({
         >
             <SidebarGroupContent>
                 <SidebarMenu>
-                    {items.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                            <SidebarMenuButton
-                                asChild
-                                className="text-neutral-600 hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100"
-                            >
-                                <a
-                                    href={
-                                        typeof item.href === 'string'
-                                            ? item.href
-                                            : item.href.url
-                                    }
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                    {items.map((item) => {
+                        const href = toHrefString(item.href);
+
+                        if (!href) {
+                            return null;
+                        }
+
+                        return (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton
+                                    asChild
+                                    className="text-neutral-600 hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100"
                                 >
-                                    {item.icon && (
-                                        <Icon
-                                            iconNode={item.icon}
-                                            className="h-5 w-5"
-                                        />
-                                    )}
-                                    <span>{item.title}</span>
-                                </a>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))}
+                                    <a
+                                        href={href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {item.icon && (
+                                            <Icon
+                                                iconNode={item.icon}
+                                                className="h-5 w-5"
+                                            />
+                                        )}
+                                        <span>{item.title}</span>
+                                    </a>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        );
+                    })}
                 </SidebarMenu>
             </SidebarGroupContent>
         </SidebarGroup>

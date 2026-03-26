@@ -1,0 +1,487 @@
+import { Button } from '@/components/ui/button';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { router } from '@inertiajs/react';
+import { Check, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { ProperInput } from '../../../components/proper-input';
+
+export type ExtensionMasterComboboxOption = {
+    id: number;
+    name: string;
+    type?: string;
+    calculation_mode?: string | null;
+    calculation_value?: string | number | null;
+    is_active?: boolean;
+};
+
+interface ExtensionMasterComboboxProps {
+    value: number | null;
+    options: ExtensionMasterComboboxOption[];
+    extensionType: 'discount' | 'tax';
+    triggerMode?: 'input' | 'button';
+    triggerButtonLabel?: string;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    disabled?: boolean;
+    placeholder?: string;
+    clearLabel?: string;
+    allowClear?: boolean;
+    className?: string;
+    onSelect: (option: ExtensionMasterComboboxOption) => void;
+    onClear?: () => void;
+    onOptionsChange?: (options: ExtensionMasterComboboxOption[]) => void;
+}
+
+function formatNumber(value: number): string {
+    if (!Number.isFinite(value)) {
+        return '0';
+    }
+
+    if (Math.floor(value) === value) {
+        return String(value);
+    }
+
+    return value.toFixed(2).replace(/\.00$/, '');
+}
+
+function getOptionLabel(option: ExtensionMasterComboboxOption): string {
+    const mode = String(option.calculation_mode ?? 'fixed');
+    const amount = Number(option.calculation_value ?? 0);
+
+    if (mode === 'percentage') {
+        return `${option.name} ${formatNumber(amount)}%`;
+    }
+
+    return option.name;
+}
+
+export default function ExtensionMasterCombobox({
+    value,
+    options,
+    extensionType,
+    triggerMode = 'input',
+    triggerButtonLabel,
+    open,
+    onOpenChange,
+    disabled = false,
+    placeholder = 'Select option',
+    clearLabel = 'No selection',
+    allowClear = false,
+    className,
+    onSelect,
+    onClear,
+    onOptionsChange,
+}: ExtensionMasterComboboxProps) {
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+    const [searchValue, setSearchValue] = useState('');
+    const [openCreateDialog, setOpenCreateDialog] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newCalculationMode, setNewCalculationMode] = useState<
+        'fixed' | 'percentage'
+    >('fixed');
+    const [newCalculationValue, setNewCalculationValue] = useState('');
+    const [localOptions, setLocalOptions] = useState(options);
+
+    useEffect(() => {
+        setLocalOptions(options);
+    }, [options]);
+
+    const filteredOptions = useMemo(() => {
+        return localOptions
+            .filter((option) => option.is_active !== false)
+            .filter((option) => {
+                const optionType = String(option.type ?? extensionType);
+
+                return optionType === extensionType;
+            })
+            .filter((option) => {
+                if (!searchValue.trim()) {
+                    return true;
+                }
+
+                return getOptionLabel(option)
+                    .toLowerCase()
+                    .includes(searchValue.toLowerCase());
+            });
+    }, [extensionType, localOptions, searchValue]);
+
+    const selectedOption = useMemo(
+        () =>
+            localOptions.find(
+                (option) => Number(option.id) === Number(value),
+            ) ?? null,
+        [localOptions, value],
+    );
+
+    const selectedText = selectedOption
+        ? getOptionLabel(selectedOption)
+        : placeholder;
+
+    const isPopoverOpen = open ?? uncontrolledOpen;
+
+    const setPopoverOpen = (nextOpen: boolean) => {
+        if (open === undefined) {
+            setUncontrolledOpen(nextOpen);
+        }
+
+        onOpenChange?.(nextOpen);
+    };
+
+    const handleCreate = () => {
+        if (!newName.trim()) {
+            toast.error('Name is required.');
+
+            return;
+        }
+
+        setIsCreating(true);
+
+        router.post(
+            '/product-services/extensions/quick-create',
+            {
+                name: newName.trim(),
+                type: extensionType,
+                calculation_mode: newCalculationMode,
+                calculation_value: Number(newCalculationValue || 0),
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    const flash = (page.props as Record<string, unknown>)
+                        .flash as Record<string, unknown> | undefined;
+                    const result = flash?.result as
+                        | Record<string, unknown>
+                        | undefined;
+                    const createdId = Number(result?.id ?? 0);
+
+                    if (createdId <= 0) {
+                        toast.error('Failed to create extension.');
+
+                        return;
+                    }
+
+                    const createdOption: ExtensionMasterComboboxOption = {
+                        id: createdId,
+                        name: String(result?.name ?? newName.trim()),
+                        type: String(result?.type ?? extensionType),
+                        calculation_mode: String(
+                            result?.calculation_mode ?? newCalculationMode,
+                        ),
+                        calculation_value: Number(
+                            result?.calculation_value ??
+                                Number(newCalculationValue || 0),
+                        ),
+                        is_active: true,
+                    };
+
+                    const nextOptions = [
+                        ...localOptions.filter(
+                            (option) => Number(option.id) !== createdOption.id,
+                        ),
+                        createdOption,
+                    ];
+
+                    setLocalOptions(nextOptions);
+                    onOptionsChange?.(nextOptions);
+                    onSelect(createdOption);
+
+                    setOpenCreateDialog(false);
+                    setPopoverOpen(false);
+                    setSearchValue('');
+                    setNewName('');
+                    setNewCalculationMode('fixed');
+                    setNewCalculationValue('');
+                    toast.success('Extension created.');
+                },
+                onError: (errors) => {
+                    const firstError = Object.values(errors)[0];
+                    toast.error(
+                        String(firstError ?? 'Failed to create extension.'),
+                    );
+                },
+                onFinish: () => {
+                    setIsCreating(false);
+                },
+            },
+        );
+    };
+
+    if (disabled) {
+        if (triggerMode === 'button') {
+            return (
+                <Button
+                    type="button"
+                    variant="link"
+                    className={cn('h-auto p-0', className)}
+                    disabled
+                >
+                    {triggerButtonLabel ?? selectedText}
+                </Button>
+            );
+        }
+
+        return (
+            <ProperInput
+                value={selectedOption ? getOptionLabel(selectedOption) : ''}
+                disabled
+                // size="compact"
+                className={className}
+                onCommit={() => {}}
+            />
+        );
+    }
+
+    return (
+        <>
+            <Popover open={isPopoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                    {triggerMode === 'button' ? (
+                        <Button
+                            type="button"
+                            variant="link"
+                            className={cn('h-auto p-0', className)}
+                            onClick={() => setPopoverOpen(true)}
+                        >
+                            {triggerButtonLabel ?? selectedText}
+                        </Button>
+                    ) : (
+                        <div
+                            onClick={(event) => {
+                                event.preventDefault();
+                                setPopoverOpen(true);
+                            }}
+                            onMouseDown={(event) => {
+                                event.preventDefault();
+                            }}
+                        >
+                            <ProperInput
+                                value={selectedText}
+                                disabled={disabled}
+                                // size="compact"
+                                className={className}
+                                placeholder={placeholder}
+                                onCommit={() => setPopoverOpen(true)}
+                            />
+                        </div>
+                    )}
+                </PopoverTrigger>
+                <PopoverContent className="w-fit p-0" align="end">
+                    <Command shouldFilter={false}>
+                        <CommandInput
+                            placeholder={`Search ${extensionType}...`}
+                            value={searchValue}
+                            onValueChange={setSearchValue}
+                        />
+                        <CommandList>
+                            <CommandEmpty>
+                                <div className="py-6 text-center text-base text-muted-foreground">
+                                    No matching {extensionType} options.
+                                </div>
+                            </CommandEmpty>
+
+                            <CommandGroup heading="Available Options">
+                                {allowClear && (
+                                    <CommandItem
+                                        value={`clear-${extensionType}`}
+                                        onSelect={() => {
+                                            onClear?.();
+                                            setPopoverOpen(false);
+                                        }}
+                                        className="cursor-pointer"
+                                    >
+                                        <div className="flex w-full items-center justify-between gap-2">
+                                            <span>{clearLabel}</span>
+                                            <Check
+                                                className={cn(
+                                                    'h-4 w-4',
+                                                    value == null
+                                                        ? 'opacity-100'
+                                                        : 'opacity-0',
+                                                )}
+                                            />
+                                        </div>
+                                    </CommandItem>
+                                )}
+
+                                {filteredOptions.map((option) => {
+                                    const optionLabel = getOptionLabel(option);
+
+                                    return (
+                                        <CommandItem
+                                            key={option.id}
+                                            value={`option-${option.id}-${optionLabel}`}
+                                            onSelect={() => {
+                                                onSelect(option);
+                                                setPopoverOpen(false);
+                                                setSearchValue('');
+                                            }}
+                                            className="cursor-pointer"
+                                        >
+                                            <div className="flex w-full items-center justify-between gap-2">
+                                                <span>{optionLabel}</span>
+                                                <Check
+                                                    className={cn(
+                                                        'h-4 w-4',
+                                                        Number(value) ===
+                                                            Number(option.id)
+                                                            ? 'opacity-100'
+                                                            : 'opacity-0',
+                                                    )}
+                                                />
+                                            </div>
+                                        </CommandItem>
+                                    );
+                                })}
+                            </CommandGroup>
+
+                            <Separator className="my-1" />
+                            <CommandGroup>
+                                <CommandItem
+                                    value={`create-${extensionType}-${searchValue || 'new'}`}
+                                    onSelect={() => {
+                                        setNewName(searchValue || '');
+                                        setNewCalculationMode('fixed');
+                                        setNewCalculationValue('');
+                                        setOpenCreateDialog(true);
+                                    }}
+                                    className="cursor-pointer"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Plus className="h-4 w-4 text-primary" />
+                                        <span>
+                                            Create {extensionType} extension
+                                        </span>
+                                    </div>
+                                </CommandItem>
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+
+            <Dialog
+                open={openCreateDialog}
+                onOpenChange={(nextOpen) => {
+                    if (!isCreating) {
+                        setOpenCreateDialog(nextOpen);
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            Create {extensionType} extension
+                        </DialogTitle>
+                        <DialogDescription>
+                            Add a reusable {extensionType} option for
+                            quotations.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label htmlFor={`new-${extensionType}-name`}>
+                                Name
+                            </Label>
+                            <Input
+                                id={`new-${extensionType}-name`}
+                                value={newName}
+                                onChange={(event) =>
+                                    setNewName(event.target.value)
+                                }
+                                placeholder="Enter name"
+                                disabled={isCreating}
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label htmlFor={`new-${extensionType}-mode`}>
+                                Calculation
+                            </Label>
+                            <select
+                                id={`new-${extensionType}-mode`}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                value={newCalculationMode}
+                                disabled={isCreating}
+                                onChange={(event) =>
+                                    setNewCalculationMode(
+                                        event.target
+                                            .value as typeof newCalculationMode,
+                                    )
+                                }
+                            >
+                                <option value="fixed">Fixed Amount</option>
+                                <option value="percentage">Percentage</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label htmlFor={`new-${extensionType}-value`}>
+                                {newCalculationMode === 'percentage'
+                                    ? 'Value (%)'
+                                    : 'Value'}
+                            </Label>
+                            <Input
+                                id={`new-${extensionType}-value`}
+                                type="number"
+                                step="any"
+                                min="0"
+                                value={newCalculationValue}
+                                onChange={(event) =>
+                                    setNewCalculationValue(event.target.value)
+                                }
+                                placeholder="0"
+                                disabled={isCreating}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isCreating}
+                            onClick={() => setOpenCreateDialog(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={isCreating}
+                            onClick={handleCreate}
+                        >
+                            {isCreating ? 'Creating...' : 'Create'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}

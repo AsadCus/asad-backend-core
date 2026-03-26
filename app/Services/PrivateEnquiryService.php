@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class PrivateEnquiryService
 {
+    public function __construct(private NumberingService $numberingService) {}
+
     public function getForDataTable(array $filters = [])
     {
         $data = PrivateEnquiry::query()
@@ -38,6 +40,7 @@ class PrivateEnquiryService
                     'enquiry_id' => $privateEnquiry->enquiry_id,
                     'status' => $privateEnquiry->enquiry?->status?->value ?? 'new_lead',
                     'status_label' => $privateEnquiry->enquiry?->status?->label() ?? 'New Lead',
+                    'enquiry_number' => $privateEnquiry->enquiry?->enquiry_number,
                     'name' => $privateEnquiry->enquiry?->name,
                     'contact_number' => $privateEnquiry->enquiry?->contact_number,
                     'email' => $privateEnquiry->enquiry?->email,
@@ -97,6 +100,12 @@ class PrivateEnquiryService
             // Create parent enquiry record
             $parentEnquiry = Enquiry::create([
                 'type' => 'private',
+                'enquiry_number' => $this->numberingService->ensureNumber(
+                    'private_enquiry',
+                    $data['enquiry_number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'status' => EnquiryStatus::NewLead->value,
                 'name' => $data['name'] ?? '',
                 'contact_number' => $data['contact_number'] ?? '',
@@ -156,6 +165,7 @@ class PrivateEnquiryService
             'enquiry_id' => $privateEnquiry->enquiry_id,
             'status' => $privateEnquiry->enquiry?->status?->value ?? 'new_lead',
             'status_label' => $privateEnquiry->enquiry?->status?->label() ?? 'New Lead',
+            'enquiry_number' => $privateEnquiry->enquiry?->enquiry_number,
             'name' => $privateEnquiry->enquiry?->name,
             'contact_number' => $privateEnquiry->enquiry?->contact_number,
             'email' => $privateEnquiry->enquiry?->email,
@@ -241,6 +251,14 @@ class PrivateEnquiryService
             // Sync parent enquiry common fields
             if ($privateEnquiry->enquiry) {
                 $privateEnquiry->enquiry->update([
+                    'enquiry_number' => array_key_exists('enquiry_number', $data)
+                        ? $this->numberingService->ensureNumber(
+                            'private_enquiry',
+                            $data['enquiry_number'],
+                            (int) $privateEnquiry->enquiry->id,
+                            isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                        )
+                        : $privateEnquiry->enquiry?->enquiry_number,
                     'name' => $data['name'] ?? $privateEnquiry->enquiry?->name,
                     'contact_number' => $data['contact_number'] ?? $privateEnquiry->enquiry?->contact_number,
                     'email' => $data['email'] ?? $privateEnquiry->enquiry?->email,

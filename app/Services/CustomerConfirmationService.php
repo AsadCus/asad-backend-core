@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\EnquiryStatus;
-use App\Helpers\NumberGenerator;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -29,7 +28,10 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerConfirmationService
 {
-    public function __construct(private NoteService $noteService) {}
+    public function __construct(
+        private NoteService $noteService,
+        private NumberingService $numberingService,
+    ) {}
 
     /** Create a customer confirmation from request data. */
     public function createGroup(array $data): CustomerConfirmation
@@ -42,7 +44,12 @@ class CustomerConfirmationService
             }
 
             $group = CustomerConfirmation::create([
-                'number' => NumberGenerator::generate('customer_confirmation'),
+                'number' => $this->numberingService->ensureNumber(
+                    'customer_confirmation',
+                    $data['number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'enquiry_id' => $enquiryId,
                 'created_by' => auth()->id(),
                 'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
@@ -670,6 +677,14 @@ class CustomerConfirmationService
             }
 
             $group->update([
+                'number' => array_key_exists('number', $data)
+                    ? $this->numberingService->ensureNumber(
+                        'customer_confirmation',
+                        $data['number'],
+                        (int) $group->id,
+                        isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                    )
+                    : $group->number,
                 // 'package_id' => $data['package_id'] ?? $group->package_id,
                 'package_id' => $data['package_id'] ?? null,
                 'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
@@ -1037,6 +1052,7 @@ class CustomerConfirmationService
                 ->delete();
 
             $newGroup = CustomerConfirmation::create([
+                'number' => $this->numberingService->ensureNumber('customer_confirmation', null),
                 'enquiry_id' => $sourceGroup->enquiry_id,
                 'created_by' => auth()->id(),
                 'package_id' => $targetPackageId,

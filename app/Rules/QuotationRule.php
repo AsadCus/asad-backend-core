@@ -15,7 +15,9 @@ class QuotationRule
     {
         return array_merge(
             [
-                'customer_id' => ['nullable', 'exists:customers,id'],
+                'quotation_number' => ['nullable', 'string', 'max:100'],
+                'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
+                'customer_id' => ['required', 'exists:customers,id'],
                 'customer_confirmation_id' => ['nullable', 'exists:customer_confirmations,id'],
                 'quotation_date' => ['nullable', 'string'],
                 'expiry_date' => ['nullable', 'string'],
@@ -23,7 +25,23 @@ class QuotationRule
                 'payment_method' => ['nullable', 'string'],
                 'description' => ['nullable', 'string'],
                 'status' => ['nullable', $this->statusRule()],
-                'extensions' => ['nullable', 'array'],
+                'extensions' => [
+                    'nullable',
+                    'array',
+                    function (string $attribute, mixed $value, \Closure $fail): void {
+                        if (! is_array($value)) {
+                            return;
+                        }
+
+                        $discountCount = collect($value)
+                            ->filter(fn ($extension) => is_array($extension) && (($extension['type'] ?? 'discount') === 'discount'))
+                            ->count();
+
+                        if ($discountCount > 1) {
+                            $fail('Only one discount is allowed per quotation.');
+                        }
+                    },
+                ],
                 'extensions.*.id' => ['nullable', 'integer'],
                 'extensions.*.quotation_extension_master_id' => ['nullable', 'integer', 'exists:quotation_extension_masters,id'],
                 'extensions.*.name' => ['required_with:extensions', 'string', 'max:255'],
@@ -41,6 +59,8 @@ class QuotationRule
     {
         return array_merge(
             [
+                'quotation_number' => ['nullable', 'string', 'max:100'],
+                'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
                 'customer_id' => ['required', 'exists:customers,id'],
                 'customer_confirmation_id' => ['nullable', 'exists:customer_confirmations,id'],
                 'quotation_date' => ['required', 'string'],
@@ -49,7 +69,23 @@ class QuotationRule
                 'payment_method' => ['required', 'string'],
                 'description' => ['required', 'string'],
                 'status' => ['required', $this->statusRule()],
-                'extensions' => ['nullable', 'array'],
+                'extensions' => [
+                    'nullable',
+                    'array',
+                    function (string $attribute, mixed $value, \Closure $fail): void {
+                        if (! is_array($value)) {
+                            return;
+                        }
+
+                        $discountCount = collect($value)
+                            ->filter(fn ($extension) => is_array($extension) && (($extension['type'] ?? 'discount') === 'discount'))
+                            ->count();
+
+                        if ($discountCount > 1) {
+                            $fail('Only one discount is allowed per quotation.');
+                        }
+                    },
+                ],
                 'extensions.*.id' => ['nullable', 'integer'],
                 'extensions.*.quotation_extension_master_id' => ['nullable', 'integer', 'exists:quotation_extension_masters,id'],
                 'extensions.*.name' => ['required_with:extensions', 'string', 'max:255'],

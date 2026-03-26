@@ -56,9 +56,12 @@ import {
     X,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { ProperInput } from '../../../components/proper-input';
 import { ProperInputSelect } from '../../../components/proper-input-select';
+import ExtensionMasterCombobox, {
+    type ExtensionMasterComboboxOption,
+} from '../components/extension-master-combobox';
 import { QuotationSchema } from '../schema';
 import ItemDescriptionCombobox from './components/item-desc-combobox';
 import { QuotationItemSchema } from './schema';
@@ -73,6 +76,26 @@ type SortableProps = {
     style: React.CSSProperties;
     attributes: React.HTMLAttributes<HTMLElement>;
     listeners: React.HTMLAttributes<HTMLElement>;
+};
+
+type TaxExtensionMasterOption = {
+    id: number;
+    name: string;
+    calculation_mode?: string | null;
+    calculation_value?: string | number | null;
+};
+
+const EMPTY_TAX_EXTENSION_MASTERS: TaxExtensionMasterOption[] = [];
+
+type QuotationItemTaxInput = {
+    _key?: string;
+    id?: number;
+    quotation_item_id?: number | null;
+    quotation_extension_master_id?: number | null;
+    name?: string | null;
+    calculation_mode?: string | null;
+    calculation_value?: string | number | null;
+    sort_order?: number;
 };
 
 interface QuotationItemTableFormProps<T extends QuotationItemSchema> {
@@ -91,7 +114,10 @@ interface QuotationItemTableFormProps<T extends QuotationItemSchema> {
     ) => void;
     showOptionalColumn?: boolean;
     showMemberColumn?: boolean;
+    showTaxColumn?: boolean;
+    showTotalFooter?: boolean;
     memberOptions?: OptionType[];
+    taxExtensionMasters?: TaxExtensionMasterOption[];
     memberSharingPlanById?: Record<number, string | null | undefined>;
 }
 
@@ -107,10 +133,19 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     onMoveItem,
     showOptionalColumn = false,
     showMemberColumn = false,
+    showTaxColumn = false,
+    showTotalFooter = true,
     memberOptions = [],
+    taxExtensionMasters = EMPTY_TAX_EXTENSION_MASTERS,
     memberSharingPlanById = {},
 }: QuotationItemTableFormProps<T>) {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const [availableTaxExtensionMasters, setAvailableTaxExtensionMasters] =
+        useState<TaxExtensionMasterOption[]>(taxExtensionMasters);
+
+    useEffect(() => {
+        setAvailableTaxExtensionMasters(taxExtensionMasters);
+    }, [taxExtensionMasters]);
 
     const isLinkedMemberItem = (item: T): boolean =>
         Number(item.customer_confirmation_member_id ?? 0) > 0;
@@ -119,6 +154,74 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
     const getSourceIndex = (key: string) =>
         items.findIndex((i) => i._key === key);
+
+    const isEmptyTax = (tax: QuotationItemTaxInput): boolean => {
+        const hasMaster = Number(tax.quotation_extension_master_id ?? 0) > 0;
+        const hasName = String(tax.name ?? '').trim() !== '';
+        const mode = String(tax.calculation_mode ?? '');
+        const hasMode = ['fixed', 'percentage'].includes(mode);
+        const value = Number(tax.calculation_value ?? 0);
+        const hasValue = value > 0;
+
+        return !(hasMaster || hasName || hasMode || hasValue);
+    };
+
+    const createEmptyTax = (sortOrder: number): QuotationItemTaxInput => ({
+        _key: nanoid(),
+        quotation_extension_master_id: null,
+        name: null,
+        calculation_mode: null,
+        calculation_value: null,
+        sort_order: sortOrder,
+    });
+
+    const normalizeItemTaxes = (taxes: unknown): QuotationItemTaxInput[] => {
+        if (!Array.isArray(taxes)) {
+            return [];
+        }
+
+        return taxes
+            .filter((tax): tax is QuotationItemTaxInput => {
+                return Boolean(tax && typeof tax === 'object');
+            })
+            .map((tax, index) => ({
+                ...tax,
+                _key: tax._key ?? nanoid(),
+                sort_order: Number(tax.sort_order ?? index + 1),
+            }));
+    };
+
+    const withTrailingEmptyTax = (
+        taxes: QuotationItemTaxInput[],
+    ): QuotationItemTaxInput[] => {
+        const normalized = taxes.filter((tax, index) => {
+            if (!isEmptyTax(tax)) {
+                return true;
+            }
+
+            return index === taxes.length - 1;
+        });
+
+        const hasTrailingEmpty =
+            normalized.length > 0 &&
+            isEmptyTax(normalized[normalized.length - 1]);
+        const withTrailing = hasTrailingEmpty
+            ? normalized
+            : [...normalized, createEmptyTax(normalized.length + 1)];
+
+        return withTrailing.map((tax, index) => ({
+            ...tax,
+            sort_order: index + 1,
+        }));
+    };
+
+    const getDisplayTaxes = (item: T): QuotationItemTaxInput[] => {
+        const rawTaxes = normalizeItemTaxes(
+            (item as T & { taxes?: unknown }).taxes,
+        );
+
+        return withTrailingEmptyTax(rawTaxes);
+    };
 
     const updateItemByKey = (key: string, patch: Partial<T>) => {
         onChange(
@@ -137,6 +240,24 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         return quantity * rate;
     };
 
+    const computeTaxRowAmount = (item: T, tax: QuotationItemTaxInput) => {
+        const calculationMode = String(tax.calculation_mode ?? '');
+        const calculationValue = Number(tax.calculation_value ?? 0);
+
+        if (
+            !['fixed', 'percentage'].includes(calculationMode) ||
+            calculationValue <= 0
+        ) {
+            return 0;
+        }
+
+        const lineAmount = computeItemAmount(item);
+
+        return calculationMode === 'percentage'
+            ? (lineAmount * calculationValue) / 100
+            : calculationValue;
+    };
+
     const normalizeSortOrder = (list: T[]) =>
         list.map((item, i) => ({ ...item, sort_order: i + 1 })) as T[];
 
@@ -151,7 +272,8 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         parent_id: parentId ?? null,
         parent_key: parentKey,
         quantity: 1,
-        rate: '',
+        rate: null,
+        taxes: [createEmptyTax(1)],
         amount: '',
         is_header: false,
         is_optional: optionalValue,
@@ -251,11 +373,24 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     };
 
     const duplicateItem = (index: number) => {
+        const sourceItem = items[index] as T & {
+            taxes?: QuotationItemTaxInput[];
+        };
+
         const next = [...items];
         next.splice(index + 1, 0, {
-            ...items[index],
+            ...sourceItem,
             _key: nanoid(),
             id: undefined,
+            taxes: normalizeItemTaxes(sourceItem.taxes).map(
+                (tax, taxIndex) => ({
+                    ...tax,
+                    _key: nanoid(),
+                    id: undefined,
+                    quotation_item_id: null,
+                    sort_order: taxIndex + 1,
+                }),
+            ),
         });
 
         onChange(normalizeSortOrder(next));
@@ -298,6 +433,44 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                     i.parent_key === item._key ||
                     (item.id && i.parent_id === item.id),
             ),
+        [items],
+    );
+
+    const getDescendantKeys = useCallback(
+        (parent: T, pool: T[] = items): Set<string> => {
+            const descendants = new Set<string>([parent._key]);
+            const stack: string[] = [parent._key];
+
+            while (stack.length > 0) {
+                const currentKey = stack.pop();
+
+                if (!currentKey) {
+                    continue;
+                }
+
+                const currentItem = pool.find(
+                    (candidate) => candidate._key === currentKey,
+                );
+
+                const children = pool.filter(
+                    (candidate) =>
+                        candidate.parent_key === currentKey ||
+                        (currentItem?.id != null &&
+                            candidate.parent_id === currentItem.id),
+                );
+
+                children.forEach((child) => {
+                    if (descendants.has(child._key)) {
+                        return;
+                    }
+
+                    descendants.add(child._key);
+                    stack.push(child._key);
+                });
+            }
+
+            return descendants;
+        },
         [items],
     );
 
@@ -393,74 +566,139 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
-        if (!over || active.id === over.id) return;
+        if (!over || active.id === over.id) {
+            return;
+        }
 
-        const fromIndex = items.findIndex((i) => i._key === active.id);
-        const toIndex = items.findIndex((i) => i._key === over.id);
-        if (fromIndex === -1 || toIndex === -1) return;
+        const activeKey = String(active.id);
+        const overKey = String(over.id);
 
-        const dragged = items[fromIndex];
-        const target = items[toIndex];
+        const dragged = items.find((item) => item._key === activeKey);
 
-        const next = [...items];
-        next.splice(fromIndex, 1);
+        if (!dragged) {
+            return;
+        }
 
-        let nextParentId = dragged.parent_id;
-        let nextParentKey = dragged.parent_key;
+        const draggedKeys = dragged.is_header
+            ? getDescendantKeys(dragged)
+            : new Set<string>([dragged._key]);
+
+        if (draggedKeys.has(overKey)) {
+            return;
+        }
+
+        const draggedBlock = items.filter((item) => draggedKeys.has(item._key));
+        const remaining = items.filter((item) => !draggedKeys.has(item._key));
+        const target = remaining.find((item) => item._key === overKey);
+
+        if (!target) {
+            return;
+        }
+
+        let nextParentId = dragged.parent_id ?? null;
+        let nextParentKey = dragged.parent_key ?? null;
 
         if (target.is_header) {
-            if (dragged._key === target._key) {
+            nextParentId = target.id ?? null;
+            nextParentKey = target._key;
+        } else if (target.parent_key != null || target.parent_id != null) {
+            const parentFromKey =
+                target.parent_key != null
+                    ? remaining.find(
+                          (candidate) => candidate._key === target.parent_key,
+                      )
+                    : null;
+            const parentFromId =
+                parentFromKey ??
+                (target.parent_id != null
+                    ? remaining.find(
+                          (candidate) => candidate.id === target.parent_id,
+                      )
+                    : null);
+
+            nextParentId = parentFromId?.id ?? null;
+            nextParentKey = parentFromId?._key ?? target.parent_key ?? null;
+        } else {
+            if (!dragged.is_header && !isLinkedMemberItem(dragged)) {
                 return;
             }
 
-            nextParentId = target.id ?? null;
-            nextParentKey = target._key;
-        } else {
-            if (target.parent_id == null && target.parent_key == null) {
-                if (!dragged.is_header && !isLinkedMemberItem(dragged)) {
-                    return;
-                }
+            nextParentId = null;
+            nextParentKey = null;
+        }
 
-                nextParentId = null;
-                nextParentKey = null;
-            } else {
-                if (target.parent_id != null) {
-                    nextParentId = target.parent_id;
-                    nextParentKey =
-                        items.find((i) => i.id === target.parent_id)?._key ??
-                        null;
-                } else if (target.parent_key != null) {
-                    nextParentKey = target.parent_key;
-                    const parentItem = items.find(
-                        (i) => i._key === target.parent_key,
-                    );
-                    nextParentId = parentItem?.id ?? null;
-                }
-            }
+        if (
+            !dragged.is_header &&
+            nextParentKey == null &&
+            nextParentId == null
+        ) {
+            return;
+        }
+
+        if (nextParentKey && draggedKeys.has(nextParentKey)) {
+            return;
         }
 
         if (nextParentKey) {
-            if (nextParentKey === dragged._key || nextParentId === dragged.id) {
-                return;
-            }
-
-            const parentItem = items.find(
-                (item) => item._key === nextParentKey,
+            const nextParent = remaining.find(
+                (candidate) => candidate._key === nextParentKey,
             );
 
-            if (!parentItem?.is_header) {
+            if (!nextParent?.is_header) {
                 return;
             }
         }
 
-        next.splice(toIndex, 0, {
-            ...dragged,
-            parent_id: nextParentId,
-            parent_key: nextParentKey,
-        } as T);
+        let insertIndex = remaining.findIndex((item) => item._key === overKey);
+
+        if (insertIndex === -1) {
+            return;
+        }
+
+        if (target.is_header && nextParentKey === target._key) {
+            const targetSubtreeKeys = getDescendantKeys(target, remaining);
+            const lastSubtreeIndex = remaining.reduce(
+                (lastIndex, item, index) => {
+                    if (!targetSubtreeKeys.has(item._key)) {
+                        return lastIndex;
+                    }
+
+                    return index;
+                },
+                insertIndex,
+            );
+
+            insertIndex = lastSubtreeIndex + 1;
+        }
+
+        const normalizedBlock = draggedBlock.map((entry) => {
+            if (entry._key !== dragged._key) {
+                return entry;
+            }
+
+            return {
+                ...entry,
+                parent_id: nextParentId,
+                parent_key: nextParentKey,
+            } as T;
+        });
+
+        const next = [...remaining];
+        next.splice(insertIndex, 0, ...normalizedBlock);
 
         onChange(normalizeSortOrder(next));
     };
+
+    const taxMasterById = useMemo(
+        () =>
+            new Map(
+                availableTaxExtensionMasters.map((master) => [
+                    Number(master.id),
+                    master,
+                ]),
+            ),
+        [availableTaxExtensionMasters],
+    );
 
     // Columns
     const columns: ColumnDef<VisibleItem<T>>[] = [
@@ -528,7 +766,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                 value={item.description ?? ''}
                                 disabled={disabled || isLinkedMemberItem(item)}
                                 textarea={!item.is_header}
-                                size="compact"
+                                // size="compact"
                                 className={
                                     item.is_header ? 'font-semibold' : ''
                                 }
@@ -541,20 +779,21 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         ) : !item.is_header ? (
                             <ProperInput
                                 value={item.description ?? ''}
-                                disabled
+                                disabled={disabled || isLinkedMemberItem(item)}
                                 textarea
-                                size="compact"
-                                onCommit={() => {}}
+                                // size="compact"
+                                onCommit={(v) =>
+                                    updateItemByKey(item._key, {
+                                        description: v,
+                                    } as Partial<T>)
+                                }
                             />
                         ) : (
                             <ItemDescriptionCombobox
                                 value={item.description ?? ''}
                                 disabled={disabled || isLinkedMemberItem(item)}
                                 isHeader={item.is_header ?? false}
-                                isChild={Boolean(
-                                    !item.is_header &&
-                                        (item.parent_id || item.parent_key),
-                                )}
+                                isChild={false}
                                 existingItemKeys={existingItemKeys}
                                 onSelect={(payload) => {
                                     if (payload.type === 'single') {
@@ -565,12 +804,18 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             rate: payload.item.rate,
                                             is_header: payload.item.is_header,
                                             id: payload.item.id,
+                                            taxes: getDisplayTaxes(
+                                                payload.item as T,
+                                            ),
                                         } as Partial<T>);
                                         return;
                                     }
 
                                     if (payload.type === 'group') {
                                         const parentKey = item._key;
+                                        const currentParentId = item.parent_id;
+                                        const currentParentKey =
+                                            item.parent_key;
 
                                         const cleaned = items.filter(
                                             (i) =>
@@ -584,8 +829,12 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                 ? ({
                                                       ...i,
                                                       id: payload.parent.id,
-                                                      parent_id: null,
-                                                      parent_key: null,
+                                                      parent_id:
+                                                          currentParentId ??
+                                                          null,
+                                                      parent_key:
+                                                          currentParentKey ??
+                                                          null,
                                                       description:
                                                           payload.parent
                                                               .description,
@@ -615,7 +864,10 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                           id: undefined,
                                                           description: '',
                                                           quantity: 1,
-                                                          rate: '',
+                                                          rate: null,
+                                                          taxes: [
+                                                              createEmptyTax(1),
+                                                          ],
                                                           is_header: false,
                                                           is_optional:
                                                               payload.parent
@@ -627,12 +879,16 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             (child) => ({
                                                 _key: nanoid(),
                                                 id: child.id,
-                                                parent_id: payload.parent.id,
+                                                parent_id:
+                                                    payload.parent.id ?? null,
                                                 parent_key: parentKey,
                                                 description:
                                                     child.description ?? '',
                                                 quantity: child.quantity ?? 1,
-                                                rate: child.rate ?? '',
+                                                rate: child.rate ?? null,
+                                                taxes: getDisplayTaxes(
+                                                    child as T,
+                                                ),
                                                 is_header:
                                                     child.is_header ?? false,
                                                 is_optional:
@@ -709,7 +965,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                   <ProperInputSelect
                                       options={memberOptions}
                                       disabled={disabled}
-                                      size="compact"
+                                      //   size="compact"
                                       truncate={16}
                                       value={
                                           item.customer_confirmation_member_id ??
@@ -751,23 +1007,29 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
             cell: ({ row }) => {
                 const { item } = row.original;
                 const index = getSourceIndex(item._key);
+                const parsedRate = Number(item.rate ?? 0);
+                const displayRate =
+                    item.rate == null ||
+                    String(item.rate).trim() === '' ||
+                    !Number.isFinite(parsedRate) ||
+                    parsedRate <= 0
+                        ? ''
+                        : item.rate;
 
                 if (item.is_header) {
                     return (
-                        <div className="text-center text-muted-foreground">
-                            —
-                        </div>
+                        <div className="text-center text-muted-foreground"></div>
                     );
                 }
 
                 return (
                     <div className="relative flex w-full flex-col gap-1">
                         <ProperInput
-                            value={item.quantity ?? ''}
+                                value={displayRate}
                             type="number"
                             inputProps={{ step: 'any' }}
                             disabled={disabled}
-                            size="compact"
+                            // size="compact"
                             onCommit={(v) =>
                                 updateItemByKey(item._key, {
                                     quantity: Number(v),
@@ -789,21 +1051,19 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
                 if (item.is_header) {
                     return (
-                        <div className="text-center text-muted-foreground">
-                            —
-                        </div>
+                        <div className="text-center text-muted-foreground"></div>
                     );
                 }
 
                 return (
                     <div className="relative flex w-full flex-col gap-1">
                         <ProperInput
-                            value={item.rate ?? ''}
+                            value={item.rate ?? null}
                             type="number"
                             inputProps={{ step: 'any' }}
                             placeholder="0.00"
                             disabled={disabled}
-                            size="compact"
+                            // size="compact"
                             onCommit={(v) =>
                                 updateItemByKey(item._key, {
                                     rate: Number(v),
@@ -824,9 +1084,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
                 if (item.is_header) {
                     return (
-                        <div className="text-center text-muted-foreground">
-                            —
-                        </div>
+                        <div className="text-center text-muted-foreground"></div>
                     );
                 }
 
@@ -1031,6 +1289,30 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         getRowId: (row) => row.item._key,
     });
 
+    const quantityColumnIndex = columns.findIndex(
+        (column) => column.id === 'quantity',
+    );
+    const descriptionColumnIndex = columns.findIndex(
+        (column) => column.id === 'description',
+    );
+    const taxLeadingColSpanRaw =
+        quantityColumnIndex > 0 ? quantityColumnIndex : 0;
+    const hasDescriptionBeforeQuantity =
+        descriptionColumnIndex >= 0 &&
+        descriptionColumnIndex < quantityColumnIndex;
+    const taxLeadingColSpan = Math.max(
+        taxLeadingColSpanRaw - (hasDescriptionBeforeQuantity ? 1 : 0),
+        0,
+    );
+    const taxColumnCount = Math.max(
+        columns.length - (descriptionColumnIndex >= 0 ? 1 : 0),
+        0,
+    );
+    const taxTrailingColSpan = Math.max(
+        taxColumnCount - (taxLeadingColSpan + 3),
+        0,
+    );
+
     const totalAmount = items.reduce((sum, item) => {
         return sum + computeItemAmount(item as T);
     }, 0);
@@ -1125,6 +1407,12 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             const isParent =
                                                 level === 0 &&
                                                 hasChildren(item);
+                                            const displayTaxes =
+                                                showTaxColumn && !item.is_header
+                                                    ? getDisplayTaxes(item)
+                                                    : [];
+                                            const hasTaxSubRow =
+                                                displayTaxes.length > 0;
                                             const isChild = level > 0;
                                             const isLastChild =
                                                 isChild &&
@@ -1135,56 +1423,238 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                         next.item.parent_key !==
                                                             item.parent_key));
 
+                                            const sourceIndex = getSourceIndex(
+                                                item._key,
+                                            );
+
                                             return (
-                                                <SortableRow
-                                                    key={item._key}
-                                                    id={item._key}
-                                                >
-                                                    {({
-                                                        ref,
-                                                        style,
-                                                        attributes,
-                                                        listeners,
-                                                    }) => (
-                                                        <TableRow
-                                                            ref={ref}
-                                                            style={style}
-                                                            {...attributes}
-                                                            className={cn(
-                                                                item.is_header &&
-                                                                    'bg-muted/30',
-                                                                isParent &&
-                                                                    isExpanded &&
-                                                                    'border-b-0',
-                                                                isChild &&
-                                                                    !isLastChild &&
-                                                                    'border-b-0',
-                                                            )}
-                                                        >
-                                                            {row
-                                                                .getVisibleCells()
-                                                                .map((cell) => (
+                                                <Fragment key={item._key}>
+                                                    <SortableRow id={item._key}>
+                                                        {({
+                                                            ref,
+                                                            style,
+                                                            attributes,
+                                                            listeners,
+                                                        }) => (
+                                                            <TableRow
+                                                                ref={ref}
+                                                                style={style}
+                                                                {...attributes}
+                                                                className={cn(
+                                                                    item.is_header &&
+                                                                        'bg-muted/30',
+                                                                    hasTaxSubRow &&
+                                                                        'border-b-0',
+                                                                    isParent &&
+                                                                        isExpanded &&
+                                                                        'border-b-0',
+                                                                    isChild &&
+                                                                        !isLastChild &&
+                                                                        'border-b-0',
+                                                                )}
+                                                            >
+                                                                {row
+                                                                    .getVisibleCells()
+                                                                    .map(
+                                                                        (
+                                                                            cell,
+                                                                        ) => {
+                                                                            const isDescriptionCell =
+                                                                                cell
+                                                                                    .column
+                                                                                    .id ===
+                                                                                'description';
+                                                                            const descriptionSpansTaxRow =
+                                                                                hasTaxSubRow &&
+                                                                                isDescriptionCell;
+
+                                                                            return (
+                                                                                <TableCell
+                                                                                    key={`${row.id}-${cell.column.id}`}
+                                                                                    rowSpan={
+                                                                                        descriptionSpansTaxRow
+                                                                                            ? displayTaxes.length +
+                                                                                              1
+                                                                                            : undefined
+                                                                                    }
+                                                                                    className={cn(
+                                                                                        descriptionSpansTaxRow &&
+                                                                                            'align-middle',
+                                                                                    )}
+                                                                                    {...(cell
+                                                                                        .column
+                                                                                        .id ===
+                                                                                    'drag'
+                                                                                        ? listeners
+                                                                                        : {})}
+                                                                                >
+                                                                                    {flexRender(
+                                                                                        cell
+                                                                                            .column
+                                                                                            .columnDef
+                                                                                            .cell,
+                                                                                        cell.getContext(),
+                                                                                    )}
+                                                                                </TableCell>
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                            </TableRow>
+                                                        )}
+                                                    </SortableRow>
+
+                                                    {displayTaxes.map(
+                                                        (tax, taxIndex) => (
+                                                            <TableRow
+                                                                key={`${item._key}-tax-${tax._key ?? taxIndex}`}
+                                                                className="border-0 bg-transparent [&>td]:border-0"
+                                                            >
+                                                                {taxLeadingColSpan >
+                                                                    0 && (
                                                                     <TableCell
-                                                                        key={`${row.id}-${cell.column.id}`}
-                                                                        {...(cell
-                                                                            .column
-                                                                            .id ===
-                                                                        'drag'
-                                                                            ? listeners
-                                                                            : {})}
-                                                                    >
-                                                                        {flexRender(
-                                                                            cell
-                                                                                .column
-                                                                                .columnDef
-                                                                                .cell,
-                                                                            cell.getContext(),
+                                                                        colSpan={
+                                                                            taxLeadingColSpan
+                                                                        }
+                                                                        className="text-center text-muted-foreground"
+                                                                    ></TableCell>
+                                                                )}
+                                                                <TableCell
+                                                                    colSpan={2}
+                                                                >
+                                                                    <div className="relative flex w-full flex-col gap-1">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-base">
+                                                                                Tax
+                                                                            </span>
+                                                                            <div className="flex-1">
+                                                                                <ExtensionMasterCombobox
+                                                                                    value={
+                                                                                        Number(
+                                                                                            tax.quotation_extension_master_id ??
+                                                                                                0,
+                                                                                        ) >
+                                                                                        0
+                                                                                            ? Number(
+                                                                                                  tax.quotation_extension_master_id,
+                                                                                              )
+                                                                                            : null
+                                                                                    }
+                                                                                    extensionType="tax"
+                                                                                    options={
+                                                                                        availableTaxExtensionMasters as ExtensionMasterComboboxOption[]
+                                                                                    }
+                                                                                    disabled={
+                                                                                        disabled
+                                                                                    }
+                                                                                    placeholder="Select tax"
+                                                                                    onSelect={(
+                                                                                        option,
+                                                                                    ) => {
+                                                                                        const selectedTaxMaster =
+                                                                                            taxMasterById.get(
+                                                                                                Number(
+                                                                                                    option.id,
+                                                                                                ),
+                                                                                            ) ??
+                                                                                            option;
+
+                                                                                        const nextTaxes =
+                                                                                            getDisplayTaxes(
+                                                                                                item,
+                                                                                            ).map(
+                                                                                                (
+                                                                                                    currentTax,
+                                                                                                    currentTaxIndex,
+                                                                                                ) => {
+                                                                                                    if (
+                                                                                                        currentTaxIndex !==
+                                                                                                        taxIndex
+                                                                                                    ) {
+                                                                                                        return currentTax;
+                                                                                                    }
+
+                                                                                                    return {
+                                                                                                        ...currentTax,
+                                                                                                        quotation_extension_master_id:
+                                                                                                            Number(
+                                                                                                                selectedTaxMaster.id,
+                                                                                                            ),
+                                                                                                        name:
+                                                                                                            selectedTaxMaster.name ??
+                                                                                                            null,
+                                                                                                        calculation_mode:
+                                                                                                            selectedTaxMaster.calculation_mode ??
+                                                                                                            null,
+                                                                                                        calculation_value:
+                                                                                                            selectedTaxMaster.calculation_value ??
+                                                                                                            null,
+                                                                                                    };
+                                                                                                },
+                                                                                            );
+
+                                                                                        updateItemByKey(
+                                                                                            item._key,
+                                                                                            {
+                                                                                                taxes: withTrailingEmptyTax(
+                                                                                                    nextTaxes,
+                                                                                                ),
+                                                                                            } as Partial<T>,
+                                                                                        );
+                                                                                    }}
+                                                                                    onOptionsChange={(
+                                                                                        nextOptions,
+                                                                                    ) => {
+                                                                                        setAvailableTaxExtensionMasters(
+                                                                                            nextOptions.map(
+                                                                                                (
+                                                                                                    option,
+                                                                                                ) => ({
+                                                                                                    id: Number(
+                                                                                                        option.id,
+                                                                                                    ),
+                                                                                                    name: option.name,
+                                                                                                    calculation_mode:
+                                                                                                        option.calculation_mode ??
+                                                                                                        null,
+                                                                                                    calculation_value:
+                                                                                                        option.calculation_value ??
+                                                                                                        null,
+                                                                                                }),
+                                                                                            ),
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                        {renderError?.(
+                                                                            `items.${sourceIndex}.taxes.${taxIndex}.quotation_extension_master_id`,
                                                                         )}
-                                                                    </TableCell>
-                                                                ))}
-                                                        </TableRow>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right font-medium">
+                                                                    {isEmptyTax(
+                                                                        tax,
+                                                                    )
+                                                                        ? ''
+                                                                        : formatCurrency(
+                                                                              computeTaxRowAmount(
+                                                                                  item as T,
+                                                                                  tax,
+                                                                              ),
+                                                                          )}
+                                                                </TableCell>
+                                                                {taxTrailingColSpan >
+                                                                    0 && (
+                                                                    <TableCell
+                                                                        colSpan={
+                                                                            taxTrailingColSpan
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </TableRow>
+                                                        ),
                                                     )}
-                                                </SortableRow>
+                                                </Fragment>
                                             );
                                         })
                                 ) : (
@@ -1198,19 +1668,21 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                     </TableRow>
                                 )}
                             </TableBody>
-                            <TableFooter>
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={columns.length - 1}
-                                        className="text-right font-semibold"
-                                    >
-                                        Total Amount:
-                                    </TableCell>
-                                    <TableCell className="font-medium">
-                                        {formatCurrency(totalAmount)}
-                                    </TableCell>
-                                </TableRow>
-                            </TableFooter>
+                            {showTotalFooter && (
+                                <TableFooter>
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={columns.length - 1}
+                                            className="text-right font-semibold"
+                                        >
+                                            Total Amount:
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                            {formatCurrency(totalAmount)}
+                                        </TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                            )}
                         </Table>
                     </SortableContext>
                 </DndContext>

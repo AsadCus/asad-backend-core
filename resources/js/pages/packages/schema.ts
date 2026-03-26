@@ -68,6 +68,7 @@ export const officialSchema = z.object({
 export const packageSchema = z.object({
     id: z.number().optional(),
     package_number: z.string().optional(),
+    package_number_format_id: z.number().nullable().optional(),
     name: z.string().optional(),
     status: z.string().optional(),
     country_id: z.string().optional(),

@@ -42,7 +42,6 @@ class MaidFactory extends Factory
 
             // system fields
             'status' => 'available',
-            'supplier_id' => null,
             'remaining_loan' => null,
             'cost_of_maid' => null,
 

@@ -25,6 +25,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { quotationItemsList } from '@/routes';
+import { quickCreate as quickCreateQuotationItem } from '@/routes/quotation-items';
+import { router } from '@inertiajs/react';
 import { Check, FileText, Folder, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -115,7 +117,7 @@ export default function ItemDescriptionCombobox({
         setOpenCreateDialog(true);
     };
 
-    const handleCreateItem = async () => {
+    const handleCreateItem = () => {
         if (!newItemName.trim()) {
             toast.error('Name is required.');
 
@@ -130,72 +132,58 @@ export default function ItemDescriptionCombobox({
 
         setIsCreating(true);
 
-        try {
-            const csrfToken =
-                document
-                    .querySelector('meta[name="csrf-token"]')
-                    ?.getAttribute('content') ?? '';
+        router.post(
+            quickCreateQuotationItem.url(),
+            {
+                name: newItemName.trim(),
+                description: newItemDescription.trim(),
+                quantity: Number(newItemQuantity || 1),
+                rate: Number(newItemRate || 0),
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: async (page) => {
+                    const flash = (page.props as Record<string, unknown>)
+                        .flash as Record<string, unknown> | undefined;
+                    const result = flash?.result as
+                        | {
+                              parent?: QuotationItemSchema;
+                              children?: QuotationItemSchema[];
+                          }
+                        | undefined;
 
-            const response = await fetch('/product-services/quick-create', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                    if (!result?.parent) {
+                        toast.error('Failed to create product/service item.');
+
+                        return;
+                    }
+
+                    await fetchItems();
+
+                    handleSelect({
+                        type: 'group',
+                        parent: result.parent,
+                        children: result.children ?? [],
+                    });
+
+                    setOpenCreateDialog(false);
+                    toast.success('Product/service item created.');
                 },
-                body: JSON.stringify({
-                    name: newItemName.trim(),
-                    description: newItemDescription.trim(),
-                    quantity: Number(newItemQuantity || 1),
-                    rate: Number(newItemRate || 0),
-                }),
-            });
-
-            if (!response.ok) {
-                const errorPayload = await response
-                    .json()
-                    .catch(() => null as unknown);
-                const firstError =
-                    errorPayload &&
-                    typeof errorPayload === 'object' &&
-                    'errors' in errorPayload &&
-                    errorPayload.errors &&
-                    typeof errorPayload.errors === 'object'
-                        ? Object.values(
-                              errorPayload.errors as Record<string, string[]>,
-                          )?.[0]?.[0]
-                        : null;
-
-                throw new Error(
-                    firstError || 'Failed to create product/service item.',
-                );
-            }
-
-            const payload = (await response.json()) as {
-                parent: QuotationItemSchema;
-                children: QuotationItemSchema[];
-            };
-
-            await fetchItems();
-
-            handleSelect({
-                type: 'group',
-                parent: payload.parent,
-                children: payload.children ?? [],
-            });
-
-            setOpenCreateDialog(false);
-            toast.success('Product/service item created.');
-        } catch (error) {
-            toast.error(
-                error instanceof Error
-                    ? error.message
-                    : 'Failed to create product/service item.',
-            );
-        } finally {
-            setIsCreating(false);
-        }
+                onError: (errors) => {
+                    const firstError = Object.values(errors)[0];
+                    toast.error(
+                        String(
+                            firstError ??
+                                'Failed to create product/service item.',
+                        ),
+                    );
+                },
+                onFinish: () => {
+                    setIsCreating(false);
+                },
+            },
+        );
     };
 
     const groupedItems = options.reduce(
@@ -276,15 +264,14 @@ export default function ItemDescriptionCombobox({
                     >
                         <ProperInput
                             value={value}
-                            // disabled={disabled}
-                            disabled
+                            disabled={disabled}
                             textarea={!isHeader}
-                            size="compact"
+                            // size="compact"
                             className={cn(
                                 isHeader && 'font-semibold',
                                 className,
                             )}
-                            placeholder="Select itemsss"
+                            placeholder="Select item"
                             onCommit={() => {
                                 setOpen(true);
                             }}
@@ -415,14 +402,31 @@ export default function ItemDescriptionCombobox({
                                                                         child.id
                                                                     }
                                                                     value={`child-${child.id}-${child.description}`}
-                                                                    onSelect={() =>
+                                                                    onSelect={() => {
+                                                                        if (
+                                                                            parent
+                                                                        ) {
+                                                                            handleSelect(
+                                                                                {
+                                                                                    type: 'group',
+                                                                                    parent,
+                                                                                    children:
+                                                                                        [
+                                                                                            child,
+                                                                                        ],
+                                                                                },
+                                                                            );
+
+                                                                            return;
+                                                                        }
+
                                                                         handleSelect(
                                                                             {
                                                                                 type: 'single',
                                                                                 item: child,
                                                                             },
-                                                                        )
-                                                                    }
+                                                                        );
+                                                                    }}
                                                                     className="cursor-pointer pl-8"
                                                                 >
                                                                     <div className="flex w-full items-center gap-2">

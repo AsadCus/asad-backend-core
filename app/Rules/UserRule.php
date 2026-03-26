@@ -11,7 +11,7 @@ class UserRule
             'email' => 'required|email|unique:users,email',
             'contact' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:6|confirmed',
-            'role' => 'required|string|in:admin,sales,supplier,customer',
+            'role' => 'required|string|in:admin,sales,customer',
         ];
 
         if ($action === 'update') {
@@ -26,12 +26,9 @@ class UserRule
             $rules['branch_id'] = 'required|integer|exists:branches,id';
         }
 
-        if ($role === 'supplier') {
-            $rules['company_name'] = 'required|string|max:255';
-            $rules['address'] = 'required|string|max:255';
-        }
-
         if ($role === 'customer') {
+            $rules['customer_number'] = 'nullable|string|max:100';
+            $rules['number_format_id'] = 'nullable|integer|exists:numbering_formats,id';
             $rules['nric_number'] = 'nullable|string';
             $rules['address'] = 'nullable|string|max:500';
             $rules['nationality'] = 'nullable|string|max:100';

@@ -7,6 +7,8 @@ class PackageRule
     public function rules(?int $id = null): array
     {
         return [
+            'package_number' => ['nullable', 'string', 'max:100'],
+            'package_number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:open,closed'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],

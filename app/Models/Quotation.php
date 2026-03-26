@@ -78,14 +78,14 @@ class Quotation extends Model
     public function extensionTotalAmount(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->computeExtensionTotalCents() / 100
+            get: fn () => ($this->computeItemTaxTotalCents() + $this->computeExtensionTotalCents()) / 100
         );
     }
 
     public function totalAmount(): Attribute
     {
         return Attribute::make(
-            get: fn () => ($this->computeItemSubtotalCents() + $this->computeExtensionTotalCents()) / 100
+            get: fn () => ($this->computeItemSubtotalCents() + $this->computeItemTaxTotalCents() + $this->computeExtensionTotalCents()) / 100
         );
     }
 
@@ -111,6 +111,37 @@ class Quotation extends Model
     {
         return $this->quotationExtensions->reduce(
             fn (int $sum, QuotationExtension $extension) => $sum + (int) round(((float) $extension->amount) * 100),
+            0
+        );
+    }
+
+    private function computeItemTaxTotalCents(): int
+    {
+        return $this->quotationItems->reduce(
+            function (int $sum, QuotationItem $item): int {
+                if ($item->is_header) {
+                    return $sum;
+                }
+
+                $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+
+                $taxCents = $item->taxes->sum(function (QuotationItemTax $tax) use ($lineAmount): int {
+                    $calculationMode = (string) ($tax->calculation_mode ?? '');
+                    $calculationValue = (float) ($tax->calculation_value ?? 0);
+
+                    if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
+                        return 0;
+                    }
+
+                    $taxAmount = $calculationMode === 'percentage'
+                        ? ($lineAmount * $calculationValue / 100)
+                        : $calculationValue;
+
+                    return (int) round($taxAmount * 100);
+                });
+
+                return $sum + (int) $taxCents;
+            },
             0
         );
     }

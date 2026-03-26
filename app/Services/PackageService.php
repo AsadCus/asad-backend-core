@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Helpers\FormatService;
-use App\Helpers\NumberGenerator;
 use App\Models\Manifest;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
@@ -15,10 +14,13 @@ class PackageService
 
     protected PackageSeatService $packageSeatService;
 
-    public function __construct(FormatService $formatService, PackageSeatService $packageSeatService)
+    protected NumberingService $numberingService;
+
+    public function __construct(FormatService $formatService, PackageSeatService $packageSeatService, NumberingService $numberingService)
     {
         $this->formatService = $formatService;
         $this->packageSeatService = $packageSeatService;
+        $this->numberingService = $numberingService;
     }
 
     public function get()
@@ -123,7 +125,12 @@ class PackageService
     public function store(array $data): Package
     {
         return DB::transaction(function () use ($data) {
-            $packageNumber = NumberGenerator::generate('package');
+            $packageNumber = $this->numberingService->ensureNumber(
+                'package',
+                $data['package_number'] ?? null,
+                null,
+                isset($data['package_number_format_id']) ? (int) $data['package_number_format_id'] : null,
+            );
 
             $package = Package::create([
                 'package_number' => $packageNumber,
@@ -173,7 +180,7 @@ class PackageService
             $this->syncOfficials($package, $data['officials'] ?? []);
 
             // Auto-create manifest for this package
-            $manifestNumber = NumberGenerator::generate('manifest');
+            $manifestNumber = $this->numberingService->ensureNumber('manifest', null);
             $manifest = Manifest::create([
                 'package_id' => $package->id,
                 'manifest_number' => $manifestNumber,
@@ -336,7 +343,17 @@ class PackageService
         return DB::transaction(function () use ($data, $id) {
             $package = Package::findOrFail($id);
 
+            $resolvedPackageNumber = array_key_exists('package_number', $data)
+                ? $this->numberingService->ensureNumber(
+                    'package',
+                    $data['package_number'],
+                    (int) $package->id,
+                    isset($data['package_number_format_id']) ? (int) $data['package_number_format_id'] : null,
+                )
+                : $package->package_number;
+
             $package->update([
+                'package_number' => $resolvedPackageNumber,
                 'name' => $data['name'] ?? $package->name,
                 'status' => $data['status'] ?? $package->status,
                 'country_id' => $data['country_id'] ?? $package->country_id,
@@ -583,7 +600,7 @@ class PackageService
     {
         return DB::transaction(function () use ($privateEnquiry) {
             $enquiry = $privateEnquiry->enquiry;
-            $packageNumber = NumberGenerator::generate('package');
+            $packageNumber = $this->numberingService->ensureNumber('package', null);
 
             $payload = $this->privateEnquiryToPackagePayload($privateEnquiry);
             $flights = $payload['flights'] ?? [];
@@ -649,7 +666,7 @@ class PackageService
             }
 
             // Auto-create manifest for this package
-            $manifestNumber = NumberGenerator::generate('manifest');
+            $manifestNumber = $this->numberingService->ensureNumber('manifest', null);
             $manifest = Manifest::create([
                 'package_id' => $package->id,
                 'manifest_number' => $manifestNumber,

@@ -28,6 +28,7 @@ interface CreateQuotationProps {
         quotationItems: [];
         quotationNotes: [];
         paymentMethods?: { label: string; value: string }[];
+        defaultPaymentMethod?: string;
         quotationExtensionMasters?: Array<
             z.infer<typeof quotationExtensionSchema> & {
                 payment_methods?: string[];
@@ -73,6 +74,7 @@ export default function CreateQuotation({
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <QuotationForm
                         mode="create"
+                        defaultPaymentMethod={data.defaultPaymentMethod}
                         paymentPlans={paymentPlans}
                         paymentMethods={data.paymentMethods ?? paymentMethods}
                         statuses={statuses}

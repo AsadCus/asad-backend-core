@@ -13,7 +13,6 @@ use App\Services\FinancialYearService;
 use App\Services\OrderService;
 use App\Services\ReligionService;
 use App\Services\SalesService;
-use App\Services\SupplierService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,8 +26,6 @@ class DashboardController extends Controller
     protected $religionService;
 
     protected $educationLevelService;
-
-    protected $supplierService;
 
     protected $salesService;
 
@@ -47,7 +44,6 @@ class DashboardController extends Controller
         CountryService $countryService,
         ReligionService $religionService,
         EducationLevelService $educationLevelService,
-        SupplierService $supplierService,
         SalesService $salesService,
         FinancialYearService $financialYearService,
         FinancialTransactionService $financialTransactionService,
@@ -59,7 +55,6 @@ class DashboardController extends Controller
         $this->countryService = $countryService;
         $this->religionService = $religionService;
         $this->educationLevelService = $educationLevelService;
-        $this->supplierService = $supplierService;
         $this->salesService = $salesService;
         $this->financialYearService = $financialYearService;
         $this->financialTransactionService = $financialTransactionService;
@@ -151,12 +146,10 @@ class DashboardController extends Controller
             $data['nationality'] = $this->countryService->getForFilterByAdjective();
             $data['religion'] = $this->religionService->getForFilterByName();
             $data['educationLevel'] = $this->educationLevelService->getForFilterByName();
-            $data['supplier'] = $this->supplierService->getForFilterByName();
             $data['misc'] = [
                 'nationalities' => $this->countryService->getForFilter(),
                 'religions' => $this->religionService->getForFilter(),
                 'education_levels' => $this->educationLevelService->getForFilter(),
-                'suppliers' => $this->supplierService->getForFilter(),
             ];
         }
 

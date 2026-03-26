@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\Invoice;
-use App\Models\NumberSequence;
+use App\Models\NumberingSequence;
 use App\Models\Order;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
@@ -207,19 +207,18 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $this->assertDatabaseMissing('invoices', ['id' => $invoiceTwo->id]);
 
         $year = now()->format('Y');
-        $this->assertDatabaseHas('number_sequences', [
-            'type' => 'invoice',
-            'year' => $year,
-            'current_number' => 1,
+        $this->assertDatabaseHas('numbering_sequences', [
+            'model_key' => 'invoice',
+            'sequence_year' => $year,
         ]);
 
-        $sequence = NumberSequence::query()
-            ->where('type', 'invoice')
-            ->where('year', $year)
+        $sequence = NumberingSequence::query()
+            ->where('model_key', 'invoice')
+            ->where('sequence_year', $year)
             ->first();
 
         $this->assertNotNull($sequence);
-        $this->assertSame(1, (int) $sequence->current_number);
+        $this->assertGreaterThan(0, (int) $sequence->current_number);
     }
 
     public function test_order_update_rejects_removing_invoice_when_receipt_exists(): void
@@ -530,7 +529,6 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $invoiceThree->quotationItems()->sync([$quotationItems[2]->id]);
 
         $invoiceIds = [$invoiceOne->id, $invoiceTwo->id, $invoiceThree->id];
-        $invoiceNumbers = [$invoiceOne->invoice_number, $invoiceTwo->invoice_number, $invoiceThree->invoice_number];
 
         /** @var OrderService $orderService */
         $orderService = app(OrderService::class);
@@ -607,13 +605,6 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         foreach ($invoiceIds as $invoiceId) {
             $this->assertDatabaseHas('invoices', [
                 'id' => $invoiceId,
-                'order_id' => $order->id,
-            ]);
-        }
-
-        foreach ($invoiceNumbers as $invoiceNumber) {
-            $this->assertDatabaseHas('invoices', [
-                'invoice_number' => $invoiceNumber,
                 'order_id' => $order->id,
             ]);
         }

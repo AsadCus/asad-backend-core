@@ -126,14 +126,24 @@ export function ChartAreaInteractive({
                             <ChartTooltipContent
                                 indicator="dot"
                                 labelFormatter={(value) => {
-                                    return new Date(value).toLocaleDateString(
-                                        'en-US',
-                                        {
-                                            day: 'numeric',
-                                            month: 'short',
-                                            year: 'numeric',
-                                        },
-                                    );
+                                    const dateValue =
+                                        value instanceof Date ||
+                                        typeof value === 'string' ||
+                                        typeof value === 'number'
+                                            ? value
+                                            : null;
+
+                                    if (dateValue === null) {
+                                        return '';
+                                    }
+
+                                    return new Date(
+                                        dateValue,
+                                    ).toLocaleDateString('en-US', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric',
+                                    });
                                 }}
                                 formatter={(value, name) => {
                                     const config = dataConfigs.find(
@@ -268,7 +278,18 @@ export function ChartAreaInteractive({
                     content={
                         <ChartTooltipContent
                             labelFormatter={(value) => {
-                                return new Date(value).toLocaleDateString(
+                                const dateValue =
+                                    value instanceof Date ||
+                                    typeof value === 'string' ||
+                                    typeof value === 'number'
+                                        ? value
+                                        : null;
+
+                                if (dateValue === null) {
+                                    return '';
+                                }
+
+                                return new Date(dateValue).toLocaleDateString(
                                     'en-US',
                                     {
                                         day: 'numeric',

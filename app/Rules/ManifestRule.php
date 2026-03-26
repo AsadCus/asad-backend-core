@@ -9,6 +9,8 @@ class ManifestRule
         return [
             'package_id' => ['required', 'exists:packages,id'],
             'in_charge_official_id' => ['nullable', 'integer', 'exists:package_officials,id'],
+            'manifest_number' => ['nullable', 'string', 'max:100'],
+            'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'notes' => ['nullable', 'string'],
             'status' => ['nullable', 'string', 'in:open,closed,draft,confirmed,completed,cancelled'],
 

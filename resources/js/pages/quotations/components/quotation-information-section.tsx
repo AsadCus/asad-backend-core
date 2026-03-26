@@ -4,7 +4,7 @@ import { FormField } from '@/components/form-field';
 import { FormSection } from '@/components/form-section';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { parseDisplayDate } from '@/lib/utils';
+import { formatCurrency, parseDisplayDate } from '@/lib/utils';
 import {
     sharingPlanBadgeColors,
     sharingPlanLabels,
@@ -12,6 +12,7 @@ import {
 import { OptionType } from '@/types';
 import { isBefore } from 'date-fns';
 import React, { useMemo } from 'react';
+import { ProperInput } from '../../../components/proper-input';
 import { QuotationSchema, SetDataFn } from '../schema';
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
     isView?: boolean;
     disableCustomerConfirmation?: boolean;
     setData: SetDataFn;
+    grandTotalAmount?: number;
     renderError: (field: keyof QuotationSchema) => React.ReactNode;
     customerConfirmations?: OptionType[];
     availableMembers?: Array<{
@@ -41,6 +43,7 @@ export default function QuotationInformationSection({
     isView = false,
     disableCustomerConfirmation = false,
     setData,
+    grandTotalAmount = 0,
     renderError,
     customerConfirmations = [],
     availableMembers = [],
@@ -161,18 +164,22 @@ export default function QuotationInformationSection({
                         </FormField>
                     )}
 
-                    <FormField label="Customer">
-                        <Combobox
-                            disabled={isView || customerOptions.length === 0}
-                            value={selectedCustomerValue ?? ''}
-                            onChange={(value) => onCustomerChange?.(value)}
-                            options={customerOptions}
-                            placeholder={
-                                data.customer_confirmation_id
-                                    ? 'Select customer from selected members'
-                                    : 'Select customer'
-                            }
-                        />
+                    <FormField label="Customer" htmlFor="customer_id">
+                        <div id="customer_id" tabIndex={-1}>
+                            <Combobox
+                                disabled={
+                                    isView || customerOptions.length === 0
+                                }
+                                value={selectedCustomerValue ?? ''}
+                                onChange={(value) => onCustomerChange?.(value)}
+                                options={customerOptions}
+                                placeholder={
+                                    data.customer_confirmation_id
+                                        ? 'Select customer from selected members'
+                                        : 'Select customer'
+                                }
+                            />
+                        </div>
                         {renderError('customer_id')}
 
                         {data.customer_name && (
@@ -261,6 +268,19 @@ export default function QuotationInformationSection({
                                 onChange={(val) => setData('expiry_date', val)}
                             />
                             {renderError('expiry_date')}
+                        </FormField>
+                    </div>
+
+                    <div className="md:ml-auto md:w-72">
+                        <FormField label="Grand Total" htmlFor="grand_total">
+                            <ProperInput
+                                id="grand_total"
+                                value={formatCurrency(
+                                    Number(grandTotalAmount ?? 0),
+                                )}
+                                disabled
+                                onCommit={() => {}}
+                            />
                         </FormField>
                     </div>
                 </section>
