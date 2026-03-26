@@ -152,6 +152,8 @@ export default function PackageForm({
     const isCreate = mode === 'create';
 
     const defaultData: PackageSchema = initialData || {
+        package_number: '',
+        package_number_format_id: null,
         name: '',
         status: 'open',
         country_id: '',
@@ -625,7 +627,29 @@ export default function PackageForm({
                                     : 'md:grid-cols-3'
                             }`}
                         >
-                            {/* Group Number (auto-generated, read-only) */}
+                            {!isView && (
+                                <ModelNumberInput
+                                    modelKey="package"
+                                    label="Package Number"
+                                    value={data.package_number ?? ''}
+                                    formatId={
+                                        data.package_number_format_id ?? null
+                                    }
+                                    onValueChange={(nextValue) =>
+                                        setData('package_number', nextValue)
+                                    }
+                                    onFormatIdChange={(nextFormatId) =>
+                                        setData(
+                                            'package_number_format_id',
+                                            nextFormatId,
+                                        )
+                                    }
+                                    disabled={processing}
+                                    error={getError('package_number')}
+                                />
+                            )}
+
+                            {/* Group Number (view only) */}
                             {showPackageNumberField && (
                                 <FormField
                                     label="Package Number"

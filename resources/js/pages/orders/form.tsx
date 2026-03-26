@@ -1,5 +1,6 @@
 import { FormField } from '@/components/form-field';
 import ModelNumberInput from '@/components/model-number-input';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,13 +13,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { formatCurrency } from '@/lib/utils';
 import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatCurrency } from '@/lib/utils';
 import { InvoiceHeader } from '../invoices/components/invoice-header';
 import {
     calculateInvoicesTotal,
@@ -670,7 +671,42 @@ export default function OrderForm({
                     )}
 
                     {/* Order Number Box */}
-                    {data.order_number && (
+                    {!isView && (
+                        <ModelNumberInput
+                            modelKey="order"
+                            label="Order Number"
+                            value={data.order_number ?? ''}
+                            formatId={data.number_format_id ?? null}
+                            onValueChange={(value) =>
+                                setData('order_number', value)
+                            }
+                            onFormatIdChange={(formatId) =>
+                                setData('number_format_id', formatId)
+                            }
+                            disabled={processing}
+                            error={modelNumberError}
+                            hint="Choose a format, then adjust number if needed."
+                        />
+                    )}
+
+                    {!isView && (
+                        <ModelNumberInput
+                            modelKey="order"
+                            label="Order Number"
+                            value={data.order_number ?? ''}
+                            formatId={data.number_format_id ?? null}
+                            onValueChange={(nextValue) =>
+                                setData('order_number', nextValue)
+                            }
+                            onFormatIdChange={(nextFormatId) =>
+                                setData('number_format_id', nextFormatId)
+                            }
+                            disabled={processing}
+                            error={errors.order_number}
+                        />
+                    )}
+
+                    {isView && data.order_number && (
                         <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                             <p className="text-base text-muted-foreground">
                                 Order No.
