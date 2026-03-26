@@ -1,5 +1,6 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -568,7 +569,7 @@ export default function PackageForm({
 
     const occupiedSeats = Number(data.occupied_seats ?? 0);
     const showPackageNumberField =
-        (isEdit || isView) && Boolean(data.package_number);
+        isView && Boolean(data.package_number);
 
     return (
         <div className="mx-auto w-full">
@@ -596,6 +597,27 @@ export default function PackageForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        {!isView && (
+                            <ModelNumberInput
+                                modelKey="package"
+                                label="Package Number"
+                                value={data.package_number ?? ''}
+                                formatId={data.package_number_format_id ?? null}
+                                onValueChange={(value) =>
+                                    setData('package_number', value)
+                                }
+                                onFormatIdChange={(formatId) =>
+                                    setData('package_number_format_id', formatId)
+                                }
+                                disabled={processing}
+                                error={
+                                    getError('package_number') ??
+                                    getError('package_number_format_id')
+                                }
+                                hint="Choose or configure a package number format."
+                            />
+                        )}
+
                         <div
                             className={`grid grid-cols-1 items-start gap-4 ${
                                 showPackageNumberField

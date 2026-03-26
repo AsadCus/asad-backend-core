@@ -1,5 +1,6 @@
 import { FormField } from '@/components/form-field';
 import { DatePickerField } from '@/components/date-picker';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import {
@@ -19,6 +20,7 @@ interface ManifestInformationCardProps {
     dataPackage: PackageForManifestOption[];
     setData: (key: string, value: unknown) => void;
     renderError: (path: string) => React.ReactNode;
+    errors?: Record<string, string | undefined>;
 }
 
 export default function ManifestInformationCard({
@@ -27,10 +29,14 @@ export default function ManifestInformationCard({
     dataPackage,
     setData,
     renderError,
+    errors,
 }: ManifestInformationCardProps) {
     const selectedPackage = dataPackage.find(
         (p) => Number(p.value) === Number(data.package_id),
     );
+
+    const modelNumberError =
+        errors?.manifest_number ?? errors?.number_format_id;
 
     return (
         <Card className="bg-transparent">
@@ -42,6 +48,23 @@ export default function ManifestInformationCard({
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                {!isView && (
+                    <ModelNumberInput
+                        modelKey="manifest"
+                        label="Manifest Number"
+                        value={data.manifest_number ?? ''}
+                        formatId={data.number_format_id ?? null}
+                        onValueChange={(value) =>
+                            setData('manifest_number', value)
+                        }
+                        onFormatIdChange={(formatId) =>
+                            setData('number_format_id', formatId)
+                        }
+                        error={modelNumberError}
+                        hint="Choose a format, then adjust number if needed."
+                    />
+                )}
+
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                     <FormField
                         label="Package"
@@ -80,7 +103,7 @@ export default function ManifestInformationCard({
                         {renderError('package_id')}
                     </FormField>
 
-                    {data.manifest_number && (
+                    {isView && data.manifest_number && (
                         <FormField
                             label="Manifest Number"
                             htmlFor="manifest_number"

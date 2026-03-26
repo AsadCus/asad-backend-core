@@ -347,10 +347,13 @@ export default function ModelNumberInput({
                             variant="outline"
                             onClick={handleOpenDialog}
                             disabled={disabled}
-                            className="w-full md:w-auto"
+                            size="icon"
+                            className="w-full md:w-10"
                         >
-                            <Settings2 className="mr-2 h-4 w-4" />
-                            Configure
+                            <Settings2 className="h-4 w-4" />
+                            <span className="sr-only">
+                                Configure model number formats
+                            </span>
                         </Button>
                     </div>
 

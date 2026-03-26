@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,6 +64,8 @@ export function UserForm({
     const determinedRole = getDeterminedRole();
 
     const initialFormState: UserSchema = {
+        customer_number: '',
+        number_format_id: null,
         name: '',
         email: '',
         password: '',
@@ -145,6 +148,9 @@ export function UserForm({
 
     const [role, setRole] = useState(data?.role ?? 'admin');
     const errorBannerRef = useRef<HTMLDivElement | null>(null);
+    const modelNumberError =
+        (errors.number_format_id as string | undefined) ??
+        (errors.customer_number as string | undefined);
 
     useEffect(() => {
         if (Object.keys(errors).length > 0 && !isView) {
@@ -453,15 +459,35 @@ export function UserForm({
                         )}
 
                         {role === 'customer' && (
-                            <CustomerFormFields
-                                customer={customerData}
-                                isView={isView}
-                                processing={processing}
-                                getError={getCustomerFieldError}
-                                onUpdateCustomer={(field, value) =>
-                                    updateCustomerField(String(field), value)
-                                }
-                            />
+                            <div className="space-y-4">
+                                {!isView && (
+                                    <ModelNumberInput
+                                        modelKey="customer"
+                                        label="Customer Number"
+                                        value={data.customer_number ?? ''}
+                                        formatId={data.number_format_id ?? null}
+                                        onValueChange={(value) =>
+                                            setData('customer_number', value)
+                                        }
+                                        onFormatIdChange={(formatId) =>
+                                            setData('number_format_id', formatId)
+                                        }
+                                        disabled={processing}
+                                        error={modelNumberError}
+                                        hint="Choose a format, then adjust number if needed."
+                                    />
+                                )}
+
+                                <CustomerFormFields
+                                    customer={customerData}
+                                    isView={isView}
+                                    processing={processing}
+                                    getError={getCustomerFieldError}
+                                    onUpdateCustomer={(field, value) =>
+                                        updateCustomerField(String(field), value)
+                                    }
+                                />
+                            </div>
                         )}
 
                         {/* Password & Confirm Password */}

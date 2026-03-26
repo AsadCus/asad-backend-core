@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -86,6 +87,8 @@ function cleanMessage(message: string) {
 function createEmptyInvoice(): InvoiceSchema {
     return {
         _key: nanoid(),
+        invoice_number: '',
+        number_format_id: null,
         description: '',
         invoice_date: '',
         due_date: '',
@@ -117,6 +120,7 @@ export default function OrderForm({
 
     const initialFormState: OrderSchema = {
         order_number: '',
+        number_format_id: null,
         payment_plan: quotation?.payment_plan ?? 'direct',
         deposit_type: 'fixed',
         deposit_value: 500,
@@ -189,6 +193,10 @@ export default function OrderForm({
                             invoice_number:
                                 existingInvoice.invoice_number ??
                                 invoice.invoice_number,
+                            number_format_id:
+                                existingInvoice.number_format_id ??
+                                invoice.number_format_id ??
+                                null,
                             status:
                                 existingInvoice.status ??
                                 invoice.status ??
@@ -423,6 +431,10 @@ export default function OrderForm({
         );
     };
 
+    const modelNumberError =
+        (errors as Record<string, string | undefined>).order_number ??
+        (errors as Record<string, string | undefined>).number_format_id;
+
     const hasInvoiceErrors = (invoiceIndex: number) => {
         const errorMap = errors as Record<string, string | undefined>;
         const prefix = `invoices.${invoiceIndex}.`;
@@ -636,6 +648,25 @@ export default function OrderForm({
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Order Number Box */}
+                    {!isView && (
+                        <ModelNumberInput
+                            modelKey="order"
+                            label="Order Number"
+                            value={data.order_number ?? ''}
+                            formatId={data.number_format_id ?? null}
+                            onValueChange={(value) =>
+                                setData('order_number', value)
+                            }
+                            onFormatIdChange={(formatId) =>
+                                setData('number_format_id', formatId)
+                            }
+                            disabled={processing}
+                            error={modelNumberError}
+                            hint="Choose a format, then adjust number if needed."
+                        />
                     )}
 
                     {/* Order Number Box */}
@@ -988,6 +1019,7 @@ export default function OrderForm({
                                                         disabled={
                                                             processing || isView
                                                         }
+                                                        isView={isView}
                                                         renderError={(path) =>
                                                             renderError(
                                                                 `invoices.${idx}.${path}`,

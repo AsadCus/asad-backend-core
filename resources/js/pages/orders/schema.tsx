@@ -5,6 +5,7 @@ import { quotationItemSchema } from '../quotations/items/schema';
 export const orderSchema = z.object({
     id: z.number().optional(),
     order_number: z.string().nullable().optional(),
+    number_format_id: z.number().nullable().optional(),
     payment_plan: z.string().optional(),
     deposit_type: z.string().nullable().optional(),
     deposit_value: z.union([z.string(), z.number()]).nullable().optional(),

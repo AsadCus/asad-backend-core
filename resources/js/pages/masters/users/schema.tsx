@@ -5,6 +5,7 @@ const baseUserSchema = z
         id: z.number().optional(),
         customer_id: z.number().nullable().optional(),
         customer_number: z.string().optional(),
+        number_format_id: z.number().nullable().optional(),
         name: z.string().min(1, 'The name field is required.'),
         email: z.email().min(1, 'The email field is required.'),
         password: z.string().optional(),

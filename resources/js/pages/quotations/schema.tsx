@@ -17,6 +17,7 @@ export const quotationExtensionSchema = z.object({
 export const quotationSchema = z.object({
     id: z.number().optional(),
     quotation_number: z.string().nullable().optional(),
+    number_format_id: z.number().nullable().optional(),
     quotation_date: z.string().nullable().optional(),
     expiry_date: z.string().nullable().optional(),
 

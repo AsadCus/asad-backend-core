@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,8 @@ export default function GeneralEnquiryForm({
     const isCreate = mode === 'create';
 
     const defaultData: GeneralEnquirySchema = initialData || {
+        enquiry_number: '',
+        number_format_id: null,
         name: '',
         contact_number: '',
         email: '',
@@ -175,6 +178,10 @@ export default function GeneralEnquiryForm({
         return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
+    const modelNumberError =
+        (errors as Record<string, string | undefined>).enquiry_number ??
+        (errors as Record<string, string | undefined>).number_format_id;
+
     const handleReset = () => {
         reset();
     };
@@ -202,6 +209,35 @@ export default function GeneralEnquiryForm({
                             Please fix the errors below and try again
                         </AlertDescription>
                     </Alert>
+                )}
+
+                {!isView && (
+                    <ModelNumberInput
+                        modelKey="general_enquiry"
+                        label="Enquiry Number"
+                        value={data.enquiry_number ?? ''}
+                        formatId={data.number_format_id ?? null}
+                        onValueChange={(value) =>
+                            setData('enquiry_number', value)
+                        }
+                        onFormatIdChange={(formatId) =>
+                            setData('number_format_id', formatId)
+                        }
+                        disabled={processing}
+                        error={modelNumberError}
+                        hint="Choose a format, then adjust number if needed."
+                    />
+                )}
+
+                {isView && data.enquiry_number && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <p className="text-base text-muted-foreground">
+                            Enquiry Number
+                        </p>
+                        <p className="text-2xl font-bold text-primary">
+                            {data.enquiry_number}
+                        </p>
+                    </div>
                 )}
 
                 {packageOptions.length > 0 && (

@@ -1,5 +1,6 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import ModelNumberInput from '@/components/model-number-input';
 import {
     Card,
     CardContent,
@@ -31,6 +32,8 @@ export default function PrivateEnquiryForm({
     const isCreate = mode === 'create';
 
     const defaultData: PrivateEnquirySchema = initialData || {
+        enquiry_number: '',
+        number_format_id: null,
         name: '',
         contact_number: '',
         email: '',
@@ -118,6 +121,10 @@ export default function PrivateEnquiryForm({
         return <p className="mt-1 text-sm text-red-500">{message}</p>;
     };
 
+    const modelNumberError =
+        (errors as Record<string, string | undefined>).enquiry_number ??
+        (errors as Record<string, string | undefined>).number_format_id;
+
     const handleReset = () => {
         reset();
     };
@@ -134,6 +141,35 @@ export default function PrivateEnquiryForm({
                             Please fix the errors below and try again
                         </AlertDescription>
                     </Alert>
+                )}
+
+                {!isView && (
+                    <ModelNumberInput
+                        modelKey="private_enquiry"
+                        label="Enquiry Number"
+                        value={data.enquiry_number ?? ''}
+                        formatId={data.number_format_id ?? null}
+                        onValueChange={(value) =>
+                            setData('enquiry_number', value)
+                        }
+                        onFormatIdChange={(formatId) =>
+                            setData('number_format_id', formatId)
+                        }
+                        disabled={processing}
+                        error={modelNumberError}
+                        hint="Choose a format, then adjust number if needed."
+                    />
+                )}
+
+                {isView && data.enquiry_number && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <p className="text-base text-muted-foreground">
+                            Enquiry Number
+                        </p>
+                        <p className="text-2xl font-bold text-primary">
+                            {data.enquiry_number}
+                        </p>
+                    </div>
                 )}
 
                 <Card>

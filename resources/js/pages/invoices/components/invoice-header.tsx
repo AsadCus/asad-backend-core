@@ -1,5 +1,6 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FieldRequirements } from '@/components/field-requirements';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { Label } from '@/components/ui/label';
 import { parseDisplayDate } from '@/lib/utils';
@@ -11,14 +12,46 @@ export function InvoiceHeader({
     onChange,
     renderError,
     disabled,
+    isView = false,
 }: {
     invoice: InvoiceSchema;
     onChange: (patch: Partial<InvoiceSchema>) => void;
     renderError: (path: string) => React.ReactNode;
     disabled: boolean;
+    isView?: boolean;
 }) {
     return (
         <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-4">
+            {!isView && (
+                <div className="lg:col-span-2">
+                    <ModelNumberInput
+                        modelKey="invoice"
+                        label="Invoice Number"
+                        value={invoice.invoice_number ?? ''}
+                        formatId={invoice.number_format_id ?? null}
+                        onValueChange={(value) =>
+                            onChange({ invoice_number: value })
+                        }
+                        onFormatIdChange={(formatId) =>
+                            onChange({ number_format_id: formatId })
+                        }
+                        disabled={disabled}
+                        hint="Choose a format, then adjust number if needed."
+                    />
+                    {renderError('invoice_number')}
+                    {renderError('number_format_id')}
+                </div>
+            )}
+
+            {isView && invoice.invoice_number && (
+                <div className="grid w-full items-center gap-2 lg:col-span-2">
+                    <Label>Invoice Number</Label>
+                    <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-sm">
+                        {invoice.invoice_number}
+                    </div>
+                </div>
+            )}
+
             {/* Description */}
             <div className="grid w-full items-center gap-3 lg:col-span-2">
                 <Label htmlFor="description">

@@ -1,4 +1,5 @@
 import { FormProgressHeader } from '@/components/form-progress-header';
+import ModelNumberInput from '@/components/model-number-input';
 import { Accordion } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -192,6 +193,7 @@ export function QuotationForm({
     const initialFormState: QuotationSchema = {
         id: undefined,
         quotation_number: '',
+        number_format_id: null,
         quotation_date: today,
         expiry_date: today,
         customer_id: undefined,
@@ -1195,6 +1197,8 @@ export function QuotationForm({
     };
 
     const hasErrors = Object.keys(errorMap).length > 0;
+    const modelNumberError =
+        errorMap.quotation_number ?? errorMap.number_format_id;
 
     const toFieldLabel = (path: string): string => {
         const fieldName = path.split('.').pop() ?? path;
@@ -1515,8 +1519,28 @@ export function QuotationForm({
                 />
             )}
 
+            {!isView && (
+                <div className="mb-4">
+                    <ModelNumberInput
+                        modelKey="quotation"
+                        label="Quotation Number"
+                        value={data.quotation_number ?? ''}
+                        formatId={data.number_format_id ?? null}
+                        onValueChange={(value) =>
+                            setData('quotation_number', value)
+                        }
+                        onFormatIdChange={(formatId) =>
+                            setData('number_format_id', formatId)
+                        }
+                        disabled={processing}
+                        error={modelNumberError}
+                        hint="Choose a format, then adjust number if needed."
+                    />
+                </div>
+            )}
+
             {/* Quotation Number Box */}
-            {data.quotation_number && (
+            {isView && data.quotation_number && (
                 <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                     <p className="text-base text-muted-foreground">
                         Quotation No.
