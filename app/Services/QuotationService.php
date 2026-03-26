@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\QuotationStatus;
 use App\Helpers\FormatService;
+use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\FinancialTransaction;
@@ -824,6 +825,30 @@ class QuotationService
                 return [
                     'value' => $confirmation->id,
                     'label' => 'CC-'.$confirmation->id.' - '.($leader?->customer?->user?->name ?? 'Unknown').' ('.$eligibleCount.' member(s))',
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function getActiveCustomerOptions(): array
+    {
+        return Customer::query()
+            ->with('user')
+            ->where('is_active', true)
+            ->whereHas('user', function ($query) {
+                $query->whereNull('deleted_at');
+            })
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (Customer $customer) {
+                return [
+                    'value' => $customer->id,
+                    'label' => trim(($customer->customer_number ? $customer->customer_number.' - ' : '').($customer->user?->name ?? 'Unknown')),
+                    'name' => $customer->user?->name ?? '',
+                    'contact' => $customer->user?->contact,
+                    'address' => $customer->address,
+                    'email' => $customer->user?->email,
                 ];
             })
             ->values()

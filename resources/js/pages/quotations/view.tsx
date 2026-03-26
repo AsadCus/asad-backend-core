@@ -16,6 +16,14 @@ interface ViewQuotationProps {
     data: {
         data: QuotationSchema;
         customerConfirmations: [];
+        activeCustomers?: Array<{
+            value: number;
+            label: string;
+            name: string;
+            contact?: string | null;
+            address?: string | null;
+            email?: string | null;
+        }>;
     };
 }
 
@@ -51,6 +59,7 @@ export default function ViewQuotation({ data }: ViewQuotationProps) {
                         paymentMethods={paymentMethods}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
+                        activeCustomers={data.activeCustomers ?? []}
                         onCancel={handleCancel}
                     />
                 </div>

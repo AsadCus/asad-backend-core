@@ -18,6 +18,14 @@ interface EditQuotationProps {
     data: {
         data: QuotationSchema;
         customerConfirmations: [];
+        activeCustomers?: Array<{
+            value: number;
+            label: string;
+            name: string;
+            contact?: string | null;
+            address?: string | null;
+            email?: string | null;
+        }>;
         paymentMethods?: { label: string; value: string }[];
         quotationExtensionMasters?: Array<
             z.infer<typeof quotationExtensionSchema> & {
@@ -60,6 +68,7 @@ export default function EditQuotation({ data }: EditQuotationProps) {
                         paymentMethods={data.paymentMethods ?? paymentMethods}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
+                        activeCustomers={data.activeCustomers ?? []}
                         extensionMasters={data.quotationExtensionMasters}
                         onCancel={handleCancel}
                     />

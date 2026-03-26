@@ -11,8 +11,7 @@ import {
 } from '@/pages/packages/schema';
 import { OptionType } from '@/types';
 import { isBefore } from 'date-fns';
-import { User } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { QuotationSchema, SetDataFn } from '../schema';
 
 interface Props {
@@ -29,10 +28,11 @@ interface Props {
         is_leader?: boolean;
     }>;
     selectedMemberIds?: number[];
-    handlerMemberId?: number | null;
+    customerOptions?: OptionType[];
+    selectedCustomerValue?: number | string | null;
     onCustomerConfirmationChange?: (value: string | number) => void;
     onSelectedMembersChange?: (memberIds: number[]) => void;
-    onHandlerChange?: (memberId: number) => void;
+    onCustomerChange?: (value: string | number) => void;
     status: 'incomplete' | 'complete' | 'error';
 }
 
@@ -45,32 +45,16 @@ export default function QuotationInformationSection({
     customerConfirmations = [],
     availableMembers = [],
     selectedMemberIds = [],
-    handlerMemberId = null,
+    customerOptions = [],
+    selectedCustomerValue = null,
     onCustomerConfirmationChange,
     onSelectedMembersChange,
-    onHandlerChange,
+    onCustomerChange,
     status,
 }: Props) {
-    const [open, setOpen] = useState(false);
-    const selectedAvailableMembers = useMemo(
-        () =>
-            availableMembers.filter((member) =>
-                selectedMemberIds.includes(member.member_id),
-            ),
-        [availableMembers, selectedMemberIds],
-    );
-
-    const handlerOptions = useMemo(
-        () =>
-            selectedAvailableMembers.map((member) => ({
-                label: member.name,
-                value: member.member_id,
-            })),
-        [selectedAvailableMembers],
-    );
-
     const addressLines = useMemo(
-        () => (data.customer_address ? data.customer_address.split('<br>') : []),
+        () =>
+            data.customer_address ? data.customer_address.split('<br>') : [],
         [data.customer_address],
     );
 
@@ -127,16 +111,17 @@ export default function QuotationInformationSection({
                                                 onCheckedChange={(
                                                     isChecked,
                                                 ) => {
-                                                    const nextMemberIds = isChecked
-                                                        ? [
-                                                              ...selectedMemberIds,
-                                                              member.member_id,
-                                                          ]
-                                                        : selectedMemberIds.filter(
-                                                              (id) =>
-                                                                  id !==
+                                                    const nextMemberIds =
+                                                        isChecked
+                                                            ? [
+                                                                  ...selectedMemberIds,
                                                                   member.member_id,
-                                                          );
+                                                              ]
+                                                            : selectedMemberIds.filter(
+                                                                  (id) =>
+                                                                      id !==
+                                                                      member.member_id,
+                                                              );
 
                                                     onSelectedMembersChange?.(
                                                         nextMemberIds,
@@ -176,72 +161,50 @@ export default function QuotationInformationSection({
                         </FormField>
                     )}
 
-                    {selectedMemberIds.length > 0 && (
-                        <FormField label="Handled By">
-                            <div
-                                className={`relative w-full cursor-pointer rounded-md border border-gray-300 p-4 shadow-sm focus-within:ring-1 focus-within:ring-primary hover:border-gray-400 ${isView ? 'cursor-default opacity-70' : ''} `}
-                                onClick={() =>
-                                    !isView && setOpen((prev) => !prev)
-                                }
-                            >
-                                {!data.customer_id ? (
-                                    <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
-                                        <User size={32} />
-                                        <span>Select a customer</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-base font-semibold text-gray-800">
-                                            {data.customer_name}
-                                        </span>
-                                        <div className="text-base text-gray-600">
-                                            {addressLines.length > 0
-                                                ? addressLines.map(
-                                                      (line, idx, arr) => (
-                                                          <div key={idx}>
-                                                              {line}
-                                                              {idx <
-                                                                  arr.length -
-                                                                      1 && (
-                                                                  <br />
-                                                              )}
-                                                          </div>
-                                                      ),
-                                                  )
-                                                : '-'}
-                                        </div>
-                                        <span className="text-base text-gray-600">
-                                            {data.customer_contact ?? '-'}
-                                        </span>
-                                        <span className="text-base text-gray-600">
-                                            {data.customer_email ?? '-'}
-                                        </span>
-                                    </div>
-                                )}
+                    <FormField label="Customer">
+                        <Combobox
+                            disabled={isView || customerOptions.length === 0}
+                            value={selectedCustomerValue ?? ''}
+                            onChange={(value) => onCustomerChange?.(value)}
+                            options={customerOptions}
+                            placeholder={
+                                data.customer_confirmation_id
+                                    ? 'Select customer from selected members'
+                                    : 'Select customer'
+                            }
+                        />
+                        {renderError('customer_id')}
 
-                                {/* Combobox overlay */}
-                                {!isView && open && (
-                                    <div
-                                        className="relative mt-2 rounded-lg shadow-sm"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <Combobox
-                                            disabled={
-                                                isView ||
-                                                selectedMemberIds.length === 1
-                                            }
-                                            value={handlerMemberId ?? ''}
-                                            onChange={(value) =>
-                                                onHandlerChange?.(Number(value))
-                                            }
-                                            options={handlerOptions}
-                                            placeholder="Select member who handles this quotation"
-                                        />
+                        {data.customer_name && (
+                            <div className="mt-3 rounded-md border border-gray-300 p-3">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-base font-semibold text-gray-800">
+                                        {data.customer_name}
+                                    </span>
+                                    <div className="text-base text-gray-600">
+                                        {addressLines.length > 0
+                                            ? addressLines.map(
+                                                  (line, idx, arr) => (
+                                                      <div key={idx}>
+                                                          {line}
+                                                          {idx <
+                                                              arr.length -
+                                                                  1 && <br />}
+                                                      </div>
+                                                  ),
+                                              )
+                                            : '-'}
                                     </div>
-                                )}
+                                    <span className="text-base text-gray-600">
+                                        {data.customer_contact ?? '-'}
+                                    </span>
+                                    <span className="text-base text-gray-600">
+                                        {data.customer_email ?? '-'}
+                                    </span>
+                                </div>
                             </div>
-                        </FormField>
-                    )}
+                        )}
+                    </FormField>
                 </section>
 
                 <section className="order-2 grid grid-cols-1 items-start gap-4 md:col-span-2 lg:order-2">

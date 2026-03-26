@@ -65,6 +65,7 @@ class QuotationController extends Controller
     public function create(Request $request)
     {
         $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions();
+        $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
         $data['quotationItems'] = $this->quotationItemService->getQuotationItemMasters(false);
         $data['quotationNotes'] = $this->noteService->get('master', 'quotation');
         $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
@@ -120,6 +121,7 @@ class QuotationController extends Controller
         $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions(
             (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
         );
+        $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
 
         return Inertia::render('quotations/view', [
             'data' => $data,
@@ -137,6 +139,7 @@ class QuotationController extends Controller
         $data['customerConfirmations'] = $this->quotationService->getCustomerConfirmationCreateOptions(
             (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
         );
+        $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
         $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
 

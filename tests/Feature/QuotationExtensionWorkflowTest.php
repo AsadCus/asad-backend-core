@@ -318,6 +318,54 @@ class QuotationExtensionWorkflowTest extends TestCase
         $this->assertSame('Credit Card Interest', $creditCardDefaults[1]['name']);
     }
 
+    public function test_store_quotation_without_customer_confirmation_is_allowed(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-EXT-005',
+        ]);
+
+        $quotation = app(QuotationService::class)->store([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => null,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'draft',
+            'description' => 'Quotation without customer confirmation',
+            'items' => [
+                [
+                    '_key' => 'item-header',
+                    'description' => 'Umrah Packages',
+                    'is_header' => true,
+                    'quantity' => null,
+                    'rate' => null,
+                    'sort_order' => 1,
+                ],
+                [
+                    '_key' => 'item-1',
+                    'parent_key' => 'item-header',
+                    'description' => 'Package cost',
+                    'is_header' => false,
+                    'quantity' => 1,
+                    'rate' => 1000,
+                    'sort_order' => 2,
+                ],
+            ],
+        ]);
+
+        $freshQuotation = $quotation->fresh('quotationItems.parent');
+        $this->assertNull($freshQuotation?->customer_confirmation_id);
+
+        $childItem = $freshQuotation?->quotationItems
+            ->firstWhere('description', 'Package cost');
+
+        $this->assertNotNull($childItem);
+        $this->assertSame('Umrah Packages', $childItem?->parent?->description);
+    }
+
     public function test_payment_method_options_use_active_master_records_when_available(): void
     {
         PaymentMethodMaster::query()->create([

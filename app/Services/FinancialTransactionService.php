@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
+use App\Models\QuotationItem;
+use App\Models\Receipt;
 use Carbon\Carbon;
 
 class FinancialTransactionService
@@ -395,5 +397,235 @@ class FinancialTransactionService
             'last-semester' => $this->getLastMonthsBreakdown(6),
             'last-quarter' => $this->getLastMonthsBreakdown(3),
         ];
+    }
+
+    public function getPaymentCategorySummary(string $period = 'daily', ?int $financialYearId = null): array
+    {
+        [$resolvedPeriod, $startDate, $endDate, $periodLabel] = $this->resolvePaymentPeriodRange($period, $financialYearId);
+
+        $receipts = Receipt::query()
+            ->with([
+                'invoice.quotationItems.parent.parent',
+            ])
+            ->whereBetween('receipt_date', [
+                $startDate->copy()->startOfDay(),
+                $endDate->copy()->endOfDay(),
+            ])
+            ->get();
+
+        $categoryTotals = [];
+        $bucketTotals = [];
+        $totalAmount = 0.0;
+
+        foreach ($receipts as $receipt) {
+            $receiptAmount = (float) ($receipt->amount ?? 0);
+            $totalAmount += $receiptAmount;
+
+            $receiptDate = Carbon::parse($receipt->receipt_date);
+
+            $bucketKey = $this->formatPaymentBucketKey($receiptDate, $resolvedPeriod);
+            $bucketLabel = $this->formatPaymentBucketLabel($receiptDate, $resolvedPeriod);
+
+            if (! isset($bucketTotals[$bucketKey])) {
+                $bucketTotals[$bucketKey] = [
+                    'key' => $bucketKey,
+                    'label' => $bucketLabel,
+                    'amount' => 0.0,
+                ];
+            }
+
+            $bucketTotals[$bucketKey]['amount'] += $receiptAmount;
+
+            $invoice = $receipt->invoice;
+            if (! $invoice) {
+                $this->addCategoryAmount($categoryTotals, 'Others', $receiptAmount);
+
+                continue;
+            }
+
+            $items = $invoice->quotationItems
+                ->filter(fn (QuotationItem $item) => ! $item->is_header)
+                ->values();
+
+            if ($items->isEmpty()) {
+                $this->addCategoryAmount($categoryTotals, 'Others', $receiptAmount);
+
+                continue;
+            }
+
+            $itemAmounts = $items->map(function (QuotationItem $item) {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            })->values();
+
+            $amountBase = (float) $itemAmounts->sum();
+            $allocated = 0.0;
+            $lastIndex = max(0, $items->count() - 1);
+
+            foreach ($items as $index => $item) {
+                if ($index === $lastIndex) {
+                    $allocatedAmount = $receiptAmount - $allocated;
+                } else {
+                    $ratio = $amountBase > 0
+                        ? ((float) ($itemAmounts[$index] ?? 0) / $amountBase)
+                        : (1 / max(1, $items->count()));
+                    $allocatedAmount = round($receiptAmount * $ratio, 2);
+                    $allocated += $allocatedAmount;
+                }
+
+                $category = $this->resolveItemCategoryLabel($item);
+                $this->addCategoryAmount($categoryTotals, $category, $allocatedAmount);
+            }
+        }
+
+        $categories = collect($categoryTotals)
+            ->map(function (array $row) {
+                return [
+                    'category' => $row['category'],
+                    'amount' => round((float) $row['amount'], 2),
+                    'receipt_count' => (int) $row['receipt_count'],
+                ];
+            })
+            ->sortByDesc('amount')
+            ->values()
+            ->all();
+
+        $buckets = collect($bucketTotals)
+            ->sortBy('key')
+            ->map(function (array $row) {
+                return [
+                    'key' => $row['key'],
+                    'label' => $row['label'],
+                    'amount' => round((float) $row['amount'], 2),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'period' => $resolvedPeriod,
+            'period_label' => $periodLabel,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'date_range_label' => $startDate->translatedFormat('d F Y').' - '.$endDate->translatedFormat('d F Y'),
+            'total_amount' => round($totalAmount, 2),
+            'receipt_count' => $receipts->count(),
+            'categories' => $categories,
+            'buckets' => $buckets,
+        ];
+    }
+
+    private function addCategoryAmount(array &$categoryTotals, string $category, float $amount): void
+    {
+        $normalizedCategory = trim($category) !== '' ? trim($category) : 'Others';
+
+        if (! isset($categoryTotals[$normalizedCategory])) {
+            $categoryTotals[$normalizedCategory] = [
+                'category' => $normalizedCategory,
+                'amount' => 0.0,
+                'receipt_count' => 0,
+            ];
+        }
+
+        $categoryTotals[$normalizedCategory]['amount'] += $amount;
+        $categoryTotals[$normalizedCategory]['receipt_count']++;
+    }
+
+    /**
+     * @return array{0: string, 1: Carbon, 2: Carbon, 3: string}
+     */
+    private function resolvePaymentPeriodRange(string $period, ?int $financialYearId = null): array
+    {
+        $resolvedPeriod = in_array($period, ['daily', 'monthly', 'yearly'], true)
+            ? $period
+            : 'daily';
+
+        $now = Carbon::now();
+
+        if ($resolvedPeriod === 'yearly') {
+            if ($financialYearId) {
+                $financialYear = FinancialYear::find($financialYearId);
+                if ($financialYear) {
+                    return [
+                        $resolvedPeriod,
+                        Carbon::parse($financialYear->start_date)->startOfDay(),
+                        Carbon::parse($financialYear->end_date)->endOfDay(),
+                        'Yearly',
+                    ];
+                }
+            }
+
+            return [
+                $resolvedPeriod,
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                'Yearly',
+            ];
+        }
+
+        if ($resolvedPeriod === 'monthly') {
+            return [
+                $resolvedPeriod,
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                'Monthly',
+            ];
+        }
+
+        return [
+            $resolvedPeriod,
+            $now->copy()->startOfDay(),
+            $now->copy()->endOfDay(),
+            'Daily',
+        ];
+    }
+
+    private function formatPaymentBucketKey(Carbon $date, string $period): string
+    {
+        return match ($period) {
+            'yearly' => $date->format('Y'),
+            'monthly' => $date->format('Y-m'),
+            default => $date->format('Y-m-d'),
+        };
+    }
+
+    private function formatPaymentBucketLabel(Carbon $date, string $period): string
+    {
+        return match ($period) {
+            'yearly' => $date->format('Y'),
+            'monthly' => $date->translatedFormat('F Y'),
+            default => $date->translatedFormat('d F Y'),
+        };
+    }
+
+    private function resolveItemCategoryLabel(QuotationItem $item): string
+    {
+        $parent = $item->parent;
+
+        while ($parent && ! $parent->is_header) {
+            $parent = $parent->parent;
+        }
+
+        if (! $parent) {
+            return 'Others';
+        }
+
+        $root = $parent;
+
+        while ($root->parent && $root->parent->is_header) {
+            $root = $root->parent;
+        }
+
+        $rootDescription = trim((string) $root->description);
+        $parentDescription = trim((string) $parent->description);
+
+        if ($rootDescription === '') {
+            return 'Others';
+        }
+
+        if ($parent->id !== $root->id && $parentDescription !== '') {
+            return $rootDescription.' - '.$parentDescription;
+        }
+
+        return $rootDescription;
     }
 }

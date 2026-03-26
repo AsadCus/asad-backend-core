@@ -7,7 +7,82 @@ class QuotationItemRule
     public function rules(string $prefix = 'items')
     {
         return [
-            "$prefix" => ['required', 'array', 'min:1'],
+            "$prefix" => [
+                'required',
+                'array',
+                'min:1',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_array($value)) {
+                        return;
+                    }
+
+                    $byKey = [];
+                    $byId = [];
+
+                    foreach ($value as $item) {
+                        if (! is_array($item)) {
+                            continue;
+                        }
+
+                        if (! empty($item['_key'])) {
+                            $byKey[(string) $item['_key']] = $item;
+                        }
+
+                        if (isset($item['id']) && is_numeric($item['id'])) {
+                            $byId[(int) $item['id']] = $item;
+                        }
+                    }
+
+                    $isTrue = static function (mixed $flag): bool {
+                        return in_array($flag, [true, 1, '1', 'true'], true);
+                    };
+
+                    $hasChild = static function (array $target, array $rows): bool {
+                        return collect($rows)->contains(function ($row) use ($target) {
+                            if (! is_array($row)) {
+                                return false;
+                            }
+
+                            return (! empty($target['_key']) && ($row['parent_key'] ?? null) === $target['_key'])
+                                || (isset($target['id']) && $target['id'] !== null && (int) ($row['parent_id'] ?? 0) === (int) $target['id']);
+                        });
+                    };
+
+                    foreach ($value as $item) {
+                        if (! is_array($item)) {
+                            continue;
+                        }
+
+                        $itemIsHeader = $isTrue($item['is_header'] ?? false);
+
+                        if ($itemIsHeader && ! $hasChild($item, $value)) {
+                            $fail('Each header item must have at least one child item.');
+
+                            return;
+                        }
+
+                        if (! $itemIsHeader && $hasChild($item, $value)) {
+                            $fail('Only header items can be parent items.');
+
+                            return;
+                        }
+
+                        $parent = null;
+
+                        if (! empty($item['parent_key'])) {
+                            $parent = $byKey[(string) $item['parent_key']] ?? null;
+                        } elseif (isset($item['parent_id']) && is_numeric($item['parent_id'])) {
+                            $parent = $byId[(int) $item['parent_id']] ?? null;
+                        }
+
+                        if ($parent !== null && ! $isTrue($parent['is_header'] ?? false)) {
+                            $fail('Parent item must be a header item.');
+
+                            return;
+                        }
+                    }
+                },
+            ],
             "$prefix.*._key" => ['required', 'string'],
             "$prefix.*.id" => ['nullable'],
             "$prefix.*.customer_confirmation_member_id" => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],

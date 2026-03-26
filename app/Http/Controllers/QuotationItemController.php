@@ -43,6 +43,20 @@ class QuotationItemController extends Controller
         return response()->json($this->quotationItemService->getQuotationItemMasters());
     }
 
+    public function quickCreate(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['required', 'string', 'max:255'],
+            'quantity' => ['nullable', 'numeric'],
+            'rate' => ['nullable', 'numeric'],
+        ]);
+
+        $payload = $this->quotationItemService->quickCreateItemGroup($validated);
+
+        return response()->json($payload, 201);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate($this->quotationItemRule->rules());

@@ -1,12 +1,10 @@
 import { ActionType } from '@/components/action-column';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
-import { IncomeByMonthChart } from '@/components/income-by-month-chart';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -26,13 +24,7 @@ import {
     index as customerIndex,
     show as customerShow,
 } from '@/routes/customer';
-import {
-    fiscalYearTotalSales,
-    incomeByMonth,
-    quotationConvertedBySalesperson,
-    revenueByMonth,
-    salesPeriodOptions,
-} from '@/routes/dashboard';
+import { fiscalYearTotalSales } from '@/routes/dashboard';
 import { index as enquiriesIndex } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
 import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
@@ -43,6 +35,7 @@ import {
 } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { Download } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { UserSchema } from './masters/users/schema';
 
@@ -53,39 +46,31 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-interface QuotationConvertedBySalespersonType {
-    id: number;
-    name: string;
-    email: string;
-    branch_name: string;
-    converted_quotation: number;
-    amount: number | string;
-}
-
-interface SalesPeriodOption {
-    value: string;
-    label: string;
-    start_date: string;
-    end_date: string;
-}
-
 interface FiscalYearTotalSalesType {
     count: number;
     amount: number | string;
 }
 
-interface RevenueByMonthType {
-    label: string;
-    count: number;
+interface PaymentSummaryCategoryType {
+    category: string;
     amount: number | string;
-    start_date: string;
-    end_date: string;
+    receipt_count: number;
 }
 
-interface IncomeByMonthType {
-    label: string;
-    date: string;
-    amount: number | string;
+interface PaymentSummaryType {
+    period: 'daily' | 'monthly' | 'yearly';
+    period_label: string;
+    start_date: string;
+    end_date: string;
+    date_range_label: string;
+    total_amount: number | string;
+    receipt_count: number;
+    categories: PaymentSummaryCategoryType[];
+    buckets: Array<{
+        key: string;
+        label: string;
+        amount: number | string;
+    }>;
 }
 
 interface EnquiryRowType {
@@ -196,27 +181,19 @@ export default function Dashboard({ data }: DashboardProps) {
 
     // State for API fetched data
     const [isLoadingData, setIsLoadingData] = useState(false);
-    const [salesPeriodOptionsData, setSalesPeriodOptionsData] = useState<
-        SalesPeriodOption[]
-    >([]);
-    const [selectedSalesPeriod, setSelectedSalesPeriod] =
-        useState<string>('full-year');
-    const [
-        quotationConvertedBySalespersonData,
-        setQuotationConvertedBySalespersonData,
-    ] = useState<QuotationConvertedBySalespersonType[]>([]);
     const [fiscalYearTotalSalesData, setFiscalYearTotalSalesData] =
         useState<FiscalYearTotalSalesType | null>(null);
-    const [revenueByMonthData, setRevenueByMonthData] = useState<
-        RevenueByMonthType[]
-    >([]);
-    const [incomeByMonthData, setIncomeByMonthData] = useState<
-        IncomeByMonthType[]
-    >([]);
+    const [paymentSummaryPeriod, setPaymentSummaryPeriod] = useState<
+        'daily' | 'monthly' | 'yearly'
+    >('daily');
+    const [paymentSummaryData, setPaymentSummaryData] =
+        useState<PaymentSummaryType | null>(null);
+    const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
+        useState(false);
 
     // Fetch dashboard data for admin
     const fetchAdminDashboardData = useCallback(
-        async (yearId?: number, period?: string) => {
+        async (yearId?: number) => {
             if (!isAdmin) return;
 
             setIsLoadingData(true);
@@ -224,60 +201,14 @@ export default function Dashboard({ data }: DashboardProps) {
                 const queryOptions = yearId
                     ? { query: { financial_year_id: yearId.toString() } }
                     : undefined;
-                const periodQueryOptions = yearId
-                    ? {
-                          query: {
-                              financial_year_id: yearId.toString(),
-                              period: period || 'full-year',
-                          },
-                      }
-                    : { query: { period: period || 'full-year' } };
 
-                // Fetch all data in parallel
-                const [
-                    periodOptionsRes,
-                    fytdRes,
-                    revenueRes,
-                    incomeRes,
-                    salespersonRes,
-                ] = await Promise.all([
-                    fetch(salesPeriodOptions(queryOptions).url),
-                    fetch(fiscalYearTotalSales(queryOptions).url),
-                    fetch(revenueByMonth(queryOptions).url),
-                    fetch(incomeByMonth(queryOptions).url),
-                    fetch(
-                        quotationConvertedBySalesperson(periodQueryOptions).url,
-                    ),
-                ]);
-
-                if (periodOptionsRes.ok) {
-                    const periodData = await periodOptionsRes.json();
-                    setSalesPeriodOptionsData(periodData.options || []);
-                    if (!period) {
-                        setSelectedSalesPeriod(
-                            periodData.default || 'full-year',
-                        );
-                    }
-                }
+                const fytdRes = await fetch(
+                    fiscalYearTotalSales(queryOptions).url,
+                );
 
                 if (fytdRes.ok) {
                     const fytdData = await fytdRes.json();
                     setFiscalYearTotalSalesData(fytdData);
-                }
-
-                if (revenueRes.ok) {
-                    const revenueData = await revenueRes.json();
-                    setRevenueByMonthData(revenueData);
-                }
-
-                if (incomeRes.ok) {
-                    const incomeData = await incomeRes.json();
-                    setIncomeByMonthData(incomeData);
-                }
-
-                if (salespersonRes.ok) {
-                    const salespersonData = await salespersonRes.json();
-                    setQuotationConvertedBySalespersonData(salespersonData);
                 }
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
@@ -288,32 +219,56 @@ export default function Dashboard({ data }: DashboardProps) {
         [isAdmin],
     );
 
-    // Fetch salesperson data when period changes
-    const fetchSalespersonData = useCallback(
-        async (yearId?: number, period?: string) => {
+    const fetchPaymentSummaryData = useCallback(
+        async (period: 'daily' | 'monthly' | 'yearly', yearId?: number) => {
             if (!isAdmin) return;
 
-            try {
-                const queryOptions = {
-                    query: {
-                        financial_year_id: yearId?.toString() || '',
-                        period: period || 'full-year',
-                    },
-                };
+            setIsLoadingPaymentSummary(true);
 
-                const res = await fetch(
-                    quotationConvertedBySalesperson(queryOptions).url,
+            try {
+                const params = new URLSearchParams({ period });
+
+                if (yearId) {
+                    params.set('financial_year_id', String(yearId));
+                }
+
+                const response = await fetch(
+                    `/dashboard/payment-summary-by-period?${params.toString()}`,
                 );
-                if (res.ok) {
-                    const data = await res.json();
-                    setQuotationConvertedBySalespersonData(data);
+
+                if (response.ok) {
+                    const summary =
+                        (await response.json()) as PaymentSummaryType;
+                    setPaymentSummaryData(summary);
                 }
             } catch (error) {
-                console.error('Error fetching salesperson data:', error);
+                console.error('Error fetching payment summary:', error);
+            } finally {
+                setIsLoadingPaymentSummary(false);
             }
         },
         [isAdmin],
     );
+
+    const handleExportPaymentSummaryPdf = useCallback(() => {
+        const params = new URLSearchParams({ period: paymentSummaryPeriod });
+
+        if (data.selectedYearId) {
+            params.set('financial_year_id', String(data.selectedYearId));
+        }
+
+        window.open(
+            `/dashboard/export-payment-summary-pdf?${params.toString()}`,
+            '_blank',
+        );
+    }, [data.selectedYearId, paymentSummaryPeriod]);
+
+    const paymentSectionTitle =
+        paymentSummaryPeriod === 'daily'
+            ? 'Daily Payment'
+            : paymentSummaryPeriod === 'monthly'
+              ? 'Monthly Payment'
+              : 'Yearly Payment';
 
     // Initial data fetch for admin
     useEffect(() => {
@@ -322,11 +277,18 @@ export default function Dashboard({ data }: DashboardProps) {
         }
     }, [isAdmin, data.selectedYearId, fetchAdminDashboardData]);
 
-    // Handle period change
-    const handlePeriodChange = (value: string) => {
-        setSelectedSalesPeriod(value);
-        fetchSalespersonData(data.selectedYearId, value);
-    };
+    useEffect(() => {
+        if (!isAdmin) {
+            return;
+        }
+
+        fetchPaymentSummaryData(paymentSummaryPeriod, data.selectedYearId);
+    }, [
+        data.selectedYearId,
+        fetchPaymentSummaryData,
+        isAdmin,
+        paymentSummaryPeriod,
+    ]);
 
     // actions
     const actions: ActionType[] = ['handle-customer'];
@@ -364,77 +326,6 @@ export default function Dashboard({ data }: DashboardProps) {
             },
         },
     ];
-
-    const quotationConvertedBySalespersonColumns: ColumnDef<QuotationConvertedBySalespersonType>[] =
-        [
-            createSelectColumn<QuotationConvertedBySalespersonType>(),
-            {
-                accessorKey: 'name',
-                header: 'Sales Name',
-                meta: { exportable: true },
-            },
-            {
-                accessorKey: 'email',
-                header: 'Email',
-                meta: { exportable: true },
-            },
-            {
-                accessorKey: 'branch_name',
-                header: 'Branch',
-                meta: { exportable: true },
-            },
-            {
-                accessorKey: 'converted_quotation',
-                header: 'Total of Sales',
-                meta: { exportable: true },
-                cell: ({ row }) => (
-                    <span className="font-semibold">
-                        {row.getValue('converted_quotation')}
-                    </span>
-                ),
-            },
-            {
-                accessorKey: 'amount',
-                header: 'Amount',
-                meta: { exportable: true },
-                cell: ({ row }) => formatCurrency(row.original.amount),
-            },
-        ];
-
-    // const salesCustomerColumns: ColumnDef<UserSchema>[] = [
-    //     createSelectColumn<UserSchema>(),
-    //     { accessorKey: 'name', header: 'Name', meta: { exportable: true } },
-    //     { accessorKey: 'email', header: 'Email', meta: { exportable: true } },
-    //     {
-    //         accessorKey: 'contact',
-    //         header: 'Contact',
-    //         meta: { exportable: true },
-    //     },
-    //     {
-    //         accessorKey: 'status',
-    //         header: 'Status',
-    //         meta: { exportable: true },
-    //         cell: ({ row }) => {
-    //             const status = row.getValue('status') as string;
-    //             return (
-    //                 <span
-    //                     className={`rounded-full px-2 py-1 text-sm ${
-    //                         status === 'Unassigned'
-    //                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-    //                             : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-    //                     }`}
-    //                 >
-    //                     {status}
-    //                 </span>
-    //             );
-    //         },
-    //     },
-    //     {
-    //         accessorKey: 'assigned_sales',
-    //         header: 'Assigned To',
-    //         meta: { exportable: true },
-    //     },
-    // ];
 
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -534,154 +425,116 @@ export default function Dashboard({ data }: DashboardProps) {
                         </div>
                     )}
 
-                    {/* Admin: Revenue by Month */}
-                    {isAdmin && revenueByMonthData.length > 0 && (
-                        <div>
-                            <h2 className="mb-3 text-lg font-semibold">
-                                Revenue by Month
-                            </h2>
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6">
-                                {revenueByMonthData.map((month, index) => (
-                                    <Card
-                                        key={index}
-                                        className="gap-0 overflow-hidden bg-gradient-to-t from-primary/5 to-card py-0"
-                                    >
-                                        <div className="grid grid-cols-2 border-b">
-                                            <div className="border-r p-3 text-center text-base font-medium text-muted-foreground">
-                                                Monthly (#)
-                                            </div>
-                                            <div className="p-3 text-center text-base font-medium text-muted-foreground">
-                                                Monthly ($)
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 border-b">
-                                            <div className="text-md border-r p-3 text-center font-bold">
-                                                {month.count}
-                                            </div>
-                                            <div className="text-md p-3 text-center font-bold">
-                                                {formatCurrency(month.amount)}
-                                            </div>
-                                        </div>
-                                        <div className="p-3 text-center text-base text-muted-foreground">
-                                            {month.label}
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Admin: Income by Month Chart */}
-                    {isAdmin && (
-                        <IncomeByMonthChart
-                            data={incomeByMonthData}
-                            fiscalYear={data.fiscalYear}
-                            isLoading={isLoadingData}
-                        />
-                    )}
-
-                    {/* Admin: Sales FYTD Dashboard */}
+                    {/* Admin: Daily/Monthly/Yearly Payment */}
                     {isAdmin && (
                         <div>
-                            <div className="mb-3 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <h2 className="text-lg font-semibold">
-                                        Monthly Sales Closed By Salesperson
-                                    </h2>
-                                    {data.fiscalYear && (
-                                        <p className="text-base text-muted-foreground">
-                                            Fiscal Year: {data.fiscalYear}
-                                        </p>
-                                    )}
-                                </div>
-                                {salesPeriodOptionsData.length > 0 && (
-                                    <div className="flex items-center gap-2">
-                                        <Label
-                                            htmlFor="sales-period-select"
-                                            className="text-base font-medium"
-                                        >
-                                            Month:
-                                        </Label>
-                                        <Select
-                                            value={selectedSalesPeriod}
-                                            onValueChange={handlePeriodChange}
-                                        >
-                                            <SelectTrigger
-                                                id="sales-period-select"
-                                                className="w-[200px]"
-                                            >
-                                                <SelectValue placeholder="Select period" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {salesPeriodOptionsData.map(
-                                                    (option) => (
-                                                        <SelectItem
-                                                            key={option.value}
-                                                            value={option.value}
-                                                        >
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ),
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
-                                <DataTable
-                                    columns={
-                                        quotationConvertedBySalespersonColumns
-                                    }
-                                    data={quotationConvertedBySalespersonData}
-                                    actions={[]}
-                                    url={dashboard().url}
-                                    onAction={() => {}}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Sales: Customer List (Unassigned + Assigned to me) */}
-                    {/* {isSales && (
-                        <div>
-                            <div className="mb-3 flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-lg font-semibold">
-                                        Customer List
+                                        {paymentSectionTitle}
                                     </h2>
                                     <p className="text-base text-muted-foreground">
-                                        Unassigned customers and customers
-                                        assigned to you
+                                        Receipt payment breakdown by item
+                                        category ({' '}
+                                        {paymentSummaryData?.date_range_label ||
+                                            '-'}
+                                        )
                                     </p>
                                 </div>
-                                <Button asChild variant="outline">
-                                    <Link href={customerIndex().url}>
-                                        View All
-                                    </Link>
-                                </Button>
-                            </div>
-                            <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 md:min-h-min dark:border-sidebar-border not-dark:bg-white">
-                                <DataTable
-                                    columns={salesCustomerColumns}
-                                    data={data.customers || []}
-                                    actions={['view']}
-                                    url={customerIndex().url}
-                                    onAction={(action, row) => {
-                                        const userId = row?.id;
-                                        if (
-                                            userId !== undefined &&
-                                            action === 'view'
-                                        ) {
-                                            router.get(
-                                                customerShow(userId).url,
-                                            );
+
+                                <div className="flex items-center gap-2">
+                                    <Select
+                                        value={paymentSummaryPeriod}
+                                        onValueChange={(value) =>
+                                            setPaymentSummaryPeriod(
+                                                value as
+                                                    | 'daily'
+                                                    | 'monthly'
+                                                    | 'yearly',
+                                            )
                                         }
-                                    }}
-                                />
+                                    >
+                                        <SelectTrigger className="w-[150px]">
+                                            <SelectValue placeholder="Select period" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="daily">
+                                                Daily
+                                            </SelectItem>
+                                            <SelectItem value="monthly">
+                                                Monthly
+                                            </SelectItem>
+                                            <SelectItem value="yearly">
+                                                Yearly
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleExportPaymentSummaryPdf}
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        Export PDF
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                                {isLoadingPaymentSummary && (
+                                    <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                        <CardContent className="pt-6">
+                                            <p className="text-base text-muted-foreground">
+                                                Loading payment summary...
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {!isLoadingPaymentSummary &&
+                                    paymentSummaryData?.categories?.map(
+                                        (category) => (
+                                            <Card
+                                                key={category.category}
+                                                className="bg-gradient-to-t from-primary/5 to-card"
+                                            >
+                                                <CardHeader className="gap-1 pb-2">
+                                                    <CardTitle className="text-base font-semibold">
+                                                        {category.category}
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="pt-0">
+                                                    <p className="text-2xl font-bold">
+                                                        {formatCurrency(
+                                                            category.amount,
+                                                        )}
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {category.receipt_count}{' '}
+                                                        receipt rows
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        ),
+                                    )}
+
+                                {!isLoadingPaymentSummary &&
+                                    (!paymentSummaryData?.categories ||
+                                        paymentSummaryData.categories.length ===
+                                            0) && (
+                                        <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                            <CardContent className="pt-6">
+                                                <p className="text-base text-muted-foreground">
+                                                    No payment data found for
+                                                    the selected period.
+                                                </p>
+                                            </CardContent>
+                                        </Card>
+                                    )}
                             </div>
                         </div>
-                    )} */}
+                    )}
 
                     {/* Sales: Enquiry Dashboard */}
                     {isSales && data.enquiries && (
