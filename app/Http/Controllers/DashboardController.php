@@ -14,6 +14,7 @@ use App\Services\OrderService;
 use App\Services\ReligionService;
 use App\Services\SalesService;
 use App\Services\SupplierService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -165,44 +166,6 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get sales period options for a specific financial year
-     */
-    public function getSalesPeriodOptions(Request $request)
-    {
-        $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
-
-        if (! $selectedYear) {
-            return response()->json([
-                'options' => [],
-                'default' => 'full-year',
-            ]);
-        }
-
-        $periodData = $this->salesService->getSalesPeriodOptions($selectedYear);
-
-        return response()->json($periodData);
-    }
-
-    /**
-     * Get quotation converted by salesperson data
-     */
-    public function getQuotationConvertedBySalesperson(Request $request)
-    {
-        $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
-        $period = $request->input('period', 'full-year');
-
-        if (! $selectedYear) {
-            return response()->json([]);
-        }
-
-        $data = $this->salesService->getQuotationConvertedBySalesperson($period, $selectedYear);
-
-        return response()->json($data);
-    }
-
-    /**
      * Get sales dashboard data for a specific sales user
      */
     public function getSalesDashboardData(Request $request)
@@ -271,5 +234,37 @@ class DashboardController extends Controller
         $data = $this->salesService->getIncomeByMonth($selectedYear, $status);
 
         return response()->json($data);
+    }
+
+    public function getPaymentSummaryByPeriod(Request $request)
+    {
+        $period = (string) $request->input('period', 'daily');
+        $selectedYearId = $request->input('financial_year_id');
+
+        $data = $this->financialTransactionService->getPaymentCategorySummary(
+            $period,
+            $selectedYearId ? (int) $selectedYearId : null,
+        );
+
+        return response()->json($data);
+    }
+
+    public function exportPaymentSummaryPdf(Request $request)
+    {
+        $period = (string) $request->input('period', 'daily');
+        $selectedYearId = $request->input('financial_year_id');
+
+        $summary = $this->financialTransactionService->getPaymentCategorySummary(
+            $period,
+            $selectedYearId ? (int) $selectedYearId : null,
+        );
+
+        $pdf = Pdf::loadView('reports.dashboard-payment-summary', [
+            'summary' => $summary,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'dashboard-payment-'.$summary['period'].'-'.now()->format('Ymd_His').'.pdf';
+
+        return $pdf->download($filename);
     }
 }

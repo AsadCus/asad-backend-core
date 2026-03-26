@@ -487,6 +487,59 @@ class QuotationItemService
         });
     }
 
+    /**
+     * @return array{parent: array<string, mixed>, children: array<int, array<string, mixed>>}
+     */
+    public function quickCreateItemGroup(array $data): array
+    {
+        return DB::transaction(function () use ($data) {
+            $nextSortOrder = ((int) (QuotationItemMaster::max('sort_order') ?? 0)) + 1;
+
+            $parent = QuotationItemMaster::create([
+                'parent_id' => null,
+                'description' => $data['name'],
+                'is_header' => true,
+                'is_optional' => true,
+                'quantity' => null,
+                'rate' => null,
+                'sort_order' => $nextSortOrder,
+            ]);
+
+            $child = QuotationItemMaster::create([
+                'parent_id' => $parent->id,
+                'description' => $data['description'],
+                'is_header' => false,
+                'is_optional' => true,
+                'quantity' => $data['quantity'] ?? 1,
+                'rate' => $data['rate'] ?? 0,
+                'sort_order' => $nextSortOrder + 1,
+            ]);
+
+            return [
+                'parent' => [
+                    'id' => $parent->id,
+                    'parent_id' => $parent->parent_id,
+                    'description' => $parent->description,
+                    'is_header' => $parent->is_header,
+                    'is_optional' => $parent->is_optional,
+                    'quantity' => $this->formatService->cleanDecimal($parent->quantity),
+                    'rate' => $this->formatService->cleanDecimal($parent->rate),
+                    'sort_order' => $parent->sort_order,
+                ],
+                'children' => [[
+                    'id' => $child->id,
+                    'parent_id' => $child->parent_id,
+                    'description' => $child->description,
+                    'is_header' => $child->is_header,
+                    'is_optional' => $child->is_optional,
+                    'quantity' => $this->formatService->cleanDecimal($child->quantity),
+                    'rate' => $this->formatService->cleanDecimal($child->rate),
+                    'sort_order' => $child->sort_order,
+                ]],
+            ];
+        });
+    }
+
     public function deleteItem($id)
     {
         $item = QuotationItem::find($id);

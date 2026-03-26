@@ -359,11 +359,9 @@ export default function QuotationDetailSection({
                     />
 
                     <div className="space-y-3 rounded-md border p-4">
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">
-                                Sub Total
-                            </span>
-                            <span className="font-semibold">
+                        <div className="flex items-center justify-between text-base">
+                            <span className="font-semibold">Sub Total</span>
+                            <span className="font-medium">
                                 {formatCurrency(subtotalAmount)}
                             </span>
                         </div>
@@ -376,8 +374,7 @@ export default function QuotationDetailSection({
                                 extension.type === 'discount';
                             const hasCalculationInput =
                                 isCalculatedType || isDiscountType;
-                            const hasValueInput =
-                                hasCalculationInput;
+                            const hasValueInput = hasCalculationInput;
 
                             return (
                                 <div
@@ -597,7 +594,7 @@ export default function QuotationDetailSection({
                         </div>
 
                         <div className="flex items-center justify-between text-base">
-                            <span className="font-semibold">Total Amount</span>
+                            <span className="font-semibold">Grand Total</span>
                             <span className="text-lg font-bold text-primary">
                                 {formatCurrency(totalAmount)}
                             </span>

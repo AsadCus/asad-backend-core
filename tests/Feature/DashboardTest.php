@@ -2,6 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Customer;
+use App\Models\Invoice;
+use App\Models\Order;
+use App\Models\Quotation;
+use App\Models\QuotationItem;
+use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,5 +26,113 @@ class DashboardTest extends TestCase
         $this->actingAs($user = User::factory()->create());
 
         $this->get(route('dashboard'))->assertOk();
+    }
+
+    public function test_dashboard_payment_summary_groups_receipts_by_item_header_category(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-DB-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'converted',
+            'description' => 'Dashboard summary quotation',
+        ]);
+
+        $parentHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        $childHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => $parentHeader->id,
+            'description' => 'VIP Addons',
+            'is_header' => true,
+            'sort_order' => 2,
+        ]);
+
+        $leafItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => $childHeader->id,
+            'description' => 'Wheelchair Service',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 500,
+            'sort_order' => 3,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice #1',
+            'amount' => 550,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([$leafItem->id]);
+
+        Receipt::withoutEvents(function () use ($invoice): void {
+            Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => 550,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'transfer',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('period', 'daily');
+
+        $categories = collect($response->json('categories'));
+        $matchingCategory = $categories->first(
+            fn (array $category): bool => (float) ($category['amount'] ?? 0) === 550.0,
+        );
+
+        $this->assertNotNull($matchingCategory);
+        $this->assertStringContainsString(
+            'VIP Addons',
+            (string) ($matchingCategory['category'] ?? ''),
+        );
+    }
+
+    public function test_dashboard_payment_summary_pdf_export_returns_pdf_response(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $response = $this->get(route('dashboard.export-payment-summary-pdf', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_removed_salesperson_monthly_dashboard_endpoints_are_not_registered(): void
+    {
+        $routes = app('router')->getRoutes();
+
+        $this->assertNull($routes->getByName('dashboard.sales-period-options'));
+        $this->assertNull($routes->getByName('dashboard.quotation-converted-by-salesperson'));
     }
 }

@@ -55,12 +55,12 @@ Route::post('customer-confirmation/public/update/{encryptedId}', [CustomerConfir
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('dashboard/sales-period-options', [DashboardController::class, 'getSalesPeriodOptions'])->name('dashboard.sales-period-options');
-    Route::get('dashboard/quotation-converted-by-salesperson', [DashboardController::class, 'getQuotationConvertedBySalesperson'])->name('dashboard.quotation-converted-by-salesperson');
     Route::get('dashboard/sales-dashboard-data', [DashboardController::class, 'getSalesDashboardData'])->name('dashboard.sales-dashboard-data');
     Route::get('dashboard/fiscal-year-total-sales', [DashboardController::class, 'getFiscalYearTotalSales'])->name('dashboard.fiscal-year-total-sales');
     Route::get('dashboard/revenue-by-month', [DashboardController::class, 'getRevenueByMonth'])->name('dashboard.revenue-by-month');
     Route::get('dashboard/income-by-month', [DashboardController::class, 'getIncomeByMonth'])->name('dashboard.income-by-month');
+    Route::get('dashboard/payment-summary-by-period', [DashboardController::class, 'getPaymentSummaryByPeriod'])->name('dashboard.payment-summary-by-period');
+    Route::get('dashboard/export-payment-summary-pdf', [DashboardController::class, 'exportPaymentSummaryPdf'])->name('dashboard.export-payment-summary-pdf');
 
     // Notifications
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -125,6 +125,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('product-services', QuotationItemController::class)->names('quotation-items');
     Route::post('product-services/payment-methods', [QuotationItemController::class, 'storePaymentMethodMasters'])->name('quotation-items.payment-methods.store');
     Route::post('product-services/extensions', [QuotationItemController::class, 'storeExtensionMasters'])->name('quotation-items.extensions.store');
+    Route::post('product-services/quick-create', [QuotationItemController::class, 'quickCreate'])->name('quotation-items.quick-create');
     Route::get('product-services-list', [QuotationItemController::class, 'getQuotationItemMastersForOptions'])->name('quotation-items-list');
 
     // Order

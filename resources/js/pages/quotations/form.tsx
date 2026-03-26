@@ -25,6 +25,14 @@ interface QuotationFormProps {
     paymentMethods?: OptionType[];
     statuses?: OptionType[];
     customerConfirmations?: OptionType[];
+    activeCustomers?: Array<{
+        value: number;
+        label: string;
+        name: string;
+        contact?: string | null;
+        address?: string | null;
+        email?: string | null;
+    }>;
     quotationItems?: QuotationItemSchema[];
     quotationNotes?: NoteSchema[];
     extensionMasters?: Array<{
@@ -69,6 +77,19 @@ const EMPTY_PACKAGE_PRICES: PackagePrices = {
     triple: 0,
     quad: 0,
 };
+
+const UMRAH_PACKAGES_HEADER_LABEL = 'Umrah Packages';
+
+function isUmrahPackagesRootHeader(item: QuotationItemSchema): boolean {
+    return (
+        Boolean(item.is_header) &&
+        item.parent_id == null &&
+        item.parent_key == null &&
+        String(item.description ?? '')
+            .trim()
+            .toLowerCase() === UMRAH_PACKAGES_HEADER_LABEL.toLowerCase()
+    );
+}
 
 function getLinkedMemberIds(items: QuotationItemSchema[] = []): number[] {
     return Array.from(
@@ -140,6 +161,7 @@ export function QuotationForm({
     paymentMethods = [],
     statuses = [],
     customerConfirmations = [],
+    activeCustomers = [],
     quotationItems = [],
     quotationNotes = [],
     extensionMasters = [],
@@ -285,8 +307,20 @@ export function QuotationForm({
         [extensionMasters],
     );
 
+    const initialPaymentMethodRef = useRef(
+        String(defaultData.payment_method ?? ''),
+    );
+
     useEffect(() => {
         if (activeExtensionMasters.length === 0) {
+            return;
+        }
+
+        const currentPaymentMethod = String(data.payment_method ?? '');
+        const shouldSyncAutoExtensions =
+            !isEdit || currentPaymentMethod !== initialPaymentMethodRef.current;
+
+        if (!shouldSyncAutoExtensions) {
             return;
         }
 
@@ -366,7 +400,7 @@ export function QuotationForm({
                 extensions: mergedExtensions,
             };
         });
-    }, [activeExtensionMasters, data.payment_method, setData]);
+    }, [activeExtensionMasters, data.payment_method, isEdit, setData]);
 
     // customer
     useEffect(() => {
@@ -413,8 +447,12 @@ export function QuotationForm({
             );
 
             // Keep existing items that are not linked to members (manual items)
-            const manualItems = existingItems.filter(
+            const nonMemberItems = existingItems.filter(
                 (item) => !item.customer_confirmation_member_id,
+            );
+
+            const existingUmrahHeader = nonMemberItems.find((item) =>
+                isUmrahPackagesRootHeader(item),
             );
 
             const getRateForPlan = (sharingPlan?: string | null) => {
@@ -425,6 +463,61 @@ export function QuotationForm({
                 if (sharingPlan === 'quad') return prices.quad;
                 return 0;
             };
+
+            if (selectedMembers.length === 0) {
+                if (!existingUmrahHeader) {
+                    return nonMemberItems;
+                }
+
+                const hasNonMemberChildren = nonMemberItems.some(
+                    (item) =>
+                        item._key !== existingUmrahHeader._key &&
+                        (item.parent_key === existingUmrahHeader._key ||
+                            (existingUmrahHeader.id != null &&
+                                item.parent_id === existingUmrahHeader.id)),
+                );
+
+                if (hasNonMemberChildren) {
+                    return nonMemberItems;
+                }
+
+                return nonMemberItems.filter(
+                    (item) => item._key !== existingUmrahHeader._key,
+                );
+            }
+
+            const umrahHeader: QuotationItemSchema = existingUmrahHeader
+                ? {
+                      ...existingUmrahHeader,
+                      _key:
+                          existingUmrahHeader._key ||
+                          (existingUmrahHeader.id
+                              ? `id-${existingUmrahHeader.id}`
+                              : nanoid()),
+                      description: UMRAH_PACKAGES_HEADER_LABEL,
+                      parent_id: null,
+                      parent_key: null,
+                      is_header: true,
+                      quantity: null,
+                      rate: null,
+                      amount: null,
+                  }
+                : {
+                      _key: nanoid(),
+                      id: undefined,
+                      quotation_id: undefined,
+                      customer_confirmation_member_id: null,
+                      sharing_plan: null,
+                      parent_id: null,
+                      parent_key: null,
+                      description: UMRAH_PACKAGES_HEADER_LABEL,
+                      is_header: true,
+                      is_optional: false,
+                      quantity: null,
+                      rate: null,
+                      amount: null,
+                      sort_order: 1,
+                  };
 
             const memberItems = selectedMembers.map((member, index) => {
                 const existingItem = existingItemByMemberId.get(
@@ -441,7 +534,9 @@ export function QuotationForm({
                                 : nanoid()),
                         customer_confirmation_member_id: member.member_id,
                         sharing_plan: member.sharing_plan,
-                        sort_order: index + 1,
+                        parent_id: umrahHeader.id ?? null,
+                        parent_key: umrahHeader._key,
+                        sort_order: index + 2,
                     };
                 }
 
@@ -453,20 +548,30 @@ export function QuotationForm({
                     quotation_id: undefined,
                     customer_confirmation_member_id: member.member_id,
                     sharing_plan: member.sharing_plan,
-                    parent_id: null,
-                    parent_key: null,
+                    parent_id: umrahHeader.id ?? null,
+                    parent_key: umrahHeader._key,
                     description: `${member.name} - ${member.sharing_plan ? `${member.sharing_plan.charAt(0).toUpperCase()}${member.sharing_plan.slice(1)}` : 'Standard'} sharing`,
                     is_header: false,
                     is_optional: false,
                     quantity: 1,
                     rate: rate,
                     amount: rate,
-                    sort_order: index + 1,
+                    sort_order: index + 2,
                 };
             });
 
-            // Combine manual items with member items
-            return [...memberItems, ...manualItems];
+            const remainingNonMemberItems = nonMemberItems.filter(
+                (item) => item._key !== umrahHeader._key,
+            );
+
+            return [
+                umrahHeader,
+                ...memberItems,
+                ...remainingNonMemberItems,
+            ].map((item, index) => ({
+                ...item,
+                sort_order: index + 1,
+            }));
         },
         [availableMembers, packagePrices],
     );
@@ -638,15 +743,41 @@ export function QuotationForm({
 
         setData((prev) => ({
             ...prev,
+            items: (() => {
+                const nonMemberItems = (prev.items ?? []).filter(
+                    (item) => !item.customer_confirmation_member_id,
+                );
+
+                const umrahHeader = nonMemberItems.find((item) =>
+                    isUmrahPackagesRootHeader(item),
+                );
+
+                if (!umrahHeader) {
+                    return nonMemberItems;
+                }
+
+                const hasChildren = nonMemberItems.some(
+                    (item) =>
+                        item._key !== umrahHeader._key &&
+                        (item.parent_key === umrahHeader._key ||
+                            (umrahHeader.id != null &&
+                                item.parent_id === umrahHeader.id)),
+                );
+
+                if (hasChildren) {
+                    return nonMemberItems;
+                }
+
+                return nonMemberItems.filter(
+                    (item) => item._key !== umrahHeader._key,
+                );
+            })(),
             customer_confirmation_id: null,
             package_name: '',
             package_price_single: 0,
             package_price_double: 0,
             package_price_triple: 0,
             package_price_quad: 0,
-            items: (prev.items ?? []).filter(
-                (item) => !item.customer_confirmation_member_id,
-            ),
         }));
     }, [setData]);
 
@@ -685,6 +816,40 @@ export function QuotationForm({
 
         return linkedMemberIdsFromItems;
     }, [selectedMemberIds, linkedMemberIdsFromItems]);
+
+    const selectedAvailableMembers = useMemo(
+        () =>
+            availableMembers.filter((member) =>
+                effectiveSelectedMemberIds.includes(member.member_id),
+            ),
+        [availableMembers, effectiveSelectedMemberIds],
+    );
+
+    const customerOptions = useMemo(() => {
+        if (data.customer_confirmation_id) {
+            return selectedAvailableMembers.map((member) => ({
+                label: member.name,
+                value: String(member.member_id),
+            }));
+        }
+
+        return activeCustomers.map((customer) => ({
+            label: customer.label,
+            value: String(customer.value),
+        }));
+    }, [
+        activeCustomers,
+        data.customer_confirmation_id,
+        selectedAvailableMembers,
+    ]);
+
+    const selectedCustomerValue = useMemo(() => {
+        if (data.customer_confirmation_id) {
+            return handlerMemberId ? String(handlerMemberId) : '';
+        }
+
+        return data.customer_id ? String(data.customer_id) : '';
+    }, [data.customer_confirmation_id, data.customer_id, handlerMemberId]);
 
     useEffect(() => {
         if (
@@ -914,9 +1079,48 @@ export function QuotationForm({
         ],
     );
 
-    const handleHandlerChange = useCallback((memberId: number) => {
-        setHandlerMemberId(memberId);
-    }, []);
+    const handleCustomerChange = useCallback(
+        (value: string | number) => {
+            if (data.customer_confirmation_id) {
+                const memberId = Number(value);
+
+                if (Number.isNaN(memberId) || memberId <= 0) {
+                    setHandlerMemberId(null);
+
+                    return;
+                }
+
+                setHandlerMemberId(memberId);
+
+                return;
+            }
+
+            const customerId = Number(value);
+
+            if (Number.isNaN(customerId) || customerId <= 0) {
+                setData((prev) => ({
+                    ...prev,
+                    customer_id: null,
+                }));
+
+                return;
+            }
+
+            const customer = activeCustomers.find(
+                (option) => Number(option.value) === customerId,
+            );
+
+            setData((prev) => ({
+                ...prev,
+                customer_id: customerId,
+                customer_name: customer?.name ?? prev.customer_name,
+                customer_contact: customer?.contact ?? prev.customer_contact,
+                customer_address: customer?.address ?? prev.customer_address,
+                customer_email: customer?.email ?? prev.customer_email,
+            }));
+        },
+        [activeCustomers, data.customer_confirmation_id, setData],
+    );
 
     useEffect(() => {
         if (!isEdit) {
@@ -1037,18 +1241,19 @@ export function QuotationForm({
                     <QuotationInformationSection
                         data={data}
                         isView={isView}
-                        disableCustomerConfirmation={!isCreate}
+                        disableCustomerConfirmation={isView}
                         setData={setData}
                         renderError={renderError}
                         customerConfirmations={customerConfirmations}
                         availableMembers={availableMembers}
                         selectedMemberIds={effectiveSelectedMemberIds}
-                        handlerMemberId={handlerMemberId}
+                        customerOptions={customerOptions}
+                        selectedCustomerValue={selectedCustomerValue}
                         onCustomerConfirmationChange={
                             handleCustomerConfirmationChange
                         }
                         onSelectedMembersChange={handleSelectedMembersChange}
-                        onHandlerChange={handleHandlerChange}
+                        onCustomerChange={handleCustomerChange}
                         status={getQuotationSectionStatus(
                             'customer_and_quotation_information',
                         )}

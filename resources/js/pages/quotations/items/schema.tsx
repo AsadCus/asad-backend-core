@@ -21,9 +21,70 @@ export const quotationItemSchema = z.object({
 
 export type QuotationItemSchema = z.infer<typeof quotationItemSchema>;
 
-export const quotationItemsSchema = z.object({
-    items: z.array(quotationItemSchema),
-});
+export const quotationItemsSchema = z
+    .object({
+        items: z.array(quotationItemSchema),
+    })
+    .superRefine((data, ctx) => {
+        const rows = data.items ?? [];
+
+        const byKey = new Map<
+            string,
+            { item: QuotationItemSchema; index: number }
+        >();
+        const byId = new Map<
+            number,
+            { item: QuotationItemSchema; index: number }
+        >();
+
+        rows.forEach((item, index) => {
+            if (item._key) {
+                byKey.set(item._key, { item, index });
+            }
+
+            if (typeof item.id === 'number') {
+                byId.set(item.id, { item, index });
+            }
+        });
+
+        const hasChild = (target: QuotationItemSchema) =>
+            rows.some(
+                (row) =>
+                    row.parent_key === target._key ||
+                    (target.id != null && row.parent_id === target.id),
+            );
+
+        rows.forEach((item, index) => {
+            if (item.is_header && !hasChild(item)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['items', index, 'description'],
+                    message:
+                        'Each header item must have at least one child item.',
+                });
+            }
+
+            if (!item.is_header && hasChild(item)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['items', index, 'description'],
+                    message: 'Only header items can be parent items.',
+                });
+            }
+
+            const parentMatch =
+                (item.parent_key ? byKey.get(item.parent_key) : undefined) ??
+                (item.parent_id != null ? byId.get(item.parent_id) : undefined);
+
+            if (parentMatch && !parentMatch.item.is_header) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['items', index, 'parent_key'],
+                    message: 'Parent item must be a header item.',
+                });
+            }
+        });
+    });
 
 export type QuotationItemsSchema = z.infer<typeof quotationItemsSchema>;
 

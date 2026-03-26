@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import {
     Command,
     CommandEmpty,
@@ -7,6 +8,16 @@ import {
     CommandList,
 } from '@/components/ui/command';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
     Popover,
     PopoverContent,
     PopoverTrigger,
@@ -14,21 +25,22 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { quotationItemsList } from '@/routes';
-import { Check, FileText, Folder } from 'lucide-react';
+import { Check, FileText, Folder, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { ProperInput } from '../../../../components/proper-input';
 import { QuotationItemSchema } from '../schema';
 
 export type ItemSelectionPayload =
     | {
-        type: 'single';
-        item: QuotationItemSchema;
-    }
+          type: 'single';
+          item: QuotationItemSchema;
+      }
     | {
-        type: 'group';
-        parent: QuotationItemSchema;
-        children: QuotationItemSchema[];
-    };
+          type: 'group';
+          parent: QuotationItemSchema;
+          children: QuotationItemSchema[];
+      };
 
 interface ItemDescriptionComboboxProps {
     value: string;
@@ -52,9 +64,15 @@ export default function ItemDescriptionCombobox({
     className,
 }: ItemDescriptionComboboxProps) {
     const [open, setOpen] = useState(false);
+    const [openCreateDialog, setOpenCreateDialog] = useState(false);
     const [options, setOptions] = useState<QuotationItemSchema[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
     const [searchValue, setSearchValue] = useState('');
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemDescription, setNewItemDescription] = useState('');
+    const [newItemQuantity, setNewItemQuantity] = useState('1');
+    const [newItemRate, setNewItemRate] = useState('0');
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
@@ -89,10 +107,95 @@ export default function ItemDescriptionCombobox({
         setSearchValue(search);
     };
 
-    const handleUseCustomText = () => {
-        onChange(searchValue);
-        setOpen(false);
-        setSearchValue('');
+    const handleOpenCreateDialog = () => {
+        setNewItemName(searchValue || '');
+        setNewItemDescription(searchValue || '');
+        setNewItemQuantity('1');
+        setNewItemRate('0');
+        setOpenCreateDialog(true);
+    };
+
+    const handleCreateItem = async () => {
+        if (!newItemName.trim()) {
+            toast.error('Name is required.');
+
+            return;
+        }
+
+        if (!newItemDescription.trim()) {
+            toast.error('Description is required.');
+
+            return;
+        }
+
+        setIsCreating(true);
+
+        try {
+            const csrfToken =
+                document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute('content') ?? '';
+
+            const response = await fetch('/product-services/quick-create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                },
+                body: JSON.stringify({
+                    name: newItemName.trim(),
+                    description: newItemDescription.trim(),
+                    quantity: Number(newItemQuantity || 1),
+                    rate: Number(newItemRate || 0),
+                }),
+            });
+
+            if (!response.ok) {
+                const errorPayload = await response
+                    .json()
+                    .catch(() => null as unknown);
+                const firstError =
+                    errorPayload &&
+                    typeof errorPayload === 'object' &&
+                    'errors' in errorPayload &&
+                    errorPayload.errors &&
+                    typeof errorPayload.errors === 'object'
+                        ? Object.values(
+                              errorPayload.errors as Record<string, string[]>,
+                          )?.[0]?.[0]
+                        : null;
+
+                throw new Error(
+                    firstError || 'Failed to create product/service item.',
+                );
+            }
+
+            const payload = (await response.json()) as {
+                parent: QuotationItemSchema;
+                children: QuotationItemSchema[];
+            };
+
+            await fetchItems();
+
+            handleSelect({
+                type: 'group',
+                parent: payload.parent,
+                children: payload.children ?? [],
+            });
+
+            setOpenCreateDialog(false);
+            toast.success('Product/service item created.');
+        } catch (error) {
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to create product/service item.',
+            );
+        } finally {
+            setIsCreating(false);
+        }
     };
 
     const groupedItems = options.reduce(
@@ -155,119 +258,118 @@ export default function ItemDescriptionCombobox({
     }
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <div 
-                    onClick={(e) => {
-                        if (!disabled && !open) {
-                            e.preventDefault();
-                            setOpen(true);
-                        }
-                    }}
-                    onMouseDown={(e) => {
-                        if (!disabled && !open) {
-                            e.preventDefault();
-                        }
-                    }}
-                >
-                    <ProperInput
-                        value={value}
-                        disabled={disabled}
-                        textarea={!isHeader}
-                        size="compact"
-                        className={cn(isHeader && 'font-semibold', className)}
-                        placeholder="Select item or type..."
-                        onCommit={(v) => {
-                            if (v !== value) {
-                                onChange(v);
+        <>
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <div
+                        onClick={(e) => {
+                            if (!disabled && !open) {
+                                e.preventDefault();
+                                setOpen(true);
                             }
                         }}
-                    />
-                </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-[500px] p-0" align="start">
-                <Command shouldFilter={false}>
-                    <CommandInput
-                        placeholder="Search or type new description..."
-                        value={searchValue}
-                        onValueChange={handleSearchChange}
-                    />
-                    <CommandList>
-                        <CommandEmpty>
-                            {loading ? (
-                                <div className="py-6 text-center text-base">
-                                    Loading items...
-                                </div>
-                            ) : (
-                                <div className="py-6 text-center text-base">
-                                    <p className="text-muted-foreground">
-                                        {searchValue
-                                            ? 'No matching items found.'
-                                            : 'No items available.'}
-                                    </p>
-                                    {searchValue && (
-                                        <p className="mt-2 text-sm">
-                                            Click below to use custom text
-                                        </p>
-                                    )}
-                                </div>
+                        onMouseDown={(e) => {
+                            if (!disabled && !open) {
+                                e.preventDefault();
+                            }
+                        }}
+                    >
+                        <ProperInput
+                            value={value}
+                            // disabled={disabled}
+                            disabled
+                            textarea={!isHeader}
+                            size="compact"
+                            className={cn(
+                                isHeader && 'font-semibold',
+                                className,
                             )}
-                        </CommandEmpty>
+                            placeholder="Select itemsss"
+                            onCommit={() => {
+                                setOpen(true);
+                            }}
+                        />
+                    </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-[500px] p-0" align="start">
+                    <Command shouldFilter={false}>
+                        <CommandInput
+                            placeholder="Search item..."
+                            value={searchValue}
+                            onValueChange={handleSearchChange}
+                        />
+                        <CommandList>
+                            <CommandEmpty>
+                                {loading ? (
+                                    <div className="py-6 text-center text-base">
+                                        Loading items...
+                                    </div>
+                                ) : (
+                                    <div className="py-6 text-center text-base">
+                                        <p className="text-muted-foreground">
+                                            {searchValue
+                                                ? 'No matching items found.'
+                                                : 'No items available.'}
+                                        </p>
+                                    </div>
+                                )}
+                            </CommandEmpty>
 
-                        {filteredGroups.length > 0 && (
-                            <CommandGroup heading="Available Items">
-                                {filteredGroups.map(([parentId, group]) => {
-                                    const hasChildren =
-                                        group.children.length > 0;
+                            {filteredGroups.length > 0 && (
+                                <CommandGroup heading="Available Items">
+                                    {filteredGroups.map(([parentId, group]) => {
+                                        const hasChildren =
+                                            group.children.length > 0;
 
-                                    const parent = group.parent;
-                                    const parentMatches =
-                                        !searchValue ||
-                                        parent?.description
-                                            ?.toLowerCase()
-                                            .includes(
-                                                searchValue.toLowerCase(),
-                                            );
+                                        const parent = group.parent;
+                                        const parentMatches =
+                                            !searchValue ||
+                                            parent?.description
+                                                ?.toLowerCase()
+                                                .includes(
+                                                    searchValue.toLowerCase(),
+                                                );
 
-                                    return (
-                                        <div key={parentId}>
-                                            {parent &&
-                                                parentMatches &&
-                                                !isChild && (
-                                                    <CommandItem
-                                                        value={`parent-${parent.id}-${parent.description}`}
-                                                        onSelect={() => {
-                                                            return handleSelect(
-                                                                {
-                                                                    type: 'group',
-                                                                    parent: parent,
-                                                                    children:
-                                                                        group.children,
-                                                                },
-                                                            );
-                                                        }}
-                                                        className="cursor-pointer"
-                                                    >
-                                                        <div className="flex w-full items-start gap-2">
-                                                            {hasChildren ? (
-                                                                <Folder className="h-4 w-4 shrink-0 text-blue-500" />
-                                                            ) : (
-                                                                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                                            )}
-                                                            <div className="flex flex-1 flex-col">
-                                                                <span className="font-medium">
+                                        return (
+                                            <div key={parentId}>
+                                                {parent &&
+                                                    parentMatches &&
+                                                    !isChild && (
+                                                        <CommandItem
+                                                            value={`parent-${parent.id}-${parent.description}`}
+                                                            onSelect={() => {
+                                                                return handleSelect(
                                                                     {
-                                                                        parent.description
-                                                                    }
-                                                                </span>
+                                                                        type: 'group',
+                                                                        parent: parent,
+                                                                        children:
+                                                                            group.children,
+                                                                    },
+                                                                );
+                                                            }}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            <div className="flex w-full items-center gap-2">
+                                                                {hasChildren ? (
+                                                                    <Folder className="h-4 w-4 shrink-0 text-primary" />
+                                                                ) : (
+                                                                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                                )}
+                                                                <div className="flex flex-1 flex-col">
+                                                                    <span className="font-medium">
+                                                                        {
+                                                                            parent.description
+                                                                        }
+                                                                    </span>
 
-                                                                {(parent.quantity ||
-                                                                    parent.rate) && (
+                                                                    {(parent.quantity ||
+                                                                        parent.rate) && (
                                                                         <span className="text-sm text-muted-foreground">
                                                                             Qty:{' '}
                                                                             {parent.quantity ||
                                                                                 '-'}{' '}
-                                                                            | Cost:
+                                                                            |
+                                                                            Cost:
                                                                             $
                                                                             {parent.rate ||
                                                                                 '-'}
@@ -277,113 +379,121 @@ export default function ItemDescriptionCombobox({
                                                                                 ' | Optional'}
                                                                         </span>
                                                                     )}
-                                                            </div>
-                                                            <Check
-                                                                className={cn(
-                                                                    'h-4 w-4 shrink-0',
-                                                                    value ===
-                                                                        parent.description
-                                                                        ? 'opacity-100'
-                                                                        : 'opacity-0',
-                                                                )}
-                                                            />
-                                                        </div>
-                                                    </CommandItem>
-                                                )}
-
-                                            {!isChild &&
-                                                hasChildren &&
-                                                group.children.map((child) => {
-                                                    const childMatches =
-                                                        !searchValue ||
-                                                        child.description
-                                                            ?.toLowerCase()
-                                                            .includes(
-                                                                searchValue.toLowerCase(),
-                                                            );
-
-                                                    if (!childMatches)
-                                                        return null;
-
-                                                    return (
-                                                        <CommandItem
-                                                            key={child.id}
-                                                            value={`child-${child.id}-${child.description}`}
-                                                            onSelect={() =>
-                                                                handleSelect({
-                                                                    type: 'single',
-                                                                    item: child,
-                                                                })
-                                                            }
-                                                            className="cursor-pointer pl-8"
-                                                        >
-                                                            <div className="flex w-full items-center gap-2">
-                                                                <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                                                <div className="flex flex-1 flex-col">
-                                                                    <span className="text-base">
-                                                                        {
-                                                                            child.description
-                                                                        }
-                                                                    </span>
-                                                                    {(child.quantity ||
-                                                                        child.rate) && (
-                                                                            <span className="text-sm text-muted-foreground">
-                                                                                Qty:{' '}
-                                                                                {child.quantity ||
-                                                                                    '-'}{' '}
-                                                                                |
-                                                                                Cost:
-                                                                                $
-                                                                                {child.rate ||
-                                                                                    '-'}
-                                                                                {child.is_optional &&
-                                                                                    ' | Optional'}
-                                                                            </span>
-                                                                        )}
                                                                 </div>
                                                                 <Check
                                                                     className={cn(
                                                                         'h-4 w-4 shrink-0',
                                                                         value ===
-                                                                            child.description
+                                                                            parent.description
                                                                             ? 'opacity-100'
                                                                             : 'opacity-0',
                                                                     )}
                                                                 />
                                                             </div>
                                                         </CommandItem>
-                                                    );
-                                                })}
+                                                    )}
 
-                                            {isChild &&
-                                                parent &&
-                                                !hasChildren &&
-                                                parentMatches && (
-                                                    <CommandItem
-                                                        value={`parent-${parent.id}-${parent.description}`}
-                                                        onSelect={() =>
-                                                            handleSelect({
-                                                                type: 'single',
-                                                                item: parent,
-                                                            })
-                                                        }
-                                                        className="cursor-pointer"
-                                                    >
-                                                        <div className="flex w-full items-center gap-2">
-                                                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                                            <div className="flex flex-1 flex-col">
-                                                                <span className="font-medium">
-                                                                    {
-                                                                        parent.description
+                                                {!isChild &&
+                                                    hasChildren &&
+                                                    group.children.map(
+                                                        (child) => {
+                                                            const childMatches =
+                                                                !searchValue ||
+                                                                child.description
+                                                                    ?.toLowerCase()
+                                                                    .includes(
+                                                                        searchValue.toLowerCase(),
+                                                                    );
+
+                                                            if (!childMatches) {
+                                                                return null;
+                                                            }
+
+                                                            return (
+                                                                <CommandItem
+                                                                    key={
+                                                                        child.id
                                                                     }
-                                                                </span>
-                                                                {(parent.quantity ||
-                                                                    parent.rate) && (
+                                                                    value={`child-${child.id}-${child.description}`}
+                                                                    onSelect={() =>
+                                                                        handleSelect(
+                                                                            {
+                                                                                type: 'single',
+                                                                                item: child,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                    className="cursor-pointer pl-8"
+                                                                >
+                                                                    <div className="flex w-full items-center gap-2">
+                                                                        <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                                                        <div className="flex flex-1 flex-col">
+                                                                            <span className="text-base">
+                                                                                {
+                                                                                    child.description
+                                                                                }
+                                                                            </span>
+                                                                            {(child.quantity ||
+                                                                                child.rate) && (
+                                                                                <span className="text-sm text-muted-foreground">
+                                                                                    Qty:{' '}
+                                                                                    {child.quantity ||
+                                                                                        '-'}{' '}
+                                                                                    |
+                                                                                    Cost:
+                                                                                    $
+                                                                                    {child.rate ||
+                                                                                        '-'}
+                                                                                    {child.is_optional &&
+                                                                                        ' | Optional'}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <Check
+                                                                            className={cn(
+                                                                                'h-4 w-4 shrink-0',
+                                                                                value ===
+                                                                                    child.description
+                                                                                    ? 'opacity-100'
+                                                                                    : 'opacity-0',
+                                                                            )}
+                                                                        />
+                                                                    </div>
+                                                                </CommandItem>
+                                                            );
+                                                        },
+                                                    )}
+
+                                                {isChild &&
+                                                    parent &&
+                                                    !hasChildren &&
+                                                    parentMatches && (
+                                                        <CommandItem
+                                                            value={`parent-${parent.id}-${parent.description}`}
+                                                            onSelect={() =>
+                                                                handleSelect({
+                                                                    type: 'single',
+                                                                    item: parent,
+                                                                })
+                                                            }
+                                                            className="cursor-pointer"
+                                                        >
+                                                            <div className="flex w-full items-center gap-2">
+                                                                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                                <div className="flex flex-1 flex-col">
+                                                                    <span className="font-medium">
+                                                                        {
+                                                                            parent.description
+                                                                        }
+                                                                    </span>
+                                                                    {(parent.quantity ||
+                                                                        parent.rate) && (
                                                                         <span className="text-sm text-muted-foreground">
                                                                             Qty:{' '}
                                                                             {parent.quantity ||
                                                                                 '-'}{' '}
-                                                                            | Cost:
+                                                                            |
+                                                                            Cost:
                                                                             $
                                                                             {parent.rate ||
                                                                                 '-'}
@@ -391,48 +501,142 @@ export default function ItemDescriptionCombobox({
                                                                                 ' | Optional'}
                                                                         </span>
                                                                     )}
+                                                                </div>
+                                                                <Check
+                                                                    className={cn(
+                                                                        'h-4 w-4 shrink-0',
+                                                                        value ===
+                                                                            parent.description
+                                                                            ? 'opacity-100'
+                                                                            : 'opacity-0',
+                                                                    )}
+                                                                />
                                                             </div>
-                                                            <Check
-                                                                className={cn(
-                                                                    'h-4 w-4 shrink-0',
-                                                                    value ===
-                                                                        parent.description
-                                                                        ? 'opacity-100'
-                                                                        : 'opacity-0',
-                                                                )}
-                                                            />
-                                                        </div>
-                                                    </CommandItem>
-                                                )}
-                                        </div>
-                                    );
-                                })}
-                            </CommandGroup>
-                        )}
-
-                        {searchValue && (
-                            <>
-                                <Separator className="my-1" />
-                                <CommandGroup>
-                                    <CommandItem
-                                        value={`custom-${searchValue}`}
-                                        onSelect={handleUseCustomText}
-                                        className="cursor-pointer"
-                                    >
-                                        <div className="flex flex-1 items-center gap-2">
-                                            <FileText className="h-4 w-4 text-primary" />
-                                            <span className="text-base">
-                                                Use custom:{' '}
-                                                <strong>"{searchValue}"</strong>
-                                            </span>
-                                        </div>
-                                    </CommandItem>
+                                                        </CommandItem>
+                                                    )}
+                                            </div>
+                                        );
+                                    })}
                                 </CommandGroup>
-                            </>
-                        )}
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
+                            )}
+
+                            <Separator className="my-1" />
+                            <CommandGroup>
+                                <CommandItem
+                                    value={`create-item-${searchValue || 'new'}`}
+                                    onSelect={handleOpenCreateDialog}
+                                    className="cursor-pointer"
+                                >
+                                    <div className="flex flex-1 items-center gap-2">
+                                        <Plus className="h-4 w-4 text-primary" />
+                                        <span className="text-base">
+                                            Create product/service
+                                        </span>
+                                    </div>
+                                </CommandItem>
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+
+            <Dialog
+                open={openCreateDialog}
+                onOpenChange={(nextOpen) => {
+                    if (!isCreating) {
+                        setOpenCreateDialog(nextOpen);
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create Product/Service</DialogTitle>
+                        <DialogDescription>
+                            This creates one item header and one child item.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label htmlFor="new-item-name">Name</Label>
+                            <Input
+                                id="new-item-name"
+                                value={newItemName}
+                                onChange={(event) =>
+                                    setNewItemName(event.target.value)
+                                }
+                                placeholder="Item header"
+                                disabled={isCreating}
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label htmlFor="new-item-description">
+                                Description
+                            </Label>
+                            <Input
+                                id="new-item-description"
+                                value={newItemDescription}
+                                onChange={(event) =>
+                                    setNewItemDescription(event.target.value)
+                                }
+                                placeholder="Child item description"
+                                disabled={isCreating}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label htmlFor="new-item-quantity">
+                                    Quantity
+                                </Label>
+                                <Input
+                                    id="new-item-quantity"
+                                    type="number"
+                                    step="any"
+                                    value={newItemQuantity}
+                                    onChange={(event) =>
+                                        setNewItemQuantity(event.target.value)
+                                    }
+                                    disabled={isCreating}
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label htmlFor="new-item-rate">Cost</Label>
+                                <Input
+                                    id="new-item-rate"
+                                    type="number"
+                                    step="any"
+                                    value={newItemRate}
+                                    onChange={(event) =>
+                                        setNewItemRate(event.target.value)
+                                    }
+                                    disabled={isCreating}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isCreating}
+                            onClick={() => setOpenCreateDialog(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={isCreating}
+                            onClick={handleCreateItem}
+                        >
+                            {isCreating ? 'Creating...' : 'Create'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }

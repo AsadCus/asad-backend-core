@@ -17,6 +17,14 @@ import {
 interface CreateQuotationProps {
     data: {
         customerConfirmations: [];
+        activeCustomers?: Array<{
+            value: number;
+            label: string;
+            name: string;
+            contact?: string | null;
+            address?: string | null;
+            email?: string | null;
+        }>;
         quotationItems: [];
         quotationNotes: [];
         paymentMethods?: { label: string; value: string }[];
@@ -69,6 +77,7 @@ export default function CreateQuotation({
                         paymentMethods={data.paymentMethods ?? paymentMethods}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
+                        activeCustomers={data.activeCustomers ?? []}
                         quotationItems={data.quotationItems}
                         quotationNotes={data.quotationNotes}
                         extensionMasters={data.quotationExtensionMasters}

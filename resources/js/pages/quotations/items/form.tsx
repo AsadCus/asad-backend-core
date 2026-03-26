@@ -140,26 +140,45 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     const normalizeSortOrder = (list: T[]) =>
         list.map((item, i) => ({ ...item, sort_order: i + 1 })) as T[];
 
+    const buildNewChildItem = (
+        parentKey: string,
+        parentId: number | null | undefined,
+        optionalValue: boolean,
+    ) => ({
+        _key: nanoid(),
+        id: undefined,
+        description: '',
+        parent_id: parentId ?? null,
+        parent_key: parentKey,
+        quantity: 1,
+        rate: '',
+        amount: '',
+        is_header: false,
+        is_optional: optionalValue,
+        sort_order: 0,
+    });
+
     // Actions
     const addItem = () => {
-        const baseNewItem = {
-            _key: nanoid(),
+        const optionalValue = showOptionalColumn;
+        const headerKey = nanoid();
+        const newHeader = {
+            _key: headerKey,
             id: undefined,
             description: '',
             parent_id: null,
-            quantity: 1,
-            rate: '',
-            amount: '',
-            is_header: false,
-            is_optional: false,
+            parent_key: null,
+            quantity: null,
+            rate: null,
+            amount: null,
+            is_header: true,
+            is_optional: optionalValue,
             sort_order: items.length + 1,
         };
 
-        const newItem = showOptionalColumn
-            ? { ...baseNewItem, is_optional: false, parent_key: null }
-            : baseNewItem;
+        const newChild = buildNewChildItem(headerKey, null, optionalValue);
 
-        onChange(normalizeSortOrder([...items, newItem as T]));
+        onChange(normalizeSortOrder([...items, newHeader as T, newChild as T]));
     };
 
     // const insertBelow = (index: number, asHeader = false) => {
@@ -182,31 +201,51 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     //     onChange(normalizeSortOrder(next));
     // };
 
-    const insertChild = (index: number) => {
+    const insertItem = (index: number) => {
         const parent = items[index];
 
-        if (!parent.id && parent.parent_key) return;
+        if (!parent.is_header) return;
 
-        const baseChild = {
-            _key: nanoid(),
-            id: undefined,
-            description: '',
-            parent_id: parent.id,
-            parent_key: parent._key,
-            quantity: 1,
-            rate: '',
-            amount: '',
-            is_header: false,
-            is_optional: false,
-            sort_order: 0,
-        };
-
-        const child = showOptionalColumn
-            ? { ...baseChild, is_optional: false }
-            : baseChild;
+        const child = buildNewChildItem(
+            parent._key,
+            parent.id,
+            showOptionalColumn,
+        );
 
         const next = [...items];
         next.splice(index + 1, 0, child as T);
+
+        onChange(normalizeSortOrder(next));
+    };
+
+    const insertItemWithHeader = (index: number) => {
+        const parent = items[index];
+
+        if (!parent.is_header) return;
+
+        const optionalValue = showOptionalColumn;
+        const childHeaderKey = nanoid();
+        const childHeader = {
+            _key: childHeaderKey,
+            id: undefined,
+            description: '',
+            parent_id: parent.id ?? null,
+            parent_key: parent._key,
+            quantity: null,
+            rate: null,
+            amount: null,
+            is_header: true,
+            is_optional: optionalValue,
+            sort_order: 0,
+        };
+        const nestedItem = buildNewChildItem(
+            childHeaderKey,
+            null,
+            optionalValue,
+        );
+
+        const next = [...items];
+        next.splice(index + 1, 0, childHeader as T, nestedItem as T);
 
         onChange(normalizeSortOrder(next));
     };
@@ -269,9 +308,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     const expandAll = () => {
         const next: Record<string, boolean> = {};
         items.forEach((item) => {
-            if (!item.id) return;
-            const hasChild = items.some((child) => child.parent_id === item.id);
-            if (hasChild) {
+            if (hasChildren(item)) {
                 next[getItemKey(item)] = true;
             }
         });
@@ -281,9 +318,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     const collapseAll = () => {
         const next: Record<string, boolean> = {};
         items.forEach((item) => {
-            if (!item.id) return;
-            const hasChild = items.some((child) => child.parent_id === item.id);
-            if (hasChild) {
+            if (hasChildren(item)) {
                 next[getItemKey(item)] = false;
             }
         });
@@ -293,7 +328,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     useEffect(() => {
         const next: Record<string, boolean> = {};
         items.forEach((i) => {
-            if (hasChildren(i)) next[i._key] = false;
+            if (hasChildren(i)) next[i._key] = true;
         });
         setExpanded((p) => ({ ...next, ...p }));
     }, [items, hasChildren]);
@@ -302,26 +337,30 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     const visibleItems = useMemo<VisibleItem<T>[]>(() => {
         const out: VisibleItem<T>[] = [];
 
-        items.forEach((item) => {
-            const isRoot = item.parent_id == null && item.parent_key == null;
+        const getChildren = (parent: T): T[] =>
+            items.filter(
+                (child) =>
+                    child.parent_key === parent._key ||
+                    (parent.id != null && child.parent_id === parent.id),
+            );
 
-            if (!isRoot) return;
+        const appendWithChildren = (item: T, level: number) => {
+            out.push({ item, level });
 
-            out.push({ item, level: 0 });
+            if (expanded[item._key] === false) {
+                return;
+            }
 
-            if (expanded[item._key] === false) return;
-
-            items.forEach((child) => {
-                const isChild =
-                    (child.parent_key != null &&
-                        child.parent_key === item._key) ||
-                    (child.parent_id != null && child.parent_id === item.id);
-
-                if (isChild) {
-                    out.push({ item: child, level: 1 });
-                }
+            getChildren(item).forEach((child) => {
+                appendWithChildren(child, level + 1);
             });
-        });
+        };
+
+        items
+            .filter((item) => item.parent_id == null && item.parent_key == null)
+            .forEach((rootItem) => {
+                appendWithChildren(rootItem, 0);
+            });
 
         return out;
     }, [items, expanded]);
@@ -363,29 +402,54 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         const dragged = items[fromIndex];
         const target = items[toIndex];
 
-        if (dragged.is_header && (target.parent_id || target.parent_key))
-            return;
-
         const next = [...items];
         next.splice(fromIndex, 1);
 
         let nextParentId = dragged.parent_id;
         let nextParentKey = dragged.parent_key;
 
-        if (target.parent_id == null && target.parent_key == null) {
-            nextParentId = null;
-            nextParentKey = null;
+        if (target.is_header) {
+            if (dragged._key === target._key) {
+                return;
+            }
+
+            nextParentId = target.id ?? null;
+            nextParentKey = target._key;
         } else {
-            if (target.parent_id != null) {
-                nextParentId = target.parent_id;
-                nextParentKey =
-                    items.find((i) => i.id === target.parent_id)?._key ?? null;
-            } else if (target.parent_key != null) {
-                nextParentKey = target.parent_key;
-                const parentItem = items.find(
-                    (i) => i._key === target.parent_key,
-                );
-                nextParentId = parentItem?.id ?? null;
+            if (target.parent_id == null && target.parent_key == null) {
+                if (!dragged.is_header && !isLinkedMemberItem(dragged)) {
+                    return;
+                }
+
+                nextParentId = null;
+                nextParentKey = null;
+            } else {
+                if (target.parent_id != null) {
+                    nextParentId = target.parent_id;
+                    nextParentKey =
+                        items.find((i) => i.id === target.parent_id)?._key ??
+                        null;
+                } else if (target.parent_key != null) {
+                    nextParentKey = target.parent_key;
+                    const parentItem = items.find(
+                        (i) => i._key === target.parent_key,
+                    );
+                    nextParentId = parentItem?.id ?? null;
+                }
+            }
+        }
+
+        if (nextParentKey) {
+            if (nextParentKey === dragged._key || nextParentId === dragged.id) {
+                return;
+            }
+
+            const parentItem = items.find(
+                (item) => item._key === nextParentKey,
+            );
+
+            if (!parentItem?.is_header) {
+                return;
             }
         }
 
@@ -444,7 +508,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         },
         {
             id: 'description',
-            header: 'Item Details',
+            header: 'Items',
             meta: { className: 'sm:table-cell w-[50%]' },
             cell: ({ row }) => {
                 const { item, level } = row.original;
@@ -474,12 +538,23 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                     } as Partial<T>)
                                 }
                             />
+                        ) : !item.is_header ? (
+                            <ProperInput
+                                value={item.description ?? ''}
+                                disabled
+                                textarea
+                                size="compact"
+                                onCommit={() => {}}
+                            />
                         ) : (
                             <ItemDescriptionCombobox
                                 value={item.description ?? ''}
                                 disabled={disabled || isLinkedMemberItem(item)}
                                 isHeader={item.is_header ?? false}
-                                isChild={!!(item.parent_id || item.parent_key)}
+                                isChild={Boolean(
+                                    !item.is_header &&
+                                        (item.parent_id || item.parent_key),
+                                )}
                                 existingItemKeys={existingItemKeys}
                                 onSelect={(payload) => {
                                     if (payload.type === 'single') {
@@ -532,17 +607,36 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             (i) => i._key === parentKey,
                                         );
 
-                                        const children = payload.children.map(
+                                        const childrenSource =
+                                            payload.children.length > 0
+                                                ? payload.children
+                                                : [
+                                                      {
+                                                          id: undefined,
+                                                          description: '',
+                                                          quantity: 1,
+                                                          rate: '',
+                                                          is_header: false,
+                                                          is_optional:
+                                                              payload.parent
+                                                                  .is_optional,
+                                                      },
+                                                  ];
+
+                                        const children = childrenSource.map(
                                             (child) => ({
                                                 _key: nanoid(),
                                                 id: child.id,
                                                 parent_id: payload.parent.id,
                                                 parent_key: parentKey,
-                                                description: child.description,
-                                                quantity: child.quantity,
-                                                rate: child.rate,
-                                                is_header: false,
+                                                description:
+                                                    child.description ?? '',
+                                                quantity: child.quantity ?? 1,
+                                                rate: child.rate ?? '',
+                                                is_header:
+                                                    child.is_header ?? false,
                                                 is_optional:
+                                                    child.is_optional ??
                                                     payload.parent.is_optional,
                                                 sort_order: 0,
                                             }),
@@ -558,11 +652,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                         return;
                                     }
                                 }}
-                                onChange={(value) => {
-                                    updateItemByKey(item._key, {
-                                        description: value,
-                                    } as Partial<T>);
-                                }}
+                                onChange={() => {}}
                                 className={
                                     item.is_header ? 'font-semibold' : ''
                                 }
@@ -570,26 +660,6 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         )}
                         {renderError?.(`items.${index}.description`)}
                     </div>
-                );
-            },
-        },
-        {
-            id: 'is_header',
-            header: 'Header',
-            meta: { className: 'sm:table-cell' },
-            cell: ({ row }) => {
-                const { item } = row.original;
-                return (
-                    <Checkbox
-                        checked={item.is_header ?? false}
-                        disabled={disabled || isLinkedMemberItem(item)}
-                        onCheckedChange={(v) =>
-                            updateItemByKey(item._key, {
-                                is_header: Boolean(v),
-                                amount: v ? null : '',
-                            } as Partial<T>)
-                        }
-                    />
                 );
             },
         },
@@ -747,7 +817,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         },
         {
             id: 'amount',
-            header: 'Amount',
+            header: () => <div className="text-right">Amount</div>,
             meta: { className: 'sm:table-cell w-[12%]' },
             cell: ({ row }) => {
                 const { item } = row.original;
@@ -859,26 +929,43 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             </>
                                         )}
 
-                                    {(item.id || item._key) &&
-                                        !item.parent_id &&
-                                        !item.parent_key && (
-                                            <DropdownMenuItem
-                                                disabled={isLockedMemberItem}
-                                                onClick={() => {
-                                                    if (isLockedMemberItem) {
-                                                        return;
-                                                    }
+                                    {item.is_header && (
+                                        <DropdownMenuItem
+                                            disabled={isLockedMemberItem}
+                                            onClick={() => {
+                                                if (isLockedMemberItem) {
+                                                    return;
+                                                }
 
-                                                    insertChild(index);
-                                                }}
-                                            >
-                                                <CornerDownRight
-                                                    size={14}
-                                                    className="mr-2"
-                                                />
-                                                Insert child
-                                            </DropdownMenuItem>
-                                        )}
+                                                insertItem(index);
+                                            }}
+                                        >
+                                            <CornerDownRight
+                                                size={14}
+                                                className="mr-2"
+                                            />
+                                            Insert Item
+                                        </DropdownMenuItem>
+                                    )}
+
+                                    {item.is_header && (
+                                        <DropdownMenuItem
+                                            disabled={isLockedMemberItem}
+                                            onClick={() => {
+                                                if (isLockedMemberItem) {
+                                                    return;
+                                                }
+
+                                                insertItemWithHeader(index);
+                                            }}
+                                        >
+                                            <CornerDownRight
+                                                size={14}
+                                                className="mr-2"
+                                            />
+                                            Insert Item with Header
+                                        </DropdownMenuItem>
+                                    )}
 
                                     <DropdownMenuItem
                                         disabled={isLockedMemberItem}
@@ -1042,9 +1129,11 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             const isLastChild =
                                                 isChild &&
                                                 (!next ||
-                                                    next.level === 0 ||
-                                                    next.item.parent_id !==
-                                                        item.parent_id);
+                                                    next.level <= level ||
+                                                    (next.item.parent_id !==
+                                                        item.parent_id &&
+                                                        next.item.parent_key !==
+                                                            item.parent_key));
 
                                             return (
                                                 <SortableRow
@@ -1117,7 +1206,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                     >
                                         Total Amount:
                                     </TableCell>
-                                    <TableCell className="font-semibold">
+                                    <TableCell className="font-medium">
                                         {formatCurrency(totalAmount)}
                                     </TableCell>
                                 </TableRow>
