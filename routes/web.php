@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerConfirmationController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
@@ -148,15 +147,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('receipt/{id}/generate-pdf', [ReceiptController::class, 'generatePdf'])->name('receipt.generate.pdf');
     Route::get('receipt-get-for-show/{id}', [ReceiptController::class, 'getForShow'])->name('receipt.get-for-show');
 
-    // Schedule - Generated from Quotation (no database table)
-    Route::get('schedule', [ScheduleController::class, 'index'])->name('schedule.index');
-    Route::get('schedule/{quotation}/export-pdf', [ScheduleController::class, 'exportPdf'])->name('schedule.export-pdf');
-
-    // Agreement - Generated from Quotation (no database table)
-    Route::get('agreement', [AgreementController::class, 'index'])->name('agreement.index');
-    Route::get('agreement/{quotation}/preview', [AgreementController::class, 'preview'])->name('agreement.preview');
-    Route::get('agreement/{quotation}/export-pdf', [AgreementController::class, 'exportPdf'])->name('agreement.export-pdf');
-
     // User Logs
     Route::get('user-logs', [UserLogsController::class, 'index'])->name('user-logs.index');
 
@@ -205,6 +195,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Packages
     Route::resource('packages', PackageController::class);
+    Route::get('packages/{id}/preview', [PackageController::class, 'preview'])->name('packages.preview');
     Route::get('packages/{id}/download', [PackageController::class, 'generatePdf'])->name('packages.download');
     Route::get('packages-get-for-show/{id}', [PackageController::class, 'getForShow'])->name('packages.get-for-show');
 
@@ -233,6 +224,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Ops Movements (form view from packages + manifests)
     Route::resource('ops-movements', OpsMovementController::class)->only(['index', 'show', 'update']);
+    Route::get('ops-movements/{id}/export-pdf', [OpsMovementController::class, 'exportPdf'])->name('ops-movements.export-pdf');
+    Route::get('ops-movements/{id}/export-budget-pdf', [OpsMovementController::class, 'exportBudgetPdf'])->name('ops-movements.export-budget-pdf');
+    Route::get('ops-movements/{id}/export-pif-pdf', [OpsMovementController::class, 'exportPifPdf'])->name('ops-movements.export-pif-pdf');
 });
 
 Route::fallback(function () {

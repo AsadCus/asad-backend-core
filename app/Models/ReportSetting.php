@@ -17,6 +17,10 @@ class ReportSetting extends Model
         'stamp_path',
         'signature_path',
         'brand_color',
+        'signature_stamp_layout',
+        'custom_stamp_path',
+        'custom_signature_path',
+        'custom_signature_stamp_layout',
         'module_templates',
         'registered_modules',
         'updated_by',
@@ -28,6 +32,7 @@ class ReportSetting extends Model
         'company_phone' => 'string',
         'company_email' => 'string',
         'footer_text' => 'string',
+        'custom_signature_stamp_layout' => 'array',
         'module_templates' => 'array',
         'registered_modules' => 'array',
     ];
@@ -40,31 +45,78 @@ class ReportSetting extends Model
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
         ],
         'invoice' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
         ],
         'receipt' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
-        ],
-        'agreement' => [
-            'footer_text' => '',
-            'show_stamp' => false,
-            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
         ],
         'sales' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
         ],
-        'manifest' => [
+        'package' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'manifest_arabic_names' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'manifest_namelist_course_items' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'manifest_room_check' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'ops_movement' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'ops_movement_pif' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
+        ],
+        'ops_movement_budget' => [
+            'footer_text' => '',
+            'show_stamp' => false,
+            'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
         ],
     ];
 
@@ -77,15 +129,19 @@ class ReportSetting extends Model
         return self::firstOrCreate(
             ['id' => 1],
             [
-                'company_name' => 'Urban Care Employment Agency',
-                'company_address' => "931 Yishun Central 1\n#01-109, Singapore 760931",
-                'company_phone' => null,
-                'company_email' => null,
+                'company_name' => 'Karva Travel & Tours',
+                'company_address' => '22-1 Jalan Delima 10, Wangsa Maju, 53300 Kuala Lumpur, Malaysia',
+                'company_phone' => '+60 11-1608 0771',
+                'company_email' => '[EMAIL_ADDRESS]',
                 'logo_path' => null,
                 'footer_text' => null,
                 'stamp_path' => null,
                 'signature_path' => null,
                 'brand_color' => '#c05427',
+                'signature_stamp_layout' => 'default',
+                'custom_stamp_path' => null,
+                'custom_signature_path' => null,
+                'custom_signature_stamp_layout' => null,
                 'module_templates' => null,
             ]
         );
@@ -102,6 +158,8 @@ class ReportSetting extends Model
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
+            'show_signature_stamp_name' => false,
+            'show_signature_stamp_date' => false,
         ];
 
         $stored = $this->module_templates[$type] ?? [];
@@ -110,6 +168,8 @@ class ReportSetting extends Model
         $merged = array_merge($defaults, $stored);
         $merged['show_stamp'] = filter_var($merged['show_stamp'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $merged['show_signature'] = filter_var($merged['show_signature'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $merged['show_signature_stamp_name'] = filter_var($merged['show_signature_stamp_name'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $merged['show_signature_stamp_date'] = filter_var($merged['show_signature_stamp_date'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         // Always use global brand_color for title_color
         $merged['title_color'] = $this->brand_color ?? '#c05427';

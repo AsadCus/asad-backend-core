@@ -131,6 +131,21 @@ class PackageController extends Controller
     }
 
     /**
+     * Preview package report in browser.
+     */
+    public function preview(string $id)
+    {
+        $package = $this->packageService->getForEditShow($id);
+        $reportData = $this->reportTemplateService->build('package', []);
+
+        return view('packages.report-content', [
+            'data' => $package,
+            'branding' => $reportData['branding'],
+            'is_pdf' => false,
+        ]);
+    }
+
+    /**
      * Generate package details as PDF.
      */
     public function generatePdf(string $id)
@@ -140,11 +155,11 @@ class PackageController extends Controller
             set_time_limit(60);
 
             $package = $this->packageService->getForEditShow($id);
-            $branding = $this->reportTemplateService->getBranding();
+            $reportData = $this->reportTemplateService->build('package', []);
 
             $html = view('packages.report-content', [
                 'data' => $package,
-                'branding' => $branding,
+                'branding' => $reportData['branding'],
                 'is_pdf' => true,
             ])->render();
 

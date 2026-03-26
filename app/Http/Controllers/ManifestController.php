@@ -393,7 +393,7 @@ class ManifestController extends Controller
                 }
             }
 
-            $reportData = $this->reportTemplateService->build('manifest', [
+            $reportData = $this->reportTemplateService->build('manifest_namelist_course_items', [
                 'manifest' => $manifest,
             ]);
 
@@ -463,7 +463,7 @@ class ManifestController extends Controller
                 }
             }
 
-            $reportData = $this->reportTemplateService->build('manifest', [
+            $reportData = $this->reportTemplateService->build('manifest_arabic_names', [
                 'manifest' => $manifest,
             ]);
 
@@ -477,7 +477,7 @@ class ManifestController extends Controller
             $fileName = 'Manifest Arabic Names - '.$manifestNumber.'.pdf';
 
             return Pdf::loadHTML($html)
-                ->setPaper('a4', 'landscape')
+                ->setPaper('a4', 'portrait')
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96)
@@ -572,7 +572,7 @@ class ManifestController extends Controller
                 $manifest['room_check_rows'] = $roomRows;
             }
 
-            $reportData = $this->reportTemplateService->build('manifest', [
+            $reportData = $this->reportTemplateService->build('manifest_room_check', [
                 'manifest' => $manifest,
             ]);
 

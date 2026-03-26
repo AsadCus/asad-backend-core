@@ -18,12 +18,16 @@ import {
     type OpsFlightSchema,
     type OpsMovementSchema,
     type OpsOfficialSchema,
+    type OpsPifTourLeaderSchema,
 } from './schema';
 import { opsMovementValidationSchema } from './validation';
 
 interface OpsMovementFormProps {
     initialData: OpsMovementSchema;
     onCancel: () => void;
+    opsMovementExportUrl: string;
+    budgetExportUrl: string;
+    pifExportUrl: string;
 }
 
 type OpsDocumentTabKey = 'itinerary' | 'booklet';
@@ -170,6 +174,21 @@ function createEmptyBudgetTitle(index: number): OpsBudgetTitleSchema {
     };
 }
 
+function createDefaultTourLeaders(): OpsPifTourLeaderSchema[] {
+    return [
+        {
+            type: 'saudi',
+            name: null,
+            contact_number: null,
+        },
+        {
+            type: 'singapore',
+            name: null,
+            contact_number: null,
+        },
+    ];
+}
+
 function toDecimal(value: unknown): number {
     const parsed = Number(value ?? 0);
 
@@ -195,6 +214,9 @@ const YES_NO_OPTIONS = [
 export default function OpsMovementForm({
     initialData,
     onCancel,
+    opsMovementExportUrl,
+    budgetExportUrl,
+    pifExportUrl,
 }: OpsMovementFormProps) {
     const [activeTab, setActiveTab] = useState('ops-movement');
 
@@ -216,6 +238,13 @@ export default function OpsMovementForm({
             Array.isArray(initialData.budget) && initialData.budget.length > 0
                 ? initialData.budget
                 : [createEmptyBudgetTitle(0)],
+        pif: {
+            tour_leaders:
+                Array.isArray(initialData.pif?.tour_leaders) &&
+                initialData.pif.tour_leaders.length > 0
+                    ? initialData.pif.tour_leaders
+                    : createDefaultTourLeaders(),
+        },
     });
     const { data, setData, processing, post, transform } = form;
     const errors =
@@ -253,8 +282,8 @@ export default function OpsMovementForm({
             vehicle_driver_contact_number:
                 data.vehicle_driver_contact_number ?? null,
             train_description: data.train_description ?? null,
-            visa_submitted_to_z_umrah: Boolean(data.visa_submitted_to_z_umrah),
-            visa_approved: Boolean(data.visa_approved),
+            visa_submitted_to_z_umrah: data.visa_submitted_to_z_umrah ? true : false,
+            visa_approved: data.visa_approved ? true : false,
             accommodations: (data.accommodations ?? []).map(
                 (accommodation) => ({
                     id: accommodation.id,
@@ -291,6 +320,15 @@ export default function OpsMovementForm({
                     sort_order: itemIndex + 1,
                 })),
             })),
+            pif: {
+                tour_leaders: (data.pif?.tour_leaders ?? []).map(
+                    (tourLeader) => ({
+                        type: tourLeader.type ?? null,
+                        name: tourLeader.name ?? null,
+                        contact_number: tourLeader.contact_number ?? null,
+                    }),
+                ),
+            },
         };
     }, [data]);
 
@@ -335,6 +373,49 @@ export default function OpsMovementForm({
             [field]: value,
         };
         setFormData('flights', nextRows);
+    };
+
+    const updateTourLeader = (
+        index: number,
+        field: keyof OpsPifTourLeaderSchema,
+        value: string | null,
+    ) => {
+        const nextRows = [...(data.pif?.tour_leaders ?? [])];
+
+        nextRows[index] = {
+            ...nextRows[index],
+            [field]: value,
+        };
+
+        setFormData('pif', {
+            ...(data.pif ?? {}),
+            tour_leaders: nextRows,
+        });
+    };
+
+    const addTourLeader = () => {
+        const nextRows = [...(data.pif?.tour_leaders ?? [])];
+        nextRows.push({
+            type: null,
+            name: null,
+            contact_number: null,
+        });
+
+        setFormData('pif', {
+            ...(data.pif ?? {}),
+            tour_leaders: nextRows,
+        });
+    };
+
+    const removeTourLeader = (index: number) => {
+        const nextRows = [...(data.pif?.tour_leaders ?? [])];
+        nextRows.splice(index, 1);
+
+        setFormData('pif', {
+            ...(data.pif ?? {}),
+            tour_leaders:
+                nextRows.length > 0 ? nextRows : createDefaultTourLeaders(),
+        });
     };
 
     const updateDocumentRows = (
@@ -534,11 +615,30 @@ export default function OpsMovementForm({
                         <TabsTrigger value="budget" className="text-lg">
                             Budget
                         </TabsTrigger>
+                        <TabsTrigger value="pif" className="text-lg">
+                            PIF
+                        </TabsTrigger>
                     </TabsList>
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
 
                 <TabsContent value="ops-movement" className="space-y-6">
+                    <div className="flex justify-end">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                window.open(
+                                    opsMovementExportUrl,
+                                    '_blank',
+                                    'noopener,noreferrer',
+                                )
+                            }
+                        >
+                            Export Ops Movement PDF
+                        </Button>
+                    </div>
+
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">
@@ -1260,7 +1360,20 @@ export default function OpsMovementForm({
                 })}
 
                 <TabsContent value="budget" className="space-y-3">
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                window.open(
+                                    budgetExportUrl,
+                                    '_blank',
+                                    'noopener,noreferrer',
+                                )
+                            }
+                        >
+                            Export Budget PDF
+                        </Button>
                         <Button
                             type="button"
                             variant="outline"
@@ -1523,6 +1636,448 @@ export default function OpsMovementForm({
                                     </span>
                                 </p>
                             </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="pif" className="space-y-4">
+                    <div className="flex justify-end">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                window.open(
+                                    pifExportUrl,
+                                    '_blank',
+                                    'noopener,noreferrer',
+                                )
+                            }
+                        >
+                            Export PIF PDF
+                        </Button>
+                    </div>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Passenger Details
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Full manifest passenger rows are read-only;
+                                tour leader fields are editable.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-3 rounded-lg border p-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-base font-semibold">
+                                        Tour Leaders
+                                    </h4>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={addTourLeader}
+                                        disabled={processing}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Add Tour Leader
+                                    </Button>
+                                </div>
+
+                                {(data.pif?.tour_leaders ?? []).map(
+                                    (tourLeader, index) => (
+                                        <div
+                                            key={`tour-leader-${index}`}
+                                            className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                                        >
+                                            <FormField
+                                                label="Office Type"
+                                                error={getError(
+                                                    `pif.tour_leaders.${index}.type`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        tourLeader.type ?? ''
+                                                    }
+                                                    disabled={processing}
+                                                    onCommit={(value) =>
+                                                        updateTourLeader(
+                                                            index,
+                                                            'type',
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="saudi / singapore"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Official Name"
+                                                error={getError(
+                                                    `pif.tour_leaders.${index}.name`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        tourLeader.name ?? ''
+                                                    }
+                                                    disabled={processing}
+                                                    onCommit={(value) =>
+                                                        updateTourLeader(
+                                                            index,
+                                                            'name',
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Enter official name"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Contact Number"
+                                                error={getError(
+                                                    `pif.tour_leaders.${index}.contact_number`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        tourLeader.contact_number ??
+                                                        ''
+                                                    }
+                                                    disabled={processing}
+                                                    onCommit={(value) =>
+                                                        updateTourLeader(
+                                                            index,
+                                                            'contact_number',
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Enter contact number"
+                                                />
+                                            </FormField>
+                                            <div className="flex items-center justify-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    disabled={processing}
+                                                    onClick={() =>
+                                                        removeTourLeader(index)
+                                                    }
+                                                    className="text-destructive"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+
+                            <div className="space-y-3 rounded-lg border p-4">
+                                <h4 className="text-base font-semibold">
+                                    Passenger List
+                                </h4>
+                                {(data.passenger_details ?? []).length > 0 ? (
+                                    <div className="space-y-3">
+                                        {(data.passenger_details ?? []).map(
+                                            (passenger) => (
+                                                <div
+                                                    key={passenger.id}
+                                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-4"
+                                                >
+                                                    <FormField label="Name">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.name
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Role">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.role
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Passport No">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.passport_number
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Nationality">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.nationality
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Gender">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.gender
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Date of Birth">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.date_of_birth_formatted
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Age">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.age
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Contact Number">
+                                                        <CopyableText
+                                                            value={
+                                                                passenger.contact_number
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        No passenger data available.
+                                    </p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Flight Schedule
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Derived from package flight details.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.flights ?? []).map((flight) => (
+                                <div
+                                    key={`pif-flight-${flight.id}`}
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-4"
+                                >
+                                    <FormField label="Description">
+                                        <CopyableText
+                                            value={flight.description}
+                                        />
+                                    </FormField>
+                                    <FormField label="From">
+                                        <CopyableText value={flight.from} />
+                                    </FormField>
+                                    <FormField label="To">
+                                        <CopyableText value={flight.to} />
+                                    </FormField>
+                                    <FormField label="Airline">
+                                        <CopyableText
+                                            value={flight.airline}
+                                        />
+                                    </FormField>
+                                    <FormField label="Flight No / PNR">
+                                        <CopyableText value={flight.pnr} />
+                                    </FormField>
+                                    <FormField label="Departure Datetime">
+                                        <CopyableText
+                                            value={flight.departure_datetime}
+                                        />
+                                    </FormField>
+                                    <FormField label="Arrival Datetime">
+                                        <CopyableText
+                                            value={flight.arrival_datetime}
+                                        />
+                                    </FormField>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Accommodation
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Package accommodations with manifest room type
+                                counts.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.accommodations ?? []).map(
+                                (accommodation) => (
+                                    <div
+                                        key={`pif-accommodation-${accommodation.id}`}
+                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-5"
+                                    >
+                                        <FormField label="Location">
+                                            <CopyableText
+                                                value={accommodation.location}
+                                            />
+                                        </FormField>
+                                        <FormField label="Hotel Name">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.hotel_name
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Check In">
+                                            <CopyableText
+                                                value={accommodation.check_in}
+                                            />
+                                        </FormField>
+                                        <FormField label="Check Out">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.check_out
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Meal">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.type_of_meal
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Single">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.single ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Double">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.double ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Triple">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.triple ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Quad">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.quad ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                    </div>
+                                ),
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Rawdah Tasreeh
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Derived from package rawdah tasreeh.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.rawdah_tasreehs ?? []).map((rawdah) => (
+                                <div
+                                    key={`pif-rawdah-${rawdah.id}`}
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-4"
+                                >
+                                    <FormField label="Date">
+                                        <CopyableText value={rawdah.date} />
+                                    </FormField>
+                                    <FormField label="Women Passengers">
+                                        <CopyableText
+                                            value={rawdah.women_passengers}
+                                        />
+                                    </FormField>
+                                    <FormField label="Women Time">
+                                        <CopyableText
+                                            value={rawdah.women_time}
+                                        />
+                                    </FormField>
+                                    <FormField label="Men Passengers">
+                                        <CopyableText
+                                            value={rawdah.men_passengers}
+                                        />
+                                    </FormField>
+                                    <FormField label="Men Time">
+                                        <CopyableText
+                                            value={rawdah.men_time}
+                                        />
+                                    </FormField>
+                                    <FormField label="Remarks">
+                                        <CopyableText
+                                            value={rawdah.remarks}
+                                        />
+                                    </FormField>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Transportation Plan
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Derived from package transportation plan.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.transportation_plans ?? []).map((plan) => (
+                                <div
+                                    key={`pif-transport-${plan.id}`}
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-4"
+                                >
+                                    <FormField label="From">
+                                        <CopyableText value={plan.from} />
+                                    </FormField>
+                                    <FormField label="To">
+                                        <CopyableText value={plan.to} />
+                                    </FormField>
+                                    <FormField label="Travel Date">
+                                        <CopyableText
+                                            value={plan.travel_date}
+                                        />
+                                    </FormField>
+                                    <FormField label="Travel Time">
+                                        <CopyableText
+                                            value={plan.travel_time}
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Remarks"
+                                        className="md:col-span-2"
+                                    >
+                                        <CopyableText
+                                            value={plan.remarks}
+                                        />
+                                    </FormField>
+                                </div>
+                            ))}
                         </CardContent>
                     </Card>
                 </TabsContent>

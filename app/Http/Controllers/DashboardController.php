@@ -237,13 +237,16 @@ class DashboardController extends Controller
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
 
-        $data = $this->financialTransactionService->getPaymentCategorySummary(
+        $reportData = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
             is_string($timezone) ? $timezone : null,
             is_string($rangeStartUtc) ? $rangeStartUtc : null,
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
         );
+
+        // Transform to legacy format for dashboard compatibility
+        $data = $this->financialTransactionService->transformToLegacyFormat($reportData);
 
         return response()->json($data);
     }
@@ -256,7 +259,7 @@ class DashboardController extends Controller
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
 
-        $summary = $this->financialTransactionService->getPaymentCategorySummary(
+        $report = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
             is_string($timezone) ? $timezone : null,
@@ -265,10 +268,10 @@ class DashboardController extends Controller
         );
 
         $pdf = Pdf::loadView('reports.dashboard-payment-summary', [
-            'summary' => $summary,
-        ])->setPaper('a4', 'portrait');
+            'report' => $report,
+        ])->setPaper('a4', 'landscape');
 
-        $filename = 'dashboard-payment-'.$summary['period'].'-'.now()->format('Ymd_His').'.pdf';
+        $filename = 'dashboard-payment-'.$report['mode'].'-'.now()->format('Ymd_His').'.pdf';
 
         return $pdf->download($filename);
     }
