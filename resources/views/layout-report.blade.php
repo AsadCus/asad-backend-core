@@ -71,7 +71,7 @@
 
         /* ── Title Bar ── */
         .title-bar {
-            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
+            background-color: {{ $branding['title_color'] ?? '#c05427' }};
             color: #fff;
             text-align: center;
             font-weight: bold;
@@ -184,9 +184,9 @@
                 @endif
             </td>
             <td class="info-cell">
-                <span class="company-name">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</span>
+                <span class="company-name">{{ $branding['company_name'] ?? 'Karva Travel & Tours' }}</span>
                 <div class="company-details">
-                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}
+                    {!! nl2br(e($branding['company_address'] ?? "390 Victoria Street\nGolden Landmark Shopping Centre\n#03-28 Singapore 188061")) !!}
                     @if (!empty($branding['company_phone']))
                         <br>Tel: {{ $branding['company_phone'] }}
                     @endif

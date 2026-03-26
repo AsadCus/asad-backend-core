@@ -241,10 +241,13 @@ class DashboardController extends Controller
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
 
-        $data = $this->financialTransactionService->getPaymentCategorySummary(
+        $reportData = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
         );
+
+        // Transform to legacy format for dashboard compatibility
+        $data = $this->financialTransactionService->transformToLegacyFormat($reportData);
 
         return response()->json($data);
     }
@@ -254,16 +257,16 @@ class DashboardController extends Controller
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
 
-        $summary = $this->financialTransactionService->getPaymentCategorySummary(
+        $report = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
         );
 
         $pdf = Pdf::loadView('reports.dashboard-payment-summary', [
-            'summary' => $summary,
-        ])->setPaper('a4', 'portrait');
+            'report' => $report,
+        ])->setPaper('a4', 'landscape');
 
-        $filename = 'dashboard-payment-'.$summary['period'].'-'.now()->format('Ymd_His').'.pdf';
+        $filename = 'dashboard-payment-'.$report['mode'].'-'.now()->format('Ymd_His').'.pdf';
 
         return $pdf->download($filename);
     }
