@@ -17,7 +17,7 @@
     <style>
         /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0;
+            padding: 0 30px;
         }
 
         /* ── Order Info ── */
@@ -30,7 +30,7 @@
         .order-info-grid td {
             vertical-align: top;
             padding: 1px 0;
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .lbl {
@@ -59,7 +59,8 @@
         .items-section {
             border-top: 1.5px solid #333;
             border-bottom: 1.5px solid #333;
-            margin-bottom: 8px;
+            padding: 6px 0;
+            margin-bottom: 12px;
         }
 
         .items-table {
@@ -71,7 +72,7 @@
             border-bottom: 1px solid #333;
             padding: 3px 0;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 10px;
             text-align: left;
         }
 
@@ -81,9 +82,9 @@
         }
 
         .items-table td {
-            padding: 3px 0;
+            padding: 2.5px 0;
             vertical-align: top;
-            font-size: 12px;
+            font-size: 10px;
         }
 
         .col-desc {
@@ -107,21 +108,32 @@
             padding-left: 20px;
         }
 
+        .item-row {
+            border-bottom: 1px solid #ebebeb;
+        }
+
+        .parent-item-end td {
+            height: 5px;
+            line-height: 5px;
+            border: none;
+        }
+
         /* ── Totals ── */
         .totals-wrapper {
             text-align: right;
-            padding: 4px 0 2px;
-            margin-top: 6px;
+            padding: 5px 0 2px;
+            border-top: 1px solid #ccc;
+            margin-top: 4px;
         }
 
         .total-label {
-            font-size: 11px;
+            font-size: 10px;
             color: #555;
         }
 
         .total-amount {
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
         }
     </style>
 @endpush
@@ -276,6 +288,10 @@
                     $childSubCounter++;
                     renderItem($child, $allItems, $level + 1, $counter, $subtotal, $childSubCounter);
                 }
+
+                if ($level === 0) {
+                    echo '<tr class="parent-item-end"><td colspan="3"></td></tr>';
+                }
             }
 
             $counter = 0;
@@ -302,7 +318,6 @@
                     @endforeach
                 </tbody>
             </table>
-        </div>
 
             <div class="totals-wrapper">
                 <div>
@@ -332,7 +347,38 @@
                 <div class="footer-note">Thank you for your business!</div>
             @endif
 
-            @include('partials.report-signature-stamp')
+            @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
+                <table class="stamp-sig-row">
+                    <tr>
+                        <td>
+                            @if (!empty($branding['show_stamp']))
+                                @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
+                                    <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
+                                        style="height:70px; width:auto; display:block;">
+                                @elseif(!empty($branding['stamp_url']))
+                                    <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
+                                        style="height:70px; width:auto; display:block;">
+                                @endif
+                            @endif
+                        </td>
+                        <td style="text-align:right;">
+                            @if (!empty($branding['show_signature']))
+                                <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
+                                @if (
+                                    ($is_pdf ?? false) &&
+                                        !empty($branding['signature_path_absolute']) &&
+                                        file_exists($branding['signature_path_absolute']))
+                                    <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
+                                        style="height:52px; width:auto; display:block; margin-left:auto;">
+                                @elseif(!empty($branding['signature_url']))
+                                    <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
+                                        style="height:52px; width:auto; display:block; margin-left:auto;">
+                                @endif
+                            @endif
+                        </td>
+                    </tr>
+                </table>
+            @endif
 
             <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
         </div>

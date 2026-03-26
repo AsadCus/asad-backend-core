@@ -422,299 +422,109 @@ class FinancialTransactionService
             ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
             ->get();
 
-        $groups = match ($resolvedPeriod) {
-            'monthly' => $this->buildMonthlyPaymentGroups($receipts->all()),
-            'yearly' => $this->buildYearlyPaymentGroups($receipts->all()),
-            default => $this->buildDailyPaymentGroups($receipts->all()),
-        };
-
-        return [
-            'mode' => $resolvedPeriod,
-            'period_label' => $periodLabel,
-            'generated_at' => now()->translatedFormat('d M Y, H:i'),
-            'generated_by' => auth()->user()?->name ?? 'System',
-            'groups' => $groups,
-        ];
-    }
-
-    /**
-     * @param  array<int, Receipt>  $receipts
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildDailyPaymentGroups(array $receipts): array
-    {
-        $groups = [];
+        $categoryTotals = [];
+        $bucketTotals = [];
+        $totalAmount = 0.0;
 
         foreach ($receipts as $receipt) {
+            $receiptAmount = (float) ($receipt->amount ?? 0);
+            $totalAmount += $receiptAmount;
+
             $receiptDate = Carbon::parse($receipt->receipt_date);
-            $dateKey = $receiptDate->format('Y-m-d');
 
-            if (! isset($groups[$dateKey])) {
-                $groups[$dateKey] = [
-                    'label' => $receiptDate->translatedFormat('d M Y'),
-                    'day_name' => $receiptDate->translatedFormat('l'),
-                    'rows' => [],
+            $bucketKey = $this->formatPaymentBucketKey($receiptDate, $resolvedPeriod);
+            $bucketLabel = $this->formatPaymentBucketLabel($receiptDate, $resolvedPeriod);
+
+            if (! isset($bucketTotals[$bucketKey])) {
+                $bucketTotals[$bucketKey] = [
+                    'key' => $bucketKey,
+                    'label' => $bucketLabel,
+                    'amount' => 0.0,
                 ];
             }
 
-            $groups[$dateKey]['rows'][] = $this->buildTransactionRow($receipt);
-        }
+            $bucketTotals[$bucketKey]['amount'] += $receiptAmount;
 
-        return array_values($groups);
-    }
+            $invoice = $receipt->invoice;
+            if (! $invoice) {
+                $this->addCategoryAmount($categoryTotals, 'Others', $receiptAmount);
 
-    /**
-     * @param  array<int, Receipt>  $receipts
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildMonthlyPaymentGroups(array $receipts): array
-    {
-        $groups = [];
-
-        foreach ($receipts as $receipt) {
-            $receiptDate = Carbon::parse($receipt->receipt_date);
-            $monthKey = $receiptDate->format('Y-m');
-            $weekNumber = (int) ceil($receiptDate->day / 7);
-            $weekKey = $monthKey.'-W'.$weekNumber;
-
-            if (! isset($groups[$monthKey])) {
-                $groups[$monthKey] = [
-                    'label' => $receiptDate->translatedFormat('F Y'),
-                    'sub_periods' => [],
-                ];
+                continue;
             }
 
-            if (! isset($groups[$monthKey]['sub_periods'][$weekKey])) {
-                $groups[$monthKey]['sub_periods'][$weekKey] = [
-                    'label' => 'Week '.$weekNumber,
-                    'receipts' => [],
-                ];
-            }
-
-            $groups[$monthKey]['sub_periods'][$weekKey]['receipts'][] = $receipt;
-        }
-
-        foreach ($groups as &$group) {
-            $subPeriods = $group['sub_periods'] ?? [];
-            ksort($subPeriods);
-
-            $group['sub_periods'] = array_values(array_map(function (array $subPeriod): array {
-                return [
-                    'label' => $subPeriod['label'] ?? '-',
-                    'rows' => $this->buildAggregatedRows($subPeriod['receipts'] ?? []),
-                ];
-            }, $subPeriods));
-        }
-        unset($group);
-
-        return array_values($groups);
-    }
-
-    /**
-     * @param  array<int, Receipt>  $receipts
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildYearlyPaymentGroups(array $receipts): array
-    {
-        $groups = [];
-
-        foreach ($receipts as $receipt) {
-            $receiptDate = Carbon::parse($receipt->receipt_date);
-            $yearKey = $receiptDate->format('Y');
-            $monthKey = $receiptDate->format('Y-m');
-
-            if (! isset($groups[$yearKey])) {
-                $groups[$yearKey] = [
-                    'label' => $yearKey,
-                    'sub_periods' => [],
-                ];
-            }
-
-            if (! isset($groups[$yearKey]['sub_periods'][$monthKey])) {
-                $groups[$yearKey]['sub_periods'][$monthKey] = [
-                    'label' => $receiptDate->translatedFormat('F'),
-                    'receipts' => [],
-                ];
-            }
-
-            $groups[$yearKey]['sub_periods'][$monthKey]['receipts'][] = $receipt;
-        }
-
-        foreach ($groups as &$group) {
-            $subPeriods = $group['sub_periods'] ?? [];
-            ksort($subPeriods);
-
-            $group['sub_periods'] = array_values(array_map(function (array $subPeriod): array {
-                return [
-                    'label' => $subPeriod['label'] ?? '-',
-                    'rows' => $this->buildAggregatedRows($subPeriod['receipts'] ?? []),
-                ];
-            }, $subPeriods));
-        }
-        unset($group);
-
-        return array_values($groups);
-    }
-
-    /**
-     * Build a single transaction row from a receipt
-     */
-    private function buildTransactionRow(Receipt $receipt): array
-    {
-        $receiptAmount = (float) ($receipt->amount ?? 0);
-        $invoice = $receipt->invoice;
-
-        // Determine category and package item
-        $category = 'others';
-        $packageItem = '-';
-        $refNo = $invoice?->invoice_number ?? '-';
-
-        if ($invoice) {
             $items = $invoice->quotationItems
                 ->filter(fn (QuotationItem $item) => ! $item->is_header)
                 ->values();
 
-            if ($items->isNotEmpty()) {
-                $firstItem = $items->first();
-                $category = $this->resolveCategoryKey($firstItem);
-                $packageItem = trim((string) $firstItem->description) ?: $firstItem->parent?->description ?: '-';
+            if ($items->isEmpty()) {
+                $this->addCategoryAmount($categoryTotals, 'Others', $receiptAmount);
+
+                continue;
+            }
+
+            $itemAmounts = $items->map(function (QuotationItem $item) {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            })->values();
+
+            $amountBase = (float) $itemAmounts->sum();
+            $allocated = 0.0;
+            $lastIndex = max(0, $items->count() - 1);
+
+            foreach ($items as $index => $item) {
+                if ($index === $lastIndex) {
+                    $allocatedAmount = $receiptAmount - $allocated;
+                } else {
+                    $ratio = $amountBase > 0
+                        ? ((float) ($itemAmounts[$index] ?? 0) / $amountBase)
+                        : (1 / max(1, $items->count()));
+                    $allocatedAmount = round($receiptAmount * $ratio, 2);
+                    $allocated += $allocatedAmount;
+                }
+
+                $category = $this->resolveItemCategoryLabel($item);
+                $this->addCategoryAmount($categoryTotals, $category, $allocatedAmount);
             }
         }
 
-        // Map payment method to breakdown fields
-        $breakdown = $this->mapPaymentMethodToBreakdown($receipt->payment_method, $receiptAmount);
+        $categories = collect($categoryTotals)
+            ->map(function (array $row) {
+                return [
+                    'category' => $row['category'],
+                    'amount' => round((float) $row['amount'], 2),
+                    'receipt_count' => (int) $row['receipt_count'],
+                ];
+            })
+            ->sortByDesc('amount')
+            ->values()
+            ->all();
+
+        $buckets = collect($bucketTotals)
+            ->sortBy('key')
+            ->map(function (array $row) {
+                return [
+                    'key' => $row['key'],
+                    'label' => $row['label'],
+                    'amount' => round((float) $row['amount'], 2),
+                ];
+            })
+            ->values()
+            ->all();
 
         return [
-            'category' => $category,
-            'package_item' => $packageItem,
-            'ref_no' => $refNo,
-            'amount' => round($receiptAmount, 2),
-            'cash' => $breakdown['cash'],
-            'nets' => $breakdown['nets'],
-            'visa' => $breakdown['visa'],
-            'master' => $breakdown['master'],
-            'paynow' => $breakdown['paynow'],
-            'total_sale' => round($receiptAmount, 2),
-            'maker' => null, // Not available in current system
-            'remarks' => null, // Not available in current system
+            'period' => $resolvedPeriod,
+            'period_label' => $periodLabel,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'date_range_label' => $startDate->translatedFormat('d F Y').' - '.$endDate->translatedFormat('d F Y'),
+            'total_amount' => round($totalAmount, 2),
+            'receipt_count' => $receipts->count(),
+            'categories' => $categories,
+            'buckets' => $buckets,
         ];
-    }
-
-    /**
-     * Build aggregated rows from multiple receipts (for monthly/yearly)
-     */
-    private function buildAggregatedRows(array $receipts): array
-    {
-        $rowsByCategory = [];
-
-        foreach ($receipts as $receipt) {
-            $receiptAmount = (float) ($receipt->amount ?? 0);
-            $invoice = $receipt->invoice;
-            $category = 'others';
-
-            if ($invoice) {
-                $items = $invoice->quotationItems
-                    ->filter(fn (QuotationItem $item) => ! $item->is_header)
-                    ->values();
-
-                if ($items->isNotEmpty()) {
-                    $category = $this->resolveCategoryKey($items->first());
-                }
-            }
-
-            if (! isset($rowsByCategory[$category])) {
-                $rowsByCategory[$category] = [
-                    'category' => $category,
-                    'package_item' => '-',
-                    'ref_no' => '-',
-                    'amount' => 0.0,
-                    'cash' => 0.0,
-                    'nets' => 0.0,
-                    'visa' => 0.0,
-                    'master' => 0.0,
-                    'paynow' => 0.0,
-                    'total_sale' => 0.0,
-                ];
-            }
-
-            // Aggregate amount and payment method breakdown
-            $breakdown = $this->mapPaymentMethodToBreakdown($receipt->payment_method, $receiptAmount);
-            $rowsByCategory[$category]['amount'] += round($receiptAmount, 2);
-            $rowsByCategory[$category]['cash'] += $breakdown['cash'];
-            $rowsByCategory[$category]['nets'] += $breakdown['nets'];
-            $rowsByCategory[$category]['visa'] += $breakdown['visa'];
-            $rowsByCategory[$category]['master'] += $breakdown['master'];
-            $rowsByCategory[$category]['paynow'] += $breakdown['paynow'];
-            $rowsByCategory[$category]['total_sale'] += round($receiptAmount, 2);
-        }
-
-        return array_values($rowsByCategory);
-    }
-
-    /**
-     * Map payment method string to breakdown fields
-     */
-    private function mapPaymentMethodToBreakdown(string $paymentMethod, float $amount): array
-    {
-        $breakdown = [
-            'cash' => 0.0,
-            'nets' => 0.0,
-            'visa' => 0.0,
-            'master' => 0.0,
-            'paynow' => 0.0,
-        ];
-
-        $method = strtolower(trim($paymentMethod));
-
-        if (str_contains($method, 'cash')) {
-            $breakdown['cash'] = round($amount, 2);
-        } elseif (str_contains($method, 'visa')) {
-            $breakdown['visa'] = round($amount, 2);
-        } elseif (str_contains($method, 'master')) {
-            $breakdown['master'] = round($amount, 2);
-        } elseif (str_contains($method, 'nets')) {
-            $breakdown['nets'] = round($amount, 2);
-        } elseif (str_contains($method, 'paynow') || str_contains($method, 'transfer')) {
-            $breakdown['paynow'] = round($amount, 2);
-        }
-
-        return $breakdown;
-    }
-
-    /**
-     * Resolve category key for display
-     */
-    private function resolveCategoryKey(QuotationItem $item): string
-    {
-        $parent = $item->parent;
-
-        while ($parent && ! $parent->is_header) {
-            $parent = $parent->parent;
-        }
-
-        if (! $parent) {
-            return 'others';
-        }
-
-        $root = $parent;
-        while ($root->parent && $root->parent->is_header) {
-            $root = $root->parent;
-        }
-
-        $description = strtolower(trim((string) $root->description));
-
-        return match (true) {
-            str_contains($description, 'umrah') => 'umrah_packages',
-            str_contains($description, 'leisure') => 'leisure_package',
-            str_contains($description, 'friday') || str_contains($description, 'badal') => 'friday_blessings_badal',
-            str_contains($description, 'wakaf') => 'wakaf_jemaah',
-            default => 'others',
-        };
     }
 
     private function addCategoryAmount(array &$categoryTotals, string $category, float $amount): void
     {
-        // Deprecated - kept for backward compatibility if needed elsewhere
         $normalizedCategory = trim($category) !== '' ? trim($category) : 'Others';
 
         if (! isset($categoryTotals[$normalizedCategory])) {
@@ -727,22 +537,6 @@ class FinancialTransactionService
 
         $categoryTotals[$normalizedCategory]['amount'] += $amount;
         $categoryTotals[$normalizedCategory]['receipt_count']++;
-    }
-
-    private function addCategoryBucketAmount(array &$categoryBucketAmounts, string $category, string $bucketKey, float $amount): void
-    {
-        // Deprecated - kept for backward compatibility if needed elsewhere
-        $normalizedCategory = trim($category) !== '' ? trim($category) : 'Others';
-
-        if (! isset($categoryBucketAmounts[$normalizedCategory])) {
-            $categoryBucketAmounts[$normalizedCategory] = [];
-        }
-
-        if (! isset($categoryBucketAmounts[$normalizedCategory][$bucketKey])) {
-            $categoryBucketAmounts[$normalizedCategory][$bucketKey] = 0.0;
-        }
-
-        $categoryBucketAmounts[$normalizedCategory][$bucketKey] += $amount;
     }
 
     /**
@@ -852,105 +646,35 @@ class FinancialTransactionService
         };
     }
 
-    /**
-     * Convert the new periods structure to the old categories/buckets structure
-     * Used for backward compatibility with dashboard display
-     */
-    public function transformToLegacyFormat(array $newReport): array
+    private function resolveItemCategoryLabel(QuotationItem $item): string
     {
-        if (! isset($newReport['groups']) && ! isset($newReport['periods'])) {
-            return $newReport;
+        $parent = $item->parent;
+
+        while ($parent && ! $parent->is_header) {
+            $parent = $parent->parent;
         }
 
-        $mode = (string) ($newReport['mode'] ?? 'daily');
-        $categories = [];
-        $buckets = [];
-        $totalAmount = 0.0;
-        $receiptCount = 0;
-        $allDates = [];
-
-        $groups = $newReport['groups'] ?? [];
-
-        // Backward compatibility if old format still passed in.
-        if (empty($groups) && isset($newReport['periods'])) {
-            $groups = array_map(static fn (array $period): array => [
-                'label' => $period['label'] ?? '-',
-                'rows' => $period['rows'] ?? [],
-            ], $newReport['periods']);
+        if (! $parent) {
+            return 'Others';
         }
 
-        $appendRowsToTotals = function (array $rows, string $bucketLabel) use (&$categories, &$buckets, &$totalAmount, &$receiptCount, &$allDates): void {
-            $bucketKey = strtolower((string) preg_replace('/[^a-z0-9]+/i', '_', $bucketLabel));
-            $bucketKey = trim($bucketKey, '_');
-            $bucketKey = $bucketKey !== '' ? $bucketKey : 'bucket';
+        $root = $parent;
 
-            $allDates[] = $bucketLabel;
-
-            if (! isset($buckets[$bucketKey])) {
-                $buckets[$bucketKey] = [
-                    'key' => $bucketKey,
-                    'label' => $bucketLabel,
-                    'amount' => 0.0,
-                ];
-            }
-
-            foreach ($rows as $row) {
-                $category = $row['category'] ?? 'others';
-                $amount = (float) ($row['amount'] ?? 0);
-
-                if (! isset($categories[$category])) {
-                    $categories[$category] = [
-                        'category' => $category,
-                        'amount' => 0.0,
-                        'receipt_count' => 0,
-                    ];
-                }
-
-                $categories[$category]['amount'] += $amount;
-                $categories[$category]['receipt_count'] += 1;
-                $buckets[$bucketKey]['amount'] += $amount;
-                $totalAmount += $amount;
-                $receiptCount += 1;
-            }
-        };
-
-        foreach ($groups as $group) {
-            if ($mode === 'daily') {
-                $appendRowsToTotals($group['rows'] ?? [], (string) ($group['label'] ?? '-'));
-
-                continue;
-            }
-
-            $subPeriods = $group['sub_periods'] ?? [];
-
-            foreach ($subPeriods as $subPeriod) {
-                $bucketLabel = trim((string) (($group['label'] ?? '').' '.($subPeriod['label'] ?? '')));
-                $bucketLabel = $bucketLabel !== '' ? $bucketLabel : '-';
-
-                $appendRowsToTotals($subPeriod['rows'] ?? [], $bucketLabel);
-            }
+        while ($root->parent && $root->parent->is_header) {
+            $root = $root->parent;
         }
 
-        // Sort categories by amount descending
-        usort($categories, fn ($a, $b) => $b['amount'] <=> $a['amount']);
+        $rootDescription = trim((string) $root->description);
+        $parentDescription = trim((string) $parent->description);
 
-        // Build date range label
-        $dateRangeLabel = ! empty($allDates)
-            ? ($allDates[0] === end($allDates)
-                ? $allDates[0]
-                : $allDates[0].' - '.end($allDates))
-            : '';
+        if ($rootDescription === '') {
+            return 'Others';
+        }
 
-        return [
-            'period' => $mode,
-            'period_label' => $newReport['period_label'] ?? '',
-            'start_date' => ! empty($allDates) ? $allDates[0] : '',
-            'end_date' => ! empty($allDates) ? end($allDates) : '',
-            'date_range_label' => $dateRangeLabel,
-            'total_amount' => round($totalAmount, 2),
-            'receipt_count' => $receiptCount,
-            'categories' => array_values($categories),
-            'buckets' => array_values($buckets),
-        ];
+        if ($parent->id !== $root->id && $parentDescription !== '') {
+            return $rootDescription.' - '.$parentDescription;
+        }
+
+        return $rootDescription;
     }
 }

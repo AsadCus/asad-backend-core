@@ -23,7 +23,7 @@
             width: 55%;
             text-align: right;
             vertical-align: top;
-            font-size: 11px;
+            font-size: 10px;
             line-height: 1.5;
         }
 
@@ -38,16 +38,16 @@
         }
 
         .info-cell b {
-            font-size: 12px;
+            font-size: 11px;
         }
 
         body {
-            font-size: 12px;
+            font-size: 11px;
         }
 
         /* Title Bar override for Sales */
         .title-bar {
-            font-size: 15px;
+            font-size: 14px;
             padding: 6px;
             letter-spacing: 3px;
             margin-bottom: 20px;
@@ -55,7 +55,7 @@
 
         /* Content */
         .content-wrapper {
-            padding: 0;
+            padding: 0 20px;
         }
 
         /* Info Table */
@@ -82,7 +82,7 @@
         .footer-section {
             clear: both;
             padding: 15px 0 0;
-            font-size: 11px;
+            font-size: 10px;
             border-top: none;
         }
 
@@ -127,7 +127,33 @@
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @endif
 
-            @include('partials.report-signature-stamp')
+            @if (!empty($branding['show_stamp']))
+                <div style="margin-top: 15px; margin-bottom: 0;">
+                    @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
+                        <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
+                            style="max-height: 80px; width: auto; display: block;">
+                    @elseif(!empty($branding['stamp_url']))
+                        <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
+                            style="max-height: 80px; width: auto; display: block;">
+                    @endif
+                </div>
+            @endif
+
+            @if (!empty($branding['show_signature']))
+                <div style="margin-top: 15px;">
+                    <p style="font-size: 9px; margin: 0 0 5px 0;">Authorised Signature</p>
+                    @if (
+                        ($is_pdf ?? false) &&
+                            !empty($branding['signature_path_absolute']) &&
+                            file_exists($branding['signature_path_absolute']))
+                        <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
+                            style="max-height: 60px; width: auto; display: block;">
+                    @elseif(!empty($branding['signature_url']))
+                        <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
+                            style="max-height: 60px; width: auto; display: block;">
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 

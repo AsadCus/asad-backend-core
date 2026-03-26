@@ -2,39 +2,6 @@ export interface ModuleTemplate {
     footer_text: string;
     show_stamp: boolean;
     show_signature: boolean;
-    show_signature_stamp_name: boolean;
-    show_signature_stamp_date: boolean;
-}
-
-export interface SignatureStampPlacement {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    z: number;
-}
-
-export type SignatureStampPlacementPreset =
-    | 'left_side'
-    | 'right_side'
-    | 'stack_each_other'
-    | 'up_side'
-    | 'down_side';
-
-export interface SignatureStampLabelsConfig {
-    show_name: boolean;
-    show_date: boolean;
-    full_name: string;
-    date: string;
-}
-
-export interface SignatureStampLayoutConfig {
-    unit: 'percent' | 'px';
-    placement: SignatureStampPlacementPreset;
-    labels: SignatureStampLabelsConfig;
-    stamp: SignatureStampPlacement;
-    signature: SignatureStampPlacement;
-    signatureLineWidth?: number;
 }
 
 export interface RegisteredModule {
@@ -60,10 +27,6 @@ export interface PdfPreviewProps {
     footerText: string;
     showStamp: boolean;
     showSignature: boolean;
-    showSignatureStampName: boolean;
-    showSignatureStampDate: boolean;
-    signatureStampLayout: 'default' | 'custom';
-    customSignatureStampLayout: SignatureStampLayoutConfig;
     documentType: string;
     companyName: string;
     companyPhone: string;
@@ -72,6 +35,4 @@ export interface PdfPreviewProps {
     logoPreview: string | null;
     stampPreview: string | null;
     signaturePreview: string | null;
-    customStampPreview: string | null;
-    customSignaturePreview: string | null;
 }

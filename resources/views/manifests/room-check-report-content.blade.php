@@ -6,13 +6,11 @@
     Manifest Room Check - {{ $manifest['room_check_location_label'] ?? '-' }}
 @endsection
 
-@section('body-class', 'is-landscape')
-
 @push('styles')
     <style>
         @page {
             size: A4 landscape;
-            margin: 0.1cm 0.2cm;
+            margin: 1cm 1.2cm;
         }
 
         .summary-grid {
@@ -312,12 +310,4 @@
     <p class="muted-note">
         Generated on {{ now()->translatedFormat('d F Y H:i') }}.
     </p>
-
-    <div class="footer-section">
-        @if (!empty($branding['footer_text']))
-            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
-        @endif
-
-        @include('partials.report-signature-stamp')
-    </div>
 @endsection

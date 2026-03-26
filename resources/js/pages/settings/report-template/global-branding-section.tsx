@@ -1,21 +1,10 @@
-import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
-import { SignatureStampLayoutSection } from './signature-stamp-layout-section';
-import type { SignatureStampLayoutConfig } from './types';
+import type { FileUploadFieldProps } from './types';
 
 interface GlobalBrandingSectionProps {
     data: {
@@ -24,88 +13,77 @@ interface GlobalBrandingSectionProps {
         company_phone: string;
         company_email: string;
         brand_color: string;
-        logo_file?: File | null;
-        stamp_file?: File | null;
-        signature_file?: File | null;
-        custom_signature_data?: string | null;
-        custom_signature_path?: string | null;
-        logo_path?: string | null;
-        stamp_path?: string | null;
-        signature_path?: string | null;
     };
     errors: Record<string, string | undefined>;
-    initialLogoDatabasePath: string | null;
-    initialStampDatabasePath: string | null;
-    initialSignatureDatabasePath: string | null;
-    customSignatureStampLayout: SignatureStampLayoutConfig;
-    onCustomSignatureStampLayoutChange: (
-        value: SignatureStampLayoutConfig,
-    ) => void;
-    onCustomSignatureDataChange: (value: string | null) => void;
-    onDataChange: (field: string, value: string) => void;
-    makeFileHandler: (
-        field:
-            | 'logo_file'
-            | 'stamp_file'
-            | 'signature_file',
-        setPreviewFileName: (v: string | null) => void,
-    ) => (file: File) => void;
-    makeClearHandler: (
-        field:
-            | 'logo_file'
-            | 'stamp_file'
-            | 'signature_file',
-        setPreviewFileName: (v: string | null) => void,
-        pathKey:
-            | 'logo_path'
-            | 'stamp_path'
-            | 'signature_path',
-        hasDatabaseFile: boolean,
-    ) => () => void;
+    logoPreview: string | null;
+    stampPreview: string | null;
+    signaturePreview: string | null;
     logoPreviewFileName: string | null;
     stampPreviewFileName: string | null;
     signaturePreviewFileName: string | null;
+    initialLogoPreview: string | null;
+    initialStampPreview: string | null;
+    initialSignaturePreview: string | null;
+    initialLogoPreviewFileName: string | null;
+    initialStampPreviewFileName: string | null;
+    initialSignaturePreviewFileName: string | null;
+    initialLogoDatabasePath: string | null;
+    initialStampDatabasePath: string | null;
+    initialSignatureDatabasePath: string | null;
+    onDataChange: (field: string, value: string) => void;
+    makeFileHandler: (
+        field: 'logo_file' | 'stamp_file' | 'signature_file',
+        setPreview: (v: string | null) => void,
+        setPreviewFileName: (v: string | null) => void,
+    ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+    makeClearHandler: (
+        field: 'logo_file' | 'stamp_file' | 'signature_file',
+        setPreview: (v: string | null) => void,
+        existingPreview: string | null,
+        setPreviewFileName: (v: string | null) => void,
+        existingFileName: string | null,
+        pathKey: 'logo_path' | 'stamp_path' | 'signature_path',
+        hasDatabaseFile: boolean,
+    ) => () => void;
+    setLogoPreview: (v: string | null) => void;
+    setStampPreview: (v: string | null) => void;
+    setSignaturePreview: (v: string | null) => void;
     setLogoPreviewFileName: (v: string | null) => void;
     setStampPreviewFileName: (v: string | null) => void;
     setSignaturePreviewFileName: (v: string | null) => void;
+    FileUploadField: React.ComponentType<FileUploadFieldProps>;
 }
 
 export function GlobalBrandingSection({
     data,
     errors,
+    logoPreview,
+    stampPreview,
+    signaturePreview,
     logoPreviewFileName,
     stampPreviewFileName,
     signaturePreviewFileName,
+    initialLogoPreview,
+    initialStampPreview,
+    initialSignaturePreview,
+    initialLogoPreviewFileName,
+    initialStampPreviewFileName,
+    initialSignaturePreviewFileName,
     initialLogoDatabasePath,
     initialStampDatabasePath,
     initialSignatureDatabasePath,
-    customSignatureStampLayout,
-    onCustomSignatureStampLayoutChange,
-    onCustomSignatureDataChange,
     onDataChange,
     makeFileHandler,
     makeClearHandler,
+    setLogoPreview,
+    setStampPreview,
+    setSignaturePreview,
     setLogoPreviewFileName,
     setStampPreviewFileName,
     setSignaturePreviewFileName,
+    FileUploadField,
 }: GlobalBrandingSectionProps) {
     const [brandingOpen, setBrandingOpen] = useState(true);
-
-    const stampPreviewUrl = data.stamp_file
-        ? URL.createObjectURL(data.stamp_file)
-        : data.stamp_path !== '' && initialStampDatabasePath
-            ? `/storage/${initialStampDatabasePath}`
-            : null;
-
-    const signaturePreviewUrl =
-        data.custom_signature_data ||
-        (data.custom_signature_path && data.custom_signature_path !== ''
-            ? `/storage/${data.custom_signature_path}`
-            : data.signature_file instanceof File
-                ? URL.createObjectURL(data.signature_file)
-                : data.signature_path !== '' && initialSignatureDatabasePath
-                    ? `/storage/${initialSignatureDatabasePath}`
-                    : null);
 
     return (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -229,95 +207,52 @@ export function GlobalBrandingSection({
 
                     <Separator className="my-1" />
 
-                    <div className="space-y-7 mt-5">
-
-                        <DocumentField
+                    <div className="grid grid-cols-1 gap-7 md:grid-cols-2 xl:grid-cols-3">
+                        <FileUploadField
+                            id="logo_file"
                             label="Company Logo"
                             hint="Displayed top-left on all PDFs"
-                            accept="image/jpeg,image/png,image/jpg"
-                            fileValue={data.logo_file || undefined}
-                            existingPath={initialLogoDatabasePath || undefined}
-                            existingFileName={logoPreviewFileName || undefined}
-                            isView={false}
-                            disabled={false}
+                            preview={logoPreview}
+                            previewFileName={logoPreviewFileName}
+                            previewAlt="Company Logo"
                             error={errors.logo_file}
-                            onSelect={makeFileHandler('logo_file', setLogoPreviewFileName)}
-                            onClear={makeClearHandler('logo_file', setLogoPreviewFileName, 'logo_path', !!initialLogoDatabasePath)}
+                            onChange={makeFileHandler('logo_file', setLogoPreview, setLogoPreviewFileName)}
+                            onClear={makeClearHandler('logo_file', setLogoPreview, initialLogoPreview, setLogoPreviewFileName, initialLogoPreviewFileName, 'logo_path', !!initialLogoDatabasePath)}
                         />
-                    </div>
-
-                    <Separator className="my-1" />
-
-                    <div className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm mt-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-base font-medium">Signature and Stamp Layout</p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                    Configure placement, draw your signature, <br /> and set name/date labels.
-                                </p>
-                            </div>
-
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button type="button" variant="outline">
-                                        Configure Layout
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
-                                    <DialogHeader className="mb-4">
-                                        <DialogTitle className="text-xl">Signature and Stamp Layout</DialogTitle>
-                                        <DialogDescription>
-                                            Adjust the positions, upload files, and draw your signature for document reports.
-                                        </DialogDescription>
-                                    </DialogHeader>
-
-                                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 mb-2 p-5 border rounded-xl bg-muted/10">
-                                        <DocumentField
-                                            label="Company Stamp"
-                                            hint="Image file for the company stamp"
-                                            accept="image/jpeg,image/png,image/jpg"
-                                            fileValue={data.stamp_file || undefined}
-                                            existingPath={data.stamp_path !== '' ? (initialStampDatabasePath || undefined) : undefined}
-                                            existingFileName={stampPreviewFileName || undefined}
-                                            isView={false}
-                                            disabled={false}
-                                            error={errors.stamp_file}
-                                            onSelect={makeFileHandler('stamp_file', setStampPreviewFileName)}
-                                            onClear={makeClearHandler('stamp_file', setStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
-                                        />
-                                        <DocumentField
-                                            label="Authorised Signature"
-                                            hint="Image file for the signature (or draw below)"
-                                            accept="image/jpeg,image/png,image/jpg"
-                                            fileValue={data.signature_file || undefined}
-                                            existingPath={data.signature_path !== '' ? (initialSignatureDatabasePath || undefined) : undefined}
-                                            existingFileName={signaturePreviewFileName || undefined}
-                                            isView={false}
-                                            disabled={false}
-                                            error={errors.signature_file}
-                                            onSelect={makeFileHandler('signature_file', setSignaturePreviewFileName)}
-                                            onClear={makeClearHandler('signature_file', setSignaturePreviewFileName, 'signature_path', !!initialSignatureDatabasePath)}
-                                        />
-                                    </div>
-
-                                    <SignatureStampLayoutSection
-                                        customSignatureStampLayout={customSignatureStampLayout}
-                                        onCustomSignatureStampLayoutChange={onCustomSignatureStampLayoutChange}
-                                        onCustomSignatureDataChange={onCustomSignatureDataChange}
-                                        stampPreviewPath={stampPreviewUrl}
-                                        signaturePreviewPath={signaturePreviewUrl}
-                                        customSignatureData={data.custom_signature_data ?? null}
-                                        errors={errors}
-                                    />
-
-                                    <div className="flex justify-end pt-4 border-t mt-6">
-                                        <DialogTrigger asChild>
-                                            <Button type="button">Done</Button>
-                                        </DialogTrigger>
-                                    </div>
-                                </DialogContent>
-                            </Dialog>
-                        </div>
+                        <FileUploadField
+                            id="stamp_file"
+                            label="Company Stamp"
+                            hint="Enable per-module in the section below"
+                            preview={stampPreview}
+                            previewFileName={stampPreviewFileName}
+                            previewAlt="Company Stamp"
+                            error={errors.stamp_file}
+                            onChange={makeFileHandler('stamp_file', setStampPreview, setStampPreviewFileName)}
+                            onClear={makeClearHandler('stamp_file', setStampPreview, initialStampPreview, setStampPreviewFileName, initialStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
+                        />
+                        <FileUploadField
+                            id="signature_file"
+                            label="Authorised Signature"
+                            hint="Enable per-module in the section below"
+                            preview={signaturePreview}
+                            previewFileName={signaturePreviewFileName}
+                            previewAlt="Authorised Signature"
+                            error={errors.signature_file}
+                            onChange={makeFileHandler(
+                                'signature_file',
+                                setSignaturePreview,
+                                setSignaturePreviewFileName,
+                            )}
+                            onClear={makeClearHandler(
+                                'signature_file',
+                                setSignaturePreview,
+                                initialSignaturePreview,
+                                setSignaturePreviewFileName,
+                                initialSignaturePreviewFileName,
+                                'signature_path',
+                                !!initialSignatureDatabasePath,
+                            )}
+                        />
                     </div>
                 </div>
             )}

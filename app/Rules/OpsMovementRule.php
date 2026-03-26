@@ -16,8 +16,8 @@ class OpsMovementRule
             'vehicle_type' => ['nullable', 'string', 'max:255'],
             'vehicle_driver_name' => ['nullable', 'string', 'max:255'],
             'vehicle_driver_contact_number' => ['nullable', 'string', 'max:255'],
-            'visa_submitted_to_z_umrah' => ['nullable', 'in:0,1,true,false'],
-            'visa_approved' => ['nullable', 'in:0,1,true,false'],
+            'visa_submitted_to_z_umrah' => ['nullable', 'boolean'],
+            'visa_approved' => ['nullable', 'boolean'],
 
             'accommodations' => ['nullable', 'array'],
             'accommodations.*.id' => ['required', 'integer', 'exists:package_accommodations,id'],
@@ -54,12 +54,6 @@ class OpsMovementRule
             'budget.*.items.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'budget.*.items.*.remarks' => ['nullable', 'string'],
             'budget.*.items.*.sort_order' => ['nullable', 'integer', 'min:1'],
-
-            'pif' => ['nullable', 'array'],
-            'pif.tour_leaders' => ['nullable', 'array'],
-            'pif.tour_leaders.*.type' => ['nullable', 'string', 'max:255'],
-            'pif.tour_leaders.*.name' => ['nullable', 'string', 'max:255'],
-            'pif.tour_leaders.*.contact_number' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

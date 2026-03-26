@@ -79,31 +79,5 @@ export const opsMovementValidationSchema = opsMovementSchema.superRefine(
                 }
             });
         });
-
-        (data.pif?.tour_leaders ?? []).forEach((tourLeader, index) => {
-            if ((tourLeader.type ?? '').length > 255) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['pif', 'tour_leaders', index, 'type'],
-                    message: 'Tour leader type cannot exceed 255 characters.',
-                });
-            }
-
-            if ((tourLeader.name ?? '').length > 255) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['pif', 'tour_leaders', index, 'name'],
-                    message: 'Tour leader name cannot exceed 255 characters.',
-                });
-            }
-
-            if ((tourLeader.contact_number ?? '').length > 255) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['pif', 'tour_leaders', index, 'contact_number'],
-                    message: 'Tour leader contact number cannot exceed 255 characters.',
-                });
-            }
-        });
     },
 );

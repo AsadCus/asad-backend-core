@@ -11,22 +11,22 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Trash2 } from 'lucide-react';
-import type { ModuleTemplate, RegisteredModule } from './types';
+import type { ModuleTemplate, PdfPreviewProps, RegisteredModule } from './types';
 
 interface ModuleTemplateSectionProps {
     selectedModule: string;
     setSelectedModule: (key: string) => void;
     activeModule: ModuleTemplate;
     activeDefinition: RegisteredModule | undefined;
-
     isBuiltin: boolean;
     builtinModules: RegisteredModule[];
     registeredModules: RegisteredModule[];
     updateModule: (field: keyof ModuleTemplate, value: string | boolean) => void;
-    updateModuleSignatureStampNameDateVisibility: (value: boolean) => void;
     handleDeleteModule: (key: string) => void;
     /** Rendered element — caller controls key, no wrapper needed */
     AddModuleDialog: React.ReactNode;
+    PdfPreview: React.ComponentType<PdfPreviewProps>;
+    previewProps: PdfPreviewProps;
 }
 
 export function ModuleTemplateSection({
@@ -38,9 +38,10 @@ export function ModuleTemplateSection({
     builtinModules,
     registeredModules,
     updateModule,
-    updateModuleSignatureStampNameDateVisibility,
     handleDeleteModule,
     AddModuleDialog,
+    PdfPreview,
+    previewProps,
 }: ModuleTemplateSectionProps) {
     return (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -98,7 +99,8 @@ export function ModuleTemplateSection({
             </div>
 
             <div className="p-5">
-                <div className="space-y-5">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div className="space-y-5">
                         <FormField
                             label="Footer Text"
                             fieldRequirementsProps={{
@@ -123,60 +125,51 @@ export function ModuleTemplateSection({
                             <h4 className="text-base font-medium">
                                 Document Elements
                             </h4>
-                            <>
-                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                                        <div>
-                                            <p className="text-base font-medium">
-                                                Show Company Stamp
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                Display stamp from Branding section.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={activeModule?.show_stamp ?? false}
-                                            onCheckedChange={(v) =>
-                                                updateModule('show_stamp', v)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                                        <div>
-                                            <p className="text-base font-medium">
-                                                Show Authorised Signature
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                Display signature from Branding section.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={activeModule?.show_signature ?? false}
-                                            onCheckedChange={(v) =>
-                                                updateModule('show_signature', v)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                                        <div>
-                                            <p className="text-base font-medium">
-                                                Show Full Name and Date
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                Display full name and date below signature and stamp.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={
-                                                (activeModule?.show_signature_stamp_name ?? false) &&
-                                                (activeModule?.show_signature_stamp_date ?? false)
-                                            }
-                                            onCheckedChange={
-                                                updateModuleSignatureStampNameDateVisibility
-                                            }
-                                        />
-                                    </div>
-                                </>
+                            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                <div>
+                                    <p className="text-base font-medium">
+                                        Show Company Stamp
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Display stamp from Branding section.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={activeModule?.show_stamp ?? false}
+                                    onCheckedChange={(v) =>
+                                        updateModule('show_stamp', v)
+                                    }
+                                />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                <div>
+                                    <p className="text-base font-medium">
+                                        Show Authorised Signature
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Display signature from Branding section.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={activeModule?.show_signature ?? false}
+                                    onCheckedChange={(v) =>
+                                        updateModule('show_signature', v)
+                                    }
+                                />
+                            </div>
                         </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <FormField
+                            label="Live Preview"
+                            fieldRequirementsProps={{
+                                hint: 'Updates as you change settings above',
+                            }}
+                        >
+                            <PdfPreview {...previewProps} />
+                        </FormField>
+                    </div>
                 </div>
             </div>
         </div>
