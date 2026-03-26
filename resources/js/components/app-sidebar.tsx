@@ -11,12 +11,14 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+// import agreement from '@/routes/agreement';
 import confirmedCustomer from '@/routes/confirmed-customer';
 import customer from '@/routes/customer';
 import customerHolding from '@/routes/customer-holding';
 import enquiries from '@/routes/enquiries';
 import generalEnquiries from '@/routes/general-enquiries';
 import invoice from '@/routes/invoice';
+// import maid from '@/routes/maid';
 import manifests from '@/routes/manifests';
 import master from '@/routes/master';
 import branch from '@/routes/master/branch';
@@ -34,14 +36,20 @@ import quotationItem from '@/routes/quotation-items';
 import receipt from '@/routes/receipt';
 import sales from '@/routes/sales';
 import userLogs from '@/routes/user-logs';
+// import schedule from '@/routes/schedule';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    // Calendar,
     ClipboardList,
+    // FileCheck,
+    // FileCheck2,
+    // FilePlus,
     FileText,
     FileUser,
     Globe,
     Handshake,
+    // HeartHandshake,
     Inbox,
     Landmark,
     LayoutGrid,

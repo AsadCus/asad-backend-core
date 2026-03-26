@@ -48,42 +48,29 @@ class ReportTemplateService
         $logo = $this->resolveAsset($settings->logo_path, 'logo-primary.png');
         $stamp = $this->resolveAsset($settings->stamp_path);
         $signature = $this->resolveAsset($settings->signature_path);
-        $customStamp = $this->resolveAsset($settings->custom_stamp_path);
-        $customSignature = $this->resolveAsset($settings->custom_signature_path);
 
         return [
             'company_name' => $settings->company_name,
             'company_address' => $settings->company_address,
             'company_phone' => $settings->company_phone,
             'company_email' => $settings->company_email,
-            'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
-            'custom_signature_stamp_layout' => $settings->custom_signature_stamp_layout,
             // Relative URL versions (for web/frontend display) - works regardless of APP_URL or port
             'logo_url' => $logo['url'],
             'stamp_url' => $stamp['url'],
             'signature_url' => $signature['url'],
-            'custom_stamp_url' => $customStamp['url'],
-            'custom_signature_url' => $customSignature['url'],
             // Absolute path versions (for DomPDF)
             'logo_path_absolute' => $logo['absolute'],
             'stamp_path_absolute' => $stamp['absolute'],
             'signature_path_absolute' => $signature['absolute'],
-            'custom_stamp_path_absolute' => $customStamp['absolute'],
-            'custom_signature_path_absolute' => $customSignature['absolute'],
             'footer_text' => $settings->footer_text,
             // Per-module template configs (for use in settings page)
             'module_templates' => [
                 'quotation' => $settings->getModuleTemplate('quotation'),
                 'invoice' => $settings->getModuleTemplate('invoice'),
                 'receipt' => $settings->getModuleTemplate('receipt'),
+                'agreement' => $settings->getModuleTemplate('agreement'),
                 'sales' => $settings->getModuleTemplate('sales'),
-                'package' => $settings->getModuleTemplate('package'),
-                'manifest_arabic_names' => $settings->getModuleTemplate('manifest_arabic_names'),
-                'manifest_namelist_course_items' => $settings->getModuleTemplate('manifest_namelist_course_items'),
-                'manifest_room_check' => $settings->getModuleTemplate('manifest_room_check'),
-                'ops_movement' => $settings->getModuleTemplate('ops_movement'),
-                'ops_movement_pif' => $settings->getModuleTemplate('ops_movement_pif'),
-                'ops_movement_budget' => $settings->getModuleTemplate('ops_movement_budget'),
+                'manifest' => $settings->getModuleTemplate('manifest'),
             ],
         ];
     }
@@ -104,20 +91,12 @@ class ReportTemplateService
 
         // Merge the per-module template config into branding
         $moduleTemplate = $settings->getModuleTemplate($type);
-        $storedModule = $settings->module_templates[$type] ?? [];
 
         // Ensure boolean values are properly cast
         $moduleTemplate['show_stamp'] = (bool) ($moduleTemplate['show_stamp'] ?? false);
         $moduleTemplate['show_signature'] = (bool) ($moduleTemplate['show_signature'] ?? false);
-        $moduleTemplate['show_signature_stamp_name'] = (bool) ($moduleTemplate['show_signature_stamp_name'] ?? false);
-        $moduleTemplate['show_signature_stamp_date'] = (bool) ($moduleTemplate['show_signature_stamp_date'] ?? false);
 
         $branding = array_merge($branding, $moduleTemplate);
-
-        // Always inherit global signature_stamp_layout and custom layout config —
-        // module templates do not override these; they only control show_stamp / show_signature flags.
-        $branding['signature_stamp_layout'] = $settings->signature_stamp_layout ?? 'default';
-        $branding['custom_signature_stamp_layout'] = $settings->custom_signature_stamp_layout;
 
         return [
             'branding' => $branding,

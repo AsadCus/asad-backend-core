@@ -24,7 +24,7 @@
 
         /* ── Order Info ── */
         .order-info-section {
-            padding: 0;
+            padding: 0 30px;
             margin-bottom: 12px;
         }
 
@@ -36,7 +36,7 @@
         .order-info td {
             vertical-align: top;
             padding: 1px 0;
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .order-info .lbl {
@@ -51,7 +51,7 @@
 
         /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0;
+            padding: 0 30px;
         }
 
         /* ── Items Table ── */
@@ -64,12 +64,13 @@
         .items-table-wrap {
             border-top: 1.5px solid #333;
             border-bottom: 1.5px solid #333;
+            padding: 6px 0;
         }
 
         .items-table td {
             padding: 3px 0;
             vertical-align: top;
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .col-desc {
@@ -92,7 +93,11 @@
             font-weight: bold;
             padding: 4px 0 2px;
             border-bottom: 1px solid #ccc;
-            font-size: 11px;
+            font-size: 10px;
+        }
+
+        .item-row {
+            border-bottom: 1px solid #ebebeb;
         }
 
         .item-row.root .col-desc {
@@ -103,23 +108,24 @@
         .totals-wrapper {
             text-align: right;
             padding: 6px 0 4px;
+            border-top: 1px solid #ccc;
             margin-top: 4px;
         }
 
         .total-label {
-            font-size: 11px;
+            font-size: 10px;
             color: #555;
         }
 
         .total-amount {
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         /* ── Footer ── */
         .footer-section {
-            padding: 12px 0 0;
-            font-size: 10px;
+            padding: 12px 30px 0;
+            font-size: 9px;
             border-top: none;
         }
 
@@ -133,7 +139,7 @@
         .updated-date {
             text-align: right;
             font-weight: bold;
-            font-size: 10px;
+            font-size: 9px;
             margin-top: 16px;
             color: #333;
         }
@@ -189,7 +195,7 @@
                         <tr>
                             <td class="lbl">Description</td>
                             <td class="sep">:</td>
-                            <td>{{ $data['description'] ?? '-' }}</td>
+                            <td>{{ $data['description'] ?? 'New / Fresh Helper' }}</td>
                         </tr>
                     </table>
                 </td>
@@ -341,7 +347,39 @@
             @endforelse
         @endif
 
-        @include('partials.report-signature-stamp')
+        {{-- Stamp & Signature --}}
+        @if (!empty($branding['show_stamp']) || !empty($branding['show_signature']))
+            <table class="stamp-sig-row">
+                <tr>
+                    <td>
+                        @if (!empty($branding['show_stamp']))
+                            @if (($is_pdf ?? false) && !empty($branding['stamp_path_absolute']) && file_exists($branding['stamp_path_absolute']))
+                                <img src="{{ $branding['stamp_path_absolute'] }}" alt="Company Stamp"
+                                    style="height:70px; width:auto; display:block;">
+                            @elseif(!empty($branding['stamp_url']))
+                                <img src="{{ $branding['stamp_url'] }}" alt="Company Stamp"
+                                    style="height:70px; width:auto; display:block;">
+                            @endif
+                        @endif
+                    </td>
+                    <td style="text-align:right;">
+                        @if (!empty($branding['show_signature']))
+                            <p style="font-size:9px; margin:0 0 3px 0;">Authorised Signature</p>
+                            @if (
+                                ($is_pdf ?? false) &&
+                                    !empty($branding['signature_path_absolute']) &&
+                                    file_exists($branding['signature_path_absolute']))
+                                <img src="{{ $branding['signature_path_absolute'] }}" alt="Authorised Signature"
+                                    style="height:52px; width:auto; display:block; margin-left:auto;">
+                            @elseif(!empty($branding['signature_url']))
+                                <img src="{{ $branding['signature_url'] }}" alt="Authorised Signature"
+                                    style="height:52px; width:auto; display:block; margin-left:auto;">
+                            @endif
+                        @endif
+                    </td>
+                </tr>
+            </table>
+        @endif
 
         <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
     </div>

@@ -29,8 +29,9 @@ export function FormField({
 
     return (
         <div
-            className={`grid w-full items-center gap-3 ${isInline ? 'md:grid-cols-[minmax(0,1fr)_auto] md:gap-4' : ''
-                } ${className}`}
+            className={`grid w-full items-center gap-3 ${
+                isInline ? 'md:grid-cols-[minmax(0,1fr)_auto] md:gap-4' : ''
+            } ${className}`}
         >
             <Label htmlFor={htmlFor}>
                 {label}
@@ -41,7 +42,7 @@ export function FormField({
                     />
                 )}
             </Label>
-            <div className="relative w-full min-w-0">
+            <div className="relative">
                 {children}
                 {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
             </div>
