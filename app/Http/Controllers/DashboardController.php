@@ -13,7 +13,6 @@ use App\Services\FinancialYearService;
 use App\Services\OrderService;
 use App\Services\ReligionService;
 use App\Services\SalesService;
-use App\Services\SupplierService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,8 +26,6 @@ class DashboardController extends Controller
     protected $religionService;
 
     protected $educationLevelService;
-
-    protected $supplierService;
 
     protected $salesService;
 
@@ -47,7 +44,6 @@ class DashboardController extends Controller
         CountryService $countryService,
         ReligionService $religionService,
         EducationLevelService $educationLevelService,
-        SupplierService $supplierService,
         SalesService $salesService,
         FinancialYearService $financialYearService,
         FinancialTransactionService $financialTransactionService,
@@ -59,7 +55,6 @@ class DashboardController extends Controller
         $this->countryService = $countryService;
         $this->religionService = $religionService;
         $this->educationLevelService = $educationLevelService;
-        $this->supplierService = $supplierService;
         $this->salesService = $salesService;
         $this->financialYearService = $financialYearService;
         $this->financialTransactionService = $financialTransactionService;
@@ -151,12 +146,10 @@ class DashboardController extends Controller
             $data['nationality'] = $this->countryService->getForFilterByAdjective();
             $data['religion'] = $this->religionService->getForFilterByName();
             $data['educationLevel'] = $this->educationLevelService->getForFilterByName();
-            $data['supplier'] = $this->supplierService->getForFilterByName();
             $data['misc'] = [
                 'nationalities' => $this->countryService->getForFilter(),
                 'religions' => $this->religionService->getForFilter(),
                 'education_levels' => $this->educationLevelService->getForFilter(),
-                'suppliers' => $this->supplierService->getForFilter(),
             ];
         }
 
@@ -240,10 +233,16 @@ class DashboardController extends Controller
     {
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
+        $timezone = $request->input('timezone');
+        $rangeStartUtc = $request->input('range_start_utc');
+        $rangeEndUtc = $request->input('range_end_utc');
 
         $reportData = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
+            is_string($timezone) ? $timezone : null,
+            is_string($rangeStartUtc) ? $rangeStartUtc : null,
+            is_string($rangeEndUtc) ? $rangeEndUtc : null,
         );
 
         // Transform to legacy format for dashboard compatibility
@@ -256,10 +255,16 @@ class DashboardController extends Controller
     {
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
+        $timezone = $request->input('timezone');
+        $rangeStartUtc = $request->input('range_start_utc');
+        $rangeEndUtc = $request->input('range_end_utc');
 
         $report = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
+            is_string($timezone) ? $timezone : null,
+            is_string($rangeStartUtc) ? $rangeStartUtc : null,
+            is_string($rangeEndUtc) ? $rangeEndUtc : null,
         );
 
         $pdf = Pdf::loadView('reports.dashboard-payment-summary', [

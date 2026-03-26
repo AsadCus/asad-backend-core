@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,13 +12,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { formatCurrency } from '@/lib/utils';
 import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatCurrency } from '@/lib/utils';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InvoiceHeader } from '../invoices/components/invoice-header';
 import {
     calculateInvoicesTotal,
@@ -46,6 +47,198 @@ interface OrderFormProps {
     onCancel?: () => void;
 }
 
+type InvoiceExtensionInput = {
+    _key?: string;
+    id?: number;
+    quotation_extension_master_id?: number | null;
+    name?: string | null;
+    type?: string | null;
+    calculation_mode?: string | null;
+    calculation_value?: number | string | null;
+    amount?: number | string | null;
+    sort_order?: number;
+};
+
+function calculateItemTaxTotal(items: InvoiceSchema['items'] = []): number {
+    return items.reduce((sum, item) => {
+        if (item.is_header) {
+            return sum;
+        }
+
+        const lineAmount = Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+        const itemTaxTotal = (item.taxes ?? []).reduce((taxSum, tax) => {
+            const calculationMode = String(tax.calculation_mode ?? '');
+            const calculationValue = Number(tax.calculation_value ?? 0);
+
+            if (
+                !['fixed', 'percentage'].includes(calculationMode) ||
+                calculationValue <= 0
+            ) {
+                return taxSum;
+            }
+
+            const taxAmount =
+                calculationMode === 'percentage'
+                    ? (lineAmount * calculationValue) / 100
+                    : calculationValue;
+
+            return taxSum + taxAmount;
+        }, 0);
+
+        return sum + itemTaxTotal;
+    }, 0);
+}
+
+function normalizeInvoiceExtensions(
+    extensions: InvoiceExtensionInput[] = [],
+): InvoiceExtensionInput[] {
+    return extensions.map((extension, index) => {
+        const calculationMode =
+            String(extension.calculation_mode ?? 'fixed') === 'percentage'
+                ? 'percentage'
+                : 'fixed';
+
+        return {
+            ...extension,
+            id:
+                typeof extension.id === 'number' &&
+                Number.isFinite(extension.id)
+                    ? extension.id
+                    : undefined,
+            _key:
+                extension._key ??
+                (extension.id ? `id-${extension.id}` : nanoid()),
+            name: String(extension.name ?? 'Extension'),
+            type: String(extension.type ?? 'discount'),
+            calculation_mode: calculationMode,
+            calculation_value: Number(extension.calculation_value ?? 0),
+            amount: Number(extension.amount ?? 0),
+            sort_order: Number(extension.sort_order ?? index + 1),
+        };
+    });
+}
+
+function computeInvoiceExtensionAmount(
+    extension: InvoiceExtensionInput,
+    subtotalAmount: number,
+): number {
+    const calculationMode = String(extension.calculation_mode ?? 'fixed');
+    const calculationValue = Number(extension.calculation_value ?? 0);
+    const extensionType = String(extension.type ?? 'discount');
+
+    if (calculationMode === 'percentage') {
+        const rawAmount = (subtotalAmount * calculationValue) / 100;
+
+        return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
+    }
+
+    const fallbackAmount = Number(extension.amount ?? 0);
+    const rawAmount =
+        calculationValue !== 0 || fallbackAmount === 0
+            ? calculationValue
+            : fallbackAmount;
+
+    return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
+}
+
+function formatExtensionLabel(
+    name: string,
+    calculationMode?: string | null,
+    calculationValue?: number | null,
+): string {
+    if (String(calculationMode ?? 'fixed') !== 'percentage') {
+        return name;
+    }
+
+    return `${name} ${Number(calculationValue ?? 0)}%`;
+}
+
+function buildItemTaxSummaries(items: InvoiceSchema['items'] = []): Array<{
+    name: string;
+    calculation_mode: string;
+    calculation_value: number;
+    amount: number;
+}> {
+    const grouped = new Map<
+        string,
+        {
+            name: string;
+            calculation_mode: string;
+            calculation_value: number;
+            amount: number;
+        }
+    >();
+
+    items.forEach((item) => {
+        if (item.is_header) {
+            return;
+        }
+
+        const lineAmount = Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+
+        (item.taxes ?? []).forEach((tax) => {
+            const calculationMode = String(tax.calculation_mode ?? '');
+            const calculationValue = Number(tax.calculation_value ?? 0);
+
+            if (
+                !['fixed', 'percentage'].includes(calculationMode) ||
+                calculationValue <= 0
+            ) {
+                return;
+            }
+
+            const key = [
+                Number(tax.quotation_extension_master_id ?? 0),
+                String(tax.name ?? 'Tax').toLowerCase(),
+                calculationMode,
+                calculationValue,
+            ].join('|');
+
+            const current = grouped.get(key) ?? {
+                name: String(tax.name ?? 'Tax'),
+                calculation_mode: calculationMode,
+                calculation_value: calculationValue,
+                amount: 0,
+            };
+
+            current.amount +=
+                calculationMode === 'percentage'
+                    ? (lineAmount * calculationValue) / 100
+                    : calculationValue;
+
+            grouped.set(key, current);
+        });
+    });
+
+    return Array.from(grouped.values());
+}
+
+function recalculateInvoice(invoice: InvoiceSchema): InvoiceSchema {
+    const subtotalAmount = calculateTotal(invoice.items ?? []);
+    const itemTaxTotal = calculateItemTaxTotal(invoice.items ?? []);
+    const normalizedExtensions = normalizeInvoiceExtensions(
+        (invoice.extensions ?? []) as InvoiceExtensionInput[],
+    );
+
+    const extensionsWithAmount = normalizedExtensions.map((extension) => ({
+        ...extension,
+        amount: computeInvoiceExtensionAmount(extension, subtotalAmount),
+    }));
+
+    const extensionTotal = extensionsWithAmount.reduce(
+        (sum, extension) => sum + Number(extension.amount ?? 0),
+        0,
+    );
+
+    return {
+        ...invoice,
+        extensions: extensionsWithAmount,
+        amount: Number(
+            (subtotalAmount + itemTaxTotal + extensionTotal).toFixed(2),
+        ),
+    };
+}
+
 function normalizeInvoices(invoices: InvoiceSchema[] = []): InvoiceSchema[] {
     const itemKeyMap = new Map<number, string>();
 
@@ -68,8 +261,8 @@ function normalizeInvoices(invoices: InvoiceSchema[] = []): InvoiceSchema[] {
             ...item,
             _key: item._key ?? (item.id ? `id-${item.id}` : nanoid()),
             parent_key: item.parent_id
-                ? (itemKeyMap.get(item.parent_id) ?? null)
-                : null,
+                ? (itemKeyMap.get(item.parent_id) ?? item.parent_key ?? null)
+                : (item.parent_key ?? null),
         }));
     });
 
@@ -86,9 +279,12 @@ function cleanMessage(message: string) {
 function createEmptyInvoice(): InvoiceSchema {
     return {
         _key: nanoid(),
+        invoice_number: '',
+        number_format_id: null,
         description: '',
         invoice_date: '',
         due_date: '',
+        extensions: [],
         items: [],
         amount: 0,
     };
@@ -117,6 +313,7 @@ export default function OrderForm({
 
     const initialFormState: OrderSchema = {
         order_number: '',
+        number_format_id: null,
         payment_plan: quotation?.payment_plan ?? 'direct',
         deposit_type: 'fixed',
         deposit_value: 500,
@@ -175,20 +372,94 @@ export default function OrderForm({
                     ),
                 );
 
+                const totalSubtotal = rebuiltInvoices.reduce(
+                    (sum, invoice) => sum + calculateTotal(invoice.items ?? []),
+                    0,
+                );
+
+                const quotationExtensions = (quotation.extensions ??
+                    []) as InvoiceExtensionInput[];
+
                 return normalizeInvoices(
                     rebuiltInvoices.map((invoice, index) => {
                         const existingInvoice = currentInvoices[index];
+                        const subtotalAmount = calculateTotal(
+                            invoice.items ?? [],
+                        );
+
+                        const inheritedExtensions = normalizeInvoiceExtensions(
+                            quotationExtensions.map(
+                                (extension, extensionIndex) => {
+                                    const ratio =
+                                        totalSubtotal > 0
+                                            ? subtotalAmount / totalSubtotal
+                                            : 0;
+
+                                    const calculationMode =
+                                        String(
+                                            extension.calculation_mode ??
+                                                'fixed',
+                                        ) === 'percentage'
+                                            ? 'percentage'
+                                            : 'fixed';
+
+                                    const sourceAmount = Number(
+                                        extension.amount ?? 0,
+                                    );
+                                    const calculationValue = Number(
+                                        extension.calculation_value ??
+                                            (calculationMode === 'fixed'
+                                                ? sourceAmount
+                                                : 0),
+                                    );
+
+                                    return {
+                                        _key:
+                                            extension._key ??
+                                            `ext-${index + 1}-${extensionIndex + 1}`,
+                                        id: undefined,
+                                        quotation_extension_master_id:
+                                            extension.quotation_extension_master_id ??
+                                            null,
+                                        name: extension.name ?? 'Extension',
+                                        type: extension.type ?? 'discount',
+                                        calculation_mode: calculationMode,
+                                        calculation_value:
+                                            calculationMode === 'percentage'
+                                                ? calculationValue
+                                                : Number(
+                                                      (
+                                                          sourceAmount * ratio
+                                                      ).toFixed(2),
+                                                  ),
+                                        amount: 0,
+                                        sort_order:
+                                            extension.sort_order ??
+                                            extensionIndex + 1,
+                                    };
+                                },
+                            ),
+                        );
+
+                        const mergedInvoice = {
+                            ...invoice,
+                            extensions: inheritedExtensions,
+                        } as InvoiceSchema;
 
                         if (!existingInvoice) {
-                            return invoice;
+                            return recalculateInvoice(mergedInvoice);
                         }
 
-                        return {
-                            ...invoice,
+                        return recalculateInvoice({
+                            ...mergedInvoice,
                             id: existingInvoice.id ?? invoice.id,
                             invoice_number:
                                 existingInvoice.invoice_number ??
                                 invoice.invoice_number,
+                            number_format_id:
+                                existingInvoice.number_format_id ??
+                                invoice.number_format_id ??
+                                null,
                             status:
                                 existingInvoice.status ??
                                 invoice.status ??
@@ -198,7 +469,7 @@ export default function OrderForm({
                                 invoice.invoice_date,
                             due_date:
                                 existingInvoice.due_date ?? invoice.due_date,
-                        };
+                        });
                     }),
                 );
             }
@@ -209,7 +480,7 @@ export default function OrderForm({
                     currentInvoices,
                     depositType,
                     depositValue,
-                ),
+                ).map((invoice) => recalculateInvoice(invoice)),
             );
         },
         [quotation],
@@ -307,6 +578,24 @@ export default function OrderForm({
         const fromItems = invoices[fromIndex].items;
         const toItems = invoices[toIndex].items;
 
+        const isRootHeader = (key: string): boolean => {
+            const candidate = fromItems.find((item) => item._key === key);
+
+            if (!candidate) {
+                return false;
+            }
+
+            return (
+                candidate.is_header === true &&
+                candidate.parent_id == null &&
+                candidate.parent_key == null
+            );
+        };
+
+        if (!itemKeys.length || !itemKeys.every((key) => isRootHeader(key))) {
+            return;
+        }
+
         const movingItems = collectWithChildren(fromItems, itemKeys);
         const movingKeys = new Set(movingItems.map((i) => i._key));
 
@@ -315,16 +604,17 @@ export default function OrderForm({
             items: normalizeItems(
                 fromItems.filter((i) => !movingKeys.has(i._key)),
             ),
-            amount: calculateTotal(
-                fromItems.filter((i) => !movingKeys.has(i._key)),
-            ),
+            amount: 0,
         };
 
         invoices[toIndex] = {
             ...invoices[toIndex],
             items: normalizeItems([...toItems, ...movingItems]),
-            amount: calculateTotal([...toItems, ...movingItems]),
+            amount: 0,
         };
+
+        invoices[fromIndex] = recalculateInvoice(invoices[fromIndex]);
+        invoices[toIndex] = recalculateInvoice(invoices[toIndex]);
 
         setData('invoices', invoices);
     }
@@ -422,6 +712,10 @@ export default function OrderForm({
             </p>
         );
     };
+
+    const modelNumberError =
+        (errors as Record<string, string | undefined>).order_number ??
+        (errors as Record<string, string | undefined>).number_format_id;
 
     const hasInvoiceErrors = (invoiceIndex: number) => {
         const errorMap = errors as Record<string, string | undefined>;
@@ -605,10 +899,97 @@ export default function OrderForm({
             quotationSubtotalAmount + quotationExtensionTotalAmount,
     );
 
+    const hasQuotationCustomerConfirmation =
+        Number(quotation?.customer_confirmation_id ?? 0) > 0;
+
+    const taxExtensionMasters = useMemo(() => {
+        const grouped = new Map<
+            string,
+            {
+                id: number;
+                name: string;
+                calculation_mode: string;
+                calculation_value: number;
+            }
+        >();
+
+        const collectTaxesFromItems = (items: InvoiceSchema['items'] = []) => {
+            items.forEach((item) => {
+                (item.taxes ?? []).forEach((tax) => {
+                    const calculationMode = String(tax.calculation_mode ?? '');
+                    const calculationValue = Number(tax.calculation_value ?? 0);
+
+                    if (
+                        !['fixed', 'percentage'].includes(calculationMode) ||
+                        calculationValue <= 0
+                    ) {
+                        return;
+                    }
+
+                    const key = [
+                        Number(tax.quotation_extension_master_id ?? 0),
+                        String(tax.name ?? 'Tax').toLowerCase(),
+                        calculationMode,
+                        calculationValue,
+                    ].join('|');
+
+                    if (!grouped.has(key)) {
+                        grouped.set(key, {
+                            id: Number(tax.quotation_extension_master_id ?? 0),
+                            name: String(tax.name ?? 'Tax'),
+                            calculation_mode: calculationMode,
+                            calculation_value: calculationValue,
+                        });
+                    }
+                });
+            });
+        };
+
+        collectTaxesFromItems(
+            data.invoices.flatMap((invoice) => invoice.items ?? []),
+        );
+
+        (quotation?.items ?? []).forEach((item) => {
+            (item.taxes ?? []).forEach((tax) => {
+                const calculationMode = String(tax.calculation_mode ?? '');
+                const calculationValue = Number(tax.calculation_value ?? 0);
+
+                if (
+                    !['fixed', 'percentage'].includes(calculationMode) ||
+                    calculationValue <= 0
+                ) {
+                    return;
+                }
+
+                const key = [
+                    Number(tax.quotation_extension_master_id ?? 0),
+                    String(tax.name ?? 'Tax').toLowerCase(),
+                    calculationMode,
+                    calculationValue,
+                ].join('|');
+
+                if (!grouped.has(key)) {
+                    grouped.set(key, {
+                        id: Number(tax.quotation_extension_master_id ?? 0),
+                        name: String(tax.name ?? 'Tax'),
+                        calculation_mode: calculationMode,
+                        calculation_value: calculationValue,
+                    });
+                }
+            });
+        });
+
+        return Array.from(grouped.values()).sort((left, right) =>
+            left.name.localeCompare(right.name),
+        );
+    }, [data.invoices, quotation]);
+
     // preview
     // const [previewInvoice, setPreviewInvoice] = useState<InvoiceSchema | null>(
     //     null,
     // );
+
+    console.log(errors);
 
     return (
         <>
@@ -638,8 +1019,7 @@ export default function OrderForm({
                         </div>
                     )}
 
-                    {/* Order Number Box */}
-                    {data.order_number && (
+                    {isView && data.order_number && (
                         <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                             <p className="text-base text-muted-foreground">
                                 Order No.
@@ -655,6 +1035,32 @@ export default function OrderForm({
                         <CardContent className="space-y-4 px-6">
                             <div className="space-y-4">
                                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                    {!isView && (
+                                        <ModelNumberInput
+                                            modelKey="order"
+                                            label="Order Number"
+                                            value={data.order_number ?? ''}
+                                            formatId={
+                                                data.number_format_id ?? null
+                                            }
+                                            onValueChange={(nextValue) =>
+                                                setData(
+                                                    'order_number',
+                                                    nextValue,
+                                                )
+                                            }
+                                            onFormatIdChange={(nextFormatId) =>
+                                                setData(
+                                                    'number_format_id',
+                                                    nextFormatId,
+                                                )
+                                            }
+                                            disabled={processing}
+                                            error={modelNumberError}
+                                            hint="Select a format from the number input to auto-generate order number."
+                                        />
+                                    )}
+
                                     {/* Payment Plan */}
                                     <PaymentPlanSection
                                         value={data.payment_plan ?? ''}
@@ -693,7 +1099,8 @@ export default function OrderForm({
                                         }}
                                     />
 
-                                    {data.payment_plan === 'installment' && (
+                                    {data.payment_plan === 'installment' &&
+                                        hasQuotationCustomerConfirmation && (
                                         <>
                                             <FormField label="Deposit Type">
                                                 <Select
@@ -834,6 +1241,68 @@ export default function OrderForm({
                             {data.invoices.map((invoice, idx) => {
                                 const invoiceHasErrors = hasInvoiceErrors(idx);
                                 const invoiceErrors = getInvoiceErrors(idx);
+                                const invoiceSubtotal = calculateTotal(
+                                    invoice.items,
+                                );
+                                const itemTaxSummaries = buildItemTaxSummaries(
+                                    invoice.items,
+                                );
+                                const itemTaxTotal = itemTaxSummaries.reduce(
+                                    (sum, tax) => sum + Number(tax.amount ?? 0),
+                                    0,
+                                );
+                                const extensionsWithAmount =
+                                    normalizeInvoiceExtensions(
+                                        (invoice.extensions ??
+                                            []) as InvoiceExtensionInput[],
+                                    ).map((extension) => ({
+                                        ...extension,
+                                        amount: computeInvoiceExtensionAmount(
+                                            extension,
+                                            invoiceSubtotal,
+                                        ),
+                                    }));
+                                const nonDiscountExtensions =
+                                    extensionsWithAmount.filter(
+                                        (extension) =>
+                                            String(
+                                                extension.type ?? 'discount',
+                                            ) !== 'discount',
+                                    );
+                                const nonDiscountTaxExtensions =
+                                    nonDiscountExtensions.filter(
+                                        (extension) =>
+                                            String(extension.type ?? '') ===
+                                            'tax',
+                                    );
+                                const nonDiscountOtherExtensions =
+                                    nonDiscountExtensions.filter(
+                                        (extension) =>
+                                            String(extension.type ?? '') !==
+                                            'tax',
+                                    );
+                                const nonDiscountExtensionTotal =
+                                    nonDiscountExtensions.reduce(
+                                        (sum, extension) =>
+                                            sum + Number(extension.amount ?? 0),
+                                        0,
+                                    );
+                                const discountExtension =
+                                    extensionsWithAmount.find(
+                                        (extension) =>
+                                            String(
+                                                extension.type ?? 'discount',
+                                            ) === 'discount',
+                                    ) ?? null;
+                                const discountAmount = Number(
+                                    discountExtension?.amount ?? 0,
+                                );
+                                const invoiceExtensionTotal =
+                                    itemTaxTotal +
+                                    nonDiscountExtensionTotal +
+                                    discountAmount;
+                                const invoiceGrandTotal =
+                                    invoiceSubtotal + invoiceExtensionTotal;
 
                                 return (
                                     <Card
@@ -988,6 +1457,7 @@ export default function OrderForm({
                                                         disabled={
                                                             processing || isView
                                                         }
+                                                        isView={isView}
                                                         renderError={(path) =>
                                                             renderError(
                                                                 `invoices.${idx}.${path}`,
@@ -1020,15 +1490,15 @@ export default function OrderForm({
                                                             const next = [
                                                                 ...data.invoices,
                                                             ];
-                                                            next[idx] = {
-                                                                ...invoice,
-                                                                items: normalizeItems(
-                                                                    items,
-                                                                ),
-                                                                amount: calculateTotal(
-                                                                    items,
-                                                                ),
-                                                            };
+                                                            next[idx] =
+                                                                recalculateInvoice(
+                                                                    {
+                                                                        ...invoice,
+                                                                        items: normalizeItems(
+                                                                            items,
+                                                                        ),
+                                                                    },
+                                                                );
                                                             setData(
                                                                 'invoices',
                                                                 next,
@@ -1044,14 +1514,200 @@ export default function OrderForm({
                                                         showOptionalColumn={
                                                             false
                                                         }
-                                                        showMemberColumn
+                                                        showMemberColumn={false}
+                                                        showTaxColumn
                                                         memberOptions={
                                                             memberOptions
+                                                        }
+                                                        taxExtensionMasters={
+                                                            taxExtensionMasters
                                                         }
                                                         memberSharingPlanById={
                                                             memberSharingPlanById
                                                         }
                                                     />
+
+                                                    <div className="mt-3 ml-auto w-full rounded-md border p-4 md:w-1/3">
+                                                        <table className="w-full table-fixed text-base">
+                                                            <tbody className="[&>tr>td]:py-1.5">
+                                                                <tr>
+                                                                    <td className="w-2/3 text-right font-semibold">
+                                                                        Sub
+                                                                        Total
+                                                                    </td>
+                                                                    <td className="w-1/3 text-right font-medium">
+                                                                        {formatCurrency(
+                                                                            invoiceSubtotal,
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+
+                                                                {nonDiscountOtherExtensions.map(
+                                                                    (
+                                                                        extension,
+                                                                        extensionIndex,
+                                                                    ) => (
+                                                                        <tr
+                                                                            key={
+                                                                                extension._key ??
+                                                                                `invoice-${idx}-other-${extensionIndex}`
+                                                                            }
+                                                                        >
+                                                                            <td className="text-right">
+                                                                                {formatExtensionLabel(
+                                                                                    String(
+                                                                                        extension.name ??
+                                                                                            'Extension',
+                                                                                    ),
+                                                                                    String(
+                                                                                        extension.calculation_mode ??
+                                                                                            'fixed',
+                                                                                    ),
+                                                                                    Number(
+                                                                                        extension.calculation_value ??
+                                                                                            0,
+                                                                                    ),
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="text-right">
+                                                                                {formatCurrency(
+                                                                                    Number(
+                                                                                        extension.amount ??
+                                                                                            0,
+                                                                                    ),
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ),
+                                                                )}
+
+                                                                {discountExtension && (
+                                                                    <tr>
+                                                                        <td className="text-right">
+                                                                            {formatExtensionLabel(
+                                                                                String(
+                                                                                    discountExtension.name ??
+                                                                                        'Discount',
+                                                                                ),
+                                                                                String(
+                                                                                    discountExtension.calculation_mode ??
+                                                                                        'fixed',
+                                                                                ),
+                                                                                Number(
+                                                                                    discountExtension.calculation_value ??
+                                                                                        0,
+                                                                                ),
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="text-right">
+                                                                            {formatCurrency(
+                                                                                discountAmount,
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+
+                                                                {itemTaxSummaries.map(
+                                                                    (
+                                                                        tax,
+                                                                        taxIndex,
+                                                                    ) => (
+                                                                        <tr
+                                                                            key={`invoice-${idx}-item-tax-${taxIndex}`}
+                                                                        >
+                                                                            <td className="text-right">
+                                                                                {formatExtensionLabel(
+                                                                                    String(
+                                                                                        tax.name ??
+                                                                                            'Tax',
+                                                                                    ),
+                                                                                    tax.calculation_mode,
+                                                                                    Number(
+                                                                                        tax.calculation_value ??
+                                                                                            0,
+                                                                                    ),
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="text-right">
+                                                                                {formatCurrency(
+                                                                                    Number(
+                                                                                        tax.amount ??
+                                                                                            0,
+                                                                                    ),
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ),
+                                                                )}
+
+                                                                {nonDiscountTaxExtensions.map(
+                                                                    (
+                                                                        extension,
+                                                                        extensionIndex,
+                                                                    ) => (
+                                                                        <tr
+                                                                            key={
+                                                                                extension._key ??
+                                                                                `invoice-${idx}-tax-ext-${extensionIndex}`
+                                                                            }
+                                                                        >
+                                                                            <td className="text-right">
+                                                                                {formatExtensionLabel(
+                                                                                    String(
+                                                                                        extension.name ??
+                                                                                            'Tax',
+                                                                                    ),
+                                                                                    String(
+                                                                                        extension.calculation_mode ??
+                                                                                            'fixed',
+                                                                                    ),
+                                                                                    Number(
+                                                                                        extension.calculation_value ??
+                                                                                            0,
+                                                                                    ),
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="text-right">
+                                                                                {formatCurrency(
+                                                                                    Number(
+                                                                                        extension.amount ??
+                                                                                            0,
+                                                                                    ),
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ),
+                                                                )}
+
+                                                                <tr>
+                                                                    <td className="text-right font-semibold">
+                                                                        Extension
+                                                                        Total
+                                                                    </td>
+                                                                    <td className="text-right font-medium">
+                                                                        {formatCurrency(
+                                                                            invoiceExtensionTotal,
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+
+                                                                <tr>
+                                                                    <td className="border-t pt-2 text-right text-base font-bold">
+                                                                        Grand
+                                                                        Total
+                                                                    </td>
+                                                                    <td className="border-t pt-2 text-right text-lg font-bold text-primary">
+                                                                        {formatCurrency(
+                                                                            Number(
+                                                                                invoice.amount ??
+                                                                                    invoiceGrandTotal,
+                                                                            ),
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </>
                                             )}
                                         </CardContent>
@@ -1186,7 +1842,8 @@ export default function OrderForm({
                                                     setData('items', next)
                                                 }
                                                 disabled
-                                                showMemberColumn
+                                                showMemberColumn={false}
+                                                showTaxColumn
                                                 memberOptions={memberOptions}
                                                 memberSharingPlanById={
                                                     memberSharingPlanById

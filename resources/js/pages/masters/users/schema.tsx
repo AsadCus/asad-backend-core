@@ -5,18 +5,18 @@ const baseUserSchema = z
         id: z.number().optional(),
         customer_id: z.number().nullable().optional(),
         customer_number: z.string().optional(),
+        number_format_id: z.number().nullable().optional(),
         name: z.string().min(1, 'The name field is required.'),
         email: z.email().min(1, 'The email field is required.'),
         password: z.string().optional(),
         password_confirmation: z.string().optional(),
         send_email: z.boolean().optional(),
         contact: z.string().optional(),
-        role: z.enum(['admin', 'sales', 'supplier', 'customer']),
+        role: z.enum(['admin', 'sales', 'customer']),
         country_id: z.string().optional(),
         country_name: z.string().optional(),
         branch_id: z.string().optional(),
         branch_name: z.string().optional(),
-        company_name: z.string().optional(),
         nric_number: z.string().optional(),
         address: z.string().optional(),
         nationality: z.string().optional(),
@@ -38,11 +38,6 @@ const baseUserSchema = z
         commission: z.union([z.string(), z.number()]).nullable().optional(),
         handled_by: z.string().nullable().optional(),
         handler_name: z.string().optional(),
-        supplier_id: z.number().nullable().optional(),
-        total_cost_of_maid: z
-            .union([z.string(), z.number()])
-            .nullable()
-            .optional(),
         registration_number: z.string().optional(),
         is_active: z.boolean().nullable().optional(),
     })
@@ -64,24 +59,6 @@ const baseUserSchema = z
                 message: 'The branch field is required for sales.',
             });
         }
-
-        if (data.role === 'supplier') {
-            if (!data.company_name?.trim()) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['company_name'],
-                    message: 'The company name field is required.',
-                });
-            }
-
-            if (!data.address?.trim()) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['address'],
-                    message: 'The address field is required.',
-                });
-            }
-        }
     });
 
 export const userSchema = baseUserSchema;
@@ -93,9 +70,7 @@ export type UserFormMode = 'create' | 'edit' | 'view';
 export function validateUserData(data: UserSchema, mode: UserFormMode) {
     return userSchema
         .superRefine((currentData, ctx) => {
-            const requiresManualPassword =
-                currentData.role !== 'customer' &&
-                currentData.role !== 'supplier';
+            const requiresManualPassword = currentData.role !== 'customer';
 
             if (
                 mode === 'create' &&

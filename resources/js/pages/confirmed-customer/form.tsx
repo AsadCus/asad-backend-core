@@ -1,5 +1,6 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -302,6 +303,8 @@ export default function CustomerConfirmationForm({
 
     // Form
     const defaultData: CustomerConfirmationFormData = (initialData ?? {
+        number: '',
+        number_format_id: null,
         enquiry_id: enquiryId ?? null,
         package_id: prefillPackageId ?? null,
         package_room_type: '',
@@ -321,6 +324,7 @@ export default function CustomerConfirmationForm({
     const form = useForm<CustomerConfirmationFormData>(defaultData);
     const { data, setData, post, processing, clearErrors, setError } = form;
     const errors: Record<string, string | undefined> = form.errors;
+    const modelNumberError = errors.number ?? errors.number_format_id;
     const normalizedPackageOptions =
         packageOptions as CustomerConfirmationPackageOption[];
     const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
@@ -1300,6 +1304,24 @@ export default function CustomerConfirmationForm({
                                     disabled={isView || processing}
                                 />
                             </FormField>
+
+                            {!isView && !isPublic && (
+                                <ModelNumberInput
+                                    modelKey="customer_confirmation"
+                                    label="Confirmation Number"
+                                    value={data.number ?? ''}
+                                    formatId={data.number_format_id ?? null}
+                                    onValueChange={(value) =>
+                                        setData('number', value)
+                                    }
+                                    onFormatIdChange={(formatId) =>
+                                        setData('number_format_id', formatId)
+                                    }
+                                    disabled={processing}
+                                    error={modelNumberError}
+                                    hint="Select a format from the number input to auto-generate confirmation number."
+                                />
+                            )}
 
                             <FormField
                                 label="Date of Application"

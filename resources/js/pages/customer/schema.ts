@@ -66,6 +66,7 @@ export type CustomerSchema = z.infer<typeof customerSchema>;
 export const customerConfirmationFormSchema = z.object({
     id: z.number().optional(),
     number: z.string().nullable().optional(),
+    number_format_id: z.number().nullable().optional(),
     enquiry_id: z.number().nullable().optional(),
     package_id: z.number().nullable().optional(),
     package_room_type: z.string().nullable().optional(),

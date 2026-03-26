@@ -5,6 +5,7 @@ namespace App\Services\UserRoles;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Services\NumberingService;
 use App\Services\UserRoleFileUploadService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -20,6 +21,7 @@ class CustomerUserService
     public function __construct(
         protected NotificationService $notificationService,
         protected UserRoleFileUploadService $userRoleFileUploadService,
+        protected NumberingService $numberingService,
     ) {}
 
     public function getForDataTable()
@@ -70,6 +72,12 @@ class CustomerUserService
 
             $customer = Customer::create([
                 'user_id' => $user->id,
+                'customer_number' => $this->numberingService->ensureNumber(
+                    'customer',
+                    $data['customer_number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'nric_number' => $data['nric_number'] ?? null,
                 'address' => $data['address'] ?? null,
                 'nationality' => $data['nationality'] ?? null,
@@ -168,6 +176,14 @@ class CustomerUserService
 
             if ($user->customer) {
                 $user->customer->update([
+                    'customer_number' => array_key_exists('customer_number', $data)
+                        ? $this->numberingService->ensureNumber(
+                            'customer',
+                            $data['customer_number'],
+                            (int) $user->customer->id,
+                            isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                        )
+                        : $user->customer->customer_number,
                     'nric_number' => $data['nric_number'] ?? null,
                     'address' => $data['address'] ?? null,
                     'nationality' => $data['nationality'] ?? null,

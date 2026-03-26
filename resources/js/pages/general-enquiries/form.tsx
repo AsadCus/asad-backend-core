@@ -47,6 +47,8 @@ export default function GeneralEnquiryForm({
     const isCreate = mode === 'create';
 
     const defaultData: GeneralEnquirySchema = initialData || {
+        enquiry_number: '',
+        number_format_id: null,
         name: '',
         contact_number: '',
         email: '',
@@ -202,6 +204,17 @@ export default function GeneralEnquiryForm({
                             Please fix the errors below and try again
                         </AlertDescription>
                     </Alert>
+                )}
+
+                {isView && data.enquiry_number && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <p className="text-base text-muted-foreground">
+                            Enquiry Number
+                        </p>
+                        <p className="text-2xl font-bold text-primary">
+                            {data.enquiry_number}
+                        </p>
+                    </div>
                 )}
 
                 {packageOptions.length > 0 && (

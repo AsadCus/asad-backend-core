@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class QuotationItem extends Model
 {
@@ -50,5 +51,12 @@ class QuotationItem extends Model
     public function invoices(): BelongsToMany
     {
         return $this->belongsToMany(Invoice::class, 'invoice_items');
+    }
+
+    public function taxes(): HasMany
+    {
+        return $this->hasMany(QuotationItemTax::class, 'quotation_item_id')
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 }

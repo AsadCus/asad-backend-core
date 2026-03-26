@@ -31,10 +31,6 @@ class RolePermissionSeeder extends Seeder
             'customer create',
             'customer edit',
             'customer delete',
-            'supplier view',
-            'supplier create',
-            'supplier edit',
-            'supplier delete',
             'maid view',
             'maid create',
             'maid edit',
@@ -91,7 +87,6 @@ class RolePermissionSeeder extends Seeder
         $roles = [
             'admin',
             'sales',
-            'supplier',
             'customer',
         ];
 
@@ -118,10 +113,6 @@ class RolePermissionSeeder extends Seeder
             'customer create',
             'customer edit',
             'customer delete',
-            'supplier view',
-            'supplier create',
-            'supplier edit',
-            'supplier delete',
             'maid view',
             'maid create',
             'maid edit',
@@ -175,10 +166,6 @@ class RolePermissionSeeder extends Seeder
             'customer create',
             'customer edit',
             'customer delete',
-            'supplier view',
-            'supplier create',
-            'supplier edit',
-            'supplier delete',
             'maid view',
             'maid create',
             'maid edit',
@@ -218,13 +205,6 @@ class RolePermissionSeeder extends Seeder
             'manifest create',
             'manifest edit',
             'manifest delete',
-        ]);
-        Role::findByName('supplier')->givePermissionTo([
-            'dashboard view',
-            'maid view',
-            'maid create',
-            'maid edit',
-            'maid delete',
         ]);
         Role::findByName('customer')->givePermissionTo([
             'dashboard view',

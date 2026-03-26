@@ -12,10 +12,9 @@ import { index } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
 import masterSales from '@/routes/master/user/sales';
-import masterSupplier from '@/routes/master/user/supplier';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Plus, Shield, TrendingUp, Truck, Users } from 'lucide-react';
+import { Plus, Shield, TrendingUp, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -35,7 +34,6 @@ interface MasterUserProps {
         admin: number;
         sales: number;
         customer: number;
-        supplier: number;
     };
     countryStats: {
         admin: {
@@ -95,15 +93,6 @@ export default function MasterUser({
             href: masterCustomer.index.url(),
             hasAddButton: true,
             onAdd: () => router.get(masterCustomer.create().url),
-        },
-        {
-            title: 'Supplier',
-            description: 'Supplier accounts',
-            icon: Truck,
-            count: roleStats.supplier,
-            href: masterSupplier.index.url(),
-            hasAddButton: true,
-            onAdd: () => router.get(masterSupplier.create().url),
         },
     ];
 

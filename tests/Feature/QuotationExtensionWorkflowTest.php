@@ -318,6 +318,158 @@ class QuotationExtensionWorkflowTest extends TestCase
         $this->assertSame('Credit Card Interest', $creditCardDefaults[1]['name']);
     }
 
+    public function test_store_quotation_percentage_discount_uses_subtotal_as_base(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-EXT-005',
+        ]);
+
+        $quotation = app(QuotationService::class)->store([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'draft',
+            'description' => 'Quotation with item tax and discount',
+            'items' => [
+                [
+                    '_key' => 'item-1',
+                    'description' => 'Package cost',
+                    'is_header' => false,
+                    'quantity' => 1,
+                    'rate' => 1000,
+                    'taxes' => [
+                        [
+                            'quotation_extension_master_id' => null,
+                            'name' => 'VAT',
+                            'calculation_mode' => 'percentage',
+                            'calculation_value' => 10,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                    'sort_order' => 1,
+                ],
+            ],
+            'extensions' => [
+                [
+                    'name' => 'Promo 10%',
+                    'type' => 'discount',
+                    'calculation_mode' => 'percentage',
+                    'calculation_value' => 10,
+                    'amount' => 0,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        $quotation->refresh();
+
+        $this->assertSame(1000.0, (float) $quotation->item_subtotal_amount);
+        $this->assertSame(0.0, (float) $quotation->extension_total_amount);
+        $this->assertSame(1000.0, (float) $quotation->total_amount);
+        $this->assertDatabaseHas('quotation_extensions', [
+            'quotation_id' => $quotation->id,
+            'name' => 'Promo 10%',
+            'amount' => '-100.00',
+        ]);
+    }
+
+    public function test_update_converted_quotation_item_tax_syncs_invoice_and_receipt_amounts(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-EXT-006',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'converted',
+            'description' => 'Converted quotation with item tax',
+        ]);
+
+        $quotationItem = $quotation->quotationItems()->create([
+            'description' => 'Package cost',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $quotationItem->taxes()->create([
+            'quotation_extension_master_id' => null,
+            'name' => 'VAT',
+            'calculation_mode' => 'percentage',
+            'calculation_value' => 10,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For Full Payment',
+            'amount' => 1100,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::withoutEvents(function () use ($invoice): void {
+            Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => 1100,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'transfer',
+            ]);
+        });
+
+        app(QuotationService::class)->update([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(10)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'converted',
+            'description' => 'Converted quotation updated',
+            'items' => [
+                [
+                    'id' => $quotationItem->id,
+                    '_key' => 'item-existing',
+                    'description' => 'Package cost',
+                    'is_header' => false,
+                    'quantity' => 1,
+                    'rate' => 1000,
+                    'taxes' => [
+                        [
+                            'quotation_extension_master_id' => null,
+                            'name' => 'VAT',
+                            'calculation_mode' => 'percentage',
+                            'calculation_value' => 20,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                    'sort_order' => 1,
+                ],
+            ],
+            'extensions' => [],
+        ], $quotation->id);
+
+        $this->assertSame(1200.0, (float) $invoice->fresh()->amount);
+        $this->assertSame(1200.0, (float) Receipt::query()->where('invoice_id', $invoice->id)->firstOrFail()->amount);
+    }
+
     public function test_store_quotation_without_customer_confirmation_is_allowed(): void
     {
         $user = User::factory()->create();
@@ -372,6 +524,7 @@ class QuotationExtensionWorkflowTest extends TestCase
             'name' => 'Manual Cash',
             'value' => 'manual_cash',
             'is_active' => true,
+            'is_default' => false,
             'sort_order' => 2,
         ]);
 
@@ -379,6 +532,7 @@ class QuotationExtensionWorkflowTest extends TestCase
             'name' => 'Virtual Card',
             'value' => 'virtual_card',
             'is_active' => true,
+            'is_default' => true,
             'sort_order' => 1,
         ]);
 
@@ -386,6 +540,7 @@ class QuotationExtensionWorkflowTest extends TestCase
             'name' => 'Inactive Method',
             'value' => 'inactive_method',
             'is_active' => false,
+            'is_default' => false,
             'sort_order' => 3,
         ]);
 
@@ -403,6 +558,7 @@ class QuotationExtensionWorkflowTest extends TestCase
                 'name' => 'Credit Card (Terminal)',
                 'value' => '',
                 'is_active' => true,
+                'is_default' => true,
                 'sort_order' => 1,
             ],
         ]);
@@ -411,7 +567,40 @@ class QuotationExtensionWorkflowTest extends TestCase
             'name' => 'Credit Card (Terminal)',
             'value' => 'credit_card_terminal',
             'is_active' => true,
+            'is_default' => true,
             'sort_order' => 1,
         ]);
+    }
+
+    public function test_store_payment_method_masters_normalizes_single_default_method(): void
+    {
+        app(QuotationService::class)->storePaymentMethodMasters([
+            [
+                'name' => 'Cash',
+                'is_active' => true,
+                'is_default' => true,
+                'sort_order' => 1,
+            ],
+            [
+                'name' => 'Transfer',
+                'is_active' => true,
+                'is_default' => true,
+                'sort_order' => 2,
+            ],
+            [
+                'name' => 'Card',
+                'is_active' => false,
+                'is_default' => true,
+                'sort_order' => 3,
+            ],
+        ]);
+
+        $defaultRows = PaymentMethodMaster::query()
+            ->where('is_default', true)
+            ->get();
+
+        $this->assertCount(1, $defaultRows);
+        $this->assertSame('cash', $defaultRows->first()?->value);
+        $this->assertSame('cash', app(QuotationService::class)->getDefaultPaymentMethodValue());
     }
 }

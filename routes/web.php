@@ -15,10 +15,10 @@ use App\Http\Controllers\Master\CustomerController as MasterCustomerController;
 use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearController;
 use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
-use App\Http\Controllers\Master\SupplierController as MasterSupplierController;
 use App\Http\Controllers\Master\UserController as MasterUserController;
 use App\Http\Controllers\NoteController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NumberingFormatController;
 use App\Http\Controllers\OpsMovementController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PackageController;
@@ -27,7 +27,7 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\SalesController;
-use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\UserLogsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -78,7 +78,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('user')->name('user.')->group(function () {
             Route::resource('admin', MasterAdminController::class);
             Route::resource('sales', MasterSalesController::class);
-            Route::resource('supplier', MasterSupplierController::class);
             Route::resource('customer', MasterCustomerController::class);
             Route::post('customer/{id}/create-quotation', [MasterCustomerController::class, 'createQuotation'])->name('customer.create-quotation');
         });
@@ -101,9 +100,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('sales/{sale}/preview', [SalesController::class, 'preview'])->name('sales.preview');
     Route::get('sales/{sale}/generate-pdf', [SalesController::class, 'generatePdf'])->name('sales.generate.pdf');
 
-    // Supplier
-    Route::resource('supplier', SupplierController::class);
-
     // Customer
     Route::resource('customer', CustomerController::class);
     Route::get('customer-get-for-show/{id}', [CustomerController::class, 'getForShow'])->name('customer.get-for-show');
@@ -125,8 +121,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('product-services', QuotationItemController::class)->names('quotation-items');
     Route::post('product-services/payment-methods', [QuotationItemController::class, 'storePaymentMethodMasters'])->name('quotation-items.payment-methods.store');
     Route::post('product-services/extensions', [QuotationItemController::class, 'storeExtensionMasters'])->name('quotation-items.extensions.store');
+    Route::post('product-services/extensions/quick-create', [QuotationItemController::class, 'quickCreateExtensionMaster'])->name('quotation-items.extensions.quick-create');
     Route::post('product-services/quick-create', [QuotationItemController::class, 'quickCreate'])->name('quotation-items.quick-create');
     Route::get('product-services-list', [QuotationItemController::class, 'getQuotationItemMastersForOptions'])->name('quotation-items-list');
+
+    // Numbering Formats
+    Route::get('numbering-formats', [NumberingFormatController::class, 'index'])->name('numbering-formats.index');
+    Route::get('numbering-formats/suggest', [NumberingFormatController::class, 'suggest'])->name('numbering-formats.suggest');
+    Route::post('numbering-formats', [NumberingFormatController::class, 'store'])->name('numbering-formats.store');
+    Route::put('numbering-formats/{numberingFormat}', [NumberingFormatController::class, 'update'])->name('numbering-formats.update');
+    Route::delete('numbering-formats/{numberingFormat}', [NumberingFormatController::class, 'destroy'])->name('numbering-formats.destroy');
 
     // Order
     Route::resource('order', OrderController::class);

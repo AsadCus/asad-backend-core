@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { orderSchema } from './schema';
+import { quotationItemsSchema } from '../quotations/items/schema';
 
 export const orderValidationSchema = orderSchema.superRefine((data, ctx) => {
     // quotation_id
@@ -33,5 +34,27 @@ export const orderValidationSchema = orderSchema.superRefine((data, ctx) => {
             message: 'At least one invoice is required',
             code: z.ZodIssueCode.custom,
         });
+
+        return;
     }
+
+    data.invoices.forEach((invoice, invoiceIndex) => {
+        const itemValidation = quotationItemsSchema.safeParse({
+            items: invoice.items ?? [],
+        });
+
+        if (itemValidation.success) {
+            return;
+        }
+
+        itemValidation.error.issues.forEach((issue) => {
+            const relativePath = issue.path.slice(1);
+
+            ctx.addIssue({
+                path: ['invoices', invoiceIndex, 'items', ...relativePath],
+                message: issue.message,
+                code: z.ZodIssueCode.custom,
+            });
+        });
+    });
 });

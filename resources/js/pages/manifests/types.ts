@@ -107,6 +107,7 @@ export interface CanonicalManifestSection {
     package_id?: number | null;
     in_charge_official_id?: number | null;
     manifest_number?: string | null;
+    number_format_id?: number | null;
     status?: string | null;
     notes?: string | null;
 }

@@ -104,6 +104,8 @@ class QuotationItemService
                     'sort_order' => $item['sort_order'] ?? 0,
                 ]);
 
+                $this->syncItemTaxes($quotationItem, $item);
+
                 $createdIds[] = $quotationItem->id;
 
                 if (! empty($item['_key'])) {
@@ -143,6 +145,8 @@ class QuotationItemService
                     'sort_order' => $item['sort_order'] ?? 0,
                 ]);
 
+                $this->syncItemTaxes($quotationItem, $item);
+
                 $createdIds[] = $quotationItem->id;
 
                 if (! empty($item['_key'])) {
@@ -167,7 +171,13 @@ class QuotationItemService
             $usedIds = [];
             $existingItems = QuotationItem::query()
                 ->where('quotation_id', $quotationId)
-                ->get(['id', 'parent_id', 'customer_confirmation_member_id', 'description', 'is_header']);
+                ->get([
+                    'id',
+                    'parent_id',
+                    'customer_confirmation_member_id',
+                    'description',
+                    'is_header',
+                ]);
             $existingIdsBySignature = [];
 
             foreach ($existingItems as $existingItem) {
@@ -247,6 +257,8 @@ class QuotationItemService
                     )
                     : QuotationItem::create($payload);
 
+                $this->syncItemTaxes($quotationItem, $item);
+
                 if ($id) {
                     $usedIds[] = (int) $id;
                 }
@@ -321,6 +333,8 @@ class QuotationItemService
                     )
                     : QuotationItem::create($payload);
 
+                $this->syncItemTaxes($quotationItem, $item);
+
                 if ($id) {
                     $usedIds[] = (int) $id;
                 }
@@ -340,7 +354,7 @@ class QuotationItemService
         ?int $parentId,
         mixed $customerConfirmationMemberId,
         string $description,
-        bool $isHeader
+        bool $isHeader,
     ): string {
         return implode('|', [
             $parentId ?? 0,
@@ -360,7 +374,7 @@ class QuotationItemService
         ?int $parentId,
         mixed $customerConfirmationMemberId,
         string $description,
-        bool $isHeader
+        bool $isHeader,
     ): ?int {
         $signature = $this->buildItemSignature(
             $parentId,
@@ -384,6 +398,66 @@ class QuotationItemService
         $existingIdsBySignature[$signature] = $candidateIds;
 
         return null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeItemTaxes(array $item): array
+    {
+        $rawTaxes = $item['taxes'] ?? [];
+
+        if (! is_array($rawTaxes)) {
+            return [];
+        }
+
+        return collect($rawTaxes)
+            ->filter(fn ($tax) => is_array($tax))
+            ->map(function (array $tax, int $index) {
+                $masterId = ! empty($tax['quotation_extension_master_id'])
+                    ? (int) $tax['quotation_extension_master_id']
+                    : null;
+                $name = trim((string) ($tax['name'] ?? ''));
+                $calculationMode = (string) ($tax['calculation_mode'] ?? '');
+                $calculationValue = $this->formatService->cleanDecimal(
+                    $tax['calculation_value'] ?? null,
+                );
+
+                if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    $calculationMode = null;
+                }
+
+                $hasValue = $calculationValue !== null && (float) $calculationValue > 0;
+                $hasAny = $masterId || $name !== '' || $calculationMode || $hasValue;
+
+                if (! $hasAny || ! $calculationMode || ! $hasValue) {
+                    return null;
+                }
+
+                return [
+                    'quotation_extension_master_id' => $masterId,
+                    'name' => $name !== '' ? $name : null,
+                    'calculation_mode' => $calculationMode,
+                    'calculation_value' => $calculationValue,
+                    'sort_order' => (int) ($tax['sort_order'] ?? ($index + 1)),
+                ];
+            })
+            ->filter(fn ($tax) => is_array($tax))
+            ->values()
+            ->all();
+    }
+
+    private function syncItemTaxes(QuotationItem $quotationItem, array $item): void
+    {
+        $taxes = $this->normalizeItemTaxes($item);
+
+        $quotationItem->taxes()->delete();
+
+        if (empty($taxes)) {
+            return;
+        }
+
+        $quotationItem->taxes()->createMany($taxes);
     }
 
     public function deleteUnusedQuotationItems(int $quotationId, array $keepIds = []): void

@@ -12,6 +12,7 @@ class Enquiry extends Model
 {
     protected $fillable = [
         'type',
+        'enquiry_number',
         'status',
         'name',
         'contact_number',

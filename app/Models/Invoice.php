@@ -16,6 +16,7 @@ class Invoice extends Model
         'invoice_number',
         'type',
         'description',
+        'extensions',
         'amount',
         'invoice_date',
         'due_date',
@@ -23,6 +24,7 @@ class Invoice extends Model
     ];
 
     protected $casts = [
+        'extensions' => 'array',
         'amount' => 'decimal:2',
         'invoice_date' => 'date',
         'due_date' => 'date',

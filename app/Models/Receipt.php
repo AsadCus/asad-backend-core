@@ -57,6 +57,10 @@ class Receipt extends Model
         static::created(function ($receipt) {
             $invoice = $receipt->invoice;
 
+            if (! $invoice) {
+                return;
+            }
+
             // Check if quotation is cancelled or soft deleted - don't create financial transaction
             $quotation = $invoice->order?->quotation;
             if ($quotation && ($quotation->status === QuotationStatus::Cancelled || $quotation->trashed())) {
@@ -93,7 +97,9 @@ class Receipt extends Model
                         $receipt->getOriginal('invoice_id')
                             ? (int) $receipt->getOriginal('invoice_id')
                             : null,
-                        (int) $receipt->invoice_id,
+                        $receipt->invoice_id
+                            ? (int) $receipt->invoice_id
+                            : null,
                     );
             }
         });
@@ -103,8 +109,10 @@ class Receipt extends Model
         });
 
         static::deleted(function ($receipt) {
-            app(\App\Services\PaymentStatusService::class)
-                ->syncAfterReceiptMutation((int) $receipt->invoice_id);
+            if ($receipt->invoice_id) {
+                app(\App\Services\PaymentStatusService::class)
+                    ->syncAfterReceiptMutation((int) $receipt->invoice_id);
+            }
         });
     }
 }

@@ -46,6 +46,8 @@ export default function ReceiptForm({
         useState<InvoiceSchema | null>(invoiceData ?? null);
 
     const initialFormState: ReceiptSchema = {
+        receipt_number: '',
+        number_format_id: null,
         invoice_id: invoiceId ? Number(invoiceId) : undefined,
         amount: selectedInvoice?.amount,
         receipt_date: formatDateForDisplay(new Date()),

@@ -11,10 +11,12 @@ import OrderForm from '../orders/form';
 import { OrderSchema } from '../orders/schema';
 import { paymentPlans, QuotationSchema } from '../quotations/schema';
 import InvoicePreviewModal from './components/invoice-preview-modal';
+import { InvoiceSchema } from './schema';
 
 interface ViewInvoiceProps {
     data: {
-        data: OrderSchema;
+        data: InvoiceSchema;
+        order: OrderSchema;
         quotation: QuotationSchema;
     };
 }
@@ -56,14 +58,17 @@ export default function ViewInvoice({ data }: ViewInvoiceProps) {
                             <Plus className="h-4 w-4" />
                             Create Receipt
                         </Button>
-                        <InvoicePreviewModal invoiceId={data.data.id} />
+                        <InvoicePreviewModal
+                            data={data.data}
+                            items={data.data.items ?? []}
+                        />
                     </div>
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <OrderForm
                         mode="view"
-                        initialData={data.data}
+                        initialData={data.order}
                         quotation={data.quotation}
                         paymentPlans={paymentPlans}
                         onCancel={handleCancel}

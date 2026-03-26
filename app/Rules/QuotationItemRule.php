@@ -94,6 +94,13 @@ class QuotationItemRule
             "$prefix.*.is_optional" => ['nullable', 'boolean'],
             "$prefix.*.quantity" => ['nullable', "required_if:$prefix.*.is_header,false", 'numeric'],
             "$prefix.*.rate" => ['nullable', "required_if:$prefix.*.is_header,false", 'numeric'],
+            "$prefix.*.taxes" => ['nullable', 'array'],
+            "$prefix.*.taxes.*.id" => ['nullable'],
+            "$prefix.*.taxes.*.quotation_extension_master_id" => ['nullable', 'integer', 'exists:quotation_extension_masters,id'],
+            "$prefix.*.taxes.*.name" => ['nullable', 'string', 'max:255'],
+            "$prefix.*.taxes.*.calculation_mode" => ['nullable', 'string', 'in:fixed,percentage'],
+            "$prefix.*.taxes.*.calculation_value" => ['nullable', 'numeric'],
+            "$prefix.*.taxes.*.sort_order" => ['nullable', 'integer'],
             "$prefix.*.sort_order" => ['nullable', 'numeric'],
         ];
     }

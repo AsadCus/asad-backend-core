@@ -69,6 +69,8 @@ class ReceiptController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'receipt_number' => ['nullable', 'string', 'max:100'],
+            'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'invoice_id' => ['required', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')],
             'amount' => ['required', 'numeric'],
             'receipt_date' => ['required', 'date'],
@@ -112,6 +114,8 @@ class ReceiptController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
+            'receipt_number' => ['nullable', 'string', 'max:100'],
+            'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'invoice_id' => ['nullable', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')->ignore((int) $id)],
             'amount' => ['nullable', 'numeric'],
             'receipt_date' => ['required', 'date'],

@@ -31,7 +31,6 @@ class DatabaseSeederTest extends TestCase
 
         $this->assertSame(2, User::role('admin')->count());
         $this->assertSame(2, User::role('sales')->count());
-        $this->assertSame(0, User::role('supplier')->count());
         $this->assertSame(2, Sales::count());
 
         $this->assertSame(0, Quotation::count());

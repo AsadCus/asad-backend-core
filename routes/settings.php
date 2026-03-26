@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppearanceController;
+use App\Http\Controllers\Settings\ModelNumberFormatController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\ReportTemplateController;
@@ -29,6 +30,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('settings/report-template/modules/{key}', [ReportTemplateController::class, 'destroyModule'])->name('report-template.modules.destroy');
     Route::get('api/report-template/branding', [ReportTemplateController::class, 'getBrandingData'])->name('report-template.branding.get');
     Route::post('api/report-template/preview', [ReportTemplateController::class, 'preview'])->name('report-template.preview');
+
+    Route::get('settings/model-number-formats', [ModelNumberFormatController::class, 'edit'])
+        ->middleware('role:admin')
+        ->name('model-number-formats.edit');
 
     Route::get('settings/two-factor', [TwoFactorAuthenticationController::class, 'show'])
         ->name('two-factor.show');

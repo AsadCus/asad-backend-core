@@ -655,6 +655,7 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
         package_id: initialData?.package_id ?? 0,
         in_charge_official_id: initialData?.in_charge_official_id ?? null,
         manifest_number: initialData?.manifest_number ?? '',
+        number_format_id: initialData?.number_format_id ?? null,
         status: initialData?.status ?? 'open',
         notes: initialData?.notes ?? '',
         manifest_members: members,
@@ -1536,6 +1537,7 @@ function buildSubmitPayload(
         package_id: data.package_id,
         in_charge_official_id: data.in_charge_official_id,
         manifest_number: data.manifest_number ?? '',
+        number_format_id: data.number_format_id ?? null,
         status: data.status,
         notes: data.notes,
         documents: {
@@ -3283,6 +3285,7 @@ export default function ManifestForm({
                             dataPackage={packageOptions}
                             setData={setFormData}
                             renderError={renderError}
+                            errors={formErrors}
                         />
                     </FormSection>
 

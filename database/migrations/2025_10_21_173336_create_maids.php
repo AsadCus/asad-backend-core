@@ -112,7 +112,6 @@ return new class extends Migration
             $table->string('status_job_id')->nullable()->comment('Stores the job ID to prevent duplicate jobs and track active status jobs');
             $table->timestamp('pending_until')->nullable()->comment('Deadline for document finalization. Auto-assign to ASSIGNED after this date.');
             $table->text('pending_reason')->nullable()->comment('Reason or notes for pending status');
-            $table->foreignId('supplier_id')->nullable()->constrained('suppliers')->onDelete('set null');
             $table->decimal('remaining_loan', 10, 2)->nullable()->comment('Remaining loan amount');
             $table->decimal('monthly_salary', 10, 2)->nullable()->comment('Monthly salary of maid');
             $table->decimal('cost_of_maid', 10, 2)->nullable()->comment('Total cost of maid (auto-calculated: remaining_loan * monthly_salary)');
@@ -127,7 +126,6 @@ return new class extends Migration
             $table->index('marital_status');
             $table->index('status');
             $table->index('singapore_experience');
-            $table->index('supplier_id');
 
             $table->timestamps();
             $table->softDeletes();

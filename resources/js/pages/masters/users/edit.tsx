@@ -23,11 +23,9 @@ interface EditUserProps {
     data: UserSchema;
     dataRole: [];
     dataBranch: [];
-    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
-    isSupplier: boolean;
     isCustomer: boolean;
 }
 
@@ -35,11 +33,9 @@ export default function EditUser({
     data,
     dataRole,
     dataBranch,
-    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,
-    isSupplier = false,
     isCustomer = false,
 }: EditUserProps) {
     const handleCancel = useCallback(() => {
@@ -49,7 +45,6 @@ export default function EditUser({
     const roleLabel = resolveUserRoleLabel({
         isAdmin,
         isSales,
-        isSupplier,
         isCustomer,
     });
 
@@ -67,13 +62,11 @@ export default function EditUser({
                         mode="edit"
                         initialData={data}
                         branches={dataBranch}
-                        countries={dataCountry}
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
                         isAdmin={isAdmin}
                         isSales={isSales}
-                        isSupplier={isSupplier}
                         isCustomer={isCustomer}
                     />
                 </div>

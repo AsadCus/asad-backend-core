@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\QuotationExtensionMaster;
 use App\Rules\QuotationItemRule;
 use App\Services\NoteService;
 use App\Services\QuotationItemService;
@@ -54,7 +55,53 @@ class QuotationItemController extends Controller
 
         $payload = $this->quotationItemService->quickCreateItemGroup($validated);
 
-        return response()->json($payload, 201);
+        if ($request->expectsJson()) {
+            return response()->json($payload, 201);
+        }
+
+        return back()
+            ->with('result', $payload)
+            ->with('success', 'Product/service item created.');
+    }
+
+    public function quickCreateExtensionMaster(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'type' => ['nullable', 'string', 'in:discount,tax,credit_card,other'],
+            'calculation_mode' => ['required', 'string', 'in:fixed,percentage'],
+            'calculation_value' => ['required', 'numeric'],
+        ]);
+
+        $nextSortOrder = ((int) QuotationExtensionMaster::query()->max('sort_order')) + 1;
+
+        $master = QuotationExtensionMaster::query()->create([
+            'name' => $validated['name'],
+            'type' => $validated['type'] ?? 'discount',
+            'calculation_mode' => $validated['calculation_mode'],
+            'calculation_value' => $validated['calculation_value'],
+            'payment_methods' => [],
+            'is_active' => true,
+            'sort_order' => $nextSortOrder,
+        ]);
+
+        $payload = [
+            'id' => $master->id,
+            'name' => $master->name,
+            'type' => $master->type,
+            'calculation_mode' => $master->calculation_mode,
+            'calculation_value' => $master->calculation_value,
+            'is_active' => $master->is_active,
+            'sort_order' => $master->sort_order,
+        ];
+
+        if ($request->expectsJson()) {
+            return response()->json($payload, 201);
+        }
+
+        return back()
+            ->with('result', $payload)
+            ->with('success', 'Quotation extension created.');
     }
 
     public function store(Request $request)
@@ -72,7 +119,7 @@ class QuotationItemController extends Controller
             'extensions' => ['required', 'array'],
             'extensions.*.id' => ['nullable', 'integer', 'exists:quotation_extension_masters,id'],
             'extensions.*.name' => ['required', 'string', 'max:255'],
-            'extensions.*.type' => ['required', 'string', 'in:discount,tax,credit_card'],
+            'extensions.*.type' => ['required', 'string', 'in:discount,tax,credit_card,other'],
             'extensions.*.calculation_mode' => ['required', 'string', 'in:fixed,percentage'],
             'extensions.*.calculation_value' => ['required', 'numeric'],
             'extensions.*.payment_methods' => ['nullable', 'array'],
@@ -95,6 +142,7 @@ class QuotationItemController extends Controller
             'payment_methods.*.name' => ['required', 'string', 'max:255'],
             'payment_methods.*.value' => ['nullable', 'string', 'max:100'],
             'payment_methods.*.is_active' => ['nullable', 'boolean'],
+            'payment_methods.*.is_default' => ['nullable', 'boolean'],
             'payment_methods.*.sort_order' => ['nullable', 'integer'],
         ]);
 

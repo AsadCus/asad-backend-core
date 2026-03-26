@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const receiptSchema = z.object({
     id: z.number().optional(),
     receipt_number: z.string().nullable().optional(),
+    number_format_id: z.number().nullable().optional(),
     order_id: z.number().optional(),
     order_number: z.string().nullable().optional(),
     invoice_id: z.number().optional(),

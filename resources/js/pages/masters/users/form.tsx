@@ -17,7 +17,6 @@ import { useEffect, useRef, useState } from 'react';
 import { AdminFormFields } from './components/admin-form-fields';
 import { UserPasswordFields } from './components/password-fields';
 import { SalesFormFields } from './components/sales-form-fields';
-import { SupplierFormFields } from './components/supplier-form-fields';
 import { UserSchema, validateUserData } from './schema';
 
 type UserFormData = UserSchema & {
@@ -34,7 +33,6 @@ interface UserFormProps {
     salesList?: OptionType[];
     isAdmin?: boolean;
     isSales?: boolean;
-    isSupplier?: boolean;
     isCustomer?: boolean;
     submitUrl?: string;
 }
@@ -48,7 +46,6 @@ export function UserForm({
     salesList = [],
     isAdmin,
     isSales,
-    isSupplier,
     isCustomer,
     submitUrl,
 }: UserFormProps) {
@@ -59,7 +56,6 @@ export function UserForm({
     const getDeterminedRole = () => {
         if (isAdmin) return 'admin';
         if (isSales) return 'sales';
-        if (isSupplier) return 'supplier';
         if (isCustomer) return 'customer';
         return 'admin';
     };
@@ -67,6 +63,8 @@ export function UserForm({
     const determinedRole = getDeterminedRole();
 
     const initialFormState: UserSchema = {
+        customer_number: '',
+        number_format_id: null,
         name: '',
         email: '',
         password: '',
@@ -149,7 +147,6 @@ export function UserForm({
 
     const [role, setRole] = useState(data?.role ?? 'admin');
     const errorBannerRef = useRef<HTMLDivElement | null>(null);
-
     useEffect(() => {
         if (Object.keys(errors).length > 0 && !isView) {
             errorBannerRef.current?.scrollIntoView({
@@ -259,8 +256,6 @@ export function UserForm({
         if (!submitUrl) {
             if (isSales) {
                 url = '/sales';
-            } else if (isSupplier) {
-                url = '/supplier';
             } else if (isCustomer) {
                 url = '/customer';
             }
@@ -362,7 +357,6 @@ export function UserForm({
                     <CardContent className="space-y-6">
                         {isAdmin === false &&
                             isSales === false &&
-                            isSupplier === false &&
                             isCustomer === false && (
                                 <div className="space-y-4">
                                     <h3 className="text-xl font-semibold">
@@ -379,7 +373,6 @@ export function UserForm({
                                                     isEdit ||
                                                     isAdmin ||
                                                     isSales ||
-                                                    isSupplier ||
                                                     isCustomer
                                                 }
                                                 value={data.role}
@@ -460,68 +453,50 @@ export function UserForm({
                             />
                         )}
 
-                        {role === 'supplier' && (
-                            <SupplierFormFields
-                                data={{
-                                    name: data.name,
-                                    email: data.email,
-                                    contact: data.contact,
-                                    company_name: data.company_name,
-                                    address: data.address,
-                                }}
-                                errors={
-                                    errors as Partial<
-                                        Record<keyof UserSchema, string>
-                                    >
-                                }
-                                isView={isView}
-                                onChange={(field, value) =>
-                                    setData(field, value)
-                                }
-                            />
-                        )}
-
                         {role === 'customer' && (
-                            <CustomerFormFields
-                                customer={customerData}
-                                isView={isView}
-                                processing={processing}
-                                getError={getCustomerFieldError}
-                                onUpdateCustomer={(field, value) =>
-                                    updateCustomerField(String(field), value)
-                                }
-                            />
+                            <div className="space-y-4">
+                                <CustomerFormFields
+                                    customer={customerData}
+                                    isView={isView}
+                                    processing={processing}
+                                    getError={getCustomerFieldError}
+                                    onUpdateCustomer={(field, value) =>
+                                        updateCustomerField(
+                                            String(field),
+                                            value,
+                                        )
+                                    }
+                                />
+                            </div>
                         )}
 
                         {/* Password & Confirm Password */}
-                        {!isView &&
-                            role !== 'supplier' &&
-                            role !== 'customer' && (
-                                <UserPasswordFields
-                                    password={data.password ?? ''}
-                                    passwordConfirmation={
-                                        data.password_confirmation ?? ''
-                                    }
-                                    sendEmail={data.send_email ?? false}
-                                    isView={isView}
-                                    onGenerateRandom={generatePassword}
-                                    onPasswordChange={(value) => {
-                                        clearErrors('password');
-                                        setData('password', value);
-                                    }}
-                                    onPasswordConfirmationChange={(value) => {
-                                        clearErrors('password_confirmation');
-                                        setData('password_confirmation', value);
-                                    }}
-                                    onSendEmailChange={(checked) =>
-                                        setData('send_email', checked)
-                                    }
-                                    passwordError={errors.password}
-                                    passwordConfirmationError={
-                                        errors.password_confirmation
-                                    }
-                                />
-                            )}
+                        {!isView && role !== 'customer' && (
+                            <UserPasswordFields
+                                password={data.password ?? ''}
+                                passwordConfirmation={
+                                    data.password_confirmation ?? ''
+                                }
+                                sendEmail={data.send_email ?? false}
+                                isView={isView}
+                                onGenerateRandom={generatePassword}
+                                onPasswordChange={(value) => {
+                                    clearErrors('password');
+                                    setData('password', value);
+                                }}
+                                onPasswordConfirmationChange={(value) => {
+                                    clearErrors('password_confirmation');
+                                    setData('password_confirmation', value);
+                                }}
+                                onSendEmailChange={(checked) =>
+                                    setData('send_email', checked)
+                                }
+                                passwordError={errors.password}
+                                passwordConfirmationError={
+                                    errors.password_confirmation
+                                }
+                            />
+                        )}
                     </CardContent>
                 </Card>
 

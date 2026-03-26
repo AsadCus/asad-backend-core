@@ -20,7 +20,6 @@ interface RoleUserFormDialogProps {
     salesList?: OptionType[];
     isAdmin?: boolean;
     isSales?: boolean;
-    isSupplier?: boolean;
     isCustomer?: boolean;
     submitUrl: string;
 }
@@ -36,7 +35,6 @@ export default function RoleUserFormDialog({
     salesList = [],
     isAdmin = false,
     isSales = false,
-    isSupplier = false,
     isCustomer = false,
     submitUrl,
 }: RoleUserFormDialogProps) {
@@ -59,7 +57,6 @@ export default function RoleUserFormDialog({
                         salesList={salesList}
                         isAdmin={isAdmin}
                         isSales={isSales}
-                        isSupplier={isSupplier}
                         isCustomer={isCustomer}
                         submitUrl={submitUrl}
                         onCancel={() => onOpenChange(false)}

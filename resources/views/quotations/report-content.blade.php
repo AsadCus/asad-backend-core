@@ -261,11 +261,59 @@
         </div>
 
         {{-- Totals --}}
+        @php
+            $itemTaxExtensions = collect($items)
+                ->filter(fn($item) => empty($item['is_header']))
+                ->flatMap(function ($item) {
+                    $lineAmount = (float) ($item['quantity'] ?? 0) * (float) ($item['rate'] ?? 0);
+
+                    return collect($item['taxes'] ?? [])
+                        ->filter(function ($tax) {
+                            $mode = (string) ($tax['calculation_mode'] ?? '');
+                            $value = (float) ($tax['calculation_value'] ?? 0);
+
+                            return in_array($mode, ['fixed', 'percentage'], true) && $value > 0;
+                        })
+                        ->map(function ($tax) use ($lineAmount) {
+                            $mode = (string) ($tax['calculation_mode'] ?? '');
+                            $value = (float) ($tax['calculation_value'] ?? 0);
+
+                            return [
+                                'key' => implode('|', [
+                                    (int) ($tax['quotation_extension_master_id'] ?? 0),
+                                    strtolower(trim((string) ($tax['name'] ?? 'Tax'))),
+                                    $mode,
+                                    (string) $value,
+                                ]),
+                                'name' => $tax['name'] ?? 'Tax',
+                                'amount' => $mode === 'percentage' ? ($lineAmount * $value) / 100 : $value,
+                            ];
+                        });
+                })
+                ->groupBy('key')
+                ->map(function ($group) {
+                    $first = $group->first();
+
+                    return [
+                        'name' => $first['name'] ?? 'Tax',
+                        'amount' => $group->sum('amount'),
+                    ];
+                })
+                ->values();
+        @endphp
         <div class="totals-wrapper">
             <div>
                 <span class="total-label">Sub Total:&nbsp;</span>
                 <span class="total-amount">{{ formatCurrency($subtotal) }}</span>
             </div>
+            @if ($itemTaxExtensions->isNotEmpty())
+                @foreach ($itemTaxExtensions as $itemTax)
+                    <div>
+                        <span class="total-label">{{ $itemTax['name'] ?? 'Tax' }} (Item Tax):&nbsp;</span>
+                        <span class="total-amount">{{ formatCurrency($itemTax['amount'] ?? 0) }}</span>
+                    </div>
+                @endforeach
+            @endif
             @if (!empty($data['extensions']) && count($data['extensions']) > 0)
                 @foreach ($data['extensions'] as $extension)
                     <div>

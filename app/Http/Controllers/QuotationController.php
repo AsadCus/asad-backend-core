@@ -71,8 +71,17 @@ class QuotationController extends Controller
         $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
 
-        $prefilledPaymentMethod = $request->input('payment_method', 'transfer');
-        $data['defaultExtensions'] = $this->quotationService->getDefaultExtensionsForCreate($prefilledPaymentMethod);
+        $prefilledPaymentMethod = (string) $request->input(
+            'payment_method',
+            $this->quotationService->getDefaultPaymentMethodValue(),
+        );
+        $data['defaultPaymentMethod'] = $prefilledPaymentMethod;
+        $data['defaultExtensions'] = collect(
+            $this->quotationService->getDefaultExtensionsForCreate($prefilledPaymentMethod)
+        )
+            ->filter(fn ($extension) => ($extension['type'] ?? null) !== 'discount')
+            ->values()
+            ->all();
 
         $prefilledCustomerId = $request->input('customer_id');
         $prefilledCustomerData = null;

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\EnquiryStatus;
-use App\Helpers\NumberGenerator;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -29,7 +28,10 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerConfirmationService
 {
-    public function __construct(private NoteService $noteService) {}
+    public function __construct(
+        private NoteService $noteService,
+        private NumberingService $numberingService,
+    ) {}
 
     /** Create a customer confirmation from request data. */
     public function createGroup(array $data): CustomerConfirmation
@@ -42,7 +44,12 @@ class CustomerConfirmationService
             }
 
             $group = CustomerConfirmation::create([
-                'number' => NumberGenerator::generate('customer_confirmation'),
+                'number' => $this->numberingService->ensureNumber(
+                    'customer_confirmation',
+                    $data['number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'enquiry_id' => $enquiryId,
                 'created_by' => auth()->id(),
                 'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
@@ -372,8 +379,8 @@ class CustomerConfirmationService
     {
         $allocatedAmount = (float) $member->receiptAllocations->sum('allocated_amount');
 
-        if ($allocatedAmount > 0) {
-            return $allocatedAmount;
+        if ($member->receiptAllocations->isNotEmpty()) {
+            return round($allocatedAmount, 2);
         }
 
         $paidQuotationIds = $member->quotationItems
@@ -670,6 +677,14 @@ class CustomerConfirmationService
             }
 
             $group->update([
+                'number' => array_key_exists('number', $data)
+                    ? $this->numberingService->ensureNumber(
+                        'customer_confirmation',
+                        $data['number'],
+                        (int) $group->id,
+                        isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                    )
+                    : $group->number,
                 // 'package_id' => $data['package_id'] ?? $group->package_id,
                 'package_id' => $data['package_id'] ?? null,
                 'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
@@ -1037,6 +1052,7 @@ class CustomerConfirmationService
                 ->delete();
 
             $newGroup = CustomerConfirmation::create([
+                'number' => $this->numberingService->ensureNumber('customer_confirmation', null),
                 'enquiry_id' => $sourceGroup->enquiry_id,
                 'created_by' => auth()->id(),
                 'package_id' => $targetPackageId,
@@ -1861,52 +1877,12 @@ class CustomerConfirmationService
 
                 $refundAmount = $this->resolveRequestedRefundAmount($paidAmount, $refundPayload);
 
-                $sourceQuotationItem = QuotationItem::query()
-                    ->with('quotation.order')
-                    ->where('customer_confirmation_member_id', $member->id)
-                    ->whereHas('quotation.order')
-                    ->orderByDesc('id')
-                    ->first();
-
-                if (! $sourceQuotationItem || ! $sourceQuotationItem->quotation?->order) {
-                    throw ValidationException::withMessages([
-                        'member_refunds' => 'No order found for selected member refund.',
-                    ]);
-                }
-
-                $quotationId = (int) $sourceQuotationItem->quotation_id;
-                $orderId = (int) $sourceQuotationItem->quotation->order->id;
-                $sortOrder = ((int) QuotationItem::query()
-                    ->where('quotation_id', $quotationId)
-                    ->max('sort_order')) + 1;
-
                 $memberName = $member->customer?->user?->name ?? 'Member #'.$member->id;
                 $refundDescription = 'Refund - '.$memberName;
 
-                $refundItem = QuotationItem::create([
-                    'quotation_id' => $quotationId,
-                    'customer_confirmation_member_id' => $member->id,
-                    'description' => $refundDescription,
-                    'is_header' => false,
-                    'quantity' => 1,
-                    'rate' => -$refundAmount,
-                    'sort_order' => $sortOrder,
-                ]);
-
-                $refundInvoice = Invoice::create([
-                    'order_id' => $orderId,
-                    'type' => null,
-                    'description' => $refundDescription,
-                    'amount' => -$refundAmount,
-                    'invoice_date' => now()->format('Y-m-d'),
-                    'due_date' => now()->format('Y-m-d'),
-                    'status' => 'issued',
-                ]);
-
-                $refundInvoice->quotationItems()->sync([$refundItem->id]);
-
                 $refundReceipt = Receipt::create([
-                    'invoice_id' => $refundInvoice->id,
+                    'invoice_id' => null,
+                    'receipt_number' => $this->numberingService->ensureNumber('receipt', null),
                     'amount' => -$refundAmount,
                     'receipt_date' => now()->format('Y-m-d'),
                     'payment_method' => 'refund',

@@ -11,14 +11,25 @@ export function InvoiceHeader({
     onChange,
     renderError,
     disabled,
+    isView = false,
 }: {
     invoice: InvoiceSchema;
     onChange: (patch: Partial<InvoiceSchema>) => void;
     renderError: (path: string) => React.ReactNode;
     disabled: boolean;
+    isView?: boolean;
 }) {
     return (
         <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-4">
+            {isView && invoice.invoice_number && (
+                <div className="grid w-full items-center gap-2 lg:col-span-2">
+                    <Label>Invoice Number</Label>
+                    <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-sm">
+                        {invoice.invoice_number}
+                    </div>
+                </div>
+            )}
+
             {/* Description */}
             <div className="grid w-full items-center gap-3 lg:col-span-2">
                 <Label htmlFor="description">

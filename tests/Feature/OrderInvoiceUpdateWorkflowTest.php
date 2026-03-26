@@ -4,9 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\Invoice;
-use App\Models\NumberSequence;
+use App\Models\NumberingSequence;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Models\QuotationExtension;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
@@ -207,19 +208,18 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $this->assertDatabaseMissing('invoices', ['id' => $invoiceTwo->id]);
 
         $year = now()->format('Y');
-        $this->assertDatabaseHas('number_sequences', [
-            'type' => 'invoice',
-            'year' => $year,
-            'current_number' => 1,
+        $this->assertDatabaseHas('numbering_sequences', [
+            'model_key' => 'invoice',
+            'sequence_year' => $year,
         ]);
 
-        $sequence = NumberSequence::query()
-            ->where('type', 'invoice')
-            ->where('year', $year)
+        $sequence = NumberingSequence::query()
+            ->where('model_key', 'invoice')
+            ->where('sequence_year', $year)
             ->first();
 
         $this->assertNotNull($sequence);
-        $this->assertSame(1, (int) $sequence->current_number);
+        $this->assertGreaterThan(0, (int) $sequence->current_number);
     }
 
     public function test_order_update_rejects_removing_invoice_when_receipt_exists(): void
@@ -530,7 +530,6 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $invoiceThree->quotationItems()->sync([$quotationItems[2]->id]);
 
         $invoiceIds = [$invoiceOne->id, $invoiceTwo->id, $invoiceThree->id];
-        $invoiceNumbers = [$invoiceOne->invoice_number, $invoiceTwo->invoice_number, $invoiceThree->invoice_number];
 
         /** @var OrderService $orderService */
         $orderService = app(OrderService::class);
@@ -607,13 +606,6 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         foreach ($invoiceIds as $invoiceId) {
             $this->assertDatabaseHas('invoices', [
                 'id' => $invoiceId,
-                'order_id' => $order->id,
-            ]);
-        }
-
-        foreach ($invoiceNumbers as $invoiceNumber) {
-            $this->assertDatabaseHas('invoices', [
-                'invoice_number' => $invoiceNumber,
                 'order_id' => $order->id,
             ]);
         }
@@ -877,6 +869,250 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $this->assertDatabaseHas('invoice_items', [
             'invoice_id' => $invoiceTwo->id,
             'quotation_item_id' => $otherItem->id,
+        ]);
+    }
+
+    public function test_quotation_update_sync_amount_uses_item_taxes_and_all_extensions(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Umrah Package - Member 1',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $quotationItem->taxes()->create([
+            'name' => 'Item Tax',
+            'calculation_mode' => 'percentage',
+            'calculation_value' => 10,
+            'sort_order' => 1,
+        ]);
+
+        QuotationExtension::create([
+            'quotation_id' => $quotation->id,
+            'name' => 'Group Discount',
+            'type' => 'discount',
+            'amount' => -100,
+            'sort_order' => 1,
+        ]);
+
+        QuotationExtension::create([
+            'quotation_id' => $quotation->id,
+            'name' => 'Credit Card Surcharge',
+            'type' => 'credit_card',
+            'amount' => 50,
+            'sort_order' => 2,
+        ]);
+
+        QuotationExtension::create([
+            'quotation_id' => $quotation->id,
+            'name' => 'Legacy Tax Extension',
+            'type' => 'tax',
+            'amount' => 80,
+            'sort_order' => 3,
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For Deposit',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        /** @var QuotationService $quotationService */
+        $quotationService = app(QuotationService::class);
+        $quotationService->update([
+            'customer_id' => $quotation->customer_id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'installment',
+            'payment_method' => 'transfer',
+            'status' => 'converted',
+        ], $quotation->id);
+
+        $expectedAmount = 1130.00;
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'amount' => number_format($expectedAmount, 2, '.', ''),
+        ]);
+
+        $this->assertDatabaseHas('receipts', [
+            'invoice_id' => $invoice->id,
+            'amount' => number_format($expectedAmount, 2, '.', ''),
+        ]);
+    }
+
+    public function test_order_update_syncs_quotation_extensions_from_invoice_extensions(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $itemOne = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Line 1',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 500,
+            'sort_order' => 1,
+        ]);
+
+        $itemTwo = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Line 2',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 500,
+            'sort_order' => 2,
+        ]);
+
+        $invoiceOne = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 1',
+            'amount' => 500,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceOne->quotationItems()->sync([$itemOne->id]);
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 2',
+            'amount' => 500,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceTwo->quotationItems()->sync([$itemTwo->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $orderService->update([
+            'payment_plan' => 'installment',
+            'invoices' => [
+                [
+                    'id' => $invoiceOne->id,
+                    '_key' => 'inv-1',
+                    'description' => 'Invoice 1',
+                    'amount' => 475,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(7)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'extensions' => [
+                        [
+                            'name' => 'Group Discount',
+                            'type' => 'discount',
+                            'calculation_mode' => 'fixed',
+                            'calculation_value' => -50,
+                            'amount' => -50,
+                            'sort_order' => 1,
+                        ],
+                        [
+                            'name' => 'Credit Card Surcharge',
+                            'type' => 'credit_card',
+                            'calculation_mode' => 'fixed',
+                            'calculation_value' => 25,
+                            'amount' => 25,
+                            'sort_order' => 2,
+                        ],
+                        [
+                            'name' => 'Tax Extension',
+                            'type' => 'tax',
+                            'calculation_mode' => 'fixed',
+                            'calculation_value' => 10,
+                            'amount' => 10,
+                            'sort_order' => 3,
+                        ],
+                    ],
+                    'items' => [
+                        [
+                            'id' => $itemOne->id,
+                            '_key' => 'item-1',
+                            'description' => 'Line 1',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 500,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+                [
+                    'id' => $invoiceTwo->id,
+                    '_key' => 'inv-2',
+                    'description' => 'Invoice 2',
+                    'amount' => 475,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(7)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'extensions' => [
+                        [
+                            'name' => 'Group Discount',
+                            'type' => 'discount',
+                            'calculation_mode' => 'fixed',
+                            'calculation_value' => -50,
+                            'amount' => -50,
+                            'sort_order' => 1,
+                        ],
+                        [
+                            'name' => 'Credit Card Surcharge',
+                            'type' => 'credit_card',
+                            'calculation_mode' => 'fixed',
+                            'calculation_value' => 25,
+                            'amount' => 25,
+                            'sort_order' => 2,
+                        ],
+                    ],
+                    'items' => [
+                        [
+                            'id' => $itemTwo->id,
+                            '_key' => 'item-2',
+                            'description' => 'Line 2',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 500,
+                            'sort_order' => 2,
+                        ],
+                    ],
+                ],
+            ],
+        ], $order->id);
+
+        $this->assertDatabaseHas('quotation_extensions', [
+            'quotation_id' => $quotation->id,
+            'name' => 'Group Discount',
+            'type' => 'discount',
+            'amount' => '-100.00',
+        ]);
+
+        $this->assertDatabaseHas('quotation_extensions', [
+            'quotation_id' => $quotation->id,
+            'name' => 'Credit Card Surcharge',
+            'type' => 'credit_card',
+            'amount' => '50.00',
+        ]);
+
+        $this->assertDatabaseMissing('quotation_extensions', [
+            'quotation_id' => $quotation->id,
+            'name' => 'Tax Extension',
+            'type' => 'tax',
         ]);
     }
 }

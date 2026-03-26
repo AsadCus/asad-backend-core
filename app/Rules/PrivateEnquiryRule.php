@@ -7,6 +7,8 @@ class PrivateEnquiryRule
     public function rules(?int $id = null): array
     {
         return [
+            'enquiry_number' => ['nullable', 'string', 'max:100'],
+            'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'name' => ['required', 'string', 'max:255'],
             'contact_number' => ['required', 'string', 'max:30'],
             'email' => ['required', 'email', 'max:255'],

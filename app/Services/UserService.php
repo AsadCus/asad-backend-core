@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Services\UserRoles\AdminUserService;
 use App\Services\UserRoles\CustomerUserService;
 use App\Services\UserRoles\SalesUserService;
-use App\Services\UserRoles\SupplierUserService;
 use Spatie\Permission\Models\Role;
 
 class UserService
@@ -14,7 +13,6 @@ class UserService
     public function __construct(
         protected AdminUserService $adminUserService,
         protected SalesUserService $salesUserService,
-        protected SupplierUserService $supplierUserService,
         protected CustomerUserService $customerUserService,
     ) {}
 
@@ -42,10 +40,6 @@ class UserService
             return $this->salesUserService->getForDataTable();
         }
 
-        if ($role === 'supplier') {
-            return $this->supplierUserService->getForDataTable();
-        }
-
         if ($role === 'customer') {
             return $this->customerUserService->getForDataTable();
         }
@@ -53,7 +47,6 @@ class UserService
         return collect()
             ->concat($this->adminUserService->getForDataTable())
             ->concat($this->salesUserService->getForDataTable())
-            ->concat($this->supplierUserService->getForDataTable())
             ->concat($this->customerUserService->getForDataTable())
             ->values();
     }
@@ -145,7 +138,6 @@ class UserService
         return match ($role) {
             'admin' => $this->adminUserService,
             'sales' => $this->salesUserService,
-            'supplier' => $this->supplierUserService,
             'customer' => $this->customerUserService,
             default => throw new \InvalidArgumentException("Unsupported user role [{$role}]."),
         };

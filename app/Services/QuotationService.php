@@ -35,11 +35,14 @@ class QuotationService
 
     protected $paymentStatusService;
 
-    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService, PaymentStatusService $paymentStatusService)
+    protected $numberingService;
+
+    public function __construct(FormatService $formatService, QuotationItemService $quotationItemService, PaymentStatusService $paymentStatusService, NumberingService $numberingService)
     {
         $this->formatService = $formatService;
         $this->quotationItemService = $quotationItemService;
         $this->paymentStatusService = $paymentStatusService;
+        $this->numberingService = $numberingService;
     }
 
     public function getForDataTable(array $filters = [])
@@ -117,6 +120,7 @@ class QuotationService
     {
         $methods = PaymentMethodMaster::query()
             ->where('is_active', true)
+            ->orderByDesc('is_default')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
@@ -134,6 +138,33 @@ class QuotationService
         return $methods;
     }
 
+    public function getDefaultPaymentMethodValue(): string
+    {
+        $default = PaymentMethodMaster::query()
+            ->where('is_active', true)
+            ->where('is_default', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->value('value');
+
+        if (is_string($default) && $default !== '') {
+            return $default;
+        }
+
+        $fallback = PaymentMethodMaster::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->value('value');
+
+        if (is_string($fallback) && $fallback !== '') {
+            return $fallback;
+        }
+
+        return 'transfer';
+    }
+
     public function getPaymentMethodMastersForMasterPage(): array
     {
         return PaymentMethodMaster::query()
@@ -146,6 +177,7 @@ class QuotationService
                     'name' => $master->name,
                     'value' => $master->value,
                     'is_active' => (bool) $master->is_active,
+                    'is_default' => (bool) $master->is_default,
                     'sort_order' => (int) ($master->sort_order ?? 0),
                 ];
             })
@@ -167,11 +199,34 @@ class QuotationService
                         'name' => $name,
                         'value' => $value,
                         'is_active' => (bool) ($row['is_active'] ?? true),
+                        'is_default' => (bool) ($row['is_default'] ?? false),
                         'sort_order' => (int) ($row['sort_order'] ?? ($index + 1)),
                     ];
                 })
                 ->filter(fn ($row) => $row['name'] !== '' && $row['value'] !== '')
                 ->unique('value')
+                ->values();
+
+            $defaultIndex = $sanitized->search(
+                fn ($row) => $row['is_active'] && $row['is_default'],
+            );
+
+            if ($defaultIndex === false) {
+                $defaultIndex = $sanitized->search(
+                    fn ($row) => $row['is_active'],
+                );
+            }
+
+            $sanitized = $sanitized
+                ->values()
+                ->map(function (array $row, int $index) use ($defaultIndex) {
+                    return [
+                        ...$row,
+                        'is_default' => $defaultIndex !== false
+                            ? $index === (int) $defaultIndex
+                            : false,
+                    ];
+                })
                 ->values();
 
             $incomingIds = $sanitized
@@ -194,6 +249,7 @@ class QuotationService
                             'name' => $row['name'],
                             'value' => $row['value'],
                             'is_active' => $row['is_active'],
+                            'is_default' => $row['is_default'],
                             'sort_order' => $row['sort_order'],
                         ]);
 
@@ -204,6 +260,7 @@ class QuotationService
                     'name' => $row['name'],
                     'value' => $row['value'],
                     'is_active' => $row['is_active'],
+                    'is_default' => $row['is_default'],
                     'sort_order' => $row['sort_order'],
                 ]);
             }
@@ -255,6 +312,8 @@ class QuotationService
             $sanitized = collect($extensions)
                 ->filter(fn ($row) => is_array($row))
                 ->map(function (array $row, int $index) use ($supportedPaymentMethods) {
+                    $type = (string) ($row['type'] ?? 'discount');
+
                     $paymentMethods = collect((array) ($row['payment_methods'] ?? []))
                         ->map(fn ($method) => (string) $method)
                         ->filter(fn ($method) => in_array($method, $supportedPaymentMethods, true))
@@ -262,10 +321,14 @@ class QuotationService
                         ->values()
                         ->all();
 
+                    if (in_array($type, ['discount', 'tax'], true)) {
+                        $paymentMethods = [];
+                    }
+
                     return [
                         'id' => ! empty($row['id']) ? (int) $row['id'] : null,
                         'name' => trim((string) ($row['name'] ?? '')),
-                        'type' => (string) ($row['type'] ?? 'discount'),
+                        'type' => $type,
                         'calculation_mode' => (string) ($row['calculation_mode'] ?? 'fixed'),
                         'calculation_value' => $this->formatService->cleanDecimal($row['calculation_value'] ?? 0) ?? 0,
                         'payment_methods' => $paymentMethods,
@@ -320,6 +383,8 @@ class QuotationService
 
     public function getDefaultExtensionsForCreate(?string $paymentMethod = null): array
     {
+        $discountIncluded = false;
+
         return QuotationExtensionMaster::query()
             ->where('is_active', true)
             ->orderBy('sort_order')
@@ -341,6 +406,21 @@ class QuotationService
                 }
 
                 return in_array((string) $paymentMethod, $methods, true);
+            })
+            ->filter(function (QuotationExtensionMaster $master) use (&$discountIncluded): bool {
+                if ($master->type === 'tax') {
+                    return false;
+                }
+
+                if ($master->type === 'discount') {
+                    if ($discountIncluded) {
+                        return false;
+                    }
+
+                    $discountIncluded = true;
+                }
+
+                return true;
             })
             ->values()
             ->map(function (QuotationExtensionMaster $master, int $index) {
@@ -373,6 +453,12 @@ class QuotationService
             }
 
             $quotation = Quotation::create([
+                'quotation_number' => $this->numberingService->ensureNumber(
+                    'quotation',
+                    $data['quotation_number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'customer_id' => $data['customer_id'] ?? null,
                 'customer_confirmation_id' => $data['customer_confirmation_id'] ?? null,
                 'quotation_date' => $data['quotation_date'] ?? null,
@@ -413,7 +499,13 @@ class QuotationService
 
     public function getForEditShow($id): array
     {
-        $quotation = Quotation::with(['customer.user', 'quotationItems.confirmationMember', 'quotationExtensions', 'customerConfirmation.package'])->findOrFail($id);
+        $quotation = Quotation::with([
+            'customer.user',
+            'quotationItems.confirmationMember',
+            'quotationItems.taxes',
+            'quotationExtensions',
+            'customerConfirmation.package',
+        ])->findOrFail($id);
 
         return [
             'id' => $quotation->id,
@@ -467,6 +559,17 @@ class QuotationService
                     'is_optional' => $it->is_optional,
                     'quantity' => $this->formatService->cleanDecimal($it->quantity),
                     'rate' => $this->formatService->cleanDecimal($it->rate),
+                    'taxes' => $it->taxes->map(function ($tax) {
+                        return [
+                            'id' => $tax->id,
+                            'quotation_item_id' => $tax->quotation_item_id,
+                            'quotation_extension_master_id' => $tax->quotation_extension_master_id,
+                            'name' => $tax->name,
+                            'calculation_mode' => $tax->calculation_mode,
+                            'calculation_value' => $this->formatService->cleanDecimal($tax->calculation_value),
+                            'sort_order' => $tax->sort_order,
+                        ];
+                    })->values()->toArray(),
                     'sort_order' => $it->sort_order,
                 ];
             })->values()->toArray(),
@@ -494,6 +597,14 @@ class QuotationService
             }
 
             $quotation->update([
+                'quotation_number' => array_key_exists('quotation_number', $data)
+                    ? $this->numberingService->ensureNumber(
+                        'quotation',
+                        $data['quotation_number'],
+                        (int) $quotation->id,
+                        isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                    )
+                    : $quotation->quotation_number,
                 'customer_id' => $data['customer_id'] ?? null,
                 'customer_confirmation_id' => $data['customer_confirmation_id'] ?? $quotation->customer_confirmation_id,
                 'quotation_date' => $data['quotation_date'] ?? null,
@@ -818,13 +929,9 @@ class QuotationService
                 $leader = $confirmation->members->firstWhere('is_leader', true)
                     ?? $confirmation->members->first();
 
-                $eligibleCount = $confirmation->members
-                    ->filter(fn (CustomerConfirmationMember $member) => in_array($member->status, ['pending_payment'], true) && $member->quotationItems->isEmpty())
-                    ->count();
-
                 return [
                     'value' => $confirmation->id,
-                    'label' => 'CC-'.$confirmation->id.' - '.($leader?->customer?->user?->name ?? 'Unknown').' ('.$eligibleCount.' member(s))',
+                    'label' => 'CC-'.$confirmation->id.' - '.($leader?->customer?->user?->name ?? 'Unknown'),
                 ];
             })
             ->values()
@@ -1045,6 +1152,82 @@ class QuotationService
         app(PackageSeatService::class)->recalculateForPackageId($packageId);
     }
 
+    public function syncQuotationExtensionsFromOrderInvoices(Quotation $quotation, array $invoices): void
+    {
+        $aggregatedExtensions = collect($invoices)
+            ->filter(fn ($invoice) => is_array($invoice))
+            ->flatMap(function (array $invoice) {
+                return collect($invoice['extensions'] ?? [])->filter(fn ($extension) => is_array($extension));
+            })
+            ->values()
+            ->reduce(function (Collection $carry, array $extension) {
+                $type = strtolower(trim((string) ($extension['type'] ?? 'discount')));
+
+                // Tax extensions are item-level and should not be persisted as quotation-level extensions.
+                if ($type === 'tax') {
+                    return $carry;
+                }
+
+                $calculationMode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    $calculationMode = 'fixed';
+                }
+
+                $name = trim((string) ($extension['name'] ?? ''));
+                if ($name === '') {
+                    $name = Str::headline(str_replace('_', ' ', $type));
+                }
+
+                $masterId = ! empty($extension['quotation_extension_master_id'])
+                    ? (int) $extension['quotation_extension_master_id']
+                    : null;
+
+                $normalizedValue = $this->formatService->cleanDecimal(
+                    $extension['calculation_value'] ?? $extension['amount'] ?? 0
+                ) ?? 0;
+
+                $groupKey = implode('|', [
+                    (string) ($masterId ?? 0),
+                    strtolower($name),
+                    $type,
+                    $calculationMode,
+                ]);
+
+                if (! $carry->has($groupKey)) {
+                    $carry->put($groupKey, [
+                        'quotation_extension_master_id' => $masterId,
+                        'name' => $name,
+                        'type' => $type,
+                        'calculation_mode' => $calculationMode,
+                        'calculation_value' => 0,
+                        'sort_order' => $carry->count() + 1,
+                    ]);
+                }
+
+                $current = $carry->get($groupKey);
+
+                if (! is_array($current)) {
+                    return $carry;
+                }
+
+                if ($calculationMode === 'percentage') {
+                    $current['calculation_value'] = abs((float) $normalizedValue);
+                } else {
+                    $current['calculation_value'] =
+                        (float) ($current['calculation_value'] ?? 0) + (float) $normalizedValue;
+                }
+
+                $carry->put($groupKey, $current);
+
+                return $carry;
+            }, collect())
+            ->values()
+            ->all();
+
+        $this->syncQuotationExtensions($quotation, $aggregatedExtensions);
+        $this->syncConvertedOrderInvoiceAndReceiptAmounts($quotation);
+    }
+
     private function syncQuotationExtensions(Quotation $quotation, array $extensions): void
     {
         $itemSubtotal = (float) ($quotation->quotationItems()
@@ -1054,7 +1237,7 @@ class QuotationService
                 return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
             }));
 
-        $sanitizedExtensions = collect($extensions)
+        $incomingExtensions = collect($extensions)
             ->filter(fn ($extension) => is_array($extension))
             ->map(function (array $extension, int $index) {
                 $calculationMode = (string) ($extension['calculation_mode'] ?? 'fixed');
@@ -1078,6 +1261,11 @@ class QuotationService
                     'sort_order' => (int) ($extension['sort_order'] ?? ($index + 1)),
                 ];
             })
+            ->values();
+
+        $nonDiscountExtensions = $incomingExtensions
+            ->filter(fn (array $extension) => (string) ($extension['type'] ?? 'discount') !== 'discount')
+            ->values()
             ->map(function (array $extension) use ($itemSubtotal) {
                 $amount = $extension['calculation_mode'] === 'percentage'
                     ? ($itemSubtotal * ((float) $extension['calculation_value'] / 100))
@@ -1086,6 +1274,41 @@ class QuotationService
                 $extension['amount'] = $this->formatService->cleanDecimal($amount) ?? 0;
 
                 return $extension;
+            })
+            ->values();
+
+        $discountBaseAmount = $itemSubtotal;
+
+        $discountExtension = $incomingExtensions
+            ->filter(fn (array $extension) => (string) ($extension['type'] ?? 'discount') === 'discount')
+            ->sortBy('sort_order')
+            ->values()
+            ->first();
+
+        $discountExtensions = collect();
+
+        if (is_array($discountExtension)) {
+            $normalizedValue = abs((float) ($discountExtension['calculation_value'] ?? 0));
+            $computedAmount = $discountExtension['calculation_mode'] === 'percentage'
+                ? ($discountBaseAmount * $normalizedValue / 100)
+                : $normalizedValue;
+
+            $discountExtensions = collect([[
+                ...$discountExtension,
+                'calculation_value' => $this->formatService->cleanDecimal($normalizedValue) ?? $normalizedValue,
+                'amount' => $this->formatService->cleanDecimal(-abs($computedAmount)) ?? -abs($computedAmount),
+            ]]);
+        }
+
+        $sanitizedExtensions = $nonDiscountExtensions
+            ->concat($discountExtensions)
+            ->sortBy('sort_order')
+            ->values()
+            ->map(function (array $extension, int $index) {
+                return [
+                    ...$extension,
+                    'sort_order' => $index + 1,
+                ];
             })
             ->values();
 
@@ -1134,7 +1357,7 @@ class QuotationService
     {
         $order = $quotation->order()
             ->with([
-                'invoices.quotationItems',
+                'invoices.quotationItems.taxes',
                 'invoices.receipt',
             ])
             ->first();
@@ -1144,7 +1367,7 @@ class QuotationService
         }
 
         $invoices = $order->invoices->sortBy('id')->values();
-        $extensionTotalCents = (int) round(
+        $quotationExtensionTotalCents = (int) round(
             $quotation->quotationExtensions()->get()->sum(
                 fn (QuotationExtension $extension) => (float) ($extension->amount ?? 0)
             ) * 100
@@ -1167,6 +1390,33 @@ class QuotationService
             })
             ->all();
 
+        $itemTaxCentsByInvoice = $invoices
+            ->mapWithKeys(function ($invoice) {
+                $itemTaxCents = (int) round(
+                    $invoice->quotationItems
+                        ->filter(fn ($item) => ! $item->is_header)
+                        ->sum(function ($item) {
+                            $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+
+                            return (float) $item->taxes->sum(function ($tax) use ($lineAmount): float {
+                                $calculationMode = (string) ($tax->calculation_mode ?? '');
+                                $calculationValue = (float) ($tax->calculation_value ?? 0);
+
+                                if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
+                                    return 0;
+                                }
+
+                                return $calculationMode === 'percentage'
+                                    ? ($lineAmount * $calculationValue / 100)
+                                    : $calculationValue;
+                            });
+                        }) * 100
+                );
+
+                return [(int) $invoice->id => $itemTaxCents];
+            })
+            ->all();
+
         $baseAbsTotalCents = array_sum(array_map(
             fn (int $amountCents) => abs($amountCents),
             array_values($baseAmountCentsByInvoice)
@@ -1178,14 +1428,14 @@ class QuotationService
         $lastIndex = max(0, count($invoiceIds) - 1);
 
         foreach ($invoiceIds as $index => $invoiceId) {
-            if ($extensionTotalCents === 0) {
+            if ($quotationExtensionTotalCents === 0) {
                 $extensionShareCentsByInvoice[$invoiceId] = 0;
 
                 continue;
             }
 
             if ($index === $lastIndex) {
-                $extensionShareCentsByInvoice[$invoiceId] = $extensionTotalCents - $allocatedShareCents;
+                $extensionShareCentsByInvoice[$invoiceId] = $quotationExtensionTotalCents - $allocatedShareCents;
 
                 continue;
             }
@@ -1194,7 +1444,7 @@ class QuotationService
                 $shareCents = 0;
             } else {
                 $shareCents = (int) round(
-                    $extensionTotalCents * (abs($baseAmountCentsByInvoice[$invoiceId] ?? 0) / $baseAbsTotalCents)
+                    $quotationExtensionTotalCents * (abs($baseAmountCentsByInvoice[$invoiceId] ?? 0) / $baseAbsTotalCents)
                 );
             }
 
@@ -1205,8 +1455,9 @@ class QuotationService
         foreach ($invoices as $invoice) {
             $invoiceId = (int) $invoice->id;
             $baseCents = (int) ($baseAmountCentsByInvoice[$invoiceId] ?? 0);
+            $itemTaxCents = (int) ($itemTaxCentsByInvoice[$invoiceId] ?? 0);
             $shareCents = (int) ($extensionShareCentsByInvoice[$invoiceId] ?? 0);
-            $newInvoiceAmount = ($baseCents + $shareCents) / 100;
+            $newInvoiceAmount = ($baseCents + $itemTaxCents + $shareCents) / 100;
 
             if ((float) $invoice->amount !== (float) $newInvoiceAmount) {
                 $invoice->update(['amount' => $newInvoiceAmount]);

@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Notification;
 use App\Models\Sales;
-use App\Models\Supplier;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Database\Seeder;
@@ -23,7 +22,7 @@ class UserSeeder extends Seeder
     }
 
     /**
-     * Create admin, sales, and supplier users.
+     * Create admin and sales users.
      */
     private function createUsers(): void
     {
@@ -83,22 +82,6 @@ class UserSeeder extends Seeder
                 'branch_id' => 1,
             ]);
         }
-
-        // Supplier User
-        $supplierUser = User::create([
-            'name' => 'Supplier User',
-            'email' => 'supplier@example.com',
-            'contact' => '+6400000000000',
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-        ]);
-        $supplierUser->assignRole(Role::findByName('supplier'));
-
-        Supplier::create([
-            'user_id' => $supplierUser->id,
-            'name' => 'Supplier Company',
-            'address' => 'Supplier Company Address',
-        ]);
 
         $this->command->info('Users created successfully!');
     }

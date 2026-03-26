@@ -1,6 +1,20 @@
 import { FormField } from '@/components/form-field';
 import { FormSection } from '@/components/form-section';
 import { Button } from '@/components/ui/button';
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -9,17 +23,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import NoteForm from '@/pages/notes/form';
 import { NoteSchema } from '@/pages/notes/schema';
 import { OptionType } from '@/types';
-import { Plus, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import React from 'react';
 import { ProperInput } from '../../../components/proper-input';
 import QuotationItemTableForm from '../items/form';
 import { QuotationItemSchema } from '../items/schema';
 import { QuotationSchema, SetDataFn } from '../schema';
+import ExtensionMasterCombobox from './extension-master-combobox';
 
 interface Props {
     data: QuotationSchema;
@@ -32,6 +47,14 @@ interface Props {
     paymentMethods?: OptionType[];
     quotationNotes?: NoteSchema[];
     noteErrors?: string[];
+    extensionMasters?: Array<{
+        id?: number;
+        name: string;
+        type: string;
+        calculation_mode?: string | null;
+        calculation_value?: string | number | null;
+        is_active?: boolean;
+    }>;
     availableMembers?: Array<{
         member_id: number;
         name: string;
@@ -51,6 +74,7 @@ export default function QuotationDetailSection({
     paymentMethods = [],
     quotationNotes = [],
     noteErrors = [],
+    extensionMasters: rawExtensionMasters = [],
     status,
 }: Props) {
     const sharingPlanCosts = [
@@ -76,7 +100,20 @@ export default function QuotationDetailSection({
         },
     ];
 
-    const extensions = data.extensions ?? [];
+    const extensions = React.useMemo(() => data.extensions ?? [], [data.extensions]);
+
+    const extensionMasters = React.useMemo(
+        () =>
+            (rawExtensionMasters ?? []).map((master) => ({
+                id: Number(master.id ?? 0),
+                name: master.name,
+                type: master.type,
+                calculation_mode: master.calculation_mode ?? null,
+                calculation_value: master.calculation_value ?? null,
+                is_active: master.is_active ?? true,
+            })),
+        [rawExtensionMasters],
+    );
 
     const subtotalAmount = items.reduce((sum, item) => {
         if (item.is_header) {
@@ -86,123 +123,392 @@ export default function QuotationDetailSection({
         return sum + Number(item.quantity ?? 0) * Number(item.rate ?? 0);
     }, 0);
 
-    const calculateExtensionAmount = (
-        extension: (typeof extensions)[number],
-        baseSubtotal: number,
-    ): number => {
-        const type = String(extension.type ?? 'discount');
-        const calculationMode = String(extension.calculation_mode ?? 'fixed');
-        const calculationValue = Number(
-            extension.calculation_value ?? extension.amount ?? 0,
-        );
+    const activeDiscountExtensionMasters = React.useMemo(
+        () =>
+            extensionMasters
+                .filter(
+                    (master) =>
+                        master.is_active !== false &&
+                        master.type === 'discount',
+                )
+                .map((master) => ({
+                    id: Number(master.id ?? 0),
+                    name: master.name,
+                    calculation_mode: master.calculation_mode,
+                    calculation_value: master.calculation_value,
+                }))
+                .filter((master) => master.id > 0),
+        [extensionMasters],
+    );
 
-        if (type === 'discount') {
-            if (calculationMode === 'percentage') {
-                return -Math.abs((baseSubtotal * calculationValue) / 100);
+    const [
+        availableDiscountExtensionMasters,
+        setAvailableDiscountExtensionMasters,
+    ] = React.useState(activeDiscountExtensionMasters);
+    const [isAddDiscountPickerOpen, setIsAddDiscountPickerOpen] =
+        React.useState(false);
+
+    React.useEffect(() => {
+        setAvailableDiscountExtensionMasters(activeDiscountExtensionMasters);
+    }, [activeDiscountExtensionMasters]);
+
+    const activeTaxExtensionMasters = React.useMemo(
+        () =>
+            extensionMasters
+                .filter(
+                    (master) =>
+                        master.is_active !== false && master.type === 'tax',
+                )
+                .map((master) => ({
+                    id: Number(master.id ?? 0),
+                    name: master.name,
+                    calculation_mode: master.calculation_mode,
+                    calculation_value: master.calculation_value,
+                }))
+                .filter((master) => master.id > 0),
+        [extensionMasters],
+    );
+
+    const [availableTaxExtensionMasters, setAvailableTaxExtensionMasters] =
+        React.useState(activeTaxExtensionMasters);
+
+    React.useEffect(() => {
+        setAvailableTaxExtensionMasters(activeTaxExtensionMasters);
+    }, [activeTaxExtensionMasters]);
+
+    const itemTaxSummaries = React.useMemo(() => {
+        const grouped = new Map<
+            string,
+            {
+                name: string;
+                calculation_mode: string;
+                calculation_value: number;
+                amount: number;
+            }
+        >();
+
+        items.forEach((item) => {
+            if (item.is_header) {
+                return;
             }
 
-            return -Math.abs(calculationValue);
-        }
+            const lineAmount =
+                Number(item.quantity ?? 0) * Number(item.rate ?? 0);
 
-        if (type !== 'tax' && type !== 'credit_card') {
-            return Number(extension.amount ?? 0);
-        }
+            (item.taxes ?? []).forEach((tax) => {
+                const calculationMode = String(tax.calculation_mode ?? '');
+                const calculationValue = Number(tax.calculation_value ?? 0);
 
-        if (calculationMode === 'percentage') {
-            return (baseSubtotal * calculationValue) / 100;
-        }
+                if (
+                    !['fixed', 'percentage'].includes(calculationMode) ||
+                    calculationValue <= 0
+                ) {
+                    return;
+                }
 
-        return calculationValue;
-    };
+                const key = [
+                    Number(tax.quotation_extension_master_id ?? 0),
+                    String(tax.name ?? 'Tax').toLowerCase(),
+                    calculationMode,
+                    calculationValue,
+                ].join('|');
 
-    const extensionTotalAmount = extensions.reduce((sum, extension) => {
-        return sum + calculateExtensionAmount(extension, subtotalAmount);
+                const current = grouped.get(key) ?? {
+                    name: String(tax.name ?? 'Tax'),
+                    calculation_mode: calculationMode,
+                    calculation_value: calculationValue,
+                    amount: 0,
+                };
+
+                current.amount +=
+                    calculationMode === 'percentage'
+                        ? (lineAmount * calculationValue) / 100
+                        : calculationValue;
+
+                grouped.set(key, current);
+            });
+        });
+
+        return Array.from(grouped.values());
+    }, [items]);
+
+    const itemTaxTotal = itemTaxSummaries.reduce((sum, tax) => {
+        return sum + tax.amount;
     }, 0);
+
+    const nonDiscountExtensionsWithAmount = React.useMemo(() => {
+        return extensions
+            .filter(
+                (extension) =>
+                    String(extension.type ?? 'discount') !== 'discount',
+            )
+            .map((extension) => {
+                const calculationMode = String(
+                    extension.calculation_mode ?? 'fixed',
+                );
+                const calculationValue = Number(
+                    extension.calculation_value ?? extension.amount ?? 0,
+                );
+
+                const amount =
+                    calculationMode === 'percentage'
+                        ? (subtotalAmount * calculationValue) / 100
+                        : calculationValue;
+
+                return {
+                    ...extension,
+                    amount,
+                };
+            });
+    }, [extensions, subtotalAmount]);
+
+    const nonDiscountTaxExtensions = React.useMemo(
+        () =>
+            nonDiscountExtensionsWithAmount.filter(
+                (extension) => extension.type === 'tax',
+            ),
+        [nonDiscountExtensionsWithAmount],
+    );
+
+    const nonDiscountOtherExtensions = React.useMemo(
+        () =>
+            nonDiscountExtensionsWithAmount.filter(
+                (extension) => extension.type !== 'tax',
+            ),
+        [nonDiscountExtensionsWithAmount],
+    );
+
+    const nonDiscountExtensionTotal = nonDiscountExtensionsWithAmount.reduce(
+        (sum, extension) => sum + Number(extension.amount ?? 0),
+        0,
+    );
+
+    const discountExtension = React.useMemo(
+        () =>
+            [...extensions]
+                .filter(
+                    (extension) =>
+                        String(extension.type ?? 'discount') === 'discount',
+                )
+                .sort(
+                    (left, right) =>
+                        Number(left.sort_order ?? 0) -
+                        Number(right.sort_order ?? 0),
+                )[0],
+        [extensions],
+    );
+
+    const discountBaseAmount = subtotalAmount;
+
+    const discountAmount = discountExtension
+        ? (() => {
+              const calculationMode = String(
+                  discountExtension.calculation_mode ?? 'fixed',
+              );
+              const calculationValue = Math.abs(
+                  Number(
+                      discountExtension.calculation_value ??
+                          discountExtension.amount ??
+                          0,
+                  ),
+              );
+
+              const computed =
+                  calculationMode === 'percentage'
+                      ? (discountBaseAmount * calculationValue) / 100
+                      : calculationValue;
+
+              return -Math.abs(computed);
+          })()
+        : 0;
+
+    const extensionTotalAmount =
+        itemTaxTotal + nonDiscountExtensionTotal + discountAmount;
 
     const totalAmount = subtotalAmount + extensionTotalAmount;
 
-    const handleExtensionChange = (
-        index: number,
-        patch: Partial<(typeof extensions)[number]>,
-    ) => {
-        const next = [...extensions];
-        const current = next[index];
-        const merged = {
-            ...current,
-            ...patch,
-            sort_order: index + 1,
+    const discountIndex = extensions.findIndex(
+        (extension) => String(extension.type ?? 'discount') === 'discount',
+    );
+
+    const [isDiscountDialogOpen, setIsDiscountDialogOpen] =
+        React.useState(false);
+    const [discountDraft, setDiscountDraft] = React.useState<{
+        quotation_extension_master_id: number | null;
+        name: string;
+        calculation_mode: 'fixed' | 'percentage';
+        calculation_value: number | null;
+        amount: number | null;
+    }>({
+        quotation_extension_master_id: null,
+        name: 'Discount',
+        calculation_mode: 'fixed',
+        calculation_value: null,
+        amount: null,
+    });
+
+    const upsertDiscountExtension = (nextDiscount: {
+        quotation_extension_master_id: number | null;
+        name: string;
+        calculation_mode: 'fixed' | 'percentage';
+        calculation_value: number;
+        amount: number;
+    }) => {
+        const nonDiscountExtensions = extensions.filter(
+            (extension) => String(extension.type ?? 'discount') !== 'discount',
+        );
+
+        const mergedDiscount = {
+            _key:
+                discountExtension?._key ??
+                (discountExtension?.id
+                    ? `id-${discountExtension.id}`
+                    : nanoid()),
+            id: discountExtension?.id,
+            quotation_extension_master_id:
+                nextDiscount.quotation_extension_master_id,
+            name: nextDiscount.name.trim() || 'Discount',
+            type: 'discount',
+            calculation_mode: nextDiscount.calculation_mode,
+            calculation_value: nextDiscount.calculation_value,
+            amount: nextDiscount.amount,
+            sort_order: 0,
         };
 
-        const type = String(merged.type ?? 'discount');
-        const calculationMode = String(merged.calculation_mode ?? 'fixed');
+        const nextExtensions = [...nonDiscountExtensions, mergedDiscount].map(
+            (extension, index) => ({
+                ...extension,
+                sort_order: index + 1,
+            }),
+        );
 
-        if (type === 'discount') {
-            const normalizedValue = Math.abs(
-                Number(merged.calculation_value ?? merged.amount ?? 0),
-            );
-            const computedAmount =
-                calculationMode === 'percentage'
-                    ? (subtotalAmount * normalizedValue) / 100
-                    : normalizedValue;
-
-            next[index] = {
-                ...merged,
-                calculation_value: normalizedValue,
-                amount: -Math.abs(computedAmount),
-            };
-
-            setData('extensions', next);
-
-            return;
-        }
-
-        if (type === 'tax' || type === 'credit_card') {
-            const calculationValue = Number(
-                merged.calculation_value ?? merged.amount ?? 0,
-            );
-            const computedAmount =
-                calculationMode === 'percentage'
-                    ? (subtotalAmount * calculationValue) / 100
-                    : calculationValue;
-
-            next[index] = {
-                ...merged,
-                amount: computedAmount,
-            };
-        } else {
-            next[index] = {
-                ...merged,
-                amount: Number(merged.amount ?? 0),
-            };
-        }
-
-        setData('extensions', next);
+        setData('extensions', nextExtensions);
     };
 
-    const addDiscountExtension = () => {
-        setData('extensions', [
-            ...extensions,
-            {
-                _key: nanoid(),
+    const addDiscountFromMaster = (master: {
+        id?: number;
+        name: string;
+        calculation_mode?: string | null;
+        calculation_value?: string | number | null;
+    }) => {
+        const masterId = Number(master.id ?? 0);
+        const calculationMode =
+            String(master.calculation_mode ?? 'fixed') === 'percentage'
+                ? 'percentage'
+                : 'fixed';
+        const calculationValue = Math.abs(
+            Number(master.calculation_value ?? 0),
+        );
+        const amount =
+            calculationMode === 'fixed'
+                ? calculationValue
+                : (discountBaseAmount * calculationValue) / 100;
+
+        upsertDiscountExtension({
+            quotation_extension_master_id: masterId > 0 ? masterId : null,
+            name: String(master.name ?? 'Discount'),
+            calculation_mode: calculationMode,
+            calculation_value: calculationValue,
+            amount,
+        });
+
+        setIsAddDiscountPickerOpen(false);
+    };
+
+    const openDiscountDialog = () => {
+        if (discountExtension) {
+            setDiscountDraft({
+                quotation_extension_master_id:
+                    Number(
+                        discountExtension.quotation_extension_master_id ?? 0,
+                    ) > 0
+                        ? Number(
+                              discountExtension.quotation_extension_master_id,
+                          )
+                        : null,
+                name: String(discountExtension.name ?? 'Discount'),
+                calculation_mode:
+                    String(discountExtension.calculation_mode ?? 'fixed') ===
+                    'percentage'
+                        ? 'percentage'
+                        : 'fixed',
+                calculation_value: Math.abs(
+                    Number(discountExtension.calculation_value ?? 0),
+                ),
+                amount: Math.abs(
+                    Number(
+                        discountExtension.amount ??
+                            discountExtension.calculation_value ??
+                            0,
+                    ),
+                ),
+            });
+        } else {
+            setDiscountDraft({
+                quotation_extension_master_id: null,
                 name: 'Discount',
-                type: 'discount',
                 calculation_mode: 'fixed',
                 calculation_value: null,
                 amount: null,
-                sort_order: extensions.length + 1,
-            },
-        ]);
+            });
+        }
+
+        setIsDiscountDialogOpen(true);
     };
 
-    const removeExtension = (index: number) => {
-        const next = extensions
-            .filter((_, currentIndex) => currentIndex !== index)
-            .map((extension, currentIndex) => ({
+    const saveDiscountExtension = () => {
+        const normalizedCalculationValue =
+            discountDraft.calculation_mode === 'percentage'
+                ? Math.abs(Number(discountDraft.calculation_value ?? 0))
+                : Math.abs(
+                      Number(
+                          discountDraft.amount ??
+                              discountDraft.calculation_value ??
+                              0,
+                      ),
+                  );
+
+        const normalizedAmount =
+            discountDraft.calculation_mode === 'fixed'
+                ? normalizedCalculationValue
+                : (discountBaseAmount * normalizedCalculationValue) / 100;
+
+        upsertDiscountExtension({
+            quotation_extension_master_id:
+                discountDraft.quotation_extension_master_id,
+            name: discountDraft.name,
+            calculation_mode: discountDraft.calculation_mode,
+            calculation_value: normalizedCalculationValue,
+            amount: normalizedAmount,
+        });
+
+        setIsDiscountDialogOpen(false);
+    };
+
+    const removeDiscountExtension = () => {
+        const nextExtensions = extensions
+            .filter(
+                (extension) =>
+                    String(extension.type ?? 'discount') !== 'discount',
+            )
+            .map((extension, index) => ({
                 ...extension,
-                sort_order: currentIndex + 1,
+                sort_order: index + 1,
             }));
 
-        setData('extensions', next);
+        setData('extensions', nextExtensions);
+    };
+
+    const formatExtensionLabel = (
+        name: string,
+        calculationMode?: string | null,
+        calculationValue?: number | null,
+    ): string => {
+        if (String(calculationMode ?? 'fixed') !== 'percentage') {
+            return name;
+        }
+
+        return `${name} ${Number(calculationValue ?? 0)}%`;
     };
 
     return (
@@ -314,7 +620,7 @@ export default function QuotationDetailSection({
                             >
                                 <div className="grid w-full items-center gap-3 rounded-md border p-3">
                                     <Label>Package & Sharing Plan Costs</Label>
-                                    <div className="space-y-1 text-sm">
+                                    <div className="space-y-1 text-base">
                                         {data.package_name && (
                                             <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">
                                                 <span className="text-muted-foreground">
@@ -356,250 +662,353 @@ export default function QuotationDetailSection({
                         disabled={isView}
                         showOptionalColumn={false}
                         showMemberColumn={false}
+                        showTaxColumn
+                        showTotalFooter={false}
+                        taxExtensionMasters={availableTaxExtensionMasters}
                     />
 
-                    <div className="space-y-3 rounded-md border p-4">
-                        <div className="flex items-center justify-between text-base">
-                            <span className="font-semibold">Sub Total</span>
-                            <span className="font-medium">
-                                {formatCurrency(subtotalAmount)}
-                            </span>
-                        </div>
+                    <div className="ml-auto w-full rounded-md border p-4 md:w-1/3">
+                        <table className="w-full table-fixed text-base">
+                            <tbody className="[&>tr>td]:py-1.5">
+                                <tr>
+                                    <td className="w-2/3 text-right font-semibold">
+                                        Sub Total
+                                    </td>
+                                    <td className="w-1/3 text-right font-medium">
+                                        {formatCurrency(subtotalAmount)}
+                                    </td>
+                                </tr>
 
-                        {extensions.map((extension, index) => {
-                            const isCalculatedType =
-                                extension.type === 'tax' ||
-                                extension.type === 'credit_card';
-                            const isDiscountType =
-                                extension.type === 'discount';
-                            const hasCalculationInput =
-                                isCalculatedType || isDiscountType;
-                            const hasValueInput = hasCalculationInput;
-
-                            return (
-                                <div
-                                    key={extension._key ?? `extension-${index}`}
-                                    className={cn(
-                                        !hasCalculationInput &&
-                                            'grid items-end gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                                        hasCalculationInput &&
-                                            'grid items-end gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                                        isView &&
-                                            'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]',
-                                    )}
-                                >
-                                    <FormField label="Extension Name">
-                                        <ProperInput
-                                            value={extension.name ?? ''}
-                                            placeholder="Discount"
-                                            disabled={isView}
-                                            onCommit={(value) =>
-                                                handleExtensionChange(index, {
-                                                    name: value,
-                                                })
-                                            }
-                                        />
-                                        {renderError(
-                                            `extensions.${index}.name`,
-                                        )}
-                                    </FormField>
-
-                                    <FormField label="Type">
-                                        <Select
-                                            disabled={isView}
-                                            value={extension.type ?? 'discount'}
-                                            onValueChange={(value) =>
-                                                handleExtensionChange(index, {
-                                                    type: value,
-                                                    calculation_mode:
-                                                        value === 'tax' ||
-                                                        value ===
-                                                            'credit_card' ||
-                                                        value === 'discount'
-                                                            ? (extension.calculation_mode ??
-                                                              'fixed')
-                                                            : 'fixed',
-                                                    calculation_value:
-                                                        value === 'tax' ||
-                                                        value ===
-                                                            'credit_card' ||
-                                                        value === 'discount'
-                                                            ? (extension.calculation_value ??
-                                                              extension.amount ??
-                                                              0)
-                                                            : null,
-                                                })
+                                {nonDiscountOtherExtensions.map(
+                                    (extension, index) => (
+                                        <tr
+                                            key={
+                                                extension._key ??
+                                                `ext-other-${index}`
                                             }
                                         >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="discount">
-                                                    Discount
-                                                </SelectItem>
-                                                <SelectItem value="tax">
-                                                    Tax
-                                                </SelectItem>
-                                                <SelectItem value="credit_card">
-                                                    Credit Card
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {renderError(
-                                            `extensions.${index}.type`,
-                                        )}
-                                    </FormField>
+                                            <td className="text-right">
+                                                {formatExtensionLabel(
+                                                    String(
+                                                        extension.name ??
+                                                            'Extension',
+                                                    ),
+                                                    String(
+                                                        extension.calculation_mode ??
+                                                            'fixed',
+                                                    ),
+                                                    Number(
+                                                        extension.calculation_value ??
+                                                            0,
+                                                    ),
+                                                )}
+                                            </td>
+                                            <td className="text-right">
+                                                {formatCurrency(
+                                                    Number(
+                                                        extension.amount ?? 0,
+                                                    ),
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ),
+                                )}
 
-                                    {hasCalculationInput && (
-                                        <FormField label="Calculation">
-                                            <Select
-                                                disabled={isView}
-                                                value={
-                                                    extension.calculation_mode ??
-                                                    'fixed'
-                                                }
-                                                onValueChange={(value) =>
-                                                    handleExtensionChange(
-                                                        index,
-                                                        {
-                                                            calculation_mode:
-                                                                value,
-                                                        },
-                                                    )
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Calculation" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="fixed">
-                                                        Fixed Amount
-                                                    </SelectItem>
-                                                    <SelectItem value="percentage">
-                                                        Percentage
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {renderError(
-                                                `extensions.${index}.calculation_mode`,
+                                {discountExtension ? (
+                                    <tr>
+                                        <td className="text-right">
+                                            <ContextMenu>
+                                                <ContextMenuTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="cursor-pointer font-medium underline"
+                                                        onClick={() => {
+                                                            if (!isView) {
+                                                                openDiscountDialog();
+                                                            }
+                                                        }}
+                                                    >
+                                                        {formatExtensionLabel(
+                                                            String(
+                                                                discountExtension.name,
+                                                            ),
+                                                            String(
+                                                                discountExtension.calculation_mode ??
+                                                                    'fixed',
+                                                            ),
+                                                            Number(
+                                                                discountExtension.calculation_value ??
+                                                                    0,
+                                                            ),
+                                                        )}
+                                                    </button>
+                                                </ContextMenuTrigger>
+                                                {!isView && (
+                                                    <ContextMenuContent>
+                                                        <ContextMenuItem
+                                                            onClick={
+                                                                openDiscountDialog
+                                                            }
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                            Edit
+                                                        </ContextMenuItem>
+                                                        <ContextMenuItem
+                                                            variant="destructive"
+                                                            onClick={
+                                                                removeDiscountExtension
+                                                            }
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                            Remove
+                                                        </ContextMenuItem>
+                                                    </ContextMenuContent>
+                                                )}
+                                            </ContextMenu>
+                                        </td>
+                                        <td className="text-right">
+                                            {formatCurrency(discountAmount)}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    !isView && (
+                                        <tr>
+                                            <td className="text-right">
+                                                <ExtensionMasterCombobox
+                                                    value={null}
+                                                    triggerMode="button"
+                                                    triggerButtonLabel="Add Discount"
+                                                    open={
+                                                        isAddDiscountPickerOpen
+                                                    }
+                                                    onOpenChange={
+                                                        setIsAddDiscountPickerOpen
+                                                    }
+                                                    extensionType="discount"
+                                                    options={availableDiscountExtensionMasters
+                                                        .filter(
+                                                            (option) =>
+                                                                Number(
+                                                                    option.id ??
+                                                                        0,
+                                                                ) > 0,
+                                                        )
+                                                        .map((option) => ({
+                                                            ...option,
+                                                            id: Number(
+                                                                option.id,
+                                                            ),
+                                                        }))}
+                                                    placeholder="Select discount"
+                                                    onSelect={(option) => {
+                                                        addDiscountFromMaster(
+                                                            option,
+                                                        );
+                                                    }}
+                                                    onOptionsChange={(
+                                                        nextOptions,
+                                                    ) => {
+                                                        setAvailableDiscountExtensionMasters(
+                                                            nextOptions.map(
+                                                                (option) => ({
+                                                                    id: Number(
+                                                                        option.id,
+                                                                    ),
+                                                                    name: option.name,
+                                                                    type: 'discount',
+                                                                    calculation_mode:
+                                                                        option.calculation_mode ??
+                                                                        null,
+                                                                    calculation_value:
+                                                                        option.calculation_value ??
+                                                                        null,
+                                                                    is_active: true,
+                                                                }),
+                                                            ),
+                                                        );
+                                                    }}
+                                                    className="cursor-pointer p-0 font-medium underline"
+                                                />
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    )
+                                )}
+
+                                {itemTaxSummaries.map((tax, index) => (
+                                    <tr key={`item-tax-${index}`}>
+                                        <td className="text-right">
+                                            {formatExtensionLabel(
+                                                String(tax.name ?? 'Tax'),
+                                                tax.calculation_mode,
+                                                Number(
+                                                    tax.calculation_value ?? 0,
+                                                ),
                                             )}
-                                        </FormField>
-                                    )}
+                                        </td>
+                                        <td className="text-right">
+                                            {formatCurrency(tax.amount)}
+                                        </td>
+                                    </tr>
+                                ))}
 
-                                    {hasValueInput && (
-                                        <FormField
-                                            label={
-                                                extension.calculation_mode ===
-                                                    'percentage' &&
-                                                isCalculatedType
-                                                    ? 'Value (%)'
-                                                    : 'Value'
-                                            }
-                                        >
-                                            <ProperInput
-                                                value={
-                                                    isDiscountType
+                                {nonDiscountTaxExtensions.map((tax, index) => (
+                                    <tr key={tax._key ?? `ext-tax-${index}`}>
+                                        <td className="text-right">
+                                            {formatExtensionLabel(
+                                                String(tax.name ?? 'Tax'),
+                                                String(
+                                                    tax.calculation_mode ??
+                                                        'fixed',
+                                                ),
+                                                Number(
+                                                    tax.calculation_value ?? 0,
+                                                ),
+                                            )}
+                                        </td>
+                                        <td className="text-right">
+                                            {formatCurrency(
+                                                Number(tax.amount ?? 0),
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr className="border-t">
+                                    <td className="pt-3 text-right font-semibold">
+                                        Grand Total
+                                    </td>
+                                    <td className="pt-3 text-right text-lg font-bold text-primary">
+                                        {formatCurrency(totalAmount)}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        {discountIndex >= 0 &&
+                            renderError(`extensions.${discountIndex}.name`)}
+                        {discountIndex >= 0 &&
+                            renderError(`extensions.${discountIndex}.amount`)}
+                    </div>
+
+                    <Dialog
+                        open={isDiscountDialogOpen}
+                        onOpenChange={setIsDiscountDialogOpen}
+                    >
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Configure Discount</DialogTitle>
+                                <DialogDescription>
+                                    Edit discount and amount settings.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-3">
+                                <FormField label="Discount Name">
+                                    <ProperInput
+                                        value={discountDraft.name}
+                                        onCommit={(value) =>
+                                            setDiscountDraft((prev) => ({
+                                                ...prev,
+                                                name: value,
+                                            }))
+                                        }
+                                    />
+                                </FormField>
+
+                                <FormField label="Calculation">
+                                    <Select
+                                        value={discountDraft.calculation_mode}
+                                        onValueChange={(value) =>
+                                            setDiscountDraft((prev) => ({
+                                                ...prev,
+                                                calculation_mode:
+                                                    value === 'percentage'
+                                                        ? 'percentage'
+                                                        : 'fixed',
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Calculation mode" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="fixed">
+                                                Fixed Amount
+                                            </SelectItem>
+                                            <SelectItem value="percentage">
+                                                Percentage
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormField>
+
+                                <FormField
+                                    label={
+                                        discountDraft.calculation_mode ===
+                                        'percentage'
+                                            ? 'Value (%)'
+                                            : 'Amount'
+                                    }
+                                >
+                                    <ProperInput
+                                        value={
+                                            discountDraft.calculation_mode ===
+                                            'percentage'
+                                                ? (discountDraft.calculation_value ??
+                                                  '')
+                                                : (discountDraft.amount ?? '')
+                                        }
+                                        type="number"
+                                        inputProps={{ step: 'any', min: 0 }}
+                                        placeholder="0"
+                                        onCommit={(value) =>
+                                            setDiscountDraft((prev) => ({
+                                                ...prev,
+                                                calculation_value:
+                                                    prev.calculation_mode ===
+                                                    'percentage'
                                                         ? Math.abs(
                                                               Number(
-                                                                  extension.calculation_value ??
-                                                                      extension.amount ??
-                                                                      0,
+                                                                  value ?? 0,
                                                               ),
                                                           )
-                                                        : (extension.calculation_value ??
-                                                          extension.amount ??
-                                                          '')
-                                                }
-                                                type="number"
-                                                inputProps={{
-                                                    step: 'any',
-                                                    min: 0,
-                                                }}
-                                                placeholder="0.00"
-                                                disabled={isView}
-                                                onCommit={(value) =>
-                                                    handleExtensionChange(
-                                                        index,
-                                                        {
-                                                            calculation_value:
-                                                                Number(value),
-                                                        },
-                                                    )
-                                                }
-                                            />
-                                            {renderError(
-                                                `extensions.${index}.calculation_value`,
-                                            )}
-                                        </FormField>
-                                    )}
+                                                        : prev.calculation_value,
+                                                amount:
+                                                    prev.calculation_mode ===
+                                                    'fixed'
+                                                        ? Math.abs(
+                                                              Number(
+                                                                  value ?? 0,
+                                                              ),
+                                                          )
+                                                        : prev.amount,
+                                            }))
+                                        }
+                                    />
+                                </FormField>
+                            </div>
 
-                                    <FormField label="Amount">
-                                        <ProperInput
-                                            value={calculateExtensionAmount(
-                                                extension,
-                                                subtotalAmount,
-                                            )}
-                                            type="number"
-                                            inputProps={{ step: 'any' }}
-                                            placeholder="0.00"
-                                            disabled={isView || hasValueInput}
-                                            onCommit={(value) =>
-                                                handleExtensionChange(index, {
-                                                    amount: Number(value),
-                                                })
-                                            }
-                                        />
-                                        {renderError(
-                                            `extensions.${index}.amount`,
-                                        )}
-                                    </FormField>
-
-                                    {!isView && (
-                                        <Button
-                                            type="button"
-                                            variant="destructive"
-                                            size="icon"
-                                            onClick={() =>
-                                                removeExtension(index)
-                                            }
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                </div>
-                            );
-                        })}
-
-                        {!isView && (
-                            <div>
+                            <DialogFooter>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={addDiscountExtension}
+                                    onClick={() =>
+                                        setIsDiscountDialogOpen(false)
+                                    }
                                 >
-                                    <Plus className="h-4 w-4" />
-                                    Add
+                                    Cancel
                                 </Button>
-                            </div>
-                        )}
-
-                        <div className="flex items-center justify-between border-t pt-3 text-sm">
-                            <span className="text-muted-foreground">
-                                Extension Total
-                            </span>
-                            <span className="font-semibold">
-                                {formatCurrency(extensionTotalAmount)}
-                            </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-base">
-                            <span className="font-semibold">Grand Total</span>
-                            <span className="text-lg font-bold text-primary">
-                                {formatCurrency(totalAmount)}
-                            </span>
-                        </div>
-                    </div>
+                                <Button
+                                    type="button"
+                                    onClick={saveDiscountExtension}
+                                >
+                                    Save Discount
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
                 <div className="mx-auto w-full">
@@ -615,7 +1024,7 @@ export default function QuotationDetailSection({
                             {noteErrors.map((error, index) => (
                                 <p
                                     key={`${error}-${index}`}
-                                    className="text-sm text-red-500"
+                                    className="text-base text-red-500"
                                 >
                                     {error}
                                 </p>

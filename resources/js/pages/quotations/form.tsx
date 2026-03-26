@@ -1,11 +1,13 @@
 import { FormProgressHeader } from '@/components/form-progress-header';
 import { Accordion } from '@/components/ui/accordion';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { navigateToSection } from '@/lib/navigation-helper';
 import { formatDateForDisplay } from '@/lib/utils';
 import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
+import { AlertCircle } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserSchema } from '../masters/users/schema';
@@ -16,11 +18,13 @@ import QuotationPreviewModal from './components/quotation-preview-modal';
 import StatusSection from './components/status-section';
 import { useQuotationSectionStatus } from './hooks/use-quotation-section-status';
 import { QuotationItemSchema, quotationItemsSchema } from './items/schema';
-import { QuotationSchema, quotationSchema } from './schema';
+import { QuotationSchema } from './schema';
+import { quotationFormValidationSchema } from './validation';
 
 interface QuotationFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: QuotationSchema;
+    defaultPaymentMethod?: string;
     paymentPlans?: OptionType[];
     paymentMethods?: OptionType[];
     statuses?: OptionType[];
@@ -157,6 +161,7 @@ function resolveAutoSelectedMemberIds(
 export function QuotationForm({
     mode,
     initialData,
+    defaultPaymentMethod,
     paymentPlans = [],
     paymentMethods = [],
     statuses = [],
@@ -187,6 +192,7 @@ export function QuotationForm({
     const initialFormState: QuotationSchema = {
         id: undefined,
         quotation_number: '',
+        number_format_id: null,
         quotation_date: today,
         expiry_date: today,
         customer_id: undefined,
@@ -198,7 +204,7 @@ export function QuotationForm({
         customer_email: null,
         description: '',
         payment_plan: 'full',
-        payment_method: 'transfer',
+        payment_method: defaultPaymentMethod || 'transfer',
         status: 'draft',
         reason: '',
         items: [],
@@ -241,12 +247,16 @@ export function QuotationForm({
         }),
     );
 
+    const createModeDefaultExtensions = normalizedDefaultExtensions.filter(
+        (extension) => String(extension.type ?? 'discount') !== 'discount',
+    );
+
     const defaultData: QuotationSchema = {
         ...(initialData ?? initialFormState),
         notes: initialNotes,
         extensions: initialData
             ? normalizedExtensions
-            : normalizedDefaultExtensions,
+            : createModeDefaultExtensions,
         ...(prefilledCustomerId && prefilledCustomerData
             ? {
                   customer_id: Number.parseInt(prefilledCustomerId, 10),
@@ -275,6 +285,7 @@ export function QuotationForm({
     const sectionErrors = errors as Partial<
         Record<keyof QuotationSchema, string>
     >;
+    const errorAlertRef = useRef<HTMLDivElement | null>(null);
     const [openSections, setOpenSections] = useState<string[]>([
         'customer_and_quotation_information',
     ]);
@@ -306,6 +317,119 @@ export function QuotationForm({
                 ),
         [extensionMasters],
     );
+
+    const computedGrandTotal = useMemo(() => {
+        const sourceItems = data.items ?? [];
+        const sourceExtensions = data.extensions ?? [];
+
+        const subtotalAmount = sourceItems.reduce((sum, item) => {
+            if (item.is_header) {
+                return sum;
+            }
+
+            return sum + Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+        }, 0);
+
+        const itemTaxTotal = sourceItems.reduce((sum, item) => {
+            if (item.is_header) {
+                return sum;
+            }
+
+            const lineAmount =
+                Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+
+            const taxTotal = (item.taxes ?? []).reduce((taxSum, tax) => {
+                const calculationMode = String(tax.calculation_mode ?? '');
+                const calculationValue = Number(tax.calculation_value ?? 0);
+
+                if (
+                    !['fixed', 'percentage'].includes(calculationMode) ||
+                    calculationValue <= 0
+                ) {
+                    return taxSum;
+                }
+
+                return (
+                    taxSum +
+                    (calculationMode === 'percentage'
+                        ? (lineAmount * calculationValue) / 100
+                        : calculationValue)
+                );
+            }, 0);
+
+            return sum + taxTotal;
+        }, 0);
+
+        const nonDiscountExtensionTotal = sourceExtensions.reduce(
+            (sum, extension) => {
+                if (String(extension.type ?? 'discount') === 'discount') {
+                    return sum;
+                }
+
+                const calculationMode = String(
+                    extension.calculation_mode ?? 'fixed',
+                );
+                const calculationValue = Number(
+                    extension.calculation_value ?? extension.amount ?? 0,
+                );
+                const type = String(extension.type ?? '');
+
+                if (
+                    (type === 'tax' || type === 'credit_card') &&
+                    calculationMode === 'percentage'
+                ) {
+                    return sum + (subtotalAmount * calculationValue) / 100;
+                }
+
+                if (type === 'tax' || type === 'credit_card') {
+                    return sum + calculationValue;
+                }
+
+                return sum + Number(extension.amount ?? 0);
+            },
+            0,
+        );
+
+        const discountExtension = [...sourceExtensions]
+            .filter(
+                (extension) =>
+                    String(extension.type ?? 'discount') === 'discount',
+            )
+            .sort(
+                (left, right) =>
+                    Number(left.sort_order ?? 0) -
+                    Number(right.sort_order ?? 0),
+            )[0];
+
+        const discountAmount = discountExtension
+            ? (() => {
+                  const calculationMode = String(
+                      discountExtension.calculation_mode ?? 'fixed',
+                  );
+                  const calculationValue = Math.abs(
+                      Number(
+                          discountExtension.calculation_value ??
+                              discountExtension.amount ??
+                              0,
+                      ),
+                  );
+
+                  const computed =
+                      calculationMode === 'percentage'
+                          ? (subtotalAmount * calculationValue) / 100
+                          : calculationValue;
+
+                  return -Math.abs(computed);
+              })()
+            : 0;
+
+        return (
+            subtotalAmount +
+            itemTaxTotal +
+            nonDiscountExtensionTotal +
+            discountAmount
+        );
+    }, [data.extensions, data.items]);
 
     const initialPaymentMethodRef = useRef(
         String(defaultData.payment_method ?? ''),
@@ -347,6 +471,14 @@ export function QuotationForm({
 
             const applicableMasters = activeExtensionMasters.filter(
                 (master) => {
+                    if (master.type === 'tax') {
+                        return false;
+                    }
+
+                    if (isCreate && master.type === 'discount') {
+                        return false;
+                    }
+
                     const methods = master.payment_methods ?? [];
                     if (!methods.length) {
                         return true;
@@ -356,40 +488,85 @@ export function QuotationForm({
                 },
             );
 
-            const autoExtensions = applicableMasters.map((master, index) => {
-                const masterId = Number(master.id ?? 0);
-                const existing = existingAutoByMasterId.get(masterId);
-                const calculationMode =
-                    existing?.calculation_mode ??
-                    master.calculation_mode ??
-                    'fixed';
-                const calculationValue =
-                    existing?.calculation_value ??
-                    master.calculation_value ??
-                    0;
-                const fixedAmount =
-                    calculationMode === 'fixed'
-                        ? Number(calculationValue ?? 0)
-                        : Number(existing?.amount ?? 0);
+            let discountMasterIncluded = false;
 
-                return {
-                    _key:
-                        existing?._key ??
-                        (existing?.id ? `id-${existing.id}` : nanoid()),
-                    id: existing?.id,
-                    quotation_extension_master_id: masterId || null,
-                    name: existing?.name ?? master.name,
-                    type: existing?.type ?? master.type,
-                    calculation_mode: calculationMode,
-                    calculation_value: calculationValue,
-                    amount: fixedAmount,
-                    sort_order: index + 1,
-                };
-            });
+            const autoExtensions = applicableMasters
+                .filter((master) => {
+                    if (master.type !== 'discount') {
+                        return true;
+                    }
+
+                    if (discountMasterIncluded) {
+                        return false;
+                    }
+
+                    discountMasterIncluded = true;
+
+                    return true;
+                })
+                .map((master, index) => {
+                    const masterId = Number(master.id ?? 0);
+                    const existing = existingAutoByMasterId.get(masterId);
+                    const calculationMode =
+                        existing?.calculation_mode ??
+                        master.calculation_mode ??
+                        'fixed';
+                    const calculationValue =
+                        existing?.calculation_value ??
+                        master.calculation_value ??
+                        0;
+                    const fixedAmount =
+                        calculationMode === 'fixed'
+                            ? Number(calculationValue ?? 0)
+                            : Number(existing?.amount ?? 0);
+
+                    return {
+                        _key:
+                            existing?._key ??
+                            (existing?.id ? `id-${existing.id}` : nanoid()),
+                        id: existing?.id,
+                        quotation_extension_master_id: masterId || null,
+                        name: existing?.name ?? master.name,
+                        type: existing?.type ?? master.type,
+                        calculation_mode: calculationMode,
+                        calculation_value: calculationValue,
+                        amount: fixedAmount,
+                        sort_order: index + 1,
+                    };
+                });
+
+            const existingDiscount = existingExtensions.find(
+                (extension) =>
+                    String(extension.type ?? 'discount') === 'discount',
+            );
+
+            const manualDiscount = manualExtensions.find(
+                (extension) =>
+                    String(extension.type ?? 'discount') === 'discount',
+            );
+
+            const nonDiscountExtensions = [
+                ...autoExtensions.filter(
+                    (extension) =>
+                        String(extension.type ?? 'discount') !== 'discount',
+                ),
+                ...manualExtensions.filter(
+                    (extension) =>
+                        String(extension.type ?? 'discount') !== 'discount',
+                ),
+            ];
+
+            const discountExtension =
+                existingDiscount ??
+                manualDiscount ??
+                autoExtensions.find(
+                    (extension) =>
+                        String(extension.type ?? 'discount') === 'discount',
+                );
 
             const mergedExtensions = [
-                ...autoExtensions,
-                ...manualExtensions,
+                ...nonDiscountExtensions,
+                ...(discountExtension ? [discountExtension] : []),
             ].map((extension, index) => ({
                 ...extension,
                 sort_order: index + 1,
@@ -400,7 +577,7 @@ export function QuotationForm({
                 extensions: mergedExtensions,
             };
         });
-    }, [activeExtensionMasters, data.payment_method, isEdit, setData]);
+    }, [activeExtensionMasters, data.payment_method, isCreate, isEdit, setData]);
 
     // customer
     useEffect(() => {
@@ -932,7 +1109,7 @@ export function QuotationForm({
         clearErrors();
         let valid = true;
 
-        const quotationResult = quotationSchema.safeParse(data);
+        const quotationResult = quotationFormValidationSchema.safeParse(data);
 
         if (!quotationResult.success) {
             quotationResult.error.issues.forEach((issue) => {
@@ -960,17 +1137,27 @@ export function QuotationForm({
     // action
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        if (!validateClientSide()) return;
+        if (!validateClientSide()) {
+            scrollToErrorBanner();
+
+            return;
+        }
 
         const url = '/quotation';
 
         if (isCreate) {
             post(url, {
-                onError: (errors) => setError(errors),
+                onError: (nextErrors) => {
+                    setError(nextErrors);
+                    scrollToErrorBanner();
+                },
             });
         } else if (isEdit) {
             put(`${url}/${data.id}`, {
-                onError: (errors) => setError(errors),
+                onError: (nextErrors) => {
+                    setError(nextErrors);
+                    scrollToErrorBanner();
+                },
             });
         }
     }
@@ -994,8 +1181,9 @@ export function QuotationForm({
         return message;
     }
 
+    const errorMap = errors as Record<string, string | undefined>;
+
     const renderError = (path: string) => {
-        const errorMap = errors as Record<string, string | undefined>;
         const message = errorMap[path];
 
         if (!message) return null;
@@ -1007,9 +1195,117 @@ export function QuotationForm({
         );
     };
 
-    const noteErrors = Object.entries(
-        errors as Record<string, string | undefined>,
-    )
+    const hasErrors = Object.keys(errorMap).length > 0;
+    const toFieldLabel = (path: string): string => {
+        const fieldName = path.split('.').pop() ?? path;
+
+        return fieldName
+            .replace(/[_-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/\b\w/g, (character) => character.toUpperCase());
+    };
+
+    const scrollToErrorBanner = useCallback(() => {
+        setTimeout(() => {
+            errorAlertRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }, 0);
+    }, []);
+
+    const resolveErrorTarget = useCallback((path: string) => {
+        if (path === 'customer_id') {
+            return {
+                section: 'customer_and_quotation_information',
+                targetId: 'customer_id',
+            };
+        }
+
+        if (path === 'quotation_date' || path === 'expiry_date') {
+            return {
+                section: 'customer_and_quotation_information',
+                targetId: path,
+            };
+        }
+
+        if (
+            path === 'description' ||
+            path === 'payment_plan' ||
+            path === 'payment_method' ||
+            path.startsWith('items.') ||
+            path.startsWith('extensions.') ||
+            path.startsWith('notes.')
+        ) {
+            return {
+                section: 'quotation_details',
+                targetId:
+                    path === 'description' ||
+                    path === 'payment_plan' ||
+                    path === 'payment_method'
+                        ? path
+                        : 'section-quotation-items',
+            };
+        }
+
+        if (path === 'status' || path === 'reason') {
+            return {
+                section: 'status',
+                targetId: 'section-status',
+            };
+        }
+
+        return {
+            section: 'customer_and_quotation_information',
+            targetId: 'section-quotation-information',
+        };
+    }, []);
+
+    const focusErrorField = useCallback(
+        (path: string) => {
+            const target = resolveErrorTarget(path);
+
+            setOpenSections((prev) => {
+                if (prev.includes(target.section)) {
+                    return prev;
+                }
+
+                return [...prev, target.section];
+            });
+
+            setTimeout(() => {
+                const targetElement = document.getElementById(target.targetId);
+
+                if (!targetElement) {
+                    return;
+                }
+
+                targetElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+
+                if (targetElement instanceof HTMLElement) {
+                    targetElement.focus({ preventScroll: true });
+                }
+            }, 180);
+        },
+        [resolveErrorTarget],
+    );
+
+    const errorSummary = useMemo(
+        () =>
+            Object.entries(errorMap)
+                .filter(([, message]) => Boolean(message))
+                .map(([path, message]) => ({
+                    path,
+                    message: String(message),
+                })),
+        [errorMap],
+    );
+
+    const noteErrors = Object.entries(errorMap)
         .filter(([key, message]) => key.startsWith('notes') && Boolean(message))
         .map(([, message]) => String(message));
 
@@ -1220,7 +1516,7 @@ export function QuotationForm({
             )}
 
             {/* Quotation Number Box */}
-            {data.quotation_number && (
+            {isView && data.quotation_number && (
                 <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                     <p className="text-base text-muted-foreground">
                         Quotation No.
@@ -1232,6 +1528,33 @@ export function QuotationForm({
             )}
 
             <form onSubmit={submit} className="space-y-6 py-2">
+                {hasErrors && !isView && (
+                    <Alert variant="destructive" ref={errorAlertRef}>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                            <div className="space-y-2">
+                                <p>
+                                    Please fix the errors below and try again.
+                                </p>
+                                <div className="space-y-1">
+                                    {errorSummary.map(({ path, message }) => (
+                                        <button
+                                            key={path}
+                                            type="button"
+                                            onClick={() =>
+                                                focusErrorField(path)
+                                            }
+                                            className="block w-full rounded-sm text-left text-sm underline-offset-2 hover:underline"
+                                        >
+                                            {toFieldLabel(path)}: {message}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
                 <Accordion
                     type="multiple"
                     value={openSections}
@@ -1243,12 +1566,17 @@ export function QuotationForm({
                         isView={isView}
                         disableCustomerConfirmation={isView}
                         setData={setData}
+                        grandTotalAmount={computedGrandTotal}
                         renderError={renderError}
                         customerConfirmations={customerConfirmations}
                         availableMembers={availableMembers}
                         selectedMemberIds={effectiveSelectedMemberIds}
                         customerOptions={customerOptions}
                         selectedCustomerValue={selectedCustomerValue}
+                        quotationNumberError={
+                            errorMap.quotation_number ??
+                            errorMap.number_format_id
+                        }
                         onCustomerConfirmationChange={
                             handleCustomerConfirmationChange
                         }
@@ -1270,6 +1598,7 @@ export function QuotationForm({
                         noteErrors={noteErrors}
                         paymentPlans={paymentPlans}
                         paymentMethods={paymentMethods}
+                        extensionMasters={activeExtensionMasters}
                         availableMembers={availableMembers}
                         status={getQuotationSectionStatus('quotation_details')}
                     />

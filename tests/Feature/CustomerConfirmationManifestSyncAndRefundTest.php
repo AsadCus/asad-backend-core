@@ -15,6 +15,7 @@ use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\ReceiptAllocation;
 use App\Models\User;
+use App\Services\CustomerConfirmationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -142,7 +143,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertSame('Self', (string) $closedManifestMember->relationship);
     }
 
-    public function test_customer_confirmation_member_refund_creates_negative_receipt_invoice_item_and_allocation(): void
+    public function test_customer_confirmation_member_refund_creates_negative_receipt_and_allocation_without_invoice(): void
     {
         $authUser = User::factory()->create();
         $this->actingAs($authUser);
@@ -249,25 +250,8 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $response->assertRedirect(route('receipt.index'));
 
-        $refundItem = QuotationItem::query()
-            ->where('quotation_id', $quotation->id)
-            ->where('customer_confirmation_member_id', $member->id)
-            ->where('rate', '-500.00')
-            ->latest('id')
-            ->first();
-
-        $this->assertNotNull($refundItem);
-
-        $refundInvoice = Invoice::query()
-            ->where('order_id', $order->id)
-            ->where('amount', '-500.00')
-            ->latest('id')
-            ->first();
-
-        $this->assertNotNull($refundInvoice);
-
         $refundReceipt = Receipt::query()
-            ->where('invoice_id', $refundInvoice?->id)
+            ->whereNull('invoice_id')
             ->where('amount', '-500.00')
             ->latest('id')
             ->first();
@@ -283,6 +267,12 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $member->refresh();
 
         $this->assertNotSame('cancelled', $member->status);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex();
+        $groupRow = collect($grouped)->firstWhere('id', $group->id);
+
+        $this->assertNotNull($groupRow);
+        $this->assertSame(500.0, (float) ($groupRow['paid_amount'] ?? 0));
     }
 
     public function test_generate_quotation_blocks_active_member_link_but_allows_after_cancellation(): void

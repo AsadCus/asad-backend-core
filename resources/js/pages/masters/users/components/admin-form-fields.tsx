@@ -7,7 +7,7 @@ import { UserSchema } from '../schema';
 interface AdminFormFieldsProps {
     data: Pick<UserSchema, 'name' | 'email' | 'contact' | 'branch_id'>;
     errors: Partial<Record<keyof UserSchema, string>>;
-    branches: OptionType[];
+    branches?: OptionType[];
     isView: boolean;
     onChange: (
         field: 'name' | 'email' | 'contact' | 'branch_id',
@@ -18,7 +18,7 @@ interface AdminFormFieldsProps {
 export function AdminFormFields({
     data,
     errors,
-    branches,
+    branches = [],
     isView,
     onChange,
 }: AdminFormFieldsProps) {
@@ -85,21 +85,23 @@ export function AdminFormFields({
                     />
                 </FormField>
 
-                <FormField
-                    label="Branch"
-                    fieldRequirementsProps={{ required: true }}
-                    error={errors.branch_id}
-                >
-                    <ProperInputSelect
-                        disabled={isView}
-                        options={branches}
-                        value={data.branch_id}
-                        onValueChange={(value) =>
-                            onChange('branch_id', String(value))
-                        }
-                        placeholder="Select branch"
-                    />
-                </FormField>
+                {branches.length > 0 && (
+                    <FormField
+                        label="Branch"
+                        fieldRequirementsProps={{ required: true }}
+                        error={errors.branch_id}
+                    >
+                        <ProperInputSelect
+                            disabled={isView}
+                            options={branches}
+                            value={data.branch_id}
+                            onValueChange={(value) =>
+                                onChange('branch_id', String(value))
+                            }
+                            placeholder="Select branch"
+                        />
+                    </FormField>
+                )}
             </div>
         </div>
     );

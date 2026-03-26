@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+export const quotationItemTaxSchema = z.object({
+    _key: z.string().optional(),
+    id: z.number().optional(),
+    quotation_item_id: z.number().nullable().optional(),
+    quotation_extension_master_id: z.number().nullable().optional(),
+    name: z.string().nullable().optional(),
+    calculation_mode: z.string().nullable().optional(),
+    calculation_value: z.union([z.string(), z.number()]).nullable().optional(),
+    sort_order: z.number().optional(),
+});
+
 export const quotationItemSchema = z.object({
     _key: z.string(),
     id: z.number().optional(),
@@ -15,6 +26,7 @@ export const quotationItemSchema = z.object({
     is_optional: z.boolean().nullable().optional(),
     quantity: z.union([z.string(), z.number()]).nullable().optional(),
     rate: z.union([z.string(), z.number()]).nullable().optional(),
+    taxes: z.array(quotationItemTaxSchema).optional(),
     amount: z.union([z.string(), z.number()]).nullable().optional(),
     sort_order: z.number().optional(),
 });

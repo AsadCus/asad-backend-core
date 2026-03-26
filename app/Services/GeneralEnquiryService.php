@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class GeneralEnquiryService
 {
+    public function __construct(private NumberingService $numberingService) {}
+
     public function getForDataTable(array $filters = [])
     {
         $data = GeneralEnquiry::query()
@@ -38,6 +40,7 @@ class GeneralEnquiryService
                     'enquiry_id' => $generalEnquiry->enquiry_id,
                     'status' => $generalEnquiry->enquiry?->status?->value ?? 'new_lead',
                     'status_label' => $generalEnquiry->enquiry?->status?->label() ?? 'New Lead',
+                    'enquiry_number' => $generalEnquiry->enquiry?->enquiry_number,
                     'name' => $generalEnquiry->enquiry?->name,
                     'contact_number' => $generalEnquiry->enquiry?->contact_number,
                     'email' => $generalEnquiry->enquiry?->email,
@@ -67,6 +70,12 @@ class GeneralEnquiryService
             // Create parent enquiry record
             $parentEnquiry = Enquiry::create([
                 'type' => 'general',
+                'enquiry_number' => $this->numberingService->ensureNumber(
+                    'general_enquiry',
+                    $data['enquiry_number'] ?? null,
+                    null,
+                    isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                ),
                 'status' => EnquiryStatus::NewLead->value,
                 'name' => $data['name'] ?? '',
                 'contact_number' => $data['contact_number'] ?? '',
@@ -104,6 +113,7 @@ class GeneralEnquiryService
             'enquiry_id' => $generalEnquiry->enquiry_id,
             'status' => $generalEnquiry->enquiry?->status?->value ?? 'new_lead',
             'status_label' => $generalEnquiry->enquiry?->status?->label() ?? 'New Lead',
+            'enquiry_number' => $generalEnquiry->enquiry?->enquiry_number,
             'name' => $generalEnquiry->enquiry?->name,
             'contact_number' => $generalEnquiry->enquiry?->contact_number,
             'email' => $generalEnquiry->enquiry?->email,
@@ -138,6 +148,14 @@ class GeneralEnquiryService
             // Sync parent enquiry common fields
             if ($generalEnquiry->enquiry) {
                 $generalEnquiry->enquiry->update([
+                    'enquiry_number' => array_key_exists('enquiry_number', $data)
+                        ? $this->numberingService->ensureNumber(
+                            'general_enquiry',
+                            $data['enquiry_number'],
+                            (int) $generalEnquiry->enquiry->id,
+                            isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
+                        )
+                        : $generalEnquiry->enquiry?->enquiry_number,
                     'name' => $data['name'] ?? $generalEnquiry->enquiry?->name,
                     'contact_number' => $data['contact_number'] ?? $generalEnquiry->enquiry?->contact_number,
                     'email' => $data['email'] ?? $generalEnquiry->enquiry?->email,

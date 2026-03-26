@@ -34,6 +34,7 @@ interface PaymentMethodMasterSchema {
     name: string;
     value?: string;
     is_active?: boolean;
+    is_default?: boolean;
     sort_order?: number;
 }
 
@@ -44,6 +45,15 @@ interface MastersQuotationIndexProps {
     paymentMethods?: { label: string; value: string }[];
     paymentMethodMasters?: PaymentMethodMasterSchema[];
 }
+
+const extensionTypeOrder = ['tax', 'discount', 'credit_card', 'other'];
+
+const extensionTypeLabels: Record<string, string> = {
+    tax: 'Tax Extensions',
+    discount: 'Discount Extensions',
+    credit_card: 'Credit Card Extensions',
+    other: 'Other Extensions',
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -95,6 +105,7 @@ export default function MastersQuotationIndex({
                 paymentMethod._key ??
                 (paymentMethod.id ? `id-${paymentMethod.id}` : nanoid()),
             is_active: paymentMethod.is_active ?? true,
+            is_default: paymentMethod.is_default ?? false,
             sort_order: paymentMethod.sort_order ?? index + 1,
         }),
     );
@@ -165,9 +176,20 @@ export default function MastersQuotationIndex({
                     return extension;
                 }
 
+                const nextType = String(
+                    patch.type ?? extension.type ?? 'discount',
+                );
+                const shouldClearPaymentMethods =
+                    nextType === 'discount' || nextType === 'tax';
+
                 return {
                     ...extension,
                     ...patch,
+                    payment_methods: shouldClearPaymentMethods
+                        ? []
+                        : (patch.payment_methods ??
+                          extension.payment_methods ??
+                          []),
                     sort_order: index + 1,
                 };
             }),
@@ -217,6 +239,24 @@ export default function MastersQuotationIndex({
         }));
     };
 
+    const handleDefaultPaymentMethodChange = (
+        key: string,
+        isDefault: boolean,
+    ) => {
+        setPaymentMethodData((prev) => ({
+            ...prev,
+            payment_methods: (prev.payment_methods ?? []).map(
+                (paymentMethod, index) => {
+                    return {
+                        ...paymentMethod,
+                        is_default: isDefault && paymentMethod._key === key,
+                        sort_order: index + 1,
+                    };
+                },
+            ),
+        }));
+    };
+
     const addPaymentMethodMaster = () => {
         setPaymentMethodData((prev) => ({
             ...prev,
@@ -228,6 +268,7 @@ export default function MastersQuotationIndex({
                     name: '',
                     value: '',
                     is_active: true,
+                    is_default: false,
                     sort_order: (prev.payment_methods?.length ?? 0) + 1,
                 },
             ],
@@ -257,6 +298,28 @@ export default function MastersQuotationIndex({
                 })),
         }));
     };
+
+    const groupedExtensionMasters = (extensionData.extensions ?? []).reduce(
+        (groups, extension) => {
+            const normalizedType = extensionTypeOrder.includes(
+                String(extension.type ?? ''),
+            )
+                ? String(extension.type)
+                : 'other';
+
+            if (!groups[normalizedType]) {
+                groups[normalizedType] = [];
+            }
+
+            groups[normalizedType].push({
+                ...extension,
+                type: normalizedType,
+            });
+
+            return groups;
+        },
+        {} as Record<string, QuotationExtensionMasterSchema[]>,
+    );
 
     const togglePaymentMethod = (key: string, paymentMethod: string) => {
         setExtensionData((prev) => ({
@@ -504,7 +567,7 @@ export default function MastersQuotationIndex({
                                                 key={key}
                                                 className="grid gap-3 rounded-lg border p-3 md:grid-cols-12"
                                             >
-                                                <div className="md:col-span-8">
+                                                <div className="md:col-span-6">
                                                     <FormField label="Name">
                                                         <ProperInput
                                                             value={
@@ -524,6 +587,33 @@ export default function MastersQuotationIndex({
                                                             }
                                                             placeholder="Payment method name"
                                                         />
+                                                    </FormField>
+                                                </div>
+
+                                                <div className="md:col-span-2">
+                                                    <FormField label="Default">
+                                                        <label className="mt-2 inline-flex items-center gap-2 text-sm">
+                                                            <Checkbox
+                                                                checked={
+                                                                    paymentMethod.is_default ??
+                                                                    false
+                                                                }
+                                                                onCheckedChange={(
+                                                                    checked,
+                                                                ) =>
+                                                                    handleDefaultPaymentMethodChange(
+                                                                        key,
+                                                                        Boolean(
+                                                                            checked,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    processingPaymentMethods
+                                                                }
+                                                            />
+                                                            Default
+                                                        </label>
                                                     </FormField>
                                                 </div>
 
@@ -629,231 +719,269 @@ export default function MastersQuotationIndex({
                                 </Button>
                             </div>
 
-                            <div className="space-y-4">
-                                {(extensionData.extensions ?? []).map(
-                                    (extension, index) => {
-                                        const key =
-                                            extension._key ??
-                                            `extension-${index}`;
+                            <div className="space-y-6">
+                                {extensionTypeOrder.map((type) => {
+                                    const typeRows =
+                                        groupedExtensionMasters[type] ?? [];
 
-                                        return (
-                                            <div
-                                                key={key}
-                                                className="grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]"
-                                            >
-                                                <FormField label="Name">
-                                                    <ProperInput
-                                                        value={
-                                                            extension.name ?? ''
-                                                        }
-                                                        onCommit={(value) =>
-                                                            handleExtensionChange(
-                                                                key,
-                                                                {
-                                                                    name: value,
-                                                                },
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            processingExtensions
-                                                        }
-                                                        placeholder="Extension name"
-                                                    />
-                                                </FormField>
+                                    if (typeRows.length === 0) {
+                                        return null;
+                                    }
 
-                                                <FormField label="Type">
-                                                    <ProperInputSelect
-                                                        disabled={
-                                                            processingExtensions
-                                                        }
-                                                        options={[
-                                                            {
-                                                                label: 'Discount',
-                                                                value: 'discount',
-                                                            },
-                                                            {
-                                                                label: 'Tax',
-                                                                value: 'tax',
-                                                            },
-                                                            {
-                                                                label: 'Credit Card',
-                                                                value: 'credit_card',
-                                                            },
-                                                        ]}
-                                                        value={
-                                                            extension.type ??
-                                                            'discount'
-                                                        }
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            handleExtensionChange(
-                                                                key,
-                                                                {
-                                                                    type: String(
-                                                                        value,
-                                                                    ),
-                                                                },
-                                                            )
-                                                        }
-                                                    />
-                                                </FormField>
+                                    return (
+                                        <div key={type} className="space-y-3">
+                                            <h4 className="text-sm font-semibold text-muted-foreground">
+                                                {extensionTypeLabels[type] ??
+                                                    type}
+                                            </h4>
 
-                                                <FormField label="Calculation">
-                                                    <ProperInputSelect
-                                                        disabled={
-                                                            processingExtensions
-                                                        }
-                                                        options={[
-                                                            {
-                                                                label: 'Fixed Amount',
-                                                                value: 'fixed',
-                                                            },
-                                                            {
-                                                                label: 'Percentage',
-                                                                value: 'percentage',
-                                                            },
-                                                        ]}
-                                                        value={
-                                                            extension.calculation_mode ??
-                                                            'fixed'
-                                                        }
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            handleExtensionChange(
-                                                                key,
-                                                                {
-                                                                    calculation_mode:
-                                                                        String(
-                                                                            value,
-                                                                        ),
-                                                                },
-                                                            )
-                                                        }
-                                                    />
-                                                </FormField>
+                                            <div className="space-y-4">
+                                                {typeRows.map(
+                                                    (extension, index) => {
+                                                        const key =
+                                                            extension._key ??
+                                                            `extension-${type}-${index}`;
+                                                        const shouldShowPaymentMethods =
+                                                            extension.type ===
+                                                                'credit_card' ||
+                                                            extension.type ===
+                                                                'other';
 
-                                                <FormField label="Value">
-                                                    <ProperInput
-                                                        type="number"
-                                                        value={
-                                                            extension.calculation_value ??
-                                                            null
-                                                        }
-                                                        onCommit={(value) =>
-                                                            handleExtensionChange(
-                                                                key,
-                                                                {
-                                                                    calculation_value:
-                                                                        value ===
-                                                                        ''
-                                                                            ? null
-                                                                            : Number(
-                                                                                  value,
-                                                                              ),
-                                                                },
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            processingExtensions
-                                                        }
-                                                        placeholder="0"
-                                                        inputProps={{
-                                                            step: 'any',
-                                                        }}
-                                                    />
-                                                </FormField>
-
-                                                <div>
-                                                    <FormField label="Status">
-                                                        <label className="inline-flex items-center gap-2 text-base">
-                                                            <Checkbox
-                                                                checked={
-                                                                    extension.is_active ??
-                                                                    true
-                                                                }
-                                                                onCheckedChange={(
-                                                                    checked,
-                                                                ) =>
-                                                                    handleExtensionChange(
-                                                                        key,
-                                                                        {
-                                                                            is_active:
-                                                                                Boolean(
-                                                                                    checked,
-                                                                                ),
-                                                                        },
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    processingExtensions
-                                                                }
-                                                                className="h-5 w-5"
-                                                            />
-                                                            Active
-                                                        </label>
-                                                    </FormField>
-                                                </div>
-
-                                                <div className="md:flex md:items-center md:justify-end">
-                                                    <Button
-                                                        type="button"
-                                                        variant="destructive"
-                                                        size="icon"
-                                                        onClick={() =>
-                                                            removeExtensionMaster(
-                                                                key,
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            processingExtensions
-                                                        }
-                                                        aria-label="Remove extension"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-
-                                                <div className="md:col-span-6">
-                                                    <FormField label="Add Only For Payment Methods">
-                                                        <div className="flex flex-wrap gap-3">
-                                                            {paymentMethods.map(
-                                                                (method) => (
-                                                                    <label
-                                                                        key={`${key}-${method.value}`}
-                                                                        className="flex items-center gap-2 text-sm"
-                                                                    >
-                                                                        <Checkbox
-                                                                            checked={
-                                                                                extension.payment_methods?.includes(
-                                                                                    method.value,
-                                                                                ) ??
-                                                                                false
-                                                                            }
-                                                                            onCheckedChange={() =>
-                                                                                togglePaymentMethod(
-                                                                                    key,
-                                                                                    method.value,
-                                                                                )
-                                                                            }
-                                                                            disabled={
-                                                                                processingExtensions
-                                                                            }
-                                                                        />
-                                                                        {
-                                                                            method.label
+                                                        return (
+                                                            <div
+                                                                key={key}
+                                                                className="grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]"
+                                                            >
+                                                                <FormField label="Name">
+                                                                    <ProperInput
+                                                                        value={
+                                                                            extension.name ??
+                                                                            ''
                                                                         }
-                                                                    </label>
-                                                                ),
-                                                            )}
-                                                        </div>
-                                                    </FormField>
-                                                </div>
+                                                                        onCommit={(
+                                                                            value,
+                                                                        ) =>
+                                                                            handleExtensionChange(
+                                                                                key,
+                                                                                {
+                                                                                    name: value,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                        disabled={
+                                                                            processingExtensions
+                                                                        }
+                                                                        placeholder="Extension name"
+                                                                    />
+                                                                </FormField>
+
+                                                                <FormField label="Type">
+                                                                    <ProperInputSelect
+                                                                        disabled={
+                                                                            processingExtensions
+                                                                        }
+                                                                        options={[
+                                                                            {
+                                                                                label: 'Discount',
+                                                                                value: 'discount',
+                                                                            },
+                                                                            {
+                                                                                label: 'Tax',
+                                                                                value: 'tax',
+                                                                            },
+                                                                            {
+                                                                                label: 'Credit Card',
+                                                                                value: 'credit_card',
+                                                                            },
+                                                                            {
+                                                                                label: 'Other',
+                                                                                value: 'other',
+                                                                            },
+                                                                        ]}
+                                                                        value={
+                                                                            extension.type ??
+                                                                            'discount'
+                                                                        }
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) =>
+                                                                            handleExtensionChange(
+                                                                                key,
+                                                                                {
+                                                                                    type: String(
+                                                                                        value,
+                                                                                    ),
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                </FormField>
+
+                                                                <FormField label="Calculation">
+                                                                    <ProperInputSelect
+                                                                        disabled={
+                                                                            processingExtensions
+                                                                        }
+                                                                        options={[
+                                                                            {
+                                                                                label: 'Fixed Amount',
+                                                                                value: 'fixed',
+                                                                            },
+                                                                            {
+                                                                                label: 'Percentage',
+                                                                                value: 'percentage',
+                                                                            },
+                                                                        ]}
+                                                                        value={
+                                                                            extension.calculation_mode ??
+                                                                            'fixed'
+                                                                        }
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) =>
+                                                                            handleExtensionChange(
+                                                                                key,
+                                                                                {
+                                                                                    calculation_mode:
+                                                                                        String(
+                                                                                            value,
+                                                                                        ),
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                </FormField>
+
+                                                                <FormField label="Value">
+                                                                    <ProperInput
+                                                                        type="number"
+                                                                        value={
+                                                                            extension.calculation_value ??
+                                                                            null
+                                                                        }
+                                                                        onCommit={(
+                                                                            value,
+                                                                        ) =>
+                                                                            handleExtensionChange(
+                                                                                key,
+                                                                                {
+                                                                                    calculation_value:
+                                                                                        value ===
+                                                                                        ''
+                                                                                            ? null
+                                                                                            : Number(
+                                                                                                  value,
+                                                                                              ),
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                        disabled={
+                                                                            processingExtensions
+                                                                        }
+                                                                        placeholder="0"
+                                                                        inputProps={{
+                                                                            step: 'any',
+                                                                        }}
+                                                                    />
+                                                                </FormField>
+
+                                                                <div>
+                                                                    <FormField label="Status">
+                                                                        <label className="inline-flex items-center gap-2 text-base">
+                                                                            <Checkbox
+                                                                                checked={
+                                                                                    extension.is_active ??
+                                                                                    true
+                                                                                }
+                                                                                onCheckedChange={(
+                                                                                    checked,
+                                                                                ) =>
+                                                                                    handleExtensionChange(
+                                                                                        key,
+                                                                                        {
+                                                                                            is_active:
+                                                                                                Boolean(
+                                                                                                    checked,
+                                                                                                ),
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    processingExtensions
+                                                                                }
+                                                                                className="h-5 w-5"
+                                                                            />
+                                                                            Active
+                                                                        </label>
+                                                                    </FormField>
+                                                                </div>
+
+                                                                <div className="md:flex md:items-center md:justify-end">
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="destructive"
+                                                                        size="icon"
+                                                                        onClick={() =>
+                                                                            removeExtensionMaster(
+                                                                                key,
+                                                                            )
+                                                                        }
+                                                                        disabled={
+                                                                            processingExtensions
+                                                                        }
+                                                                        aria-label="Remove extension"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+
+                                                                {shouldShowPaymentMethods && (
+                                                                    <div className="md:col-span-6">
+                                                                        <FormField label="Add Only For Payment Methods">
+                                                                            <div className="flex flex-wrap gap-3">
+                                                                                {paymentMethods.map(
+                                                                                    (
+                                                                                        method,
+                                                                                    ) => (
+                                                                                        <label
+                                                                                            key={`${key}-${method.value}`}
+                                                                                            className="flex items-center gap-2 text-sm"
+                                                                                        >
+                                                                                            <Checkbox
+                                                                                                checked={
+                                                                                                    extension.payment_methods?.includes(
+                                                                                                        method.value,
+                                                                                                    ) ??
+                                                                                                    false
+                                                                                                }
+                                                                                                onCheckedChange={() =>
+                                                                                                    togglePaymentMethod(
+                                                                                                        key,
+                                                                                                        method.value,
+                                                                                                    )
+                                                                                                }
+                                                                                                disabled={
+                                                                                                    processingExtensions
+                                                                                                }
+                                                                                            />
+                                                                                            {
+                                                                                                method.label
+                                                                                            }
+                                                                                        </label>
+                                                                                    ),
+                                                                                )}
+                                                                            </div>
+                                                                        </FormField>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    },
+                                                )}
                                             </div>
-                                        );
-                                    },
-                                )}
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             {extensionErrors.extensions && (
