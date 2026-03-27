@@ -83,6 +83,21 @@ export const packageValidationSchema = packageSchema.superRefine(
             });
         }
 
+        const totalSeats = Number(data.total_seats ?? 0);
+        if (!data.total_seats && data.total_seats !== 0) {
+            ctx.addIssue({
+                path: ['total_seats'],
+                message: 'Total seats is required',
+                code: z.ZodIssueCode.custom,
+            });
+        } else if (!Number.isFinite(totalSeats) || totalSeats < 1) {
+            ctx.addIssue({
+                path: ['total_seats'],
+                message: 'Total seats must be at least 1',
+                code: z.ZodIssueCode.custom,
+            });
+        }
+
         // Price fields — coerce to number before comparison
         const priceFields = [
             'price_single',

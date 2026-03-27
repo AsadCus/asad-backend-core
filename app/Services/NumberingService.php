@@ -191,6 +191,19 @@ class NumberingService
     {
         $this->assertModelKey($modelKey);
 
+        $formats = NumberingFormat::query()
+            ->where('model_key', $modelKey)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        if ($formats->isNotEmpty()) {
+            return $formats;
+        }
+
+        $this->bootstrapLegacyDefaultFormat($modelKey);
+
         return NumberingFormat::query()
             ->where('model_key', $modelKey)
             ->orderByDesc('is_default')
@@ -325,6 +338,7 @@ class NumberingService
         }
 
         $this->validateProvidedNumber($modelKey, $number, $ignoreId);
+        $this->syncSequenceFromProvidedNumber($modelKey, $number, $formatId);
 
         return $number;
     }
@@ -734,6 +748,73 @@ class NumberingService
                 : null,
             'increment' => $increment,
         ];
+    }
+
+    private function syncSequenceFromProvidedNumber(string $modelKey, string $number, ?int $preferredFormatId = null): void
+    {
+        $format = $this->resolveMatchingFormatForNumber(
+            $modelKey,
+            $number,
+            $preferredFormatId,
+        );
+
+        if (! $format) {
+            return;
+        }
+
+        $parsed = $this->parseNumber($format, $number);
+        if (! is_array($parsed)) {
+            return;
+        }
+
+        $increment = (int) ($parsed['increment'] ?? 0);
+        if ($increment <= 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($format, $parsed, $increment): void {
+            $sequence = $this->findOrCreateSequence(
+                $format,
+                true,
+                isset($parsed['sequence_year']) && is_string($parsed['sequence_year'])
+                    ? $parsed['sequence_year']
+                    : null,
+            );
+
+            if ((int) $sequence->current_number >= $increment) {
+                return;
+            }
+
+            $sequence->update([
+                'current_number' => $increment,
+            ]);
+        });
+    }
+
+    private function resolveMatchingFormatForNumber(
+        string $modelKey,
+        string $number,
+        ?int $preferredFormatId = null,
+    ): ?NumberingFormat {
+        $formats = $this->listFormats($modelKey)
+            ->where('is_active', true)
+            ->values();
+
+        if ($formats->isEmpty()) {
+            return null;
+        }
+
+        if ($preferredFormatId) {
+            $preferred = $formats
+                ->first(fn (NumberingFormat $format) => (int) $format->id === $preferredFormatId);
+
+            if ($preferred && $this->parseNumber($preferred, $number) !== null) {
+                return $preferred;
+            }
+        }
+
+        return $formats
+            ->first(fn (NumberingFormat $format) => $this->parseNumber($format, $number) !== null);
     }
 
     private function normalizeNullableString(mixed $value): ?string

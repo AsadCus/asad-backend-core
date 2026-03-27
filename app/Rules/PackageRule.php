@@ -25,7 +25,7 @@ class PackageRule
             // Dates & Seats
             'departure_date' => ['nullable', 'date'],
             'return_date' => ['nullable', 'date'],
-            'total_seats' => ['nullable', 'integer', 'min:0'],
+            'total_seats' => ['required', 'integer', 'min:1'],
             'seats_left' => ['nullable', 'integer', 'min:0'],
 
             // Visa

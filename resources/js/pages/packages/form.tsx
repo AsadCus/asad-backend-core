@@ -25,7 +25,7 @@ import { store, update } from '@/routes/packages';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { genderOptions } from '../customer/schema';
 import {
     infantAndChildPriceLabels,
@@ -150,6 +150,8 @@ export default function PackageForm({
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
     const isCreate = mode === 'create';
+    const hasPersistedPackageLocation =
+        String(initialData?.country_id ?? '').trim().length > 0;
 
     const defaultData: PackageSchema = initialData || {
         package_number: '',
@@ -208,14 +210,99 @@ export default function PackageForm({
     const lastAppliedPrefillRef = useRef<string | null>(null);
     const errorBannerRef = useRef<HTMLDivElement | null>(null);
 
-    useEffect(() => {
-        if (Object.keys(errors).length > 0 && !isView) {
-            errorBannerRef.current?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-            });
+    const getInputIdFromPath = useCallback((path: string): string => {
+        return path.replace(/\./g, '_');
+    }, []);
+
+    const toFieldLabel = useCallback((path: string): string => {
+        const flightMatch = path.match(/^flights\.(\d+)\.(.+)$/);
+        if (flightMatch) {
+            const field = flightMatch[2].replace(/_/g, ' ');
+
+            return `Flight ${Number(flightMatch[1]) + 1} - ${field}`;
         }
-    }, [errors, isView]);
+
+        const accommodationMatch = path.match(/^accommodations\.(\d+)\.(.+)$/);
+        if (accommodationMatch) {
+            const field = accommodationMatch[2].replace(/_/g, ' ');
+
+            return `Accommodation ${Number(accommodationMatch[1]) + 1} - ${field}`;
+        }
+
+        const officialMatch = path.match(/^officials\.(\d+)\.(.+)$/);
+        if (officialMatch) {
+            const field = officialMatch[2].replace(/_/g, ' ');
+
+            return `Official ${Number(officialMatch[1]) + 1} - ${field}`;
+        }
+
+        return path.replace(/_/g, ' ');
+    }, []);
+
+    const scrollToErrorBanner = useCallback((): void => {
+        errorBannerRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
+    }, []);
+
+    const focusErrorField = useCallback(
+        (path: string): void => {
+            if (
+                path === 'package_number' ||
+                path === 'package_number_format_id'
+            ) {
+                const packageNumberInput = document.querySelector<HTMLElement>(
+                    'input[placeholder="Enter model number"]',
+                );
+
+                if (packageNumberInput) {
+                    packageNumberInput.focus();
+                    packageNumberInput.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                    });
+                }
+
+                return;
+            }
+
+            const elementId = getInputIdFromPath(path);
+            const target =
+                document.getElementById(elementId) ??
+                document.querySelector<HTMLElement>(`[name="${path}"]`);
+
+            if (!target) {
+                return;
+            }
+
+            target.focus();
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        },
+        [getInputIdFromPath],
+    );
+
+    const errorSummaryItems = useMemo(() => {
+        return Object.entries(errors)
+            .filter(
+                ([, message]) =>
+                    typeof message === 'string' && message.trim().length > 0,
+            )
+            .map(([path, message]) => ({
+                path,
+                message: String(message),
+                label: toFieldLabel(path),
+            }));
+    }, [errors, toFieldLabel]);
+
+    useEffect(() => {
+        if (errorSummaryItems.length > 0 && !isView) {
+            scrollToErrorBanner();
+        }
+    }, [errorSummaryItems.length, isView, scrollToErrorBanner]);
 
     useEffect(() => {
         if (!isCreate || !prefillData) {
@@ -315,6 +402,9 @@ export default function PackageForm({
         let valid = true;
 
         const result = packageValidationSchema.safeParse(data);
+        const firstErrorPath = !result.success
+            ? result.error.issues[0]?.path.join('.')
+            : null;
 
         if (!result.success) {
             result.error.issues.forEach((issue) => {
@@ -324,6 +414,12 @@ export default function PackageForm({
                 }
             });
             valid = false;
+
+            scrollToErrorBanner();
+
+            if (firstErrorPath) {
+                focusErrorField(firstErrorPath);
+            }
         }
 
         return valid;
@@ -341,11 +437,27 @@ export default function PackageForm({
 
         if (isCreate) {
             post(store().url, {
-                onError: (errors) => setError(errors),
+                onError: (serverErrors) => {
+                    setError(serverErrors);
+                    scrollToErrorBanner();
+
+                    const firstErrorPath = Object.keys(serverErrors)[0];
+                    if (firstErrorPath) {
+                        focusErrorField(firstErrorPath);
+                    }
+                },
             });
         } else if (isEdit) {
             put(update(data.id!).url, {
-                onError: (errors) => setError(errors),
+                onError: (serverErrors) => {
+                    setError(serverErrors);
+                    scrollToErrorBanner();
+
+                    const firstErrorPath = Object.keys(serverErrors)[0];
+                    if (firstErrorPath) {
+                        focusErrorField(firstErrorPath);
+                    }
+                },
             });
         }
     }
@@ -570,18 +682,41 @@ export default function PackageForm({
     };
 
     const occupiedSeats = Number(data.occupied_seats ?? 0);
-    const showPackageNumberField = isView && Boolean(data.package_number);
 
     return (
         <div className="mx-auto w-full">
             <form onSubmit={submit} className="space-y-4">
                 {/* Error Alert */}
-                {Object.keys(errors).length > 0 && !isView && (
+                {errorSummaryItems.length > 0 && !isView && (
                     <div ref={errorBannerRef}>
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                                Please fix the errors below and try again.
+                                <div className="space-y-2">
+                                    <p>
+                                        Please fix the errors below and try
+                                        again.
+                                    </p>
+                                    <ul className="list-disc space-y-1 pl-5">
+                                        {errorSummaryItems.map((item) => (
+                                            <li
+                                                key={`${item.path}:${item.message}`}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        focusErrorField(
+                                                            item.path,
+                                                        )
+                                                    }
+                                                    className="text-left underline underline-offset-2"
+                                                >
+                                                    {item.label}: {item.message}
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
                             </AlertDescription>
                         </Alert>
                     </div>
@@ -599,49 +734,25 @@ export default function PackageForm({
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div
-                            className={`grid grid-cols-1 items-start gap-4 ${
-                                showPackageNumberField
-                                    ? 'md:grid-cols-4'
-                                    : 'md:grid-cols-3'
-                            }`}
+                            className={`grid grid-cols-1 items-start gap-4 md:grid-cols-4`}
                         >
-                            {!isView && (
-                                <ModelNumberInput
-                                    modelKey="package"
-                                    label="Package Number"
-                                    value={data.package_number ?? ''}
-                                    formatId={
-                                        data.package_number_format_id ?? null
-                                    }
-                                    onValueChange={(nextValue) =>
-                                        setData('package_number', nextValue)
-                                    }
-                                    onFormatIdChange={(nextFormatId) =>
-                                        setData(
-                                            'package_number_format_id',
-                                            nextFormatId,
-                                        )
-                                    }
-                                    disabled={processing}
-                                    error={getError('package_number')}
-                                />
-                            )}
-
-                            {/* Package Number (view only) */}
-                            {showPackageNumberField && (
-                                <ModelNumberInput
-                                    modelKey="package"
-                                    label="Package Number"
-                                    value={data.package_number ?? ''}
-                                    formatId={
-                                        data.package_number_format_id ?? null
-                                    }
-                                    onValueChange={() => undefined}
-                                    onFormatIdChange={() => undefined}
-                                    disabled
-                                    hint="Auto-generated package identifier"
-                                />
-                            )}
+                            <ModelNumberInput
+                                modelKey="package"
+                                label="Package Number"
+                                value={data.package_number ?? ''}
+                                formatId={data.package_number_format_id ?? null}
+                                onValueChange={(nextValue) =>
+                                    setData('package_number', nextValue)
+                                }
+                                onFormatIdChange={(nextFormatId) =>
+                                    setData(
+                                        'package_number_format_id',
+                                        nextFormatId,
+                                    )
+                                }
+                                disabled={processing || isView}
+                                error={getError('package_number')}
+                            />
 
                             {/* Package Name */}
                             <FormField
@@ -665,6 +776,7 @@ export default function PackageForm({
                             {/* Status */}
                             <FormField
                                 label="Status"
+                                htmlFor="status"
                                 fieldRequirementsProps={{
                                     required: true,
                                     hint: 'Select package status',
@@ -681,7 +793,7 @@ export default function PackageForm({
                                         )
                                     }
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger id="status">
                                         <SelectValue placeholder="Select status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -703,7 +815,11 @@ export default function PackageForm({
                                 error={getError('country_id')}
                             >
                                 <ProperInputSelect
-                                    disabled={isView || processing || isEdit}
+                                    disabled={
+                                        isView ||
+                                        processing ||
+                                        (isEdit && hasPersistedPackageLocation)
+                                    }
                                     options={countries}
                                     value={data.country_id ?? ''}
                                     onValueChange={(value) =>
@@ -754,6 +870,7 @@ export default function PackageForm({
                                 label="Total Seats"
                                 htmlFor="total_seats"
                                 fieldRequirementsProps={{
+                                    required: true,
                                     hint: `Active paid members: ${occupiedSeats} (officials excluded)`,
                                 }}
                                 error={getError('total_seats')}
@@ -779,8 +896,8 @@ export default function PackageForm({
                                             seats_left: seatsLeft,
                                         }));
                                     }}
-                                    inputProps={{ min: '0' }}
-                                    placeholder="0"
+                                    inputProps={{ min: '1' }}
+                                    placeholder="Enter total seats"
                                 />
                             </FormField>
                             <FormField
@@ -973,6 +1090,7 @@ export default function PackageForm({
                                             </FormField>
                                             <FormField
                                                 label="From"
+                                                htmlFor={`flights_${index}_from`}
                                                 fieldRequirementsProps={{
                                                     required: true,
                                                     hint: 'Departure location',
@@ -982,6 +1100,7 @@ export default function PackageForm({
                                                 )}
                                             >
                                                 <ProperInput
+                                                    id={`flights_${index}_from`}
                                                     value={flight.from ?? ''}
                                                     disabled={
                                                         isView || processing
@@ -998,6 +1117,7 @@ export default function PackageForm({
                                             </FormField>
                                             <FormField
                                                 label="To"
+                                                htmlFor={`flights_${index}_to`}
                                                 fieldRequirementsProps={{
                                                     required: true,
                                                     hint: 'Arrival location',
@@ -1007,6 +1127,7 @@ export default function PackageForm({
                                                 )}
                                             >
                                                 <ProperInput
+                                                    id={`flights_${index}_to`}
                                                     value={flight.to ?? ''}
                                                     disabled={
                                                         isView || processing
@@ -1728,6 +1849,7 @@ export default function PackageForm({
                                             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                                 <FormField
                                                     label="Location"
+                                                    htmlFor={`accommodations_${index}_location`}
                                                     fieldRequirementsProps={{
                                                         required: true,
                                                         hint: 'Enter location',
@@ -1737,6 +1859,7 @@ export default function PackageForm({
                                                     )}
                                                 >
                                                     <ProperInput
+                                                        id={`accommodations_${index}_location`}
                                                         value={
                                                             accommodation.location ??
                                                             ''
@@ -1756,6 +1879,7 @@ export default function PackageForm({
                                                 </FormField>
                                                 <FormField
                                                     label="Hotel Name"
+                                                    htmlFor={`accommodations_${index}_hotel_name`}
                                                     fieldRequirementsProps={{
                                                         required: true,
                                                         hint: 'Enter hotel name',
@@ -1765,6 +1889,7 @@ export default function PackageForm({
                                                     )}
                                                 >
                                                     <ProperInput
+                                                        id={`accommodations_${index}_hotel_name`}
                                                         value={
                                                             accommodation.hotel_name ??
                                                             ''
@@ -2270,6 +2395,7 @@ export default function PackageForm({
                                             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                                 <FormField
                                                     label="Type"
+                                                    htmlFor={`officials_${index}_type`}
                                                     fieldRequirementsProps={{
                                                         required: true,
                                                         hint: 'Select official type',
@@ -2279,7 +2405,7 @@ export default function PackageForm({
                                                     )}
                                                 >
                                                     <ProperInputSelect
-                                                        id={`officials.${index}.type`}
+                                                        id={`officials_${index}_type`}
                                                         mode="classic"
                                                         value={
                                                             official.type || ''
@@ -2439,6 +2565,7 @@ export default function PackageForm({
                                                 </FormField>
                                                 <FormField
                                                     label="Gender"
+                                                    htmlFor={`officials_${index}_gender`}
                                                     fieldRequirementsProps={{
                                                         hint: 'Select gender',
                                                     }}
@@ -2447,7 +2574,7 @@ export default function PackageForm({
                                                     )}
                                                 >
                                                     <ProperInputSelect
-                                                        id={`officials.${index}.gender`}
+                                                        id={`officials_${index}_gender`}
                                                         mode="classic"
                                                         value={
                                                             official.gender ||

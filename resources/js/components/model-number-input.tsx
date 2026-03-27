@@ -278,17 +278,23 @@ export default function ModelNumberInput({
             setFormats(nextFormats);
             setModelIncrementScope(normalizeScope(nextFormats));
 
-            if (!formatId) {
-                const defaultFormat = nextFormats.find(
-                    (format) => format.is_default,
-                );
+            const shouldAutofillNumber =
+                !formatId && (value ?? '').trim().length === 0;
 
-                if (defaultFormat) {
-                    onFormatIdChange(defaultFormat.id);
+            if (shouldAutofillNumber) {
+                const preferredFormat =
+                    nextFormats.find((format) => format.is_default) ??
+                    nextFormats[0] ??
+                    null;
+
+                if (preferredFormat) {
+                    onFormatIdChange(preferredFormat.id);
 
                     if (!disabled) {
-                        await handleSuggest(defaultFormat.id);
+                        await handleSuggest(preferredFormat.id);
                     }
+                } else if (!disabled) {
+                    await handleSuggest(null);
                 }
             }
         } catch (exception) {
@@ -467,17 +473,28 @@ export default function ModelNumberInput({
                         <div className="relative">
                             <Input
                                 value={value ?? ''}
-                                onChange={(event) =>
-                                    onValueChange(event.target.value)
-                                }
+                                onChange={(event) => {
+                                    if (!disabled) {
+                                        onValueChange(event.target.value);
+                                    }
+                                }}
                                 onClick={() => {
                                     if (!disabled) {
                                         setOpenFormatSelector(true);
                                     }
                                 }}
-                                disabled={disabled}
+                                onFocus={(event) => {
+                                    if (disabled) {
+                                        event.currentTarget.select();
+                                    }
+                                }}
+                                readOnly={disabled}
                                 placeholder="Enter model number"
-                                className="pr-11"
+                                className={cn(
+                                    'pr-11',
+                                    disabled &&
+                                        'bg-muted/40 text-muted-foreground',
+                                )}
                             />
                             {!disabled && (
                                 <Button
@@ -508,10 +525,36 @@ export default function ModelNumberInput({
                         <Command>
                             <CommandInput placeholder="Search format..." />
                             <CommandList>
-                                <CommandEmpty>
+                                <CommandEmpty className="p-2">
                                     No formats available for this model.
                                 </CommandEmpty>
                                 <CommandGroup heading="Available formats">
+                                    <CommandItem
+                                        value="default-format-auto"
+                                        onSelect={() => {
+                                            void handleSuggest(null);
+                                            setOpenFormatSelector(false);
+                                        }}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">
+                                                Default format (Auto)
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                Use default/shared sequence and
+                                                fill next number.
+                                            </span>
+                                        </div>
+                                        <Check
+                                            className={cn(
+                                                'ml-auto h-4 w-4',
+                                                selectedFormat?.is_default
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0',
+                                            )}
+                                        />
+                                    </CommandItem>
+
                                     <CommandItem
                                         value="no-format-selected"
                                         onSelect={() => {
@@ -641,6 +684,11 @@ export default function ModelNumberInput({
                                             <div>
                                                 <p className="text-sm font-semibold">
                                                     {toFormatString(format)}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {format.is_default
+                                                        ? 'Default format'
+                                                        : 'Custom format'}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
                                                     Preview:{' '}
