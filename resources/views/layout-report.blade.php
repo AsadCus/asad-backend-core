@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4;
-            margin: 1.5cm 1.8cm;
+            margin: 0.2cm 0.4cm;
         }
 
         * {
@@ -16,8 +16,8 @@
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 10px;
-            line-height: 1.45;
+            font-size: 13px;
+            line-height: 1.5;
             color: #1a1a1a;
             margin: 0;
             padding: 0;
@@ -27,7 +27,7 @@
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 14px;
+            margin-bottom: 5px;
         }
 
         .logo-cell {
@@ -44,13 +44,13 @@
         .logo-cell img {
             display: block;
             width: auto;
-            height: 52px;
+            height: 84px;
             max-width: 180px;
             margin: 0;
         }
 
         .company-name {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: bold;
             color: #222;
             margin-bottom: 2px;
@@ -58,58 +58,48 @@
         }
 
         .company-details {
-            font-size: 9px;
+            font-size: 12px;
             color: #444;
-            line-height: 1.5;
+            line-height: 1.45;
         }
 
         .company-reg {
-            font-size: 9px;
+            font-size: 12px;
             font-weight: bold;
             margin-top: 3px;
         }
 
         /* ── Title Bar ── */
         .title-bar {
-            background-color: {{ $branding['title_color'] ?? '#40A09D' }};
+            background-color: {{ $branding['title_color'] ?? '#c05427' }};
             color: #fff;
             text-align: center;
             font-weight: bold;
-            font-size: 13px;
-            padding: 5px 0;
-            letter-spacing: 4px;
-            margin-bottom: 12px;
+            font-size: 16px;
+            padding: 4px 6px;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
         }
 
         /* ── Footer ── */
         .footer-section {
-            font-size: 9px;
-            padding-top: 8px;
+            font-size: 12px;
+            padding-top: 6px;
             border-top: 1px solid #d0d0d0;
         }
 
         .footer-note {
             text-align: center;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             line-height: 1.5;
             color: #333;
-        }
-
-        .stamp-sig-row {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-        }
-
-        .stamp-sig-row td {
-            vertical-align: bottom;
         }
 
         .updated-date {
             text-align: right;
             font-weight: bold;
-            font-size: 9px;
-            margin-top: 12px;
+            font-size: 11px;
+            margin-top: 8px;
             color: #333;
         }
 
@@ -119,13 +109,18 @@
             }
 
             body {
-                font-size: 11px;
+                font-size: 13px;
                 line-height: 1.55;
-                padding: 1.5cm 1.8cm;
+                padding: 0.2cm 0.4cm;
                 background: #ffffff;
                 max-width: 794px;
                 min-height: 27.7cm;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+            }
+
+            body.is-landscape {
+                max-width: 1122px;
+                min-height: 21cm;
             }
 
             /* Prevent browsers from styling links */
@@ -136,33 +131,33 @@
 
             /* Scale up text that was sized for 96dpi DomPDF */
             .company-name {
-                font-size: 13px;
+                font-size: 15px;
             }
 
             .company-details {
-                font-size: 10px;
+                font-size: 12px;
             }
 
             .company-reg {
-                font-size: 10px;
+                font-size: 12px;
             }
 
             .title-bar {
-                font-size: 14px;
-                padding: 7px 0;
-                letter-spacing: 5px;
+                font-size: 16px;
+                padding: 5px 8px;
+                letter-spacing: 1px;
             }
 
             .footer-section {
-                font-size: 10px;
+                font-size: 12px;
             }
 
             .footer-note {
-                font-size: 10px;
+                font-size: 12px;
             }
 
             .updated-date {
-                font-size: 10px;
+                font-size: 11px;
             }
         }
     </style>
@@ -170,7 +165,7 @@
     @stack('styles')
 </head>
 
-<body>
+<body class="@yield('body-class')">
 
     {{-- ── HEADER ── --}}
     <table class="header-table">
@@ -189,9 +184,9 @@
                 @endif
             </td>
             <td class="info-cell">
-                <span class="company-name">{{ $branding['company_name'] ?? 'Urban Care Employment Agency' }}</span>
+                <span class="company-name">{{ $branding['company_name'] ?? 'Karva Travel & Tours' }}</span>
                 <div class="company-details">
-                    {!! nl2br(e($branding['company_address'] ?? "931 Yishun Central 1\n#01-109, Singapore 760931")) !!}
+                    {!! nl2br(e($branding['company_address'] ?? "390 Victoria Street\nGolden Landmark Shopping Centre\n#03-28 Singapore 188061")) !!}
                     @if (!empty($branding['company_phone']))
                         <br>Tel: {{ $branding['company_phone'] }}
                     @endif

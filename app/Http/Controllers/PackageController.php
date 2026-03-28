@@ -140,16 +140,16 @@ class PackageController extends Controller
             set_time_limit(60);
 
             $package = $this->packageService->getForEditShow($id);
-            $branding = $this->reportTemplateService->getBranding();
+            $reportData = $this->reportTemplateService->build('package', $package);
 
             $html = view('packages.report-content', [
                 'data' => $package,
-                'branding' => $branding,
+                'branding' => $reportData['branding'],
                 'is_pdf' => true,
             ])->render();
 
             $pdf = Pdf::loadHTML($html)
-                ->setPaper('a4')
+                ->setPaper('a4', 'portrait')
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96);

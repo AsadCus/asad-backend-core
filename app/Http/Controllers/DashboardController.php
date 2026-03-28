@@ -12,6 +12,7 @@ use App\Services\FinancialTransactionService;
 use App\Services\FinancialYearService;
 use App\Services\OrderService;
 use App\Services\ReligionService;
+use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -39,6 +40,8 @@ class DashboardController extends Controller
 
     protected $enquiryService;
 
+    protected $reportTemplateService;
+
     public function __construct(
         CustomerService $customerService,
         CountryService $countryService,
@@ -50,6 +53,7 @@ class DashboardController extends Controller
         FormatService $formatService,
         OrderService $orderService,
         EnquiryService $enquiryService,
+        ReportTemplateService $reportTemplateService,
     ) {
         $this->customerService = $customerService;
         $this->countryService = $countryService;
@@ -61,6 +65,7 @@ class DashboardController extends Controller
         $this->formatService = $formatService;
         $this->orderService = $orderService;
         $this->enquiryService = $enquiryService;
+        $this->reportTemplateService = $reportTemplateService;
     }
 
     public function index(Request $request)
@@ -71,8 +76,15 @@ class DashboardController extends Controller
         $selectedYearId = $request->input('financial_year_id');
         $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
 
+        if (! $selectedYear) {
+            $selectedYear = FinancialYear::where('is_active', true)
+                ->orderBy('start_date', 'desc')
+                ->first();
+        }
+
         if ($user->hasRole('admin')) {
             $availableYears = $this->financialYearService->getAvailableYears();
+            $data['availableYears'] = $availableYears;
 
             if ($selectedYear) {
                 $data['fiscalYear'] = $selectedYear->year;
@@ -82,8 +94,6 @@ class DashboardController extends Controller
                 $data['chartData'] = [
                     'financial' => $this->financialTransactionService->getChartData($selectedYear->id),
                 ];
-
-                $data['availableYears'] = $availableYears;
             }
 
             $data['customers'] = $this->customerService->getForDataTable($request);
@@ -264,11 +274,15 @@ class DashboardController extends Controller
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
         );
 
-        $pdf = Pdf::loadView('reports.dashboard-payment-summary', [
-            'summary' => $summary,
-        ])->setPaper('a4', 'portrait');
+        // Build report with branding using Report Template Service
+        $report = $this->reportTemplateService->build('payment_summary', $summary);
 
-        $filename = 'dashboard-payment-'.$summary['period'].'-'.now()->format('Ymd_His').'.pdf';
+        $pdf = Pdf::loadView('reports.dashboard-payment-summary', $report)
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true);
+
+        $filename = 'payment-summary-'.$summary['period'].'-'.now()->format('Ymd_His').'.pdf';
 
         return $pdf->download($filename);
     }

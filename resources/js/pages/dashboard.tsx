@@ -183,7 +183,7 @@ export default function Dashboard({ data }: DashboardProps) {
         useState<FiscalYearTotalSalesType | null>(null);
     const [paymentSummaryPeriod, setPaymentSummaryPeriod] = useState<
         'daily' | 'monthly' | 'yearly'
-    >('daily');
+    >('yearly');
     const [paymentSummaryData, setPaymentSummaryData] =
         useState<PaymentSummaryType | null>(null);
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =

@@ -197,4 +197,39 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('receipt_count', 1);
         $response->assertJsonPath('total_amount', 100);
     }
+
+    public function test_dashboard_payment_summary_report_blade_renders_summary_payload_without_groups(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $html = view('reports.dashboard-payment-summary', [
+            'branding' => [
+                'title_color' => '#c05427',
+            ],
+            'body' => [
+                'period' => 'yearly',
+                'period_label' => 'Yearly',
+                'date_range_label' => '2026 Range',
+                'categories' => [
+                    [
+                        'category' => 'Umrah Packages',
+                        'amount' => 1200,
+                        'receipt_count' => 2,
+                    ],
+                    [
+                        'category' => 'Others',
+                        'amount' => 300,
+                        'receipt_count' => 1,
+                    ],
+                ],
+                'buckets' => [],
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('PAYMENT SUMMARY REPORT', $html);
+        $this->assertStringContainsString('DAILY', $html);
+        $this->assertStringContainsString('Umrah Packages', $html);
+        $this->assertStringContainsString('$1,200.00', $html);
+        $this->assertStringContainsString('2 receipt rows', $html);
+    }
 }
