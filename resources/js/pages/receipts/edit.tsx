@@ -12,6 +12,7 @@ interface EditReceiptProps {
         data: ReceiptSchema;
         invoiceOptions: OptionType[];
         invoiceData?: InvoiceSchema;
+        paymentMethods: OptionType[];
     };
 }
 
@@ -37,6 +38,7 @@ export default function EditReceipt({ data }: EditReceiptProps) {
                         initialData={data.data}
                         invoiceData={data.invoiceData}
                         invoiceOptions={data.invoiceOptions}
+                        paymentMethods={data.paymentMethods}
                         onCancel={handleCancel}
                     />
                 </div>

@@ -1,3 +1,4 @@
+import { CreatableCombobox, type CreatableComboboxOption } from '@/components/creatable-combobox';
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
@@ -18,9 +19,8 @@ import {
 } from '@/routes/receipt';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { InvoiceSchema } from '../invoices/schema';
-import { paymentMethods } from '../quotations/schema';
 import { ReceiptSchema } from './schema';
 
 interface ReceiptFormProps {
@@ -29,6 +29,7 @@ interface ReceiptFormProps {
     invoiceId?: number | undefined;
     invoiceData?: InvoiceSchema;
     invoiceOptions: OptionType[];
+    paymentMethods?: OptionType[];
     defaultPaymentMethod?: string;
     onCancel?: () => void;
 }
@@ -39,6 +40,7 @@ export default function ReceiptForm({
     invoiceId,
     invoiceData,
     invoiceOptions,
+    paymentMethods = [],
     defaultPaymentMethod,
     onCancel,
 }: ReceiptFormProps) {
@@ -47,13 +49,34 @@ export default function ReceiptForm({
     const [selectedInvoice, setSelectedInvoice] =
         useState<InvoiceSchema | null>(invoiceData ?? null);
 
+    const [paymentMethodOptions, setPaymentMethodOptions] = useState<
+        CreatableComboboxOption[]
+    >(
+        paymentMethods.map((option) => ({
+            value: String(option.value),
+            label: String(option.label),
+        })),
+    );
+
+    useEffect(() => {
+        setPaymentMethodOptions(
+            paymentMethods.map((option) => ({
+                value: String(option.value),
+                label: String(option.label),
+            })),
+        );
+    }, [paymentMethods]);
+
+    const resolvedDefaultPaymentMethod =
+        defaultPaymentMethod ?? paymentMethodOptions[0]?.value ?? '';
+
     const initialFormState: ReceiptSchema = {
         receipt_number: '',
         number_format_id: null,
         invoice_id: invoiceId ? Number(invoiceId) : undefined,
         amount: selectedInvoice?.amount,
         receipt_date: formatDateForDisplay(new Date()),
-        payment_method: defaultPaymentMethod ?? 'transfer',
+        payment_method: resolvedDefaultPaymentMethod,
         reference: '',
         description: '',
     };
@@ -180,24 +203,30 @@ export default function ReceiptForm({
                         }}
                         error={errors.payment_method}
                     >
-                        <Select
-                            value={data.payment_method ?? 'transfer'}
-                            onValueChange={(v) => setData('payment_method', v)}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {paymentMethods.map((m) => (
-                                    <SelectItem
-                                        key={m.value}
-                                        value={String(m.value)}
-                                    >
-                                        {m.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <CreatableCombobox
+                            options={paymentMethodOptions}
+                            triggerId="payment_method"
+                            value={String(data.payment_method ?? '')}
+                            placeholder="Select payment method"
+                            searchPlaceholder="Search payment method"
+                            onChange={(nextValue) =>
+                                setData('payment_method', nextValue)
+                            }
+                            onCreateOption={(option) => {
+                                setPaymentMethodOptions((prev) => {
+                                    if (
+                                        prev.some(
+                                            (existing) =>
+                                                existing.value === option.value,
+                                        )
+                                    ) {
+                                        return prev;
+                                    }
+
+                                    return [...prev, option];
+                                });
+                            }}
+                        />
                     </FormField>
 
                     {/* Reference */}

@@ -188,6 +188,8 @@ export function QuotationForm({
     }));
 
     const today = formatDateForDisplay(new Date());
+    const resolvedDefaultPaymentMethod =
+        defaultPaymentMethod ?? String(paymentMethods[0]?.value ?? '');
 
     const initialFormState: QuotationSchema = {
         id: undefined,
@@ -204,7 +206,7 @@ export function QuotationForm({
         customer_email: null,
         description: '',
         payment_plan: 'full',
-        payment_method: defaultPaymentMethod || 'transfer',
+        payment_method: resolvedDefaultPaymentMethod,
         status: 'draft',
         reason: '',
         items: [],

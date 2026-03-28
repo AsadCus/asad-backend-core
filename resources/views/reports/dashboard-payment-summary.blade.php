@@ -87,7 +87,6 @@
         /* ── Category merged cell ────────────────────────────── */
         .td-category {
             vertical-align: middle !important;
-            font-weight: 600;
             background: #fafbfc;
         }
 
@@ -207,30 +206,103 @@
 
         $report = is_array($body ?? null) ? $body : [];
 
-        if (! isset($report['mode']) && isset($report['period'])) {
+        if (!isset($report['mode']) && isset($report['period'])) {
             $report['mode'] = (string) $report['period'];
         }
 
-        if (! isset($report['period_label'])) {
-            $report['period_label'] = (string) ($report['date_range_label'] ?? ucfirst((string) ($report['period'] ?? 'daily')));
+        if (!isset($report['period_label'])) {
+            $report['period_label'] =
+                (string) ($report['date_range_label'] ?? ucfirst((string) ($report['period'] ?? 'daily')));
         }
 
-        if (! isset($report['generated_at'])) {
+        if (!isset($report['generated_at'])) {
             $report['generated_at'] = now()->translatedFormat('d M Y, H:i');
         }
 
-        if (! isset($report['generated_by'])) {
+        if (!isset($report['generated_by'])) {
             $report['generated_by'] = auth()->user()?->name ?? 'System';
         }
 
-        if (empty($report['groups']) && is_array($report['categories'] ?? null)) {
+        if (empty($report['groups']) && is_array($report['rows'] ?? null) && count($report['rows']) > 0) {
+            $rows = collect($report['rows']);
+
+            if (($report['mode'] ?? 'daily') === 'daily') {
+                $report['groups'] = $rows
+                    ->groupBy(fn(array $row) => (string) ($row['date'] ?? '-'))
+                    ->map(function (Collection $groupRows, string $dateLabel) {
+                        return [
+                            'label' => $dateLabel,
+                            'day_name' => null,
+                            'rows' => $groupRows->values()->all(),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            } elseif (($report['mode'] ?? 'daily') === 'monthly') {
+                $report['groups'] = $rows
+                    ->groupBy(function (array $row): string {
+                        $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
+                        return $parsed->translatedFormat('F Y');
+                    })
+                    ->map(function (Collection $monthRows, string $monthLabel) {
+                        $subPeriods = $monthRows
+                            ->groupBy(function (array $row): string {
+                                $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
+                                $weekNumber = (int) ceil(((int) $parsed->format('j')) / 7);
+                                return 'Week '.$weekNumber;
+                            })
+                            ->map(fn (Collection $weekRows, string $weekLabel) => [
+                                'label' => $weekLabel,
+                                'rows' => $weekRows->values()->all(),
+                            ])
+                            ->values()
+                            ->all();
+
+                        return [
+                            'label' => $monthLabel,
+                            'sub_periods' => $subPeriods,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            } else {
+                $report['groups'] = $rows
+                    ->groupBy(function (array $row): string {
+                        $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
+                        return $parsed->format('Y');
+                    })
+                    ->map(function (Collection $yearRows, string $yearLabel) {
+                        $subPeriods = $yearRows
+                            ->groupBy(function (array $row): string {
+                                $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
+                                return $parsed->translatedFormat('F');
+                            })
+                            ->map(fn (Collection $monthRows, string $monthLabel) => [
+                                'label' => $monthLabel,
+                                'rows' => $monthRows->values()->all(),
+                            ])
+                            ->values()
+                            ->all();
+
+                        return [
+                            'label' => $yearLabel,
+                            'sub_periods' => $subPeriods,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            }
+        } elseif (empty($report['groups']) && is_array($report['categories'] ?? null)) {
             $normalizeCategory = function (string $label): string {
                 $normalizedLabel = strtolower(trim($label));
 
                 return match ($normalizedLabel) {
                     'umrah packages' => 'umrah_packages',
                     'leisure package' => 'leisure_package',
-                    'friday blessings / badal', 'friday blessings/badal', 'friday blessings badal' => 'friday_blessings_badal',
+                    'friday blessings / badal',
+                    'friday blessings/badal',
+                    'friday blessings badal'
+                        => 'friday_blessings_badal',
                     'wakaf jemaah' => 'wakaf_jemaah',
                     default => 'others',
                 };
@@ -238,28 +310,31 @@
 
             $report['groups'] = [
                 [
-                    'label' => (string) ($report['date_range_label'] ?? $report['period_label'] ?? '-'),
+                    'label' => (string) ($report['date_range_label'] ?? ($report['period_label'] ?? '-')),
                     'day_name' => null,
-                    'rows' => collect($report['categories'])->map(function (array $categoryRow) use ($normalizeCategory) {
-                        $amount = (float) ($categoryRow['amount'] ?? 0);
-                        $categoryName = (string) ($categoryRow['category'] ?? 'Others');
-                        $receiptCount = (int) ($categoryRow['receipt_count'] ?? 0);
+                    'rows' => collect($report['categories'])
+                        ->map(function (array $categoryRow) use ($normalizeCategory) {
+                            $amount = (float) ($categoryRow['amount'] ?? 0);
+                            $categoryName = (string) ($categoryRow['category'] ?? 'Others');
+                            $receiptCount = (int) ($categoryRow['receipt_count'] ?? 0);
 
-                        return [
-                            'category' => $normalizeCategory($categoryName),
-                            'package_item' => $categoryName,
-                            'ref_no' => '-',
-                            'amount' => $amount,
-                            'cash' => 0.0,
-                            'nets' => 0.0,
-                            'visa' => 0.0,
-                            'master' => 0.0,
-                            'paynow' => $amount,
-                            'total_sale' => $amount,
-                            'maker' => '-',
-                            'remarks' => $receiptCount.' receipt rows',
-                        ];
-                    })->values()->all(),
+                            return [
+                                'category' => $normalizeCategory($categoryName),
+                                'package_item' => $categoryName,
+                                'ref_no' => '-',
+                                'amount' => $amount,
+                                'cash' => 0.0,
+                                'nets' => 0.0,
+                                'visa' => 0.0,
+                                'master' => 0.0,
+                                'paynow' => $amount,
+                                'total_sale' => $amount,
+                                'maker' => '-',
+                                'remarks' => $receiptCount . ' receipt rows',
+                            ];
+                        })
+                        ->values()
+                        ->all(),
                 ],
             ];
 
@@ -289,13 +364,26 @@
         ];
 
         /* ── Categories ─────────────────────────────────────────── */
-        $categories = [
-            'umrah_packages' => 'Umrah Packages',
-            'leisure_package' => 'Leisure Package',
-            'friday_blessings_badal' => 'Friday Blessings / Badal',
-            'wakaf_jemaah' => 'Wakaf Jemaah',
-            'others' => 'Others',
-        ];
+        $categoriesFromRows = collect($report['rows'] ?? [])->mapWithKeys(function (array $row) {
+            $category = trim((string) ($row['category'] ?? 'Others'));
+            $key = \Illuminate\Support\Str::of($category)->lower()->slug('_')->value();
+
+            if ($key === '') {
+                return ['others' => 'Others'];
+            }
+
+            return [$key => $category];
+        })->all();
+
+        $categories = $categoriesFromRows !== []
+            ? $categoriesFromRows
+            : [
+                'umrah_packages' => 'Umrah Packages',
+                'leisure_package' => 'Leisure Package',
+                'friday_blessings_badal' => 'Friday Blessings / Badal',
+                'wakaf_jemaah' => 'Wakaf Jemaah',
+                'others' => 'Others',
+            ];
 
         $fields = ['amount', 'cash', 'nets', 'visa', 'master', 'paynow', 'total_sale'];
         $zero = array_fill_keys($fields, 0.0);
@@ -325,7 +413,12 @@
         $buildCatBlocks = function (array $rows) use ($categories, $fields, $zero): array {
             $blocks = [];
             foreach ($categories as $catKey => $catLabel) {
-                $catRows = array_values(array_filter($rows, fn($r) => ($r['category'] ?? '') === $catKey));
+                $catRows = array_values(array_filter($rows, function ($r) use ($catKey): bool {
+                    $rowCategory = trim((string) ($r['category'] ?? ''));
+                    $normalizedRowKey = \Illuminate\Support\Str::of($rowCategory)->lower()->slug('_')->value();
+
+                    return $normalizedRowKey === (string) $catKey;
+                }));
                 $catTot = $zero;
                 foreach ($catRows as $r) {
                     foreach ($fields as $f) {
@@ -372,7 +465,7 @@
 
             $labels = [];
             for ($week = 1; $week <= $maxWeekNumber; $week++) {
-                $labels[] = 'Week '.$week;
+                $labels[] = 'Week ' . $week;
             }
 
             return !empty($labels) ? $labels : $monthlySubLabels;
@@ -402,9 +495,8 @@
             // ── MONTHLY / YEARLY: two-level grouping ──────────────
             foreach ($groups as $group) {
                 // Ensure every Week (monthly) or Month (yearly) is present
-                $requiredLabels = $mode === 'yearly'
-                    ? $yearlySubLabels
-                    : $buildMonthlyRequiredLabels($group['sub_periods'] ?? []);
+                $requiredLabels =
+                    $mode === 'yearly' ? $yearlySubLabels : $buildMonthlyRequiredLabels($group['sub_periods'] ?? []);
                 $subPeriods = $padSubPeriods($group['sub_periods'] ?? [], $requiredLabels);
 
                 $l1Total = $zero;
@@ -461,10 +553,8 @@
     {{-- ── Report Header ─────────────────────────────────────── --}}
     <table class="summary-grid">
         <tr>
-            <th style="width:8%;">Report Mode</th>
-            <td style="width:10%;">{{ strtoupper($mode) }}</td>
-            <th style="width:6%;">Period</th>
-            <td style="width:24%;">{{ $report['period_label'] ?? '-' }}</td>
+            <th style="width:10%;">Period</th>
+            <td style="width:24%;">{{ $report['period_label'] ?? ucfirst($mode) }}</td>
             <th style="width:8%;">Generated</th>
             <td style="width:22%;">{{ $report['generated_at'] ?? now()->format('d M Y, H:i') }}</td>
             <th style="width:4%;">By</th>

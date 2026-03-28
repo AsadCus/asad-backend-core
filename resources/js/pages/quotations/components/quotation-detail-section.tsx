@@ -1,5 +1,7 @@
+import { CreatableCombobox, type CreatableComboboxOption } from '@/components/creatable-combobox';
 import { FormField } from '@/components/form-field';
 import { FormSection } from '@/components/form-section';
+import TotalsSummaryCard, { type TotalsSummaryRow } from '@/components/totals-summary-card';
 import { Button } from '@/components/ui/button';
 import {
     ContextMenu,
@@ -23,7 +25,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils';
 import NoteForm from '@/pages/notes/form';
 import { NoteSchema } from '@/pages/notes/schema';
 import { OptionType } from '@/types';
@@ -77,6 +78,22 @@ export default function QuotationDetailSection({
     extensionMasters: rawExtensionMasters = [],
     status,
 }: Props) {
+    const [paymentMethodOptions, setPaymentMethodOptions] = React.useState<
+        CreatableComboboxOption[]
+    >((paymentMethods ?? []).map((option) => ({
+        value: String(option.value),
+        label: String(option.label),
+    })));
+
+    React.useEffect(() => {
+        setPaymentMethodOptions(
+            (paymentMethods ?? []).map((option) => ({
+                value: String(option.value),
+                label: String(option.label),
+            })),
+        );
+    }, [paymentMethods]);
+
     const sharingPlanCosts = [
         {
             key: 'single',
@@ -511,6 +528,66 @@ export default function QuotationDetailSection({
         return `${name} ${Number(calculationValue ?? 0)}%`;
     };
 
+    const totalsRows = React.useMemo<TotalsSummaryRow[]>(() => {
+        const rows: TotalsSummaryRow[] = [];
+
+        nonDiscountOtherExtensions.forEach((extension, index) => {
+            rows.push({
+                key: extension._key ?? `ext-other-${index}`,
+                label: formatExtensionLabel(
+                    String(extension.name ?? 'Extension'),
+                    String(extension.calculation_mode ?? 'fixed'),
+                    Number(extension.calculation_value ?? 0),
+                ),
+                amount: Number(extension.amount ?? 0),
+            });
+        });
+
+        if (discountExtension) {
+            rows.push({
+                key: discountExtension._key ?? 'discount',
+                label: formatExtensionLabel(
+                    String(discountExtension.name),
+                    String(discountExtension.calculation_mode ?? 'fixed'),
+                    Number(discountExtension.calculation_value ?? 0),
+                ),
+                amount: discountAmount,
+            });
+        }
+
+        itemTaxSummaries.forEach((tax, index) => {
+            rows.push({
+                key: `item-tax-${index}`,
+                label: formatExtensionLabel(
+                    String(tax.name ?? 'Tax'),
+                    tax.calculation_mode,
+                    Number(tax.calculation_value ?? 0),
+                ),
+                amount: Number(tax.amount ?? 0),
+            });
+        });
+
+        nonDiscountTaxExtensions.forEach((tax, index) => {
+            rows.push({
+                key: tax._key ?? `ext-tax-${index}`,
+                label: formatExtensionLabel(
+                    String(tax.name ?? 'Tax'),
+                    String(tax.calculation_mode ?? 'fixed'),
+                    Number(tax.calculation_value ?? 0),
+                ),
+                amount: Number(tax.amount ?? 0),
+            });
+        });
+
+        return rows;
+    }, [
+        discountAmount,
+        discountExtension,
+        itemTaxSummaries,
+        nonDiscountOtherExtensions,
+        nonDiscountTaxExtensions,
+    ]);
+
     return (
         <FormSection
             value="quotation_details"
@@ -586,27 +663,33 @@ export default function QuotationDetailSection({
                                 hint: 'Select payment method',
                             }}
                         >
-                            <Select
+                            <CreatableCombobox
+                                options={paymentMethodOptions}
                                 disabled={isView}
+                                triggerId="payment_method"
                                 value={String(data.payment_method ?? '')}
-                                onValueChange={(value) =>
+                                placeholder="Select method"
+                                searchPlaceholder="Search payment method"
+                                onChange={(value) =>
                                     setData('payment_method', value)
                                 }
-                            >
-                                <SelectTrigger id="payment_method">
-                                    <SelectValue placeholder="Select method" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {paymentMethods.map((m) => (
-                                        <SelectItem
-                                            key={m.value}
-                                            value={String(m.value)}
-                                        >
-                                            {m.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                onCreateOption={(option) => {
+                                    setPaymentMethodOptions((prev) => {
+                                        if (
+                                            prev.some(
+                                                (existing) =>
+                                                    existing.value ===
+                                                    option.value,
+                                            )
+                                        ) {
+                                            return prev;
+                                        }
+
+                                        return [...prev, option];
+                                    });
+                                }}
+                                className="w-full"
+                            />
                             {renderError('payment_method')}
                         </FormField>
 
@@ -667,224 +750,92 @@ export default function QuotationDetailSection({
                         taxExtensionMasters={availableTaxExtensionMasters}
                     />
 
-                    <div className="ml-auto w-full rounded-md border p-4 md:w-1/3">
-                        <table className="w-full table-fixed text-base">
-                            <tbody className="[&>tr>td]:py-1.5">
-                                <tr>
-                                    <td className="w-2/3 text-right font-semibold">
-                                        Sub Total
-                                    </td>
-                                    <td className="w-1/3 text-right font-medium">
-                                        {formatCurrency(subtotalAmount)}
-                                    </td>
-                                </tr>
+                    <div className="space-y-3">
+                        <TotalsSummaryCard
+                            subtotalAmount={subtotalAmount}
+                            rows={totalsRows}
+                            grandTotalAmount={totalAmount}
+                        />
 
-                                {nonDiscountOtherExtensions.map(
-                                    (extension, index) => (
-                                        <tr
-                                            key={
-                                                extension._key ??
-                                                `ext-other-${index}`
-                                            }
+                        {discountExtension ? (
+                            <div className="ml-auto w-full text-right md:w-1/3">
+                                <ContextMenu>
+                                    <ContextMenuTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="cursor-pointer font-medium underline"
+                                            onClick={() => {
+                                                if (!isView) {
+                                                    openDiscountDialog();
+                                                }
+                                            }}
                                         >
-                                            <td className="text-right">
-                                                {formatExtensionLabel(
-                                                    String(
-                                                        extension.name ??
-                                                            'Extension',
-                                                    ),
-                                                    String(
-                                                        extension.calculation_mode ??
-                                                            'fixed',
-                                                    ),
-                                                    Number(
-                                                        extension.calculation_value ??
-                                                            0,
-                                                    ),
-                                                )}
-                                            </td>
-                                            <td className="text-right">
-                                                {formatCurrency(
-                                                    Number(
-                                                        extension.amount ?? 0,
-                                                    ),
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ),
-                                )}
-
-                                {discountExtension ? (
-                                    <tr>
-                                        <td className="text-right">
-                                            <ContextMenu>
-                                                <ContextMenuTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="cursor-pointer font-medium underline"
-                                                        onClick={() => {
-                                                            if (!isView) {
-                                                                openDiscountDialog();
-                                                            }
-                                                        }}
-                                                    >
-                                                        {formatExtensionLabel(
-                                                            String(
-                                                                discountExtension.name,
-                                                            ),
-                                                            String(
-                                                                discountExtension.calculation_mode ??
-                                                                    'fixed',
-                                                            ),
-                                                            Number(
-                                                                discountExtension.calculation_value ??
-                                                                    0,
-                                                            ),
-                                                        )}
-                                                    </button>
-                                                </ContextMenuTrigger>
-                                                {!isView && (
-                                                    <ContextMenuContent>
-                                                        <ContextMenuItem
-                                                            onClick={
-                                                                openDiscountDialog
-                                                            }
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                            Edit
-                                                        </ContextMenuItem>
-                                                        <ContextMenuItem
-                                                            variant="destructive"
-                                                            onClick={
-                                                                removeDiscountExtension
-                                                            }
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                            Remove
-                                                        </ContextMenuItem>
-                                                    </ContextMenuContent>
-                                                )}
-                                            </ContextMenu>
-                                        </td>
-                                        <td className="text-right">
-                                            {formatCurrency(discountAmount)}
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    !isView && (
-                                        <tr>
-                                            <td className="text-right">
-                                                <ExtensionMasterCombobox
-                                                    value={null}
-                                                    triggerMode="button"
-                                                    triggerButtonLabel="Add Discount"
-                                                    open={
-                                                        isAddDiscountPickerOpen
-                                                    }
-                                                    onOpenChange={
-                                                        setIsAddDiscountPickerOpen
-                                                    }
-                                                    extensionType="discount"
-                                                    options={availableDiscountExtensionMasters
-                                                        .filter(
-                                                            (option) =>
-                                                                Number(
-                                                                    option.id ??
-                                                                        0,
-                                                                ) > 0,
-                                                        )
-                                                        .map((option) => ({
-                                                            ...option,
-                                                            id: Number(
-                                                                option.id,
-                                                            ),
-                                                        }))}
-                                                    placeholder="Select discount"
-                                                    onSelect={(option) => {
-                                                        addDiscountFromMaster(
-                                                            option,
-                                                        );
-                                                    }}
-                                                    onOptionsChange={(
-                                                        nextOptions,
-                                                    ) => {
-                                                        setAvailableDiscountExtensionMasters(
-                                                            nextOptions.map(
-                                                                (option) => ({
-                                                                    id: Number(
-                                                                        option.id,
-                                                                    ),
-                                                                    name: option.name,
-                                                                    type: 'discount',
-                                                                    calculation_mode:
-                                                                        option.calculation_mode ??
-                                                                        null,
-                                                                    calculation_value:
-                                                                        option.calculation_value ??
-                                                                        null,
-                                                                    is_active: true,
-                                                                }),
-                                                            ),
-                                                        );
-                                                    }}
-                                                    className="cursor-pointer p-0 font-medium underline"
-                                                />
-                                            </td>
-                                            <td></td>
-                                        </tr>
-                                    )
-                                )}
-
-                                {itemTaxSummaries.map((tax, index) => (
-                                    <tr key={`item-tax-${index}`}>
-                                        <td className="text-right">
-                                            {formatExtensionLabel(
-                                                String(tax.name ?? 'Tax'),
-                                                tax.calculation_mode,
-                                                Number(
-                                                    tax.calculation_value ?? 0,
-                                                ),
-                                            )}
-                                        </td>
-                                        <td className="text-right">
-                                            {formatCurrency(tax.amount)}
-                                        </td>
-                                    </tr>
-                                ))}
-
-                                {nonDiscountTaxExtensions.map((tax, index) => (
-                                    <tr key={tax._key ?? `ext-tax-${index}`}>
-                                        <td className="text-right">
-                                            {formatExtensionLabel(
-                                                String(tax.name ?? 'Tax'),
-                                                String(
-                                                    tax.calculation_mode ??
-                                                        'fixed',
-                                                ),
-                                                Number(
-                                                    tax.calculation_value ?? 0,
-                                                ),
-                                            )}
-                                        </td>
-                                        <td className="text-right">
-                                            {formatCurrency(
-                                                Number(tax.amount ?? 0),
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot>
-                                <tr className="border-t">
-                                    <td className="pt-3 text-right font-semibold">
-                                        Grand Total
-                                    </td>
-                                    <td className="pt-3 text-right text-lg font-bold text-primary">
-                                        {formatCurrency(totalAmount)}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                                            Configure discount
+                                        </button>
+                                    </ContextMenuTrigger>
+                                    {!isView && (
+                                        <ContextMenuContent>
+                                            <ContextMenuItem
+                                                onClick={openDiscountDialog}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                                Edit
+                                            </ContextMenuItem>
+                                            <ContextMenuItem
+                                                variant="destructive"
+                                                onClick={removeDiscountExtension}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                Remove
+                                            </ContextMenuItem>
+                                        </ContextMenuContent>
+                                    )}
+                                </ContextMenu>
+                            </div>
+                        ) : (
+                            !isView && (
+                                <div className="ml-auto w-full text-right md:w-1/3">
+                                    <ExtensionMasterCombobox
+                                        value={null}
+                                        triggerMode="button"
+                                        triggerButtonLabel="Add Discount"
+                                        open={isAddDiscountPickerOpen}
+                                        onOpenChange={setIsAddDiscountPickerOpen}
+                                        extensionType="discount"
+                                        options={availableDiscountExtensionMasters
+                                            .filter(
+                                                (option) =>
+                                                    Number(option.id ?? 0) > 0,
+                                            )
+                                            .map((option) => ({
+                                                ...option,
+                                                id: Number(option.id),
+                                            }))}
+                                        placeholder="Select discount"
+                                        onSelect={(option) => {
+                                            addDiscountFromMaster(option);
+                                        }}
+                                        onOptionsChange={(nextOptions) => {
+                                            setAvailableDiscountExtensionMasters(
+                                                nextOptions.map((option) => ({
+                                                    id: Number(option.id),
+                                                    name: option.name,
+                                                    type: 'discount',
+                                                    calculation_mode:
+                                                        option.calculation_mode ??
+                                                        null,
+                                                    calculation_value:
+                                                        option.calculation_value ??
+                                                        null,
+                                                    is_active: true,
+                                                })),
+                                            );
+                                        }}
+                                        className="cursor-pointer p-0 font-medium underline"
+                                    />
+                                </div>
+                            )
+                        )}
 
                         {discountIndex >= 0 &&
                             renderError(`extensions.${discountIndex}.name`)}

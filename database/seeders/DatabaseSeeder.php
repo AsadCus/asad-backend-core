@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             BranchSeeder::class,
             MasterNotesSeeder::class,
             QuotationItemMasterSeeder::class,
+            PaymentMethodMasterSeeder::class,
 
             // Users and Roles
             RolePermissionSeeder::class,

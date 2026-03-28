@@ -6,7 +6,6 @@ import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import { QuotationForm } from './form';
 import {
-    paymentMethods,
     paymentPlans,
     QuotationSchema,
     statuses,
@@ -24,6 +23,7 @@ interface ViewQuotationProps {
             address?: string | null;
             email?: string | null;
         }>;
+        paymentMethods?: { label: string; value: string }[];
     };
 }
 
@@ -56,7 +56,7 @@ export default function ViewQuotation({ data }: ViewQuotationProps) {
                         mode="view"
                         initialData={data.data}
                         paymentPlans={paymentPlans}
-                        paymentMethods={paymentMethods}
+                        paymentMethods={data.paymentMethods ?? []}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
                         activeCustomers={data.activeCustomers ?? []}

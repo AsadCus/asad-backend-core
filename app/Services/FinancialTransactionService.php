@@ -416,7 +416,10 @@ class FinancialTransactionService
 
         $receipts = Receipt::query()
             ->with([
+                'invoice.quotationItems.taxes',
                 'invoice.quotationItems.parent.parent',
+                'invoice.order.quotation.quotationExtensions',
+                'invoice.order.quotation.customerConfirmation.package',
             ])
             ->where(function ($query) {
                 $query->whereNull('invoice_id')
@@ -430,6 +433,7 @@ class FinancialTransactionService
 
         $categoryTotals = [];
         $bucketTotals = [];
+        $reportRows = [];
         $totalAmount = 0.0;
 
         foreach ($receipts as $receipt) {
@@ -450,14 +454,27 @@ class FinancialTransactionService
             }
 
             $bucketTotals[$bucketKey]['amount'] += $receiptAmount;
+            $dateLabel = $this->formatPaymentBucketLabel($receiptDate, $resolvedPeriod);
 
             $invoice = $receipt->invoice;
             if (! $invoice) {
                 $this->addCategoryAmount($categoryTotals, 'Others', $receiptAmount);
 
+                $reportRows[] = [
+                    'date' => $dateLabel,
+                    'category' => 'Others',
+                    'package_item' => '-',
+                    'ref_no' => '',
+                    ...$this->buildPaymentMethodColumns((string) ($receipt->payment_method ?? ''), $receiptAmount),
+                    'total_sale' => round($receiptAmount, 2),
+                    'maker' => '',
+                    'remarks' => '',
+                ];
+
                 continue;
             }
 
+            $quotation = $invoice->order?->quotation;
             $items = $invoice->quotationItems
                 ->filter(fn (QuotationItem $item) => ! $item->is_header)
                 ->values();
@@ -465,30 +482,120 @@ class FinancialTransactionService
             if ($items->isEmpty()) {
                 $this->addCategoryAmount($categoryTotals, 'Others', $receiptAmount);
 
+                $reportRows[] = [
+                    'date' => $dateLabel,
+                    'category' => 'Others',
+                    'package_item' => '-',
+                    'ref_no' => '',
+                    ...$this->buildPaymentMethodColumns((string) ($receipt->payment_method ?? ''), $receiptAmount),
+                    'total_sale' => round($receiptAmount, 2),
+                    'maker' => '',
+                    'remarks' => '',
+                ];
+
                 continue;
             }
 
-            $itemAmounts = $items->map(function (QuotationItem $item) {
-                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            $packageName = $quotation?->customerConfirmation?->package?->name;
+            $extensionRows = collect($quotation?->quotationExtensions ?? []);
+
+            $itemsWithBase = $items->map(function (QuotationItem $item): array {
+                $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+
+                $itemTaxAmount = collect($item->taxes ?? [])->reduce(function (float $carry, $tax) use ($lineAmount): float {
+                    $mode = (string) ($tax->calculation_mode ?? '');
+                    $value = (float) ($tax->calculation_value ?? 0);
+
+                    if (! in_array($mode, ['fixed', 'percentage'], true) || $value <= 0) {
+                        return $carry;
+                    }
+
+                    return $carry + ($mode === 'percentage'
+                        ? ($lineAmount * $value) / 100
+                        : $value);
+                }, 0.0);
+
+                return [
+                    'item' => $item,
+                    'base' => $lineAmount,
+                    'base_with_tax' => $lineAmount + $itemTaxAmount,
+                ];
             })->values();
 
-            $amountBase = (float) $itemAmounts->sum();
-            $allocated = 0.0;
-            $lastIndex = max(0, $items->count() - 1);
+            $subtotalAmount = (float) $itemsWithBase->sum('base');
+            $subtotalWithTax = (float) $itemsWithBase->sum('base_with_tax');
 
-            foreach ($items as $index => $item) {
+            $discountExtension = $extensionRows
+                ->first(fn ($extension) => (string) ($extension->type ?? '') === 'discount');
+
+            $nonDiscountTotal = $extensionRows
+                ->filter(fn ($extension) => (string) ($extension->type ?? '') !== 'discount')
+                ->reduce(function (float $carry, $extension) use ($subtotalAmount): float {
+                    $mode = (string) ($extension->calculation_mode ?? 'fixed');
+                    $value = (float) ($extension->calculation_value ?? $extension->amount ?? 0);
+
+                    return $carry + ($mode === 'percentage'
+                        ? ($subtotalAmount * $value) / 100
+                        : $value);
+                }, 0.0);
+
+            $discountTotal = 0.0;
+            if ($discountExtension) {
+                $discountMode = (string) ($discountExtension->calculation_mode ?? 'fixed');
+                $discountValue = abs((float) ($discountExtension->calculation_value ?? $discountExtension->amount ?? 0));
+                $discountTotal = -abs($discountMode === 'percentage'
+                    ? ($subtotalAmount * $discountValue) / 100
+                    : $discountValue);
+            }
+
+            $itemsWithGross = $itemsWithBase->map(function (array $row) use ($subtotalAmount, $nonDiscountTotal, $discountTotal): array {
+                $ratio = $subtotalAmount > 0
+                    ? ((float) ($row['base'] ?? 0) / $subtotalAmount)
+                    : 0;
+
+                $gross = (float) ($row['base_with_tax'] ?? 0)
+                    + ($nonDiscountTotal * $ratio)
+                    + ($discountTotal * $ratio);
+
+                return [
+                    ...$row,
+                    'gross' => $gross,
+                ];
+            })->values();
+
+            $grossTotal = (float) $itemsWithGross->sum('gross');
+            $allocated = 0.0;
+            $lastIndex = max(0, $itemsWithGross->count() - 1);
+
+            foreach ($itemsWithGross as $index => $row) {
+                /** @var QuotationItem $item */
+                $item = $row['item'];
+
                 if ($index === $lastIndex) {
-                    $allocatedAmount = $receiptAmount - $allocated;
+                    $allocatedAmount = round($receiptAmount - $allocated, 2);
                 } else {
-                    $ratio = $amountBase > 0
-                        ? ((float) ($itemAmounts[$index] ?? 0) / $amountBase)
-                        : (1 / max(1, $items->count()));
+                    $ratio = $grossTotal > 0
+                        ? ((float) ($row['gross'] ?? 0) / $grossTotal)
+                        : (1 / max(1, $itemsWithGross->count()));
                     $allocatedAmount = round($receiptAmount * $ratio, 2);
                     $allocated += $allocatedAmount;
                 }
 
                 $category = $this->resolveItemCategoryLabel($item);
+                $packageItem = $this->resolvePackageItemLabel($item, $category, $packageName);
+
                 $this->addCategoryAmount($categoryTotals, $category, $allocatedAmount);
+
+                $reportRows[] = [
+                    'date' => $dateLabel,
+                    'category' => $category,
+                    'package_item' => $packageItem,
+                    'ref_no' => '',
+                    ...$this->buildPaymentMethodColumns((string) ($receipt->payment_method ?? ''), $allocatedAmount),
+                    'total_sale' => round($allocatedAmount, 2),
+                    'maker' => '',
+                    'remarks' => '',
+                ];
             }
         }
 
@@ -526,7 +633,32 @@ class FinancialTransactionService
             'receipt_count' => $receipts->count(),
             'categories' => $categories,
             'buckets' => $buckets,
+            'rows' => $reportRows,
         ];
+    }
+
+    private function buildPaymentMethodColumns(string $paymentMethod, float $amount): array
+    {
+        $normalized = strtolower(trim($paymentMethod));
+
+        if ($normalized === 'transfer') {
+            $normalized = 'nets';
+        }
+
+        $columns = [
+            'amount' => round($amount, 2),
+            'cash' => 0.0,
+            'nets' => 0.0,
+            'visa' => 0.0,
+            'master' => 0.0,
+            'paynow' => 0.0,
+        ];
+
+        if (array_key_exists($normalized, $columns)) {
+            $columns[$normalized] = round($amount, 2);
+        }
+
+        return $columns;
     }
 
     private function addCategoryAmount(array &$categoryTotals, string $category, float $amount): void
@@ -671,16 +803,26 @@ class FinancialTransactionService
         }
 
         $rootDescription = trim((string) $root->description);
-        $parentDescription = trim((string) $parent->description);
 
         if ($rootDescription === '') {
             return 'Others';
         }
 
-        if ($parent->id !== $root->id && $parentDescription !== '') {
-            return $rootDescription.' - '.$parentDescription;
+        return $rootDescription;
+    }
+
+    private function resolvePackageItemLabel(QuotationItem $item, string $category, ?string $packageName): string
+    {
+        $description = trim((string) ($item->description ?? ''));
+
+        if ($description === '') {
+            $description = '-';
         }
 
-        return $rootDescription;
+        if (strtolower(trim($category)) === 'umrah packages' && is_string($packageName) && trim($packageName) !== '') {
+            return trim($packageName).' - '.$description;
+        }
+
+        return $description;
     }
 }

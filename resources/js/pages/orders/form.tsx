@@ -1,6 +1,7 @@
 import { FormField } from '@/components/form-field';
 import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
+import TotalsSummaryCard, { type TotalsSummaryRow } from '@/components/totals-summary-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,7 +13,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils';
 import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
@@ -153,7 +153,19 @@ function formatExtensionLabel(
     return `${name} ${Number(calculationValue ?? 0)}%`;
 }
 
-function buildItemTaxSummaries(items: InvoiceSchema['items'] = []): Array<{
+type TaxLineItem = {
+    is_header?: boolean | null;
+    quantity?: number | string | null;
+    rate?: number | string | null;
+    taxes?: Array<{
+        quotation_extension_master_id?: number | null;
+        name?: string | null;
+        calculation_mode?: string | null;
+        calculation_value?: number | string | null;
+    }>;
+};
+
+function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
     name: string;
     calculation_mode: string;
     calculation_value: number;
@@ -898,20 +910,129 @@ export default function OrderForm({
             0,
     );
 
-    const quotationExtensions = quotation?.extensions ?? [];
+    const quotationExtensions = useMemo(
+        () => quotation?.extensions ?? [],
+        [quotation?.extensions],
+    );
+    const quotationItemTaxSummaries = useMemo(() => {
+        return buildItemTaxSummaries(quotation?.items ?? []);
+    }, [quotation?.items]);
+
+    const quotationItemTaxTotal = quotationItemTaxSummaries.reduce(
+        (sum, tax) => sum + Number(tax.amount ?? 0),
+        0,
+    );
+
+    const quotationExtensionsWithAmount = useMemo(() => {
+        return normalizeInvoiceExtensions(
+            quotationExtensions as InvoiceExtensionInput[],
+        ).map((extension) => ({
+            ...extension,
+            amount: computeInvoiceExtensionAmount(
+                extension,
+                quotationSubtotalAmount,
+            ),
+        }));
+    }, [quotationExtensions, quotationSubtotalAmount]);
+
+    const quotationNonDiscountExtensions = quotationExtensionsWithAmount.filter(
+        (extension) => String(extension.type ?? 'discount') !== 'discount',
+    );
+
+    const quotationNonDiscountTaxExtensions =
+        quotationNonDiscountExtensions.filter(
+            (extension) => String(extension.type ?? '') === 'tax',
+        );
+
+    const quotationNonDiscountOtherExtensions =
+        quotationNonDiscountExtensions.filter(
+            (extension) => String(extension.type ?? '') !== 'tax',
+        );
+
+    const quotationNonDiscountExtensionTotal =
+        quotationNonDiscountExtensions.reduce(
+            (sum, extension) => sum + Number(extension.amount ?? 0),
+            0,
+        );
+
+    const quotationDiscountExtension =
+        quotationExtensionsWithAmount.find(
+            (extension) => String(extension.type ?? 'discount') === 'discount',
+        ) ?? null;
+
+    const quotationDiscountAmount = Number(quotationDiscountExtension?.amount ?? 0);
+
     const quotationExtensionTotalAmount = Number(
         quotation?.extension_total_amount ??
-            quotationExtensions.reduce(
-                (sum, extension) => sum + Number(extension.amount ?? 0),
-                0,
-            ) ??
-            0,
+            quotationItemTaxTotal +
+                quotationNonDiscountExtensionTotal +
+                quotationDiscountAmount,
     );
 
     const quotationTotalAmount = Number(
         quotation?.total_amount ??
             quotationSubtotalAmount + quotationExtensionTotalAmount,
     );
+
+    const quotationTotalsRows = useMemo<TotalsSummaryRow[]>(() => {
+        const rows: TotalsSummaryRow[] = [];
+
+        quotationNonDiscountOtherExtensions.forEach((extension, index) => {
+            rows.push({
+                key: extension._key ?? `quotation-other-${index}`,
+                label: formatExtensionLabel(
+                    String(extension.name ?? 'Extension'),
+                    String(extension.calculation_mode ?? 'fixed'),
+                    Number(extension.calculation_value ?? 0),
+                ),
+                amount: Number(extension.amount ?? 0),
+            });
+        });
+
+        if (quotationDiscountExtension) {
+            rows.push({
+                key: quotationDiscountExtension._key ?? 'quotation-discount',
+                label: formatExtensionLabel(
+                    String(quotationDiscountExtension.name ?? 'Discount'),
+                    String(quotationDiscountExtension.calculation_mode ?? 'fixed'),
+                    Number(quotationDiscountExtension.calculation_value ?? 0),
+                ),
+                amount: quotationDiscountAmount,
+            });
+        }
+
+        quotationItemTaxSummaries.forEach((tax, index) => {
+            rows.push({
+                key: `quotation-item-tax-${index}`,
+                label: formatExtensionLabel(
+                    String(tax.name ?? 'Tax'),
+                    tax.calculation_mode,
+                    Number(tax.calculation_value ?? 0),
+                ),
+                amount: Number(tax.amount ?? 0),
+            });
+        });
+
+        quotationNonDiscountTaxExtensions.forEach((extension, index) => {
+            rows.push({
+                key: extension._key ?? `quotation-tax-ext-${index}`,
+                label: formatExtensionLabel(
+                    String(extension.name ?? 'Tax'),
+                    String(extension.calculation_mode ?? 'fixed'),
+                    Number(extension.calculation_value ?? 0),
+                ),
+                amount: Number(extension.amount ?? 0),
+            });
+        });
+
+        return rows;
+    }, [
+        quotationDiscountAmount,
+        quotationDiscountExtension,
+        quotationItemTaxSummaries,
+        quotationNonDiscountOtherExtensions,
+        quotationNonDiscountTaxExtensions,
+    ]);
 
     const hasQuotationCustomerConfirmation =
         Number(quotation?.customer_confirmation_id ?? 0) > 0;
@@ -1002,8 +1123,6 @@ export default function OrderForm({
     // const [previewInvoice, setPreviewInvoice] = useState<InvoiceSchema | null>(
     //     null,
     // );
-
-    console.log(errors);
 
     return (
         <>
@@ -1326,6 +1445,86 @@ export default function OrderForm({
                                     discountAmount;
                                 const invoiceGrandTotal =
                                     invoiceSubtotal + invoiceExtensionTotal;
+                                const invoiceTotalsRows: TotalsSummaryRow[] = [
+                                    ...nonDiscountOtherExtensions.map(
+                                        (extension, extensionIndex) => ({
+                                            key:
+                                                extension._key ??
+                                                `invoice-${idx}-other-${extensionIndex}`,
+                                            label: formatExtensionLabel(
+                                                String(
+                                                    extension.name ??
+                                                        'Extension',
+                                                ),
+                                                String(
+                                                    extension.calculation_mode ??
+                                                        'fixed',
+                                                ),
+                                                Number(
+                                                    extension.calculation_value ??
+                                                        0,
+                                                ),
+                                            ),
+                                            amount: Number(
+                                                extension.amount ?? 0,
+                                            ),
+                                        }),
+                                    ),
+                                    ...(discountExtension
+                                        ? [
+                                              {
+                                                  key:
+                                                      discountExtension._key ??
+                                                      `invoice-${idx}-discount`,
+                                                  label: formatExtensionLabel(
+                                                      String(
+                                                          discountExtension.name ??
+                                                              'Discount',
+                                                      ),
+                                                      String(
+                                                          discountExtension.calculation_mode ??
+                                                              'fixed',
+                                                      ),
+                                                      Number(
+                                                          discountExtension.calculation_value ??
+                                                              0,
+                                                      ),
+                                                  ),
+                                                  amount: discountAmount,
+                                              },
+                                          ]
+                                        : []),
+                                    ...itemTaxSummaries.map((tax, taxIndex) => ({
+                                        key: `invoice-${idx}-item-tax-${taxIndex}`,
+                                        label: formatExtensionLabel(
+                                            String(tax.name ?? 'Tax'),
+                                            tax.calculation_mode,
+                                            Number(tax.calculation_value ?? 0),
+                                        ),
+                                        amount: Number(tax.amount ?? 0),
+                                    })),
+                                    ...nonDiscountTaxExtensions.map(
+                                        (extension, extensionIndex) => ({
+                                            key:
+                                                extension._key ??
+                                                `invoice-${idx}-tax-ext-${extensionIndex}`,
+                                            label: formatExtensionLabel(
+                                                String(extension.name ?? 'Tax'),
+                                                String(
+                                                    extension.calculation_mode ??
+                                                        'fixed',
+                                                ),
+                                                Number(
+                                                    extension.calculation_value ??
+                                                        0,
+                                                ),
+                                            ),
+                                            amount: Number(
+                                                extension.amount ?? 0,
+                                            ),
+                                        }),
+                                    ),
+                                ];
 
                                 return (
                                     <Card
@@ -1550,187 +1749,21 @@ export default function OrderForm({
                                                         }
                                                     />
 
-                                                    <div className="mt-3 ml-auto w-full rounded-md border p-4 md:w-1/3">
-                                                        <table className="w-full table-fixed text-base">
-                                                            <tbody className="[&>tr>td]:py-1.5">
-                                                                <tr>
-                                                                    <td className="w-2/3 text-right font-semibold">
-                                                                        Sub
-                                                                        Total
-                                                                    </td>
-                                                                    <td className="w-1/3 text-right font-medium">
-                                                                        {formatCurrency(
-                                                                            invoiceSubtotal,
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-
-                                                                {nonDiscountOtherExtensions.map(
-                                                                    (
-                                                                        extension,
-                                                                        extensionIndex,
-                                                                    ) => (
-                                                                        <tr
-                                                                            key={
-                                                                                extension._key ??
-                                                                                `invoice-${idx}-other-${extensionIndex}`
-                                                                            }
-                                                                        >
-                                                                            <td className="text-right">
-                                                                                {formatExtensionLabel(
-                                                                                    String(
-                                                                                        extension.name ??
-                                                                                            'Extension',
-                                                                                    ),
-                                                                                    String(
-                                                                                        extension.calculation_mode ??
-                                                                                            'fixed',
-                                                                                    ),
-                                                                                    Number(
-                                                                                        extension.calculation_value ??
-                                                                                            0,
-                                                                                    ),
-                                                                                )}
-                                                                            </td>
-                                                                            <td className="text-right">
-                                                                                {formatCurrency(
-                                                                                    Number(
-                                                                                        extension.amount ??
-                                                                                            0,
-                                                                                    ),
-                                                                                )}
-                                                                            </td>
-                                                                        </tr>
-                                                                    ),
-                                                                )}
-
-                                                                {discountExtension && (
-                                                                    <tr>
-                                                                        <td className="text-right">
-                                                                            {formatExtensionLabel(
-                                                                                String(
-                                                                                    discountExtension.name ??
-                                                                                        'Discount',
-                                                                                ),
-                                                                                String(
-                                                                                    discountExtension.calculation_mode ??
-                                                                                        'fixed',
-                                                                                ),
-                                                                                Number(
-                                                                                    discountExtension.calculation_value ??
-                                                                                        0,
-                                                                                ),
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="text-right">
-                                                                            {formatCurrency(
-                                                                                discountAmount,
-                                                                            )}
-                                                                        </td>
-                                                                    </tr>
-                                                                )}
-
-                                                                {itemTaxSummaries.map(
-                                                                    (
-                                                                        tax,
-                                                                        taxIndex,
-                                                                    ) => (
-                                                                        <tr
-                                                                            key={`invoice-${idx}-item-tax-${taxIndex}`}
-                                                                        >
-                                                                            <td className="text-right">
-                                                                                {formatExtensionLabel(
-                                                                                    String(
-                                                                                        tax.name ??
-                                                                                            'Tax',
-                                                                                    ),
-                                                                                    tax.calculation_mode,
-                                                                                    Number(
-                                                                                        tax.calculation_value ??
-                                                                                            0,
-                                                                                    ),
-                                                                                )}
-                                                                            </td>
-                                                                            <td className="text-right">
-                                                                                {formatCurrency(
-                                                                                    Number(
-                                                                                        tax.amount ??
-                                                                                            0,
-                                                                                    ),
-                                                                                )}
-                                                                            </td>
-                                                                        </tr>
-                                                                    ),
-                                                                )}
-
-                                                                {nonDiscountTaxExtensions.map(
-                                                                    (
-                                                                        extension,
-                                                                        extensionIndex,
-                                                                    ) => (
-                                                                        <tr
-                                                                            key={
-                                                                                extension._key ??
-                                                                                `invoice-${idx}-tax-ext-${extensionIndex}`
-                                                                            }
-                                                                        >
-                                                                            <td className="text-right">
-                                                                                {formatExtensionLabel(
-                                                                                    String(
-                                                                                        extension.name ??
-                                                                                            'Tax',
-                                                                                    ),
-                                                                                    String(
-                                                                                        extension.calculation_mode ??
-                                                                                            'fixed',
-                                                                                    ),
-                                                                                    Number(
-                                                                                        extension.calculation_value ??
-                                                                                            0,
-                                                                                    ),
-                                                                                )}
-                                                                            </td>
-                                                                            <td className="text-right">
-                                                                                {formatCurrency(
-                                                                                    Number(
-                                                                                        extension.amount ??
-                                                                                            0,
-                                                                                    ),
-                                                                                )}
-                                                                            </td>
-                                                                        </tr>
-                                                                    ),
-                                                                )}
-
-                                                                <tr>
-                                                                    <td className="text-right font-semibold">
-                                                                        Extension
-                                                                        Total
-                                                                    </td>
-                                                                    <td className="text-right font-medium">
-                                                                        {formatCurrency(
-                                                                            invoiceExtensionTotal,
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-
-                                                                <tr>
-                                                                    <td className="border-t pt-2 text-right text-base font-bold">
-                                                                        Grand
-                                                                        Total
-                                                                    </td>
-                                                                    <td className="border-t pt-2 text-right text-lg font-bold text-primary">
-                                                                        {formatCurrency(
-                                                                            Number(
-                                                                                invoice.amount ??
-                                                                                    invoiceGrandTotal,
-                                                                            ),
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
+                                                    <TotalsSummaryCard
+                                                        className="mt-3"
+                                                        subtotalAmount={
+                                                            invoiceSubtotal
+                                                        }
+                                                        rows={invoiceTotalsRows}
+                                                        showExtensionTotal
+                                                        extensionTotalAmount={
+                                                            invoiceExtensionTotal
+                                                        }
+                                                        grandTotalAmount={Number(
+                                                            invoice.amount ??
+                                                                invoiceGrandTotal,
+                                                        )}
+                                                    />
                                                 </>
                                             )}
                                         </CardContent>
@@ -1873,65 +1906,15 @@ export default function OrderForm({
                                                 }
                                             />
 
-                                            <div className="space-y-3 rounded-md border p-4">
-                                                <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-muted-foreground">
-                                                        Sub Total
-                                                    </span>
-                                                    <span className="font-semibold">
-                                                        {formatCurrency(
-                                                            quotationSubtotalAmount,
-                                                        )}
-                                                    </span>
-                                                </div>
-
-                                                {quotationExtensions.map(
-                                                    (extension, index) => (
-                                                        <div
-                                                            key={
-                                                                extension._key ??
-                                                                `quotation-extension-${index}`
-                                                            }
-                                                            className="flex items-center justify-between gap-3 text-sm"
-                                                        >
-                                                            <span className="text-muted-foreground">
-                                                                {extension.name ||
-                                                                    'Extension'}
-                                                            </span>
-                                                            <span className="font-semibold">
-                                                                {formatCurrency(
-                                                                    Number(
-                                                                        extension.amount ??
-                                                                            0,
-                                                                    ),
-                                                                )}
-                                                            </span>
-                                                        </div>
-                                                    ),
-                                                )}
-
-                                                <div className="flex items-center justify-between border-t pt-3 text-sm">
-                                                    <span className="text-muted-foreground">
-                                                        Extension Total
-                                                    </span>
-                                                    <span className="font-semibold">
-                                                        {formatCurrency(
-                                                            quotationExtensionTotalAmount,
-                                                        )}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex items-center justify-between text-base">
-                                                    <span className="font-semibold">
-                                                        Total Amount
-                                                    </span>
-                                                    <span className="text-lg font-bold text-primary">
-                                                        {formatCurrency(
-                                                            quotationTotalAmount,
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                            <TotalsSummaryCard
+                                                subtotalAmount={
+                                                    quotationSubtotalAmount
+                                                }
+                                                rows={quotationTotalsRows}
+                                                grandTotalAmount={
+                                                    quotationTotalAmount
+                                                }
+                                            />
                                         </>
                                     )}
                                 </CardContent>

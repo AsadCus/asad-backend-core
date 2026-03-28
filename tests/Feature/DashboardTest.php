@@ -110,10 +110,7 @@ class DashboardTest extends TestCase
         );
 
         $this->assertNotNull($matchingCategory);
-        $this->assertStringContainsString(
-            'VIP Addons',
-            (string) ($matchingCategory['category'] ?? ''),
-        );
+        $this->assertStringContainsString('Umrah Packages', (string) ($matchingCategory['category'] ?? ''));
     }
 
     public function test_dashboard_payment_summary_pdf_export_returns_pdf_response(): void
@@ -299,7 +296,7 @@ class DashboardTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('PAYMENT SUMMARY REPORT', $html);
-        $this->assertStringContainsString('DAILY', $html);
+        $this->assertStringContainsString('Period', $html);
         $this->assertStringContainsString('Umrah Packages', $html);
         $this->assertStringContainsString('$1,200.00', $html);
         $this->assertStringContainsString('2 receipt rows', $html);

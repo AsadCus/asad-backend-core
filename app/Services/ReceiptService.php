@@ -13,8 +13,6 @@ use Illuminate\Validation\ValidationException;
 
 class ReceiptService
 {
-    private const FALLBACK_DEFAULT_PAYMENT_METHOD = 'transfer';
-
     protected $formatService;
 
     protected $numberingService;
@@ -91,7 +89,23 @@ class ReceiptService
             return $fallback;
         }
 
-        return self::FALLBACK_DEFAULT_PAYMENT_METHOD;
+        return '';
+    }
+
+    public function getPaymentMethodOptions(): array
+    {
+        return PaymentMethodMaster::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (PaymentMethodMaster $master) => [
+                'label' => $master->name,
+                'value' => $master->value,
+            ])
+            ->values()
+            ->all();
     }
 
     public function store(array $data)

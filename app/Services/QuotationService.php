@@ -23,13 +23,6 @@ use Illuminate\Validation\ValidationException;
 
 class QuotationService
 {
-    private const DEFAULT_PAYMENT_METHODS = [
-        ['label' => 'Cash', 'value' => 'cash'],
-        ['label' => 'Bank Transfer', 'value' => 'transfer'],
-        ['label' => 'Paynow', 'value' => 'paynow'],
-        ['label' => 'Credit Card', 'value' => 'credit_card'],
-    ];
-
     protected $formatService;
 
     protected $quotationItemService;
@@ -133,7 +126,7 @@ class QuotationService
             ->all();
 
         if (empty($methods)) {
-            return self::DEFAULT_PAYMENT_METHODS;
+            return [];
         }
 
         return $methods;
@@ -163,7 +156,7 @@ class QuotationService
             return $fallback;
         }
 
-        return 'transfer';
+        return '';
     }
 
     public function getPaymentMethodMastersForMasterPage(): array

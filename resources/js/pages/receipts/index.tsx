@@ -15,9 +15,8 @@ import {
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { InvoiceItemSchema } from '../invoices/schema';
-import { paymentMethods } from '../quotations/schema';
 import ReceiptPreviewModal from './components/receipt-preview-modal';
 import { ReceiptSchema } from './schema';
 
@@ -27,6 +26,7 @@ interface ReceiptsProps {
         invoices: OptionType[];
         customers: OptionType[];
         salespersons: OptionType[];
+        paymentMethods: OptionType[];
     };
 }
 
@@ -37,7 +37,9 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const columns: ColumnDef<ReceiptSchema>[] = [
+const getColumns = (
+    paymentMethods: OptionType[],
+): ColumnDef<ReceiptSchema>[] => [
     createSelectColumn<ReceiptSchema>(),
     {
         accessorKey: 'id',
@@ -109,7 +111,7 @@ const columns: ColumnDef<ReceiptSchema>[] = [
         header: 'Payment Method',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const paymentMethod = row.original.payment_method ?? 'transfer';
+            const paymentMethod = row.original.payment_method ?? '';
             const label =
                 paymentMethods.find((s) => s.value === paymentMethod)?.label ||
                 paymentMethod;
@@ -128,6 +130,10 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const { receiptsForDatatable, invoices, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
+    const columns = useMemo(
+        () => getColumns(data.paymentMethods ?? []),
+        [data.paymentMethods],
+    );
 
     const actions: ActionType[] = [];
 

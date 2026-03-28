@@ -18,7 +18,7 @@ import {
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import QuotationPreviewModal from './components/quotation-preview-modal';
 import {
     getAvailableQuotationActions,
@@ -26,7 +26,6 @@ import {
 } from './components/quotation-status-action';
 import { QuotationItemSchema } from './items/schema';
 import {
-    paymentMethods,
     paymentPlans,
     QuotationSchema,
     statusColors,
@@ -38,6 +37,7 @@ interface QuotationsProps {
         quotationsForDatatable: QuotationSchema[];
         customers: OptionType[];
         salespersons: OptionType[];
+        paymentMethods: OptionType[];
     };
 }
 
@@ -48,7 +48,9 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const columns: ColumnDef<QuotationSchema>[] = [
+const getColumns = (
+    paymentMethods: OptionType[],
+): ColumnDef<QuotationSchema>[] => [
     createSelectColumn<QuotationSchema>(),
     {
         accessorKey: 'id',
@@ -151,7 +153,7 @@ const columns: ColumnDef<QuotationSchema>[] = [
         header: 'Payment Method',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const paymentMethod = row.original.payment_method ?? 'transfer';
+            const paymentMethod = row.original.payment_method ?? '';
             const label =
                 paymentMethods.find((s) => s.value === paymentMethod)?.label ||
                 paymentMethod;
@@ -177,6 +179,10 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     const { quotationsForDatatable, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
+    const columns = useMemo(
+        () => getColumns(data.paymentMethods ?? []),
+        [data.paymentMethods],
+    );
     const actions: ActionType[] = [];
 
     if (userPermissions.includes('quotation create')) actions.push('add');

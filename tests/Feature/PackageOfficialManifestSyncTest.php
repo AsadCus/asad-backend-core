@@ -559,4 +559,96 @@ class PackageOfficialManifestSyncTest extends TestCase
             'manifest_member_id' => $officialMember->id,
         ]);
     }
+
+    public function test_package_update_does_not_duplicate_officials_when_marker_remarks_are_missing(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Official Markerless Sync Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'officials' => [
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Markerless',
+                    'contact_number' => '0187777001',
+                ],
+            ],
+            'accommodations' => [
+                [
+                    'location' => 'Makkah',
+                    'hotel_name' => 'Markerless Hotel',
+                    'type_of_meal' => 'Breakfast Only',
+                ],
+            ],
+        ]);
+
+        $manifest = $package->manifests()->firstOrFail();
+        $official = $package->officials()->firstOrFail();
+        $officialMember = $manifest->members()
+            ->where('package_official_id', $official->id)
+            ->firstOrFail();
+
+        $manualGroup = $manifest->manifestSharingGroups()->create([
+            'customer_confirmation_id' => null,
+            'sort_order' => 901,
+            'group_relationship' => 'official',
+            'remarks' => 'manual-official-group',
+        ]);
+
+        $officialMember->update([
+            'remarks' => null,
+            'manifest_sharing_group_id' => $manualGroup->id,
+        ]);
+
+        $manualRoom = $manifest->rooms()->create([
+            'sort_order' => 901,
+            'location' => 'makkah',
+            'group_relationship' => 'official',
+            'room_label' => 'Manual Official Room',
+            'room_type' => 'single',
+            'bed_type' => 'single',
+            'capacity' => 1,
+            'status' => 'assigned',
+            'meal' => 'Breakfast Only',
+            'number_of_beds_checked' => false,
+            'remarks' => null,
+        ]);
+
+        $existingAssignment = $officialMember->roomAssignments()->firstOrFail();
+        $existingAssignment->update([
+            'manifest_room_id' => $manualRoom->id,
+        ]);
+
+        app(PackageService::class)->update([
+            'officials' => [
+                [
+                    'id' => $official->id,
+                    'type' => 'official',
+                    'name' => 'Ops Markerless Updated',
+                    'contact_number' => '0187777002',
+                ],
+            ],
+        ], (int) $package->id);
+
+        $manifest->refresh();
+
+        $this->assertSame(
+            1,
+            $manifest->members()
+                ->where('package_official_id', $official->id)
+                ->count(),
+        );
+
+        $refreshedOfficialMember = $manifest->members()
+            ->where('package_official_id', $official->id)
+            ->firstOrFail();
+
+        $this->assertSame((int) $manualGroup->id, (int) $refreshedOfficialMember->manifest_sharing_group_id);
+
+        $this->assertDatabaseHas('manifest_room_members', [
+            'id' => $existingAssignment->id,
+            'manifest_room_id' => $manualRoom->id,
+            'manifest_member_id' => $refreshedOfficialMember->id,
+        ]);
+    }
 }

@@ -47,6 +47,7 @@ class ReceiptController extends Controller
         $data['invoices'] = $this->invoiceService->getForFilter();
         $data['customers'] = $this->customerService->getForFilter();
         $data['salespersons'] = $this->salesService->getForFilter();
+        $data['paymentMethods'] = $this->receiptService->getPaymentMethodOptions();
 
         return Inertia::render('receipts/index', [
             'data' => $data,
@@ -57,6 +58,7 @@ class ReceiptController extends Controller
     {
         $data['invoiceId'] = $request->invoice_id;
         $data['defaultPaymentMethod'] = $this->receiptService->getDefaultPaymentMethodValue();
+        $data['paymentMethods'] = $this->receiptService->getPaymentMethodOptions();
         if ($data['invoiceId']) {
             $data['invoiceData'] = $this->invoiceService->getForEditShow($request->invoice_id);
         }
@@ -106,6 +108,7 @@ class ReceiptController extends Controller
     {
         $data['data'] = $this->receiptService->getForEditShow($id);
         $data['invoiceOptions'] = $this->invoiceService->getForFilter();
+        $data['paymentMethods'] = $this->receiptService->getPaymentMethodOptions();
 
         return Inertia::render('receipts/edit', [
             'data' => $data,
@@ -155,14 +158,9 @@ class ReceiptController extends Controller
         $data = $this->receiptService->getForEditShow($id);
         $reportData = $this->reportTemplateService->build('receipt', $data);
 
-        $paymentMethod = $data['payment_method'] ?? 'full';
-        $paymentMethodLabel = match ($paymentMethod) {
-            'cash' => 'Cash',
-            'transfer' => 'Bank Transfer',
-            'paynow' => 'Paynow',
-            'credit_card' => 'Credit Card',
-            default => ucfirst($paymentMethod),
-        };
+        $paymentMethod = $data['payment_method'] ?? '';
+        $paymentMethodLabel = collect($this->receiptService->getPaymentMethodOptions())
+            ->firstWhere('value', $paymentMethod)['label'] ?? ucfirst((string) $paymentMethod);
 
         $data['payment_method_label'] = $paymentMethodLabel;
 
@@ -183,14 +181,9 @@ class ReceiptController extends Controller
             $data = $this->receiptService->getForEditShow($id);
             $reportData = $this->reportTemplateService->build('receipt', $data);
 
-            $paymentMethod = $data['payment_method'] ?? 'full';
-            $paymentMethodLabel = match ($paymentMethod) {
-                'cash' => 'Cash',
-                'transfer' => 'Bank Transfer',
-                'paynow' => 'Paynow',
-                'credit_card' => 'Credit Card',
-                default => ucfirst($paymentMethod),
-            };
+            $paymentMethod = $data['payment_method'] ?? '';
+            $paymentMethodLabel = collect($this->receiptService->getPaymentMethodOptions())
+                ->firstWhere('value', $paymentMethod)['label'] ?? ucfirst((string) $paymentMethod);
 
             $data['payment_method_label'] = $paymentMethodLabel;
 

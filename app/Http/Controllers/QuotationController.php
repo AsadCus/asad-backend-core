@@ -56,6 +56,7 @@ class QuotationController extends Controller
         $data['quotationsForDatatable'] = $this->quotationService->getForDataTable($filters);
         $data['customers'] = $this->customerService->getForFilter();
         $data['salespersons'] = $this->salesService->getForFilter();
+        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
 
         return Inertia::render('quotations/index', [
             'data' => $data,
@@ -131,6 +132,7 @@ class QuotationController extends Controller
             (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
         );
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
+        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
 
         return Inertia::render('quotations/view', [
             'data' => $data,

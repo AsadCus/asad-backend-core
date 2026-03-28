@@ -7,7 +7,6 @@ import { useCallback } from 'react';
 import { z } from 'zod';
 import { QuotationForm } from './form';
 import {
-    paymentMethods,
     paymentPlans,
     quotationExtensionSchema,
     QuotationSchema,
@@ -65,7 +64,7 @@ export default function EditQuotation({ data }: EditQuotationProps) {
                         mode="edit"
                         initialData={data.data}
                         paymentPlans={paymentPlans}
-                        paymentMethods={data.paymentMethods ?? paymentMethods}
+                        paymentMethods={data.paymentMethods ?? []}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
                         activeCustomers={data.activeCustomers ?? []}

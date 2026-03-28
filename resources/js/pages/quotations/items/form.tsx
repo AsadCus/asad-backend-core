@@ -1734,7 +1734,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                             colSpan={columns.length - 1}
                                             className="text-right font-semibold"
                                         >
-                                            Total Amount:
+                                            Total:
                                         </TableCell>
                                         <TableCell className="font-medium">
                                             {formatCurrency(totalAmount)}

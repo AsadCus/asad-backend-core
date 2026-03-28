@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { UserSchema } from '../masters/users/schema';
 import { QuotationForm } from './form';
 import {
-    paymentMethods,
     paymentPlans,
     quotationExtensionSchema,
     statuses,
@@ -76,7 +75,7 @@ export default function CreateQuotation({
                         mode="create"
                         defaultPaymentMethod={data.defaultPaymentMethod}
                         paymentPlans={paymentPlans}
-                        paymentMethods={data.paymentMethods ?? paymentMethods}
+                        paymentMethods={data.paymentMethods ?? []}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
                         activeCustomers={data.activeCustomers ?? []}

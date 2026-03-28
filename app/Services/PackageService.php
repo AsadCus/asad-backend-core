@@ -882,7 +882,10 @@ class PackageService
 
         $officialMemberQuery = $manifest->members()
             ->whereNull('customer_confirmation_member_id')
-            ->where('remarks', 'like', $officialMemberMarker.'%');
+            ->where(function ($query) use ($officialMemberMarker): void {
+                $query->whereNotNull('package_official_id')
+                    ->orWhere('remarks', 'like', $officialMemberMarker.'%');
+            });
 
         $existingOfficialMembers = $officialMemberQuery
             ->get()
@@ -921,22 +924,28 @@ class PackageService
             $existingMemberGroupId = $existingMember
                 ? (int) ($existingMember->manifest_sharing_group_id ?? 0)
                 : 0;
-
             $officialGroup = $existingOfficialGroups->get((int) $official->id);
-            $groupPayload = [
-                'customer_confirmation_id' => null,
-                'sort_order' => $baseOfficialGroupSort + $officialIndex + 1,
-                'group_relationship' => 'official',
-                'remarks' => $officialGroupMarker.' '.$official->id,
-            ];
 
-            if ($officialGroup) {
-                $officialGroup->update($groupPayload);
-            } else {
-                $officialGroup = $manifest->manifestSharingGroups()->create($groupPayload);
+            if ($existingMemberGroupId > 0) {
+                $activeOfficialGroupIds[] = $existingMemberGroupId;
             }
 
-            $activeOfficialGroupIds[] = (int) $officialGroup->id;
+            if (! $existingMember || $existingMemberGroupId <= 0) {
+                $groupPayload = [
+                    'customer_confirmation_id' => null,
+                    'sort_order' => $baseOfficialGroupSort + $officialIndex + 1,
+                    'group_relationship' => 'official',
+                    'remarks' => $officialGroupMarker.' '.$official->id,
+                ];
+
+                if ($officialGroup) {
+                    $officialGroup->update($groupPayload);
+                } else {
+                    $officialGroup = $manifest->manifestSharingGroups()->create($groupPayload);
+                }
+
+                $activeOfficialGroupIds[] = (int) $officialGroup->id;
+            }
 
             $payload = [
                 'name' => $official->name,
@@ -955,9 +964,12 @@ class PackageService
             if ($existingMember) {
                 $existingMember->update([
                     ...$payload,
+                    'package_official_id' => $official->id,
+                    'relationship' => $official->type,
+                    'sharing_plan' => 'single',
                     'manifest_sharing_group_id' => $existingMemberGroupId > 0
                         ? $existingMemberGroupId
-                        : $officialGroup->id,
+                        : $officialGroup?->id,
                 ]);
 
                 continue;
