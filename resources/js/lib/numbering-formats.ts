@@ -2,10 +2,6 @@ export interface NumberingFormatRecord {
     id: number;
     model_key: string;
     name: string;
-    prefix: string | null;
-    separator: string;
-    include_year: boolean;
-    year_format: string;
     increment_padding: number;
     increment_start: number;
     increment_scope: 'format' | 'model';
@@ -17,10 +13,6 @@ export interface NumberingFormatRecord {
 export interface NumberingFormatPayload {
     model_key: string;
     name: string;
-    prefix?: string | null;
-    separator?: string;
-    include_year?: boolean;
-    year_format?: string;
     increment_padding?: number;
     increment_start?: number;
     increment_scope?: 'format' | 'model';

@@ -23,7 +23,7 @@ class NumberingServiceTemplateFormatTest extends TestCase
         $format = $formats->first();
         $this->assertInstanceOf(NumberingFormat::class, $format);
         $this->assertSame('receipt', (string) $format->model_key);
-        $this->assertSame('Default', (string) $format->name);
+        $this->assertSame('R-%YYYY%-%I%', (string) $format->name);
         $this->assertTrue((bool) $format->is_default);
         $this->assertTrue((bool) $format->is_active);
     }
@@ -33,10 +33,6 @@ class NumberingServiceTemplateFormatTest extends TestCase
         $format = NumberingFormat::query()->create([
             'model_key' => 'order',
             'name' => 'KTG%I%-%YYYY%',
-            'prefix' => null,
-            'separator' => '-',
-            'include_year' => true,
-            'year_format' => 'Y',
             'increment_padding' => 1,
             'increment_start' => 1,
             'increment_scope' => 'format',
@@ -63,10 +59,6 @@ class NumberingServiceTemplateFormatTest extends TestCase
         NumberingFormat::query()->create([
             'model_key' => 'order',
             'name' => 'KGT-%DD%-%MM%-%YY%-%I%',
-            'prefix' => null,
-            'separator' => '-',
-            'include_year' => true,
-            'year_format' => 'y',
             'increment_padding' => 3,
             'increment_start' => 1,
             'increment_scope' => 'format',
@@ -95,10 +87,6 @@ class NumberingServiceTemplateFormatTest extends TestCase
         $format = NumberingFormat::query()->create([
             'model_key' => 'package',
             'name' => 'KTG-%YYYY%-%I%',
-            'prefix' => null,
-            'separator' => '-',
-            'include_year' => true,
-            'year_format' => 'Y',
             'increment_padding' => 3,
             'increment_start' => 1,
             'increment_scope' => 'format',

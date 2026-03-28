@@ -107,22 +107,6 @@ const FORMAT_TOKENS = [
 const hasTemplateToken = (value: string): boolean =>
     /%(DD|MM|YY|YYYY|I)%/.test(value);
 
-const toLegacyTemplate = (format: NumberingFormatRecord): string => {
-    const parts: string[] = [];
-
-    if ((format.prefix ?? '').trim().length > 0) {
-        parts.push((format.prefix ?? '').trim());
-    }
-
-    if (format.include_year) {
-        parts.push(format.year_format === 'y' ? '%YY%' : '%YYYY%');
-    }
-
-    parts.push('%I%');
-
-    return parts.join(format.separator || '-');
-};
-
 const toFormatString = (format?: NumberingFormatRecord | null): string => {
     if (!format) {
         return DEFAULT_FORMAT_FORM.format;
@@ -134,40 +118,7 @@ const toFormatString = (format?: NumberingFormatRecord | null): string => {
         return candidate;
     }
 
-    return toLegacyTemplate(format);
-};
-
-const getTemplateMetadata = (
-    template: string,
-): {
-    includeYear: boolean;
-    yearFormat: string;
-    prefix: string;
-    separator: string;
-} => {
-    const includeYYYY = template.includes('%YYYY%');
-    const includeYY = template.includes('%YY%');
-    const includeYear = includeYYYY || includeYY;
-
-    const firstTokenIndex = template.search(/%(DD|MM|YY|YYYY|I)%/);
-    const prefix =
-        firstTokenIndex > 0 ? template.slice(0, firstTokenIndex).trim() : '';
-
-    let separator = '-';
-    if (template.includes('/')) {
-        separator = '/';
-    } else if (template.includes('_')) {
-        separator = '_';
-    } else if (template.includes('.')) {
-        separator = '.';
-    }
-
-    return {
-        includeYear,
-        yearFormat: includeYYYY ? 'Y' : 'y',
-        prefix,
-        separator,
-    };
+    return DEFAULT_FORMAT_FORM.format;
 };
 
 const toFormState = (
@@ -195,10 +146,6 @@ const toPayload = (
 ): NumberingFormatPayload => ({
     model_key: modelKey,
     name: state.format.trim(),
-    prefix: getTemplateMetadata(state.format).prefix,
-    separator: getTemplateMetadata(state.format).separator,
-    include_year: getTemplateMetadata(state.format).includeYear,
-    year_format: getTemplateMetadata(state.format).yearFormat,
     increment_padding: Math.max(1, Number(state.increment_padding || 1)),
     increment_start: Math.max(1, Number(state.increment_start || 1)),
     increment_scope: incrementScope,

@@ -15,10 +15,6 @@ return new class extends Migration
             $table->id();
             $table->string('model_key', 100);
             $table->string('name', 100);
-            $table->string('prefix', 100)->nullable();
-            $table->string('separator', 10)->default('-');
-            $table->boolean('include_year')->default(true);
-            $table->string('year_format', 20)->default('Y');
             $table->unsignedSmallInteger('increment_padding')->default(4);
             $table->unsignedBigInteger('increment_start')->default(1);
             $table->string('increment_scope', 20)->default('format');
