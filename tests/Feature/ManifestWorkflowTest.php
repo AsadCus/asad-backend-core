@@ -3021,6 +3021,19 @@ class ManifestWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_patch_manifest_documents_section_allows_missing_documents_payload(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $this->patchJson(route('manifests.sections.documents.update', [
+            'manifestId' => $manifest->id,
+        ]), [])->assertOk()
+            ->assertJsonPath('message', 'Manifest documents section updated successfully.');
+    }
+
     public function test_patch_manifest_receipt_documents_section_adds_manifest_member_receipts(): void
     {
         Storage::fake('public');

@@ -63,8 +63,6 @@ class CustomerService
             })
             ->orderBy('created_at', 'desc')
             ->get()->map(function ($q) {
-                $address = $q->customer->address ?? '';
-                $addressFormatted = nl2br($address);
 
                 return [
                     'id' => $q->id,
@@ -74,7 +72,7 @@ class CustomerService
                     'email' => $q->email,
                     'contact' => $q->contact ?? '-',
                     'nric_number' => $q->customer->nric_number,
-                    'address' => $addressFormatted,
+                    'address' => $q->customer->address ?? '-',
                     'handled_by' => $q->customer->handled_by ?? null,
                     'handler_name' => $q->customer->handledBy->name ?? '-',
                     'last_login' => $q->customer->last_login ?? null,

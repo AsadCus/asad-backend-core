@@ -65,12 +65,12 @@ const columns: ColumnDef<UserSchema>[] = [
         header: 'Address',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const address = row.getValue('address');
+            const address = String(row.getValue('address') ?? '');
+
             return (
-                <div
-                    dangerouslySetInnerHTML={{ __html: String(address || '') }}
-                    className="max-w-xs break-words whitespace-pre-wrap"
-                />
+                <div className="max-w-xs break-words whitespace-pre-line">
+                    {address}
+                </div>
             );
         },
     },

@@ -49,12 +49,6 @@
             width: 90px;
         }
 
-        /* ── Due Date highlight ── */
-        .due-date-urgent {
-            color: #c0392b;
-            font-weight: bold;
-        }
-
         /* ── Items Table ── */
         .items-section {
             border-top: 1.5px solid #333;
@@ -149,7 +143,7 @@
                         <tr>
                             <td class="lbl" style="vertical-align:top;">Address</td>
                             <td class="sep" style="vertical-align:top;">:</td>
-                            <td style="white-space: pre-line;">{!! nl2br(e($data['customer_address'] ?? '-')) !!}</td>
+                            <td style="white-space: pre-line;">{{ $data['customer_address'] ?? '-' }}</td>
                         </tr>
                         <tr>
                             <td class="lbl">Contact</td>
@@ -189,7 +183,7 @@
                         <tr>
                             <td class="lbl-r">Due Date</td>
                             <td class="sep">:</td>
-                            <td class="{{ !empty($data['due_date']) ? 'due-date-urgent' : '' }}">
+                            <td>
                                 {{ $data['due_date'] ?? '-' }}
                             </td>
                         </tr>
@@ -304,38 +298,38 @@
             </table>
         </div>
 
-            <div class="totals-wrapper">
-                <div>
-                    <span class="total-label">Sub Total:&nbsp;</span>
-                    <span class="total-amount">{{ formatCurrency($data['subtotal_amount'] ?? $subtotal) }}</span>
-                </div>
-                @if (!empty($data['extensions']) && count($data['extensions']) > 0)
-                    @foreach ($data['extensions'] as $extension)
-                        <div>
-                            <span class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:&nbsp;</span>
-                            <span class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</span>
-                        </div>
-                    @endforeach
-                @endif
-                <div>
-                    <span class="total-label">Total Amount:&nbsp;</span>
-                    <span class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</span>
-                </div>
+        <div class="totals-wrapper">
+            <div>
+                <span class="total-label">Sub Total:&nbsp;</span>
+                <span class="total-amount">{{ formatCurrency($data['subtotal_amount'] ?? $subtotal) }}</span>
+            </div>
+            @if (!empty($data['extensions']) && count($data['extensions']) > 0)
+                @foreach ($data['extensions'] as $extension)
+                    <div>
+                        <span class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:&nbsp;</span>
+                        <span class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</span>
+                    </div>
+                @endforeach
+            @endif
+            <div>
+                <span class="total-label">Total Amount:&nbsp;</span>
+                <span class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</span>
             </div>
         </div>
+    </div>
 
-        {{-- ── FOOTER ── --}}
-        <div class="footer-section">
-            @if (!empty($branding['footer_text']))
-                <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
-            @else
-                <div class="footer-note">Thank you for your business!</div>
-            @endif
+    {{-- ── FOOTER ── --}}
+    <div class="footer-section">
+        @if (!empty($branding['footer_text']))
+            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+        @else
+            <div class="footer-note">Thank you for your business!</div>
+        @endif
 
-            @include('partials.report-signature-stamp')
+        @include('partials.report-signature-stamp')
 
-            <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
-        </div>
+        <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
+    </div>
 
     </div>
 

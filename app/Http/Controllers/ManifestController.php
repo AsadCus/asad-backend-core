@@ -974,12 +974,6 @@ class ManifestController extends Controller
      */
     private function normalizeDocumentsSectionPayload(array $payload, int $manifestId): array
     {
-        if (! array_key_exists('documents', $payload)) {
-            throw ValidationException::withMessages([
-                'documents' => 'The documents section is required.',
-            ]);
-        }
-
         return [
             'id' => $manifestId,
             'documents' => $this->normalizeManifestDocuments(Arr::get($payload, 'documents', [])),

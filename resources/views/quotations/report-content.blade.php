@@ -184,7 +184,7 @@
                         <tr>
                             <td class="lbl" style="vertical-align:top;">Address</td>
                             <td class="sep" style="vertical-align:top;">:</td>
-                            <td style="white-space: pre-line;">{!! nl2br(e($data['customer_address'] ?? '-')) !!}</td>
+                            <td style="white-space: pre-line;">{{ $data['customer_address'] ?? '-' }}</td>
                         </tr>
                         <tr>
                             <td class="lbl">Description</td>
