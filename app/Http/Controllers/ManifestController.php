@@ -393,7 +393,7 @@ class ManifestController extends Controller
                 }
             }
 
-            $reportData = $this->reportTemplateService->build('manifest', [
+            $reportData = $this->reportTemplateService->build('manifest_namelist_course_items', [
                 'manifest' => $manifest,
             ]);
 
@@ -463,7 +463,7 @@ class ManifestController extends Controller
                 }
             }
 
-            $reportData = $this->reportTemplateService->build('manifest', [
+            $reportData = $this->reportTemplateService->build('manifest_arabic_names', [
                 'manifest' => $manifest,
             ]);
 
@@ -572,7 +572,7 @@ class ManifestController extends Controller
                 $manifest['room_check_rows'] = $roomRows;
             }
 
-            $reportData = $this->reportTemplateService->build('manifest', [
+            $reportData = $this->reportTemplateService->build('manifest_room_check', [
                 'manifest' => $manifest,
             ]);
 

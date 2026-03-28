@@ -183,7 +183,7 @@ export default function Dashboard({ data }: DashboardProps) {
         useState<FiscalYearTotalSalesType | null>(null);
     const [paymentSummaryPeriod, setPaymentSummaryPeriod] = useState<
         'daily' | 'monthly' | 'yearly'
-    >('daily');
+    >('yearly');
     const [paymentSummaryData, setPaymentSummaryData] =
         useState<PaymentSummaryType | null>(null);
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
@@ -512,15 +512,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={handleExportPaymentSummaryPdf}
-                                    >
-                                        <Download className="h-4 w-4" />
-                                        Export PDF
-                                    </Button>
                                 </div>
                             </div>
 
@@ -575,6 +566,18 @@ export default function Dashboard({ data }: DashboardProps) {
                                             </CardContent>
                                         </Card>
                                     )}
+                            </div>
+
+                            <div className="mt-3 flex justify-end">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={isLoadingPaymentSummary}
+                                    onClick={handleExportPaymentSummaryPdf}
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Export PDF
+                                </Button>
                             </div>
                         </div>
                     )}

@@ -286,9 +286,10 @@ export default function Appearance({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Appearance settings" />
 
-            <SettingsLayout>
-                <div className="space-y-6">
-                    <HeadingSmall
+            <SettingsLayout wide>
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+                    <div className="w-full space-y-6 lg:flex-1">
+                        <HeadingSmall
                         title="Appearance settings"
                         description="Customize your appearance preferences"
                     />
@@ -651,80 +652,88 @@ export default function Appearance({
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
 
-                                    {/* Preview Section */}
-                                    <div className="space-y-4 border-t pt-6">
-                                        <div className="flex items-center justify-between">
-                                            <Label>Preview</Label>
-                                            <div className="flex gap-1 rounded-md border p-1">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant={
-                                                        previewMode === 'light'
-                                                            ? 'default'
-                                                            : 'ghost'
-                                                    }
-                                                    onClick={() =>
-                                                        setPreviewMode('light')
-                                                    }
-                                                    className="gap-2"
-                                                >
-                                                    <Sun className="h-4 w-4" />
-                                                    Light
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant={
-                                                        previewMode === 'dark'
-                                                            ? 'default'
-                                                            : 'ghost'
-                                                    }
-                                                    onClick={() =>
-                                                        setPreviewMode('dark')
-                                                    }
-                                                    className="gap-2"
-                                                >
-                                                    <Moon className="h-4 w-4" />
-                                                    Dark
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant={
-                                                        previewMode === 'both'
-                                                            ? 'default'
-                                                            : 'ghost'
-                                                    }
-                                                    onClick={() =>
-                                                        setPreviewMode('both')
-                                                    }
-                                                >
-                                                    Both
-                                                </Button>
-                                            </div>
+                {/* Right Column (Previews) */}
+                <div className="w-full space-y-6 lg:sticky lg:top-6 lg:w-[45%] xl:w-[40%]">
+                    {isAdmin && (
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Live Preview</Label>
+                                        <div className="flex gap-1 rounded-md border p-1">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant={
+                                                    previewMode === 'light'
+                                                        ? 'default'
+                                                        : 'ghost'
+                                                }
+                                                onClick={() =>
+                                                    setPreviewMode('light')
+                                                }
+                                                className="gap-2"
+                                            >
+                                                <Sun className="h-4 w-4" />
+                                                Light
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant={
+                                                    previewMode === 'dark'
+                                                        ? 'default'
+                                                        : 'ghost'
+                                                }
+                                                onClick={() =>
+                                                    setPreviewMode('dark')
+                                                }
+                                                className="gap-2"
+                                            >
+                                                <Moon className="h-4 w-4" />
+                                                Dark
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant={
+                                                    previewMode === 'both'
+                                                        ? 'default'
+                                                        : 'ghost'
+                                                }
+                                                onClick={() =>
+                                                    setPreviewMode('both')
+                                                }
+                                            >
+                                                Both
+                                            </Button>
                                         </div>
+                                    </div>
 
-                                        <div className="mt-4">
-                                            {previewMode === 'both' ? (
-                                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                                    <ThemePreview
-                                                        settings={form}
-                                                        mode="light"
-                                                    />
-                                                    <ThemePreview
-                                                        settings={form}
-                                                        mode="dark"
-                                                    />
-                                                </div>
-                                            ) : (
+                                    <div className="mt-4">
+                                        {previewMode === 'both' ? (
+                                            <div className="flex flex-col gap-4">
                                                 <ThemePreview
                                                     settings={form}
-                                                    mode={previewMode}
+                                                    mode="light"
                                                 />
-                                            )}
-                                        </div>
+                                                <ThemePreview
+                                                    settings={form}
+                                                    mode="dark"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <ThemePreview
+                                                settings={form}
+                                                mode={previewMode}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </CardContent>
@@ -770,6 +779,7 @@ export default function Appearance({
                             </div>
                         </CardContent>
                     </Card>
+                    </div>
                 </div>
             </SettingsLayout>
         </AppLayout>

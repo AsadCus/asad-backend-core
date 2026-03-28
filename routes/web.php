@@ -234,6 +234,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Ops Movements (form view from packages + manifests)
     Route::resource('ops-movements', OpsMovementController::class)->only(['index', 'show', 'update']);
+    Route::get('ops-movements/{id}/export-pdf', [OpsMovementController::class, 'exportPdf'])->name('ops-movements.export-pdf');
+    Route::get('ops-movements/{id}/export-pif-pdf', [OpsMovementController::class, 'exportPifPdf'])->name('ops-movements.export-pif-pdf');
+    Route::get('ops-movements/{id}/export-budget-pdf', [OpsMovementController::class, 'exportBudgetPdf'])->name('ops-movements.export-budget-pdf');
 });
 
 Route::fallback(function () {

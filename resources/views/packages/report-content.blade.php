@@ -8,12 +8,13 @@
 
 @push('styles')
     <style>
+        /* ── Content Wrapper ── */
         .content-wrapper {
-            padding: 0 8px;
+            padding: 0;
         }
 
-        .meta-table,
-        .section-table {
+        /* ── Meta Info Table ── */
+        .meta-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 12px;
@@ -21,40 +22,64 @@
 
         .meta-table td {
             border: 1px solid #d9d9d9;
-            padding: 5px 6px;
+            padding: 5px 8px;
             vertical-align: top;
+            font-size: 11px;
         }
 
         .meta-label {
-            width: 22%;
+            width: 20%;
             font-weight: bold;
             background: #f6f7f8;
             white-space: nowrap;
+            color: #333;
         }
 
+        /* ── Section Title ── */
         .section-title {
             font-size: 11px;
             font-weight: bold;
-            margin: 12px 0 6px;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 14px 0 6px;
+            padding: 4px 8px;
+            background: #f0f0f0;
+            border-left: 3px solid {{ $branding['title_color'] ?? '#40A09D' }};
+            color: #222;
+        }
+
+        /* ── Section Detail Table ── */
+        .section-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
         }
 
         .section-table th,
         .section-table td {
             border: 1px solid #d9d9d9;
-            padding: 4px 6px;
+            padding: 4px 8px;
             text-align: left;
             vertical-align: top;
+            font-size: 11px;
         }
 
-        .section-table th {
+        .section-table thead th {
             background: #f6f7f8;
             font-weight: bold;
+            color: #333;
         }
 
+        .section-table tbody tr:nth-child(even) td {
+            background: #fafafa;
+        }
+
+        /* ── Empty state ── */
         .muted {
-            color: #666;
+            color: #888;
+            font-style: italic;
+            font-size: 10px;
+            padding: 4px 0 8px;
         }
     </style>
 @endpush
@@ -329,5 +354,16 @@
                 <td>{{ $data['remarks'] ?? '-' }}</td>
             </tr>
         </table>
+
+        {{-- ── FOOTER ── --}}
+        <div class="footer-section">
+            @if (!empty($branding['footer_text']))
+                <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+            @endif
+
+            @include('partials.report-signature-stamp')
+
+            <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
+        </div>
     </div>
 @endsection

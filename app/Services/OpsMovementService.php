@@ -82,6 +82,8 @@ class OpsMovementService
             'flights',
             'trainTickets',
             'officials',
+            'rawdahTasreehs',
+            'transportationPlans',
             'manifests.members',
             'manifests.files',
         ])->findOrFail($id);
@@ -127,6 +129,7 @@ class OpsMovementService
             'train_description' => $package->train_description,
             'visa_submitted_to_z_umrah' => (bool) ($extension['visa_submitted_to_z_umrah'] ?? false),
             'visa_approved' => (bool) ($extension['visa_approved'] ?? false),
+            'mutawwif_name' => $extension['mutawwif_name'] ?? null,
             'passengers' => [
                 'adult_total' => $adultMembers->count(),
                 'adult_male' => $adultMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'male')->count(),
@@ -147,6 +150,15 @@ class OpsMovementService
                     'type_of_meal' => $accommodation->type_of_meal,
                     'check_in' => $accommodation->check_in_formatted,
                     'check_out' => $accommodation->check_out_formatted,
+                    'nights' => $accommodation->check_in && $accommodation->check_out
+                        ? $accommodation->check_in->diffInDays($accommodation->check_out)
+                        : 0,
+                    'room_counts' => [
+                        'double' => 0,
+                        'triple' => 0,
+                        'quad' => 0,
+                    ],
+                    'remarks' => $accommodation->remarks ?? null,
                 ];
             })->values()->toArray(),
             'officials' => $package->officials->map(function ($official) {
@@ -169,6 +181,7 @@ class OpsMovementService
                     'ic' => $flightOps['ic'] ?? null,
                     'to' => $flight->to,
                     'arrival_datetime' => $flight->arrival_datetime_formatted,
+                    'remarks' => $flight->remarks ?? null,
                 ];
             })->values()->toArray(),
             'train_tickets' => $package->trainTickets->map(function ($ticket) {
@@ -180,6 +193,30 @@ class OpsMovementService
                     'travel_time' => $ticket->travel_time,
                 ];
             })->values()->toArray(),
+            'rawdah_tasreehs' => $package->rawdahTasreehs->map(function ($rawdah) {
+                return [
+                    'id' => $rawdah->id,
+                    'date' => $rawdah->date_formatted ?? null,
+                    'women_passengers' => $rawdah->women_passengers ?? 0,
+                    'women_time' => $rawdah->women_time ?? null,
+                    'men_passengers' => $rawdah->men_passengers ?? 0,
+                    'men_time' => $rawdah->men_time ?? null,
+                    'remarks' => $rawdah->remarks ?? null,
+                ];
+            })->values()->toArray(),
+            'transportation_plans' => $package->transportationPlans->map(function ($transport) {
+                return [
+                    'id' => $transport->id,
+                    'from' => $transport->from ?? null,
+                    'to' => $transport->to ?? null,
+                    'travel_date' => $transport->travel_date_formatted ?? null,
+                    'travel_time' => $transport->travel_time ?? null,
+                    'remarks' => $transport->remarks ?? null,
+                ];
+            })->values()->toArray(),
+            'pif' => [
+                'tour_leaders' => $extension['pif']['tour_leaders'] ?? [],
+            ],
         ];
     }
 
