@@ -418,6 +418,12 @@ class FinancialTransactionService
             ->with([
                 'invoice.quotationItems.parent.parent',
             ])
+            ->where(function ($query) {
+                $query->whereNull('invoice_id')
+                    ->orWhereHas('invoice.order.quotation', function ($quotationQuery) {
+                        $quotationQuery->whereNotIn('status', ['cancelled', 'rejected', 'expired']);
+                    });
+            })
             ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
             ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
             ->get();

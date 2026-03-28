@@ -31,7 +31,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { type OptionType } from '@/types';
 import {
     closestCenter,
@@ -1042,6 +1042,60 @@ export default function ManifestDatatable({
         emitReorderedRows(rebuiltGroups);
     };
 
+    const splitMemberIntoNewRoomGroup = (
+        flatIndex: number,
+        sourceGroupKey: string,
+    ) => {
+        if ((mode !== 'room' && mode !== 'members') || disabled) {
+            return;
+        }
+
+        const sourceGroup = groups.find(
+            (group) => group.key === sourceGroupKey,
+        );
+
+        if (!sourceGroup || sourceGroup.members.length <= 1) {
+            return;
+        }
+
+        const targetMember = rows[flatIndex];
+
+        if (!targetMember) {
+            return;
+        }
+
+        const existingGroupKeys = new Set(groups.map((group) => group.key));
+        const memberKey = toMemberId(targetMember, flatIndex);
+        const baseGroupKey = `split-member-${sourceGroupKey}-${memberKey}`;
+        let nextGroupKey = baseGroupKey;
+        let counter = 1;
+
+        while (existingGroupKeys.has(nextGroupKey)) {
+            nextGroupKey = `${baseGroupKey}-${counter}`;
+            counter += 1;
+        }
+
+        const nextRows = rows.map((row, rowIndex) => {
+            if (rowIndex !== flatIndex) {
+                return row;
+            }
+
+            return {
+                ...row,
+                sharing_group_key: nextGroupKey,
+                sort_order: 1,
+            };
+        });
+
+        setExpanded((prev) => ({
+            ...prev,
+            [sourceGroupKey]: true,
+            [nextGroupKey]: true,
+        }));
+
+        onRowsChange(nextRows);
+    };
+
     const handleFlatDrag = (activeId: string, overId: string) => {
         const oldIndex = flatRows.findIndex((row) => row._rowId === activeId);
         const newIndex = flatRows.findIndex((row) => row._rowId === overId);
@@ -1387,7 +1441,7 @@ export default function ManifestDatatable({
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-40">Meal</TableHead>
             )}
-            {mode === 'members' && <TableHead>Status</TableHead>}
+            {mode === 'members' && <TableHead>Payment Status</TableHead>}
             {mode !== 'course_collection' && (
                 <TableHead className="min-w-60">Remarks</TableHead>
             )}
@@ -1901,7 +1955,10 @@ export default function ManifestDatatable({
             fallbackValue?: string | null,
         ) => {
             const href = normalizeDocumentPath(document?.file_path);
-            const label = documentLabel(document?.file_path, document?.file_name);
+            const label = documentLabel(
+                document?.file_path,
+                document?.file_name,
+            );
             const isImage = isImageDocument(
                 document?.file_path ?? document?.file_name,
             );
@@ -2018,9 +2075,17 @@ export default function ManifestDatatable({
             (mode === 'room' || mode === 'room_check') &&
             canToggleRoomAssignment &&
             !disabled;
+        const currentGroupMemberCount =
+            groups.find((group) => group.key === item.groupKey)?.members
+                .length ?? 0;
+        const canSplitMemberFromGroup =
+            (mode === 'room' || mode === 'members') &&
+            !disabled &&
+            currentGroupMemberCount > 1;
         const hasMemberAction =
             canShowMoveToHoldingAction ||
             canShowToggleRoomAction ||
+            canSplitMemberFromGroup ||
             canShowUnassignByLocation ||
             canShowAssignByLocation;
 
@@ -2369,7 +2434,7 @@ export default function ManifestDatatable({
                                 !isOfficialMemberRow &&
                                 member.package_price !== null &&
                                 member.package_price !== undefined
-                                    ? String(member.package_price)
+                                    ? formatCurrency(member.package_price, '$')
                                     : ''
                             }
                             disabled={true}
@@ -2386,7 +2451,7 @@ export default function ManifestDatatable({
                                 !isOfficialMemberRow &&
                                 member.discount !== null &&
                                 member.discount !== undefined
-                                    ? String(member.discount)
+                                    ? formatCurrency(member.discount, '$')
                                     : ''
                             }
                             disabled={true}
@@ -2996,6 +3061,18 @@ export default function ManifestDatatable({
                                 <DropdownMenuContent align="end">
                                     {hasMemberAction ? (
                                         <>
+                                            {canSplitMemberFromGroup && (
+                                                <DropdownMenuItem
+                                                    onClick={() =>
+                                                        splitMemberIntoNewRoomGroup(
+                                                            flatIndex,
+                                                            item.groupKey,
+                                                        )
+                                                    }
+                                                >
+                                                    Split Member From Group
+                                                </DropdownMenuItem>
+                                            )}
                                             {canShowMoveToHoldingAction && (
                                                 <DropdownMenuItem
                                                     onClick={() =>
@@ -3139,6 +3216,18 @@ export default function ManifestDatatable({
                 <ContextMenuContent className="w-48">
                     {hasMemberAction ? (
                         <>
+                            {canSplitMemberFromGroup && (
+                                <ContextMenuItem
+                                    onClick={() =>
+                                        splitMemberIntoNewRoomGroup(
+                                            flatIndex,
+                                            item.groupKey,
+                                        )
+                                    }
+                                >
+                                    Split Member From Group
+                                </ContextMenuItem>
+                            )}
                             {canShowMoveToHoldingAction && (
                                 <ContextMenuItem
                                     onClick={() => onMoveToHolding?.(member)}

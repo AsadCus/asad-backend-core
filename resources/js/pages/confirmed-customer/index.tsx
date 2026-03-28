@@ -349,9 +349,12 @@ export default function ConfirmedCustomerIndex({
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const { confirm, ConfirmDialog } = useConfirmDialog();
+    const isHoldingIndex = indexUrl.includes('/customer-holding');
+    const canCreateCustomerConfirmation =
+        !isHoldingIndex && userPermissions.includes('customer create');
 
     const actions: ActionType[] = [];
-    if (userPermissions.includes('customer create')) actions.push('add');
+    if (canCreateCustomerConfirmation) actions.push('add');
     if (userPermissions.includes('customer view')) actions.push('view');
     if (userPermissions.includes('customer edit')) actions.push('edit');
     if (userPermissions.includes('customer edit')) actions.push('delete');
@@ -890,7 +893,8 @@ export default function ConfirmedCustomerIndex({
         singleMemberId?: number,
     ) => {
         const refundableMembers = group.members.filter(
-            (member) => member.status !== 'cancelled' && (member.paid_amount ?? 0) > 0,
+            (member) =>
+                member.status !== 'cancelled' && (member.paid_amount ?? 0) > 0,
         );
 
         if (refundableMembers.length === 0) {
@@ -1026,7 +1030,10 @@ export default function ConfirmedCustomerIndex({
                         rowActions.push('move-members', 'cancel-member');
                     }
 
-                    if (member.status !== 'cancelled' && (member.paid_amount ?? 0) > 0) {
+                    if (
+                        member.status !== 'cancelled' &&
+                        (member.paid_amount ?? 0) > 0
+                    ) {
                         rowActions.push('refund');
                     }
 
@@ -1104,7 +1111,11 @@ export default function ConfirmedCustomerIndex({
                             columns={groupColumns}
                             data={dataGroups}
                             actions={actions}
-                            addButtonText="Create Customer Confirmation"
+                            addButtonText={
+                                canCreateCustomerConfirmation
+                                    ? 'Create Customer Confirmation'
+                                    : ''
+                            }
                             enableExpand
                             getRowActions={(group) => {
                                 const rowActions: ActionType[] = [
@@ -1393,7 +1404,8 @@ export default function ConfirmedCustomerIndex({
 
                                             <Badge variant="outline">
                                                 {confirmationMemberStatusLabels[
-                                                    member.status ?? 'pending_payment'
+                                                    member.status ??
+                                                        'pending_payment'
                                                 ] ?? member.status}
                                             </Badge>
                                         </label>

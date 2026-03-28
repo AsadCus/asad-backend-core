@@ -25,6 +25,7 @@ import { Info, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
 export type QuotationStatusActionType =
+    | 'draft'
     | 'ready'
     | 'accept'
     | 'convert'
@@ -49,7 +50,11 @@ export function getAvailableQuotationActions(
 ): QuotationStatusActionType[] {
     if (!status) return [];
 
-    if (status === 'draft' || status === 'rejected' || status === 'expired') {
+    if (status === 'rejected' || status === 'expired') {
+        return ['draft'];
+    }
+
+    if (status === 'draft') {
         return ['ready'];
     }
 
@@ -161,6 +166,8 @@ export function QuotationStatusAction({
 
     const getTitle = () => {
         switch (action) {
+            case 'draft':
+                return 'Move Quotation to Draft';
             case 'ready':
                 return 'Mark Quotation as Ready';
             case 'accept':
@@ -180,6 +187,8 @@ export function QuotationStatusAction({
 
     const getDescription = () => {
         switch (action) {
+            case 'draft':
+                return 'Move this quotation back to draft so it can be revised again.';
             case 'ready':
                 return 'Mark this quotation as ready to proceed with customer decision.';
             case 'accept':
@@ -209,6 +218,10 @@ export function QuotationStatusAction({
             // Validate quotation before marking as ready
             validateAndMarkReady();
             return;
+        }
+
+        if (action === 'draft') {
+            router.put(`/quotation/${quotationId}/draft`, {}, finishHandler);
         }
 
         if (action === 'accept') {

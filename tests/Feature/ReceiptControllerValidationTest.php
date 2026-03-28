@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
 use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ReceiptControllerValidationTest extends TestCase
@@ -61,19 +63,40 @@ class ReceiptControllerValidationTest extends TestCase
         return compact('receipt');
     }
 
-    public function test_receipt_update_requires_receipt_date_field_only(): void
+    public function test_receipt_update_requires_receipt_date_and_payment_method_fields(): void
     {
         $graph = $this->createReceiptGraph();
 
-        $response = $this->putJson(route('receipt.update', $graph['receipt']->id), [
-            'payment_method' => 'transfer',
-        ]);
+        $response = $this->putJson(route('receipt.update', $graph['receipt']->id), []);
 
         $response
             ->assertStatus(422)
             ->assertJsonValidationErrors([
                 'receipt_date',
+                'payment_method',
             ]);
+    }
+
+    public function test_receipt_create_uses_active_default_payment_method_from_master_page(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        PaymentMethodMaster::query()->create([
+            'name' => 'Paynow',
+            'value' => 'paynow',
+            'is_active' => true,
+            'is_default' => true,
+            'sort_order' => 1,
+        ]);
+
+        $response = $this->get(route('receipt.create'));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('receipts/create')
+            ->where('data.defaultPaymentMethod', 'paynow')
+        );
     }
 
     public function test_receipt_update_preserves_invoice_and_amount_when_not_provided(): void

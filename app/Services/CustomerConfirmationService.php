@@ -1796,6 +1796,13 @@ class CustomerConfirmationService
                 }
 
                 $sortOrder = 1;
+                $umrahPackageHeader = QuotationItem::create([
+                    'quotation_id' => $quotation->id,
+                    'parent_id' => null,
+                    'description' => 'Umrah Packages',
+                    'is_header' => true,
+                    'sort_order' => $sortOrder++,
+                ]);
 
                 foreach ($coveredMemberIds as $memberId) {
                     $member = $membersById->get((int) $memberId);
@@ -1819,6 +1826,7 @@ class CustomerConfirmationService
                     QuotationItem::create([
                         'quotation_id' => $quotation->id,
                         'customer_confirmation_member_id' => $member->id,
+                        'parent_id' => $umrahPackageHeader->id,
                         'description' => "{$memberName} — {$planLabel} Sharing",
                         'is_header' => false,
                         'quantity' => 1,

@@ -192,6 +192,18 @@ class QuotationController extends Controller
         return redirect()->route('quotation.index')->with('success', 'Quotation marked as sent successfully.');
     }
 
+    public function draftQuotation($id)
+    {
+        $quotation = $this->quotationService->draft($id);
+
+        activity()
+            ->performedOn($quotation)
+            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number, 'status' => 'draft'])
+            ->log('Quotation moved back to draft successfully #'.$quotation->quotation_number);
+
+        return redirect()->route('quotation.index')->with('success', 'Quotation moved to draft successfully.');
+    }
+
     public function acceptQuotation($id, Request $request)
     {
         $quotation = $this->quotationService->accept($id);

@@ -39,6 +39,7 @@ export const quotationSchema = z.object({
     payment_plan: z.string().nullable().optional(),
     payment_method: z.string().nullable().optional(),
     package_name: z.string().nullable().optional(),
+    package_departure_date: z.string().nullable().optional(),
     package_price_single: z
         .union([z.string(), z.number()])
         .nullable()

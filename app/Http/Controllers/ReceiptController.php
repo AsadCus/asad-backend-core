@@ -56,6 +56,7 @@ class ReceiptController extends Controller
     public function create(Request $request)
     {
         $data['invoiceId'] = $request->invoice_id;
+        $data['defaultPaymentMethod'] = $this->receiptService->getDefaultPaymentMethodValue();
         if ($data['invoiceId']) {
             $data['invoiceData'] = $this->invoiceService->getForEditShow($request->invoice_id);
         }
@@ -74,7 +75,7 @@ class ReceiptController extends Controller
             'invoice_id' => ['required', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')],
             'amount' => ['required', 'numeric'],
             'receipt_date' => ['required', 'date'],
-            'payment_method' => ['nullable', 'string'],
+            'payment_method' => ['required', 'string'],
             'reference' => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
         ]);
@@ -119,7 +120,7 @@ class ReceiptController extends Controller
             'invoice_id' => ['nullable', 'integer', 'exists:invoices,id', Rule::unique('receipts', 'invoice_id')->ignore((int) $id)],
             'amount' => ['nullable', 'numeric'],
             'receipt_date' => ['required', 'date'],
-            'payment_method' => ['nullable', 'string'],
+            'payment_method' => ['required', 'string'],
             'reference' => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
         ]);

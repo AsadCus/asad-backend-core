@@ -82,7 +82,7 @@ class ManifestRule
             'members.*.passport_path' => ['nullable', 'string', 'max:255'],
             'members.*.photo_path' => ['nullable', 'string', 'max:255'],
             'members.*.remarks' => ['nullable', 'string'],
-            'members.*.status' => ['nullable', 'string', 'in:draft,pending_payment,partially_paid,confirmed,unavailable,assigned,cancelled'],
+            'members.*.status' => ['nullable', 'string', 'in:pending_payment,partially_paid,fully_paid,cancelled'],
             'members.*.sharing_group_key' => ['nullable', 'string', 'max:255'],
             'members.*.manifest_sharing_group_id' => ['nullable', 'integer'],
             'members.*.sharing_group_id' => ['nullable', 'integer'],

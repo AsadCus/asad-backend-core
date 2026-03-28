@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Models\Invoice;
+use App\Models\PaymentMethodMaster;
 use App\Models\QuotationExtension;
 use App\Models\Receipt;
 use Illuminate\Support\Collection;
@@ -12,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class ReceiptService
 {
+    private const FALLBACK_DEFAULT_PAYMENT_METHOD = 'transfer';
+
     protected $formatService;
 
     protected $numberingService;
@@ -64,6 +67,33 @@ class ReceiptService
         ]);
     }
 
+    public function getDefaultPaymentMethodValue(): string
+    {
+        $default = PaymentMethodMaster::query()
+            ->where('is_active', true)
+            ->where('is_default', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->value('value');
+
+        if (is_string($default) && $default !== '') {
+            return $default;
+        }
+
+        $fallback = PaymentMethodMaster::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->value('value');
+
+        if (is_string($fallback) && $fallback !== '') {
+            return $fallback;
+        }
+
+        return self::FALLBACK_DEFAULT_PAYMENT_METHOD;
+    }
+
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -89,7 +119,7 @@ class ReceiptService
                 ),
                 'amount' => $this->formatService->cleanDecimal($data['amount']),
                 'receipt_date' => $data['receipt_date'],
-                'payment_method' => $data['payment_method'] ?? null,
+                'payment_method' => $data['payment_method'],
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
             ]);
@@ -346,7 +376,7 @@ class ReceiptService
                 'invoice_id' => $targetInvoiceId,
                 'amount' => $amount,
                 'receipt_date' => $data['receipt_date'],
-                'payment_method' => $data['payment_method'] ?? null,
+                'payment_method' => $data['payment_method'],
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
             ]);

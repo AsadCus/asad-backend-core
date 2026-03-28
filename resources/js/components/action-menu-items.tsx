@@ -49,6 +49,7 @@ export function ActionMenuItems<TData>({
         : (row as TData & WithHandledBy).handled_by;
 
     const hasQuotationStatusActions =
+        actions.includes('quotation-status-draft') ||
         actions.includes('quotation-status-ready') ||
         actions.includes('quotation-status-accept') ||
         actions.includes('quotation-status-convert') ||
@@ -64,6 +65,12 @@ export function ActionMenuItems<TData>({
         <>
             {actions.includes('preview') && (
                 <Item onClick={() => onAction?.('preview', row)}>Preview</Item>
+            )}
+
+            {actions.includes('create-receipt') && (
+                <Item onClick={() => onAction?.('create-receipt', row)}>
+                    Create Receipt
+                </Item>
             )}
 
             {actions.includes('receipt-preview') && (
@@ -86,6 +93,19 @@ export function ActionMenuItems<TData>({
                     <Sub>
                         <SubTrigger>Change Status</SubTrigger>
                         <SubContent>
+                            {actions.includes('quotation-status-draft') && (
+                                <Item
+                                    onClick={() =>
+                                        onAction?.(
+                                            'quotation-status-draft',
+                                            row,
+                                        )
+                                    }
+                                >
+                                    Move to Draft
+                                </Item>
+                            )}
+
                             {actions.includes('quotation-status-ready') && (
                                 <Item
                                     onClick={() =>

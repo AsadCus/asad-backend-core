@@ -1561,6 +1561,67 @@ class CustomerConfirmationFormTest extends TestCase
             ->assertSessionHas('success', '1 quotation(s) created successfully.');
     }
 
+    public function test_generate_quotations_wraps_member_items_under_umrah_packages_header(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-GEN-UMRAH-001',
+            'name' => 'Generate Quotation Header Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $payerUser = User::factory()->create(['email' => 'payer-header@test.com']);
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-PAYER-HDR-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+            'payer_to_members' => [
+                (string) $payerMember->id => [$payerMember->id],
+            ],
+        ])->assertRedirect(route('quotation.index'));
+
+        $quotation = Quotation::query()
+            ->where('customer_confirmation_id', $confirmation->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($quotation);
+
+        $header = QuotationItem::query()
+            ->where('quotation_id', $quotation->id)
+            ->where('is_header', true)
+            ->where('description', 'Umrah Packages')
+            ->first();
+
+        $this->assertNotNull($header);
+
+        $memberItem = QuotationItem::query()
+            ->where('quotation_id', $quotation->id)
+            ->where('is_header', false)
+            ->first();
+
+        $this->assertNotNull($memberItem);
+        $this->assertSame((int) $header->id, (int) $memberItem->parent_id);
+    }
+
     public function test_generate_quotations_autofills_master_quotation_notes(): void
     {
         $this->actingAs($this->adminUser);

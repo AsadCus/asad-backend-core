@@ -1,7 +1,7 @@
 import { DatePickerField } from '@/components/date-picker';
+import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -29,6 +29,7 @@ interface ReceiptFormProps {
     invoiceId?: number | undefined;
     invoiceData?: InvoiceSchema;
     invoiceOptions: OptionType[];
+    defaultPaymentMethod?: string;
     onCancel?: () => void;
 }
 
@@ -38,6 +39,7 @@ export default function ReceiptForm({
     invoiceId,
     invoiceData,
     invoiceOptions,
+    defaultPaymentMethod,
     onCancel,
 }: ReceiptFormProps) {
     const isEditMode = mode === 'edit';
@@ -51,7 +53,7 @@ export default function ReceiptForm({
         invoice_id: invoiceId ? Number(invoiceId) : undefined,
         amount: selectedInvoice?.amount,
         receipt_date: formatDateForDisplay(new Date()),
-        payment_method: selectedInvoice?.payment_method ?? 'transfer',
+        payment_method: defaultPaymentMethod ?? 'transfer',
         reference: '',
         description: '',
     };
@@ -88,16 +90,6 @@ export default function ReceiptForm({
         post(storeReceipt().url);
     };
 
-    // err
-    const renderError = (path: string) => {
-        const errorMap = errors as Record<string, string | undefined>;
-        const message = errorMap[path];
-
-        if (!message) return null;
-
-        return <p className="mt-1 text-sm text-red-500">{message}</p>;
-    };
-
     return (
         <div
             className="mx-auto max-h-[90vh] w-full overflow-y-auto p-2"
@@ -109,133 +101,137 @@ export default function ReceiptForm({
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid items-start gap-4 md:grid-cols-2">
                     {/* Invoice */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label>
-                            Invoice <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="relative">
-                            <Select
-                                value={
-                                    data.invoice_id
-                                        ? String(data.invoice_id)
-                                        : ''
-                                }
-                                onValueChange={(v) => {
-                                    const id = Number(v);
-                                    getInvoiceDetail(id);
-                                    setData('invoice_id', id);
-                                }}
-                                disabled={isEditMode || !!invoiceId}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select invoice" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {invoiceOptions.map((option) => (
-                                        <SelectItem
-                                            key={option.value}
-                                            value={String(option.value)}
-                                        >
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {renderError('invoice_id')}
-                        </div>
-                    </div>
+                    <FormField
+                        label="Invoice"
+                        fieldRequirementsProps={{
+                            required: true,
+                            hint: 'Choose the invoice that this receipt applies to.',
+                        }}
+                        error={errors.invoice_id}
+                    >
+                        <Select
+                            value={
+                                data.invoice_id ? String(data.invoice_id) : ''
+                            }
+                            onValueChange={(v) => {
+                                const id = Number(v);
+                                getInvoiceDetail(id);
+                                setData('invoice_id', id);
+                            }}
+                            disabled={isEditMode || !!invoiceId}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select invoice" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {invoiceOptions.map((option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={String(option.value)}
+                                    >
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormField>
 
                     {/* Amount */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label>
-                            Amount <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="relative">
-                            <Input
-                                type="number"
-                                step="any"
-                                value={
-                                    data.amount || selectedInvoice?.amount || ''
-                                }
-                                onChange={(e) =>
-                                    setData('amount', e.target.value)
-                                }
-                                disabled
-                            />
-                            {renderError('amount')}
-                        </div>
-                    </div>
+                    <FormField
+                        label="Amount"
+                        fieldRequirementsProps={{
+                            required: true,
+                            hint: 'Automatically follows the selected invoice amount.',
+                        }}
+                        error={errors.amount}
+                    >
+                        <Input
+                            type="number"
+                            step="any"
+                            value={data.amount || selectedInvoice?.amount || ''}
+                            onChange={(e) => setData('amount', e.target.value)}
+                            disabled
+                        />
+                    </FormField>
 
                     {/* Receipt Date */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label>Receipt Date *</Label>
-                        <div className="relative">
-                            <DatePickerField
-                                id="receipt_date"
-                                value={data.receipt_date ?? ''}
-                                onChange={(v) => setData('receipt_date', v)}
-                                disabled={processing}
-                            />
-                            {renderError('receipt_date')}
-                        </div>
-                    </div>
+                    <FormField
+                        label="Receipt Date"
+                        fieldRequirementsProps={{
+                            required: true,
+                            hint: 'The actual payment date recorded for this receipt.',
+                        }}
+                        error={errors.receipt_date}
+                    >
+                        <DatePickerField
+                            id="receipt_date"
+                            value={data.receipt_date ?? ''}
+                            onChange={(v) => setData('receipt_date', v)}
+                            disabled={processing}
+                        />
+                    </FormField>
 
                     {/* Payment Method */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label>Payment Method</Label>
-                        <div className="relative">
-                            <Select
-                                value={data.payment_method ?? 'transfer'}
-                                onValueChange={(v) =>
-                                    setData('payment_method', v)
-                                }
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {paymentMethods.map((m) => (
-                                        <SelectItem
-                                            key={m.value}
-                                            value={String(m.value)}
-                                        >
-                                            {m.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {renderError('payment_method')}
-                        </div>
-                    </div>
+                    <FormField
+                        label="Payment Method"
+                        fieldRequirementsProps={{
+                            required: true,
+                            hint: 'Default comes from active payment method master and can be changed.',
+                        }}
+                        error={errors.payment_method}
+                    >
+                        <Select
+                            value={data.payment_method ?? 'transfer'}
+                            onValueChange={(v) => setData('payment_method', v)}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {paymentMethods.map((m) => (
+                                    <SelectItem
+                                        key={m.value}
+                                        value={String(m.value)}
+                                    >
+                                        {m.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormField>
 
                     {/* Reference */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label>Reference</Label>
-                        <div className="relative">
-                            <Input
-                                value={data.reference ?? ''}
-                                onChange={(e) =>
-                                    setData('reference', e.target.value)
-                                }
-                            />
-                            {renderError('reference')}
-                        </div>
-                    </div>
+                    <FormField
+                        label="Reference"
+                        fieldRequirementsProps={{
+                            hint: 'Optional bank reference, transaction ID, or note.',
+                        }}
+                        error={errors.reference}
+                    >
+                        <Input
+                            value={data.reference ?? ''}
+                            onChange={(e) =>
+                                setData('reference', e.target.value)
+                            }
+                        />
+                    </FormField>
 
                     {/* Description */}
-                    <div className="grid w-full items-center gap-3">
-                        <Label>Remarks</Label>
-                        <div className="relative">
-                            <Textarea
-                                rows={4}
-                                value={data.description ?? ''}
-                                onChange={(e) =>
-                                    setData('description', e.target.value)
-                                }
-                            />
-                            {renderError('description')}
-                        </div>
-                    </div>
+                    <FormField
+                        label="Remarks"
+                        fieldRequirementsProps={{
+                            hint: 'Optional internal remarks for this receipt.',
+                        }}
+                        error={errors.description}
+                    >
+                        <Textarea
+                            rows={4}
+                            value={data.description ?? ''}
+                            onChange={(e) =>
+                                setData('description', e.target.value)
+                            }
+                        />
+                    </FormField>
                 </div>
 
                 <div className="flex justify-end gap-4">

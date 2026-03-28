@@ -368,7 +368,21 @@ export default function OrderForm({
                             depositValue,
                             quotation.extensions ?? [],
                         ),
-                        quotation.quotation_date ?? '',
+                        {
+                            defaultDate: quotation.quotation_date ?? '',
+                            paymentPlan,
+                            hasCustomerConfirmationMemberItem: (
+                                quotation.items ?? []
+                            ).some(
+                                (item) =>
+                                    Number(
+                                        item.customer_confirmation_member_id ??
+                                            0,
+                                    ) > 0,
+                            ),
+                            packageDepartureDate:
+                                quotation.package_departure_date ?? null,
+                        },
                     ),
                 );
 
@@ -1101,93 +1115,102 @@ export default function OrderForm({
 
                                     {data.payment_plan === 'installment' &&
                                         hasQuotationCustomerConfirmation && (
-                                        <>
-                                            <FormField label="Deposit Type">
-                                                <Select
-                                                    value={String(
-                                                        data.deposit_type ?? '',
-                                                    )}
-                                                    onValueChange={(v) => {
-                                                        setData({
-                                                            ...data,
-                                                            deposit_type: v,
-                                                            invoices:
-                                                                rebuildInvoicesFromSource(
-                                                                    data.payment_plan ??
-                                                                        'installment',
-                                                                    v,
-                                                                    data.deposit_value,
-                                                                    data.invoices,
-                                                                ),
-                                                        });
-                                                    }}
-                                                    disabled={isView}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select type" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {depositTypes.map(
-                                                            (dt) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        dt.value
-                                                                    }
-                                                                    value={
-                                                                        dt.value
-                                                                    }
-                                                                >
-                                                                    {dt.label}
-                                                                </SelectItem>
-                                                            ),
+                                            <>
+                                                <FormField label="Deposit Type">
+                                                    <Select
+                                                        value={String(
+                                                            data.deposit_type ??
+                                                                '',
                                                         )}
-                                                    </SelectContent>
-                                                </Select>
-                                                {renderError('deposit_type')}
-                                            </FormField>
-
-                                            <FormField label="Deposit Value">
-                                                <ProperInput
-                                                    value={
-                                                        data.deposit_value ?? ''
-                                                    }
-                                                    type="number"
-                                                    inputProps={{
-                                                        step: 'any',
-                                                        min: '0',
-                                                        ...(data.deposit_type ===
-                                                        'percentage'
-                                                            ? {
-                                                                  max: '100',
-                                                              }
-                                                            : {}),
-                                                    }}
-                                                    placeholder={
-                                                        data.deposit_type ===
-                                                        'percentage'
-                                                            ? 'Enter %'
-                                                            : 'Enter amount'
-                                                    }
-                                                    disabled={isView}
-                                                    onCommit={(v) => {
-                                                        setData({
-                                                            ...data,
-                                                            deposit_value: v,
-                                                            invoices:
-                                                                rebuildInvoicesFromSource(
-                                                                    data.payment_plan ??
-                                                                        'installment',
-                                                                    data.deposit_type,
-                                                                    v,
-                                                                    data.invoices,
+                                                        onValueChange={(v) => {
+                                                            setData({
+                                                                ...data,
+                                                                deposit_type: v,
+                                                                invoices:
+                                                                    rebuildInvoicesFromSource(
+                                                                        data.payment_plan ??
+                                                                            'installment',
+                                                                        v,
+                                                                        data.deposit_value,
+                                                                        data.invoices,
+                                                                    ),
+                                                            });
+                                                        }}
+                                                        disabled={isView}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {depositTypes.map(
+                                                                (dt) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            dt.value
+                                                                        }
+                                                                        value={
+                                                                            dt.value
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            dt.label
+                                                                        }
+                                                                    </SelectItem>
                                                                 ),
-                                                        });
-                                                    }}
-                                                />
-                                                {renderError('deposit_value')}
-                                            </FormField>
-                                        </>
-                                    )}
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {renderError(
+                                                        'deposit_type',
+                                                    )}
+                                                </FormField>
+
+                                                <FormField label="Deposit Value">
+                                                    <ProperInput
+                                                        value={
+                                                            data.deposit_value ??
+                                                            ''
+                                                        }
+                                                        type="number"
+                                                        inputProps={{
+                                                            step: 'any',
+                                                            min: '0',
+                                                            ...(data.deposit_type ===
+                                                            'percentage'
+                                                                ? {
+                                                                      max: '100',
+                                                                  }
+                                                                : {}),
+                                                        }}
+                                                        placeholder={
+                                                            data.deposit_type ===
+                                                            'percentage'
+                                                                ? 'Enter %'
+                                                                : 'Enter amount'
+                                                        }
+                                                        disabled={isView}
+                                                        onCommit={(v) => {
+                                                            setData({
+                                                                ...data,
+                                                                deposit_value:
+                                                                    v,
+                                                                invoices:
+                                                                    rebuildInvoicesFromSource(
+                                                                        data.payment_plan ??
+                                                                            'installment',
+                                                                        data.deposit_type,
+                                                                        v,
+                                                                        data.invoices,
+                                                                    ),
+                                                            });
+                                                        }}
+                                                    />
+                                                    {renderError(
+                                                        'deposit_value',
+                                                    )}
+                                                </FormField>
+                                            </>
+                                        )}
                                 </div>
                             </div>
 

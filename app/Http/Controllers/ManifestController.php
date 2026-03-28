@@ -662,6 +662,7 @@ class ManifestController extends Controller
         $members = array_map(function (array $member): array {
             $member['room_type'] = $this->normalizeRoomType($member['room_type'] ?? null);
             $member['bed_type'] = $this->normalizeBedType($member['bed_type'] ?? null);
+            $member['status'] = $this->normalizeMemberStatus($member['status'] ?? null);
 
             return $member;
         }, $this->flattenGroupedRows(Arr::get($payload, 'members', [])));
@@ -794,7 +795,7 @@ class ManifestController extends Controller
                     'group_relationship' => $group['group_relationship'] ?? $group['relation'] ?? $group['relationship'] ?? null,
                     'group_remarks' => $group['remarks'] ?? null,
                     'remarks' => $member['remarks'] ?? null,
-                    'status' => $member['status'] ?? null,
+                    'status' => $this->normalizeMemberStatus($member['status'] ?? null),
                 ];
 
                 foreach ($patch as $key => $value) {
@@ -918,6 +919,7 @@ class ManifestController extends Controller
         $payload['members'] = array_map(function (array $member): array {
             $member['room_type'] = $this->normalizeRoomType($member['room_type'] ?? null);
             $member['bed_type'] = $this->normalizeBedType($member['bed_type'] ?? null);
+            $member['status'] = $this->normalizeMemberStatus($member['status'] ?? null);
 
             return $member;
         }, $this->flattenGroupedRows(Arr::get($payload, 'members', [])));
@@ -1097,6 +1099,27 @@ class ManifestController extends Controller
         }
 
         return 'fallback:'.sha1(json_encode($member));
+    }
+
+    private function normalizeMemberStatus(mixed $status): ?string
+    {
+        if (! is_string($status)) {
+            return null;
+        }
+
+        $normalized = Str::lower(trim($status));
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        return match ($normalized) {
+            'pending', 'pending_payment' => 'pending_payment',
+            'deposit', 'partial', 'partially_paid' => 'partially_paid',
+            'paid', 'full', 'full_payment', 'fully_paid' => 'fully_paid',
+            'cancelled' => 'cancelled',
+            default => null,
+        };
     }
 
     /**

@@ -19,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class QuotationService
 {
@@ -529,6 +530,7 @@ class QuotationService
             'status' => $quotation->status?->value,
             'reason' => $quotation->reason,
             'package_name' => $quotation->customerConfirmation?->package?->name,
+            'package_departure_date' => $quotation->customerConfirmation?->package?->departure_date?->format('Y-m-d'),
             'package_price_single' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_single),
             'package_price_double' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_double),
             'package_price_triple' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_triple),
@@ -580,6 +582,7 @@ class QuotationService
     {
         return DB::transaction(function () use ($data, $id) {
             $quotation = Quotation::findOrFail($id);
+            $requestedStatus = strtolower((string) ($data['status'] ?? $quotation->status?->value ?? ''));
 
             $previousLinkedMemberIds = $quotation->quotationItems()
                 ->whereNotNull('customer_confirmation_member_id')
@@ -641,6 +644,36 @@ class QuotationService
 
             $this->syncQuotationItemsToRelevantInvoicesBySortOrder($quotation);
             $this->syncConvertedOrderInvoiceAndReceiptAmounts($quotation);
+
+            if ($requestedStatus === QuotationStatus::Rejected->value) {
+                $linkedMemberIds = $this->getLinkedMemberIds($quotation);
+
+                if (! empty($linkedMemberIds)) {
+                    CustomerConfirmationMember::query()
+                        ->whereIn('id', $linkedMemberIds)
+                        ->where('status', '!=', 'cancelled')
+                        ->update(['status' => 'pending_payment']);
+                }
+
+                $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
+                $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
+            }
+
+            if ($requestedStatus === QuotationStatus::Expired->value) {
+                $linkedMemberIds = $this->getLinkedMemberIds($quotation);
+
+                $this->resetLinkedMembersToDraft($linkedMemberIds);
+                $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
+                $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
+            }
+
+            if ($requestedStatus === QuotationStatus::Cancelled->value) {
+                $linkedMemberIds = $this->getLinkedMemberIds($quotation);
+
+                $this->resetLinkedMembersToDraft($linkedMemberIds);
+                $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
+                $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
+            }
 
             return $quotation->fresh();
         });
@@ -987,18 +1020,17 @@ class QuotationService
         return DB::transaction(function () use ($data, $id) {
             $quotation = Quotation::findOrFail($id);
 
-            $linkedMemberIds = $quotation->quotationItems()
-                ->whereNotNull('customer_confirmation_member_id')
-                ->pluck('customer_confirmation_member_id')
-                ->unique()
-                ->values();
+            $linkedMemberIds = $this->getLinkedMemberIds($quotation);
 
-            if ($linkedMemberIds->isNotEmpty()) {
+            if (! empty($linkedMemberIds)) {
                 CustomerConfirmationMember::query()
                     ->whereIn('id', $linkedMemberIds)
                     ->where('status', '!=', 'cancelled')
                     ->update(['status' => 'pending_payment']);
             }
+
+            $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
+            $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
 
             $quotation->update([
                 'status' => QuotationStatus::Rejected->value,
@@ -1025,6 +1057,11 @@ class QuotationService
     {
         return DB::transaction(function () use ($id) {
             $quotation = Quotation::findOrFail($id);
+            $linkedMemberIds = $this->getLinkedMemberIds($quotation);
+
+            $this->resetLinkedMembersToDraft($linkedMemberIds);
+            $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
+            $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
 
             $quotation->update([
                 'status' => QuotationStatus::Expired->value,
@@ -1042,20 +1079,7 @@ class QuotationService
 
             $this->resetLinkedMembersToDraft($linkedMemberIds);
             $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
-
-            if ($quotation->order) {
-                $invoices = $quotation->order->invoices;
-
-                foreach ($invoices as $invoice) {
-                    $receiptIds = $invoice->receipt()->pluck('id');
-
-                    if ($receiptIds->isNotEmpty()) {
-                        FinancialTransaction::where('reference_type', 'App\Models\Receipt')->whereIn('reference_id', $receiptIds)->delete();
-                    }
-
-                    $invoice->update(['status' => 'cancelled']);
-                }
-            }
+            $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
 
             $quotation->update(['status' => QuotationStatus::Cancelled->value]);
 
@@ -1065,22 +1089,68 @@ class QuotationService
 
     public function delete($id)
     {
-        $quotation = Quotation::find($id);
+        return DB::transaction(function () use ($id) {
+            $quotation = Quotation::find($id);
 
-        if (! $quotation) {
-            return false;
-        }
+            if (! $quotation) {
+                return false;
+            }
 
-        $this->resetLinkedMembersToDraft($this->getLinkedMemberIds($quotation));
+            $linkedMemberIds = $this->getLinkedMemberIds($quotation);
 
-        $quotation->update(['status' => QuotationStatus::Expired->value]);
+            $this->resetLinkedMembersToDraft($linkedMemberIds);
+            $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
+            $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
 
-        return activity()
-            ->performedOn($quotation)
-            ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id ?? null])
-            ->log('Quotation deleted successfully #'.($quotation->id ?? null));
+            $quotation->update(['status' => QuotationStatus::Expired->value]);
+            $quotation->delete();
 
-        $quotation->delete();
+            return true;
+        });
+    }
+
+    public function draft($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $quotation = Quotation::findOrFail($id);
+
+            if (! in_array($quotation->status?->value, [QuotationStatus::Rejected->value, QuotationStatus::Expired->value], true)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only rejected or expired quotations can be moved back to draft.',
+                ]);
+            }
+
+            $linkedMemberIds = $this->getLinkedMemberIds($quotation);
+            $conflictExists = false;
+
+            if (! empty($linkedMemberIds)) {
+                $conflictExists = QuotationItem::query()
+                    ->whereIn('customer_confirmation_member_id', $linkedMemberIds)
+                    ->whereHas('quotation', function ($query) use ($quotation) {
+                        $query->where('id', '!=', $quotation->id)
+                            ->whereNull('deleted_at')
+                            ->whereNotIn('status', [
+                                QuotationStatus::Cancelled->value,
+                                QuotationStatus::Expired->value,
+                                QuotationStatus::Rejected->value,
+                            ]);
+                    })
+                    ->exists();
+            }
+
+            if ($conflictExists) {
+                throw ValidationException::withMessages([
+                    'status' => 'Cannot move to draft because one or more members are already linked to another active quotation.',
+                ]);
+            }
+
+            $quotation->update([
+                'status' => QuotationStatus::Draft->value,
+                'reason' => null,
+            ]);
+
+            return $quotation->fresh();
+        });
     }
 
     /**
@@ -1150,6 +1220,29 @@ class QuotationService
         }
 
         app(PackageSeatService::class)->recalculateForPackageId($packageId);
+    }
+
+    private function cancelLinkedInvoicesAndDropReceiptTransactions(Quotation $quotation): void
+    {
+        $quotation->loadMissing('order.invoices.receipt');
+
+        if (! $quotation->order) {
+            return;
+        }
+
+        $invoices = $quotation->order->invoices;
+
+        foreach ($invoices as $invoice) {
+            $receiptIds = $invoice->receipt->pluck('id');
+
+            if ($receiptIds->isNotEmpty()) {
+                FinancialTransaction::where('reference_type', 'App\Models\Receipt')
+                    ->whereIn('reference_id', $receiptIds)
+                    ->delete();
+            }
+
+            $invoice->update(['status' => 'cancelled']);
+        }
     }
 
     public function syncQuotationExtensionsFromOrderInvoices(Quotation $quotation, array $invoices): void

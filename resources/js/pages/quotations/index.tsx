@@ -194,7 +194,14 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     ] = useState(false);
 
     const [quotationStatusActionType, setQuotationStatusActionType] = useState<
-        'ready' | 'accept' | 'convert' | 'reject' | 'expire' | 'cancel' | null
+        | 'draft'
+        | 'ready'
+        | 'accept'
+        | 'convert'
+        | 'reject'
+        | 'expire'
+        | 'cancel'
+        | null
     >(null);
     const [selectedQuotationForStatus, setSelectedQuotationForStatus] =
         useState<QuotationSchema | null>(null);
@@ -211,19 +218,21 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
         }
 
         const determineStatusActionType = ():
+            | 'draft'
             | 'ready'
             | 'accept'
             | 'convert'
             | 'reject'
             | 'expire'
             | 'cancel' => {
+            if (action === 'quotation-status-draft') return 'draft';
             if (action === 'quotation-status-ready') return 'ready';
             if (action === 'quotation-status-accept') return 'accept';
             if (action === 'quotation-status-convert') return 'convert';
             if (action === 'quotation-status-reject') return 'reject';
             if (action === 'quotation-status-expire') return 'expire';
             if (action === 'quotation-status-cancel') return 'cancel';
-            return 'expire';
+            return 'ready';
         };
 
         setQuotationStatusActionType(determineStatusActionType());

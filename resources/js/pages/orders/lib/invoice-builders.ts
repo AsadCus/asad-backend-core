@@ -1,3 +1,4 @@
+import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import { calculateTotal, collectAllItems } from '@/pages/invoices/lib/utils';
 import { InvoiceItemSchema, InvoiceSchema } from '@/pages/invoices/schema';
 import { QuotationSchema } from '@/pages/quotations/schema';
@@ -9,13 +10,75 @@ type QuotationExtensionInput = {
 };
 
 function isTaxExtension(extension: QuotationExtensionInput): boolean {
-    return String(extension.type ?? '').trim().toLowerCase() === 'tax';
+    return (
+        String(extension.type ?? '')
+            .trim()
+            .toLowerCase() === 'tax'
+    );
 }
 
 export function autoFillInvoiceDates(
     invoices: InvoiceSchema[],
-    defaultDate?: string,
+    options?:
+        | string
+        | {
+              defaultDate?: string;
+              paymentPlan?: string | null;
+              hasCustomerConfirmationMemberItem?: boolean;
+              packageDepartureDate?: string | null;
+          },
 ): InvoiceSchema[] {
+    const resolvedOptions =
+        typeof options === 'string' || options === undefined
+            ? {
+                  defaultDate: options,
+                  paymentPlan: undefined,
+                  hasCustomerConfirmationMemberItem: false,
+                  packageDepartureDate: undefined,
+              }
+            : options;
+
+    const {
+        defaultDate,
+        paymentPlan,
+        hasCustomerConfirmationMemberItem,
+        packageDepartureDate,
+    } = resolvedOptions;
+
+    const todayDate = formatDateForDisplay(new Date());
+
+    if (hasCustomerConfirmationMemberItem) {
+        if (String(paymentPlan ?? '').toLowerCase() === 'installment') {
+            const parsedDepartureDate = parseDisplayDate(packageDepartureDate);
+
+            return invoices.map((invoice, index) => {
+                let targetDate = todayDate;
+
+                if (index > 0 && parsedDepartureDate) {
+                    const adjustedDate = new Date(parsedDepartureDate);
+
+                    adjustedDate.setMonth(
+                        adjustedDate.getMonth() - (index === 1 ? 3 : 2),
+                    );
+
+                    targetDate = formatDateForDisplay(adjustedDate);
+                }
+
+                return {
+                    ...invoice,
+                    invoice_date: invoice.invoice_date || targetDate,
+                    due_date: invoice.due_date || targetDate,
+                };
+            });
+        }
+
+        return invoices.map((invoice) => ({
+            ...invoice,
+            invoice_date: invoice.invoice_date || todayDate,
+            due_date: invoice.due_date || todayDate,
+        }));
+    }
+
     if (!defaultDate) {
         return invoices;
     }
@@ -382,7 +445,9 @@ export function quotationItemsToInvoiceItems(
 
     const keyMapById = new Map<number, string>();
     const resolvedKeys = quotation.items.map((item, index) => {
-        return item._key ?? (item.id ? `id-${item.id}` : `quotation-item-${index}`);
+        return (
+            item._key ?? (item.id ? `id-${item.id}` : `quotation-item-${index}`)
+        );
     });
 
     quotation.items.forEach((item, index) => {
@@ -406,10 +471,13 @@ export function quotationItemsToInvoiceItems(
         quantity: item.quantity,
         rate: item.rate,
         taxes: (item.taxes ?? []).map((tax, taxIndex) => ({
-            _key: tax._key ?? (tax.id ? `tax-${tax.id}` : `tax-${index}-${taxIndex}`),
+            _key:
+                tax._key ??
+                (tax.id ? `tax-${tax.id}` : `tax-${index}-${taxIndex}`),
             id: tax.id,
             quotation_item_id: tax.quotation_item_id ?? null,
-            quotation_extension_master_id: tax.quotation_extension_master_id ?? null,
+            quotation_extension_master_id:
+                tax.quotation_extension_master_id ?? null,
             name: tax.name ?? null,
             calculation_mode: tax.calculation_mode ?? null,
             calculation_value: tax.calculation_value ?? null,

@@ -1992,6 +1992,18 @@ class ManifestService
             ? $paidAmountFromReceipts
             : $paidAmountFromAllocations;
 
+        $quotationPaymentPlans = $member->quotationItems
+            ->map(fn ($quotationItem) => strtolower((string) ($quotationItem->quotation?->payment_plan ?? '')))
+            ->filter(fn ($plan) => $plan !== '')
+            ->unique()
+            ->values();
+
+        $isFullPaymentOnly = $quotationPaymentPlans->isNotEmpty()
+            && $quotationPaymentPlans->every(fn ($plan) => $plan === 'full');
+
+        $firstAllocationReceiptDate = $allocations->first()?->receipt?->receipt_date;
+        $firstPaymentDateSource = $firstReceipt?->receipt_date ?? $firstAllocationReceiptDate;
+
         $quotationIds = $member->quotationItems
             ->pluck('quotation_id')
             ->filter()
@@ -2056,6 +2068,21 @@ class ManifestService
                 - (float) ($thirdPayment ?? 0),
             0
         ), 2);
+
+        if ($isFullPaymentOnly) {
+            $packageCostPaid = round(min(max($paidAmount, 0), max($packagePrice, 0)), 2);
+
+            return [
+                'discount' => round($discount, 2),
+                'date_of_deposit_payment' => $this->formatDateForUi($firstPaymentDateSource),
+                'deposit_payment' => $packageCostPaid > 0 ? $packageCostPaid : null,
+                'date_of_second_payment' => null,
+                'second_payment' => null,
+                'date_of_third_payment' => null,
+                'third_payment' => null,
+                'balance_due' => round(max($packagePrice - $packageCostPaid, 0), 2),
+            ];
+        }
 
         return [
             'discount' => round($discount, 2),

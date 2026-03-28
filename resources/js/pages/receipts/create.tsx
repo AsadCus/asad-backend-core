@@ -11,6 +11,7 @@ interface CreateReceiptProps {
         invoiceId?: number | undefined;
         invoiceData?: InvoiceSchema;
         invoiceOptions: OptionType[];
+        defaultPaymentMethod: string;
     };
 }
 
@@ -36,6 +37,7 @@ export default function CreateReceipt({ data }: CreateReceiptProps) {
                         invoiceId={data.invoiceId}
                         invoiceData={data.invoiceData}
                         invoiceOptions={data.invoiceOptions}
+                        defaultPaymentMethod={data.defaultPaymentMethod}
                         onCancel={handleCancel}
                     />
                 </div>

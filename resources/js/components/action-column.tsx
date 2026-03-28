@@ -11,6 +11,7 @@ import { ActionMenuItems } from './action-menu-items';
 export type ActionType =
     | 'add'
     | 'preview'
+    | 'create-receipt'
     | 'receipt-preview'
     | 'view'
     | 'edit'
@@ -22,6 +23,7 @@ export type ActionType =
     | 'disable-customer'
     | 'set-default-year'
     | 'quotation-status-accept'
+    | 'quotation-status-draft'
     | 'quotation-status-ready'
     | 'quotation-status-convert'
     | 'quotation-status-reject'

@@ -155,6 +155,78 @@ class DashboardTest extends TestCase
         $this->assertSame(-125.0, (float) ($others['amount'] ?? 0));
     }
 
+    public function test_dashboard_payment_summary_excludes_receipts_from_rejected_cancelled_or_expired_quotations(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-DB-REJECT-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'rejected',
+            'description' => 'Rejected quotation payment should not appear',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Member #1',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 450,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice linked to rejected quotation',
+            'amount' => 450,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoice->quotationItems()->sync([$item->id]);
+
+        Receipt::withoutEvents(function () use ($invoice): void {
+            Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => 450,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'transfer',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('receipt_count', 0);
+        $response->assertJsonPath('total_amount', 0);
+
+        $quotation->update(['status' => 'expired']);
+
+        $expiredResponse = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+        ]));
+
+        $expiredResponse->assertOk();
+        $expiredResponse->assertJsonPath('receipt_count', 0);
+        $expiredResponse->assertJsonPath('total_amount', 0);
+    }
+
     public function test_removed_salesperson_monthly_dashboard_endpoints_are_not_registered(): void
     {
         $routes = app('router')->getRoutes();

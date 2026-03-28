@@ -5,7 +5,6 @@ import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -23,7 +22,6 @@ import {
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
     InvoiceItemSchema,
@@ -165,37 +163,6 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
-    {
-        id: 'receipt',
-        header: 'Receipt',
-        meta: { exportable: false },
-        cell: ({ row }) => {
-            const invoice = row.original;
-
-            if (
-                invoice.status !== 'paid' &&
-                invoice.status !== 'cancelled' &&
-                !invoice.has_receipt
-            ) {
-                return (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            router.get(createReceipt.url(), {
-                                invoice_id: invoice.id,
-                            });
-                        }}
-                        className="gap-1 bg-transparent"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Create
-                    </Button>
-                );
-            }
-        },
-    },
 ];
 
 export default function InvoicesIndex({ data }: InvoicesProps) {
@@ -280,6 +247,14 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
             rowActions.push('receipt-preview');
         }
 
+        if (
+            invoice.status !== 'paid' &&
+            invoice.status !== 'cancelled' &&
+            !invoice.has_receipt
+        ) {
+            rowActions.push('create-receipt');
+        }
+
         return rowActions;
     };
 
@@ -321,6 +296,10 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                     router.get(showInvoice(invoiceId).url);
                                 } else if (action === 'preview') {
                                     handlePreview(invoice);
+                                } else if (action === 'create-receipt') {
+                                    router.get(createReceipt.url(), {
+                                        invoice_id: invoice.id,
+                                    });
                                 } else if (action === 'receipt-preview') {
                                     handleReceiptPreview(invoice);
                                 } else if (action === 'download') {

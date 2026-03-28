@@ -59,20 +59,28 @@ export default function ManifestMemberInformationCard({
 
     const counts = jemaahMembers.reduce(
         (acc, member) => {
-            const age = resolveMemberAge(member);
-            const gender = String(member.gender ?? '').toLowerCase();
+            const rawGender = String(member.gender ?? '')
+                .toLowerCase()
+                .trim();
 
-            if (age === null) {
+            if (rawGender === '') {
+                acc.adults += 1;
+                acc.maleAdults += 1;
+
                 return acc;
             }
 
-            if (age < 2) {
+            const age = resolveMemberAge(member);
+            const gender = rawGender === 'female' ? 'female' : 'male';
+            const effectiveAge = age === null ? 18 : age;
+
+            if (effectiveAge < 2) {
                 acc.infant += 1;
 
                 return acc;
             }
 
-            if (age >= 18) {
+            if (effectiveAge >= 18) {
                 acc.adults += 1;
 
                 if (gender === 'male') {
