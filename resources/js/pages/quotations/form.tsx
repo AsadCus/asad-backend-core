@@ -579,7 +579,13 @@ export function QuotationForm({
                 extensions: mergedExtensions,
             };
         });
-    }, [activeExtensionMasters, data.payment_method, isCreate, isEdit, setData]);
+    }, [
+        activeExtensionMasters,
+        data.payment_method,
+        isCreate,
+        isEdit,
+        setData,
+    ]);
 
     // customer
     useEffect(() => {

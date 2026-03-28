@@ -5,11 +5,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import { QuotationForm } from './form';
-import {
-    paymentPlans,
-    QuotationSchema,
-    statuses,
-} from './schema';
+import { paymentPlans, QuotationSchema, statuses } from './schema';
 
 interface ViewQuotationProps {
     data: {

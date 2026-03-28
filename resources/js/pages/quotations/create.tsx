@@ -7,11 +7,7 @@ import { useCallback } from 'react';
 import { z } from 'zod';
 import { UserSchema } from '../masters/users/schema';
 import { QuotationForm } from './form';
-import {
-    paymentPlans,
-    quotationExtensionSchema,
-    statuses,
-} from './schema';
+import { paymentPlans, quotationExtensionSchema, statuses } from './schema';
 
 interface CreateQuotationProps {
     data: {

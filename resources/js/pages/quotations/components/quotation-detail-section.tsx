@@ -1,7 +1,12 @@
-import { CreatableCombobox, type CreatableComboboxOption } from '@/components/creatable-combobox';
+import {
+    CreatableCombobox,
+    type CreatableComboboxOption,
+} from '@/components/creatable-combobox';
 import { FormField } from '@/components/form-field';
 import { FormSection } from '@/components/form-section';
-import TotalsSummaryCard, { type TotalsSummaryRow } from '@/components/totals-summary-card';
+import TotalsSummaryCard, {
+    type TotalsSummaryRow,
+} from '@/components/totals-summary-card';
 import { Button } from '@/components/ui/button';
 import {
     ContextMenu,
@@ -80,10 +85,12 @@ export default function QuotationDetailSection({
 }: Props) {
     const [paymentMethodOptions, setPaymentMethodOptions] = React.useState<
         CreatableComboboxOption[]
-    >((paymentMethods ?? []).map((option) => ({
-        value: String(option.value),
-        label: String(option.label),
-    })));
+    >(
+        (paymentMethods ?? []).map((option) => ({
+            value: String(option.value),
+            label: String(option.label),
+        })),
+    );
 
     React.useEffect(() => {
         setPaymentMethodOptions(
@@ -117,7 +124,10 @@ export default function QuotationDetailSection({
         },
     ];
 
-    const extensions = React.useMemo(() => data.extensions ?? [], [data.extensions]);
+    const extensions = React.useMemo(
+        () => data.extensions ?? [],
+        [data.extensions],
+    );
 
     const extensionMasters = React.useMemo(
         () =>
@@ -783,7 +793,9 @@ export default function QuotationDetailSection({
                                             </ContextMenuItem>
                                             <ContextMenuItem
                                                 variant="destructive"
-                                                onClick={removeDiscountExtension}
+                                                onClick={
+                                                    removeDiscountExtension
+                                                }
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                                 Remove
@@ -800,7 +812,9 @@ export default function QuotationDetailSection({
                                         triggerMode="button"
                                         triggerButtonLabel="Add Discount"
                                         open={isAddDiscountPickerOpen}
-                                        onOpenChange={setIsAddDiscountPickerOpen}
+                                        onOpenChange={
+                                            setIsAddDiscountPickerOpen
+                                        }
                                         extensionType="discount"
                                         options={availableDiscountExtensionMasters
                                             .filter(

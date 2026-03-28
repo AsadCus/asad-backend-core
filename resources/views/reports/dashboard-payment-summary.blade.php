@@ -249,12 +249,14 @@
                             ->groupBy(function (array $row): string {
                                 $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
                                 $weekNumber = (int) ceil(((int) $parsed->format('j')) / 7);
-                                return 'Week '.$weekNumber;
+                                return 'Week ' . $weekNumber;
                             })
-                            ->map(fn (Collection $weekRows, string $weekLabel) => [
-                                'label' => $weekLabel,
-                                'rows' => $weekRows->values()->all(),
-                            ])
+                            ->map(
+                                fn(Collection $weekRows, string $weekLabel) => [
+                                    'label' => $weekLabel,
+                                    'rows' => $weekRows->values()->all(),
+                                ],
+                            )
                             ->values()
                             ->all();
 
@@ -277,10 +279,12 @@
                                 $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
                                 return $parsed->translatedFormat('F');
                             })
-                            ->map(fn (Collection $monthRows, string $monthLabel) => [
-                                'label' => $monthLabel,
-                                'rows' => $monthRows->values()->all(),
-                            ])
+                            ->map(
+                                fn(Collection $monthRows, string $monthLabel) => [
+                                    'label' => $monthLabel,
+                                    'rows' => $monthRows->values()->all(),
+                                ],
+                            )
                             ->values()
                             ->all();
 
@@ -364,26 +368,29 @@
         ];
 
         /* ── Categories ─────────────────────────────────────────── */
-        $categoriesFromRows = collect($report['rows'] ?? [])->mapWithKeys(function (array $row) {
-            $category = trim((string) ($row['category'] ?? 'Others'));
-            $key = \Illuminate\Support\Str::of($category)->lower()->slug('_')->value();
+        $categoriesFromRows = collect($report['rows'] ?? [])
+            ->mapWithKeys(function (array $row) {
+                $category = trim((string) ($row['category'] ?? 'Others'));
+                $key = \Illuminate\Support\Str::of($category)->lower()->slug('_')->value();
 
-            if ($key === '') {
-                return ['others' => 'Others'];
-            }
+                if ($key === '') {
+                    return ['others' => 'Others'];
+                }
 
-            return [$key => $category];
-        })->all();
+                return [$key => $category];
+            })
+            ->all();
 
-        $categories = $categoriesFromRows !== []
-            ? $categoriesFromRows
-            : [
-                'umrah_packages' => 'Umrah Packages',
-                'leisure_package' => 'Leisure Package',
-                'friday_blessings_badal' => 'Friday Blessings / Badal',
-                'wakaf_jemaah' => 'Wakaf Jemaah',
-                'others' => 'Others',
-            ];
+        $categories =
+            $categoriesFromRows !== []
+                ? $categoriesFromRows
+                : [
+                    'umrah_packages' => 'Umrah Packages',
+                    'leisure_package' => 'Leisure Package',
+                    'friday_blessings_badal' => 'Friday Blessings / Badal',
+                    'wakaf_jemaah' => 'Wakaf Jemaah',
+                    'others' => 'Others',
+                ];
 
         $fields = ['amount', 'cash', 'nets', 'visa', 'master', 'paynow', 'total_sale'];
         $zero = array_fill_keys($fields, 0.0);
@@ -413,12 +420,14 @@
         $buildCatBlocks = function (array $rows) use ($categories, $fields, $zero): array {
             $blocks = [];
             foreach ($categories as $catKey => $catLabel) {
-                $catRows = array_values(array_filter($rows, function ($r) use ($catKey): bool {
-                    $rowCategory = trim((string) ($r['category'] ?? ''));
-                    $normalizedRowKey = \Illuminate\Support\Str::of($rowCategory)->lower()->slug('_')->value();
+                $catRows = array_values(
+                    array_filter($rows, function ($r) use ($catKey): bool {
+                        $rowCategory = trim((string) ($r['category'] ?? ''));
+                        $normalizedRowKey = \Illuminate\Support\Str::of($rowCategory)->lower()->slug('_')->value();
 
-                    return $normalizedRowKey === (string) $catKey;
-                }));
+                        return $normalizedRowKey === (string) $catKey;
+                    }),
+                );
                 $catTot = $zero;
                 foreach ($catRows as $r) {
                     foreach ($fields as $f) {

@@ -1,7 +1,9 @@
 import { FormField } from '@/components/form-field';
 import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
-import TotalsSummaryCard, { type TotalsSummaryRow } from '@/components/totals-summary-card';
+import TotalsSummaryCard, {
+    type TotalsSummaryRow,
+} from '@/components/totals-summary-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -960,7 +962,9 @@ export default function OrderForm({
             (extension) => String(extension.type ?? 'discount') === 'discount',
         ) ?? null;
 
-    const quotationDiscountAmount = Number(quotationDiscountExtension?.amount ?? 0);
+    const quotationDiscountAmount = Number(
+        quotationDiscountExtension?.amount ?? 0,
+    );
 
     const quotationExtensionTotalAmount = Number(
         quotation?.extension_total_amount ??
@@ -994,7 +998,9 @@ export default function OrderForm({
                 key: quotationDiscountExtension._key ?? 'quotation-discount',
                 label: formatExtensionLabel(
                     String(quotationDiscountExtension.name ?? 'Discount'),
-                    String(quotationDiscountExtension.calculation_mode ?? 'fixed'),
+                    String(
+                        quotationDiscountExtension.calculation_mode ?? 'fixed',
+                    ),
                     Number(quotationDiscountExtension.calculation_value ?? 0),
                 ),
                 amount: quotationDiscountAmount,
@@ -1494,15 +1500,19 @@ export default function OrderForm({
                                               },
                                           ]
                                         : []),
-                                    ...itemTaxSummaries.map((tax, taxIndex) => ({
-                                        key: `invoice-${idx}-item-tax-${taxIndex}`,
-                                        label: formatExtensionLabel(
-                                            String(tax.name ?? 'Tax'),
-                                            tax.calculation_mode,
-                                            Number(tax.calculation_value ?? 0),
-                                        ),
-                                        amount: Number(tax.amount ?? 0),
-                                    })),
+                                    ...itemTaxSummaries.map(
+                                        (tax, taxIndex) => ({
+                                            key: `invoice-${idx}-item-tax-${taxIndex}`,
+                                            label: formatExtensionLabel(
+                                                String(tax.name ?? 'Tax'),
+                                                tax.calculation_mode,
+                                                Number(
+                                                    tax.calculation_value ?? 0,
+                                                ),
+                                            ),
+                                            amount: Number(tax.amount ?? 0),
+                                        }),
+                                    ),
                                     ...nonDiscountTaxExtensions.map(
                                         (extension, extensionIndex) => ({
                                             key:

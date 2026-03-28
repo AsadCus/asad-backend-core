@@ -106,7 +106,10 @@ export function CreatableCombobox({
                 </Button>
             </PopoverTrigger>
 
-            <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
+            <PopoverContent
+                align="start"
+                className="w-[--radix-popover-trigger-width] p-0"
+            >
                 <Command>
                     <CommandInput
                         placeholder={searchPlaceholder}
