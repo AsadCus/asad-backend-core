@@ -87,7 +87,7 @@ class PaymentStatusService
         $autoLinkStatuses = $this->getAutoLinkEligibleStatuses();
 
         foreach ($memberIds as $memberId) {
-            $member = CustomerConfirmationMember::with('confirmation')->find((int) $memberId);
+            $member = CustomerConfirmationMember::with('confirmation.package')->find((int) $memberId);
 
             if (! $member) {
                 continue;
@@ -104,16 +104,31 @@ class PaymentStatusService
                 continue;
             }
 
-            $paidInvoicesCount = $memberInvoices->filter(function (Invoice $memberInvoice) {
-                return $this->isInvoiceSettled($memberInvoice);
-            })->count();
+            $requiredAmount = $this->resolveMemberRequiredAmount($member);
+            $paidAmount = $this->resolveMemberPaidAmount($memberInvoices, (int) $memberId);
 
-            if ($paidInvoicesCount === $memberInvoices->count()) {
-                $newStatus = 'fully_paid';
-            } elseif ($paidInvoicesCount > 0) {
-                $newStatus = 'partially_paid';
+            if ($requiredAmount !== null) {
+                if ($paidAmount <= 0) {
+                    $newStatus = 'pending_payment';
+                } elseif ($paidAmount > $requiredAmount) {
+                    $newStatus = 'overpaid';
+                } elseif ($paidAmount >= $requiredAmount) {
+                    $newStatus = 'fully_paid';
+                } else {
+                    $newStatus = 'partially_paid';
+                }
             } else {
-                $newStatus = 'pending_payment';
+                $paidInvoicesCount = $memberInvoices->filter(function (Invoice $memberInvoice) {
+                    return $this->isInvoiceSettled($memberInvoice);
+                })->count();
+
+                if ($paidInvoicesCount === $memberInvoices->count()) {
+                    $newStatus = 'fully_paid';
+                } elseif ($paidInvoicesCount > 0) {
+                    $newStatus = 'partially_paid';
+                } else {
+                    $newStatus = 'pending_payment';
+                }
             }
 
             $packageId = (int) ($member->confirmation?->package_id ?? 0);
@@ -125,7 +140,7 @@ class PaymentStatusService
                 if (! $hasAvailableSeat) {
                     CustomerConfirmationMember::query()
                         ->where('id', $memberId)
-                        ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid'])
+                        ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid', 'overpaid'])
                         ->update(['status' => 'pending_payment']);
 
                     ManifestMember::query()
@@ -140,7 +155,7 @@ class PaymentStatusService
 
             CustomerConfirmationMember::query()
                 ->where('id', $memberId)
-                ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid'])
+                ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid', 'overpaid'])
                 ->update(['status' => $newStatus]);
 
             if ($packageId > 0) {
@@ -180,7 +195,7 @@ class PaymentStatusService
      */
     private function getAutoLinkEligibleStatuses(): array
     {
-        $statuses = ['fully_paid'];
+        $statuses = ['fully_paid', 'overpaid'];
 
         if (self::AUTO_LINK_MINIMUM_STATUS === 'partially_paid') {
             $statuses[] = 'partially_paid';
@@ -192,6 +207,73 @@ class PaymentStatusService
         }
 
         return $statuses;
+    }
+
+    private function resolveMemberRequiredAmount(CustomerConfirmationMember $member): ?float
+    {
+        $package = $member->confirmation?->package;
+
+        if (! $package) {
+            return null;
+        }
+
+        $sharingPlan = strtolower(trim((string) ($member->sharing_plan ?? '')));
+
+        return match ($sharingPlan) {
+            'single' => (float) ($package->price_single ?? 0),
+            'double' => (float) ($package->price_double ?? 0),
+            'triple' => (float) ($package->price_triple ?? 0),
+            'quad' => (float) ($package->price_quad ?? 0),
+            default => 0.0,
+        };
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Invoice>  $memberInvoices
+     */
+    private function resolveMemberPaidAmount($memberInvoices, int $memberId): float
+    {
+        $paidAmount = 0.0;
+
+        foreach ($memberInvoices as $invoice) {
+            $invoiceItems = $invoice->quotationItems
+                ->filter(fn ($item): bool => ! (bool) ($item->is_header ?? false))
+                ->values();
+
+            if ($invoiceItems->isEmpty()) {
+                continue;
+            }
+
+            $invoiceSubtotal = (float) $invoiceItems->sum(function ($item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            });
+
+            if ($invoiceSubtotal <= 0) {
+                continue;
+            }
+
+            $memberSubtotal = (float) $invoiceItems
+                ->where('customer_confirmation_member_id', $memberId)
+                ->sum(function ($item): float {
+                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                });
+
+            if ($memberSubtotal <= 0) {
+                continue;
+            }
+
+            $receiptTotal = (float) $invoice->receipt->sum(function ($receipt): float {
+                return (float) ($receipt->amount ?? 0);
+            });
+
+            if ($receiptTotal === 0.0) {
+                continue;
+            }
+
+            $paidAmount += $receiptTotal * ($memberSubtotal / $invoiceSubtotal);
+        }
+
+        return round($paidAmount, 2);
     }
 
     /**

@@ -24,6 +24,7 @@ const statusOptions = [
     { value: 'pending_payment', label: 'Pending Payment' },
     { value: 'partially_paid', label: 'Partially Paid' },
     { value: 'fully_paid', label: 'Fully Paid' },
+    { value: 'overpaid', label: 'Overpaid' },
     { value: 'cancelled', label: 'Cancelled' },
 ] as const;
 
@@ -58,7 +59,7 @@ export default function ConfirmedCustomerFormFields({
                             required: true,
                             hint: 'Current member payment status',
                             example: 'fully_paid',
-                            format: 'pending payment, partially paid, fully paid, or cancelled',
+                            format: 'pending payment, partially paid, fully paid, overpaid, or cancelled',
                         }}
                     >
                         <ProperInputSelect

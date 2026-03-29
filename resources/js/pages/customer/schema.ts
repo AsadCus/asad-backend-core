@@ -156,6 +156,7 @@ export interface CustomerConfirmationMemberDatatableSchema {
     has_quotation?: boolean;
     paid_amount: number;
     total_amount: number;
+    overpaid_amount?: number;
     name: string;
     email: string;
     contact: string;
@@ -182,6 +183,7 @@ export interface CustomerConfirmationDatatableSchema {
     quoted_member_count: number;
     paid_amount: number;
     total_amount: number;
+    overpaid_amount?: number;
     can_create_quotation: boolean;
     created_at: string;
     members: CustomerConfirmationMemberDatatableSchema[];
@@ -191,6 +193,7 @@ export const confirmationMemberStatusColors: Record<string, string> = {
     pending_payment: 'bg-amber-100 text-amber-800',
     partially_paid: 'bg-blue-100 text-blue-800',
     fully_paid: 'bg-green-100 text-green-800',
+    overpaid: 'bg-emerald-100 text-emerald-800',
     cancelled: 'bg-red-100 text-red-800',
 };
 
@@ -198,6 +201,7 @@ export const confirmationMemberStatusLabels: Record<string, string> = {
     pending_payment: 'Pending Payment',
     partially_paid: 'Partially Paid',
     fully_paid: 'Fully Paid',
+    overpaid: 'Overpaid',
     cancelled: 'Cancelled',
 };
 

@@ -772,7 +772,8 @@ export default function ConfirmedCustomerIndex({
                     toast.success('Member updated successfully.');
                     setMemberDialogOpen(false);
                 },
-                onError: () => {
+                onError: (errors) => {
+                    setMemberDialogErrors(errors);
                     toast.error('Failed to update member.');
                 },
                 onFinish: () => {
@@ -899,7 +900,9 @@ export default function ConfirmedCustomerIndex({
     ) => {
         const refundableMembers = group.members.filter(
             (member) =>
-                member.status !== 'cancelled' && (member.paid_amount ?? 0) > 0,
+                member.status !== 'cancelled' &&
+                (member.paid_amount ?? 0) > 0 &&
+                Number(member.overpaid_amount ?? 0) <= 0,
         );
 
         if (refundableMembers.length === 0) {
@@ -1018,6 +1021,52 @@ export default function ConfirmedCustomerIndex({
         );
     };
 
+    const submitOverpaymentRefunds = (
+        group: CustomerConfirmationDatatableSchema,
+        memberIds?: number[],
+    ) => {
+        const targetMemberIds = (memberIds ?? group.members.map((m) => m.id))
+            .filter((memberId) => {
+                const member = group.members.find((m) => m.id === memberId);
+
+                return (
+                    (member?.status ?? 'pending_payment') !== 'cancelled' &&
+                    Number(member?.overpaid_amount ?? 0) > 0
+                );
+            })
+            .map((memberId) => Number(memberId));
+
+        if (targetMemberIds.length === 0) {
+            toast.error('No overpaid members are available for refund.');
+
+            return;
+        }
+
+        confirm({
+            title: 'Refund Overpaid Amount',
+            message: `Create overpayment refund for ${targetMemberIds.length} member(s)?`,
+            confirmText: 'Create Refund',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+                router.post(
+                    `/customer-confirmations/${group.id}/overpayment-refunds`,
+                    {
+                        member_ids: targetMemberIds,
+                    },
+                    {
+                        preserveState: false,
+                        preserveScroll: true,
+                        onError: () => {
+                            toast.error(
+                                'Failed to create overpayment refund receipt.',
+                            );
+                        },
+                    },
+                );
+            },
+        });
+    };
+
     const renderGroupSubComponent = (
         row: Row<CustomerConfirmationDatatableSchema>,
     ) => {
@@ -1037,9 +1086,17 @@ export default function ConfirmedCustomerIndex({
 
                     if (
                         member.status !== 'cancelled' &&
-                        (member.paid_amount ?? 0) > 0
+                        (member.paid_amount ?? 0) > 0 &&
+                        Number(member.overpaid_amount ?? 0) <= 0
                     ) {
                         rowActions.push('refund');
+                    }
+
+                    if (
+                        member.status !== 'cancelled' &&
+                        Number(member.overpaid_amount ?? 0) > 0
+                    ) {
+                        rowActions.push('refund-overpaid');
                     }
 
                     return rowActions;
@@ -1071,6 +1128,11 @@ export default function ConfirmedCustomerIndex({
 
                     if (action === 'refund') {
                         openRefundDialog(row.original, member.id);
+                        return;
+                    }
+
+                    if (action === 'refund-overpaid') {
+                        submitOverpaymentRefunds(row.original, [member.id]);
                         return;
                     }
 
@@ -1131,11 +1193,23 @@ export default function ConfirmedCustomerIndex({
                                 const hasRefundableMembers = group.members.some(
                                     (member) =>
                                         member.status !== 'cancelled' &&
-                                        (member.paid_amount ?? 0) > 0,
+                                        (member.paid_amount ?? 0) > 0 &&
+                                        Number(member.overpaid_amount ?? 0) <=
+                                            0,
+                                );
+
+                                const hasOverpaidMembers = group.members.some(
+                                    (member) =>
+                                        member.status !== 'cancelled' &&
+                                        Number(member.overpaid_amount ?? 0) > 0,
                                 );
 
                                 if (hasRefundableMembers) {
                                     rowActions.push('refund');
+                                }
+
+                                if (hasOverpaidMembers) {
+                                    rowActions.push('refund-overpaid');
                                 }
 
                                 if (group.can_create_quotation) {
@@ -1178,6 +1252,11 @@ export default function ConfirmedCustomerIndex({
                                         openQuotationDialog(row.original);
                                     } else if (action === 'refund' && row) {
                                         openRefundDialog(row.original);
+                                    } else if (
+                                        action === 'refund-overpaid' &&
+                                        row
+                                    ) {
+                                        submitOverpaymentRefunds(row.original);
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Customer Confirmation',

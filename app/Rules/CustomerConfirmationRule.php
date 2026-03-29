@@ -25,7 +25,7 @@ class CustomerConfirmationRule
             'members.*.nric_number' => ['nullable', 'string', 'max:50'],
             'members.*.address' => ['nullable', 'string', 'max:500'],
             'members.*.is_leader' => ['required', 'boolean'],
-            'members.*.status' => ['nullable', 'string', 'in:pending_payment,partially_paid,fully_paid,cancelled'],
+            'members.*.status' => ['nullable', 'string', 'in:pending_payment,partially_paid,fully_paid,overpaid,cancelled'],
             'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'members.*.relationship' => ['nullable', 'string', 'max:255'],
             'members.*.role' => ['nullable', 'string', 'max:255'],
@@ -72,6 +72,10 @@ class CustomerConfirmationRule
             'members.required' => 'At least one member is required.',
             'members.min' => 'At least one member is required.',
             'date_of_application.required' => 'The date of application is required.',
+            'members.*.passport_file.mimes' => 'Passport attachment must be JPG, JPEG, PNG, or PDF.',
+            'members.*.passport_file.max' => 'Passport attachment file must not be more than 5000KB (5MB).',
+            'members.*.photo_file.mimes' => 'Photo attachment must be JPG, JPEG, or PNG.',
+            'members.*.photo_file.max' => 'Photo attachment file must not be more than 5000KB (5MB).',
         ];
     }
 }

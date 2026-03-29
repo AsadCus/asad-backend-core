@@ -682,6 +682,61 @@ class CustomerConfirmationFormTest extends TestCase
         Storage::disk('public')->assertExists($storedPassportFile->file_path);
     }
 
+    public function test_update_member_rejects_passport_attachment_larger_than_5000kb(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Large File Test',
+            'contact_number' => '0128000001',
+            'email' => 'large-file@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-02',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Large Upload Member',
+                    'email' => 'large-upload-member@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $member = CustomerConfirmation::query()
+            ->where('enquiry_id', $enquiry->id)
+            ->firstOrFail()
+            ->members()
+            ->firstOrFail();
+
+        $oversizedPassport = UploadedFile::fake()->create(
+            'passport-large.pdf',
+            6000,
+            'application/pdf',
+        );
+
+        $response = $this->from('/customer-confirmations')->post(
+            "/customer-confirmations/members/{$member->id}",
+            [
+                '_method' => 'PUT',
+                'name' => 'Large Upload Member',
+                'email' => 'large-upload-member@test.com',
+                'contact_number' => '0128000001',
+                'status' => 'pending_payment',
+                'passport_file' => $oversizedPassport,
+            ],
+        );
+
+        $response->assertRedirect('/customer-confirmations');
+        $response->assertSessionHasErrors([
+            'passport_file' => 'Passport attachment file must not be more than 5000KB (5MB).',
+        ]);
+    }
+
     public function test_customer_confirmation_update_blocks_removing_member_with_paid_billing(): void
     {
         $this->actingAs($this->adminUser);

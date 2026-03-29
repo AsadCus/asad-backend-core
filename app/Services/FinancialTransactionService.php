@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class FinancialTransactionService
 {
@@ -406,6 +407,9 @@ class FinancialTransactionService
             ->with([
                 'invoice.quotationItems.taxes',
                 'invoice.quotationItems.parent.parent',
+                'invoice.quotationItems.confirmationMember.confirmation.package',
+                'invoice.order.invoices',
+                'invoice.order.quotation.createdBy',
                 'invoice.order.quotation.customerConfirmation.package',
             ])
             ->where(function ($query) {
@@ -421,6 +425,7 @@ class FinancialTransactionService
         $categoryTotals = [];
         $bucketTotals = [];
         $reportRows = [];
+        $paymentMethodKeys = [];
         $totalAmount = 0.0;
 
         foreach ($receipts as $receipt) {
@@ -442,6 +447,11 @@ class FinancialTransactionService
 
             $bucketTotals[$bucketKey]['amount'] += $receiptAmount;
             $dateLabel = $this->formatPaymentBucketLabel($receiptDate, $resolvedPeriod);
+            $paymentMethodKey = $this->normalizePaymentMethodKey((string) ($receipt->payment_method ?? ''));
+
+            if (! in_array($paymentMethodKey, $paymentMethodKeys, true)) {
+                $paymentMethodKeys[] = $paymentMethodKey;
+            }
 
             $invoice = $receipt->invoice;
             if (! $invoice) {
@@ -452,7 +462,8 @@ class FinancialTransactionService
                     'category' => 'Others',
                     'package_item' => '-',
                     'ref_no' => '',
-                    ...$this->buildPaymentMethodColumns((string) ($receipt->payment_method ?? ''), $receiptAmount),
+                    'payment_method' => $paymentMethodKey,
+                    'amount' => round($receiptAmount, 2),
                     'total_sale' => round($receiptAmount, 2),
                     'maker' => '',
                     'remarks' => '',
@@ -474,17 +485,19 @@ class FinancialTransactionService
                     'category' => 'Others',
                     'package_item' => '-',
                     'ref_no' => '',
-                    ...$this->buildPaymentMethodColumns((string) ($receipt->payment_method ?? ''), $receiptAmount),
+                    'payment_method' => $paymentMethodKey,
+                    'amount' => round($receiptAmount, 2),
                     'total_sale' => round($receiptAmount, 2),
-                    'maker' => '',
-                    'remarks' => '',
+                    'maker' => (string) ($quotation?->createdBy?->name ?? ''),
+                    'remarks' => $this->resolveReceiptRemark($invoice),
                 ];
 
                 continue;
             }
 
-            $packageName = $quotation?->customerConfirmation?->package?->name;
             $extensionRows = collect(is_array($quotation?->extensions ?? null) ? $quotation?->extensions : []);
+            $maker = (string) ($quotation?->createdBy?->name ?? '');
+            $remarks = $this->resolveReceiptRemark($invoice);
 
             $itemsWithBase = $items->map(function (QuotationItem $item): array {
                 $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
@@ -579,7 +592,8 @@ class FinancialTransactionService
                 }
 
                 $category = $this->resolveItemCategoryLabel($item);
-                $packageItem = $this->resolvePackageItemLabel($item, $category, $packageName);
+                $packageItem = $this->resolvePackageItemLabel($item);
+                $referenceNumber = $this->resolveReferenceNumber($item);
 
                 $this->addCategoryAmount($categoryTotals, $category, $allocatedAmount);
 
@@ -587,14 +601,43 @@ class FinancialTransactionService
                     'date' => $dateLabel,
                     'category' => $category,
                     'package_item' => $packageItem,
-                    'ref_no' => '',
-                    ...$this->buildPaymentMethodColumns((string) ($receipt->payment_method ?? ''), $allocatedAmount),
+                    'ref_no' => $referenceNumber,
+                    'payment_method' => $paymentMethodKey,
+                    'amount' => round($allocatedAmount, 2),
                     'total_sale' => round($allocatedAmount, 2),
-                    'maker' => '',
-                    'remarks' => '',
+                    'maker' => $maker,
+                    'remarks' => $remarks,
                 ];
             }
         }
+
+        $defaultPaymentMethods = ['cash', 'nets', 'visa', 'master', 'paynow'];
+        $extraPaymentMethods = collect($paymentMethodKeys)
+            ->filter(fn (string $method): bool => ! in_array($method, $defaultPaymentMethods, true))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $paymentMethods = array_values(array_unique(array_merge($defaultPaymentMethods, $extraPaymentMethods)));
+
+        $reportRows = array_map(function (array $row) use ($paymentMethods): array {
+            $resolvedRow = $row;
+            $resolvedAmount = (float) ($resolvedRow['amount'] ?? 0);
+            $resolvedMethod = (string) ($resolvedRow['payment_method'] ?? 'others');
+
+            foreach ($paymentMethods as $method) {
+                $resolvedRow[$method] = 0.0;
+            }
+
+            if (array_key_exists($resolvedMethod, $resolvedRow)) {
+                $resolvedRow[$resolvedMethod] = round($resolvedAmount, 2);
+            }
+
+            unset($resolvedRow['payment_method']);
+
+            return $resolvedRow;
+        }, $reportRows);
 
         $categories = collect($categoryTotals)
             ->map(function (array $row) {
@@ -630,6 +673,7 @@ class FinancialTransactionService
             'receipt_count' => $receipts->count(),
             'categories' => $categories,
             'buckets' => $buckets,
+            'payment_methods' => $paymentMethods,
             'rows' => $reportRows,
         ];
     }
@@ -645,28 +689,23 @@ class FinancialTransactionService
             ->first();
     }
 
-    private function buildPaymentMethodColumns(string $paymentMethod, float $amount): array
+    private function normalizePaymentMethodKey(string $paymentMethod): string
     {
         $normalized = strtolower(trim($paymentMethod));
+        $collapsed = preg_replace('/[^a-z0-9]+/', '', $normalized) ?? '';
 
-        if ($normalized === 'transfer') {
-            $normalized = 'nets';
+        if ($collapsed === '') {
+            return 'others';
         }
 
-        $columns = [
-            'amount' => round($amount, 2),
-            'cash' => 0.0,
-            'nets' => 0.0,
-            'visa' => 0.0,
-            'master' => 0.0,
-            'paynow' => 0.0,
-        ];
-
-        if (array_key_exists($normalized, $columns)) {
-            $columns[$normalized] = round($amount, 2);
-        }
-
-        return $columns;
+        return match ($collapsed) {
+            'transfer', 'banktransfer', 'nets' => 'nets',
+            'cash' => 'cash',
+            'visa' => 'visa',
+            'master', 'mastercard', 'mastercarddebit', 'mastercardcredit' => 'master',
+            'paynow', 'paylah' => 'paynow',
+            default => Str::snake($normalized),
+        };
     }
 
     private function addCategoryAmount(array &$categoryTotals, string $category, float $amount): void
@@ -819,7 +858,7 @@ class FinancialTransactionService
         return $rootDescription;
     }
 
-    private function resolvePackageItemLabel(QuotationItem $item, string $category, ?string $packageName): string
+    private function resolvePackageItemLabel(QuotationItem $item): string
     {
         $description = trim((string) ($item->description ?? ''));
 
@@ -827,10 +866,63 @@ class FinancialTransactionService
             $description = '-';
         }
 
-        if (strtolower(trim($category)) === 'umrah packages' && is_string($packageName) && trim($packageName) !== '') {
-            return trim($packageName).' - '.$description;
+        return $description;
+    }
+
+    private function resolveReferenceNumber(QuotationItem $item): string
+    {
+        return (string) ($item->confirmationMember?->confirmation?->package?->package_number ?? '');
+    }
+
+    private function resolveReceiptRemark(Invoice $invoice): string
+    {
+        $order = $invoice->order;
+
+        if (! $order) {
+            return '';
         }
 
-        return $description;
+        $paymentPlan = strtolower((string) ($order->payment_plan ?? $order->quotation?->payment_plan ?? ''));
+
+        $orderedInvoices = $order->invoices
+            ->sortBy(function (Invoice $orderedInvoice): string {
+                $invoiceDate = $orderedInvoice->invoice_date
+                    ? Carbon::parse($orderedInvoice->invoice_date)->format('Y-m-d')
+                    : '';
+
+                return $invoiceDate.'-'.str_pad((string) $orderedInvoice->id, 10, '0', STR_PAD_LEFT);
+            })
+            ->values();
+
+        if ($orderedInvoices->count() <= 1 || in_array($paymentPlan, ['full', 'direct'], true)) {
+            return 'Full Payment';
+        }
+
+        $index = $orderedInvoices->search(fn (Invoice $candidate): bool => (int) $candidate->id === (int) $invoice->id);
+        $position = is_int($index) ? $index + 1 : 1;
+
+        return $this->ordinalPaymentLabel($position);
+    }
+
+    private function ordinalPaymentLabel(int $position): string
+    {
+        $labels = [
+            1 => 'First',
+            2 => 'Second',
+            3 => 'Third',
+            4 => 'Fourth',
+            5 => 'Fifth',
+            6 => 'Sixth',
+            7 => 'Seventh',
+            8 => 'Eighth',
+            9 => 'Ninth',
+            10 => 'Tenth',
+        ];
+
+        if (array_key_exists($position, $labels)) {
+            return $labels[$position].' Payment';
+        }
+
+        return $position.'th Payment';
     }
 }

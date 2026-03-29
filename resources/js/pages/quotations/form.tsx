@@ -590,6 +590,7 @@ export function QuotationForm({
             existingItems: QuotationItemSchema[] = [],
             membersSource = availableMembers,
             packagePricesToUse?: typeof packagePrices,
+            packageNameToUse?: string,
         ) => {
             const selectedMembers = membersSource.filter((member) =>
                 memberIds.includes(member.member_id),
@@ -625,6 +626,10 @@ export function QuotationForm({
                 if (sharingPlan === 'quad') return prices.quad;
                 return 0;
             };
+
+            const resolvedPackageName =
+                (packageNameToUse ?? data.package_name ?? '').trim() ||
+                'Package';
 
             if (selectedMembers.length === 0) {
                 if (!existingUmrahHeader) {
@@ -712,7 +717,7 @@ export function QuotationForm({
                     sharing_plan: member.sharing_plan,
                     parent_id: umrahHeader.id ?? null,
                     parent_key: umrahHeader._key,
-                    description: `${member.name} - ${member.sharing_plan ? `${member.sharing_plan.charAt(0).toUpperCase()}${member.sharing_plan.slice(1)}` : 'Standard'} sharing`,
+                    description: `${resolvedPackageName} - ${member.name} - ${member.sharing_plan ? `${member.sharing_plan.charAt(0).toUpperCase()}${member.sharing_plan.slice(1)}` : 'Standard'} sharing`,
                     is_header: false,
                     is_optional: false,
                     quantity: 1,
@@ -735,7 +740,7 @@ export function QuotationForm({
                 sort_order: index + 1,
             }));
         },
-        [availableMembers, packagePrices],
+        [availableMembers, data.package_name, packagePrices],
     );
 
     const syncHandlerCustomer = useCallback(
@@ -834,6 +839,10 @@ export function QuotationForm({
 
             const extractedPackagePrices =
                 getPackagePricesFromConfirmation(confirmation);
+            const resolvedConfirmationPackageName =
+                confirmation.package_name ??
+                confirmation.package_data?.name ??
+                '';
 
             const eligibleMemberById = new Map(
                 eligible.map((member) => [member.member_id, member]),
@@ -870,6 +879,7 @@ export function QuotationForm({
                               prev.items ?? [],
                               eligible,
                               extractedPackagePrices,
+                              resolvedConfirmationPackageName,
                           ),
                       }
                     : {}),

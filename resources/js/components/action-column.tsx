@@ -35,7 +35,8 @@ export type ActionType =
     | 'copy-customer-confirmation-public-edit-link'
     | 'move-members'
     | 'cancel-member'
-    | 'refund';
+    | 'refund'
+    | 'refund-overpaid';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

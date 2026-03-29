@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
@@ -126,6 +129,154 @@ class DashboardTest extends TestCase
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_dashboard_payment_summary_pdf_export_returns_pdf_when_rows_are_grouped(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        Receipt::withoutEvents(function (): void {
+            Receipt::create([
+                'invoice_id' => null,
+                'amount' => 320,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'transfer',
+                'description' => 'Grouped row export regression',
+            ]);
+        });
+
+        $response = $this->get(route('dashboard.export-payment-summary-pdf', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_dashboard_payment_summary_rows_include_ref_no_maker_installment_remarks_and_method_columns(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $maker = User::factory()->create(['name' => 'Maker User']);
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-DB-CC-001',
+        ]);
+
+        $package = Package::create([
+            'name' => 'Umrah Gold',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $maker->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $confirmationMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'status' => 'pending_payment',
+            'is_leader' => true,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'created_by' => $maker->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+            'description' => 'Dashboard summary quotation for export mapping',
+        ]);
+
+        $header = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $confirmationMember->id,
+            'parent_id' => $header->id,
+            'description' => 'Member Package Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 300,
+            'sort_order' => 2,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $invoiceOne = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice #1',
+            'amount' => 150,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceOne->quotationItems()->sync([$item->id]);
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice #2',
+            'amount' => 150,
+            'invoice_date' => now()->addDay()->format('Y-m-d'),
+            'due_date' => now()->addDay()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceTwo->quotationItems()->sync([$item->id]);
+
+        Receipt::withoutEvents(function () use ($invoiceOne, $invoiceTwo): void {
+            Receipt::create([
+                'invoice_id' => $invoiceOne->id,
+                'amount' => 150,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'mastercard',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => $invoiceTwo->id,
+                'amount' => 150,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'cash',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('period', 'daily');
+        $response->assertJsonPath('payment_methods.3', 'master');
+
+        $rows = collect($response->json('rows'));
+        $firstPaymentRow = $rows->firstWhere('remarks', 'First Payment');
+        $secondPaymentRow = $rows->firstWhere('remarks', 'Second Payment');
+
+        $this->assertNotNull($firstPaymentRow);
+        $this->assertNotNull($secondPaymentRow);
+
+        $this->assertSame('Member Package Item', (string) ($firstPaymentRow['package_item'] ?? ''));
+        $this->assertSame($package->package_number, (string) ($firstPaymentRow['ref_no'] ?? ''));
+        $this->assertSame('Maker User', (string) ($firstPaymentRow['maker'] ?? ''));
+        $this->assertSame(150.0, (float) ($firstPaymentRow['master'] ?? 0));
+        $this->assertSame(0.0, (float) ($firstPaymentRow['cash'] ?? 0));
+
+        $this->assertSame('Member Package Item', (string) ($secondPaymentRow['package_item'] ?? ''));
+        $this->assertSame($package->package_number, (string) ($secondPaymentRow['ref_no'] ?? ''));
+        $this->assertSame('Maker User', (string) ($secondPaymentRow['maker'] ?? ''));
+        $this->assertSame(150.0, (float) ($secondPaymentRow['cash'] ?? 0));
+        $this->assertSame(0.0, (float) ($secondPaymentRow['master'] ?? 0));
     }
 
     public function test_dashboard_payment_summary_includes_receipts_without_invoice_as_others(): void

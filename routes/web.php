@@ -195,6 +195,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('customer-confirmations/{id}/move-members', [CustomerConfirmationController::class, 'moveMembers'])->name('customer-confirmations.move-members');
     Route::post('customer-confirmations/{id}/generate-quotations', [CustomerConfirmationController::class, 'generateQuotations'])->name('customer-confirmations.generate-quotations');
     Route::post('customer-confirmations/{id}/refunds', [CustomerConfirmationController::class, 'createRefunds'])->name('customer-confirmations.refunds.store');
+    Route::post('customer-confirmations/{id}/overpayment-refunds', [CustomerConfirmationController::class, 'createOverpaymentRefunds'])->name('customer-confirmations.overpayment-refunds.store');
     Route::get('customer-confirmations/{enquiryId}/generate-link', [CustomerConfirmationController::class, 'generatePublicLink'])->name('customer-confirmations.generate-link');
     Route::get('customer-confirmations/{groupId}/generate-edit-link', [CustomerConfirmationController::class, 'generatePublicEditLink'])->name('customer-confirmations.generate-edit-link');
 

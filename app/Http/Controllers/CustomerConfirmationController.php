@@ -155,10 +155,15 @@ class CustomerConfirmationController extends Controller
             'photo_file_name' => ['nullable', 'string', 'max:255'],
             'passport_file_removed' => ['nullable', 'boolean'],
             'photo_file_removed' => ['nullable', 'boolean'],
-            'status' => ['required', 'string', 'in:pending_payment,partially_paid,fully_paid,cancelled'],
+            'status' => ['required', 'string', 'in:pending_payment,partially_paid,fully_paid,overpaid,cancelled'],
             'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
             'relationship' => ['nullable', 'string', 'max:255'],
             'role' => ['nullable', 'string', 'max:255'],
+        ], [
+            'passport_file.mimes' => 'Passport attachment must be JPG, JPEG, PNG, or PDF.',
+            'passport_file.max' => 'Passport attachment file must not be more than 5000KB (5MB).',
+            'photo_file.mimes' => 'Photo attachment must be JPG, JPEG, or PNG.',
+            'photo_file.max' => 'Photo attachment file must not be more than 5000KB (5MB).',
         ]);
 
         $member = $this->customerConfirmationService->updateMemberDetails((int) $memberId, $validated);
@@ -220,6 +225,28 @@ class CustomerConfirmationController extends Controller
         return redirect()
             ->route('receipt.index')
             ->with('success', $result['count'].' refund receipt(s) created successfully.');
+    }
+
+    /**
+     * Create overpayment-only refund receipt(s) for one or more members.
+     */
+    public function createOverpaymentRefunds(Request $request, string $id): RedirectResponse
+    {
+        CustomerConfirmation::query()->findOrFail((int) $id);
+
+        $validated = $request->validate([
+            'member_ids' => ['required', 'array', 'min:1'],
+            'member_ids.*' => ['required', 'integer', 'exists:customer_confirmation_members,id'],
+        ]);
+
+        $result = $this->customerConfirmationService->createOverpaymentRefundReceipts(
+            (int) $id,
+            $validated['member_ids'],
+        );
+
+        return redirect()
+            ->route('receipt.index')
+            ->with('success', $result['count'].' overpayment refund receipt(s) created successfully.');
     }
 
     /**

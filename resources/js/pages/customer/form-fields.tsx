@@ -34,7 +34,9 @@ const DOCUMENT_FIELDS = [
         documentKey: 'passport_document' as const,
         label: 'Passport',
         accept: '.jpg,.jpeg,.png,.pdf',
-        hint: 'Upload a scan or photo of the passport bio-data page',
+        acceptedFileTypesLabel: 'JPG, JPEG, PNG, PDF',
+        maxFileSizeKb: 5120,
+        hint: 'Upload passport attachment. Accepted: JPG, JPEG, PNG, PDF. Max 5MB.',
     },
     {
         fileKey: 'photo_file' as const,
@@ -43,7 +45,9 @@ const DOCUMENT_FIELDS = [
         documentKey: 'photo_document' as const,
         label: 'Photo',
         accept: '.jpg,.jpeg,.png',
-        hint: 'Upload a photo',
+        acceptedFileTypesLabel: 'JPG, JPEG, PNG',
+        maxFileSizeKb: 5120,
+        hint: 'Upload photo attachment. Accepted: JPG, JPEG, PNG. Max 5MB.',
     },
 ] as const;
 
@@ -509,6 +513,8 @@ export default function CustomerFormFields({
                             label={doc.label}
                             hint={doc.hint}
                             accept={doc.accept}
+                            acceptedFileTypesLabel={doc.acceptedFileTypesLabel}
+                            maxFileSizeKb={doc.maxFileSizeKb}
                             fileValue={
                                 customer[doc.fileKey] as File | undefined
                             }

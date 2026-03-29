@@ -338,7 +338,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $this->assertDatabaseHas('quotation_items', [
             'customer_confirmation_member_id' => $member->id,
-            'description' => 'Quoted Member — Single Sharing',
+            'description' => 'Quotation Package - Quoted Member - Single sharing',
         ]);
     }
 }

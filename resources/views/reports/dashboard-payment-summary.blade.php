@@ -218,7 +218,7 @@
             if (($report['mode'] ?? 'daily') === 'daily') {
                 $report['groups'] = $rows
                     ->groupBy(fn(array $row) => (string) ($row['date'] ?? '-'))
-                    ->map(function (Collection $groupRows, string $dateLabel) {
+                    ->map(function (\Illuminate\Support\Collection $groupRows, string $dateLabel) {
                         return [
                             'label' => $dateLabel,
                             'day_name' => null,
@@ -233,7 +233,7 @@
                         $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
                         return $parsed->translatedFormat('F Y');
                     })
-                    ->map(function (Collection $monthRows, string $monthLabel) {
+                    ->map(function (\Illuminate\Support\Collection $monthRows, string $monthLabel) {
                         $subPeriods = $monthRows
                             ->groupBy(function (array $row): string {
                                 $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
@@ -241,7 +241,7 @@
                                 return 'Week ' . $weekNumber;
                             })
                             ->map(
-                                fn(Collection $weekRows, string $weekLabel) => [
+                                fn(\Illuminate\Support\Collection $weekRows, string $weekLabel) => [
                                     'label' => $weekLabel,
                                     'rows' => $weekRows->values()->all(),
                                 ],
@@ -262,14 +262,14 @@
                         $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
                         return $parsed->format('Y');
                     })
-                    ->map(function (Collection $yearRows, string $yearLabel) {
+                    ->map(function (\Illuminate\Support\Collection $yearRows, string $yearLabel) {
                         $subPeriods = $yearRows
                             ->groupBy(function (array $row): string {
                                 $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
                                 return $parsed->translatedFormat('F');
                             })
                             ->map(
-                                fn(Collection $monthRows, string $monthLabel) => [
+                                fn(\Illuminate\Support\Collection $monthRows, string $monthLabel) => [
                                     'label' => $monthLabel,
                                     'rows' => $monthRows->values()->all(),
                                 ],
@@ -381,9 +381,27 @@
                     'others' => 'Others',
                 ];
 
-        $fields = ['amount', 'cash', 'nets', 'visa', 'master', 'paynow', 'total_sale'];
+        $paymentMethodColumns = collect($report['payment_methods'] ?? ['cash', 'nets', 'visa', 'master', 'paynow'])
+            ->map(fn($method) => strtolower(trim((string) $method)))
+            ->filter(fn($method) => $method !== '' && $method !== 'amount' && $method !== 'total_sale')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (count($paymentMethodColumns) === 0) {
+            $paymentMethodColumns = ['cash', 'nets', 'visa', 'master', 'paynow'];
+        }
+
+        $fields = array_merge(['amount'], $paymentMethodColumns, ['total_sale']);
         $zero = array_fill_keys($fields, 0.0);
         $fmt = fn($v) => '$' . number_format((float) $v, 2);
+
+        $methodHeaderLabel = function (string $method): string {
+            return match (strtolower($method)) {
+                'paynow' => 'Paynow',
+                default => ucfirst($method),
+            };
+        };
 
         /* ── Helper: sum fields from flat rows array ─────────────── */
         $sumRows = function (array $rows) use ($fields, $zero): array {
@@ -571,11 +589,9 @@
             <th style="width:{{ $isDailyMode ? '17%' : '15%' }};">Package / Item</th>
             <th style="width:6%;">Ref No.</th>
             <th style="width:7%;" class="text-right">Amount</th>
-            <th style="width:6%;" class="text-right">Cash</th>
-            <th style="width:6%;" class="text-right">Nets</th>
-            <th style="width:6%;" class="text-right">Visa</th>
-            <th style="width:6%;" class="text-right">Master</th>
-            <th style="width:7%;" class="text-right">Paynow</th>
+            @foreach ($paymentMethodColumns as $paymentMethodColumn)
+                <th style="width:6%;" class="text-right">{{ $methodHeaderLabel($paymentMethodColumn) }}</th>
+            @endforeach
             <th style="width:7%;" class="text-right">Total Sale</th>
             <th style="width:5%;">Maker</th>
             <th style="width:{{ $isDailyMode ? '9%' : '7%' }};">Remarks</th>

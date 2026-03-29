@@ -548,10 +548,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                                             category.amount,
                                                         )}
                                                     </p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {category.receipt_count}{' '}
-                                                        receipt rows
-                                                    </p>
                                                 </CardContent>
                                             </Card>
                                         ),

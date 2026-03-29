@@ -9,6 +9,8 @@ export interface DocumentFieldProps {
     label: string;
     hint?: string;
     accept: string;
+    acceptedFileTypesLabel?: string;
+    maxFileSizeKb?: number;
     fileValue?: File;
     existingPath?: string;
     existingFileName?: string | null;
@@ -101,6 +103,8 @@ export function DocumentField({
     label,
     hint,
     accept,
+    acceptedFileTypesLabel,
+    maxFileSizeKb,
     fileValue,
     existingPath,
     existingFileName,
@@ -114,6 +118,9 @@ export function DocumentField({
     onClear,
 }: DocumentFieldProps) {
     const [newFilePreview, setNewFilePreview] = useState<string | null>(null);
+    const [localValidationError, setLocalValidationError] = useState<
+        string | null
+    >(null);
     const [inputKey, setInputKey] = useState(0);
     const [isDragOver, setIsDragOver] = useState(false);
     const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
@@ -201,6 +208,16 @@ export function DocumentField({
         const file = e.target.files?.[0];
         if (!file) return;
 
+        const validationError = validateSelectedFile(file);
+
+        if (validationError) {
+            setLocalValidationError(validationError);
+
+            return;
+        }
+
+        setLocalValidationError(null);
+
         revokeObjectUrl();
         const objectUrl = URL.createObjectURL(file);
         objectUrlRef.current = objectUrl;
@@ -262,6 +279,16 @@ export function DocumentField({
             return;
         }
 
+        const validationError = validateSelectedFile(file);
+
+        if (validationError) {
+            setLocalValidationError(validationError);
+
+            return;
+        }
+
+        setLocalValidationError(null);
+
         revokeObjectUrl();
         const objectUrl = URL.createObjectURL(file);
         objectUrlRef.current = objectUrl;
@@ -273,9 +300,77 @@ export function DocumentField({
         e.stopPropagation();
         revokeObjectUrl();
         setNewFilePreview(null);
+        setLocalValidationError(null);
         setInputKey((prev) => prev + 1); // Reset input
         onClear();
     };
+
+    const resolveAcceptedExtensions = (): string[] => {
+        return accept
+            .split(',')
+            .map((part) => part.trim().toLowerCase())
+            .filter((part) => part.startsWith('.'));
+    };
+
+    const formatAcceptedTypes = (): string => {
+        if (acceptedFileTypesLabel && acceptedFileTypesLabel.trim() !== '') {
+            return acceptedFileTypesLabel;
+        }
+
+        const extensions = resolveAcceptedExtensions();
+
+        if (extensions.length === 0) {
+            return 'Any file type';
+        }
+
+        return extensions
+            .map((extension) => extension.replace('.', '').toUpperCase())
+            .join(', ');
+    };
+
+    const formatMaxSizeLabel = (): string | null => {
+        if (!maxFileSizeKb || maxFileSizeKb <= 0) {
+            return null;
+        }
+
+        if (maxFileSizeKb % 1024 === 0) {
+            return `Max ${maxFileSizeKb / 1024}MB`;
+        }
+
+        return `Max ${maxFileSizeKb}KB`;
+    };
+
+    const validateSelectedFile = (file: File): string | null => {
+        const extensions = resolveAcceptedExtensions();
+
+        if (extensions.length > 0) {
+            const selectedFileName = file.name.toLowerCase();
+            const extensionAllowed = extensions.some((extension) =>
+                selectedFileName.endsWith(extension),
+            );
+
+            if (!extensionAllowed) {
+                return `Accepted file types: ${formatAcceptedTypes()}.`;
+            }
+        }
+
+        if (
+            typeof maxFileSizeKb === 'number' &&
+            maxFileSizeKb > 0 &&
+            file.size > maxFileSizeKb * 1024
+        ) {
+            const maxSizeLabel = formatMaxSizeLabel();
+
+            return maxSizeLabel
+                ? `File size exceeds limit. ${maxSizeLabel}.`
+                : 'File size exceeds allowed limit.';
+        }
+
+        return null;
+    };
+
+    const acceptedTypesLabel = formatAcceptedTypes();
+    const maxSizeLabel = formatMaxSizeLabel();
 
     const hasContent = Boolean(previewSrc);
 
@@ -283,7 +378,7 @@ export function DocumentField({
         <FormField
             label={label}
             fieldRequirementsProps={{ hint }}
-            error={error}
+            error={error || localValidationError || undefined}
         >
             <Input
                 key={inputKey}
@@ -462,6 +557,11 @@ export function DocumentField({
                         <span>Click or drag & drop to upload</span>
                     </div>
                 )}
+
+                <div className="w-full text-center text-xs text-muted-foreground">
+                    Accepted: {acceptedTypesLabel}
+                    {maxSizeLabel ? `, ${maxSizeLabel}` : ''}
+                </div>
             </div>
         </FormField>
     );

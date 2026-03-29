@@ -1312,7 +1312,7 @@ class QuotationService
 
         CustomerConfirmationMember::query()
             ->whereIn('id', $memberIds)
-            ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid'])
+            ->whereIn('status', ['pending_payment', 'partially_paid', 'fully_paid', 'overpaid'])
             ->update(['status' => 'pending_payment']);
     }
 
