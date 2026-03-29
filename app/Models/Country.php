@@ -19,9 +19,4 @@ class Country extends Model
     {
         return $this->hasMany(Branch::class, 'country_id');
     }
-
-    public function maids(): HasMany
-    {
-        return $this->hasMany(Maid::class, 'country_id');
-    }
 }

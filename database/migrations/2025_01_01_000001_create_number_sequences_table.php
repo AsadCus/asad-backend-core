@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('number_sequences', function (Blueprint $table) {
             $table->id();
-            $table->string('type'); // 'customer', 'maid', 'quotation', 'invoice', 'receipt'
+            $table->string('type'); // 'customer', 'quotation', 'invoice', 'receipt'
             $table->integer('year');
             $table->integer('current_number')->default(0);
             $table->timestamps();

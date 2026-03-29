@@ -151,8 +151,6 @@ class DashboardController extends Controller
         }
 
         if ($user->hasRole('customer')) {
-            $data['maids'] = [];
-
             $data['nationality'] = $this->countryService->getForFilterByAdjective();
             $data['religion'] = $this->religionService->getForFilterByName();
             $data['educationLevel'] = $this->educationLevelService->getForFilterByName();

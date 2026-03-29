@@ -93,16 +93,6 @@ class NumberingFormatSeeder extends Seeder
                 'is_active' => true,
                 'sort_order' => 1,
             ],
-            [
-                'model_key' => 'maid',
-                'name' => 'MD-%YYYY%-%I%',
-                'increment_padding' => 4,
-                'increment_start' => 1,
-                'increment_scope' => 'format',
-                'is_default' => true,
-                'is_active' => true,
-                'sort_order' => 1,
-            ],
         ];
 
         foreach ($defaults as $row) {

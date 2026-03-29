@@ -1225,8 +1225,6 @@ Jawa Barat, Indonesia',
                 'updated_at' => '2026-03-28 17:51:46',
             ],
         ],
-        'customer_maid_recommendations' => [
-        ],
         'quotations' => [
             0 => [
                 'id' => 3,

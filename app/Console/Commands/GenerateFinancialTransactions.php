@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
-use App\Models\Maid;
 use App\Models\Receipt;
 use App\Services\FinancialTransactionService;
 use Carbon\Carbon;
@@ -25,7 +24,7 @@ class GenerateFinancialTransactions extends Command
      *
      * @var string
      */
-    protected $description = 'Generate financial transactions from existing maids and paid invoices';
+    protected $description = 'Generate financial transactions from paid invoices';
 
     protected $financialTransactionService;
 
@@ -76,20 +75,15 @@ class GenerateFinancialTransactions extends Command
     }
 
     /**
-     * Ensure financial years exist for all maids and receipts
-     * Creates missing financial years automatically
+     * Ensure financial years exist for receipts.
      */
     protected function ensureFinancialYearsExist(): void
     {
         $this->info('Checking for missing financial years...');
 
-        $maidDates = Maid::selectRaw('MIN(created_at) as min_date, MAX(created_at) as max_date')->first();
-
         $receiptDates = Receipt::selectRaw('MIN(receipt_date) as min_date, MAX(receipt_date) as max_date')->first();
 
         $dates = collect([
-            $maidDates->min_date ? Carbon::parse($maidDates->min_date) : null,
-            $maidDates->max_date ? Carbon::parse($maidDates->max_date) : null,
             $receiptDates->min_date ? Carbon::parse($receiptDates->min_date) : null,
             $receiptDates->max_date ? Carbon::parse($receiptDates->max_date) : null,
         ])->filter();
@@ -161,57 +155,11 @@ class GenerateFinancialTransactions extends Command
     }
 
     /**
-     * Clean up orphaned financial transactions that reference deleted maids or receipts
-     * Also soft deletes transactions for soft deleted or cancelled quotations
+     * Clean up orphaned receipt financial transactions.
      */
     protected function cleanupOrphanedTransactions()
     {
         $this->info('Cleaning up orphaned transactions...');
-
-        $orphanedMaidTransactions = FinancialTransaction::where('reference_type', 'App\Models\Maid')
-            ->whereNotNull('reference_id')
-            ->whereNotExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('maids')
-                    ->whereColumn('maids.id', 'financial_transactions.reference_id');
-            })
-            ->count();
-
-        if ($orphanedMaidTransactions > 0) {
-            FinancialTransaction::where('reference_type', 'App\Models\Maid')
-                ->whereNotNull('reference_id')
-                ->whereNotExists(function ($query) {
-                    $query->select(DB::raw(1))
-                        ->from('maids')
-                        ->whereColumn('maids.id', 'financial_transactions.reference_id');
-                })
-                ->delete();
-            $this->info("  ✓ Deleted {$orphanedMaidTransactions} orphaned maid transactions");
-        }
-
-        $softDeletedMaidTransactions = FinancialTransaction::where('reference_type', 'App\Models\Maid')
-            ->whereNotNull('reference_id')
-            ->whereNull('deleted_at')
-            ->whereExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('maids')
-                    ->whereColumn('maids.id', 'financial_transactions.reference_id')
-                    ->whereNotNull('maids.deleted_at');
-            })
-            ->count();
-
-        if ($softDeletedMaidTransactions > 0) {
-            FinancialTransaction::where('reference_type', 'App\Models\Maid')
-                ->whereNotNull('reference_id')
-                ->whereNull('deleted_at')
-                ->whereExists(function ($query) {
-                    $query->select(DB::raw(1))
-                        ->from('maids')
-                        ->whereColumn('maids.id', 'financial_transactions.reference_id')
-                        ->whereNotNull('maids.deleted_at');
-                })->delete();
-            $this->info("  ✓ Soft deleted {$softDeletedMaidTransactions} transactions for soft deleted maids");
-        }
 
         $orphanedReceiptTransactions = FinancialTransaction::where('reference_type', 'App\Models\Receipt')
             ->whereNotNull('reference_id')
@@ -269,7 +217,7 @@ class GenerateFinancialTransactions extends Command
             $this->info("  ✓ Soft deleted {$cancelledQuotationTransactions} transactions for cancelled/deleted quotations");
         }
 
-        if ($orphanedMaidTransactions == 0 && $orphanedReceiptTransactions == 0 && $softDeletedMaidTransactions == 0 && $cancelledQuotationTransactions == 0) {
+        if ($orphanedReceiptTransactions == 0 && $cancelledQuotationTransactions == 0) {
             $this->info('  ✓ No orphaned transactions found');
         }
     }
@@ -278,62 +226,6 @@ class GenerateFinancialTransactions extends Command
     {
         $startDate = Carbon::parse($year->start_date);
         $endDate = Carbon::parse($year->end_date);
-
-        $this->info('Processing maids...');
-        $maids = Maid::withTrashed()
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->get();
-
-        $maidCount = 0;
-        $maidSkipped = 0;
-        $maidUpdated = 0;
-        $maidBar = $this->output->createProgressBar($maids->count());
-
-        foreach ($maids as $maid) {
-            $existingTransaction = FinancialTransaction::withTrashed()->where('reference_type', 'App\Models\Maid')->where('reference_id', $maid->id)->first();
-
-            $shouldBeSoftDeleted = $maid->deleted_at !== null;
-
-            if (! $existingTransaction) {
-                try {
-                    $cost = $maid->getTotalCostOfMaid();
-
-                    $transaction = $this->financialTransactionService->recordExpense(
-                        $cost,
-                        "Maid acquisition cost: {$maid->name}",
-                        Carbon::parse($maid->created_at),
-                        'App\Models\Maid',
-                        $maid->id,
-                        [
-                            'maid_number' => $maid->maid_number,
-                            'name' => $maid->name,
-                            'cost_of_maid' => $maid->cost_of_maid,
-                            'commission' => $maid->commission,
-                        ]
-                    );
-
-                    if ($shouldBeSoftDeleted) {
-                        $transaction->delete();
-                    }
-
-                    $maidCount++;
-                } catch (\Exception $e) {
-                    $this->error("\nError processing maid {$maid->id}: {$e->getMessage()}");
-                }
-            } else {
-                if ($shouldBeSoftDeleted && $existingTransaction->deleted_at === null) {
-                    $existingTransaction->delete();
-                    $maidUpdated++;
-                } elseif (! $shouldBeSoftDeleted && $existingTransaction->deleted_at !== null) {
-                    $existingTransaction->restore();
-                    $maidUpdated++;
-                }
-                $maidSkipped++;
-            }
-            $maidBar->advance();
-        }
-        $maidBar->finish();
-        $this->info("\n  ✓ Created {$maidCount} maid expense transactions (skipped {$maidSkipped} existing, updated {$maidUpdated})");
 
         $this->info('Processing receipts...');
 

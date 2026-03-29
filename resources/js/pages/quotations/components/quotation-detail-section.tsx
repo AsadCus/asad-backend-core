@@ -359,7 +359,7 @@ export default function QuotationDetailSection({
         >
             <div className="space-y-6">
                 <div
-                    id="section-maid-assignment"
+                    id="section-assignment-details"
                     className="grid grid-cols-1 items-start gap-4 pt-2 md:grid-cols-2"
                 >
                     <section className="order-1 grid grid-cols-1 items-start gap-4 md:col-span-1 lg:order-1">

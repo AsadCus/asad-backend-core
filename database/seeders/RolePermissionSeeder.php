@@ -31,10 +31,6 @@ class RolePermissionSeeder extends Seeder
             'customer create',
             'customer edit',
             'customer delete',
-            'maid view',
-            'maid create',
-            'maid edit',
-            'maid delete',
             'quotation view',
             'quotation create',
             'quotation edit',
@@ -116,10 +112,6 @@ class RolePermissionSeeder extends Seeder
             'customer create',
             'customer edit',
             'customer delete',
-            'maid view',
-            'maid create',
-            'maid edit',
-            'maid delete',
             'quotation view',
             'quotation create',
             'quotation edit',
@@ -171,10 +163,6 @@ class RolePermissionSeeder extends Seeder
             'customer create',
             'customer edit',
             'customer delete',
-            'maid view',
-            'maid create',
-            'maid edit',
-            'maid delete',
             'quotation view',
             'quotation create',
             'quotation edit',
@@ -213,7 +201,6 @@ class RolePermissionSeeder extends Seeder
         ]);
         Role::findByName('customer')->givePermissionTo([
             'dashboard view',
-            'maid view',
         ]);
 
         Role::findByName('operations')->givePermissionTo([

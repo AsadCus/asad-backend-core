@@ -6,7 +6,6 @@ use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\Enquiry;
 use App\Models\Invoice;
-use App\Models\Maid;
 use App\Models\Manifest;
 use App\Models\NumberingFormat;
 use App\Models\NumberingSequence;
@@ -73,12 +72,6 @@ class NumberingService
             'increment_start' => 1,
             'increment_scope' => 'format',
         ],
-        'maid' => [
-            'name' => 'MD-%YYYY%-%I%',
-            'increment_padding' => 4,
-            'increment_start' => 1,
-            'increment_scope' => 'format',
-        ],
         'general_enquiry' => [
             'name' => 'GE-%YYYY%-%I%',
             'increment_padding' => 4,
@@ -133,11 +126,6 @@ class NumberingService
             'model' => CustomerConfirmation::class,
             'column' => 'number',
             'field' => 'number',
-        ],
-        'maid' => [
-            'model' => Maid::class,
-            'column' => 'maid_number',
-            'field' => 'maid_number',
         ],
         'general_enquiry' => [
             'model' => Enquiry::class,

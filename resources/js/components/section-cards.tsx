@@ -21,7 +21,7 @@ export function SectionCards({ widgets }: SectionCardsProps) {
     // Default widgets jika tidak ada data
     const defaultWidgets = [
         { title: 'Total Customers', value: 0 },
-        { title: 'Active Maids', value: 0 },
+        { title: 'Total Enquiries', value: 0 },
         { title: 'Total Orders', value: 0 },
         { title: 'Total Revenue', value: '$0' },
     ];

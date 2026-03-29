@@ -275,28 +275,6 @@ class FinancialTransactionService
     }
 
     /**
-     * Update maid expense transaction
-     */
-    public function updateMaidExpense($maid): void
-    {
-        $transaction = FinancialTransaction::where('reference_type', 'App\Models\Maid')->where('reference_id', $maid->id)->first();
-
-        if ($transaction) {
-            $newCost = $maid->getTotalCostOfMaid();
-
-            $transaction->update([
-                'amount' => $newCost,
-                'metadata' => [
-                    'maid_number' => $maid->maid_number,
-                    'name' => $maid->name,
-                    'cost_of_maid' => $maid->cost_of_maid,
-                    'commission' => $maid->commission,
-                ],
-            ]);
-        }
-    }
-
-    /**
      * Update receipt revenue transaction
      */
     public function updateReceiptRevenue($receipt): void

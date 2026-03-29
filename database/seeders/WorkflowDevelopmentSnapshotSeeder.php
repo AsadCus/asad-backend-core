@@ -49,7 +49,6 @@ class WorkflowDevelopmentSnapshotSeeder extends Seeder
             'enquiry_remarks',
             'customer_confirmations',
             'customer_confirmation_members',
-            'customer_maid_recommendations',
             'quotations',
             'quotation_notes',
             'quotation_items',

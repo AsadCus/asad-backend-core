@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EducationLevel extends Model
 {
@@ -13,9 +12,4 @@ class EducationLevel extends Model
     protected $fillable = [
         'name',
     ];
-
-    public function maids(): HasMany
-    {
-        return $this->hasMany(Maid::class, 'education_level_id');
-    }
 }

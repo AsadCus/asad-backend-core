@@ -114,7 +114,6 @@ interface DashboardProps {
         selectedYearId?: number;
         fiscalYearStartDate?: string;
         availableYears?: Array<{ value: number; label: string }>;
-        maids?: unknown[];
         nationality: [];
         religion: [];
         educationLevel: [];
@@ -150,11 +149,6 @@ interface DashboardProps {
                 }>;
             };
             customers?: Array<{
-                date: string;
-                count: number;
-                label: string;
-            }>;
-            maids?: Array<{
                 date: string;
                 count: number;
                 label: string;

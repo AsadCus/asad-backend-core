@@ -36,7 +36,6 @@ const DEFAULT_MODEL_KEYS = [
     'package',
     'manifest',
     'customer_confirmation',
-    'maid',
     'general_enquiry',
     'private_enquiry',
 ];

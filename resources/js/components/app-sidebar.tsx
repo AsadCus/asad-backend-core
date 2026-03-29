@@ -18,7 +18,6 @@ import customerHolding from '@/routes/customer-holding';
 import enquiries from '@/routes/enquiries';
 import generalEnquiries from '@/routes/general-enquiries';
 import invoice from '@/routes/invoice';
-// import maid from '@/routes/maid';
 import manifests from '@/routes/manifests';
 import master from '@/routes/master';
 import branch from '@/routes/master/branch';
@@ -50,7 +49,6 @@ import {
     FileUser,
     Globe,
     Handshake,
-    // HeartHandshake,
     Inbox,
     Landmark,
     LayoutGrid,
@@ -225,15 +223,6 @@ export function AppSidebar() {
                     ]
                   : []),
 
-              // ...(permissions.includes('maid view') && !roles.includes('customer')
-              //     ? [
-              //           {
-              //               title: 'Maid Profile',
-              //               href: maid.index.url(),
-              //               icon: HeartHandshake,
-              //           },
-              //       ]
-              //     : []),
               ...(permissions.includes('general-enquiry view') ||
               permissions.includes('private-enquiry view')
                   ? [

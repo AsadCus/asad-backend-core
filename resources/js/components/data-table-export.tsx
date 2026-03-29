@@ -105,10 +105,6 @@ export function DataTableExport<TData>({
                 return rawValue ? `${Number(rawValue)} months` : '-';
             }
 
-            if (column.id === 'cost_of_maid') {
-                return rawValue ? `$${Number(rawValue)}` : '-';
-            }
-
             if (column.id === 'singapore_experience') {
                 return rawValue ? 'Yes' : 'No';
             }
