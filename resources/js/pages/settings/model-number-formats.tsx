@@ -11,7 +11,10 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { fetchSupportedModelKeys } from '@/lib/numbering-formats';
+import {
+    fetchSupportedModelKeys,
+    updateSimpleLatestNumber,
+} from '@/lib/numbering-formats';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
@@ -154,6 +157,8 @@ export default function ModelNumberFormatsSettings() {
                     <ModelNumberInput
                         modelKey={selectedModelKey}
                         label={`${selectedModelLabel} Number`}
+                        mode="simple"
+                        simpleValueMode="latest"
                         value={numberByModel[selectedModelKey] ?? ''}
                         formatId={formatIdByModel[selectedModelKey] ?? null}
                         onValueChange={(value) =>
@@ -168,8 +173,19 @@ export default function ModelNumberFormatsSettings() {
                                 [selectedModelKey]: formatId,
                             }))
                         }
+                        onSimpleLatestPersist={async (latestValue) => {
+                            const payload = await updateSimpleLatestNumber(
+                                selectedModelKey,
+                                latestValue.trim() === '' ? null : latestValue,
+                            );
+
+                            setNumberByModel((current) => ({
+                                ...current,
+                                [selectedModelKey]: payload.latest_number ?? '',
+                            }));
+                        }}
                         disabled={isLoadingModelKeys}
-                        hint="Use the settings button to create or update formats for the selected model."
+                        hint="Set latest number for this model. The next create form auto-fills by incrementing the last numeric suffix."
                     />
                 </div>
             </SettingsLayout>

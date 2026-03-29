@@ -1107,8 +1107,12 @@ export default function OrderForm({
                             : `format:${suggestion.format_id}`;
 
                     const currentCounter = counterByScopeKey.get(scopeKey) ?? 1;
+                    const suggestedIncrement =
+                        typeof suggestion.next_increment === 'number'
+                            ? suggestion.next_increment
+                            : currentCounter;
                     const resolvedIncrement = Math.max(
-                        suggestion.next_increment,
+                        suggestedIncrement,
                         currentCounter,
                     );
 

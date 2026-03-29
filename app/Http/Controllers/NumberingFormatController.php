@@ -28,6 +28,7 @@ class NumberingFormatController extends Controller
         return response()->json([
             'model_key' => $modelKey,
             'formats' => $formats,
+            'simple_state' => $this->numberingService->getSimpleState($modelKey),
         ]);
     }
 
@@ -36,12 +37,40 @@ class NumberingFormatController extends Controller
         $validated = $request->validate([
             'model_key' => ['required', 'string'],
             'format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
+            'mode' => ['nullable', 'string', Rule::in(['simple', 'format'])],
         ]);
 
         return response()->json(
-            $this->numberingService->suggestNextNumber(
+            $this->numberingService->suggestNextNumberWithMode(
                 (string) $validated['model_key'],
                 isset($validated['format_id']) ? (int) $validated['format_id'] : null,
+                isset($validated['mode']) ? (string) $validated['mode'] : null,
+            )
+        );
+    }
+
+    public function simpleState(Request $request)
+    {
+        $validated = $request->validate([
+            'model_key' => ['required', 'string', Rule::in($this->numberingService->supportedModelKeys())],
+        ]);
+
+        return response()->json(
+            $this->numberingService->getSimpleState((string) $validated['model_key'])
+        );
+    }
+
+    public function updateSimpleState(Request $request)
+    {
+        $validated = $request->validate([
+            'model_key' => ['required', 'string', Rule::in($this->numberingService->supportedModelKeys())],
+            'latest_number' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        return response()->json(
+            $this->numberingService->updateSimpleLatestNumber(
+                (string) $validated['model_key'],
+                isset($validated['latest_number']) ? (string) $validated['latest_number'] : null,
             )
         );
     }

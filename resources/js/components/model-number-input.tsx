@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import { ProperInput } from '@/components/proper-input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -36,6 +37,7 @@ import {
     createFormat,
     deleteFormat,
     fetchFormats,
+    fetchSimpleState,
     suggestNumber,
     updateFormat,
 } from '@/lib/numbering-formats';
@@ -57,10 +59,13 @@ interface ModelNumberInputProps {
     modelKey: string;
     label: string;
     inputId?: string;
+    mode?: 'simple' | 'format';
+    simpleValueMode?: 'next' | 'latest';
     value?: string | null;
     formatId?: number | null;
     onValueChange: (value: string) => void;
-    onFormatIdChange: (formatId: number | null) => void;
+    onFormatIdChange?: (formatId: number | null) => void;
+    onSimpleLatestPersist?: (value: string) => Promise<void> | void;
     disabled?: boolean;
     error?: string;
     hint?: string;
@@ -189,14 +194,19 @@ const normalizeScope = (
         : 'format';
 };
 
+const hasTrailingNumber = (value: string): boolean => /\d$/.test(value);
+
 export default function ModelNumberInput({
     modelKey,
     label,
     inputId,
+    mode = 'simple',
+    simpleValueMode = 'next',
     value,
     formatId,
     onValueChange,
-    onFormatIdChange,
+    onFormatIdChange = () => {},
+    onSimpleLatestPersist,
     disabled = false,
     error,
     hint,
@@ -218,6 +228,7 @@ export default function ModelNumberInput({
     const [modelIncrementScope, setModelIncrementScope] = useState<
         'format' | 'model'
     >('model');
+    const isSimpleMode = mode === 'simple';
 
     const isDialogBusy =
         isLoadingFormats || isSavingFormat || deletingFormatId !== null;
@@ -271,9 +282,70 @@ export default function ModelNumberInput({
     };
 
     useEffect(() => {
+        if (isSimpleMode) {
+            return;
+        }
+
         void loadFormats();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [modelKey]);
+    }, [modelKey, isSimpleMode]);
+
+    useEffect(() => {
+        if (!isSimpleMode) {
+            return;
+        }
+
+        setInlineError(null);
+
+        if (simpleValueMode === 'latest') {
+            void (async () => {
+                try {
+                    const simpleState = await fetchSimpleState(modelKey);
+                    onValueChange(simpleState.latest_number ?? '');
+                } catch (exception) {
+                    setInlineError(
+                        exception instanceof Error
+                            ? exception.message
+                            : 'Unable to load latest model number.',
+                    );
+                }
+            })();
+
+            return;
+        }
+
+        if (disabled || (value ?? '').trim().length > 0) {
+            return;
+        }
+
+        void (async () => {
+            setIsSuggesting(true);
+
+            try {
+                const suggestion = await suggestNumber(
+                    modelKey,
+                    null,
+                    'simple',
+                );
+                onValueChange(suggestion.number ?? '');
+            } catch (exception) {
+                setInlineError(
+                    exception instanceof Error
+                        ? exception.message
+                        : 'Unable to suggest the next model number.',
+                );
+            } finally {
+                setIsSuggesting(false);
+            }
+        })();
+    }, [
+        disabled,
+        isSimpleMode,
+        modelKey,
+        onValueChange,
+        simpleValueMode,
+        value,
+    ]);
 
     const handleSuggest = async (
         nextFormatId?: number | null,
@@ -285,9 +357,10 @@ export default function ModelNumberInput({
             const suggestion = await suggestNumber(
                 modelKey,
                 nextFormatId ?? formatId,
+                'format',
             );
             onValueChange(suggestion.number);
-            onFormatIdChange(suggestion.format_id);
+            onFormatIdChange(suggestion.format_id ?? null);
         } catch (exception) {
             setInlineError(
                 exception instanceof Error
@@ -311,6 +384,59 @@ export default function ModelNumberInput({
             await handleSuggest(nextFormatId);
         }
     };
+
+    if (isSimpleMode) {
+        const simpleHint =
+            simpleValueMode === 'latest'
+                ? 'Set latest number. Next creation will increment from the last numeric suffix.'
+                : 'Auto-fills by incrementing the last numeric suffix from latest number.';
+
+        return (
+            <FormField
+                label={label}
+                error={resolvedError}
+                fieldRequirementsProps={{
+                    hint: hint ?? simpleHint,
+                }}
+            >
+                <ProperInput
+                    id={inputId}
+                    value={value ?? ''}
+                    onCommit={(nextValue) => {
+                        const normalizedValue = String(nextValue ?? '');
+
+                        onValueChange(normalizedValue);
+
+                        const trimmed = normalizedValue.trim();
+                        const validationMessage =
+                            trimmed === '' || hasTrailingNumber(trimmed)
+                                ? null
+                                : 'The number must end with a numeric value.';
+
+                        setInlineError(validationMessage);
+
+                        if (
+                            simpleValueMode === 'latest' &&
+                            onSimpleLatestPersist &&
+                            validationMessage === null
+                        ) {
+                            void Promise.resolve(
+                                onSimpleLatestPersist(trimmed),
+                            ).catch((exception) => {
+                                setInlineError(
+                                    exception instanceof Error
+                                        ? exception.message
+                                        : 'Unable to save latest model number.',
+                                );
+                            });
+                        }
+                    }}
+                    disabled={disabled}
+                    placeholder="Enter model number"
+                />
+            </FormField>
+        );
+    }
 
     const applyScopeForAllFormats = async (
         nextScope: 'format' | 'model',

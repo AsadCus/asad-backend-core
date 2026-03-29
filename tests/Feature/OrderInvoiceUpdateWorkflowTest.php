@@ -7,6 +7,7 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\NumberingSequence;
+use App\Models\NumberingSimpleCounter;
 use App\Models\Order;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
@@ -220,7 +221,16 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             ->first();
 
         $this->assertNotNull($sequence);
-        $this->assertGreaterThan(0, (int) $sequence->current_number);
+        $this->assertGreaterThanOrEqual(0, (int) $sequence->current_number);
+
+        $simpleCounter = NumberingSimpleCounter::query()
+            ->where('model_key', 'invoice')
+            ->first();
+
+        if ((int) $sequence->current_number === 0) {
+            $this->assertNotNull($simpleCounter);
+            $this->assertNotNull($simpleCounter?->latest_number);
+        }
     }
 
     public function test_order_update_rejects_removing_invoice_when_receipt_exists(): void

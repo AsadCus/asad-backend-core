@@ -1800,12 +1800,6 @@ export default function ConfirmedCustomerIndex({
                                             label: member.name,
                                         }),
                                     );
-                                    const payerLookup = new Map(
-                                        activeMembers.map((member) => [
-                                            member.id,
-                                            member.name,
-                                        ]),
-                                    );
                                     const assignments = activeMembers.reduce<
                                         Record<
                                             number,
@@ -1844,18 +1838,6 @@ export default function ConfirmedCustomerIndex({
                                     }, {});
                                     const assignmentRows =
                                         Object.values(assignments);
-                                    const unassignedMembers = activeMembers
-                                        .filter((member) => {
-                                            const mapped =
-                                                payerMapping[member.id];
-
-                                            return (
-                                                mapped === null ||
-                                                mapped === undefined ||
-                                                mapped === 0
-                                            );
-                                        })
-                                        .map((member) => member.name);
                                     const totalToBeCreated =
                                         assignmentRows.length;
 

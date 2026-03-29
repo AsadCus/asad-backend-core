@@ -23,9 +23,18 @@ export interface NumberingFormatPayload {
 
 export interface NumberSuggestion {
     model_key: string;
-    format_id: number;
+    mode?: 'simple' | 'format';
+    format_id?: number;
+    latest_number?: string | null;
     number: string;
-    next_increment: number;
+    next_increment?: number;
+}
+
+export interface NumberingSimpleState {
+    model_key: string;
+    latest_number: string | null;
+    next_number: string;
+    mode?: 'simple' | 'format';
 }
 
 const getCsrfToken = (): string => {
@@ -102,11 +111,16 @@ export async function fetchFormats(
 export async function suggestNumber(
     modelKey: string,
     formatId?: number | null,
+    mode?: 'simple' | 'format',
 ): Promise<NumberSuggestion> {
     const query = new URLSearchParams({ model_key: modelKey });
 
     if (formatId) {
         query.set('format_id', String(formatId));
+    }
+
+    if (mode) {
+        query.set('mode', mode);
     }
 
     const response = await fetch(
@@ -117,6 +131,42 @@ export async function suggestNumber(
     );
 
     return parseResponse<NumberSuggestion>(response);
+}
+
+export async function fetchSimpleState(
+    modelKey: string,
+): Promise<NumberingSimpleState> {
+    const query = new URLSearchParams({ model_key: modelKey });
+
+    const response = await fetch(
+        `/numbering-formats/simple-state?${query.toString()}`,
+        {
+            credentials: 'same-origin',
+        },
+    );
+
+    return parseResponse<NumberingSimpleState>(response);
+}
+
+export async function updateSimpleLatestNumber(
+    modelKey: string,
+    latestNumber: string | null,
+): Promise<NumberingSimpleState> {
+    const response = await fetch('/numbering-formats/simple-state', {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': getCsrfToken(),
+            Accept: 'application/json',
+        },
+        body: JSON.stringify({
+            model_key: modelKey,
+            latest_number: latestNumber,
+        }),
+    });
+
+    return parseResponse<NumberingSimpleState>(response);
 }
 
 export async function createFormat(

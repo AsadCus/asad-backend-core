@@ -133,6 +133,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Numbering Formats
     Route::get('numbering-formats', [NumberingFormatController::class, 'index'])->name('numbering-formats.index');
     Route::get('numbering-formats/suggest', [NumberingFormatController::class, 'suggest'])->name('numbering-formats.suggest');
+    Route::get('numbering-formats/simple-state', [NumberingFormatController::class, 'simpleState'])->name('numbering-formats.simple-state');
+    Route::put('numbering-formats/simple-state', [NumberingFormatController::class, 'updateSimpleState'])->name('numbering-formats.simple-state.update');
     Route::post('numbering-formats', [NumberingFormatController::class, 'store'])->name('numbering-formats.store');
     Route::put('numbering-formats/{numberingFormat}', [NumberingFormatController::class, 'update'])->name('numbering-formats.update');
     Route::delete('numbering-formats/{numberingFormat}', [NumberingFormatController::class, 'destroy'])->name('numbering-formats.destroy');

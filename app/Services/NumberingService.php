@@ -10,12 +10,14 @@ use App\Models\Maid;
 use App\Models\Manifest;
 use App\Models\NumberingFormat;
 use App\Models\NumberingSequence;
+use App\Models\NumberingSimpleCounter;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\Receipt;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -252,18 +254,154 @@ class NumberingService
 
     public function suggestNextNumber(string $modelKey, ?int $formatId = null): array
     {
+        return $this->suggestNextNumberWithMode($modelKey, $formatId, null);
+    }
+
+    public function suggestNextNumberWithMode(string $modelKey, ?int $formatId = null, ?string $mode = null): array
+    {
+        if ($this->resolveMode($mode, $formatId) === 'format') {
+            return $this->suggestNextNumberByFormat($modelKey, $formatId);
+        }
+
+        return $this->suggestNextNumberSimple($modelKey);
+    }
+
+    public function getSimpleState(string $modelKey): array
+    {
+        $this->assertModelKey($modelKey);
+
+        $storedLatest = NumberingSimpleCounter::query()
+            ->where('model_key', $modelKey)
+            ->value('latest_number');
+
+        $latestNumber = is_string($storedLatest) ? trim($storedLatest) : '';
+
+        if ($latestNumber === '') {
+            $persistedLatest = $this->latestPersistedNumber($modelKey);
+            $latestNumber = $persistedLatest ?? '';
+        }
+
+        return [
+            'model_key' => $modelKey,
+            'latest_number' => $latestNumber === '' ? null : $latestNumber,
+            'next_number' => $this->suggestNextNumberSimple($modelKey)['number'],
+            'mode' => 'simple',
+        ];
+    }
+
+    public function updateSimpleLatestNumber(string $modelKey, ?string $latestNumber): array
+    {
+        $this->assertModelKey($modelKey);
+
+        $candidate = is_string($latestNumber)
+            ? trim($latestNumber)
+            : '';
+
+        if ($candidate !== '') {
+            $this->validateSimpleNumberStructure($modelKey, $candidate);
+        }
+
+        NumberingSimpleCounter::query()->updateOrCreate(
+            ['model_key' => $modelKey],
+            ['latest_number' => $candidate === '' ? null : $candidate],
+        );
+
+        return $this->getSimpleState($modelKey);
+    }
+
+    public function generateNextNumber(string $modelKey, ?int $formatId = null): string
+    {
+        return $this->generateNextNumberWithMode($modelKey, $formatId, null);
+    }
+
+    public function generateNextNumberWithMode(string $modelKey, ?int $formatId = null, ?string $mode = null): string
+    {
+        if ($this->resolveMode($mode, $formatId) === 'format') {
+            $generated = $this->generateNextNumberByFormat($modelKey, $formatId);
+            $this->syncSimpleLatestNumber($modelKey, $generated);
+
+            return $generated;
+        }
+
+        return $this->generateNextNumberSimple($modelKey);
+    }
+
+    public function ensureNumber(
+        string $modelKey,
+        mixed $requestedNumber,
+        ?int $ignoreId = null,
+        ?int $formatId = null,
+        ?string $mode = null,
+    ): string {
+        $resolvedMode = $this->resolveMode($mode, $formatId);
+
+        $number = is_string($requestedNumber)
+            ? trim($requestedNumber)
+            : '';
+
+        if ($number === '') {
+            return $this->generateNextNumberWithMode($modelKey, $formatId, $resolvedMode);
+        }
+
+        $this->validateProvidedNumber($modelKey, $number, $ignoreId, $formatId, $resolvedMode);
+
+        if ($resolvedMode === 'format') {
+            $this->syncSequenceFromProvidedNumber($modelKey, $number, $formatId);
+            $this->syncSimpleLatestNumber($modelKey, $number);
+
+            return $number;
+        }
+
+        $this->syncSimpleLatestNumber($modelKey, $number);
+
+        return $number;
+    }
+
+    public function validateProvidedNumber(
+        string $modelKey,
+        string $number,
+        ?int $ignoreId = null,
+        ?int $formatId = null,
+        ?string $mode = null,
+    ): void {
+        $this->assertModelKey($modelKey);
+        $definition = self::MODEL_DEFINITIONS[$modelKey];
+        $resolvedMode = $this->resolveMode($mode, $formatId);
+
+        if ($resolvedMode === 'format') {
+            if (! $this->matchesAnyActiveFormat($modelKey, $number)) {
+                throw ValidationException::withMessages([
+                    $definition['field'] => 'The number does not match any configured active format for this model.',
+                ]);
+            }
+        } else {
+            $this->validateSimpleNumberStructure($modelKey, $number);
+        }
+
+        $exists = $this->numberExistsForModel($modelKey, $number, $ignoreId);
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                $definition['field'] => 'The number has already been used.',
+            ]);
+        }
+    }
+
+    private function suggestNextNumberByFormat(string $modelKey, ?int $formatId = null): array
+    {
         $format = $this->resolveFormat($modelKey, $formatId);
         $nextIncrement = $this->peekNextIncrement($format);
 
         return [
             'model_key' => $modelKey,
+            'mode' => 'format',
             'format_id' => $format->id,
             'number' => $this->composeNumber($format, $nextIncrement),
             'next_increment' => $nextIncrement,
         ];
     }
 
-    public function generateNextNumber(string $modelKey, ?int $formatId = null): string
+    private function generateNextNumberByFormat(string $modelKey, ?int $formatId = null): string
     {
         $format = $this->resolveFormat($modelKey, $formatId);
 
@@ -278,55 +416,6 @@ class NumberingService
 
             return $this->composeNumber($format, $nextIncrement);
         });
-    }
-
-    public function ensureNumber(
-        string $modelKey,
-        mixed $requestedNumber,
-        ?int $ignoreId = null,
-        ?int $formatId = null,
-    ): string {
-        $number = is_string($requestedNumber)
-            ? trim($requestedNumber)
-            : '';
-
-        if ($number === '') {
-            return $this->generateNextNumber($modelKey, $formatId);
-        }
-
-        $this->validateProvidedNumber($modelKey, $number, $ignoreId);
-        $this->syncSequenceFromProvidedNumber($modelKey, $number, $formatId);
-
-        return $number;
-    }
-
-    public function validateProvidedNumber(string $modelKey, string $number, ?int $ignoreId = null): void
-    {
-        $this->assertModelKey($modelKey);
-        $definition = self::MODEL_DEFINITIONS[$modelKey];
-
-        if (! $this->matchesAnyActiveFormat($modelKey, $number)) {
-            throw ValidationException::withMessages([
-                $definition['field'] => 'The number does not match any configured active format for this model.',
-            ]);
-        }
-
-        /** @var Model $modelClass */
-        $modelClass = $definition['model'];
-        $column = (string) $definition['column'];
-
-        $exists = $modelClass::query()
-            ->where($column, $number)
-            ->when($ignoreId, function (Builder $query) use ($ignoreId): void {
-                $query->whereKeyNot($ignoreId);
-            })
-            ->exists();
-
-        if ($exists) {
-            throw ValidationException::withMessages([
-                $definition['field'] => 'The number has already been used.',
-            ]);
-        }
     }
 
     public function rollbackByNumbers(string $modelKey, array $numbers): int
@@ -427,6 +516,189 @@ class NumberingService
         return $this->listFormats($modelKey)
             ->where('is_active', true)
             ->contains(fn (NumberingFormat $format) => $this->matchesFormat($format, $trimmed));
+    }
+
+    private function suggestNextNumberSimple(string $modelKey): array
+    {
+        $this->assertModelKey($modelKey);
+
+        $latest = $this->resolveSimpleLatestNumber($modelKey);
+
+        if ($latest !== null) {
+            $nextCandidate = $this->incrementSimpleNumber($latest, $modelKey);
+            $nextNumber = $this->findFirstAvailableSimpleNumber($modelKey, $nextCandidate);
+
+            return [
+                'model_key' => $modelKey,
+                'mode' => 'simple',
+                'latest_number' => $latest,
+                'number' => $nextNumber,
+            ];
+        }
+
+        $fallback = $this->suggestNextNumberByFormat($modelKey, null);
+        $nextNumber = (string) ($fallback['number'] ?? '');
+
+        return [
+            'model_key' => $modelKey,
+            'mode' => 'simple',
+            'latest_number' => null,
+            'number' => $nextNumber,
+        ];
+    }
+
+    private function generateNextNumberSimple(string $modelKey): string
+    {
+        $suggestion = $this->suggestNextNumberSimple($modelKey);
+        $number = (string) ($suggestion['number'] ?? '');
+
+        if ($number === '') {
+            throw ValidationException::withMessages([
+                self::MODEL_DEFINITIONS[$modelKey]['field'] => 'Unable to generate next number for this model.',
+            ]);
+        }
+
+        $this->syncSimpleLatestNumber($modelKey, $number);
+
+        return $number;
+    }
+
+    private function resolveSimpleLatestNumber(string $modelKey): ?string
+    {
+        $counterLatest = NumberingSimpleCounter::query()
+            ->where('model_key', $modelKey)
+            ->value('latest_number');
+
+        if (is_string($counterLatest) && trim($counterLatest) !== '') {
+            return trim($counterLatest);
+        }
+
+        return $this->latestPersistedNumber($modelKey);
+    }
+
+    private function latestPersistedNumber(string $modelKey): ?string
+    {
+        $this->assertModelKey($modelKey);
+        $definition = self::MODEL_DEFINITIONS[$modelKey];
+
+        /** @var class-string<Model> $modelClass */
+        $modelClass = $definition['model'];
+        $column = (string) $definition['column'];
+
+        $query = $modelClass::query()
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->orderByDesc('id');
+
+        if (in_array(SoftDeletes::class, class_uses_recursive($modelClass), true)) {
+            $query->withTrashed();
+        }
+
+        $value = $query->value($column);
+
+        return is_string($value) && trim($value) !== ''
+            ? trim($value)
+            : null;
+    }
+
+    private function incrementSimpleNumber(string $number, string $modelKey): string
+    {
+        $parsed = $this->parseSimpleNumber($number);
+
+        if (! is_array($parsed)) {
+            throw ValidationException::withMessages([
+                self::MODEL_DEFINITIONS[$modelKey]['field'] => 'The latest number must end with a numeric value.',
+            ]);
+        }
+
+        $nextValue = ((int) $parsed['increment']) + 1;
+
+        return (string) $parsed['prefix'].str_pad(
+            (string) $nextValue,
+            (int) $parsed['padding'],
+            '0',
+            STR_PAD_LEFT,
+        );
+    }
+
+    private function parseSimpleNumber(string $number): ?array
+    {
+        $trimmed = trim($number);
+
+        if (! preg_match('/^(.*?)(\d+)$/', $trimmed, $matches)) {
+            return null;
+        }
+
+        $digits = (string) ($matches[2] ?? '');
+
+        return [
+            'prefix' => (string) ($matches[1] ?? ''),
+            'digits' => $digits,
+            'padding' => max(1, strlen($digits)),
+            'increment' => (int) $digits,
+        ];
+    }
+
+    private function validateSimpleNumberStructure(string $modelKey, string $number): void
+    {
+        if ($this->parseSimpleNumber($number) !== null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            self::MODEL_DEFINITIONS[$modelKey]['field'] => 'The number must end with a numeric value.',
+        ]);
+    }
+
+    private function findFirstAvailableSimpleNumber(string $modelKey, string $candidate): string
+    {
+        $current = $candidate;
+
+        while ($this->numberExistsForModel($modelKey, $current)) {
+            $current = $this->incrementSimpleNumber($current, $modelKey);
+        }
+
+        return $current;
+    }
+
+    private function syncSimpleLatestNumber(string $modelKey, string $number): void
+    {
+        NumberingSimpleCounter::query()->updateOrCreate(
+            ['model_key' => $modelKey],
+            ['latest_number' => trim($number)],
+        );
+    }
+
+    private function numberExistsForModel(string $modelKey, string $number, ?int $ignoreId = null): bool
+    {
+        $definition = self::MODEL_DEFINITIONS[$modelKey];
+
+        /** @var class-string<Model> $modelClass */
+        $modelClass = $definition['model'];
+        $column = (string) $definition['column'];
+
+        $query = $modelClass::query()
+            ->where($column, $number)
+            ->when($ignoreId, function (Builder $query) use ($ignoreId): void {
+                $query->whereKeyNot($ignoreId);
+            });
+
+        if (in_array(SoftDeletes::class, class_uses_recursive($modelClass), true)) {
+            $query->withTrashed();
+        }
+
+        return $query->exists();
+    }
+
+    private function resolveMode(?string $mode, ?int $formatId = null): string
+    {
+        $candidate = strtolower(trim((string) $mode));
+
+        if ($candidate === '') {
+            return $formatId ? 'format' : 'simple';
+        }
+
+        return $candidate === 'format' ? 'format' : 'simple';
     }
 
     private function assertModelKey(string $modelKey): void

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\NumberingFormat;
+use App\Models\Package;
 use App\Services\NumberingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -45,12 +46,12 @@ class NumberingServiceTemplateFormatTest extends TestCase
 
         $this->assertSame(
             'KTG1-'.now()->format('Y'),
-            $service->generateNextNumber('order', $format->id),
+            $service->generateNextNumberWithMode('order', $format->id, 'format'),
         );
 
         $this->assertSame(
             'KTG2-'.now()->format('Y'),
-            $service->generateNextNumber('order', $format->id),
+            $service->generateNextNumberWithMode('order', $format->id, 'format'),
         );
     }
 
@@ -76,10 +77,10 @@ class NumberingServiceTemplateFormatTest extends TestCase
             now()->format('y'),
         );
 
-        $service->validateProvidedNumber('order', $validNumber);
+        $service->validateProvidedNumber('order', $validNumber, null, null, 'format');
 
         $this->expectException(ValidationException::class);
-        $service->validateProvidedNumber('order', 'KGT-INVALID-NUMBER');
+        $service->validateProvidedNumber('order', 'KGT-INVALID-NUMBER', null, null, 'format');
     }
 
     public function test_ensure_number_with_provided_value_advances_next_suggestion_increment(): void
@@ -101,13 +102,62 @@ class NumberingServiceTemplateFormatTest extends TestCase
         $number = "KTG-{$year}-001";
         $this->assertSame(
             $number,
-            $service->ensureNumber('package', $number, null, $format->id),
+            $service->ensureNumber('package', $number, null, $format->id, 'format'),
         );
 
-        $suggestion = $service->suggestNextNumber('package', $format->id);
+        $suggestion = $service->suggestNextNumberWithMode('package', $format->id, 'format');
 
         $this->assertSame($format->id, $suggestion['format_id']);
         $this->assertSame("KTG-{$year}-002", $suggestion['number']);
         $this->assertSame(2, $suggestion['next_increment']);
+    }
+
+    public function test_simple_mode_increments_last_numeric_suffix_and_follows_manual_override(): void
+    {
+        $service = app(NumberingService::class);
+
+        $this->assertSame(
+            'KTG1-10',
+            $service->ensureNumber('package', 'KTG1-10'),
+        );
+
+        $nextAfterFirst = $service->suggestNextNumber('package');
+        $this->assertSame('KTG1-11', $nextAfterFirst['number']);
+
+        $this->assertSame(
+            'KTG1A-L-25',
+            $service->ensureNumber('package', 'KTG1A-L-25'),
+        );
+
+        $nextAfterOverride = $service->suggestNextNumber('package');
+        $this->assertSame('KTG1A-L-26', $nextAfterOverride['number']);
+    }
+
+    public function test_simple_mode_requires_number_to_end_with_numeric_suffix(): void
+    {
+        $service = app(NumberingService::class);
+
+        $this->expectException(ValidationException::class);
+        $service->ensureNumber('package', 'KTG1-ABC');
+    }
+
+    public function test_simple_mode_skips_existing_numbers_when_suggesting_next_number(): void
+    {
+        Package::create([
+            'package_number' => 'KTG1-11',
+            'name' => 'Existing Package',
+            'status' => 'open',
+            'price_single' => 1000,
+            'price_double' => 900,
+            'total_seats' => 1,
+            'seats_left' => 1,
+        ]);
+
+        $service = app(NumberingService::class);
+        $service->updateSimpleLatestNumber('package', 'KTG1-10');
+
+        $suggestion = $service->suggestNextNumber('package');
+
+        $this->assertSame('KTG1-12', $suggestion['number']);
     }
 }
