@@ -522,6 +522,7 @@ class QuotationService
             'payment_plan' => $quotation->payment_plan,
             'status' => $quotation->status?->value,
             'reason' => $quotation->reason,
+            'have_invoices' => $quotation->order?->invoices()->exists() ?? false,
             'package_name' => $quotation->customerConfirmation?->package?->name,
             'package_departure_date' => $quotation->customerConfirmation?->package?->departure_date?->format('Y-m-d'),
             'package_price_single' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_single),
@@ -616,7 +617,15 @@ class QuotationService
                 $this->quotationItemService->replaceQuotationItems($quotation->id, $data['items']);
             }
 
-            if (array_key_exists('extensions', $data) && is_array($data['extensions'])) {
+            $hasOrderInvoices = $quotation->order()
+                ->whereHas('invoices')
+                ->exists();
+
+            if (
+                ! $hasOrderInvoices
+                && array_key_exists('extensions', $data)
+                && is_array($data['extensions'])
+            ) {
                 $this->syncQuotationExtensions($quotation, $data['extensions']);
             }
 
@@ -711,7 +720,7 @@ class QuotationService
         }
 
         $quotationItems = $quotation->quotationItems()
-            ->select('id', 'parent_id', 'sort_order')
+            ->select('id', 'parent_id', 'sort_order', 'description', 'customer_confirmation_member_id', 'is_header')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -725,6 +734,41 @@ class QuotationService
         }
 
         $itemsById = $quotationItems->keyBy('id');
+        $toInstallmentBaseDescription = static function (?string $description): string {
+            $value = strtolower(trim((string) ($description ?? '')));
+
+            return preg_replace('/\s*\((deposit|50%|balance)\)$/i', '', $value) ?? $value;
+        };
+
+        $hasInstallmentSuffix = static function (?string $description): bool {
+            return preg_match('/\((deposit|50%|balance)\)\s*$/i', (string) ($description ?? '')) === 1;
+        };
+
+        $linkedInstallmentSignatures = [];
+        foreach ($quotationItems as $item) {
+            $itemId = (int) $item->id;
+
+            if (! isset($currentInvoiceByItemId[$itemId])) {
+                continue;
+            }
+
+            if ((bool) ($item->is_header ?? false)) {
+                continue;
+            }
+
+            $description = (string) ($item->description ?? '');
+            if (! $hasInstallmentSuffix($description)) {
+                continue;
+            }
+
+            $signature = implode('|', [
+                (int) ($item->customer_confirmation_member_id ?? 0),
+                $toInstallmentBaseDescription($description),
+            ]);
+
+            $linkedInstallmentSignatures[$signature] = true;
+        }
+
         $childrenByParentId = $quotationItems
             ->filter(fn ($item) => ! empty($item->parent_id))
             ->groupBy('parent_id')
@@ -796,10 +840,54 @@ class QuotationService
         $invoiceByItemId = [];
         $defaultInvoiceId = (int) $invoiceIds[0];
         $lastInvoiceId = $defaultInvoiceId;
+        $strictToCurrentLinks = ! empty($preferredInvoiceOrderIds);
 
         foreach ($orderedItemIds as $itemId) {
             $item = $itemsById->get($itemId);
             if (! $item) {
+                continue;
+            }
+
+            if ($strictToCurrentLinks) {
+                $parentId = ! empty($item->parent_id) ? (int) $item->parent_id : null;
+                $hasCurrentLink = isset($currentInvoiceByItemId[$itemId]);
+
+                if ($parentId && isset($invoiceByItemId[$parentId])) {
+                    if (! $hasCurrentLink) {
+                        $candidateSignature = implode('|', [
+                            (int) ($item->customer_confirmation_member_id ?? 0),
+                            $toInstallmentBaseDescription((string) ($item->description ?? '')),
+                        ]);
+
+                        $isHeaderItem = (bool) ($item->is_header ?? false);
+                        if (! $isHeaderItem && isset($linkedInstallmentSignatures[$candidateSignature])) {
+                            continue;
+                        }
+                    }
+
+                    $candidateInvoiceId = (int) $invoiceByItemId[$parentId];
+                    if (! isset($invoicePosition[$candidateInvoiceId])) {
+                        continue;
+                    }
+
+                    $invoiceByItemId[$itemId] = $candidateInvoiceId;
+                    $lastInvoiceId = $candidateInvoiceId;
+
+                    continue;
+                }
+
+                if (! $hasCurrentLink) {
+                    continue;
+                }
+
+                $candidateInvoiceId = (int) $currentInvoiceByItemId[$itemId];
+                if (! isset($invoicePosition[$candidateInvoiceId])) {
+                    continue;
+                }
+
+                $invoiceByItemId[$itemId] = $candidateInvoiceId;
+                $lastInvoiceId = $candidateInvoiceId;
+
                 continue;
             }
 
@@ -816,10 +904,18 @@ class QuotationService
             }
 
             if (! $targetInvoiceId) {
+                if ($strictToCurrentLinks) {
+                    continue;
+                }
+
                 $targetInvoiceId = $lastInvoiceId;
             }
 
             if (! isset($invoicePosition[$targetInvoiceId])) {
+                if ($strictToCurrentLinks) {
+                    continue;
+                }
+
                 $targetInvoiceId = $defaultInvoiceId;
             }
 
@@ -833,7 +929,11 @@ class QuotationService
         }
 
         foreach ($orderedItemIds as $itemId) {
-            $assignedInvoiceId = $invoiceByItemId[$itemId] ?? $defaultInvoiceId;
+            if (! isset($invoiceByItemId[$itemId])) {
+                continue;
+            }
+
+            $assignedInvoiceId = $invoiceByItemId[$itemId];
 
             if (! isset($invoiceItemIds[$assignedInvoiceId])) {
                 $invoiceItemIds[$assignedInvoiceId] = [];
@@ -1453,100 +1553,93 @@ class QuotationService
         }
 
         $invoices = $order->invoices->sortBy('id')->values();
-        $quotationExtensionTotalCents = (int) round(
-            $quotation->quotationExtensions()->get()->sum(
-                fn (QuotationExtension $extension) => (float) ($extension->amount ?? 0)
-            ) * 100
-        );
-
-        $baseAmountCentsByInvoice = $invoices
-            ->mapWithKeys(function ($invoice) {
-                $baseAmountCents = (int) round(
-                    $invoice->quotationItems
-                        ->filter(fn ($item) => ! $item->is_header)
-                        ->sum(function ($item) {
-                            $quantity = (float) ($item->quantity ?? 0);
-                            $rate = (float) ($item->rate ?? 0);
-
-                            return $quantity * $rate;
-                        }) * 100
-                );
-
-                return [(int) $invoice->id => $baseAmountCents];
-            })
-            ->all();
-
-        $itemTaxCentsByInvoice = $invoices
-            ->mapWithKeys(function ($invoice) {
-                $itemTaxCents = (int) round(
-                    $invoice->quotationItems
-                        ->filter(fn ($item) => ! $item->is_header)
-                        ->sum(function ($item) {
-                            $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
-
-                            return (float) $item->taxes->sum(function ($tax) use ($lineAmount): float {
-                                $calculationMode = (string) ($tax->calculation_mode ?? '');
-                                $calculationValue = (float) ($tax->calculation_value ?? 0);
-
-                                if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
-                                    return 0;
-                                }
-
-                                return $calculationMode === 'percentage'
-                                    ? ($lineAmount * $calculationValue / 100)
-                                    : $calculationValue;
-                            });
-                        }) * 100
-                );
-
-                return [(int) $invoice->id => $itemTaxCents];
-            })
-            ->all();
-
-        $baseAbsTotalCents = array_sum(array_map(
-            fn (int $amountCents) => abs($amountCents),
-            array_values($baseAmountCentsByInvoice)
-        ));
-
-        $invoiceIds = $invoices->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
-        $extensionShareCentsByInvoice = [];
-        $allocatedShareCents = 0;
-        $lastIndex = max(0, count($invoiceIds) - 1);
-
-        foreach ($invoiceIds as $index => $invoiceId) {
-            if ($quotationExtensionTotalCents === 0) {
-                $extensionShareCentsByInvoice[$invoiceId] = 0;
-
-                continue;
-            }
-
-            if ($index === $lastIndex) {
-                $extensionShareCentsByInvoice[$invoiceId] = $quotationExtensionTotalCents - $allocatedShareCents;
-
-                continue;
-            }
-
-            if ($baseAbsTotalCents === 0) {
-                $shareCents = 0;
-            } else {
-                $shareCents = (int) round(
-                    $quotationExtensionTotalCents * (abs($baseAmountCentsByInvoice[$invoiceId] ?? 0) / $baseAbsTotalCents)
-                );
-            }
-
-            $extensionShareCentsByInvoice[$invoiceId] = $shareCents;
-            $allocatedShareCents += $shareCents;
-        }
-
         foreach ($invoices as $invoice) {
             $invoiceId = (int) $invoice->id;
-            $baseCents = (int) ($baseAmountCentsByInvoice[$invoiceId] ?? 0);
-            $itemTaxCents = (int) ($itemTaxCentsByInvoice[$invoiceId] ?? 0);
-            $shareCents = (int) ($extensionShareCentsByInvoice[$invoiceId] ?? 0);
-            $newInvoiceAmount = ($baseCents + $itemTaxCents + $shareCents) / 100;
+
+            $subtotalAmount = (float) $invoice->quotationItems
+                ->filter(fn ($item) => ! $item->is_header)
+                ->sum(function ($item): float {
+                    $quantity = (float) ($item->quantity ?? 0);
+                    $rate = (float) ($item->rate ?? 0);
+
+                    return $quantity * $rate;
+                });
+
+            $itemTaxTotal = (float) $invoice->quotationItems
+                ->filter(fn ($item) => ! $item->is_header)
+                ->sum(function ($item): float {
+                    $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+
+                    return (float) $item->taxes->sum(function ($tax) use ($lineAmount): float {
+                        $calculationMode = (string) ($tax->calculation_mode ?? '');
+                        $calculationValue = (float) ($tax->calculation_value ?? 0);
+
+                        if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
+                            return 0;
+                        }
+
+                        return $calculationMode === 'percentage'
+                            ? ($lineAmount * $calculationValue / 100)
+                            : $calculationValue;
+                    });
+                });
+
+            $normalizedExtensions = collect(is_array($invoice->extensions) ? $invoice->extensions : [])
+                ->filter(fn ($extension) => is_array($extension))
+                ->values()
+                ->map(function (array $extension, int $index) use ($subtotalAmount) {
+                    $type = strtolower(trim((string) ($extension['type'] ?? 'discount')));
+                    if ($type === 'tax') {
+                        return null;
+                    }
+
+                    $calculationMode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                    if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                        $calculationMode = 'fixed';
+                    }
+
+                    $calculationValue = (float) ($this->formatService->cleanDecimal(
+                        $extension['calculation_value'] ?? $extension['amount'] ?? 0
+                    ) ?? 0);
+
+                    $computedAmount = $calculationMode === 'percentage'
+                        ? ($subtotalAmount * $calculationValue / 100)
+                        : $calculationValue;
+
+                    $amount = $type === 'discount'
+                        ? -abs($computedAmount)
+                        : $computedAmount;
+
+                    return [
+                        'id' => $extension['id'] ?? null,
+                        'quotation_extension_master_id' => ! empty($extension['quotation_extension_master_id'])
+                            ? (int) $extension['quotation_extension_master_id']
+                            : null,
+                        'name' => (string) ($extension['name'] ?? 'Extension'),
+                        'type' => $type,
+                        'calculation_mode' => $calculationMode,
+                        'calculation_value' => $this->formatService->cleanDecimal($calculationValue) ?? 0,
+                        'amount' => $this->formatService->cleanDecimal($amount) ?? 0,
+                        'sort_order' => (int) ($extension['sort_order'] ?? ($index + 1)),
+                    ];
+                })
+                ->filter(fn ($extension) => is_array($extension))
+                ->values()
+                ->all();
+
+            $invoiceExtensionTotal = (float) collect($normalizedExtensions)
+                ->sum(fn (array $extension): float => (float) ($extension['amount'] ?? 0));
+
+            $newInvoiceAmount = $subtotalAmount + $itemTaxTotal + $invoiceExtensionTotal;
+            $newInvoiceAmount = (float) ($this->formatService->cleanDecimal($newInvoiceAmount) ?? $newInvoiceAmount);
 
             if ((float) $invoice->amount !== (float) $newInvoiceAmount) {
-                $invoice->update(['amount' => $newInvoiceAmount]);
+                $invoice->update([
+                    'amount' => $newInvoiceAmount,
+                    'extensions' => $normalizedExtensions,
+                ]);
+            } elseif ($invoice->extensions !== $normalizedExtensions) {
+                $invoice->update(['extensions' => $normalizedExtensions]);
             }
 
             if ($invoice->receipt->isNotEmpty()) {

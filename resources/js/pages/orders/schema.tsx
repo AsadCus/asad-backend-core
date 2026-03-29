@@ -7,6 +7,10 @@ export const orderSchema = z.object({
     order_number: z.string().nullable().optional(),
     number_format_id: z.number().nullable().optional(),
     payment_plan: z.string().optional(),
+    installment_invoice_count: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
     deposit_type: z.string().nullable().optional(),
     deposit_value: z.union([z.string(), z.number()]).nullable().optional(),
     invoices: z.array(invoiceSchema),

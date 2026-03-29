@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\NumberingSequence;
 use App\Models\Order;
@@ -872,7 +874,7 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_quotation_update_sync_amount_uses_item_taxes_and_all_extensions(): void
+    public function test_quotation_update_sync_amount_uses_item_taxes_and_invoice_extensions_only(): void
     {
         $graph = $this->createBaseGraph();
         $order = $graph['order'];
@@ -921,6 +923,32 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $invoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Invoice For Deposit',
+            'extensions' => [
+                [
+                    'name' => 'Group Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+                [
+                    'name' => 'Credit Card Surcharge',
+                    'type' => 'credit_card',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 50,
+                    'amount' => 50,
+                    'sort_order' => 2,
+                ],
+                [
+                    'name' => 'Legacy Tax Extension',
+                    'type' => 'tax',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 80,
+                    'amount' => 80,
+                    'sort_order' => 3,
+                ],
+            ],
             'amount' => 1000,
             'invoice_date' => now()->format('Y-m-d'),
             'due_date' => now()->addDays(7)->format('Y-m-d'),
@@ -946,7 +974,7 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             'status' => 'converted',
         ], $quotation->id);
 
-        $expectedAmount = 1130.00;
+        $expectedAmount = 1050.00;
 
         $this->assertDatabaseHas('invoices', [
             'id' => $invoice->id,
@@ -1119,5 +1147,259 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             'quotation_id' => $quotation->id,
             'name' => 'Credit Card Surcharge',
         ]);
+    }
+
+    public function test_order_update_full_to_installment_persists_header_and_member_children_per_invoice(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $confirmation = CustomerConfirmation::create([
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $memberOne = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $quotation->customer_id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'double',
+        ]);
+
+        $memberTwo = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $quotation->customer_id,
+            'is_leader' => false,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'double',
+        ]);
+
+        $quotation->update([
+            'customer_confirmation_id' => $confirmation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $baseHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'quantity' => null,
+            'rate' => null,
+            'sort_order' => 1,
+        ]);
+
+        $baseMemberOne = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => $baseHeader->id,
+            'customer_confirmation_member_id' => $memberOne->id,
+            'description' => 'Package Sharing Cost - Member 1',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 2500,
+            'sort_order' => 2,
+        ]);
+
+        $baseMemberTwo = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => $baseHeader->id,
+            'customer_confirmation_member_id' => $memberTwo->id,
+            'description' => 'Package Sharing Cost - Member 2',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 2500,
+            'sort_order' => 3,
+        ]);
+
+        $fullInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For Full Payment',
+            'amount' => 5000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $fullInvoice->quotationItems()->sync([
+            $baseHeader->id,
+            $baseMemberOne->id,
+            $baseMemberTwo->id,
+        ]);
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For 50%',
+            'amount' => 0,
+            'invoice_date' => now()->addDay()->format('Y-m-d'),
+            'due_date' => now()->addDays(8)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        $invoiceThree = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For Balance',
+            'amount' => 0,
+            'invoice_date' => now()->addDays(2)->format('Y-m-d'),
+            'due_date' => now()->addDays(9)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $orderService->update([
+            'payment_plan' => 'installment',
+            'invoices' => [
+                [
+                    'id' => $fullInvoice->id,
+                    '_key' => 'inv-deposit',
+                    'description' => 'Invoice For Deposit',
+                    'amount' => 500,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(7)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            '_key' => 'header-deposit',
+                            'id' => $baseHeader->id,
+                            'description' => 'Umrah Packages',
+                            'is_header' => true,
+                            'sort_order' => 1,
+                        ],
+                        [
+                            '_key' => 'member-1-deposit',
+                            'parent_key' => 'header-deposit',
+                            'parent_id' => $baseHeader->id,
+                            'customer_confirmation_member_id' => $memberOne->id,
+                            'description' => 'Package Sharing Cost - Member 1 (Deposit)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 250,
+                            'sort_order' => 2,
+                        ],
+                        [
+                            '_key' => 'member-2-deposit',
+                            'parent_key' => 'header-deposit',
+                            'parent_id' => $baseHeader->id,
+                            'customer_confirmation_member_id' => $memberTwo->id,
+                            'description' => 'Package Sharing Cost - Member 2 (Deposit)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 250,
+                            'sort_order' => 3,
+                        ],
+                    ],
+                ],
+                [
+                    'id' => $invoiceTwo->id,
+                    '_key' => 'inv-fifty',
+                    'description' => 'Invoice For 50%',
+                    'amount' => 2500,
+                    'invoice_date' => now()->addDay()->format('Y-m-d'),
+                    'due_date' => now()->addDays(8)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            '_key' => 'header-fifty',
+                            'id' => $baseHeader->id,
+                            'description' => 'Umrah Packages',
+                            'is_header' => true,
+                            'sort_order' => 1,
+                        ],
+                        [
+                            '_key' => 'member-1-fifty',
+                            'parent_key' => 'header-fifty',
+                            'parent_id' => $baseHeader->id,
+                            'customer_confirmation_member_id' => $memberOne->id,
+                            'description' => 'Package Sharing Cost - Member 1 (50%)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1250,
+                            'sort_order' => 2,
+                        ],
+                        [
+                            '_key' => 'member-2-fifty',
+                            'parent_key' => 'header-fifty',
+                            'parent_id' => $baseHeader->id,
+                            'customer_confirmation_member_id' => $memberTwo->id,
+                            'description' => 'Package Sharing Cost - Member 2 (50%)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1250,
+                            'sort_order' => 3,
+                        ],
+                    ],
+                ],
+                [
+                    'id' => $invoiceThree->id,
+                    '_key' => 'inv-balance',
+                    'description' => 'Invoice For Balance',
+                    'amount' => 2000,
+                    'invoice_date' => now()->addDays(2)->format('Y-m-d'),
+                    'due_date' => now()->addDays(9)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            '_key' => 'header-balance',
+                            'id' => $baseHeader->id,
+                            'description' => 'Umrah Packages',
+                            'is_header' => true,
+                            'sort_order' => 1,
+                        ],
+                        [
+                            '_key' => 'member-1-balance',
+                            'parent_key' => 'header-balance',
+                            'parent_id' => $baseHeader->id,
+                            'customer_confirmation_member_id' => $memberOne->id,
+                            'description' => 'Package Sharing Cost - Member 1 (Balance)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1000,
+                            'sort_order' => 2,
+                        ],
+                        [
+                            '_key' => 'member-2-balance',
+                            'parent_key' => 'header-balance',
+                            'parent_id' => $baseHeader->id,
+                            'customer_confirmation_member_id' => $memberTwo->id,
+                            'description' => 'Package Sharing Cost - Member 2 (Balance)',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1000,
+                            'sort_order' => 3,
+                        ],
+                    ],
+                ],
+            ],
+        ], $order->id);
+
+        $this->assertSame(
+            9,
+            QuotationItem::query()->where('quotation_id', $quotation->id)->count(),
+        );
+
+        $this->assertSame(
+            3,
+            QuotationItem::query()
+                ->where('quotation_id', $quotation->id)
+                ->where('description', 'Umrah Packages')
+                ->where('is_header', true)
+                ->count(),
+        );
+
+        $this->assertDatabaseMissing('quotation_items', [
+            'quotation_id' => $quotation->id,
+            'description' => 'Package Sharing Cost - Member 1',
+        ]);
+
+        $this->assertDatabaseMissing('quotation_items', [
+            'quotation_id' => $quotation->id,
+            'description' => 'Package Sharing Cost - Member 2',
+        ]);
+
+        $this->assertSame(
+            9,
+            \DB::table('invoice_items')
+                ->whereIn('invoice_id', [$fullInvoice->id, $invoiceTwo->id, $invoiceThree->id])
+                ->count(),
+        );
     }
 }

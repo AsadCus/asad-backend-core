@@ -404,7 +404,7 @@ class ManifestController extends Controller
             ])->render();
 
             $manifestNumber = trim((string) ($manifest['manifest_number'] ?? 'Manifest'));
-            $fileName = 'Manifest Namelist Course & Collection Items - '.$manifestNumber.'.pdf';
+            $fileName = 'Course Attendance and Items Collection - '.$manifestNumber.'.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'landscape')
@@ -583,7 +583,8 @@ class ManifestController extends Controller
             ])->render();
 
             $manifestNumber = trim((string) ($manifest['manifest_number'] ?? 'Manifest'));
-            $fileName = 'Manifest Room Check - '.$manifestNumber.'.pdf';
+            $roomCheckLocationLabel = trim((string) ($manifest['room_check_location_label'] ?? '-'));
+            $fileName = 'Manifest Check-In Room List - '.$roomCheckLocationLabel.' - '.$manifestNumber.'.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'landscape')

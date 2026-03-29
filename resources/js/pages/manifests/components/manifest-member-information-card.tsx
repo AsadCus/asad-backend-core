@@ -72,7 +72,7 @@ export default function ManifestMemberInformationCard({
 
             const age = resolveMemberAge(member);
             const gender = rawGender === 'female' ? 'female' : 'male';
-            const effectiveAge = age === null ? 18 : age;
+            const effectiveAge = age === null ? 12 : age;
 
             if (effectiveAge < 2) {
                 acc.infant += 1;
@@ -80,7 +80,7 @@ export default function ManifestMemberInformationCard({
                 return acc;
             }
 
-            if (effectiveAge >= 18) {
+            if (effectiveAge > 11) {
                 acc.adults += 1;
 
                 if (gender === 'male') {
@@ -118,8 +118,8 @@ export default function ManifestMemberInformationCard({
         { label: 'Total Adults', value: counts.adults },
         { label: 'Male (Adults)', value: counts.maleAdults },
         { label: 'Female (Adults)', value: counts.femaleAdults },
-        { label: 'Boy (below 18)', value: counts.boy },
-        { label: 'Girl (below 18)', value: counts.girl },
+        { label: 'Boy (2-11)', value: counts.boy },
+        { label: 'Girl (2-11)', value: counts.girl },
         { label: 'Infant (below 2)', value: counts.infant },
         { label: 'Total Jemaah', value: jemaahMembers.length },
         { label: 'Official', value: officialCount },

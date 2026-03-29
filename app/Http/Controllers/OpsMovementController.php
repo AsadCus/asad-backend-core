@@ -27,6 +27,15 @@ class OpsMovementController extends Controller
         $this->opsMovementService = $opsMovementService;
         $this->opsMovementRule = $opsMovementRule;
         $this->reportTemplateService = $reportTemplateService;
+
+        $this->middleware('permission:ops-movement view')->only([
+            'index',
+            'show',
+            'exportPdf',
+            'exportPifPdf',
+            'exportBudgetPdf',
+        ]);
+        $this->middleware('permission:ops-movement edit')->only(['update']);
     }
 
     /**

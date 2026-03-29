@@ -142,7 +142,7 @@ class QuotationExtensionWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_update_converted_quotation_extension_syncs_invoice_and_receipt_amounts(): void
+    public function test_update_converted_quotation_does_not_override_invoice_owned_extensions(): void
     {
         $user = User::factory()->create();
         $customer = Customer::create([
@@ -183,6 +183,16 @@ class QuotationExtensionWorkflowTest extends TestCase
         $invoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Invoice For Full Payment',
+            'extensions' => [
+                [
+                    'name' => 'Initial discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
             'amount' => 900,
             'invoice_date' => now()->format('Y-m-d'),
             'due_date' => now()->format('Y-m-d'),
@@ -228,8 +238,20 @@ class QuotationExtensionWorkflowTest extends TestCase
             ],
         ], $quotation->id);
 
-        $this->assertSame(800.0, (float) $invoice->fresh()->amount);
-        $this->assertSame(800.0, (float) Receipt::query()->where('invoice_id', $invoice->id)->firstOrFail()->amount);
+        $invoice->refresh();
+
+        $this->assertSame(900.0, (float) $invoice->amount);
+        $this->assertSame(900.0, (float) Receipt::query()->where('invoice_id', $invoice->id)->firstOrFail()->amount);
+        $this->assertTrue(collect($invoice->extensions ?? [])->contains(function (array $extension): bool {
+            return ($extension['name'] ?? null) === 'Initial discount'
+                && (string) ($extension['type'] ?? '') === 'discount'
+                && (float) ($extension['amount'] ?? 0) === -100.0;
+        }));
+
+        $this->assertDatabaseMissing('quotation_extensions', [
+            'quotation_id' => $quotation->id,
+            'name' => 'Updated discount',
+        ]);
     }
 
     public function test_store_quotation_with_percentage_tax_extension_calculates_amount_from_items(): void

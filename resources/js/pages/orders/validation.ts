@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { orderSchema } from './schema';
 import { quotationItemsSchema } from '../quotations/items/schema';
+import { orderSchema } from './schema';
 
 export const orderValidationSchema = orderSchema.superRefine((data, ctx) => {
     // quotation_id
@@ -25,6 +25,25 @@ export const orderValidationSchema = orderSchema.superRefine((data, ctx) => {
             message: 'Invalid payment plan',
             code: z.ZodIssueCode.custom,
         });
+    }
+
+    if (data.payment_plan === 'installment') {
+        const rawCount = data.installment_invoice_count;
+        const parsedCount = Number(rawCount ?? 3);
+
+        if (!Number.isFinite(parsedCount)) {
+            ctx.addIssue({
+                path: ['installment_invoice_count'],
+                message: 'Invoice count must be a number',
+                code: z.ZodIssueCode.custom,
+            });
+        } else if (Math.floor(parsedCount) < 3) {
+            ctx.addIssue({
+                path: ['installment_invoice_count'],
+                message: 'Installment requires at least 3 invoices',
+                code: z.ZodIssueCode.custom,
+            });
+        }
     }
 
     // invoices

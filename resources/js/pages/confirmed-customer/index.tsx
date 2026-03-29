@@ -1773,104 +1773,134 @@ export default function ConfirmedCustomerIndex({
                             Create Quotation
                         </DialogTitle>
                         <DialogDescription>
-                            Assign a payer for each member. The main member pays
-                            for everyone by default — change individual payers
-                            as needed.
+                            Assign payment responsibility before generating
+                            quotation. Each row is a member to be quoted, and
+                            Payer determines who will be billed for that member.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="h-full w-full flex-1 overflow-y-auto pb-2">
                         {quotationGroup && (
                             <div className="space-y-4">
-                                <div className="space-y-2 rounded-md border p-3">
-                                    {quotationGroup.members
-                                        .filter(
-                                            (m) =>
-                                                m.status !== 'cancelled' &&
-                                                !m.has_quotation,
-                                        )
-                                        .map((member) => {
-                                            const activeMembers =
-                                                quotationGroup.members.filter(
-                                                    (m) =>
-                                                        m.status !==
-                                                            'cancelled' &&
-                                                        !m.has_quotation,
-                                                );
+                                {(() => {
+                                    const activeMembers =
+                                        quotationGroup.members.filter(
+                                            (member) =>
+                                                member.status !== 'cancelled' &&
+                                                !member.has_quotation,
+                                        );
 
-                                            return (
-                                                <div
-                                                    key={member.id}
-                                                    className="grid grid-cols-1 items-center justify-between gap-3 rounded px-2 py-2 md:grid-cols-2"
-                                                >
-                                                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                        <span className="truncate font-medium">
-                                                            {member.name}
-                                                        </span>
-                                                        <Badge
-                                                            variant={
-                                                                member.is_leader
-                                                                    ? 'default'
-                                                                    : 'secondary'
-                                                            }
-                                                            className="shrink-0"
-                                                        >
-                                                            {member.is_leader
-                                                                ? 'Main'
-                                                                : 'Participant'}
-                                                        </Badge>
-                                                        {member.sharing_plan && (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="shrink-0"
-                                                            >
-                                                                {member.sharing_plan
-                                                                    .charAt(0)
-                                                                    .toUpperCase() +
-                                                                    member.sharing_plan.slice(
-                                                                        1,
-                                                                    )}
-                                                            </Badge>
-                                                        )}
-                                                    </div>
+                                    return (
+                                        <>
+                                            <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                                                <p>
+                                                    Member: Members listed below
+                                                    will be included in new
+                                                    quotation(s).
+                                                </p>
+                                                <p>
+                                                    Payer: Choose who pays for
+                                                    each member. Keep default to
+                                                    bill all members to the main
+                                                    leader, or split by changing
+                                                    payer per row.
+                                                </p>
+                                            </div>
 
-                                                    <div className="w-full shrink-0">
-                                                        <ProperInputSelect
-                                                            options={activeMembers.map(
-                                                                (m) => ({
-                                                                    value: String(
-                                                                        m.id,
-                                                                    ),
-                                                                    label: m.is_leader
-                                                                        ? `${m.name} (Main)`
-                                                                        : m.name,
-                                                                }),
-                                                            )}
-                                                            value={String(
-                                                                payerMapping[
-                                                                    member.id
-                                                                ] ?? '',
-                                                            )}
-                                                            onValueChange={(
-                                                                value,
-                                                            ) => {
-                                                                setPayerMapping(
-                                                                    (prev) => ({
-                                                                        ...prev,
-                                                                        [member.id]:
-                                                                            Number(
-                                                                                value,
-                                                                            ),
-                                                                    }),
-                                                                );
-                                                            }}
-                                                            placeholder="Select payer"
-                                                        />
-                                                    </div>
+                                            <div className="space-y-2 rounded-md border p-3">
+                                                <div className="px-2 pt-1 text-sm font-semibold text-foreground">
+                                                    Member
                                                 </div>
-                                            );
-                                        })}
-                                </div>
+
+                                                {activeMembers.map((member) => {
+                                                    return (
+                                                        <div
+                                                            key={member.id}
+                                                            className="grid grid-cols-1 items-center justify-between gap-3 rounded px-2 py-2 md:grid-cols-2"
+                                                        >
+                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                                <span className="truncate font-medium">
+                                                                    {
+                                                                        member.name
+                                                                    }
+                                                                </span>
+                                                                <Badge
+                                                                    variant={
+                                                                        member.is_leader
+                                                                            ? 'default'
+                                                                            : 'secondary'
+                                                                    }
+                                                                    className="shrink-0"
+                                                                >
+                                                                    {member.is_leader
+                                                                        ? 'Main'
+                                                                        : 'Participant'}
+                                                                </Badge>
+                                                                {member.sharing_plan && (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="shrink-0"
+                                                                    >
+                                                                        {member.sharing_plan
+                                                                            .charAt(
+                                                                                0,
+                                                                            )
+                                                                            .toUpperCase() +
+                                                                            member.sharing_plan.slice(
+                                                                                1,
+                                                                            )}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="w-full shrink-0">
+                                                                <FormField label="Payer">
+                                                                    <ProperInputSelect
+                                                                        options={activeMembers.map(
+                                                                            (
+                                                                                m,
+                                                                            ) => ({
+                                                                                value: String(
+                                                                                    m.id,
+                                                                                ),
+                                                                                label: m.is_leader
+                                                                                    ? `${m.name} (Main)`
+                                                                                    : m.name,
+                                                                            }),
+                                                                        )}
+                                                                        value={String(
+                                                                            payerMapping[
+                                                                                member
+                                                                                    .id
+                                                                            ] ??
+                                                                                '',
+                                                                        )}
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) => {
+                                                                            setPayerMapping(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => ({
+                                                                                    ...prev,
+                                                                                    [member.id]:
+                                                                                        Number(
+                                                                                            value,
+                                                                                        ),
+                                                                                }),
+                                                                            );
+                                                                        }}
+                                                                        placeholder="Select payer"
+                                                                    />
+                                                                </FormField>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
 
                                 <div className="flex justify-end gap-2">
                                     <Button

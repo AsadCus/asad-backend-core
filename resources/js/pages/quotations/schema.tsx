@@ -4,7 +4,7 @@ import { quotationItemSchema } from './items/schema';
 
 export const quotationExtensionSchema = z.object({
     _key: z.string().optional(),
-    id: z.number().optional(),
+    id: z.number().nullable().optional(),
     quotation_extension_master_id: z.number().nullable().optional(),
     name: z.string(),
     type: z.string(),

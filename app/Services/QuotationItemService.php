@@ -162,9 +162,13 @@ class QuotationItemService
         });
     }
 
-    public function replaceQuotationItems(int $quotationId, array $items = [], bool $deleteMissing = true): array
-    {
-        return DB::transaction(function () use ($quotationId, $items, $deleteMissing) {
+    public function replaceQuotationItems(
+        int $quotationId,
+        array $items = [],
+        bool $deleteMissing = true,
+        bool $reuseBySignature = true,
+    ): array {
+        return DB::transaction(function () use ($quotationId, $items, $deleteMissing, $reuseBySignature) {
             $keyToId = [];
             $masterIdToQuotationId = [];
             $incomingIds = [];
@@ -219,7 +223,7 @@ class QuotationItemService
                     $id = null;
                 }
 
-                if (! $id) {
+                if (! $id && $reuseBySignature) {
                     $id = $this->popMatchingExistingItemId(
                         $existingIdsBySignature,
                         $usedIds,
@@ -295,7 +299,7 @@ class QuotationItemService
                     $id = null;
                 }
 
-                if (! $id) {
+                if (! $id && $reuseBySignature) {
                     $id = $this->popMatchingExistingItemId(
                         $existingIdsBySignature,
                         $usedIds,

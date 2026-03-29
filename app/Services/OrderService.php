@@ -133,6 +133,33 @@ class OrderService
                 ]);
             }
 
+            $order->load('invoices.quotationItems', 'quotation');
+
+            $incomingInvoiceIds = $order->invoices
+                ->pluck('id')
+                ->map(fn ($invoiceId) => (int) $invoiceId)
+                ->values()
+                ->all();
+
+            $this->quotationService->syncQuotationItemsToRelevantInvoicesBySortOrder(
+                $order->quotation,
+                $incomingInvoiceIds,
+            );
+
+            $order->load('invoices.quotationItems');
+
+            $linkedQuotationItemIds = $order->invoices
+                ->flatMap(fn ($invoice) => $invoice->quotationItems->pluck('id'))
+                ->map(fn ($itemId) => (int) $itemId)
+                ->unique()
+                ->values()
+                ->all();
+
+            $this->quotationItemService->deleteUnusedQuotationItems(
+                (int) $order->quotation_id,
+                $linkedQuotationItemIds,
+            );
+
             activity()
                 ->performedOn($order)
                 ->withProperties(['subject_type' => 'Order', 'subject_id' => $order->id ?? null])
@@ -341,6 +368,8 @@ class OrderService
                 $incomingInvoiceIds,
             );
 
+            $order->load('invoices.quotationItems');
+
             $linkedQuotationItemIds = $order->invoices
                 ->flatMap(fn ($invoice) => $invoice->quotationItems->pluck('id'))
                 ->map(fn ($itemId) => (int) $itemId)
@@ -381,7 +410,12 @@ class OrderService
                     : null;
 
                 if ($itemId && isset($seenItemIds[$itemId])) {
-                    continue;
+                    if (! empty($item['is_header'])) {
+                        $item['id'] = null;
+                        $itemId = null;
+                    } else {
+                        continue;
+                    }
                 }
 
                 if (! $itemId) {

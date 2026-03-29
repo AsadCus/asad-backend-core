@@ -2483,7 +2483,10 @@ export default function ManifestDatatable({
                                 !isOfficialMemberRow &&
                                 member.deposit_payment !== null &&
                                 member.deposit_payment !== undefined
-                                    ? String(member.deposit_payment)
+                                    ? formatCurrency(
+                                          Number(member.deposit_payment ?? 0),
+                                          '$',
+                                      )
                                     : ''
                             }
                             disabled={true}
@@ -2515,7 +2518,10 @@ export default function ManifestDatatable({
                                 !isOfficialMemberRow &&
                                 member.second_payment !== null &&
                                 member.second_payment !== undefined
-                                    ? String(member.second_payment)
+                                    ? formatCurrency(
+                                          Number(member.second_payment ?? 0),
+                                          '$',
+                                      )
                                     : ''
                             }
                             disabled={true}
@@ -2547,7 +2553,10 @@ export default function ManifestDatatable({
                                 !isOfficialMemberRow &&
                                 member.third_payment !== null &&
                                 member.third_payment !== undefined
-                                    ? String(member.third_payment)
+                                    ? formatCurrency(
+                                          Number(member.third_payment ?? 0),
+                                          '$',
+                                      )
                                     : ''
                             }
                             disabled={true}
@@ -2564,7 +2573,10 @@ export default function ManifestDatatable({
                                 !isOfficialMemberRow &&
                                 member.balance_due !== null &&
                                 member.balance_due !== undefined
-                                    ? String(member.balance_due)
+                                    ? formatCurrency(
+                                          Number(member.balance_due ?? 0),
+                                          '$',
+                                      )
                                     : ''
                             }
                             disabled={true}

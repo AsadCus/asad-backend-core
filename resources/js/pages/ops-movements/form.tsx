@@ -24,6 +24,7 @@ import { opsMovementValidationSchema } from './validation';
 interface OpsMovementFormProps {
     initialData: OpsMovementSchema;
     onCancel: () => void;
+    canEdit?: boolean;
 }
 
 type OpsDocumentTabKey = 'itinerary' | 'booklet';
@@ -195,6 +196,7 @@ const YES_NO_OPTIONS = [
 export default function OpsMovementForm({
     initialData,
     onCancel,
+    canEdit = true,
 }: OpsMovementFormProps) {
     const [activeTab, setActiveTab] = useState('ops-movement');
 
@@ -478,6 +480,11 @@ export default function OpsMovementForm({
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
+
+        if (!canEdit) {
+            return;
+        }
+
         clearFormErrors();
 
         const parseResult = opsMovementValidationSchema.safeParse(data);
@@ -1544,10 +1551,14 @@ export default function OpsMovementForm({
                 >
                     Back
                 </Button>
-                <Button type="submit" disabled={processing}>
-                    {processing && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {processing ? 'Saving...' : 'Save'}
-                </Button>
+                {canEdit && (
+                    <Button type="submit" disabled={processing}>
+                        {processing && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
+                        {processing ? 'Saving...' : 'Save'}
+                    </Button>
+                )}
             </div>
         </form>
     );

@@ -1,6 +1,6 @@
 @extends('layout-report')
 
-@section('document-title', 'Manifest Room Check - ' . ($manifest['manifest_number'] ?? 'Manifest'))
+@section('document-title', 'Manifest Check-In Room List - ' . ($manifest['room_check_location_label'] ?? '-'))
 
 @section('title-bar')
     Manifest Check-In Room List - {{ $manifest['room_check_location_label'] ?? '-' }}

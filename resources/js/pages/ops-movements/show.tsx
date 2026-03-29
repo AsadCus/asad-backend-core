@@ -1,18 +1,18 @@
-import AppLayout from '@/layouts/app-layout';
-import { index } from '@/routes/ops-movements';
-import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import { useCallback } from 'react';
-import { type OpsMovementSchema } from './schema';
-import OpsMovementForm from './form';
 import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import AppLayout from '@/layouts/app-layout';
+import { index } from '@/routes/ops-movements';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, usePage } from '@inertiajs/react';
+import { FileDown } from 'lucide-react';
+import { useCallback } from 'react';
+import OpsMovementForm from './form';
+import { type OpsMovementSchema } from './schema';
 
 interface ShowOpsMovementProps {
     data: OpsMovementSchema;
@@ -26,6 +26,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
+    const { auth } = usePage<SharedData>().props;
+    const canEditOpsMovement =
+        auth?.permissions?.includes('ops-movement edit') ?? false;
+
     const handleBack = useCallback(() => {
         window.history.back();
     }, []);
@@ -78,7 +82,11 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
-                    <OpsMovementForm initialData={data} onCancel={handleBack} />
+                    <OpsMovementForm
+                        initialData={data}
+                        onCancel={handleBack}
+                        canEdit={canEditOpsMovement}
+                    />
                 </div>
             </div>
         </AppLayout>

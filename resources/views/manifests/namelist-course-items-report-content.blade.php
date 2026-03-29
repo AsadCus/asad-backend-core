@@ -1,6 +1,6 @@
 @extends('layout-report')
 
-@section('document-title', 'Manifest Namelist Course Items - ' . ($manifest['manifest_number'] ?? 'Manifest'))
+@section('document-title', 'Course Attendance and Items Collection')
 
 @section('title-bar')
     Course Attendance and Items Collection

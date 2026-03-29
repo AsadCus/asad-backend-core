@@ -99,6 +99,7 @@ class InvoiceService
                     $invoice->order->quotation->id,
                     $data['items'],
                     $data['delete_missing_quotation_items'] ?? true,
+                    false,
                 );
                 $invoice->quotationItems()->sync($quotationItemIds);
             }
@@ -354,6 +355,7 @@ class InvoiceService
                     $invoice->order->quotation->id,
                     $data['items'],
                     $data['delete_missing_quotation_items'] ?? true,
+                    false,
                 );
                 $invoice->quotationItems()->sync($quotationItemIds);
             }

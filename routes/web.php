@@ -234,10 +234,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('manifests/{manifestId}/sharing-groups/{sharingGroupId}', [ManifestController::class, 'detachSharingGroup'])->name('manifests.sharing-groups.detach');
 
     // Ops Movements (form view from packages + manifests)
-    Route::resource('ops-movements', OpsMovementController::class)->only(['index', 'show', 'update']);
-    Route::get('ops-movements/{id}/export-pdf', [OpsMovementController::class, 'exportPdf'])->name('ops-movements.export-pdf');
-    Route::get('ops-movements/{id}/export-pif-pdf', [OpsMovementController::class, 'exportPifPdf'])->name('ops-movements.export-pif-pdf');
-    Route::get('ops-movements/{id}/export-budget-pdf', [OpsMovementController::class, 'exportBudgetPdf'])->name('ops-movements.export-budget-pdf');
+    Route::get('ops-movements', [OpsMovementController::class, 'index'])
+        ->middleware('permission:ops-movement view')
+        ->name('ops-movements.index');
+    Route::get('ops-movements/{id}', [OpsMovementController::class, 'show'])
+        ->middleware('permission:ops-movement view')
+        ->name('ops-movements.show');
+    Route::match(['put', 'patch'], 'ops-movements/{id}', [OpsMovementController::class, 'update'])
+        ->middleware('permission:ops-movement edit')
+        ->name('ops-movements.update');
+    Route::get('ops-movements/{id}/export-pdf', [OpsMovementController::class, 'exportPdf'])
+        ->middleware('permission:ops-movement view')
+        ->name('ops-movements.export-pdf');
+    Route::get('ops-movements/{id}/export-pif-pdf', [OpsMovementController::class, 'exportPifPdf'])
+        ->middleware('permission:ops-movement view')
+        ->name('ops-movements.export-pif-pdf');
+    Route::get('ops-movements/{id}/export-budget-pdf', [OpsMovementController::class, 'exportBudgetPdf'])
+        ->middleware('permission:ops-movement view')
+        ->name('ops-movements.export-budget-pdf');
 });
 
 Route::fallback(function () {

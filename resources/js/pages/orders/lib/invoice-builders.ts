@@ -154,9 +154,90 @@ function stripInstallmentSuffix(description?: string | null): string {
     return description.replace(/\s*\((Deposit|50%|Balance)\)$/i, '').trim();
 }
 
+function normalizeInstallmentInvoiceCount(
+    value?: number | string | null,
+): number {
+    const parsed = Number(value ?? 3);
+
+    if (!Number.isFinite(parsed)) {
+        return 3;
+    }
+
+    return Math.max(3, Math.floor(parsed));
+}
+
+function getInstallmentOrdinalLabel(order: number): string {
+    const labels: Record<number, string> = {
+        4: 'Fourth',
+        5: 'Fifth',
+        6: 'Sixth',
+        7: 'Seventh',
+        8: 'Eighth',
+        9: 'Ninth',
+        10: 'Tenth',
+    };
+
+    return labels[order] ?? `${order}th`;
+}
+
+function getInstallmentInvoiceDescription(index: number): string {
+    if (index === 0) {
+        return 'Invoice For Deposit';
+    }
+
+    if (index === 1) {
+        return 'Invoice For 50%';
+    }
+
+    if (index === 2) {
+        return 'Invoice For Balance';
+    }
+
+    const order = index + 1;
+
+    return `Invoice For ${getInstallmentOrdinalLabel(order)} Payment`;
+}
+
+function cloneItemsWithFreshKeys(
+    items: InvoiceItemSchema[],
+): InvoiceItemSchema[] {
+    const keyMap = new Map<string, string>();
+
+    items.forEach((item) => {
+        const previousKey = String(item._key ?? nanoid());
+        keyMap.set(previousKey, nanoid());
+    });
+
+    return items.map((item) => {
+        const previousKey = String(item._key ?? '');
+        const nextKey = keyMap.get(previousKey) ?? nanoid();
+        const previousParentKey = String(item.parent_key ?? '');
+
+        return {
+            ...item,
+            _key: nextKey,
+            id: undefined,
+            parent_key: previousParentKey
+                ? (keyMap.get(previousParentKey) ?? item.parent_key)
+                : null,
+        };
+    });
+}
+
 function mergeSplitInstallmentItems(
     items: InvoiceItemSchema[],
 ): InvoiceItemSchema[] {
+    const getGroupingKey = (item: InvoiceItemSchema): string => {
+        const memberId = Number(item.customer_confirmation_member_id ?? 0);
+
+        return [
+            memberId,
+            item.parent_id ?? '',
+            item.parent_key ?? '',
+            stripInstallmentSuffix(item.description),
+        ].join('|');
+    };
+
     const grouped = new Map<
         string,
         {
@@ -166,33 +247,31 @@ function mergeSplitInstallmentItems(
             sortOrder: number;
         }
     >();
+    const baseItemsByGroupKey = new Map<string, InvoiceItemSchema>();
+    const groupKeysWithSplitItems = new Set<string>();
 
     const untouchedItems: InvoiceItemSchema[] = [];
 
     items.forEach((item) => {
-        const memberId = Number(item.customer_confirmation_member_id ?? 0);
         const originalDescription = (item.description ?? '').trim();
         const baseDescription = stripInstallmentSuffix(item.description);
         const hasInstallmentSuffix =
             originalDescription.length > 0 &&
             originalDescription !== baseDescription;
+        const groupKey = getGroupingKey(item);
 
-        if (
-            item.is_header ||
-            memberId <= 0 ||
-            !baseDescription ||
-            !hasInstallmentSuffix
-        ) {
+        if (item.is_header || !baseDescription) {
             untouchedItems.push(item);
             return;
         }
 
-        const groupKey = [
-            memberId,
-            item.parent_id ?? '',
-            item.parent_key ?? '',
-            baseDescription,
-        ].join('|');
+        if (!hasInstallmentSuffix) {
+            baseItemsByGroupKey.set(groupKey, item);
+            untouchedItems.push(item);
+            return;
+        }
+
+        groupKeysWithSplitItems.add(groupKey);
 
         const quantity = Number(item.quantity ?? 0) || 1;
         const itemAmount = roundToCents(
@@ -223,6 +302,8 @@ function mergeSplitInstallmentItems(
     });
 
     const mergedItems = Array.from(grouped.values()).map((group) => {
+        const groupKey = getGroupingKey(group.baseItem);
+        const baseItem = baseItemsByGroupKey.get(groupKey) ?? group.baseItem;
         const normalizedQuantity = group.quantity || 1;
         const normalizedRate =
             normalizedQuantity > 0
@@ -230,16 +311,34 @@ function mergeSplitInstallmentItems(
                 : 0;
 
         return {
-            ...group.baseItem,
-            description: stripInstallmentSuffix(group.baseItem.description),
+            ...baseItem,
+            description: stripInstallmentSuffix(baseItem.description),
             quantity: normalizedQuantity,
             rate: normalizedRate,
             amount: group.totalAmount,
-            sort_order: group.sortOrder || group.baseItem.sort_order,
+            sort_order: group.sortOrder || baseItem.sort_order,
         };
     });
 
-    return [...untouchedItems, ...mergedItems].sort(
+    const filteredUntouchedItems = untouchedItems.filter((item) => {
+        if (item.is_header) {
+            return true;
+        }
+
+        const originalDescription = (item.description ?? '').trim();
+        const baseDescription = stripInstallmentSuffix(item.description);
+        const hasInstallmentSuffix =
+            originalDescription.length > 0 &&
+            originalDescription !== baseDescription;
+
+        if (hasInstallmentSuffix) {
+            return false;
+        }
+
+        return !groupKeysWithSplitItems.has(getGroupingKey(item));
+    });
+
+    return [...filteredUntouchedItems, ...mergedItems].sort(
         (a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0),
     );
 }
@@ -300,6 +399,7 @@ function ensureHeadersForItems(
             if (!existingHeaderKeys.has(identity)) {
                 neededHeaders.set(identity, {
                     ...header,
+                    id: undefined,
                     _key: header._key ?? nanoid(),
                 });
             }
@@ -324,28 +424,81 @@ function buildInstallmentItems(
     items: InvoiceItemSchema[],
     depositType?: string | null,
     depositValue?: number | string | null,
+    installmentInvoiceCount?: number | string | null,
 ): {
     depositItems: InvoiceItemSchema[];
     fiftyPercentItems: InvoiceItemSchema[];
     balanceItems: InvoiceItemSchema[];
+    additionalInstallmentInvoiceItems: InvoiceItemSchema[][];
 } {
+    const normalizedInvoiceCount = normalizeInstallmentInvoiceCount(
+        installmentInvoiceCount,
+    );
+    const additionalInvoiceCount = Math.max(0, normalizedInvoiceCount - 3);
     const normalizedSourceItems = mergeSplitInstallmentItems(items);
 
-    const packageItems = normalizedSourceItems.filter(
-        (item) =>
-            !item.is_header &&
-            Number(item.customer_confirmation_member_id ?? 0) > 0,
-    );
+    const lineItems = normalizedSourceItems.filter((item) => !item.is_header);
 
-    if (!packageItems.length) {
+    const headersById = new Map<number, InvoiceItemSchema>();
+    const headersByKey = new Map<string, InvoiceItemSchema>();
+
+    normalizedSourceItems.forEach((item) => {
+        if (!item.is_header) {
+            return;
+        }
+
+        const itemId = Number(item.id ?? 0);
+
+        if (itemId > 0) {
+            headersById.set(itemId, item);
+        }
+
+        if (item._key) {
+            headersByKey.set(String(item._key), item);
+        }
+    });
+
+    const packageItems = lineItems.filter((item) => {
+        if (Number(item.customer_confirmation_member_id ?? 0) > 0) {
+            return true;
+        }
+
+        if (String(item.sharing_plan ?? '').trim() !== '') {
+            return true;
+        }
+
+        const parentHeader =
+            (Number(item.parent_id ?? 0) > 0
+                ? headersById.get(Number(item.parent_id ?? 0))
+                : undefined) ??
+            (item.parent_key
+                ? headersByKey.get(String(item.parent_key))
+                : undefined);
+
+        if (!parentHeader) {
+            return false;
+        }
+
+        return (
+            String(parentHeader.description ?? '')
+                .trim()
+                .toLowerCase() === 'umrah packages'
+        );
+    });
+
+    if (!lineItems.length) {
         return {
             depositItems: normalizedSourceItems,
             fiftyPercentItems: [],
             balanceItems: [],
+            additionalInstallmentInvoiceItems: Array.from(
+                { length: additionalInvoiceCount },
+                () => [],
+            ),
         };
     }
 
-    const packageItemsWithAmounts = packageItems.map((item) => {
+    const lineItemsWithAmounts = lineItems.map((item) => {
         const quantity = Number(item.quantity ?? 0);
         const rate = Number(item.rate ?? 0);
         const fallbackAmount = roundToCents(quantity * rate);
@@ -357,18 +510,18 @@ function buildInstallmentItems(
         };
     });
 
-    const nonPackageItems = normalizedSourceItems.filter(
-        (item) =>
-            item.is_header ||
-            Number(item.customer_confirmation_member_id ?? 0) <= 0,
-    );
+    const headerItems = normalizedSourceItems.filter((item) => item.is_header);
+    const headerTemplateItems = headerItems.map((item) => ({
+        ...item,
+        id: undefined,
+    }));
 
     const numericDepositValue = Number(depositValue ?? 0);
     const depositSectionLines: InvoiceItemSchema[] = [];
     const fiftyPercentSectionLines: InvoiceItemSchema[] = [];
     const balanceSectionLines: InvoiceItemSchema[] = [];
 
-    packageItemsWithAmounts.forEach((item) => {
+    lineItemsWithAmounts.forEach((item) => {
         const quantity = Number(item.quantity ?? 0) || 1;
         const amount = roundToCents(Number(item.amount ?? 0));
         const perItemDepositAmount =
@@ -437,7 +590,7 @@ function buildInstallmentItems(
     const depositItems = ensureHeadersForItems(
         normalizedSourceItems,
         depositSectionLines,
-        nonPackageItems,
+        headerTemplateItems,
     );
     const fiftyPercentItems = ensureHeadersForItems(
         normalizedSourceItems,
@@ -448,7 +601,37 @@ function buildInstallmentItems(
         balanceSectionLines,
     );
 
-    return { depositItems, fiftyPercentItems, balanceItems };
+    const extraInstallmentTemplateItems = packageItems.length
+        ? ensureHeadersForItems(
+              normalizedSourceItems,
+              packageItems.map((item) => ({
+                  ...item,
+                  _key: nanoid(),
+                  id: undefined,
+                  parent_id: item.parent_id ?? null,
+                  parent_key: item.parent_key ?? null,
+                  description:
+                      stripInstallmentSuffix(item.description) ||
+                      item.description ||
+                      'Package',
+                  quantity: Number(item.quantity ?? 0) || 1,
+                  rate: null,
+                  amount: null,
+              })),
+          )
+        : [];
+
+    const additionalInstallmentInvoiceItems = Array.from(
+        { length: additionalInvoiceCount },
+        () => cloneItemsWithFreshKeys(extraInstallmentTemplateItems),
+    );
+
+    return {
+        depositItems,
+        fiftyPercentItems,
+        balanceItems,
+        additionalInstallmentInvoiceItems,
+    };
 }
 
 export function buildInvoicesFromItems(
@@ -458,6 +641,7 @@ export function buildInvoicesFromItems(
     depositType?: string | null,
     depositValue?: number | string | null,
     extensions: QuotationExtensionInput[] = [],
+    installmentInvoiceCount?: number | string | null,
 ): InvoiceSchema[] {
     let invoices: InvoiceSchema[] = [];
     const extensionTotal = sumExtensions(extensions);
@@ -490,8 +674,17 @@ export function buildInvoicesFromItems(
             },
         ];
     } else if (paymentPlan === 'installment') {
-        const { depositItems, fiftyPercentItems, balanceItems } =
-            buildInstallmentItems(items, depositType, depositValue);
+        const {
+            depositItems,
+            fiftyPercentItems,
+            balanceItems,
+            additionalInstallmentInvoiceItems,
+        } = buildInstallmentItems(
+            items,
+            depositType,
+            depositValue,
+            installmentInvoiceCount,
+        );
 
         const depositAmount = roundToCents(calculateTotal(depositItems));
         const fiftyPercentAmount = roundToCents(
@@ -499,26 +692,39 @@ export function buildInvoicesFromItems(
         );
         const balanceAmount = roundToCents(calculateTotal(balanceItems));
 
-        invoices = [
+        const primaryInvoices = [
             {
                 _key: nanoid(),
-                description: 'Invoice For Deposit',
+                description: getInstallmentInvoiceDescription(0),
                 items: depositItems,
                 amount: depositAmount,
             },
             {
                 _key: nanoid(),
-                description: 'Invoice For 50%',
+                description: getInstallmentInvoiceDescription(1),
                 items: fiftyPercentItems,
                 amount: fiftyPercentAmount,
             },
             {
                 _key: nanoid(),
-                description: 'Invoice For Balance',
+                description: getInstallmentInvoiceDescription(2),
                 items: balanceItems,
                 amount: balanceAmount,
             },
         ];
+
+        const additionalInvoices = additionalInstallmentInvoiceItems.map(
+            (additionalItems, additionalIndex) => ({
+                _key: nanoid(),
+                description: getInstallmentInvoiceDescription(
+                    additionalIndex + 3,
+                ),
+                items: additionalItems,
+                amount: roundToCents(calculateTotal(additionalItems)),
+            }),
+        );
+
+        invoices = [...primaryInvoices, ...additionalInvoices];
     }
 
     if (paymentPlan === 'installment') {
@@ -580,6 +786,7 @@ export function quotationItemsToInvoiceItems(
 
 export function buildInitialInvoices(
     quotation: QuotationSchema,
+    installmentInvoiceCount?: number | string | null,
 ): InvoiceSchema[] {
     const items = quotationItemsToInvoiceItems(quotation);
 
@@ -590,6 +797,7 @@ export function buildInitialInvoices(
         undefined,
         undefined,
         quotation.extensions ?? [],
+        installmentInvoiceCount,
     );
 }
 
@@ -598,6 +806,7 @@ export function buildInvoices(
     previousInvoices: InvoiceSchema[],
     depositType?: string | null,
     depositValue?: number | string | null,
+    installmentInvoiceCount?: number | string | null,
 ): InvoiceSchema[] {
     const items = collectAllItems(previousInvoices);
 
@@ -607,5 +816,7 @@ export function buildInvoices(
         undefined,
         depositType,
         depositValue,
+        [],
+        installmentInvoiceCount,
     );
 }

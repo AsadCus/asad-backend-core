@@ -77,6 +77,8 @@ class RolePermissionSeeder extends Seeder
             'manifest create',
             'manifest edit',
             'manifest delete',
+            'ops-movement view',
+            'ops-movement edit',
         ];
 
         foreach ($permissions as $permission) {
@@ -88,6 +90,7 @@ class RolePermissionSeeder extends Seeder
             'admin',
             'sales',
             'customer',
+            'operations',
         ];
 
         foreach ($roles as $role) {
@@ -159,6 +162,8 @@ class RolePermissionSeeder extends Seeder
             'manifest create',
             'manifest edit',
             'manifest delete',
+            'ops-movement view',
+            'ops-movement edit',
         ]);
         Role::findByName('sales')->givePermissionTo([
             'dashboard view',
@@ -209,6 +214,11 @@ class RolePermissionSeeder extends Seeder
         Role::findByName('customer')->givePermissionTo([
             'dashboard view',
             'maid view',
+        ]);
+
+        Role::findByName('operations')->givePermissionTo([
+            'ops-movement view',
+            'ops-movement edit',
         ]);
     }
 }

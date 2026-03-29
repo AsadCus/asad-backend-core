@@ -62,6 +62,8 @@ export default function QuotationDetailSection({
     extensionMasters: rawExtensionMasters = [],
     status,
 }: Props) {
+    const hasOrderInvoices = Boolean(data.have_invoices);
+
     const extensions = React.useMemo(
         () => data.extensions ?? [],
         [data.extensions],
@@ -228,8 +230,7 @@ export default function QuotationDetailSection({
                         ? (subtotalAmount * calculationValue) / 100
                         : calculationValue;
 
-                const amount =
-                    type === 'discount' ? -Math.abs(rawAmount) : rawAmount;
+                const amount = Number(extension.amount ?? rawAmount);
 
                 return {
                     ...extension,
@@ -248,9 +249,60 @@ export default function QuotationDetailSection({
         [invoiceExtensions, subtotalAmount],
     );
 
+    const mergedInvoiceExtensions = React.useMemo<
+        TotalsSummaryExtension[]
+    >(() => {
+        const grouped = new Map<string, TotalsSummaryExtension>();
+
+        normalizedInvoiceExtensions.forEach((extension, index) => {
+            const masterId = Number(
+                extension.quotation_extension_master_id ?? 0,
+            );
+            const groupKey =
+                masterId > 0
+                    ? `master:${masterId}`
+                    : [
+                          String(extension.name ?? '')
+                              .trim()
+                              .toLowerCase(),
+                          String(extension.type ?? 'discount')
+                              .trim()
+                              .toLowerCase(),
+                      ].join('|');
+
+            if (!grouped.has(groupKey)) {
+                grouped.set(groupKey, {
+                    ...extension,
+                    _key:
+                        extension._key ??
+                        `invoice-extension-merged-${index + 1}`,
+                });
+
+                return;
+            }
+
+            const current = grouped.get(groupKey);
+
+            if (!current) {
+                return;
+            }
+
+            grouped.set(groupKey, {
+                ...current,
+                amount:
+                    Number(current.amount ?? 0) + Number(extension.amount ?? 0),
+            });
+        });
+
+        return Array.from(grouped.values()).map((extension, index) => ({
+            ...extension,
+            sort_order: index + 1,
+        }));
+    }, [normalizedInvoiceExtensions]);
+
     const combinedExtensions = React.useMemo<TotalsSummaryExtension[]>(
-        () => [...normalizedExtensions, ...normalizedInvoiceExtensions],
-        [normalizedExtensions, normalizedInvoiceExtensions],
+        () => [...normalizedExtensions, ...mergedInvoiceExtensions],
+        [normalizedExtensions, mergedInvoiceExtensions],
     );
 
     const extensionMastersForSummary = React.useMemo<
@@ -437,9 +489,7 @@ export default function QuotationDetailSection({
 
                             setData('extensions', normalizedNextExtensions);
                         }}
-                        readOnly={
-                            isView || normalizedInvoiceExtensions.length > 0
-                        }
+                        readOnly={isView || hasOrderInvoices}
                         grandTotalAmount={totalAmount}
                     />
                 </div>

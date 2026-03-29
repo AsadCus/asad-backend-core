@@ -287,7 +287,7 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(permissions.includes('manifest view')
+        ...(permissions.includes('ops-movement view')
             ? [
                   {
                       title: 'Ops Movement',
@@ -305,35 +305,6 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        // ...(permissions.includes('schedule view') &&
-        // permissions.includes('agreement view')
-        //     ? [
-        //           {
-        //               title: 'Report',
-        //               icon: FileCheck2,
-        //               subItems: [
-        //                   ...(permissions.includes('schedule view')
-        //                       ? [
-        //                             {
-        //                                 title: 'Payment Schedule',
-        //                                 icon: Calendar,
-        //                                 href: schedule.index.url(),
-        //                             },
-        //                         ]
-        //                       : []),
-        //                   ...(permissions.includes('agreement view')
-        //                       ? [
-        //                             {
-        //                                 title: 'Payment Agreement',
-        //                                 icon: FileCheck,
-        //                                 href: agreement.index.url(),
-        //                             },
-        //                         ]
-        //                       : []),
-        //               ],
-        //           },
-        //       ]
-        //     : []),
     ];
 
     const footerNavItems: NavItem[] = [

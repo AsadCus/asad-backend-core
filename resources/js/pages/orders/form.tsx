@@ -179,6 +179,149 @@ function computeInvoiceExtensionAmount(
     return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
 }
 
+function allocateFixedAmountProportionally(
+    totalAmount: number,
+    subtotals: number[],
+): number[] {
+    if (subtotals.length === 0) {
+        return [];
+    }
+
+    const absoluteSubtotal = subtotals.reduce(
+        (sum, subtotal) => sum + Math.abs(Number(subtotal ?? 0)),
+        0,
+    );
+
+    const allocations = new Array<number>(subtotals.length).fill(0);
+    let allocated = 0;
+    const lastIndex = subtotals.length - 1;
+
+    for (let index = 0; index < subtotals.length; index += 1) {
+        if (index === lastIndex) {
+            allocations[index] = Number((totalAmount - allocated).toFixed(2));
+            continue;
+        }
+
+        if (absoluteSubtotal <= 0) {
+            allocations[index] = 0;
+            continue;
+        }
+
+        const ratio =
+            Math.abs(Number(subtotals[index] ?? 0)) / absoluteSubtotal;
+        const share = Number((totalAmount * ratio).toFixed(2));
+        allocations[index] = share;
+        allocated += share;
+    }
+
+    return allocations;
+}
+
+function sanitizeInstallmentInvoiceCount(
+    value?: number | string | null,
+): number {
+    const parsed = Number(value ?? 3);
+
+    if (!Number.isFinite(parsed)) {
+        return 3;
+    }
+
+    return Math.max(3, Math.floor(parsed));
+}
+
+function aggregateSourceExtensionsForSplit(
+    currentInvoices: InvoiceSchema[],
+    fallbackExtensions: InvoiceExtensionInput[],
+): InvoiceExtensionInput[] {
+    const normalizedFallbackExtensions = normalizeInvoiceExtensions(
+        fallbackExtensions,
+    ).filter((extension) => String(extension.type ?? 'discount') !== 'tax');
+
+    const normalizedCurrentExtensions = currentInvoices
+        .flatMap((invoice) =>
+            normalizeInvoiceExtensions(
+                (invoice.extensions ?? []) as InvoiceExtensionInput[],
+            ),
+        )
+        .filter((extension) => String(extension.type ?? 'discount') !== 'tax');
+
+    if (normalizedCurrentExtensions.length === 0) {
+        return normalizedFallbackExtensions;
+    }
+
+    if (currentInvoices.length <= 1) {
+        return normalizedCurrentExtensions;
+    }
+
+    const grouped = new Map<string, InvoiceExtensionInput>();
+
+    normalizedCurrentExtensions.forEach((extension, index) => {
+        const masterId = Number(extension.quotation_extension_master_id ?? 0);
+        const groupKey =
+            masterId > 0
+                ? `master:${masterId}`
+                : [
+                      String(extension.name ?? '')
+                          .trim()
+                          .toLowerCase(),
+                      String(extension.type ?? 'discount')
+                          .trim()
+                          .toLowerCase(),
+                  ].join('|');
+
+        const calculationMode =
+            String(extension.calculation_mode ?? 'fixed') === 'percentage'
+                ? 'percentage'
+                : 'fixed';
+
+        if (!grouped.has(groupKey)) {
+            grouped.set(groupKey, {
+                ...extension,
+                _key: extension._key ?? `split-extension-${index + 1}`,
+                calculation_mode: calculationMode,
+                calculation_value: Number(extension.calculation_value ?? 0),
+                amount: Number(extension.amount ?? 0),
+            });
+
+            return;
+        }
+
+        const current = grouped.get(groupKey);
+
+        if (!current) {
+            return;
+        }
+
+        if (calculationMode === 'percentage') {
+            grouped.set(groupKey, {
+                ...current,
+                calculation_mode: 'percentage',
+                calculation_value: Number(
+                    current.calculation_value ??
+                        extension.calculation_value ??
+                        0,
+                ),
+            });
+
+            return;
+        }
+
+        grouped.set(groupKey, {
+            ...current,
+            calculation_mode: 'fixed',
+            amount: Number(current.amount ?? 0) + Number(extension.amount ?? 0),
+            calculation_value:
+                Number(current.calculation_value ?? current.amount ?? 0) +
+                Number(extension.calculation_value ?? extension.amount ?? 0),
+        });
+    });
+
+    return Array.from(grouped.values()).map((extension, index) => ({
+        ...extension,
+        sort_order: index + 1,
+    }));
+}
+
 function formatExtensionLabel(
     name: string,
     calculationMode?: string | null,
@@ -439,6 +582,7 @@ export default function OrderForm({
         order_number: '',
         number_format_id: null,
         payment_plan: quotation?.payment_plan ?? 'direct',
+        installment_invoice_count: 3,
         deposit_type: 'fixed',
         deposit_value: 500,
         invoices: [],
@@ -458,6 +602,16 @@ export default function OrderForm({
                   initialData.deposit_value === ''
                       ? 500
                       : initialData.deposit_value,
+              installment_invoice_count:
+                  initialData.payment_plan === 'installment'
+                      ? sanitizeInstallmentInvoiceCount(
+                            initialData.installment_invoice_count ??
+                                initialData.invoices?.length ??
+                                3,
+                        )
+                      : sanitizeInstallmentInvoiceCount(
+                            initialData.installment_invoice_count ?? 3,
+                        ),
               invoices: normalizeInvoices(initialData.invoices ?? []).map(
                   (invoice) => ({
                       ...invoice,
@@ -501,7 +655,12 @@ export default function OrderForm({
             depositType?: string | null,
             depositValue?: number | string | null,
             currentInvoices: InvoiceSchema[] = [],
+            installmentInvoiceCount?: number | string | null,
         ): InvoiceSchema[] => {
+            const normalizedInstallmentCount = sanitizeInstallmentInvoiceCount(
+                installmentInvoiceCount,
+            );
+
             if (quotation) {
                 const rebuiltInvoices = normalizeInvoices(
                     autoFillInvoiceDates(
@@ -512,6 +671,7 @@ export default function OrderForm({
                             depositType,
                             depositValue,
                             quotation.extensions ?? [],
+                            normalizedInstallmentCount,
                         ),
                         {
                             defaultDate: quotation.quotation_date ?? '',
@@ -536,8 +696,43 @@ export default function OrderForm({
                     0,
                 );
 
-                const quotationExtensions = (quotation.extensions ??
-                    []) as InvoiceExtensionInput[];
+                const sourceExtensions = aggregateSourceExtensionsForSplit(
+                    currentInvoices,
+                    (quotation.extensions ?? []) as InvoiceExtensionInput[],
+                );
+
+                const invoiceSubtotals = rebuiltInvoices.map((invoice) =>
+                    calculateTotal(invoice.items ?? []),
+                );
+
+                const fixedAllocationsByExtensionIndex = new Map<
+                    number,
+                    number[]
+                >();
+
+                sourceExtensions.forEach((extension, extensionIndex) => {
+                    const calculationMode =
+                        String(extension.calculation_mode ?? 'fixed') ===
+                        'percentage'
+                            ? 'percentage'
+                            : 'fixed';
+
+                    if (calculationMode !== 'fixed') {
+                        return;
+                    }
+
+                    const sourceAmount = Number(
+                        extension.amount ?? extension.calculation_value ?? 0,
+                    );
+
+                    fixedAllocationsByExtensionIndex.set(
+                        extensionIndex,
+                        allocateFixedAmountProportionally(
+                            sourceAmount,
+                            invoiceSubtotals,
+                        ),
+                    );
+                });
 
                 return normalizeInvoices(
                     rebuiltInvoices.map((invoice, index) => {
@@ -547,13 +742,8 @@ export default function OrderForm({
                         );
 
                         const inheritedExtensions = normalizeInvoiceExtensions(
-                            quotationExtensions.map(
+                            sourceExtensions.map(
                                 (extension, extensionIndex) => {
-                                    const ratio =
-                                        totalSubtotal > 0
-                                            ? subtotalAmount / totalSubtotal
-                                            : 0;
-
                                     const calculationMode =
                                         String(
                                             extension.calculation_mode ??
@@ -588,7 +778,10 @@ export default function OrderForm({
                                                 ? calculationValue
                                                 : Number(
                                                       (
-                                                          sourceAmount * ratio
+                                                          fixedAllocationsByExtensionIndex.get(
+                                                              extensionIndex,
+                                                          )?.[index] ??
+                                                          sourceAmount
                                                       ).toFixed(2),
                                                   ),
                                         amount: 0,
@@ -656,6 +849,7 @@ export default function OrderForm({
                     currentInvoices,
                     depositType,
                     depositValue,
+                    normalizedInstallmentCount,
                 ).map((invoice) => {
                     const resolvedPaymentMethod = String(
                         invoice.payment_method ?? defaultPaymentMethod ?? '',
@@ -722,6 +916,7 @@ export default function OrderForm({
             data.deposit_type,
             data.deposit_value,
             data.invoices,
+            data.installment_invoice_count,
         );
 
         const currentHash = serializeInvoicesForComparison(data.invoices);
@@ -736,6 +931,7 @@ export default function OrderForm({
         initialData,
         quotation,
         data.payment_plan,
+        data.installment_invoice_count,
         data.deposit_type,
         data.deposit_value,
         data.invoices,
@@ -745,6 +941,26 @@ export default function OrderForm({
     ]);
 
     function addInvoice() {
+        if (data.payment_plan === 'installment') {
+            const nextInstallmentCount = sanitizeInstallmentInvoiceCount(
+                Number(data.invoices.length ?? 0) + 1,
+            );
+
+            setData({
+                ...data,
+                installment_invoice_count: nextInstallmentCount,
+                invoices: rebuildInvoicesFromSource(
+                    data.payment_plan,
+                    data.deposit_type,
+                    data.deposit_value,
+                    data.invoices,
+                    nextInstallmentCount,
+                ),
+            });
+
+            return;
+        }
+
         const newInvoices = [
             ...data.invoices,
             createEmptyInvoice(String(defaultPaymentMethod ?? '')),
@@ -754,6 +970,29 @@ export default function OrderForm({
 
     function removeInvoice(index: number) {
         if (data.invoices.length <= 1) return;
+
+        if (data.payment_plan === 'installment') {
+            const nextCurrentInvoices = data.invoices.filter(
+                (_, invoiceIndex) => invoiceIndex !== index,
+            );
+            const nextInstallmentCount = sanitizeInstallmentInvoiceCount(
+                Number(nextCurrentInvoices.length ?? 0),
+            );
+
+            setData({
+                ...data,
+                installment_invoice_count: nextInstallmentCount,
+                invoices: rebuildInvoicesFromSource(
+                    data.payment_plan,
+                    data.deposit_type,
+                    data.deposit_value,
+                    nextCurrentInvoices,
+                    nextInstallmentCount,
+                ),
+            });
+
+            return;
+        }
 
         const next = [...data.invoices];
         next.splice(index, 1);
@@ -1351,6 +1590,15 @@ export default function OrderForm({
                                             setData({
                                                 ...data,
                                                 payment_plan: v,
+                                                installment_invoice_count:
+                                                    v === 'installment'
+                                                        ? sanitizeInstallmentInvoiceCount(
+                                                              data.installment_invoice_count ??
+                                                                  data.invoices
+                                                                      .length ??
+                                                                  3,
+                                                          )
+                                                        : data.installment_invoice_count,
                                                 deposit_type: nextDepositType,
                                                 deposit_value: nextDepositValue,
                                                 invoices:
@@ -1359,10 +1607,61 @@ export default function OrderForm({
                                                         nextDepositType,
                                                         nextDepositValue,
                                                         data.invoices,
+                                                        v === 'installment'
+                                                            ? sanitizeInstallmentInvoiceCount(
+                                                                  data.installment_invoice_count ??
+                                                                      data
+                                                                          .invoices
+                                                                          .length ??
+                                                                      3,
+                                                              )
+                                                            : data.installment_invoice_count,
                                                     ),
                                             });
                                         }}
                                     />
+
+                                    {data.payment_plan === 'installment' && (
+                                        <FormField label="Installment Invoice Count">
+                                            <ProperInput
+                                                value={
+                                                    data.installment_invoice_count ??
+                                                    3
+                                                }
+                                                type="number"
+                                                inputProps={{
+                                                    min: '3',
+                                                    step: '1',
+                                                }}
+                                                placeholder="Minimum 3"
+                                                disabled={isView}
+                                                onCommit={(value) => {
+                                                    const normalizedCount =
+                                                        sanitizeInstallmentInvoiceCount(
+                                                            value,
+                                                        );
+
+                                                    setData({
+                                                        ...data,
+                                                        installment_invoice_count:
+                                                            normalizedCount,
+                                                        invoices:
+                                                            rebuildInvoicesFromSource(
+                                                                data.payment_plan ??
+                                                                    'installment',
+                                                                data.deposit_type,
+                                                                data.deposit_value,
+                                                                data.invoices,
+                                                                normalizedCount,
+                                                            ),
+                                                    });
+                                                }}
+                                            />
+                                            {renderError(
+                                                'installment_invoice_count',
+                                            )}
+                                        </FormField>
+                                    )}
 
                                     {data.payment_plan === 'installment' &&
                                         hasQuotationCustomerConfirmation && (
@@ -1384,6 +1683,7 @@ export default function OrderForm({
                                                                         v,
                                                                         data.deposit_value,
                                                                         data.invoices,
+                                                                        data.installment_invoice_count,
                                                                     ),
                                                             });
                                                         }}
@@ -1452,6 +1752,7 @@ export default function OrderForm({
                                                                         data.deposit_type,
                                                                         v,
                                                                         data.invoices,
+                                                                        data.installment_invoice_count,
                                                                     ),
                                                             });
                                                         }}
