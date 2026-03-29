@@ -1,9 +1,10 @@
+import { type TotalsSummaryExtensionMaster } from '@/components/totals-summary-card';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { index as invoiceIndex } from '@/routes/invoice';
 import { index as masterIndex } from '@/routes/master';
 import { create as createReceipt } from '@/routes/receipt';
-import { type BreadcrumbItem } from '@/types';
+import { type BreadcrumbItem, type OptionType } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
@@ -18,6 +19,9 @@ interface ViewInvoiceProps {
         data: InvoiceSchema;
         order: OrderSchema;
         quotation: QuotationSchema;
+        paymentMethods: OptionType[];
+        quotationExtensionMasters: TotalsSummaryExtensionMaster[];
+        defaultPaymentMethod: string;
     };
 }
 
@@ -71,6 +75,9 @@ export default function ViewInvoice({ data }: ViewInvoiceProps) {
                         initialData={data.order}
                         quotation={data.quotation}
                         paymentPlans={paymentPlans}
+                        paymentMethods={data.paymentMethods}
+                        extensionMasters={data.quotationExtensionMasters}
+                        defaultPaymentMethod={data.defaultPaymentMethod}
                         onCancel={handleCancel}
                     />
                 </div>

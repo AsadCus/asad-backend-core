@@ -1,3 +1,4 @@
+import { FormField } from '@/components/form-field';
 import HeadingSmall from '@/components/heading-small';
 import ModelNumberInput from '@/components/model-number-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,9 +11,7 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import {
-    fetchSupportedModelKeys,
-} from '@/lib/numbering-formats';
+import { fetchSupportedModelKeys } from '@/lib/numbering-formats';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
@@ -47,17 +46,16 @@ function modelLabel(modelKey: string): string {
 }
 
 export default function ModelNumberFormatsSettings() {
-    const [supportedModelKeys, setSupportedModelKeys] = useState<string[]>(
-        DEFAULT_MODEL_KEYS,
-    );
+    const [supportedModelKeys, setSupportedModelKeys] =
+        useState<string[]>(DEFAULT_MODEL_KEYS);
     const [selectedModelKey, setSelectedModelKey] =
         useState<string>('quotation');
     const [isLoadingModelKeys, setIsLoadingModelKeys] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
-    const [numberByModel, setNumberByModel] = useState<
-        Record<string, string>
-    >({});
+    const [numberByModel, setNumberByModel] = useState<Record<string, string>>(
+        {},
+    );
     const [formatIdByModel, setFormatIdByModel] = useState<
         Record<string, number | null>
     >({});
@@ -82,13 +80,15 @@ export default function ModelNumberFormatsSettings() {
                         modelKeys.includes(current) ? current : modelKeys[0],
                     );
                 }
-            } catch {
+            } catch (exception) {
                 if (isUnmounted) {
                     return;
                 }
 
                 setLoadError(
-                    'Unable to load model keys. You can still manage common defaults below.',
+                    exception instanceof Error
+                        ? exception.message
+                        : 'Unable to load model keys. You can still manage common defaults below.',
                 );
             } finally {
                 if (!isUnmounted) {
@@ -126,10 +126,13 @@ export default function ModelNumberFormatsSettings() {
                         </Alert>
                     )}
 
-                    <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="model_key">
-                            Model
-                        </label>
+                    <FormField
+                        label="Model"
+                        htmlFor="model_key"
+                        fieldRequirementsProps={{
+                            hint: 'Select a model to manage its numbering formats and preview generation.',
+                        }}
+                    >
                         <Select
                             value={selectedModelKey}
                             onValueChange={setSelectedModelKey}
@@ -146,7 +149,7 @@ export default function ModelNumberFormatsSettings() {
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </FormField>
 
                     <ModelNumberInput
                         modelKey={selectedModelKey}
@@ -165,6 +168,7 @@ export default function ModelNumberFormatsSettings() {
                                 [selectedModelKey]: formatId,
                             }))
                         }
+                        disabled={isLoadingModelKeys}
                         hint="Use the settings button to create or update formats for the selected model."
                     />
                 </div>

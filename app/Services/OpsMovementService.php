@@ -101,6 +101,14 @@ class OpsMovementService
         $manifest = $package->manifests->sortBy('id')->first();
         $extension = $manifest?->ops_movement_extension ?? [];
         $flightOpsMap = collect($extension['flights'] ?? [])->keyBy('id');
+        $officialOpsMap = collect($extension['officials'] ?? [])
+            ->filter(fn ($official) => is_array($official) && isset($official['id']))
+            ->keyBy('id');
+        $accommodationLocations = $package->accommodations
+            ->map(fn ($accommodation) => $this->normalizeNullableString($accommodation->location))
+            ->filter(fn ($location) => $location !== null)
+            ->unique(fn ($location) => strtolower((string) $location))
+            ->values();
         $documents = $this->buildOpsMovementDocumentPayload($manifest);
         $budget = $this->normalizeBudgetPayload($extension['budget'] ?? []);
         $nonOfficialMembers = collect($manifest?->members ?? [])
@@ -171,11 +179,56 @@ class OpsMovementService
                     'remarks' => $accommodation->remarks ?? null,
                 ];
             })->values()->toArray(),
-            'officials' => $package->officials->map(function ($official) {
+            'officials' => $package->officials->map(function ($official) use ($officialOpsMap, $accommodationLocations) {
+                $officialOps = $officialOpsMap->get((int) $official->id, []);
+                $storedHotelsByLocation = collect($officialOps['hotels_by_location'] ?? [])
+                    ->filter(fn ($row) => is_array($row))
+                    ->map(function ($row): array {
+                        return [
+                            'location' => $this->normalizeNullableString($row['location'] ?? null),
+                            'hotel' => $this->normalizeNullableString($row['hotel'] ?? null),
+                        ];
+                    })
+                    ->filter(fn ($row) => $row['location'] !== null)
+                    ->values();
+                $fallbackHotel = $this->normalizeNullableString($officialOps['hotel'] ?? null)
+                    ?? $this->normalizeNullableString($official->hotel);
+
+                $hotelsByLocation = $accommodationLocations
+                    ->map(function ($location) use ($storedHotelsByLocation, $fallbackHotel): array {
+                        $matched = $storedHotelsByLocation->first(function (array $row) use ($location): bool {
+                            return strtolower((string) $row['location']) === strtolower((string) $location);
+                        });
+
+                        return [
+                            'location' => $location,
+                            'hotel' => $matched['hotel'] ?? $fallbackHotel,
+                        ];
+                    })
+                    ->values();
+
+                if ($hotelsByLocation->isEmpty() && $storedHotelsByLocation->isNotEmpty()) {
+                    $hotelsByLocation = $storedHotelsByLocation
+                        ->map(function (array $row): array {
+                            return [
+                                'location' => $row['location'],
+                                'hotel' => $row['hotel'],
+                            ];
+                        })
+                        ->values();
+                }
+
+                $primaryHotel = $hotelsByLocation
+                    ->pluck('hotel')
+                    ->map(fn ($hotel) => $this->normalizeNullableString($hotel))
+                    ->first(fn ($hotel) => $hotel !== null)
+                    ?? $fallbackHotel;
+
                 return [
                     'id' => $official->id,
                     'name' => $official->name,
-                    'hotel' => $official->hotel,
+                    'hotel' => $primaryHotel,
+                    'hotels_by_location' => $hotelsByLocation->toArray(),
                 ];
             })->values()->toArray(),
             'flights' => $package->flights->map(function ($flight) use ($flightOpsMap) {
@@ -281,6 +334,8 @@ class OpsMovementService
                 ]);
             }
 
+            $officialExtensionRows = [];
+
             foreach (($payload['officials'] ?? []) as $officialPayload) {
                 if (empty($officialPayload['id'])) {
                     continue;
@@ -293,9 +348,40 @@ class OpsMovementService
                     continue;
                 }
 
+                $hotelsByLocation = collect($officialPayload['hotels_by_location'] ?? [])
+                    ->filter(fn ($row) => is_array($row))
+                    ->map(function ($row): array {
+                        return [
+                            'location' => $this->normalizeNullableString($row['location'] ?? null),
+                            'hotel' => $this->normalizeNullableString($row['hotel'] ?? null),
+                        ];
+                    })
+                    ->filter(fn ($row) => $row['location'] !== null)
+                    ->values();
+
+                $primaryHotel = $this->normalizeNullableString($officialPayload['hotel'] ?? null)
+                    ?? $hotelsByLocation
+                        ->pluck('hotel')
+                        ->map(fn ($hotel) => $this->normalizeNullableString($hotel))
+                        ->first(fn ($hotel) => $hotel !== null);
+
                 $official->update([
-                    'hotel' => $officialPayload['hotel'] ?? null,
+                    'hotel' => $primaryHotel,
                 ]);
+
+                $officialExtensionRows[] = [
+                    'id' => (int) $official->id,
+                    'hotel' => $primaryHotel,
+                    'hotels_by_location' => $hotelsByLocation
+                        ->map(function (array $row): array {
+                            return [
+                                'location' => $row['location'],
+                                'hotel' => $row['hotel'],
+                            ];
+                        })
+                        ->values()
+                        ->all(),
+                ];
             }
 
             $extension = $manifest->ops_movement_extension ?? [];
@@ -306,6 +392,9 @@ class OpsMovementService
             $extension['doa_datetime'] = $payload['doa_datetime'] ?? null;
             $extension['visa_submitted_to_z_umrah'] = (bool) ($payload['visa_submitted_to_z_umrah'] ?? false);
             $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
+            if (array_key_exists('officials', $payload) && is_array($payload['officials'])) {
+                $extension['officials'] = $officialExtensionRows;
+            }
             $extension['flights'] = collect($payload['flights'] ?? [])
                 ->filter(fn ($flightPayload) => ! empty($flightPayload['id']))
                 ->map(function ($flightPayload) {

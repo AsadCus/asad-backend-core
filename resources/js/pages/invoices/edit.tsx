@@ -1,7 +1,8 @@
+import { type TotalsSummaryExtensionMaster } from '@/components/totals-summary-card';
 import AppLayout from '@/layouts/app-layout';
 import { index as invoiceIndex } from '@/routes/invoice';
 import { index as masterIndex } from '@/routes/master';
-import { type BreadcrumbItem } from '@/types';
+import { type BreadcrumbItem, type OptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import OrderForm from '../orders/form';
@@ -12,6 +13,9 @@ interface EditInvoiceProps {
     data: {
         data: OrderSchema;
         quotation: QuotationSchema;
+        paymentMethods: OptionType[];
+        quotationExtensionMasters: TotalsSummaryExtensionMaster[];
+        defaultPaymentMethod: string;
     };
 }
 
@@ -45,6 +49,9 @@ export default function EditInvoice({ data }: EditInvoiceProps) {
                         initialData={data.data}
                         quotation={data.quotation}
                         paymentPlans={paymentPlans}
+                        paymentMethods={data.paymentMethods}
+                        extensionMasters={data.quotationExtensionMasters}
+                        defaultPaymentMethod={data.defaultPaymentMethod}
                         onCancel={handleCancel}
                     />
                 </div>

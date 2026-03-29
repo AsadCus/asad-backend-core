@@ -60,6 +60,9 @@ class InvoiceController extends Controller
     {
         if ($request['quotation_id']) {
             $data['quotation'] = $this->quotationService->getForEditShow($request['quotation_id']);
+            $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
+            $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+            $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
             return Inertia::render('invoices/create', [
                 'data' => $data,
@@ -92,6 +95,9 @@ class InvoiceController extends Controller
         $data['data'] = $this->invoiceService->getForEditShow($id);
         $data['order'] = $this->orderService->getForEditShow($data['data']['order_id']);
         $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
+        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
+        $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+        $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
         return Inertia::render('invoices/view', [
             'data' => $data,
@@ -108,6 +114,9 @@ class InvoiceController extends Controller
         $data['data'] = $this->invoiceService->getForEditShow($id);
         $data['order'] = $this->orderService->getForEditShow($data['data']['order_id']);
         $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
+        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
+        $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+        $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
         return Inertia::render('invoices/edit', [
             'data' => $data,

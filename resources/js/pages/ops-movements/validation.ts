@@ -45,6 +45,48 @@ export const opsMovementValidationSchema = opsMovementSchema.superRefine(
             }
         });
 
+        (data.officials ?? []).forEach((official, officialIndex) => {
+            if ((official.hotel ?? '').length > 255) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['officials', officialIndex, 'hotel'],
+                    message: 'Hotel cannot exceed 255 characters.',
+                });
+            }
+
+            (official.hotels_by_location ?? []).forEach(
+                (hotelRow, rowIndex) => {
+                    if ((hotelRow.location ?? '').length > 255) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: [
+                                'officials',
+                                officialIndex,
+                                'hotels_by_location',
+                                rowIndex,
+                                'location',
+                            ],
+                            message: 'Location cannot exceed 255 characters.',
+                        });
+                    }
+
+                    if ((hotelRow.hotel ?? '').length > 255) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: [
+                                'officials',
+                                officialIndex,
+                                'hotels_by_location',
+                                rowIndex,
+                                'hotel',
+                            ],
+                            message: 'Hotel cannot exceed 255 characters.',
+                        });
+                    }
+                },
+            );
+        });
+
         (data.budget ?? []).forEach((section, sectionIndex) => {
             (section.items ?? []).forEach((item, itemIndex) => {
                 const unitPrice = Number(item.unit_price ?? 0);

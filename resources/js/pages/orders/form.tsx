@@ -559,13 +559,16 @@ const depositTypes = [
     { label: 'Fixed Amount ($)', value: 'fixed' },
 ];
 
+const EMPTY_OPTION_TYPES: OptionType[] = [];
+const EMPTY_EXTENSION_MASTERS: TotalsSummaryExtensionMaster[] = [];
+
 export default function OrderForm({
     mode,
     initialData,
     quotation,
-    paymentPlans = [],
-    paymentMethods = [],
-    extensionMasters = [],
+    paymentPlans = EMPTY_OPTION_TYPES,
+    paymentMethods = EMPTY_OPTION_TYPES,
+    extensionMasters = EMPTY_EXTENSION_MASTERS,
     defaultPaymentMethod = '',
     onCancel,
 }: OrderFormProps) {

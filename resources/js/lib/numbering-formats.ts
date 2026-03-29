@@ -37,14 +37,35 @@ const getCsrfToken = (): string => {
 };
 
 async function parseResponse<T>(response: Response): Promise<T> {
+    const payload = await response.json().catch(() => null);
+
     if (response.ok) {
-        return (await response.json()) as T;
+        if (payload === null && response.status === 204) {
+            return {} as T;
+        }
+
+        if (payload === null) {
+            return {} as T;
+        }
+
+        return payload as T;
     }
 
-    const payload = await response.json().catch(() => null);
+    const firstValidationError =
+        payload && typeof payload === 'object' && payload !== null
+            ? Object.values(
+                  (payload as { errors?: Record<string, string[]> }).errors ??
+                      {},
+              )
+                  .flat()
+                  .find((message) => typeof message === 'string')
+            : null;
+
     const message =
-        payload?.message ??
-        payload?.error ??
+        (payload as { message?: string; error?: string } | null)?.message ??
+        (payload as { message?: string; error?: string } | null)?.error ??
+        firstValidationError ??
+        response.statusText ??
         'Failed to complete numbering format request.';
 
     throw new Error(String(message));

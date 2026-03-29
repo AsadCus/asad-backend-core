@@ -402,9 +402,9 @@ export default function ConfirmedCustomerIndex({
     const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
     const [quotationGroup, setQuotationGroup] =
         useState<CustomerConfirmationDatatableSchema | null>(null);
-    const [payerMapping, setPayerMapping] = useState<Record<number, number>>(
-        {},
-    );
+    const [payerMapping, setPayerMapping] = useState<
+        Record<number, number | null>
+    >({});
     const [isGeneratingQuotations, setIsGeneratingQuotations] = useState(false);
 
     const [refundDialogOpen, setRefundDialogOpen] = useState(false);
@@ -813,6 +813,11 @@ export default function ConfirmedCustomerIndex({
         const payerToMembers: Record<number, number[]> = {};
         for (const [memberIdStr, payerId] of Object.entries(payerMapping)) {
             const memberId = Number(memberIdStr);
+
+            if (payerId === null || payerId === undefined) {
+                continue;
+            }
+
             if (!payerToMembers[payerId]) {
                 payerToMembers[payerId] = [];
             }
@@ -1768,7 +1773,7 @@ export default function ConfirmedCustomerIndex({
                 onOpenChange={setQuotationDialogOpen}
             >
                 <DialogContent className="flex max-h-[95%] max-w-[95%] flex-col md:min-w-3xl">
-                    <DialogHeader className="gap-0">
+                    <DialogHeader className="items-start gap-0 text-left">
                         <DialogTitle className="text-xl">
                             Create Quotation
                         </DialogTitle>
@@ -1789,115 +1794,297 @@ export default function ConfirmedCustomerIndex({
                                                 member.status !== 'cancelled' &&
                                                 !member.has_quotation,
                                         );
+                                    const payerOptions = activeMembers.map(
+                                        (member) => ({
+                                            value: String(member.id),
+                                            label: member.name,
+                                        }),
+                                    );
+                                    const payerLookup = new Map(
+                                        activeMembers.map((member) => [
+                                            member.id,
+                                            member.name,
+                                        ]),
+                                    );
+                                    const assignments = activeMembers.reduce<
+                                        Record<
+                                            number,
+                                            {
+                                                payerName: string;
+                                                payerId: number;
+                                                members: string[];
+                                            }
+                                        >
+                                    >((accumulator, member) => {
+                                        const payerId = payerMapping[member.id];
+
+                                        if (!payerId) {
+                                            return accumulator;
+                                        }
+
+                                        const payerMember =
+                                            activeMembers.find(
+                                                (candidate) =>
+                                                    candidate.id === payerId,
+                                            ) ?? member;
+
+                                        if (!accumulator[payerId]) {
+                                            accumulator[payerId] = {
+                                                payerId,
+                                                payerName: payerMember.name,
+                                                members: [],
+                                            };
+                                        }
+
+                                        accumulator[payerId].members.push(
+                                            member.name,
+                                        );
+
+                                        return accumulator;
+                                    }, {});
+                                    const assignmentRows =
+                                        Object.values(assignments);
+                                    const unassignedMembers = activeMembers
+                                        .filter((member) => {
+                                            const mapped =
+                                                payerMapping[member.id];
+
+                                            return (
+                                                mapped === null ||
+                                                mapped === undefined ||
+                                                mapped === 0
+                                            );
+                                        })
+                                        .map((member) => member.name);
+                                    const totalToBeCreated =
+                                        assignmentRows.length;
 
                                     return (
                                         <>
-                                            <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
-                                                <p>
-                                                    Member: Members listed below
-                                                    will be included in new
-                                                    quotation(s).
-                                                </p>
-                                                <p>
-                                                    Payer: Choose who pays for
-                                                    each member. Keep default to
-                                                    bill all members to the main
-                                                    leader, or split by changing
-                                                    payer per row.
-                                                </p>
-                                            </div>
+                                            <Card className="gap-3 py-3">
+                                                <CardHeader className="gap-0">
+                                                    <CardTitle className="text-lg">
+                                                        Information
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        Overview of the selected
+                                                        members and their
+                                                        payment assignments.
+                                                    </CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <table className="w-full">
+                                                        <tbody className="space-y-2">
+                                                            <tr className="grid grid-cols-1 items-start md:grid-cols-12">
+                                                                <td className="font-medium md:col-span-3">
+                                                                    Members to
+                                                                    quote
+                                                                </td>
+                                                                <td className="md:col-span-9">
+                                                                    Members
+                                                                    without a
+                                                                    quotation
+                                                                    yet and not
+                                                                    cancelled.
+                                                                    Only these
+                                                                    members will
+                                                                    be included
+                                                                    in quotation
+                                                                    creation.
+                                                                </td>
+                                                            </tr>
+                                                            <tr className="grid grid-cols-1 items-start md:grid-cols-12">
+                                                                <td className="font-medium md:col-span-3">
+                                                                    Payer
+                                                                    assignment
+                                                                </td>
+                                                                <td className="md:col-span-9">
+                                                                    Select who
+                                                                    pays for
+                                                                    each member.
+                                                                    Empty payer
+                                                                    means member
+                                                                    is not
+                                                                    included in
+                                                                    quotation
+                                                                    creation
+                                                                    yet.
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </CardContent>
+                                            </Card>
 
-                                            <div className="space-y-2 rounded-md border p-3">
-                                                <div className="px-2 pt-1 text-sm font-semibold text-foreground">
-                                                    Member
-                                                </div>
-
-                                                {activeMembers.map((member) => {
-                                                    return (
-                                                        <div
-                                                            key={member.id}
-                                                            className="grid grid-cols-1 items-center justify-between gap-3 rounded px-2 py-2 md:grid-cols-2"
-                                                        >
-                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                                <span className="truncate font-medium">
-                                                                    {
-                                                                        member.name
-                                                                    }
-                                                                </span>
-                                                                <Badge
-                                                                    variant={
-                                                                        member.is_leader
-                                                                            ? 'default'
-                                                                            : 'secondary'
-                                                                    }
-                                                                    className="shrink-0"
-                                                                >
-                                                                    {member.is_leader
-                                                                        ? 'Main'
-                                                                        : 'Participant'}
-                                                                </Badge>
-                                                                {member.sharing_plan && (
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="shrink-0"
-                                                                    >
-                                                                        {member.sharing_plan
-                                                                            .charAt(
-                                                                                0,
-                                                                            )
-                                                                            .toUpperCase() +
-                                                                            member.sharing_plan.slice(
-                                                                                1,
-                                                                            )}
-                                                                    </Badge>
+                                            <Card className="gap-3 py-3">
+                                                <CardHeader className="gap-0">
+                                                    <CardTitle className="text-lg">
+                                                        Member Payer Assignment
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        Assign a payer to each
+                                                        member.
+                                                    </CardDescription>
+                                                </CardHeader>
+                                                <CardContent className="space-y-2">
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full min-w-[640px] space-y-2 text-base">
+                                                            <thead>
+                                                                <tr className="border-b text-left">
+                                                                    <th className="py-2 font-semibold text-foreground">
+                                                                        Member
+                                                                    </th>
+                                                                    <th className="w-72 py-2 font-semibold text-foreground">
+                                                                        Payer
+                                                                    </th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {activeMembers.map(
+                                                                    (
+                                                                        member,
+                                                                    ) => (
+                                                                        <tr
+                                                                            key={
+                                                                                member.id
+                                                                            }
+                                                                            className="border-b align-top last:border-0"
+                                                                        >
+                                                                            <td className="py-2 font-medium">
+                                                                                {
+                                                                                    member.name
+                                                                                }
+                                                                            </td>
+                                                                            <td className="py-2">
+                                                                                <ProperInputSelect
+                                                                                    options={[
+                                                                                        {
+                                                                                            value: '',
+                                                                                            label: 'Not selected',
+                                                                                        },
+                                                                                        ...payerOptions,
+                                                                                    ]}
+                                                                                    value={String(
+                                                                                        payerMapping[
+                                                                                            member
+                                                                                                .id
+                                                                                        ] ??
+                                                                                            '',
+                                                                                    )}
+                                                                                    onValueChange={(
+                                                                                        value,
+                                                                                    ) => {
+                                                                                        setPayerMapping(
+                                                                                            (
+                                                                                                prev,
+                                                                                            ) => ({
+                                                                                                ...prev,
+                                                                                                [member.id]:
+                                                                                                    value
+                                                                                                        ? Number(
+                                                                                                              value,
+                                                                                                          )
+                                                                                                        : null,
+                                                                                            }),
+                                                                                        );
+                                                                                    }}
+                                                                                    placeholder="Select payer"
+                                                                                />
+                                                                            </td>
+                                                                        </tr>
+                                                                    ),
                                                                 )}
-                                                            </div>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
 
-                                                            <div className="w-full shrink-0">
-                                                                <FormField label="Payer">
-                                                                    <ProperInputSelect
-                                                                        options={activeMembers.map(
-                                                                            (
-                                                                                m,
-                                                                            ) => ({
-                                                                                value: String(
-                                                                                    m.id,
-                                                                                ),
-                                                                                label: m.is_leader
-                                                                                    ? `${m.name} (Main)`
-                                                                                    : m.name,
-                                                                            }),
-                                                                        )}
-                                                                        value={String(
-                                                                            payerMapping[
-                                                                                member
-                                                                                    .id
-                                                                            ] ??
-                                                                                '',
-                                                                        )}
-                                                                        onValueChange={(
-                                                                            value,
-                                                                        ) => {
-                                                                            setPayerMapping(
-                                                                                (
-                                                                                    prev,
-                                                                                ) => ({
-                                                                                    ...prev,
-                                                                                    [member.id]:
-                                                                                        Number(
-                                                                                            value,
-                                                                                        ),
-                                                                                }),
-                                                                            );
-                                                                        }}
-                                                                        placeholder="Select payer"
-                                                                    />
-                                                                </FormField>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
+                                            <Card className="gap-3 py-3">
+                                                <CardHeader className="gap-0">
+                                                    <CardTitle className="text-lg">
+                                                        Quotation Preview
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        {totalToBeCreated}{' '}
+                                                        quotation(s) will be
+                                                        created based on current
+                                                        payer assignment.
+                                                    </CardDescription>
+                                                </CardHeader>
+                                                <CardContent className="space-y-2">
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full min-w-[640px] text-base">
+                                                            <thead>
+                                                                <tr className="border-b text-left">
+                                                                    <th className="w-36 py-2 font-semibold text-foreground">
+                                                                        Quotation
+                                                                    </th>
+                                                                    <th className="py-2 font-semibold text-foreground">
+                                                                        Payer
+                                                                    </th>
+                                                                    <th className="py-2 font-semibold text-foreground">
+                                                                        Members
+                                                                        Covered
+                                                                    </th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {assignmentRows.map(
+                                                                    (
+                                                                        assignment,
+                                                                        index,
+                                                                    ) => (
+                                                                        <tr
+                                                                            key={`${assignment.payerId}-${index}`}
+                                                                            className="border-b align-top last:border-0"
+                                                                        >
+                                                                            <td className="py-2 font-medium">
+                                                                                Quotation
+                                                                                #
+                                                                                {index +
+                                                                                    1}
+                                                                            </td>
+                                                                            <td className="py-2">
+                                                                                {
+                                                                                    assignment.payerName
+                                                                                }
+                                                                            </td>
+                                                                            <td className="py-2">
+                                                                                {assignment.members.join(
+                                                                                    ', ',
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ),
+                                                                )}
+                                                                {assignmentRows.length ===
+                                                                    0 && (
+                                                                    <tr>
+                                                                        <td
+                                                                            colSpan={
+                                                                                3
+                                                                            }
+                                                                            className="px-2 py-4 text-center text-muted-foreground"
+                                                                        >
+                                                                            No
+                                                                            quotation
+                                                                            will
+                                                                            be
+                                                                            created
+                                                                            until
+                                                                            a
+                                                                            payer
+                                                                            is
+                                                                            selected.
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
                                         </>
                                     );
                                 })()}

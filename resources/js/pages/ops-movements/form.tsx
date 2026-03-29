@@ -266,6 +266,16 @@ export default function OpsMovementForm({
             officials: (data.officials ?? []).map((official) => ({
                 id: official.id,
                 hotel: official.hotel ?? null,
+                hotels_by_location: (official.hotels_by_location ?? []).map(
+                    (hotelRow) => ({
+                        location: String(hotelRow.location ?? '').trim(),
+                        hotel:
+                            typeof hotelRow.hotel === 'string' &&
+                            hotelRow.hotel.trim().length > 0
+                                ? hotelRow.hotel.trim()
+                                : null,
+                    }),
+                ),
             })),
             flights: (data.flights ?? []).map((flight) => ({
                 id: flight.id,
@@ -313,17 +323,110 @@ export default function OpsMovementForm({
         setFormData('accommodations', nextRows);
     };
 
-    const updateOfficial = (
-        index: number,
-        field: keyof OpsOfficialSchema,
+    const accommodationLocations = useMemo(() => {
+        const locations = (data.accommodations ?? []).map(
+            (accommodation, index) => {
+                const normalizedLocation = String(
+                    accommodation.location ?? '',
+                ).trim();
+
+                return normalizedLocation.length > 0
+                    ? normalizedLocation
+                    : `Location ${index + 1}`;
+            },
+        );
+
+        const uniqueLocations: string[] = [];
+        locations.forEach((location) => {
+            if (
+                !uniqueLocations.some(
+                    (current) =>
+                        current.toLowerCase() === location.toLowerCase(),
+                )
+            ) {
+                uniqueLocations.push(location);
+            }
+        });
+
+        return uniqueLocations;
+    }, [data.accommodations]);
+
+    const resolveOfficialHotelRows = (official: OpsOfficialSchema) => {
+        const storedRows = (official.hotels_by_location ?? [])
+            .map((row) => ({
+                location: String(row.location ?? '').trim(),
+                hotel: String(row.hotel ?? '').trim(),
+            }))
+            .filter((row) => row.location.length > 0);
+
+        if (accommodationLocations.length > 0) {
+            return accommodationLocations.map((location) => {
+                const matched = storedRows.find(
+                    (row) =>
+                        row.location.toLowerCase() === location.toLowerCase(),
+                );
+
+                return {
+                    location,
+                    hotel:
+                        matched?.hotel ?? String(official.hotel ?? '').trim(),
+                };
+            });
+        }
+
+        if (storedRows.length > 0) {
+            return storedRows;
+        }
+
+        return [
+            {
+                location: 'General',
+                hotel: String(official.hotel ?? '').trim(),
+            },
+        ];
+    };
+
+    const updateOfficialHotelByLocation = (
+        officialIndex: number,
+        location: string,
         value: string | null,
     ) => {
-        const nextRows = [...(data.officials ?? [])];
-        nextRows[index] = {
-            ...nextRows[index],
-            [field]: value,
+        const nextOfficials = [...(data.officials ?? [])];
+        const targetOfficial = nextOfficials[officialIndex];
+
+        if (!targetOfficial) {
+            return;
+        }
+
+        const normalizedLocation = String(location ?? '').trim();
+        if (normalizedLocation.length === 0) {
+            return;
+        }
+
+        const nextHotelRows = resolveOfficialHotelRows(targetOfficial).map(
+            (row) => ({
+                location: row.location,
+                hotel:
+                    row.location.toLowerCase() ===
+                    normalizedLocation.toLowerCase()
+                        ? String(value ?? '').trim()
+                        : String(row.hotel ?? '').trim(),
+            }),
+        );
+
+        const primaryHotel =
+            nextHotelRows.find((row) => row.hotel.length > 0)?.hotel ?? null;
+
+        nextOfficials[officialIndex] = {
+            ...targetOfficial,
+            hotel: primaryHotel,
+            hotels_by_location: nextHotelRows.map((row) => ({
+                location: row.location,
+                hotel: row.hotel.length > 0 ? row.hotel : null,
+            })),
         };
-        setFormData('officials', nextRows);
+
+        setFormData('officials', nextOfficials);
     };
 
     const updateFlight = (
@@ -751,28 +854,38 @@ export default function OpsMovementForm({
                                     <FormField label="Official Name">
                                         <CopyableText value={official.name} />
                                     </FormField>
-                                    <FormField
-                                        label="Hotel"
-                                        fieldRequirementsProps={{
-                                            hint: 'Hotel remark for official. Note whether they stay at official hotel or follow jemaah hotel.',
-                                        }}
-                                        error={getError(
-                                            `officials.${index}.hotel`,
-                                        )}
-                                    >
-                                        <ProperInput
-                                            value={official.hotel ?? ''}
-                                            disabled={processing}
-                                            onCommit={(value) =>
-                                                updateOfficial(
-                                                    index,
-                                                    'hotel',
-                                                    value,
-                                                )
-                                            }
-                                            placeholder="Enter hotel"
-                                        />
-                                    </FormField>
+                                    {resolveOfficialHotelRows(official).map(
+                                        (hotelRow, hotelIndex) => (
+                                            <FormField
+                                                key={`${official.id}-${hotelRow.location}-${hotelIndex}`}
+                                                label={`${hotelRow.location} - Hotel`}
+                                                fieldRequirementsProps={{
+                                                    hint: 'Hotel remark for this accommodation location.',
+                                                }}
+                                                error={
+                                                    getError(
+                                                        `officials.${index}.hotels_by_location.${hotelIndex}.hotel`,
+                                                    ) ??
+                                                    getError(
+                                                        `officials.${index}.hotel`,
+                                                    )
+                                                }
+                                            >
+                                                <ProperInput
+                                                    value={hotelRow.hotel}
+                                                    disabled={processing}
+                                                    onCommit={(value) =>
+                                                        updateOfficialHotelByLocation(
+                                                            index,
+                                                            hotelRow.location,
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Enter hotel"
+                                                />
+                                            </FormField>
+                                        ),
+                                    )}
                                 </div>
                             ))}
                         </CardContent>

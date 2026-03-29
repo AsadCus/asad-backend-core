@@ -18,7 +18,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Popover,
     PopoverContent,
@@ -202,15 +201,26 @@ export default function ModelNumberInput({
 }: ModelNumberInputProps) {
     const [formats, setFormats] = useState<NumberingFormatRecord[]>([]);
     const [isSuggesting, setIsSuggesting] = useState(false);
+    const [isLoadingFormats, setIsLoadingFormats] = useState(false);
+    const [isSavingFormat, setIsSavingFormat] = useState(false);
+    const [deletingFormatId, setDeletingFormatId] = useState<number | null>(
+        null,
+    );
     const [openDialog, setOpenDialog] = useState(false);
     const [openFormatSelector, setOpenFormatSelector] = useState(false);
     const [openTokenSelector, setOpenTokenSelector] = useState(false);
     const [dialogError, setDialogError] = useState<string | null>(null);
+    const [inlineError, setInlineError] = useState<string | null>(null);
     const [editingFormat, setEditingFormat] =
         useState<NumberingFormatFormState>(DEFAULT_FORMAT_FORM);
     const [modelIncrementScope, setModelIncrementScope] = useState<
         'format' | 'model'
     >('model');
+
+    const isDialogBusy =
+        isLoadingFormats || isSavingFormat || deletingFormatId !== null;
+    const isComponentBusy = disabled || isLoadingFormats || isSuggesting;
+    const resolvedError = error ?? inlineError ?? undefined;
 
     const selectedFormat = useMemo(
         () => formats.find((format) => format.id === formatId) ?? null,
@@ -218,7 +228,9 @@ export default function ModelNumberInput({
     );
 
     const loadFormats = async (): Promise<void> => {
+        setIsLoadingFormats(true);
         setDialogError(null);
+        setInlineError(null);
 
         try {
             const nextFormats = await fetchFormats(modelKey);
@@ -245,13 +257,14 @@ export default function ModelNumberInput({
                 }
             }
         } catch (exception) {
-            setDialogError(
+            const message =
                 exception instanceof Error
                     ? exception.message
-                    : 'Unable to load model number formats.',
-            );
+                    : 'Unable to load model number formats.';
+            setDialogError(message);
+            setInlineError(message);
         } finally {
-            // no-op
+            setIsLoadingFormats(false);
         }
     };
 
@@ -264,6 +277,7 @@ export default function ModelNumberInput({
         nextFormatId?: number | null,
     ): Promise<void> => {
         setIsSuggesting(true);
+        setInlineError(null);
 
         try {
             const suggestion = await suggestNumber(
@@ -272,14 +286,20 @@ export default function ModelNumberInput({
             );
             onValueChange(suggestion.number);
             onFormatIdChange(suggestion.format_id);
-        } catch {
-            // Keep current value when suggestion fails.
+        } catch (exception) {
+            setInlineError(
+                exception instanceof Error
+                    ? exception.message
+                    : 'Unable to suggest the next model number.',
+            );
         } finally {
             setIsSuggesting(false);
         }
     };
 
     const handleFormatChange = async (nextValue: string): Promise<void> => {
+        setInlineError(null);
+
         const parsed = Number(nextValue);
         const nextFormatId = Number.isNaN(parsed) ? null : parsed;
 
@@ -311,6 +331,7 @@ export default function ModelNumberInput({
 
     const handleOpenDialog = (): void => {
         setDialogError(null);
+        setInlineError(null);
         setEditingFormat(toFormState(selectedFormat));
         setOpenDialog(true);
     };
@@ -318,10 +339,16 @@ export default function ModelNumberInput({
     const resetFormatForm = (): void => {
         setEditingFormat(toFormState(null));
         setDialogError(null);
+        setInlineError(null);
     };
 
     const handleSaveFormat = async (): Promise<void> => {
+        if (isDialogBusy) {
+            return;
+        }
+
         setDialogError(null);
+        setInlineError(null);
 
         if (editingFormat.format.trim().length === 0) {
             setDialogError('Format is required.');
@@ -334,6 +361,8 @@ export default function ModelNumberInput({
 
             return;
         }
+
+        setIsSavingFormat(true);
 
         try {
             const payload = toPayload(
@@ -355,11 +384,14 @@ export default function ModelNumberInput({
             setEditingFormat(toFormState(persisted));
             await handleSuggest(persisted.id);
         } catch (exception) {
-            setDialogError(
+            const message =
                 exception instanceof Error
                     ? exception.message
-                    : 'Unable to save number format.',
-            );
+                    : 'Unable to save number format.';
+            setDialogError(message);
+            setInlineError(message);
+        } finally {
+            setIsSavingFormat(false);
         }
     };
 
@@ -372,7 +404,13 @@ export default function ModelNumberInput({
             return;
         }
 
+        if (isDialogBusy) {
+            return;
+        }
+
         setDialogError(null);
+        setInlineError(null);
+        setDeletingFormatId(id);
 
         try {
             await deleteFormat(id);
@@ -385,11 +423,14 @@ export default function ModelNumberInput({
 
             resetFormatForm();
         } catch (exception) {
-            setDialogError(
+            const message =
                 exception instanceof Error
                     ? exception.message
-                    : 'Unable to delete number format.',
-            );
+                    : 'Unable to delete number format.';
+            setDialogError(message);
+            setInlineError(message);
+        } finally {
+            setDeletingFormatId(null);
         }
     };
 
@@ -397,7 +438,7 @@ export default function ModelNumberInput({
         <>
             <FormField
                 label={label}
-                error={error}
+                error={resolvedError}
                 fieldRequirementsProps={{
                     hint:
                         hint ??
@@ -407,7 +448,7 @@ export default function ModelNumberInput({
                 <Popover
                     open={openFormatSelector}
                     onOpenChange={(nextOpen) => {
-                        if (disabled) {
+                        if (isComponentBusy) {
                             setOpenFormatSelector(false);
 
                             return;
@@ -421,25 +462,25 @@ export default function ModelNumberInput({
                             <Input
                                 value={value ?? ''}
                                 onChange={(event) => {
-                                    if (!disabled) {
+                                    if (!isComponentBusy) {
                                         onValueChange(event.target.value);
                                     }
                                 }}
                                 onClick={() => {
-                                    if (!disabled) {
+                                    if (!isComponentBusy) {
                                         setOpenFormatSelector(true);
                                     }
                                 }}
                                 onFocus={(event) => {
-                                    if (disabled) {
+                                    if (isComponentBusy) {
                                         event.currentTarget.select();
                                     }
                                 }}
-                                readOnly={disabled}
+                                readOnly={isComponentBusy}
                                 placeholder="Enter model number"
                                 className={cn(
                                     'pr-11',
-                                    disabled &&
+                                    isComponentBusy &&
                                         'bg-muted/40 text-muted-foreground',
                                 )}
                             />
@@ -452,7 +493,7 @@ export default function ModelNumberInput({
                                         event.stopPropagation();
                                         handleOpenDialog();
                                     }}
-                                    disabled={disabled}
+                                    disabled={isComponentBusy}
                                     size="icon"
                                     className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2"
                                 >
@@ -478,6 +519,7 @@ export default function ModelNumberInput({
                                 <CommandGroup heading="Available formats">
                                     <CommandItem
                                         value="default-format-auto"
+                                        disabled={isComponentBusy}
                                         onSelect={() => {
                                             void handleSuggest(null);
                                             setOpenFormatSelector(false);
@@ -504,6 +546,7 @@ export default function ModelNumberInput({
 
                                     <CommandItem
                                         value="no-format-selected"
+                                        disabled={isComponentBusy}
                                         onSelect={() => {
                                             onFormatIdChange(null);
                                             setOpenFormatSelector(false);
@@ -528,6 +571,7 @@ export default function ModelNumberInput({
                                             <CommandItem
                                                 key={format.id}
                                                 value={`${formatValue} ${format.id}`}
+                                                disabled={isComponentBusy}
                                                 onSelect={() => {
                                                     void handleFormatChange(
                                                         String(format.id),
@@ -565,6 +609,7 @@ export default function ModelNumberInput({
                                         type="button"
                                         variant="ghost"
                                         className="w-full justify-start"
+                                        disabled={isComponentBusy}
                                         onClick={() => {
                                             resetFormatForm();
                                             setOpenDialog(true);
@@ -599,6 +644,7 @@ export default function ModelNumberInput({
                                 <Button
                                     size={'sm'}
                                     type="button"
+                                    disabled={isDialogBusy}
                                     onClick={resetFormatForm}
                                 >
                                     New
@@ -620,12 +666,18 @@ export default function ModelNumberInput({
                                             'cursor-pointer rounded-md border p-3 transition-colors hover:bg-muted/40',
                                             editingFormat.id === format.id &&
                                                 'border-primary bg-primary/5',
+                                            isDialogBusy &&
+                                                'pointer-events-none opacity-70',
                                         )}
-                                        onClick={() =>
+                                        onClick={() => {
+                                            if (isDialogBusy) {
+                                                return;
+                                            }
+
                                             setEditingFormat(
                                                 toFormState(format),
-                                            )
-                                        }
+                                            );
+                                        }}
                                     >
                                         <div className="flex items-center justify-between gap-2">
                                             <div>
@@ -652,6 +704,7 @@ export default function ModelNumberInput({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
+                                                    disabled={isDialogBusy}
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         void handleDeleteFormat(
@@ -659,7 +712,12 @@ export default function ModelNumberInput({
                                                         );
                                                     }}
                                                 >
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                    {deletingFormatId ===
+                                                    format.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    )}
                                                 </Button>
                                             </div>
                                         </div>
@@ -677,10 +735,10 @@ export default function ModelNumberInput({
                                 </h4>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label>Increment Scope (All Formats)</Label>
+                            <FormField label="Increment Scope (All Formats)">
                                 <Select
                                     value={modelIncrementScope}
+                                    disabled={isDialogBusy}
                                     onValueChange={(nextValue) =>
                                         setModelIncrementScope(
                                             nextValue as 'format' | 'model',
@@ -699,14 +757,14 @@ export default function ModelNumberInput({
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                            </div>
+                            </FormField>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="format_value">Format</Label>
+                            <FormField label="Format" htmlFor="format_value">
                                 <div className="flex gap-2">
                                     <Input
                                         id="format_value"
                                         value={editingFormat.format}
+                                        disabled={isDialogBusy}
                                         onChange={(event) =>
                                             setEditingFormat((current) => ({
                                                 ...current,
@@ -717,13 +775,22 @@ export default function ModelNumberInput({
                                     />
                                     <Popover
                                         open={openTokenSelector}
-                                        onOpenChange={setOpenTokenSelector}
+                                        onOpenChange={(nextOpen) => {
+                                            if (isDialogBusy) {
+                                                setOpenTokenSelector(false);
+
+                                                return;
+                                            }
+
+                                            setOpenTokenSelector(nextOpen);
+                                        }}
                                     >
                                         <PopoverTrigger asChild>
                                             <Button
                                                 type="button"
                                                 variant="outline"
                                                 size="icon"
+                                                disabled={isDialogBusy}
                                             >
                                                 <Plus className="h-4 w-4" />
                                                 <span className="sr-only">
@@ -742,6 +809,7 @@ export default function ModelNumberInput({
                                                         type="button"
                                                         variant="ghost"
                                                         className="h-auto w-full justify-start py-2"
+                                                        disabled={isDialogBusy}
                                                         onClick={() => {
                                                             setEditingFormat(
                                                                 (current) => ({
@@ -769,18 +837,19 @@ export default function ModelNumberInput({
                                         </PopoverContent>
                                     </Popover>
                                 </div>
-                            </div>
+                            </FormField>
 
                             <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="format_padding">
-                                        Increment Digits
-                                    </Label>
+                                <FormField
+                                    label="Increment Digits"
+                                    htmlFor="format_padding"
+                                >
                                     <Input
                                         id="format_padding"
                                         type="number"
                                         min={1}
                                         max={12}
+                                        disabled={isDialogBusy}
                                         value={editingFormat.increment_padding}
                                         onChange={(event) =>
                                             setEditingFormat((current) => ({
@@ -791,16 +860,17 @@ export default function ModelNumberInput({
                                             }))
                                         }
                                     />
-                                </div>
+                                </FormField>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="format_start">
-                                        Start From
-                                    </Label>
+                                <FormField
+                                    label="Start From"
+                                    htmlFor="format_start"
+                                >
                                     <Input
                                         id="format_start"
                                         type="number"
                                         min={1}
+                                        disabled={isDialogBusy}
                                         value={editingFormat.increment_start}
                                         onChange={(event) =>
                                             setEditingFormat((current) => ({
@@ -811,12 +881,13 @@ export default function ModelNumberInput({
                                             }))
                                         }
                                     />
-                                </div>
+                                </FormField>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
                                 <label className="flex items-center gap-2 text-sm">
                                     <Checkbox
+                                        disabled={isDialogBusy}
                                         checked={editingFormat.is_default}
                                         onCheckedChange={(checked) =>
                                             setEditingFormat((current) => ({
@@ -830,6 +901,7 @@ export default function ModelNumberInput({
 
                                 <label className="flex items-center gap-2 text-sm">
                                     <Checkbox
+                                        disabled={isDialogBusy}
                                         checked={editingFormat.is_active}
                                         onCheckedChange={(checked) =>
                                             setEditingFormat((current) => ({
@@ -863,15 +935,20 @@ export default function ModelNumberInput({
                         <Button
                             type="button"
                             variant="outline"
+                            disabled={isDialogBusy}
                             onClick={() => setOpenDialog(false)}
                         >
                             Close
                         </Button>
                         <Button
                             type="button"
+                            disabled={isDialogBusy}
                             onClick={() => void handleSaveFormat()}
                         >
-                            Save Format
+                            {isSavingFormat && (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                            {isSavingFormat ? 'Saving...' : 'Save Format'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

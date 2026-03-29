@@ -10,7 +10,7 @@ class PaymentMethodMasterSeeder extends Seeder
     public function run(): void
     {
         $methods = [
-            ['name' => 'Cash', 'value' => 'cash', 'sort_order' => 1, 'is_default' => true],
+            ['name' => 'Cash', 'value' => 'cash', 'sort_order' => 1, 'is_default' => false],
             ['name' => 'Nets', 'value' => 'nets', 'sort_order' => 2, 'is_default' => false],
             ['name' => 'Visa', 'value' => 'visa', 'sort_order' => 3, 'is_default' => false],
             ['name' => 'Master', 'value' => 'master', 'sort_order' => 4, 'is_default' => false],

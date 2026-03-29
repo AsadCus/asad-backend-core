@@ -44,22 +44,13 @@ interface GlobalBrandingSectionProps {
     onCustomSignatureDataChange: (value: string | null) => void;
     onDataChange: (field: string, value: string) => void;
     makeFileHandler: (
-        field:
-            | 'logo_file'
-            | 'stamp_file'
-            | 'signature_file',
+        field: 'logo_file' | 'stamp_file' | 'signature_file',
         setPreviewFileName: (v: string | null) => void,
     ) => (file: File) => void;
     makeClearHandler: (
-        field:
-            | 'logo_file'
-            | 'stamp_file'
-            | 'signature_file',
+        field: 'logo_file' | 'stamp_file' | 'signature_file',
         setPreviewFileName: (v: string | null) => void,
-        pathKey:
-            | 'logo_path'
-            | 'stamp_path'
-            | 'signature_path',
+        pathKey: 'logo_path' | 'stamp_path' | 'signature_path',
         hasDatabaseFile: boolean,
     ) => () => void;
     logoPreviewFileName: string | null;
@@ -94,18 +85,18 @@ export function GlobalBrandingSection({
     const stampPreviewUrl = data.stamp_file
         ? URL.createObjectURL(data.stamp_file)
         : data.stamp_path !== '' && initialStampDatabasePath
-            ? `/storage/${initialStampDatabasePath}`
-            : null;
+          ? `/storage/${initialStampDatabasePath}`
+          : null;
 
     const signaturePreviewUrl =
         data.custom_signature_data ||
         (data.custom_signature_path && data.custom_signature_path !== ''
             ? `/storage/${data.custom_signature_path}`
             : data.signature_file instanceof File
-                ? URL.createObjectURL(data.signature_file)
-                : data.signature_path !== '' && initialSignatureDatabasePath
-                    ? `/storage/${initialSignatureDatabasePath}`
-                    : null);
+              ? URL.createObjectURL(data.signature_file)
+              : data.signature_path !== '' && initialSignatureDatabasePath
+                ? `/storage/${initialSignatureDatabasePath}`
+                : null);
 
     return (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -156,7 +147,10 @@ export function GlobalBrandingSection({
                                 id="company_address"
                                 value={data.company_address}
                                 onChange={(e) =>
-                                    onDataChange('company_address', e.target.value)
+                                    onDataChange(
+                                        'company_address',
+                                        e.target.value,
+                                    )
                                 }
                                 rows={3}
                             />
@@ -170,7 +164,10 @@ export function GlobalBrandingSection({
                                 id="company_phone"
                                 value={data.company_phone}
                                 onChange={(e) =>
-                                    onDataChange('company_phone', e.target.value)
+                                    onDataChange(
+                                        'company_phone',
+                                        e.target.value,
+                                    )
                                 }
                             />
                         </FormField>
@@ -184,7 +181,10 @@ export function GlobalBrandingSection({
                                 type="email"
                                 value={data.company_email}
                                 onChange={(e) =>
-                                    onDataChange('company_email', e.target.value)
+                                    onDataChange(
+                                        'company_email',
+                                        e.target.value,
+                                    )
                                 }
                             />
                         </FormField>
@@ -201,7 +201,8 @@ export function GlobalBrandingSection({
                                 <div
                                     className="h-10 w-16 flex-shrink-0 rounded border shadow-sm"
                                     style={{
-                                        backgroundColor: data.brand_color || '#c05427',
+                                        backgroundColor:
+                                            data.brand_color || '#c05427',
                                     }}
                                 />
                                 <Input
@@ -209,7 +210,10 @@ export function GlobalBrandingSection({
                                     type="color"
                                     value={data.brand_color || '#c05427'}
                                     onChange={(e) =>
-                                        onDataChange('brand_color', e.target.value)
+                                        onDataChange(
+                                            'brand_color',
+                                            e.target.value,
+                                        )
                                     }
                                     className="h-10 w-16 cursor-pointer rounded border p-1"
                                 />
@@ -217,7 +221,10 @@ export function GlobalBrandingSection({
                                     type="text"
                                     value={data.brand_color || '#c05427'}
                                     onChange={(e) =>
-                                        onDataChange('brand_color', e.target.value)
+                                        onDataChange(
+                                            'brand_color',
+                                            e.target.value,
+                                        )
                                     }
                                     placeholder="#c05427"
                                     className="flex-1 font-mono"
@@ -229,8 +236,7 @@ export function GlobalBrandingSection({
 
                     <Separator className="my-1" />
 
-                    <div className="space-y-7 mt-5">
-
+                    <div className="mt-5 space-y-7">
                         <DocumentField
                             label="Company Logo"
                             hint="Displayed top-left on all PDFs"
@@ -241,19 +247,30 @@ export function GlobalBrandingSection({
                             isView={false}
                             disabled={false}
                             error={errors.logo_file}
-                            onSelect={makeFileHandler('logo_file', setLogoPreviewFileName)}
-                            onClear={makeClearHandler('logo_file', setLogoPreviewFileName, 'logo_path', !!initialLogoDatabasePath)}
+                            onSelect={makeFileHandler(
+                                'logo_file',
+                                setLogoPreviewFileName,
+                            )}
+                            onClear={makeClearHandler(
+                                'logo_file',
+                                setLogoPreviewFileName,
+                                'logo_path',
+                                !!initialLogoDatabasePath,
+                            )}
                         />
                     </div>
 
                     <Separator className="my-1" />
 
-                    <div className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm mt-5">
+                    <div className="mt-5 flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-base font-medium">Signature and Stamp Layout</p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                    Configure placement, draw your signature, <br /> and set name/date labels.
+                                <p className="text-base font-medium">
+                                    Signature and Stamp Layout
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Configure placement, draw your signature,{' '}
+                                    <br /> and set name/date labels.
                                 </p>
                             </div>
 
@@ -263,54 +280,104 @@ export function GlobalBrandingSection({
                                         Configure Layout
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+                                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
                                     <DialogHeader className="mb-4">
-                                        <DialogTitle className="text-xl">Signature and Stamp Layout</DialogTitle>
+                                        <DialogTitle className="text-xl">
+                                            Signature and Stamp Layout
+                                        </DialogTitle>
                                         <DialogDescription>
-                                            Adjust the positions, upload files, and draw your signature for document reports.
+                                            Adjust the positions, upload files,
+                                            and draw your signature for document
+                                            reports.
                                         </DialogDescription>
                                     </DialogHeader>
 
-                                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 mb-2 p-5 border rounded-xl bg-muted/10">
+                                    <div className="mb-2 grid grid-cols-1 items-start gap-6 rounded-xl border bg-muted/10 p-5 sm:grid-cols-2">
                                         <DocumentField
                                             label="Company Stamp"
                                             hint="Image file for the company stamp"
                                             accept="image/jpeg,image/png,image/jpg"
-                                            fileValue={data.stamp_file || undefined}
-                                            existingPath={data.stamp_path !== '' ? (initialStampDatabasePath || undefined) : undefined}
-                                            existingFileName={stampPreviewFileName || undefined}
+                                            fileValue={
+                                                data.stamp_file || undefined
+                                            }
+                                            existingPath={
+                                                data.stamp_path !== ''
+                                                    ? initialStampDatabasePath ||
+                                                      undefined
+                                                    : undefined
+                                            }
+                                            existingFileName={
+                                                stampPreviewFileName ||
+                                                undefined
+                                            }
                                             isView={false}
                                             disabled={false}
                                             error={errors.stamp_file}
-                                            onSelect={makeFileHandler('stamp_file', setStampPreviewFileName)}
-                                            onClear={makeClearHandler('stamp_file', setStampPreviewFileName, 'stamp_path', !!initialStampDatabasePath)}
+                                            onSelect={makeFileHandler(
+                                                'stamp_file',
+                                                setStampPreviewFileName,
+                                            )}
+                                            onClear={makeClearHandler(
+                                                'stamp_file',
+                                                setStampPreviewFileName,
+                                                'stamp_path',
+                                                !!initialStampDatabasePath,
+                                            )}
                                         />
                                         <DocumentField
                                             label="Authorised Signature"
                                             hint="Image file for the signature (or draw below)"
                                             accept="image/jpeg,image/png,image/jpg"
-                                            fileValue={data.signature_file || undefined}
-                                            existingPath={data.signature_path !== '' ? (initialSignatureDatabasePath || undefined) : undefined}
-                                            existingFileName={signaturePreviewFileName || undefined}
+                                            fileValue={
+                                                data.signature_file || undefined
+                                            }
+                                            existingPath={
+                                                data.signature_path !== ''
+                                                    ? initialSignatureDatabasePath ||
+                                                      undefined
+                                                    : undefined
+                                            }
+                                            existingFileName={
+                                                signaturePreviewFileName ||
+                                                undefined
+                                            }
                                             isView={false}
                                             disabled={false}
                                             error={errors.signature_file}
-                                            onSelect={makeFileHandler('signature_file', setSignaturePreviewFileName)}
-                                            onClear={makeClearHandler('signature_file', setSignaturePreviewFileName, 'signature_path', !!initialSignatureDatabasePath)}
+                                            onSelect={makeFileHandler(
+                                                'signature_file',
+                                                setSignaturePreviewFileName,
+                                            )}
+                                            onClear={makeClearHandler(
+                                                'signature_file',
+                                                setSignaturePreviewFileName,
+                                                'signature_path',
+                                                !!initialSignatureDatabasePath,
+                                            )}
                                         />
                                     </div>
 
                                     <SignatureStampLayoutSection
-                                        customSignatureStampLayout={customSignatureStampLayout}
-                                        onCustomSignatureStampLayoutChange={onCustomSignatureStampLayoutChange}
-                                        onCustomSignatureDataChange={onCustomSignatureDataChange}
+                                        customSignatureStampLayout={
+                                            customSignatureStampLayout
+                                        }
+                                        onCustomSignatureStampLayoutChange={
+                                            onCustomSignatureStampLayoutChange
+                                        }
+                                        onCustomSignatureDataChange={
+                                            onCustomSignatureDataChange
+                                        }
                                         stampPreviewPath={stampPreviewUrl}
-                                        signaturePreviewPath={signaturePreviewUrl}
-                                        customSignatureData={data.custom_signature_data ?? null}
+                                        signaturePreviewPath={
+                                            signaturePreviewUrl
+                                        }
+                                        customSignatureData={
+                                            data.custom_signature_data ?? null
+                                        }
                                         errors={errors}
                                     />
 
-                                    <div className="flex justify-end pt-4 border-t mt-6">
+                                    <div className="mt-6 flex justify-end border-t pt-4">
                                         <DialogTrigger asChild>
                                             <Button type="button">Done</Button>
                                         </DialogTrigger>

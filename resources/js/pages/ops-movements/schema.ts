@@ -14,6 +14,14 @@ export const opsOfficialSchema = z.object({
     id: z.number(),
     name: z.string().nullable().optional(),
     hotel: z.string().nullable().optional(),
+    hotels_by_location: z
+        .array(
+            z.object({
+                location: z.string(),
+                hotel: z.string().nullable().optional(),
+            }),
+        )
+        .optional(),
 });
 
 export const opsFlightSchema = z.object({

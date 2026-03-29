@@ -26,6 +26,9 @@ class OpsMovementRule
             'officials' => ['nullable', 'array'],
             'officials.*.id' => ['required', 'integer', 'exists:package_officials,id'],
             'officials.*.hotel' => ['nullable', 'string', 'max:255'],
+            'officials.*.hotels_by_location' => ['nullable', 'array'],
+            'officials.*.hotels_by_location.*.location' => ['nullable', 'string', 'max:255'],
+            'officials.*.hotels_by_location.*.hotel' => ['nullable', 'string', 'max:255'],
 
             'flights' => ['nullable', 'array'],
             'flights.*.id' => ['required', 'integer', 'exists:package_flights,id'],

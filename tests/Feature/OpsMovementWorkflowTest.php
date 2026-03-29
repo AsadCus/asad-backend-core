@@ -201,6 +201,12 @@ class OpsMovementWorkflowTest extends TestCase
                 [
                     'id' => $official->id,
                     'hotel' => 'Official Hotel A',
+                    'hotels_by_location' => [
+                        [
+                            'location' => 'Makkah',
+                            'hotel' => 'Official Hotel A',
+                        ],
+                    ],
                 ],
             ],
             'flights' => [
@@ -278,6 +284,8 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('Amir', data_get($manifest->ops_movement_extension, 'doa_by'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_submitted_to_z_umrah'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_approved'));
+        $this->assertSame('Makkah', data_get($manifest->ops_movement_extension, 'officials.0.hotels_by_location.0.location'));
+        $this->assertSame('Official Hotel A', data_get($manifest->ops_movement_extension, 'officials.0.hotels_by_location.0.hotel'));
         $this->assertSame('IC-FLT-01', data_get($manifest->ops_movement_extension, 'flights.0.ic'));
         $this->assertSame('Transportation', data_get($manifest->ops_movement_extension, 'budget.0.title'));
         $this->assertSame(500.5, data_get($manifest->ops_movement_extension, 'budget.0.items.0.unit_price'));
@@ -300,6 +308,8 @@ class OpsMovementWorkflowTest extends TestCase
 
         $this->assertSame(1, data_get($opsMovement, 'passengers.wheelchair_non_official_total'));
         $this->assertSame('Official Hotel A', data_get($opsMovement, 'officials.0.hotel'));
+        $this->assertSame('Makkah', data_get($opsMovement, 'officials.0.hotels_by_location.0.location'));
+        $this->assertSame('Official Hotel A', data_get($opsMovement, 'officials.0.hotels_by_location.0.hotel'));
         $this->assertSame('IC-HOTEL-01', data_get($opsMovement, 'accommodations.0.ic'));
         $this->assertSame('Ops Itinerary.pdf', data_get($opsMovement, 'documents.itinerary.0.file_name'));
         $this->assertSame('Ops Booklet.pdf', data_get($opsMovement, 'documents.booklet.0.file_name'));
