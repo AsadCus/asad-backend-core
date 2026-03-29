@@ -102,37 +102,52 @@
 
         /* ── Totals ── */
         .totals-wrapper {
-            text-align: right;
+            display: flex;
+            justify-content: flex-end;
             padding: 4px 0 2px;
             margin-top: 6px;
         }
 
+        .totals-table {
+            width: 320px;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .totals-table td {
+            padding: 1.5px 0;
+        }
+
         .total-label {
+            width: 68%;
+            text-align: right;
             font-size: 11px;
             color: #555;
         }
 
         .total-amount {
+            width: 32%;
+            text-align: right;
             font-weight: bold;
             font-size: 12px;
+            white-space: nowrap;
         }
 
-        /* ── Remarks ── */
-        .remarks-section {
-            margin-bottom: 14px;
+        .totals-table .total-row-grand td {
+            border-top: 1px solid #cfcfcf;
+            padding-top: 4px;
         }
 
-        .remarks-label {
-            font-weight: bold;
-            font-size: 11px;
-            margin-bottom: 4px;
+        .footer-section {
+            padding: 12px 0 0;
+            font-size: 10px;
+            border-top: none;
         }
 
-        .remarks-box {
-            border: 1px solid #999;
-            min-height: 52px;
-            padding: 6px 8px;
-            font-size: 11px;
+        .footer-note {
+            text-align: center;
+            margin-bottom: 8px;
+            line-height: 1.5;
             color: #333;
         }
     </style>
@@ -278,29 +293,27 @@
         </div>
 
         <div class="totals-wrapper">
-            <div>
-                <span class="total-label">Sub Total:&nbsp;</span>
-                <span class="total-amount">{{ formatCurrency($data['subtotal_amount'] ?? $subtotal) }}</span>
-            </div>
-            @if (!empty($data['extensions']) && count($data['extensions']) > 0)
-                @foreach ($data['extensions'] as $extension)
-                    <div>
-                        <span class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:&nbsp;</span>
-                        <span class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</span>
-                    </div>
-                @endforeach
-            @endif
-            <div>
-                <span class="total-label">Total Amount:&nbsp;</span>
-                <span class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</span>
-            </div>
+            <table class="totals-table">
+                <tbody>
+                    <tr>
+                        <td class="total-label">Sub Total:</td>
+                        <td class="total-amount">{{ formatCurrency($data['subtotal_amount'] ?? $subtotal) }}</td>
+                    </tr>
+                    @if (!empty($data['extensions']) && count($data['extensions']) > 0)
+                        @foreach ($data['extensions'] as $extension)
+                            <tr>
+                                <td class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:</td>
+                                <td class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    @endif
+                    <tr class="total-row-grand">
+                        <td class="total-label">Total Amount:</td>
+                        <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-    </div>
-
-    {{-- ── REMARKS ── --}}
-    <div class="remarks-section">
-        <div class="remarks-label">Remarks:</div>
-        <div class="remarks-box">{{ $data['description'] ?? '' }}</div>
     </div>
 
     {{-- ── FOOTER ── --}}

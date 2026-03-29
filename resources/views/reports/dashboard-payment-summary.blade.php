@@ -141,9 +141,6 @@
     $body = [
         'mode'         => 'daily',           // 'daily' | 'monthly' | 'yearly'
         'period_label' => 'March 2026',
-        'generated_at' => '26 Mar 2026, 09:15',
-        'generated_by' => 'Admin User',
-
         ── DAILY ────────────────────────────────────────────────────────
         //  groups = one item per date shown (can be multi-day range).
         //  No L1 grouping; each group renders directly with a Date column.
@@ -213,14 +210,6 @@
         if (!isset($report['period_label'])) {
             $report['period_label'] =
                 (string) ($report['date_range_label'] ?? ucfirst((string) ($report['period'] ?? 'daily')));
-        }
-
-        if (!isset($report['generated_at'])) {
-            $report['generated_at'] = now()->translatedFormat('d M Y, H:i');
-        }
-
-        if (!isset($report['generated_by'])) {
-            $report['generated_by'] = auth()->user()?->name ?? 'System';
         }
 
         if (empty($report['groups']) && is_array($report['rows'] ?? null) && count($report['rows']) > 0) {
@@ -562,12 +551,10 @@
     {{-- ── Report Header ─────────────────────────────────────── --}}
     <table class="summary-grid">
         <tr>
-            <th style="width:10%;">Period</th>
-            <td style="width:24%;">{{ $report['period_label'] ?? ucfirst($mode) }}</td>
-            <th style="width:8%;">Generated</th>
-            <td style="width:22%;">{{ $report['generated_at'] ?? now()->format('d M Y, H:i') }}</td>
-            <th style="width:4%;">By</th>
-            <td>{{ $report['generated_by'] ?? '-' }}</td>
+            <th style="width:12%;">Period</th>
+            <td style="width:38%;">{{ $report['period_label'] ?? ucfirst($mode) }}</td>
+            <th style="width:14%;">Date Range</th>
+            <td>{{ $report['date_range_label'] ?? '-' }}</td>
         </tr>
     </table>
 

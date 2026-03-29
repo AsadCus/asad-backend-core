@@ -109,8 +109,8 @@
         <tr>
             <td class="summary-label">Contact Number</td>
             <td>{{ $manifest['in_charge_official_contact_number'] ?? '-' }}</td>
-            <td class="summary-label">Generated Date</td>
-            <td>{{ now()->translatedFormat('d F Y H:i') }}</td>
+            <td class="summary-label">Package Number</td>
+            <td>{{ $manifest['package_number'] ?? '-' }}</td>
         </tr>
     </table>
 
@@ -136,10 +136,6 @@
             @endforelse
         </tbody>
     </table>
-
-    <p class="muted-note">
-        Generated on {{ now()->translatedFormat('d F Y H:i') }}.
-    </p>
 
     <div class="footer-section">
         @if (!empty($branding['footer_text']))

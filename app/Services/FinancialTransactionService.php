@@ -100,6 +100,11 @@ class FinancialTransactionService
     public function getMonthlyBreakdown(int $financialYearId): array
     {
         $financialYear = FinancialYear::findOrFail($financialYearId);
+
+        if (! $financialYear->start_date || ! $financialYear->end_date) {
+            return [];
+        }
+
         $startDate = Carbon::parse($financialYear->start_date);
         $endDate = Carbon::parse($financialYear->end_date);
 
@@ -140,7 +145,7 @@ class FinancialTransactionService
         $result = [];
         $now = Carbon::now();
 
-        $currentFiscalYear = FinancialYear::getCurrentYear();
+        $currentFiscalYear = $this->resolveCurrentFiscalYear();
 
         if (! $currentFiscalYear) {
             for ($i = $months - 1; $i >= 0; $i--) {
@@ -168,7 +173,7 @@ class FinancialTransactionService
             return $result;
         }
 
-        $fiscalDayOfMonth = $currentFiscalYear->start_date->day;
+        $fiscalDayOfMonth = (int) $currentFiscalYear->start_date->day;
 
         if ($now->day >= $fiscalDayOfMonth) {
             $currentFiscalMonthStart = Carbon::create($now->year, $now->month, $fiscalDayOfMonth);
@@ -206,6 +211,11 @@ class FinancialTransactionService
     public function getQuarterlyBreakdown(int $financialYearId): array
     {
         $financialYear = FinancialYear::findOrFail($financialYearId);
+
+        if (! $financialYear->start_date || ! $financialYear->end_date) {
+            return [];
+        }
+
         $startDate = Carbon::parse($financialYear->start_date);
         $endDate = Carbon::parse($financialYear->end_date);
 
@@ -622,6 +632,17 @@ class FinancialTransactionService
             'buckets' => $buckets,
             'rows' => $reportRows,
         ];
+    }
+
+    private function resolveCurrentFiscalYear(): ?FinancialYear
+    {
+        return FinancialYear::query()
+            ->where('is_active', true)
+            ->whereNotNull('start_date')
+            ->whereNotNull('end_date')
+            ->orderByDesc('default')
+            ->orderByDesc('start_date')
+            ->first();
     }
 
     private function buildPaymentMethodColumns(string $paymentMethod, float $amount): array

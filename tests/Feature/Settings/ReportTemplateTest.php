@@ -123,6 +123,47 @@ class ReportTemplateTest extends TestCase
         $this->assertEquals(1, ReportSetting::count());
     }
 
+    public function test_report_preview_templates_hide_updated_generated_and_receipt_remarks(): void
+    {
+        $templatePaths = [
+            resource_path('views/layout-report.blade.php'),
+            resource_path('views/quotations/report-content.blade.php'),
+            resource_path('views/invoices/report-content.blade.php'),
+            resource_path('views/receipts/report-content.blade.php'),
+            resource_path('views/sales/report-content.blade.php'),
+            resource_path('views/packages/report-content.blade.php'),
+            resource_path('views/manifests/arabic-names-report-content.blade.php'),
+            resource_path('views/manifests/namelist-course-items-report-content.blade.php'),
+            resource_path('views/manifests/room-check-report-content.blade.php'),
+            resource_path('views/ops-movements/report-content.blade.php'),
+            resource_path('views/ops-movements/pif-report-content.blade.php'),
+            resource_path('views/ops-movements/budget-report-content.blade.php'),
+            resource_path('views/reports/dashboard-payment-summary.blade.php'),
+        ];
+
+        foreach ($templatePaths as $templatePath) {
+            $this->assertFileExists($templatePath);
+
+            $contents = (string) file_get_contents($templatePath);
+
+            $this->assertStringNotContainsString('UPDATED:', $contents, "Unexpected UPDATED label in {$templatePath}");
+            $this->assertStringNotContainsString('updated-date', $contents, "Unexpected updated-date usage in {$templatePath}");
+            $this->assertStringNotContainsString('Generated Date', $contents, "Unexpected Generated Date label in {$templatePath}");
+            $this->assertStringNotContainsString('Generated on', $contents, "Unexpected Generated note in {$templatePath}");
+            $this->assertStringNotContainsString('>Generated<', $contents, "Unexpected Generated column label in {$templatePath}");
+        }
+
+        $quotationTemplate = (string) file_get_contents(resource_path('views/quotations/report-content.blade.php'));
+        $invoiceTemplate = (string) file_get_contents(resource_path('views/invoices/report-content.blade.php'));
+        $receiptTemplate = (string) file_get_contents(resource_path('views/receipts/report-content.blade.php'));
+
+        $this->assertStringContainsString('class="totals-table"', $quotationTemplate);
+        $this->assertStringContainsString('class="totals-table"', $invoiceTemplate);
+        $this->assertStringContainsString('class="totals-table"', $receiptTemplate);
+        $this->assertStringNotContainsString('remarks-section', $receiptTemplate);
+        $this->assertStringNotContainsString('remarks-box', $receiptTemplate);
+    }
+
     public function test_invalid_file_type_is_rejected(): void
     {
         $user = User::factory()->create();
@@ -199,8 +240,8 @@ class ReportTemplateTest extends TestCase
     // TODO: Test file deletion when FormData is properly sent from browser
     // The issue is that HTTP request validation might not preserve empty strings
     // but FormData from browser does. This needs to be tested end-to-end in browser.
-    //public function test_file_can_be_deleted_with_empty_string_signal(): void
-    //{
+    // public function test_file_can_be_deleted_with_empty_string_signal(): void
+    // {
     //    ...
-    //}
+    // }
 }

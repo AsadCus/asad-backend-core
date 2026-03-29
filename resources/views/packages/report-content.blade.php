@@ -362,8 +362,6 @@
             @endif
 
             @include('partials.report-signature-stamp')
-
-            <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
         </div>
     </div>
 @endsection

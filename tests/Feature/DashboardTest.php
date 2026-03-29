@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Quotation;
@@ -10,6 +11,8 @@ use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class DashboardTest extends TestCase
@@ -300,5 +303,41 @@ class DashboardTest extends TestCase
         $this->assertStringContainsString('Umrah Packages', $html);
         $this->assertStringContainsString('$1,200.00', $html);
         $this->assertStringContainsString('2 receipt rows', $html);
+    }
+
+    public function test_admin_dashboard_falls_back_when_default_financial_year_has_null_dates(): void
+    {
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('customer', 'web');
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        FinancialYear::create([
+            'year' => 'Broken Default',
+            'start_date' => null,
+            'end_date' => null,
+            'default' => true,
+            'is_active' => true,
+        ]);
+
+        $fallbackYear = FinancialYear::create([
+            'year' => '2026',
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+            'default' => false,
+            'is_active' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard')
+            ->where('data.selectedYearId', $fallbackYear->id)
+            ->where('data.fiscalYearStartDate', '2026-01-01')
+        );
     }
 }
