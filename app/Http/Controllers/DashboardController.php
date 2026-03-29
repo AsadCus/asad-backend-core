@@ -74,13 +74,7 @@ class DashboardController extends Controller
         $data = [];
 
         $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
-
-        if (! $selectedYear) {
-            $selectedYear = FinancialYear::where('is_active', true)
-                ->orderBy('start_date', 'desc')
-                ->first();
-        }
+        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
 
         if ($user->hasRole('admin')) {
             $availableYears = $this->financialYearService->getAvailableYears();
@@ -89,7 +83,7 @@ class DashboardController extends Controller
             if ($selectedYear) {
                 $data['fiscalYear'] = $selectedYear->year;
                 $data['selectedYearId'] = $selectedYear->id;
-                $data['fiscalYearStartDate'] = $selectedYear->start_date->format('Y-m-d');
+                $data['fiscalYearStartDate'] = $selectedYear->start_date?->format('Y-m-d');
 
                 $data['chartData'] = [
                     'financial' => $this->financialTransactionService->getChartData($selectedYear->id),
@@ -180,7 +174,7 @@ class DashboardController extends Controller
         }
 
         $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
+        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
 
         $salesData = $this->salesService->getSalesDashboardData($user->id, $selectedYear);
 
@@ -193,7 +187,7 @@ class DashboardController extends Controller
     public function getFiscalYearTotalSales(Request $request)
     {
         $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
+        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
 
         if (! $selectedYear) {
             return response()->json(['count' => 0, 'amount' => 0]);
@@ -210,7 +204,7 @@ class DashboardController extends Controller
     public function getRevenueByMonth(Request $request)
     {
         $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
+        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
 
         if (! $selectedYear) {
             return response()->json([]);
@@ -227,7 +221,7 @@ class DashboardController extends Controller
     public function getIncomeByMonth(Request $request)
     {
         $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $selectedYearId ? FinancialYear::find($selectedYearId) : FinancialYear::getCurrentYear();
+        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
         $status = $request->input('status', null);
 
         if (! $selectedYear) {
@@ -285,5 +279,28 @@ class DashboardController extends Controller
         $filename = 'payment-summary-'.$summary['period'].'-'.now()->format('Ymd_His').'.pdf';
 
         return $pdf->download($filename);
+    }
+
+    private function resolveDashboardFinancialYear($selectedYearId): ?FinancialYear
+    {
+        if ($selectedYearId) {
+            $requestedYear = FinancialYear::query()
+                ->whereKey($selectedYearId)
+                ->whereNotNull('start_date')
+                ->whereNotNull('end_date')
+                ->first();
+
+            if ($requestedYear) {
+                return $requestedYear;
+            }
+        }
+
+        return FinancialYear::query()
+            ->where('is_active', true)
+            ->whereNotNull('start_date')
+            ->whereNotNull('end_date')
+            ->orderByDesc('default')
+            ->orderByDesc('start_date')
+            ->first();
     }
 }

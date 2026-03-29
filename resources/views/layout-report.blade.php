@@ -95,14 +95,6 @@
             color: #333;
         }
 
-        .updated-date {
-            text-align: right;
-            font-weight: bold;
-            font-size: 11px;
-            margin-top: 8px;
-            color: #333;
-        }
-
         @@media screen {
             html {
                 background: #cacaca;
@@ -156,9 +148,6 @@
                 font-size: 12px;
             }
 
-            .updated-date {
-                font-size: 11px;
-            }
         }
     </style>
 

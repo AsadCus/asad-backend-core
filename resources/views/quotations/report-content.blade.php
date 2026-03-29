@@ -101,19 +101,40 @@
 
         /* ── Totals ── */
         .totals-wrapper {
-            text-align: right;
-            padding: 6px 0 4px;
-            margin-top: 4px;
+            display: flex;
+            justify-content: flex-end;
+            padding: 4px 0 2px;
+            margin-top: 6px;
+        }
+
+        .totals-table {
+            width: 320px;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .totals-table td {
+            padding: 1.5px 0;
         }
 
         .total-label {
+            width: 68%;
+            text-align: right;
             font-size: 11px;
             color: #555;
         }
 
         .total-amount {
+            width: 32%;
+            text-align: right;
             font-weight: bold;
             font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .totals-table .total-row-grand td {
+            border-top: 1px solid #cfcfcf;
+            padding-top: 4px;
         }
 
         /* ── Footer ── */
@@ -127,14 +148,6 @@
             text-align: center;
             margin-bottom: 8px;
             line-height: 1.5;
-            color: #333;
-        }
-
-        .updated-date {
-            text-align: right;
-            font-weight: bold;
-            font-size: 10px;
-            margin-top: 16px;
             color: #333;
         }
 
@@ -302,30 +315,34 @@
                 ->values();
         @endphp
         <div class="totals-wrapper">
-            <div>
-                <span class="total-label">Sub Total:&nbsp;</span>
-                <span class="total-amount">{{ formatCurrency($subtotal) }}</span>
-            </div>
-            @if ($itemTaxExtensions->isNotEmpty())
-                @foreach ($itemTaxExtensions as $itemTax)
-                    <div>
-                        <span class="total-label">{{ $itemTax['name'] ?? 'Tax' }} (Item Tax):&nbsp;</span>
-                        <span class="total-amount">{{ formatCurrency($itemTax['amount'] ?? 0) }}</span>
-                    </div>
-                @endforeach
-            @endif
-            @if (!empty($data['extensions']) && count($data['extensions']) > 0)
-                @foreach ($data['extensions'] as $extension)
-                    <div>
-                        <span class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:&nbsp;</span>
-                        <span class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</span>
-                    </div>
-                @endforeach
-            @endif
-            <div>
-                <span class="total-label">Total Amount:&nbsp;</span>
-                <span class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</span>
-            </div>
+            <table class="totals-table">
+                <tbody>
+                    <tr>
+                        <td class="total-label">Sub Total:</td>
+                        <td class="total-amount">{{ formatCurrency($subtotal) }}</td>
+                    </tr>
+                    @if ($itemTaxExtensions->isNotEmpty())
+                        @foreach ($itemTaxExtensions as $itemTax)
+                            <tr>
+                                <td class="total-label">{{ $itemTax['name'] ?? 'Tax' }} (Item Tax):</td>
+                                <td class="total-amount">{{ formatCurrency($itemTax['amount'] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    @endif
+                    @if (!empty($data['extensions']) && count($data['extensions']) > 0)
+                        @foreach ($data['extensions'] as $extension)
+                            <tr>
+                                <td class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:</td>
+                                <td class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    @endif
+                    <tr class="total-row-grand">
+                        <td class="total-label">Total Amount:</td>
+                        <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -343,7 +360,6 @@
 
         @include('partials.report-signature-stamp')
 
-        <div class="updated-date">UPDATED: {{ date('d/m/Y') }}</div>
     </div>
 
 @endsection
