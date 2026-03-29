@@ -959,7 +959,7 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_order_update_syncs_quotation_extensions_from_invoice_extensions(): void
+    public function test_order_update_keeps_invoice_extensions_distinct_from_quotation_extensions(): void
     {
         $graph = $this->createBaseGraph();
         $order = $graph['order'];
@@ -1095,24 +1095,29 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             ],
         ], $order->id);
 
-        $this->assertDatabaseHas('quotation_extensions', [
+        $invoiceOne->refresh();
+        $invoiceTwo->refresh();
+
+        $this->assertTrue(collect($invoiceOne->extensions ?? [])->contains(function (array $extension): bool {
+            return ($extension['name'] ?? null) === 'Group Discount'
+                && ($extension['type'] ?? null) === 'discount'
+                && (float) ($extension['amount'] ?? 0) === -50.0;
+        }));
+
+        $this->assertTrue(collect($invoiceTwo->extensions ?? [])->contains(function (array $extension): bool {
+            return ($extension['name'] ?? null) === 'Group Discount'
+                && ($extension['type'] ?? null) === 'discount'
+                && (float) ($extension['amount'] ?? 0) === -50.0;
+        }));
+
+        $this->assertDatabaseMissing('quotation_extensions', [
             'quotation_id' => $quotation->id,
             'name' => 'Group Discount',
-            'type' => 'discount',
-            'amount' => '-100.00',
-        ]);
-
-        $this->assertDatabaseHas('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'Credit Card Surcharge',
-            'type' => 'credit_card',
-            'amount' => '50.00',
         ]);
 
         $this->assertDatabaseMissing('quotation_extensions', [
             'quotation_id' => $quotation->id,
-            'name' => 'Tax Extension',
-            'type' => 'tax',
+            'name' => 'Credit Card Surcharge',
         ]);
     }
 }

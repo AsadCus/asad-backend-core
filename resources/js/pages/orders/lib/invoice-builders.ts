@@ -244,6 +244,82 @@ function mergeSplitInstallmentItems(
     );
 }
 
+function ensureHeadersForItems(
+    sourceItems: InvoiceItemSchema[],
+    lineItems: InvoiceItemSchema[],
+    baseItems: InvoiceItemSchema[] = [],
+): InvoiceItemSchema[] {
+    if (lineItems.length === 0) {
+        return [...baseItems].sort(
+            (a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0),
+        );
+    }
+
+    const headerById = new Map<number, InvoiceItemSchema>();
+    const headerByKey = new Map<string, InvoiceItemSchema>();
+
+    sourceItems.forEach((item) => {
+        if (!item.is_header) {
+            return;
+        }
+
+        const itemId = Number(item.id ?? 0);
+
+        if (itemId > 0) {
+            headerById.set(itemId, item);
+        }
+
+        if (item._key) {
+            headerByKey.set(String(item._key), item);
+        }
+    });
+
+    const existingHeaderKeys = new Set(
+        baseItems
+            .filter((item) => item.is_header)
+            .map((item) => String(item._key ?? item.id ?? '')),
+    );
+
+    const neededHeaders = new Map<string, InvoiceItemSchema>();
+
+    const collectHeaderAncestors = (item: InvoiceItemSchema) => {
+        let cursorId = Number(item.parent_id ?? 0);
+        let cursorKey = String(item.parent_key ?? '');
+
+        while (cursorId > 0 || cursorKey) {
+            const header =
+                (cursorId > 0 ? headerById.get(cursorId) : undefined) ??
+                (cursorKey ? headerByKey.get(cursorKey) : undefined);
+
+            if (!header || !header.is_header) {
+                break;
+            }
+
+            const identity = String(header._key ?? header.id ?? '');
+
+            if (!existingHeaderKeys.has(identity)) {
+                neededHeaders.set(identity, {
+                    ...header,
+                    _key: header._key ?? nanoid(),
+                });
+            }
+
+            cursorId = Number(header.parent_id ?? 0);
+            cursorKey = String(header.parent_key ?? '');
+        }
+    };
+
+    lineItems.forEach((item) => {
+        collectHeaderAncestors(item);
+    });
+
+    return [
+        ...baseItems,
+        ...Array.from(neededHeaders.values()),
+        ...lineItems,
+    ].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
+}
+
 function buildInstallmentItems(
     items: InvoiceItemSchema[],
     depositType?: string | null,
@@ -288,9 +364,9 @@ function buildInstallmentItems(
     );
 
     const numericDepositValue = Number(depositValue ?? 0);
-    const depositItems: InvoiceItemSchema[] = [...nonPackageItems];
-    const fiftyPercentItems: InvoiceItemSchema[] = [];
-    const balanceItems: InvoiceItemSchema[] = [];
+    const depositSectionLines: InvoiceItemSchema[] = [];
+    const fiftyPercentSectionLines: InvoiceItemSchema[] = [];
+    const balanceSectionLines: InvoiceItemSchema[] = [];
 
     packageItemsWithAmounts.forEach((item) => {
         const quantity = Number(item.quantity ?? 0) || 1;
@@ -316,7 +392,7 @@ function buildInstallmentItems(
         );
 
         if (depositAmount > 0) {
-            depositItems.push({
+            depositSectionLines.push({
                 ...item,
                 _key: nanoid(),
                 id: undefined,
@@ -330,7 +406,7 @@ function buildInstallmentItems(
         }
 
         if (fiftyPercentAmount > 0) {
-            fiftyPercentItems.push({
+            fiftyPercentSectionLines.push({
                 ...item,
                 _key: nanoid(),
                 id: undefined,
@@ -344,7 +420,7 @@ function buildInstallmentItems(
         }
 
         if (balanceAmount > 0) {
-            balanceItems.push({
+            balanceSectionLines.push({
                 ...item,
                 _key: nanoid(),
                 id: undefined,
@@ -357,6 +433,20 @@ function buildInstallmentItems(
             });
         }
     });
+
+    const depositItems = ensureHeadersForItems(
+        normalizedSourceItems,
+        depositSectionLines,
+        nonPackageItems,
+    );
+    const fiftyPercentItems = ensureHeadersForItems(
+        normalizedSourceItems,
+        fiftyPercentSectionLines,
+    );
+    const balanceItems = ensureHeadersForItems(
+        normalizedSourceItems,
+        balanceSectionLines,
+    );
 
     return { depositItems, fiftyPercentItems, balanceItems };
 }

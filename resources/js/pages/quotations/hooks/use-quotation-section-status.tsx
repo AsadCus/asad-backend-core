@@ -21,12 +21,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
         'customer_email',
     ],
 
-    quotation_details: [
-        'description',
-        'payment_plan',
-        'payment_method',
-        'items',
-    ],
+    quotation_details: ['description', 'payment_plan', 'items'],
 
     status: ['status', 'reason'],
 };
@@ -37,7 +32,6 @@ const REQUIRED_FIELDS = new Set<string>([
     'customer_id',
     'description',
     'payment_plan',
-    'payment_method',
     'status',
 ]);
 

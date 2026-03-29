@@ -122,6 +122,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('product-services', QuotationItemController::class)->names('quotation-items');
     Route::post('product-services/payment-methods', [QuotationItemController::class, 'storePaymentMethodMasters'])->name('quotation-items.payment-methods.store');
+    Route::post('product-services/payment-methods/quick-create', [QuotationItemController::class, 'quickCreatePaymentMethodMaster'])->name('quotation-items.payment-methods.quick-create');
     Route::post('product-services/extensions', [QuotationItemController::class, 'storeExtensionMasters'])->name('quotation-items.extensions.store');
     Route::post('product-services/extensions/quick-create', [QuotationItemController::class, 'quickCreateExtensionMaster'])->name('quotation-items.extensions.quick-create');
     Route::post('product-services/quick-create', [QuotationItemController::class, 'quickCreate'])->name('quotation-items.quick-create');

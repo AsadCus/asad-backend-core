@@ -56,7 +56,6 @@ class QuotationController extends Controller
         $data['quotationsForDatatable'] = $this->quotationService->getForDataTable($filters);
         $data['customers'] = $this->customerService->getForFilter();
         $data['salespersons'] = $this->salesService->getForFilter();
-        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
 
         return Inertia::render('quotations/index', [
             'data' => $data,
@@ -69,16 +68,9 @@ class QuotationController extends Controller
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
         $data['quotationItems'] = $this->quotationItemService->getQuotationItemMasters(false);
         $data['quotationNotes'] = $this->noteService->get('master', 'quotation');
-        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
-
-        $prefilledPaymentMethod = (string) $request->input(
-            'payment_method',
-            $this->quotationService->getDefaultPaymentMethodValue(),
-        );
-        $data['defaultPaymentMethod'] = $prefilledPaymentMethod;
         $data['defaultExtensions'] = collect(
-            $this->quotationService->getDefaultExtensionsForCreate($prefilledPaymentMethod)
+            $this->quotationService->getDefaultExtensionsForCreate()
         )
             ->filter(fn ($extension) => ($extension['type'] ?? null) !== 'discount')
             ->values()
@@ -132,7 +124,6 @@ class QuotationController extends Controller
             (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
         );
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
-        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
 
         return Inertia::render('quotations/view', [
             'data' => $data,
@@ -151,7 +142,6 @@ class QuotationController extends Controller
             (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
         );
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
-        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
 
         return Inertia::render('quotations/edit', [

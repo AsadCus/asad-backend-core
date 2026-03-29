@@ -58,11 +58,15 @@ export default function QuotationInformationSection({
     quotationNumberError,
     status,
 }: Props) {
-    const addressLines = useMemo(
-        () =>
-            data.customer_address ? data.customer_address.split('<br>') : [],
-        [data.customer_address],
-    );
+    const normalizedCustomerAddress = useMemo(() => {
+        const rawAddress = String(data.customer_address ?? '').trim();
+
+        if (!rawAddress) {
+            return '';
+        }
+
+        return rawAddress.replace(/<br\s*\/?\s*>/gi, '\n');
+    }, [data.customer_address]);
 
     return (
         <FormSection
@@ -204,19 +208,8 @@ export default function QuotationInformationSection({
                                     <span className="text-base font-semibold text-gray-800">
                                         {data.customer_name}
                                     </span>
-                                    <div className="text-base text-gray-600">
-                                        {addressLines.length > 0
-                                            ? addressLines.map(
-                                                  (line, idx, arr) => (
-                                                      <div key={idx}>
-                                                          {line}
-                                                          {idx <
-                                                              arr.length -
-                                                                  1 && <br />}
-                                                      </div>
-                                                  ),
-                                              )
-                                            : '-'}
+                                    <div className="text-base whitespace-pre-line text-gray-600">
+                                        {normalizedCustomerAddress || '-'}
                                     </div>
                                     <span className="text-base text-gray-600">
                                         {data.customer_contact ?? '-'}

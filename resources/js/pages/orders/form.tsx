@@ -1,13 +1,14 @@
 import { FormField } from '@/components/form-field';
 import ModelNumberInput from '@/components/model-number-input';
+import PackageSharingPlanInfo from '@/components/package-sharing-plan-info';
+import PaymentMethodMasterCombobox from '@/components/payment-method-master-combobox';
 import { ProperInput } from '@/components/proper-input';
 import TotalsSummaryCard, {
-    type TotalsSummaryRow,
+    type TotalsSummaryExtensionMaster,
 } from '@/components/totals-summary-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -46,6 +47,9 @@ interface OrderFormProps {
     initialData?: OrderSchema;
     quotation?: QuotationSchema;
     paymentPlans?: OptionType[];
+    paymentMethods?: OptionType[];
+    extensionMasters?: TotalsSummaryExtensionMaster[];
+    defaultPaymentMethod?: string;
     onCancel?: () => void;
 }
 
@@ -60,6 +64,38 @@ type InvoiceExtensionInput = {
     amount?: number | string | null;
     sort_order?: number;
 };
+
+type OrderExtensionMasterInput = TotalsSummaryExtensionMaster & {
+    payment_methods?: string[];
+    sort_order?: number;
+};
+
+function normalizePaymentMethodValue(value?: string | null): string {
+    return String(value ?? '')
+        .trim()
+        .toLowerCase();
+}
+
+function isExtensionApplicableToPaymentMethod(
+    master: OrderExtensionMasterInput,
+    paymentMethod?: string | null,
+): boolean {
+    const supportedMethods = (master.payment_methods ?? [])
+        .map((method) => normalizePaymentMethodValue(method))
+        .filter((method) => method !== '');
+
+    if (supportedMethods.length === 0) {
+        return true;
+    }
+
+    const normalizedPaymentMethod = normalizePaymentMethodValue(paymentMethod);
+
+    if (!normalizedPaymentMethod) {
+        return false;
+    }
+
+    return supportedMethods.includes(normalizedPaymentMethod);
+}
 
 function calculateItemTaxTotal(items: InvoiceSchema['items'] = []): number {
     return items.reduce((sum, item) => {
@@ -253,6 +289,76 @@ function recalculateInvoice(invoice: InvoiceSchema): InvoiceSchema {
     };
 }
 
+function applyInvoicePaymentMethodExtensions(
+    invoice: InvoiceSchema,
+    paymentMethod: string,
+    extensionMasters: OrderExtensionMasterInput[],
+): InvoiceSchema {
+    const subtotalAmount = calculateTotal(invoice.items ?? []);
+    const existingExtensions = normalizeInvoiceExtensions(
+        (invoice.extensions ?? []) as InvoiceExtensionInput[],
+    );
+
+    const manualOrUnrelatedExtensions = existingExtensions.filter(
+        (extension) => {
+            const type = String(extension.type ?? 'discount');
+            const isPaymentMethodType = ['credit_card', 'other'].includes(type);
+
+            if (!isPaymentMethodType) {
+                return true;
+            }
+
+            return Number(extension.quotation_extension_master_id ?? 0) <= 0;
+        },
+    );
+
+    const applicableMasters = extensionMasters
+        .filter(
+            (master) =>
+                master.is_active !== false &&
+                ['credit_card', 'other'].includes(String(master.type ?? '')) &&
+                isExtensionApplicableToPaymentMethod(master, paymentMethod),
+        )
+        .sort(
+            (left, right) =>
+                Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0),
+        );
+
+    const autoExtensions = applicableMasters.map((master, index) => {
+        const calculationMode =
+            String(master.calculation_mode ?? 'fixed') === 'percentage'
+                ? 'percentage'
+                : 'fixed';
+        const calculationValue = Number(master.calculation_value ?? 0);
+        const amount =
+            calculationMode === 'percentage'
+                ? (subtotalAmount * calculationValue) / 100
+                : calculationValue;
+
+        return {
+            _key: `method-${String(master.id ?? `new-${index}`)}-${nanoid()}`,
+            quotation_extension_master_id:
+                Number(master.id ?? 0) > 0 ? Number(master.id) : null,
+            name: String(master.name ?? 'Additional Charges'),
+            type: String(master.type ?? 'other'),
+            calculation_mode: calculationMode,
+            calculation_value: calculationValue,
+            amount,
+        };
+    });
+
+    return {
+        ...invoice,
+        payment_method: paymentMethod,
+        extensions: [...manualOrUnrelatedExtensions, ...autoExtensions].map(
+            (extension, index) => ({
+                ...extension,
+                sort_order: index + 1,
+            }),
+        ),
+    };
+}
+
 function normalizeInvoices(invoices: InvoiceSchema[] = []): InvoiceSchema[] {
     const itemKeyMap = new Map<number, string>();
 
@@ -290,11 +396,12 @@ function cleanMessage(message: string) {
         .replace(/\.$/, '');
 }
 
-function createEmptyInvoice(): InvoiceSchema {
+function createEmptyInvoice(defaultPaymentMethod = ''): InvoiceSchema {
     return {
         _key: nanoid(),
         invoice_number: '',
         number_format_id: null,
+        payment_method: defaultPaymentMethod,
         description: '',
         invoice_date: '',
         due_date: '',
@@ -314,6 +421,9 @@ export default function OrderForm({
     initialData,
     quotation,
     paymentPlans = [],
+    paymentMethods = [],
+    extensionMasters = [],
+    defaultPaymentMethod = '',
     onCancel,
 }: OrderFormProps) {
     const isView = mode === 'view';
@@ -348,7 +458,14 @@ export default function OrderForm({
                   initialData.deposit_value === ''
                       ? 500
                       : initialData.deposit_value,
-              invoices: normalizeInvoices(initialData.invoices ?? []),
+              invoices: normalizeInvoices(initialData.invoices ?? []).map(
+                  (invoice) => ({
+                      ...invoice,
+                      payment_method:
+                          String(invoice.payment_method ?? '') ||
+                          String(defaultPaymentMethod ?? ''),
+                  }),
+              ),
           }
         : initialFormState;
 
@@ -363,6 +480,20 @@ export default function OrderForm({
         setError,
         clearErrors,
     } = useForm<OrderSchema>(defaultData);
+
+    const normalizedOrderExtensionMasters = useMemo(
+        () =>
+            extensionMasters.map((master) => ({
+                ...master,
+                payment_methods: Array.isArray(
+                    (master as OrderExtensionMasterInput).payment_methods,
+                )
+                    ? ((master as OrderExtensionMasterInput).payment_methods ??
+                      [])
+                    : [],
+            })) as OrderExtensionMasterInput[],
+        [extensionMasters],
+    );
 
     const rebuildInvoicesFromSource = useCallback(
         (
@@ -474,12 +605,29 @@ export default function OrderForm({
                             extensions: inheritedExtensions,
                         } as InvoiceSchema;
 
+                        const resolvedPaymentMethod = String(
+                            existingInvoice?.payment_method ??
+                                invoice.payment_method ??
+                                defaultPaymentMethod ??
+                                '',
+                        );
+
+                        const mergedWithPaymentMethod =
+                            applyInvoicePaymentMethodExtensions(
+                                {
+                                    ...mergedInvoice,
+                                    payment_method: resolvedPaymentMethod,
+                                },
+                                resolvedPaymentMethod,
+                                normalizedOrderExtensionMasters,
+                            );
+
                         if (!existingInvoice) {
-                            return recalculateInvoice(mergedInvoice);
+                            return recalculateInvoice(mergedWithPaymentMethod);
                         }
 
                         return recalculateInvoice({
-                            ...mergedInvoice,
+                            ...mergedWithPaymentMethod,
                             id: existingInvoice.id ?? invoice.id,
                             invoice_number:
                                 existingInvoice.invoice_number ??
@@ -508,10 +656,25 @@ export default function OrderForm({
                     currentInvoices,
                     depositType,
                     depositValue,
-                ).map((invoice) => recalculateInvoice(invoice)),
+                ).map((invoice) => {
+                    const resolvedPaymentMethod = String(
+                        invoice.payment_method ?? defaultPaymentMethod ?? '',
+                    );
+
+                    return recalculateInvoice(
+                        applyInvoicePaymentMethodExtensions(
+                            {
+                                ...invoice,
+                                payment_method: resolvedPaymentMethod,
+                            },
+                            resolvedPaymentMethod,
+                            normalizedOrderExtensionMasters,
+                        ),
+                    );
+                }),
             );
         },
-        [quotation],
+        [defaultPaymentMethod, normalizedOrderExtensionMasters, quotation],
     );
 
     const serializeInvoicesForComparison = useCallback(
@@ -582,7 +745,10 @@ export default function OrderForm({
     ]);
 
     function addInvoice() {
-        const newInvoices = [...data.invoices, createEmptyInvoice()];
+        const newInvoices = [
+            ...data.invoices,
+            createEmptyInvoice(String(defaultPaymentMethod ?? '')),
+        ];
         setData('invoices', newInvoices);
     }
 
@@ -645,6 +811,32 @@ export default function OrderForm({
         invoices[toIndex] = recalculateInvoice(invoices[toIndex]);
 
         setData('invoices', invoices);
+    }
+
+    function handleInvoicePaymentMethodChange(
+        invoiceIndex: number,
+        paymentMethod: string,
+    ) {
+        const nextInvoices = [...data.invoices];
+        const currentInvoice = nextInvoices[invoiceIndex];
+
+        if (!currentInvoice) {
+            return;
+        }
+
+        const nextInvoice = recalculateInvoice(
+            applyInvoicePaymentMethodExtensions(
+                {
+                    ...currentInvoice,
+                    payment_method: paymentMethod,
+                },
+                paymentMethod,
+                normalizedOrderExtensionMasters,
+            ),
+        );
+
+        nextInvoices[invoiceIndex] = nextInvoice;
+        setData('invoices', nextInvoices);
     }
 
     // validation
@@ -771,9 +963,15 @@ export default function OrderForm({
         Record<string, boolean>
     >({});
     const [memberOptions, setMemberOptions] = useState<OptionType[]>([]);
+    const [invoicePaymentMethodOptions, setInvoicePaymentMethodOptions] =
+        useState<OptionType[]>(paymentMethods);
     const [memberSharingPlanById, setMemberSharingPlanById] = useState<
         Record<number, string | null>
     >({});
+
+    useEffect(() => {
+        setInvoicePaymentMethodOptions(paymentMethods);
+    }, [paymentMethods]);
 
     useEffect(() => {
         const confirmationId = Number(quotation?.customer_confirmation_id ?? 0);
@@ -916,9 +1114,24 @@ export default function OrderForm({
         () => quotation?.extensions ?? [],
         [quotation?.extensions],
     );
+
     const quotationItemTaxSummaries = useMemo(() => {
         return buildItemTaxSummaries(quotation?.items ?? []);
     }, [quotation?.items]);
+
+    const quotationItemTaxRows = useMemo(
+        () =>
+            quotationItemTaxSummaries.map((tax, index) => ({
+                key: `quotation-item-tax-${index}`,
+                label: formatExtensionLabel(
+                    String(tax.name ?? 'Tax'),
+                    tax.calculation_mode,
+                    Number(tax.calculation_value ?? 0),
+                ),
+                amount: Number(tax.amount ?? 0),
+            })),
+        [quotationItemTaxSummaries],
+    );
 
     const quotationItemTaxTotal = quotationItemTaxSummaries.reduce(
         (sum, tax) => sum + Number(tax.amount ?? 0),
@@ -937,108 +1150,21 @@ export default function OrderForm({
         }));
     }, [quotationExtensions, quotationSubtotalAmount]);
 
-    const quotationNonDiscountExtensions = quotationExtensionsWithAmount.filter(
-        (extension) => String(extension.type ?? 'discount') !== 'discount',
-    );
-
-    const quotationNonDiscountTaxExtensions =
-        quotationNonDiscountExtensions.filter(
-            (extension) => String(extension.type ?? '') === 'tax',
-        );
-
-    const quotationNonDiscountOtherExtensions =
-        quotationNonDiscountExtensions.filter(
-            (extension) => String(extension.type ?? '') !== 'tax',
-        );
-
-    const quotationNonDiscountExtensionTotal =
-        quotationNonDiscountExtensions.reduce(
+    const quotationExtensionAmountFromExtensions =
+        quotationExtensionsWithAmount.reduce(
             (sum, extension) => sum + Number(extension.amount ?? 0),
             0,
         );
 
-    const quotationDiscountExtension =
-        quotationExtensionsWithAmount.find(
-            (extension) => String(extension.type ?? 'discount') === 'discount',
-        ) ?? null;
-
-    const quotationDiscountAmount = Number(
-        quotationDiscountExtension?.amount ?? 0,
-    );
-
     const quotationExtensionTotalAmount = Number(
         quotation?.extension_total_amount ??
-            quotationItemTaxTotal +
-                quotationNonDiscountExtensionTotal +
-                quotationDiscountAmount,
+            quotationItemTaxTotal + quotationExtensionAmountFromExtensions,
     );
 
     const quotationTotalAmount = Number(
         quotation?.total_amount ??
             quotationSubtotalAmount + quotationExtensionTotalAmount,
     );
-
-    const quotationTotalsRows = useMemo<TotalsSummaryRow[]>(() => {
-        const rows: TotalsSummaryRow[] = [];
-
-        quotationNonDiscountOtherExtensions.forEach((extension, index) => {
-            rows.push({
-                key: extension._key ?? `quotation-other-${index}`,
-                label: formatExtensionLabel(
-                    String(extension.name ?? 'Extension'),
-                    String(extension.calculation_mode ?? 'fixed'),
-                    Number(extension.calculation_value ?? 0),
-                ),
-                amount: Number(extension.amount ?? 0),
-            });
-        });
-
-        if (quotationDiscountExtension) {
-            rows.push({
-                key: quotationDiscountExtension._key ?? 'quotation-discount',
-                label: formatExtensionLabel(
-                    String(quotationDiscountExtension.name ?? 'Discount'),
-                    String(
-                        quotationDiscountExtension.calculation_mode ?? 'fixed',
-                    ),
-                    Number(quotationDiscountExtension.calculation_value ?? 0),
-                ),
-                amount: quotationDiscountAmount,
-            });
-        }
-
-        quotationItemTaxSummaries.forEach((tax, index) => {
-            rows.push({
-                key: `quotation-item-tax-${index}`,
-                label: formatExtensionLabel(
-                    String(tax.name ?? 'Tax'),
-                    tax.calculation_mode,
-                    Number(tax.calculation_value ?? 0),
-                ),
-                amount: Number(tax.amount ?? 0),
-            });
-        });
-
-        quotationNonDiscountTaxExtensions.forEach((extension, index) => {
-            rows.push({
-                key: extension._key ?? `quotation-tax-ext-${index}`,
-                label: formatExtensionLabel(
-                    String(extension.name ?? 'Tax'),
-                    String(extension.calculation_mode ?? 'fixed'),
-                    Number(extension.calculation_value ?? 0),
-                ),
-                amount: Number(extension.amount ?? 0),
-            });
-        });
-
-        return rows;
-    }, [
-        quotationDiscountAmount,
-        quotationDiscountExtension,
-        quotationItemTaxSummaries,
-        quotationNonDiscountOtherExtensions,
-        quotationNonDiscountTaxExtensions,
-    ]);
 
     const hasQuotationCustomerConfirmation =
         Number(quotation?.customer_confirmation_id ?? 0) > 0;
@@ -1399,7 +1525,18 @@ export default function OrderForm({
                                     (sum, tax) => sum + Number(tax.amount ?? 0),
                                     0,
                                 );
-                                const extensionsWithAmount =
+                                const itemTaxRows = itemTaxSummaries.map(
+                                    (tax, taxIndex) => ({
+                                        key: `invoice-${idx}-item-tax-${taxIndex}`,
+                                        label: formatExtensionLabel(
+                                            String(tax.name ?? 'Tax'),
+                                            tax.calculation_mode,
+                                            Number(tax.calculation_value ?? 0),
+                                        ),
+                                        amount: Number(tax.amount ?? 0),
+                                    }),
+                                );
+                                const invoiceExtensionsWithAmount =
                                     normalizeInvoiceExtensions(
                                         (invoice.extensions ??
                                             []) as InvoiceExtensionInput[],
@@ -1410,131 +1547,17 @@ export default function OrderForm({
                                             invoiceSubtotal,
                                         ),
                                     }));
-                                const nonDiscountExtensions =
-                                    extensionsWithAmount.filter(
-                                        (extension) =>
-                                            String(
-                                                extension.type ?? 'discount',
-                                            ) !== 'discount',
-                                    );
-                                const nonDiscountTaxExtensions =
-                                    nonDiscountExtensions.filter(
-                                        (extension) =>
-                                            String(extension.type ?? '') ===
-                                            'tax',
-                                    );
-                                const nonDiscountOtherExtensions =
-                                    nonDiscountExtensions.filter(
-                                        (extension) =>
-                                            String(extension.type ?? '') !==
-                                            'tax',
-                                    );
-                                const nonDiscountExtensionTotal =
-                                    nonDiscountExtensions.reduce(
+                                const extensionAmountFromExtensions =
+                                    invoiceExtensionsWithAmount.reduce(
                                         (sum, extension) =>
                                             sum + Number(extension.amount ?? 0),
                                         0,
                                     );
-                                const discountExtension =
-                                    extensionsWithAmount.find(
-                                        (extension) =>
-                                            String(
-                                                extension.type ?? 'discount',
-                                            ) === 'discount',
-                                    ) ?? null;
-                                const discountAmount = Number(
-                                    discountExtension?.amount ?? 0,
-                                );
                                 const invoiceExtensionTotal =
                                     itemTaxTotal +
-                                    nonDiscountExtensionTotal +
-                                    discountAmount;
+                                    extensionAmountFromExtensions;
                                 const invoiceGrandTotal =
                                     invoiceSubtotal + invoiceExtensionTotal;
-                                const invoiceTotalsRows: TotalsSummaryRow[] = [
-                                    ...nonDiscountOtherExtensions.map(
-                                        (extension, extensionIndex) => ({
-                                            key:
-                                                extension._key ??
-                                                `invoice-${idx}-other-${extensionIndex}`,
-                                            label: formatExtensionLabel(
-                                                String(
-                                                    extension.name ??
-                                                        'Extension',
-                                                ),
-                                                String(
-                                                    extension.calculation_mode ??
-                                                        'fixed',
-                                                ),
-                                                Number(
-                                                    extension.calculation_value ??
-                                                        0,
-                                                ),
-                                            ),
-                                            amount: Number(
-                                                extension.amount ?? 0,
-                                            ),
-                                        }),
-                                    ),
-                                    ...(discountExtension
-                                        ? [
-                                              {
-                                                  key:
-                                                      discountExtension._key ??
-                                                      `invoice-${idx}-discount`,
-                                                  label: formatExtensionLabel(
-                                                      String(
-                                                          discountExtension.name ??
-                                                              'Discount',
-                                                      ),
-                                                      String(
-                                                          discountExtension.calculation_mode ??
-                                                              'fixed',
-                                                      ),
-                                                      Number(
-                                                          discountExtension.calculation_value ??
-                                                              0,
-                                                      ),
-                                                  ),
-                                                  amount: discountAmount,
-                                              },
-                                          ]
-                                        : []),
-                                    ...itemTaxSummaries.map(
-                                        (tax, taxIndex) => ({
-                                            key: `invoice-${idx}-item-tax-${taxIndex}`,
-                                            label: formatExtensionLabel(
-                                                String(tax.name ?? 'Tax'),
-                                                tax.calculation_mode,
-                                                Number(
-                                                    tax.calculation_value ?? 0,
-                                                ),
-                                            ),
-                                            amount: Number(tax.amount ?? 0),
-                                        }),
-                                    ),
-                                    ...nonDiscountTaxExtensions.map(
-                                        (extension, extensionIndex) => ({
-                                            key:
-                                                extension._key ??
-                                                `invoice-${idx}-tax-ext-${extensionIndex}`,
-                                            label: formatExtensionLabel(
-                                                String(extension.name ?? 'Tax'),
-                                                String(
-                                                    extension.calculation_mode ??
-                                                        'fixed',
-                                                ),
-                                                Number(
-                                                    extension.calculation_value ??
-                                                        0,
-                                                ),
-                                            ),
-                                            amount: Number(
-                                                extension.amount ?? 0,
-                                            ),
-                                        }),
-                                    ),
-                                ];
 
                                 return (
                                     <Card
@@ -1695,6 +1718,35 @@ export default function OrderForm({
                                                                 `invoices.${idx}.${path}`,
                                                             )
                                                         }
+                                                        paymentMethodField={
+                                                            <PaymentMethodMasterCombobox
+                                                                triggerId={`invoice-payment-method-${idx}`}
+                                                                value={String(
+                                                                    invoice.payment_method ??
+                                                                        '',
+                                                                )}
+                                                                options={
+                                                                    invoicePaymentMethodOptions
+                                                                }
+                                                                disabled={
+                                                                    processing ||
+                                                                    isView
+                                                                }
+                                                                placeholder="Select payment method"
+                                                                searchPlaceholder="Search payment method"
+                                                                onChange={(
+                                                                    value,
+                                                                ) =>
+                                                                    handleInvoicePaymentMethodChange(
+                                                                        idx,
+                                                                        value,
+                                                                    )
+                                                                }
+                                                                onOptionsChange={
+                                                                    setInvoicePaymentMethodOptions
+                                                                }
+                                                            />
+                                                        }
                                                         onChange={(patch) => {
                                                             const next = [
                                                                 ...data.invoices,
@@ -1764,8 +1816,34 @@ export default function OrderForm({
                                                         subtotalAmount={
                                                             invoiceSubtotal
                                                         }
-                                                        rows={invoiceTotalsRows}
-                                                        showExtensionTotal
+                                                        itemTaxRows={
+                                                            itemTaxRows
+                                                        }
+                                                        extensions={
+                                                            invoiceExtensionsWithAmount
+                                                        }
+                                                        extensionMasters={
+                                                            normalizedOrderExtensionMasters
+                                                        }
+                                                        onExtensionsChange={(
+                                                            extensions,
+                                                        ) => {
+                                                            const next = [
+                                                                ...data.invoices,
+                                                            ];
+                                                            next[idx] =
+                                                                recalculateInvoice(
+                                                                    {
+                                                                        ...invoice,
+                                                                        extensions,
+                                                                    },
+                                                                );
+                                                            setData(
+                                                                'invoices',
+                                                                next,
+                                                            );
+                                                        }}
+                                                        readOnly={isView}
                                                         extensionTotalAmount={
                                                             invoiceExtensionTotal
                                                         }
@@ -1830,76 +1908,24 @@ export default function OrderForm({
                                     {!quotationCollapsed && (
                                         <>
                                             {quotation.package_name && (
-                                                <div className="grid w-full items-center gap-3 rounded-md border p-3">
-                                                    <Label>
-                                                        Package & Sharing Plan
-                                                        Costs
-                                                    </Label>
-                                                    <div className="space-y-1 text-sm">
-                                                        <div className="flex items-center justify-between gap-3 border-b pb-2 font-medium">
-                                                            <span className="text-muted-foreground">
-                                                                Package
-                                                            </span>
-                                                            <span>
-                                                                {
-                                                                    quotation.package_name
-                                                                }
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <span className="text-muted-foreground">
-                                                                Single
-                                                            </span>
-                                                            <span>
-                                                                $
-                                                                {Number(
-                                                                    quotation.package_price_single ??
-                                                                        0,
-                                                                ).toFixed(2)}
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <span className="text-muted-foreground">
-                                                                Double
-                                                            </span>
-                                                            <span>
-                                                                $
-                                                                {Number(
-                                                                    quotation.package_price_double ??
-                                                                        0,
-                                                                ).toFixed(2)}
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <span className="text-muted-foreground">
-                                                                Triple
-                                                            </span>
-                                                            <span>
-                                                                $
-                                                                {Number(
-                                                                    quotation.package_price_triple ??
-                                                                        0,
-                                                                ).toFixed(2)}
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <span className="text-muted-foreground">
-                                                                Quad
-                                                            </span>
-                                                            <span>
-                                                                $
-                                                                {Number(
-                                                                    quotation.package_price_quad ??
-                                                                        0,
-                                                                ).toFixed(2)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <PackageSharingPlanInfo
+                                                    packageName={
+                                                        quotation.package_name
+                                                    }
+                                                    singlePrice={
+                                                        quotation.package_price_single
+                                                    }
+                                                    doublePrice={
+                                                        quotation.package_price_double
+                                                    }
+                                                    triplePrice={
+                                                        quotation.package_price_triple
+                                                    }
+                                                    quadPrice={
+                                                        quotation.package_price_quad
+                                                    }
+                                                    className="text-sm"
+                                                />
                                             )}
 
                                             <QuotationItemTableForm
@@ -1911,6 +1937,9 @@ export default function OrderForm({
                                                 showMemberColumn={false}
                                                 showTaxColumn
                                                 memberOptions={memberOptions}
+                                                taxExtensionMasters={
+                                                    taxExtensionMasters
+                                                }
                                                 memberSharingPlanById={
                                                     memberSharingPlanById
                                                 }
@@ -1920,7 +1949,12 @@ export default function OrderForm({
                                                 subtotalAmount={
                                                     quotationSubtotalAmount
                                                 }
-                                                rows={quotationTotalsRows}
+                                                itemTaxRows={
+                                                    quotationItemTaxRows
+                                                }
+                                                extensions={
+                                                    quotationExtensionsWithAmount
+                                                }
                                                 grandTotalAmount={
                                                     quotationTotalAmount
                                                 }

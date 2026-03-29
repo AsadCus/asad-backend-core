@@ -21,7 +21,6 @@ return new class extends Migration
             $table->foreignId('customer_confirmation_id')->nullable()->constrained('customer_confirmations')->nullOnDelete();
             $table->foreignId('sales_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('payment_plan')->nullable();
-            $table->string('payment_method')->nullable();
             $table->text('description')->nullable();
             $table->string('status')->default('draft');
             $table->string('reason')->nullable();

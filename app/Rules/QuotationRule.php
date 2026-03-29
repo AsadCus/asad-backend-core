@@ -22,7 +22,6 @@ class QuotationRule
                 'quotation_date' => ['nullable', 'string'],
                 'expiry_date' => ['nullable', 'string'],
                 'payment_plan' => ['nullable', 'string'],
-                'payment_method' => ['nullable', 'string'],
                 'description' => ['nullable', 'string'],
                 'status' => ['nullable', $this->statusRule()],
                 'extensions' => [
@@ -66,7 +65,6 @@ class QuotationRule
                 'quotation_date' => ['required', 'string'],
                 'expiry_date' => ['required', 'string'],
                 'payment_plan' => ['required', 'string'],
-                'payment_method' => ['required', 'string'],
                 'description' => ['required', 'string'],
                 'status' => ['required', $this->statusRule()],
                 'extensions' => [

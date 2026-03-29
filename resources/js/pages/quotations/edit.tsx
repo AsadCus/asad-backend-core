@@ -25,7 +25,6 @@ interface EditQuotationProps {
             address?: string | null;
             email?: string | null;
         }>;
-        paymentMethods?: { label: string; value: string }[];
         quotationExtensionMasters?: Array<
             z.infer<typeof quotationExtensionSchema> & {
                 payment_methods?: string[];
@@ -64,7 +63,6 @@ export default function EditQuotation({ data }: EditQuotationProps) {
                         mode="edit"
                         initialData={data.data}
                         paymentPlans={paymentPlans}
-                        paymentMethods={data.paymentMethods ?? []}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
                         activeCustomers={data.activeCustomers ?? []}

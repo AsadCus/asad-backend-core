@@ -54,6 +54,9 @@ class OrderController extends Controller
     {
         if ($request['quotation_id']) {
             $data['quotation'] = $this->quotationService->getForEditShow($request['quotation_id']);
+            $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
+            $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+            $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
             return Inertia::render('orders/create', [
                 'data' => $data,
@@ -75,6 +78,9 @@ class OrderController extends Controller
     {
         $data['data'] = $this->orderService->getForEditShow($id);
         $data['quotation'] = $this->quotationService->getForEditShow($data['data']['quotation_id']);
+        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
+        $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+        $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
         return Inertia::render('orders/view', [
             'data' => $data,
@@ -85,6 +91,9 @@ class OrderController extends Controller
     {
         $data['data'] = $this->orderService->getForEditShow($id);
         $data['quotation'] = $this->quotationService->getForEditShow($data['data']['quotation_id']);
+        $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
+        $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+        $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
         return Inertia::render('orders/edit', [
             'data' => $data,

@@ -24,7 +24,6 @@ class Quotation extends Model
         'customer_confirmation_id',
         'description',
         'payment_plan',
-        'payment_method',
         'status',
         'reason',
         'is_locked',

@@ -1,7 +1,8 @@
+import { type TotalsSummaryExtensionMaster } from '@/components/totals-summary-card';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
 import { index as orderIndex } from '@/routes/order';
-import { type BreadcrumbItem } from '@/types';
+import { type BreadcrumbItem, type OptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import { paymentPlans, QuotationSchema } from '../quotations/schema';
@@ -10,6 +11,9 @@ import OrderForm from './form';
 interface CreateOrderProps {
     data: {
         quotation: QuotationSchema;
+        paymentMethods: OptionType[];
+        quotationExtensionMasters: TotalsSummaryExtensionMaster[];
+        defaultPaymentMethod: string;
     };
 }
 
@@ -42,6 +46,9 @@ export default function CreateOrder({ data }: CreateOrderProps) {
                         mode="create"
                         quotation={data.quotation}
                         paymentPlans={paymentPlans}
+                        paymentMethods={data.paymentMethods}
+                        extensionMasters={data.quotationExtensionMasters}
+                        defaultPaymentMethod={data.defaultPaymentMethod}
                         onCancel={handleCancel}
                     />
                 </div>

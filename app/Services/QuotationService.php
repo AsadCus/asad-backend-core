@@ -71,7 +71,6 @@ class QuotationService
                     'items_count' => $q->quotationItems->count(),
                     'total_amount' => $this->formatService->cleanDecimal($q->total_amount),
                     'payment_plan' => $q->payment_plan_label,
-                    'payment_method' => ucfirst($q->payment_method),
                     'status' => $q->status?->value,
                     'reason' => $q->reason,
                     'have_invoices' => $q->order?->invoices()->exists() ?? false,
@@ -458,7 +457,6 @@ class QuotationService
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
-                'payment_method' => $data['payment_method'] ?? null,
                 'description' => $data['description'] ?? null,
                 'status' => $data['status'] ?? QuotationStatus::Draft->value,
                 'reason' => $data['reason'] ?? null,
@@ -499,7 +497,10 @@ class QuotationService
             'quotationItems.taxes',
             'quotationExtensions',
             'customerConfirmation.package',
+            'order.invoices',
         ])->findOrFail($id);
+
+        $invoiceExtensions = $this->buildInvoiceExtensionsForQuotationDisplay($quotation);
 
         return [
             'id' => $quotation->id,
@@ -519,7 +520,6 @@ class QuotationService
             'extension_total_amount' => $this->formatService->cleanDecimal($quotation->extension_total_amount),
             'total_amount' => $this->formatService->cleanDecimal($quotation->total_amount),
             'payment_plan' => $quotation->payment_plan,
-            'payment_method' => $quotation->payment_method,
             'status' => $quotation->status?->value,
             'reason' => $quotation->reason,
             'package_name' => $quotation->customerConfirmation?->package?->name,
@@ -543,6 +543,7 @@ class QuotationService
                     'sort_order' => $extension->sort_order,
                 ];
             })->values()->toArray(),
+            'invoice_extensions' => $invoiceExtensions,
             'items' => $quotation->quotationItems->sortBy('sort_order')->map(function (QuotationItem $it) {
                 return [
                     'id' => $it->id,
@@ -606,7 +607,6 @@ class QuotationService
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
-                'payment_method' => $data['payment_method'] ?? null,
                 'description' => $data['description'] ?? null,
                 'status' => $data['status'] ?? $quotation->status?->value,
                 'reason' => $data['reason'] ?? $quotation->reason,
@@ -1554,5 +1554,96 @@ class QuotationService
                 $this->paymentStatusService->syncAfterReceiptMutation($invoiceId);
             }
         }
+    }
+
+    private function buildInvoiceExtensionsForQuotationDisplay(Quotation $quotation): array
+    {
+        $order = $quotation->order;
+
+        if (! $order) {
+            return [];
+        }
+
+        $aggregated = collect($order->invoices ?? [])
+            ->flatMap(function ($invoice) {
+                $extensions = is_array($invoice->extensions ?? null)
+                    ? $invoice->extensions
+                    : [];
+
+                return collect($extensions)->filter(fn ($extension) => is_array($extension));
+            })
+            ->reduce(function (Collection $carry, array $extension) {
+                $type = strtolower(trim((string) ($extension['type'] ?? 'discount')));
+
+                if ($type === 'tax') {
+                    return $carry;
+                }
+
+                $calculationMode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    $calculationMode = 'fixed';
+                }
+
+                $name = trim((string) ($extension['name'] ?? ''));
+                if ($name === '') {
+                    $name = Str::headline(str_replace('_', ' ', $type));
+                }
+
+                $masterId = ! empty($extension['quotation_extension_master_id'])
+                    ? (int) $extension['quotation_extension_master_id']
+                    : null;
+
+                $calculationValue = $this->formatService->cleanDecimal(
+                    $extension['calculation_value'] ?? 0
+                ) ?? 0;
+
+                $amount = $this->formatService->cleanDecimal(
+                    $extension['amount'] ?? 0
+                ) ?? 0;
+
+                $groupKey = implode('|', [
+                    (string) ($masterId ?? 0),
+                    strtolower($name),
+                    $type,
+                    $calculationMode,
+                    (string) $calculationValue,
+                ]);
+
+                if (! $carry->has($groupKey)) {
+                    $carry->put($groupKey, [
+                        'id' => null,
+                        'quotation_extension_master_id' => $masterId,
+                        'name' => $name,
+                        'type' => $type,
+                        'calculation_mode' => $calculationMode,
+                        'calculation_value' => $calculationValue,
+                        'amount' => 0,
+                    ]);
+                }
+
+                $current = $carry->get($groupKey);
+
+                if (! is_array($current)) {
+                    return $carry;
+                }
+
+                $current['amount'] = (float) ($current['amount'] ?? 0) + (float) $amount;
+
+                $carry->put($groupKey, $current);
+
+                return $carry;
+            }, collect())
+            ->values()
+            ->map(function (array $extension, int $index) {
+                return [
+                    ...$extension,
+                    'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0),
+                    'sort_order' => $index + 1,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return $aggregated;
     }
 }

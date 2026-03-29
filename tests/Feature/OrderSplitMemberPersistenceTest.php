@@ -55,6 +55,7 @@ class OrderSplitMemberPersistenceTest extends TestCase
                 [
                     '_key' => 'inv-deposit',
                     'description' => 'Invoice For Deposit',
+                    'payment_method' => 'transfer',
                     'amount' => 3000,
                     'invoice_date' => now()->format('Y-m-d'),
                     'due_date' => now()->format('Y-m-d'),
@@ -74,6 +75,7 @@ class OrderSplitMemberPersistenceTest extends TestCase
                 [
                     '_key' => 'inv-balance',
                     'description' => 'Invoice For Balance',
+                    'payment_method' => 'transfer',
                     'amount' => 2000,
                     'invoice_date' => now()->addDay()->format('Y-m-d'),
                     'due_date' => now()->addDays(7)->format('Y-m-d'),

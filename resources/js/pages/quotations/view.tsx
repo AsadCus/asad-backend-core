@@ -19,7 +19,6 @@ interface ViewQuotationProps {
             address?: string | null;
             email?: string | null;
         }>;
-        paymentMethods?: { label: string; value: string }[];
     };
 }
 
@@ -52,7 +51,6 @@ export default function ViewQuotation({ data }: ViewQuotationProps) {
                         mode="view"
                         initialData={data.data}
                         paymentPlans={paymentPlans}
-                        paymentMethods={data.paymentMethods ?? []}
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
                         activeCustomers={data.activeCustomers ?? []}

@@ -37,7 +37,6 @@ interface QuotationsProps {
         quotationsForDatatable: QuotationSchema[];
         customers: OptionType[];
         salespersons: OptionType[];
-        paymentMethods: OptionType[];
     };
 }
 
@@ -48,9 +47,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const getColumns = (
-    paymentMethods: OptionType[],
-): ColumnDef<QuotationSchema>[] => [
+const getColumns = (): ColumnDef<QuotationSchema>[] => [
     createSelectColumn<QuotationSchema>(),
     {
         accessorKey: 'id',
@@ -149,19 +146,6 @@ const getColumns = (
         },
     },
     {
-        accessorKey: 'payment_method',
-        header: 'Payment Method',
-        meta: { exportable: true },
-        cell: ({ row }) => {
-            const paymentMethod = row.original.payment_method ?? '';
-            const label =
-                paymentMethods.find((s) => s.value === paymentMethod)?.label ||
-                paymentMethod;
-
-            return label;
-        },
-    },
-    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
@@ -179,10 +163,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     const { quotationsForDatatable, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
-    const columns = useMemo(
-        () => getColumns(data.paymentMethods ?? []),
-        [data.paymentMethods],
-    );
+    const columns = useMemo(() => getColumns(), []);
     const actions: ActionType[] = [];
 
     if (userPermissions.includes('quotation create')) actions.push('add');
@@ -406,7 +387,6 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     expiry_date: false,
                                     items_count: false,
                                     payment_plan: false,
-                                    payment_method: false,
                                     created_at: false,
                                     updated_at: false,
                                 },

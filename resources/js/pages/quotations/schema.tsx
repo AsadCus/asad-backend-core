@@ -37,7 +37,6 @@ export const quotationSchema = z.object({
 
     description: z.string().nullable().optional(),
     payment_plan: z.string().nullable().optional(),
-    payment_method: z.string().nullable().optional(),
     package_name: z.string().nullable().optional(),
     package_departure_date: z.string().nullable().optional(),
     package_price_single: z
@@ -67,6 +66,7 @@ export const quotationSchema = z.object({
 
     items: z.array(quotationItemSchema),
     extensions: z.array(quotationExtensionSchema).optional(),
+    invoice_extensions: z.array(quotationExtensionSchema).optional(),
 
     model: z.string().optional(),
     notes: z.array(noteSchema),
@@ -85,13 +85,6 @@ export const paymentPlans = [
     { label: 'Direct', value: 'direct' },
     { label: 'Full Payment', value: 'full' },
     { label: 'Installment', value: 'installment' },
-];
-
-export const paymentMethods = [
-    { label: 'Cash', value: 'cash' },
-    { label: 'Bank Transfer', value: 'transfer' },
-    { label: 'Paynow', value: 'paynow' },
-    { label: 'Credit Card', value: 'credit_card' },
 ];
 
 export const statuses = [

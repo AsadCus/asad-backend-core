@@ -16,6 +16,7 @@ class Invoice extends Model
         'invoice_number',
         'type',
         'description',
+        'payment_method',
         'extensions',
         'amount',
         'invoice_date',

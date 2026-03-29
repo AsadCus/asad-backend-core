@@ -1,9 +1,6 @@
-import {
-    CreatableCombobox,
-    type CreatableComboboxOption,
-} from '@/components/creatable-combobox';
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
+import PaymentMethodMasterCombobox from '@/components/payment-method-master-combobox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,7 +19,7 @@ import {
 } from '@/routes/receipt';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { InvoiceSchema } from '../invoices/schema';
 import { ReceiptSchema } from './schema';
 
@@ -52,26 +49,8 @@ export default function ReceiptForm({
     const [selectedInvoice, setSelectedInvoice] =
         useState<InvoiceSchema | null>(invoiceData ?? null);
 
-    const [paymentMethodOptions, setPaymentMethodOptions] = useState<
-        CreatableComboboxOption[]
-    >(
-        paymentMethods.map((option) => ({
-            value: String(option.value),
-            label: String(option.label),
-        })),
-    );
-
-    useEffect(() => {
-        setPaymentMethodOptions(
-            paymentMethods.map((option) => ({
-                value: String(option.value),
-                label: String(option.label),
-            })),
-        );
-    }, [paymentMethods]);
-
     const resolvedDefaultPaymentMethod =
-        defaultPaymentMethod ?? paymentMethodOptions[0]?.value ?? '';
+        defaultPaymentMethod ?? String(paymentMethods[0]?.value ?? '');
 
     const initialFormState: ReceiptSchema = {
         receipt_number: '',
@@ -206,8 +185,8 @@ export default function ReceiptForm({
                         }}
                         error={errors.payment_method}
                     >
-                        <CreatableCombobox
-                            options={paymentMethodOptions}
+                        <PaymentMethodMasterCombobox
+                            options={paymentMethods}
                             triggerId="payment_method"
                             value={String(data.payment_method ?? '')}
                             placeholder="Select payment method"
@@ -215,20 +194,6 @@ export default function ReceiptForm({
                             onChange={(nextValue) =>
                                 setData('payment_method', nextValue)
                             }
-                            onCreateOption={(option) => {
-                                setPaymentMethodOptions((prev) => {
-                                    if (
-                                        prev.some(
-                                            (existing) =>
-                                                existing.value === option.value,
-                                        )
-                                    ) {
-                                        return prev;
-                                    }
-
-                                    return [...prev, option];
-                                });
-                            }}
                         />
                     </FormField>
 

@@ -24,9 +24,7 @@ import { quotationFormValidationSchema } from './validation';
 interface QuotationFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: QuotationSchema;
-    defaultPaymentMethod?: string;
     paymentPlans?: OptionType[];
-    paymentMethods?: OptionType[];
     statuses?: OptionType[];
     customerConfirmations?: OptionType[];
     activeCustomers?: Array<{
@@ -161,9 +159,7 @@ function resolveAutoSelectedMemberIds(
 export function QuotationForm({
     mode,
     initialData,
-    defaultPaymentMethod,
     paymentPlans = [],
-    paymentMethods = [],
     statuses = [],
     customerConfirmations = [],
     activeCustomers = [],
@@ -188,8 +184,6 @@ export function QuotationForm({
     }));
 
     const today = formatDateForDisplay(new Date());
-    const resolvedDefaultPaymentMethod =
-        defaultPaymentMethod ?? String(paymentMethods[0]?.value ?? '');
 
     const initialFormState: QuotationSchema = {
         id: undefined,
@@ -206,11 +200,11 @@ export function QuotationForm({
         customer_email: null,
         description: '',
         payment_plan: 'full',
-        payment_method: resolvedDefaultPaymentMethod,
         status: 'draft',
         reason: '',
         items: [],
         extensions: [],
+        invoice_extensions: [],
         model: 'quotation',
         notes: [],
     };
@@ -433,18 +427,12 @@ export function QuotationForm({
         );
     }, [data.extensions, data.items]);
 
-    const initialPaymentMethodRef = useRef(
-        String(defaultData.payment_method ?? ''),
-    );
-
     useEffect(() => {
         if (activeExtensionMasters.length === 0) {
             return;
         }
 
-        const currentPaymentMethod = String(data.payment_method ?? '');
-        const shouldSyncAutoExtensions =
-            !isEdit || currentPaymentMethod !== initialPaymentMethodRef.current;
+        const shouldSyncAutoExtensions = !isEdit;
 
         if (!shouldSyncAutoExtensions) {
             return;
@@ -481,12 +469,7 @@ export function QuotationForm({
                         return false;
                     }
 
-                    const methods = master.payment_methods ?? [];
-                    if (!methods.length) {
-                        return true;
-                    }
-
-                    return methods.includes(String(prev.payment_method ?? ''));
+                    return true;
                 },
             );
 
@@ -579,13 +562,7 @@ export function QuotationForm({
                 extensions: mergedExtensions,
             };
         });
-    }, [
-        activeExtensionMasters,
-        data.payment_method,
-        isCreate,
-        isEdit,
-        setData,
-    ]);
+    }, [activeExtensionMasters, isCreate, isEdit, setData]);
 
     // customer
     useEffect(() => {
@@ -1241,7 +1218,6 @@ export function QuotationForm({
         if (
             path === 'description' ||
             path === 'payment_plan' ||
-            path === 'payment_method' ||
             path.startsWith('items.') ||
             path.startsWith('extensions.') ||
             path.startsWith('notes.')
@@ -1249,9 +1225,7 @@ export function QuotationForm({
             return {
                 section: 'quotation_details',
                 targetId:
-                    path === 'description' ||
-                    path === 'payment_plan' ||
-                    path === 'payment_method'
+                    path === 'description' || path === 'payment_plan'
                         ? path
                         : 'section-quotation-items',
             };
@@ -1462,10 +1436,6 @@ export function QuotationForm({
                 section: 'quotation_details',
                 targetId: 'payment_plan',
             },
-            payment_method: {
-                section: 'quotation_details',
-                targetId: 'payment_method',
-            },
             items: {
                 section: 'quotation_details',
                 targetId: 'section-quotation-items',
@@ -1605,7 +1575,6 @@ export function QuotationForm({
                         quotationNotes={data.notes}
                         noteErrors={noteErrors}
                         paymentPlans={paymentPlans}
-                        paymentMethods={paymentMethods}
                         extensionMasters={activeExtensionMasters}
                         availableMembers={availableMembers}
                         status={getQuotationSectionStatus('quotation_details')}

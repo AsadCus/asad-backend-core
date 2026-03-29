@@ -113,7 +113,8 @@
                 <th style="width: 28%;">Items</th>
                 <th style="width: 12%;" class="text-right">Unit Price</th>
                 <th style="width: 10%;" class="text-right">Quantity</th>
-                <th style="width: 18%;" class="text-right">Total (Saudi Riyal)</th>
+                <th style="width: 18%;" class="text-right">Amount</th>
+                {{-- <th style="width: 18%;" class="text-right">Total (Saudi Riyal)</th> --}}
                 <th style="width: 32%;">Remarks</th>
             </tr>
             @forelse ($items as $item)

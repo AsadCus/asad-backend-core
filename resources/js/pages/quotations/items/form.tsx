@@ -784,7 +784,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         {mode === 'master' ? (
                             <ProperInput
                                 value={item.description ?? ''}
-                                disabled={disabled || isLinkedMemberItem(item)}
+                                disabled={disabled}
                                 textarea={!item.is_header}
                                 // size="compact"
                                 className={
@@ -799,7 +799,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         ) : !item.is_header ? (
                             <ProperInput
                                 value={item.description ?? ''}
-                                disabled={disabled || isLinkedMemberItem(item)}
+                                disabled={disabled}
                                 textarea
                                 // size="compact"
                                 onCommit={(v) =>
@@ -811,7 +811,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                         ) : (
                             <ItemDescriptionCombobox
                                 value={item.description ?? ''}
-                                disabled={disabled || isLinkedMemberItem(item)}
+                                disabled={disabled}
                                 isHeader={item.is_header ?? false}
                                 isChild={false}
                                 existingItemKeys={existingItemKeys}
@@ -1297,25 +1297,26 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                             </DropdownMenu>
                         </TooltipProvider>
 
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="ghost"
-                                        className="h-6 w-6 text-red-600 hover:text-red-700"
-                                        disabled={disableRemove}
-                                        onClick={() => removeItem(index)}
-                                    >
-                                        <X size={14} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="left">
-                                    Remove
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        {!disableRemove && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-6 w-6 text-red-600 hover:text-red-700"
+                                            onClick={() => removeItem(index)}
+                                        >
+                                            <X size={14} />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left">
+                                        Remove
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                     </div>
                 );
             },
@@ -1665,25 +1666,29 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                                                     }}
                                                                                 />
                                                                             </div>
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                disabled={
-                                                                                    disabled ||
-                                                                                    isEmptyTax(
-                                                                                        tax,
-                                                                                    )
-                                                                                }
-                                                                                onClick={() =>
-                                                                                    clearTaxInput(
-                                                                                        item,
-                                                                                        taxIndex,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                Clear
-                                                                            </Button>
+                                                                            {!disabled &&
+                                                                                !isEmptyTax(
+                                                                                    tax,
+                                                                                ) && (
+                                                                                    <Button
+                                                                                        type="button"
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-7 w-7 text-red-600 hover:text-red-700"
+                                                                                        onClick={() =>
+                                                                                            clearTaxInput(
+                                                                                                item,
+                                                                                                taxIndex,
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        <X
+                                                                                            size={
+                                                                                                14
+                                                                                            }
+                                                                                        />
+                                                                                    </Button>
+                                                                                )}
                                                                         </div>
                                                                         {renderError?.(
                                                                             `items.${sourceIndex}.taxes.${taxIndex}.quotation_extension_master_id`,

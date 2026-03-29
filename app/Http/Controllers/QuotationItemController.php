@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PaymentMethodMaster;
 use App\Models\QuotationExtensionMaster;
 use App\Rules\QuotationItemRule;
 use App\Services\NoteService;
 use App\Services\QuotationItemService;
 use App\Services\QuotationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class QuotationItemController extends Controller
@@ -102,6 +104,56 @@ class QuotationItemController extends Controller
         return back()
             ->with('result', $payload)
             ->with('success', 'Quotation extension created.');
+    }
+
+    public function quickCreatePaymentMethodMaster(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $name = trim((string) $validated['name']);
+        $baseValue = Str::of($name)->lower()->slug('_')->value();
+        $value = $baseValue;
+
+        if ($value === '') {
+            return response()->json([
+                'message' => 'Invalid payment method name.',
+            ], 422);
+        }
+
+        $suffix = 1;
+        while (PaymentMethodMaster::query()->where('value', $value)->exists()) {
+            $value = $baseValue.'_'.$suffix;
+            $suffix++;
+        }
+
+        $nextSortOrder = ((int) PaymentMethodMaster::query()->max('sort_order')) + 1;
+
+        $master = PaymentMethodMaster::query()->create([
+            'name' => $name,
+            'value' => $value,
+            'is_active' => true,
+            'is_default' => false,
+            'sort_order' => $nextSortOrder,
+        ]);
+
+        $payload = [
+            'id' => $master->id,
+            'name' => $master->name,
+            'value' => $master->value,
+            'is_active' => (bool) $master->is_active,
+            'is_default' => (bool) $master->is_default,
+            'sort_order' => (int) $master->sort_order,
+        ];
+
+        if ($request->expectsJson()) {
+            return response()->json($payload, 201);
+        }
+
+        return back()
+            ->with('result', $payload)
+            ->with('success', 'Payment method created.');
     }
 
     public function store(Request $request)

@@ -76,6 +76,33 @@ class QuotationItemQuickCreateTest extends TestCase
         ]);
     }
 
+    public function test_user_can_quick_create_payment_method_master(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $response = $this->postJson(
+            route('quotation-items.payment-methods.quick-create'),
+            [
+                'name' => 'Digital Wallet',
+            ],
+        );
+
+        $response->assertCreated();
+        $response->assertJson([
+            'name' => 'Digital Wallet',
+            'value' => 'digital_wallet',
+            'is_active' => true,
+            'is_default' => false,
+        ]);
+
+        $this->assertDatabaseHas('payment_method_masters', [
+            'name' => 'Digital Wallet',
+            'value' => 'digital_wallet',
+            'is_active' => true,
+            'is_default' => false,
+        ]);
+    }
+
     public function test_store_quotation_requires_customer_selection(): void
     {
         $this->actingAs(User::factory()->create());

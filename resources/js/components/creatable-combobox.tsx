@@ -25,12 +25,23 @@ interface CreatableComboboxProps {
     options: CreatableComboboxOption[];
     value?: string;
     onChange: (value: string) => void;
-    onCreateOption?: (option: CreatableComboboxOption) => void;
+    onCreateOption?: (
+        option: CreatableComboboxOption,
+    ) =>
+        | void
+        | CreatableComboboxOption
+        | Promise<void | CreatableComboboxOption>;
+    onCreateRequest?: (payload: {
+        option: CreatableComboboxOption;
+        query: string;
+    }) => void;
     placeholder?: string;
     searchPlaceholder?: string;
     disabled?: boolean;
     triggerId?: string;
     className?: string;
+    createActionLabel?: string;
+    createEmptyLabel?: string;
 }
 
 function toLabel(value: string): string {
@@ -54,11 +65,14 @@ export function CreatableCombobox({
     value,
     onChange,
     onCreateOption,
+    onCreateRequest,
     placeholder = 'Select option...',
     searchPlaceholder = 'Search...',
     disabled = false,
     triggerId,
     className,
+    createActionLabel,
+    createEmptyLabel = 'Create new option',
 }: CreatableComboboxProps) {
     const [open, setOpen] = React.useState(false);
     const [query, setQuery] = React.useState('');
@@ -69,22 +83,51 @@ export function CreatableCombobox({
     const canCreate =
         normalizedQuery !== '' &&
         !options.some((option) => option.value === normalizedQuery);
+    const canRequestCreate = typeof onCreateRequest === 'function';
+    const showCreateAction = canCreate || canRequestCreate;
 
-    const handleCreate = React.useCallback(() => {
-        if (!canCreate) {
+    const handleCreate = React.useCallback(async () => {
+        if (!canCreate && !canRequestCreate) {
             return;
         }
 
-        const option = {
+        const option: CreatableComboboxOption = {
             value: normalizedQuery,
             label: toLabel(query) || query,
         };
 
-        onCreateOption?.(option);
-        onChange(option.value);
+        if (onCreateRequest) {
+            onCreateRequest({ option, query });
+            setOpen(false);
+            setQuery('');
+
+            return;
+        }
+
+        const createdOption = await onCreateOption?.(option);
+        const selectedOption = createdOption ?? option;
+
+        if (selectedOption.value) {
+            onChange(selectedOption.value);
+        }
+
         setOpen(false);
         setQuery('');
-    }, [canCreate, normalizedQuery, onChange, onCreateOption, query]);
+    }, [
+        canCreate,
+        canRequestCreate,
+        normalizedQuery,
+        onChange,
+        onCreateOption,
+        onCreateRequest,
+        query,
+    ]);
+
+    const createLabel =
+        createActionLabel ??
+        (normalizedQuery
+            ? `Create "${toLabel(query) || query}"`
+            : createEmptyLabel);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -141,13 +184,13 @@ export function CreatableCombobox({
                                     />
                                 </CommandItem>
                             ))}
-                            {canCreate && (
+                            {showCreateAction && (
                                 <CommandItem
-                                    value={`create ${normalizedQuery}`}
+                                    value={`create ${normalizedQuery || 'new'}`}
                                     onSelect={handleCreate}
                                 >
                                     <Plus className="mr-2 h-4 w-4" />
-                                    Create "{toLabel(query) || query}"
+                                    {createLabel}
                                 </CommandItem>
                             )}
                         </CommandGroup>

@@ -122,7 +122,6 @@ export function QuotationStatusAction({
                 { key: 'quotation_date', label: 'Quotation Date' },
                 { key: 'expiry_date', label: 'Expiry Date' },
                 { key: 'payment_plan', label: 'Payment Plan' },
-                { key: 'payment_method', label: 'Payment Method' },
                 { key: 'description', label: 'Description' },
             ];
 

@@ -122,19 +122,16 @@ class OrderService
                     'invoice_number' => $invoice['invoice_number'] ?? null,
                     'number_format_id' => isset($invoice['number_format_id']) ? (int) $invoice['number_format_id'] : null,
                     'description' => $invoice['description'],
+                    'payment_method' => $invoice['payment_method'] ?? null,
                     'extensions' => $invoice['extensions'] ?? [],
                     'amount' => $invoice['amount'],
                     'invoice_date' => $invoice['invoice_date'],
                     'due_date' => $invoice['due_date'],
                     'status' => $invoice['status'] ?? 'issued',
                     'items' => $invoice['items'] ?? [],
+                    'delete_missing_quotation_items' => false,
                 ]);
             }
-
-            $this->quotationService->syncQuotationExtensionsFromOrderInvoices(
-                $order->quotation,
-                $incomingInvoices,
-            );
 
             activity()
                 ->performedOn($order)
@@ -165,6 +162,7 @@ class OrderService
                 'order_id' => $invoice->order_id,
                 'type' => $invoice->type,
                 'description' => $invoice->description,
+                'payment_method' => $invoice->payment_method,
                 'extensions' => collect($invoice->extensions ?? [])->map(function ($extension) {
                     return [
                         'id' => $extension['id'] ?? null,
@@ -284,6 +282,7 @@ class OrderService
                             ...$invoiceData,
                             'invoice_number' => $invoiceData['invoice_number'] ?? null,
                             'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
+                            'payment_method' => $invoiceData['payment_method'] ?? null,
                             'extensions' => $invoiceData['extensions'] ?? [],
                             'delete_missing_quotation_items' => false,
                         ],
@@ -296,6 +295,7 @@ class OrderService
                         ...$invoiceData,
                         'invoice_number' => $invoiceData['invoice_number'] ?? null,
                         'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
+                        'payment_method' => $invoiceData['payment_method'] ?? null,
                         'extensions' => $invoiceData['extensions'] ?? [],
                         'order_id' => $order->id,
                         'delete_missing_quotation_items' => false,
@@ -353,11 +353,6 @@ class OrderService
                 $linkedQuotationItemIds,
             );
 
-            $this->quotationService->syncQuotationExtensionsFromOrderInvoices(
-                $order->quotation,
-                $incomingInvoices,
-            );
-
             return $order->fresh('invoices.quotationItems');
         });
     }
@@ -370,11 +365,11 @@ class OrderService
     private function normalizeIncomingInvoices(array $incomingInvoices): array
     {
         $seenItemIds = [];
-        $seenFingerprints = [];
 
-        return array_map(function (array $invoice) use (&$seenItemIds, &$seenFingerprints) {
+        return array_map(function (array $invoice) use (&$seenItemIds) {
             $rawItems = array_values($invoice['items'] ?? []);
             $normalizedItems = [];
+            $seenFingerprints = [];
 
             foreach ($rawItems as $item) {
                 if (! is_array($item)) {

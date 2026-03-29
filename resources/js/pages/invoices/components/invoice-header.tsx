@@ -1,5 +1,5 @@
 import { DatePickerField } from '@/components/date-picker';
-import { FieldRequirements } from '@/components/field-requirements';
+import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { Label } from '@/components/ui/label';
 import { parseDisplayDate } from '@/lib/utils';
@@ -12,17 +12,19 @@ export function InvoiceHeader({
     renderError,
     disabled,
     isView = false,
+    paymentMethodField,
 }: {
     invoice: InvoiceSchema;
     onChange: (patch: Partial<InvoiceSchema>) => void;
     renderError: (path: string) => React.ReactNode;
     disabled: boolean;
     isView?: boolean;
+    paymentMethodField?: React.ReactNode;
 }) {
     return (
-        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
             {isView && invoice.invoice_number && (
-                <div className="grid w-full items-center gap-2 lg:col-span-2">
+                <div className="grid w-full items-center gap-2">
                     <Label>Invoice Number</Label>
                     <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-sm">
                         {invoice.invoice_number}
@@ -30,17 +32,16 @@ export function InvoiceHeader({
                 </div>
             )}
 
-            {/* Description */}
-            <div className="grid w-full items-center gap-3 lg:col-span-2">
-                <Label htmlFor="description">
-                    Invoice Name{' '}
-                    <FieldRequirements
-                        required
-                        hint="Invoice name/description"
-                        example="Deposit, Handover, etc"
-                    />
-                </Label>
-                <div className="relative">
+            <section className="grid grid-cols-1 gap-3">
+                <FormField
+                    label="Invoice Name"
+                    htmlFor="description"
+                    fieldRequirementsProps={{
+                        required: true,
+                        hint: 'Invoice name/description',
+                        example: 'Deposit, Handover, etc',
+                    }}
+                >
                     <ProperInput
                         id="description"
                         value={invoice.description ?? ''}
@@ -51,20 +52,19 @@ export function InvoiceHeader({
                         className="font-semibold"
                     />
                     {renderError('description')}
-                </div>
-            </div>
+                </FormField>
+            </section>
 
-            {/* Invoice Date */}
-            <div className="grid w-full items-center gap-3 lg:col-span-1">
-                <Label htmlFor="invoice_date">
-                    Invoice Date{' '}
-                    <FieldRequirements
-                        required
-                        hint="Default from quote date"
-                        format="DD/MM/YYYY"
-                    />
-                </Label>
-                <div className="relative">
+            <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <FormField
+                    label="Invoice Date"
+                    htmlFor="invoice_date"
+                    fieldRequirementsProps={{
+                        required: true,
+                        hint: 'Default from quote date',
+                        format: 'DD/MM/YYYY',
+                    }}
+                >
                     <DatePickerField
                         id="invoice_date"
                         value={invoice.invoice_date ?? ''}
@@ -73,20 +73,17 @@ export function InvoiceHeader({
                         onChange={(e) => onChange({ invoice_date: e })}
                     />
                     {renderError('invoice_date')}
-                </div>
-            </div>
+                </FormField>
 
-            {/* Due Date */}
-            <div className="grid w-full items-center gap-3 lg:col-span-1">
-                <Label htmlFor="due_date">
-                    Due Date{' '}
-                    <FieldRequirements
-                        required
-                        hint="Must be same or after invoice date"
-                        format="DD/MM/YYYY"
-                    />
-                </Label>
-                <div className="relative">
+                <FormField
+                    label="Due Date"
+                    htmlFor="due_date"
+                    fieldRequirementsProps={{
+                        required: true,
+                        hint: 'Must be same or after invoice date',
+                        format: 'DD/MM/YYYY',
+                    }}
+                >
                     <DatePickerField
                         id="due_date"
                         value={invoice.due_date ?? ''}
@@ -105,8 +102,15 @@ export function InvoiceHeader({
                         onChange={(e) => onChange({ due_date: e })}
                     />
                     {renderError('due_date')}
-                </div>
-            </div>
+                </FormField>
+
+                {paymentMethodField && (
+                    <FormField label="Payment Method" className="md:col-span-2">
+                        {paymentMethodField}
+                        {renderError('payment_method')}
+                    </FormField>
+                )}
+            </section>
         </div>
     );
 }

@@ -850,7 +850,9 @@ export default function OpsMovementForm({
                                         </FormField>
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                                             <FormField label="From">
-                                                <CopyableText value={flight.from} />
+                                                <CopyableText
+                                                    value={flight.from}
+                                                />
                                             </FormField>
                                             <FormField label="Departure Datetime">
                                                 <CopyableText
@@ -860,11 +862,15 @@ export default function OpsMovementForm({
                                                 />
                                             </FormField>
                                             <FormField label="To">
-                                                <CopyableText value={flight.to} />
+                                                <CopyableText
+                                                    value={flight.to}
+                                                />
                                             </FormField>
                                             <FormField label="Arrival Datetime">
                                                 <CopyableText
-                                                    value={flight.arrival_datetime}
+                                                    value={
+                                                        flight.arrival_datetime
+                                                    }
                                                 />
                                             </FormField>
                                         </div>
@@ -1434,7 +1440,8 @@ export default function OpsMovementForm({
                                                             placeholder="0.00"
                                                         />
                                                     </FormField>
-                                                    <FormField label="Total (Saudi Riyal)">
+                                                    <FormField label="Amount">
+                                                        {/* <FormField label="Total (Saudi Riyal)"> */}
                                                         <CopyableText
                                                             value={lineTotal}
                                                         />

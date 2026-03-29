@@ -1,7 +1,8 @@
+import { type TotalsSummaryExtensionMaster } from '@/components/totals-summary-card';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
 import { index as orderIndex } from '@/routes/order';
-import { type BreadcrumbItem } from '@/types';
+import { type BreadcrumbItem, type OptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import { paymentPlans, QuotationSchema } from '../quotations/schema';
@@ -12,6 +13,9 @@ interface EditOrderProps {
     data: {
         data: OrderSchema;
         quotation: QuotationSchema;
+        paymentMethods: OptionType[];
+        quotationExtensionMasters: TotalsSummaryExtensionMaster[];
+        defaultPaymentMethod: string;
     };
 }
 
@@ -45,6 +49,9 @@ export default function EditOrder({ data }: EditOrderProps) {
                         initialData={data.data}
                         quotation={data.quotation}
                         paymentPlans={paymentPlans}
+                        paymentMethods={data.paymentMethods}
+                        extensionMasters={data.quotationExtensionMasters}
+                        defaultPaymentMethod={data.defaultPaymentMethod}
                         onCancel={handleCancel}
                     />
                 </div>

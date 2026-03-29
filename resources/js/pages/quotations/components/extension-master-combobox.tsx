@@ -49,7 +49,7 @@ export type ExtensionMasterComboboxOption = {
 interface ExtensionMasterComboboxProps {
     value: number | null;
     options: ExtensionMasterComboboxOption[];
-    extensionType: 'discount' | 'tax';
+    extensionType: 'discount' | 'tax' | 'additional';
     triggerMode?: 'input' | 'button';
     triggerButtonLabel?: string;
     open?: boolean;
@@ -115,6 +115,11 @@ export default function ExtensionMasterCombobox({
     const [newCalculationValue, setNewCalculationValue] = useState('');
     const [localOptions, setLocalOptions] = useState(options);
 
+    const createType = extensionType === 'additional' ? 'other' : extensionType;
+
+    const extensionTypeLabel =
+        extensionType === 'additional' ? 'additional charges' : extensionType;
+
     useEffect(() => {
         setLocalOptions(options);
     }, [options]);
@@ -124,6 +129,10 @@ export default function ExtensionMasterCombobox({
             .filter((option) => option.is_active !== false)
             .filter((option) => {
                 const optionType = String(option.type ?? extensionType);
+
+                if (extensionType === 'additional') {
+                    return ['credit_card', 'other'].includes(optionType);
+                }
 
                 return optionType === extensionType;
             })
@@ -174,7 +183,7 @@ export default function ExtensionMasterCombobox({
             '/product-services/extensions/quick-create',
             {
                 name: newName.trim(),
-                type: extensionType,
+                type: createType,
                 calculation_mode: newCalculationMode,
                 calculation_value: Number(newCalculationValue || 0),
             },
@@ -198,7 +207,7 @@ export default function ExtensionMasterCombobox({
                     const createdOption: ExtensionMasterComboboxOption = {
                         id: createdId,
                         name: String(result?.name ?? newName.trim()),
-                        type: String(result?.type ?? extensionType),
+                        type: String(result?.type ?? createType),
                         calculation_mode: String(
                             result?.calculation_mode ?? newCalculationMode,
                         ),
@@ -303,14 +312,14 @@ export default function ExtensionMasterCombobox({
                 <PopoverContent className="w-fit p-0" align={popoverAlign}>
                     <Command shouldFilter={false}>
                         <CommandInput
-                            placeholder={`Search ${extensionType}...`}
+                            placeholder={`Search ${extensionTypeLabel}...`}
                             value={searchValue}
                             onValueChange={setSearchValue}
                         />
                         <CommandList>
                             <CommandEmpty>
                                 <div className="py-6 text-center text-base text-muted-foreground">
-                                    No matching {extensionType} options.
+                                    No matching {extensionTypeLabel} options.
                                 </div>
                             </CommandEmpty>
 
@@ -384,7 +393,8 @@ export default function ExtensionMasterCombobox({
                                     <div className="flex items-center gap-2">
                                         <Plus className="h-4 w-4 text-primary" />
                                         <span>
-                                            Create {extensionType} extension
+                                            Create {extensionTypeLabel}{' '}
+                                            extension
                                         </span>
                                     </div>
                                 </CommandItem>
@@ -405,10 +415,10 @@ export default function ExtensionMasterCombobox({
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            Create {extensionType} extension
+                            Create {extensionTypeLabel} extension
                         </DialogTitle>
                         <DialogDescription>
-                            Add a reusable {extensionType} option for
+                            Add a reusable {extensionTypeLabel} option for
                             quotations.
                         </DialogDescription>
                     </DialogHeader>
