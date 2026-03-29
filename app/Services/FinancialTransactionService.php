@@ -418,7 +418,6 @@ class FinancialTransactionService
             ->with([
                 'invoice.quotationItems.taxes',
                 'invoice.quotationItems.parent.parent',
-                'invoice.order.quotation.quotationExtensions',
                 'invoice.order.quotation.customerConfirmation.package',
             ])
             ->where(function ($query) {
@@ -497,7 +496,7 @@ class FinancialTransactionService
             }
 
             $packageName = $quotation?->customerConfirmation?->package?->name;
-            $extensionRows = collect($quotation?->quotationExtensions ?? []);
+            $extensionRows = collect(is_array($quotation?->extensions ?? null) ? $quotation?->extensions : []);
 
             $itemsWithBase = $items->map(function (QuotationItem $item): array {
                 $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
@@ -526,13 +525,23 @@ class FinancialTransactionService
             $subtotalWithTax = (float) $itemsWithBase->sum('base_with_tax');
 
             $discountExtension = $extensionRows
-                ->first(fn ($extension) => (string) ($extension->type ?? '') === 'discount');
+                ->first(function ($extension): bool {
+                    return is_array($extension)
+                        && (string) ($extension['type'] ?? '') === 'discount';
+                });
 
             $nonDiscountTotal = $extensionRows
-                ->filter(fn ($extension) => (string) ($extension->type ?? '') !== 'discount')
+                ->filter(function ($extension): bool {
+                    return is_array($extension)
+                        && (string) ($extension['type'] ?? '') !== 'discount';
+                })
                 ->reduce(function (float $carry, $extension) use ($subtotalAmount): float {
-                    $mode = (string) ($extension->calculation_mode ?? 'fixed');
-                    $value = (float) ($extension->calculation_value ?? $extension->amount ?? 0);
+                    if (! is_array($extension)) {
+                        return $carry;
+                    }
+
+                    $mode = (string) ($extension['calculation_mode'] ?? 'fixed');
+                    $value = (float) ($extension['calculation_value'] ?? $extension['amount'] ?? 0);
 
                     return $carry + ($mode === 'percentage'
                         ? ($subtotalAmount * $value) / 100
@@ -540,9 +549,9 @@ class FinancialTransactionService
                 }, 0.0);
 
             $discountTotal = 0.0;
-            if ($discountExtension) {
-                $discountMode = (string) ($discountExtension->calculation_mode ?? 'fixed');
-                $discountValue = abs((float) ($discountExtension->calculation_value ?? $discountExtension->amount ?? 0));
+            if (is_array($discountExtension)) {
+                $discountMode = (string) ($discountExtension['calculation_mode'] ?? 'fixed');
+                $discountValue = abs((float) ($discountExtension['calculation_value'] ?? $discountExtension['amount'] ?? 0));
                 $discountTotal = -abs($discountMode === 'percentage'
                     ? ($subtotalAmount * $discountValue) / 100
                     : $discountValue);

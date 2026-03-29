@@ -12,11 +12,12 @@ const baseUserSchema = z
         password_confirmation: z.string().optional(),
         send_email: z.boolean().optional(),
         contact: z.string().optional(),
-        role: z.enum(['admin', 'sales', 'customer']),
+        role: z.enum(['admin', 'sales', 'operations', 'customer']),
         country_id: z.string().optional(),
         country_name: z.string().optional(),
         branch_id: z.string().optional(),
         branch_name: z.string().optional(),
+        company_name: z.string().optional(),
         nric_number: z.string().optional(),
         address: z.string().optional(),
         nationality: z.string().optional(),
@@ -57,6 +58,14 @@ const baseUserSchema = z
                 code: 'custom',
                 path: ['branch_id'],
                 message: 'The branch field is required for sales.',
+            });
+        }
+
+        if (data.role === 'operations' && !data.branch_id?.trim()) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['branch_id'],
+                message: 'The branch field is required for operations.',
             });
         }
     });

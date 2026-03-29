@@ -26,7 +26,8 @@ interface EditQuotationProps {
             email?: string | null;
         }>;
         quotationExtensionMasters?: Array<
-            z.infer<typeof quotationExtensionSchema> & {
+            Omit<z.infer<typeof quotationExtensionSchema>, 'id'> & {
+                id?: number;
                 payment_methods?: string[];
                 is_active?: boolean;
             }

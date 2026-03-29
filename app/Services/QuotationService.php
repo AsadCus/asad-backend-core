@@ -12,7 +12,6 @@ use App\Models\Manifest;
 use App\Models\ManifestMember;
 use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
-use App\Models\QuotationExtension;
 use App\Models\QuotationExtensionMaster;
 use App\Models\QuotationItem;
 use Carbon\Carbon;
@@ -41,7 +40,7 @@ class QuotationService
 
     public function getForDataTable(array $filters = [])
     {
-        $data = Quotation::with(['customer.user', 'customer.handledBy', 'customerConfirmation.enquiry.handledBy:id,name', 'quotationItems', 'quotationExtensions', 'order'])->withTrashed()
+        $data = Quotation::with(['customer.user', 'customer.handledBy', 'customerConfirmation.enquiry.handledBy:id,name', 'quotationItems', 'order'])->withTrashed()
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
                     $enquiryQuery->where('handled_by', $value);
@@ -495,7 +494,6 @@ class QuotationService
             'customer.user',
             'quotationItems.confirmationMember',
             'quotationItems.taxes',
-            'quotationExtensions',
             'customerConfirmation.package',
             'order.invoices',
         ])->findOrFail($id);
@@ -532,16 +530,16 @@ class QuotationService
             'sales_registration_number' => $quotation->sales_registration_number,
             'model' => 'quotation',
             'notes' => $quotation->quotationNotes->sortBy('sort_order')->values()->toArray(),
-            'extensions' => $quotation->quotationExtensions->sortBy('sort_order')->map(function (QuotationExtension $extension) {
+            'extensions' => collect(is_array($quotation->extensions) ? $quotation->extensions : [])->sortBy('sort_order')->values()->map(function (array $extension) {
                 return [
-                    'id' => $extension->id,
-                    'quotation_extension_master_id' => $extension->quotation_extension_master_id,
-                    'name' => $extension->name,
-                    'type' => $extension->type,
-                    'calculation_mode' => $extension->calculation_mode,
-                    'calculation_value' => $this->formatService->cleanDecimal($extension->calculation_value),
-                    'amount' => $this->formatService->cleanDecimal($extension->amount),
-                    'sort_order' => $extension->sort_order,
+                    'id' => $extension['id'] ?? null,
+                    'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                    'name' => $extension['name'] ?? null,
+                    'type' => $extension['type'] ?? null,
+                    'calculation_mode' => $extension['calculation_mode'] ?? null,
+                    'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                    'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0),
+                    'sort_order' => $extension['sort_order'] ?? null,
                 ];
             })->values()->toArray(),
             'invoice_extensions' => $invoiceExtensions,
@@ -1498,45 +1496,25 @@ class QuotationService
             })
             ->values();
 
-        $keepIds = $sanitizedExtensions
-            ->pluck('id')
-            ->filter()
-            ->map(fn ($id) => (int) $id)
+        $normalizedExtensions = $sanitizedExtensions
             ->values()
+            ->map(function (array $extension, int $index): array {
+                return [
+                    'id' => null,
+                    'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                    'name' => (string) ($extension['name'] ?? ''),
+                    'type' => (string) ($extension['type'] ?? 'discount'),
+                    'calculation_mode' => (string) ($extension['calculation_mode'] ?? 'fixed'),
+                    'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? 0) ?? 0,
+                    'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0) ?? 0,
+                    'sort_order' => $index + 1,
+                ];
+            })
             ->all();
 
-        $quotation->quotationExtensions()
-            ->when(! empty($keepIds), fn ($query) => $query->whereNotIn('id', $keepIds))
-            ->when(empty($keepIds), fn ($query) => $query)
-            ->delete();
-
-        foreach ($sanitizedExtensions as $extension) {
-            if ($extension['id']) {
-                $quotation->quotationExtensions()
-                    ->where('id', $extension['id'])
-                    ->update([
-                        'quotation_extension_master_id' => $extension['quotation_extension_master_id'],
-                        'name' => $extension['name'],
-                        'type' => $extension['type'],
-                        'calculation_mode' => $extension['calculation_mode'],
-                        'calculation_value' => $extension['calculation_value'],
-                        'amount' => $extension['amount'],
-                        'sort_order' => $extension['sort_order'],
-                    ]);
-
-                continue;
-            }
-
-            $quotation->quotationExtensions()->create([
-                'quotation_extension_master_id' => $extension['quotation_extension_master_id'],
-                'name' => $extension['name'],
-                'type' => $extension['type'],
-                'calculation_mode' => $extension['calculation_mode'],
-                'calculation_value' => $extension['calculation_value'],
-                'amount' => $extension['amount'],
-                'sort_order' => $extension['sort_order'],
-            ]);
-        }
+        $quotation->update([
+            'extensions' => $normalizedExtensions,
+        ]);
     }
 
     private function syncConvertedOrderInvoiceAndReceiptAmounts(Quotation $quotation): void

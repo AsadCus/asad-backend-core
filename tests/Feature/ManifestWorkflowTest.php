@@ -14,7 +14,6 @@ use App\Models\Package;
 use App\Models\PackageAccommodation;
 use App\Models\PackageOfficial;
 use App\Models\Quotation;
-use App\Models\QuotationExtension;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
@@ -2531,12 +2530,19 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'converted',
         ]);
 
-        QuotationExtension::create([
-            'quotation_id' => $quotation->id,
-            'name' => 'Promo Discount',
-            'type' => 'discount',
-            'amount' => -300,
-            'sort_order' => 1,
+        $quotation->update([
+            'extensions' => [
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => -300,
+                    'sort_order' => 1,
+                ],
+            ],
         ]);
 
         $quotationItem = QuotationItem::create([
@@ -2557,6 +2563,16 @@ class ManifestWorkflowTest extends TestCase
         $firstInvoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Deposit invoice',
+            'extensions' => [
+                [
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
             'amount' => 1000,
             'invoice_date' => '2026-03-01',
             'due_date' => '2026-03-01',
@@ -2574,6 +2590,16 @@ class ManifestWorkflowTest extends TestCase
         $secondInvoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Second invoice',
+            'extensions' => [
+                [
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
             'amount' => 1500,
             'invoice_date' => '2026-03-10',
             'due_date' => '2026-03-10',
@@ -2591,6 +2617,16 @@ class ManifestWorkflowTest extends TestCase
         $thirdInvoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Final invoice',
+            'extensions' => [
+                [
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
             'amount' => 500,
             'invoice_date' => '2026-03-20',
             'due_date' => '2026-03-20',
@@ -2696,12 +2732,19 @@ class ManifestWorkflowTest extends TestCase
             'status' => 'converted',
         ]);
 
-        QuotationExtension::create([
-            'quotation_id' => $quotation->id,
-            'name' => 'Group Discount',
-            'type' => 'discount',
-            'amount' => -300,
-            'sort_order' => 1,
+        $quotation->update([
+            'extensions' => [
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Group Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => -300,
+                    'sort_order' => 1,
+                ],
+            ],
         ]);
 
         $quotationItems = $members->map(function (CustomerConfirmationMember $member, int $index) use ($quotation) {
@@ -2724,6 +2767,16 @@ class ManifestWorkflowTest extends TestCase
         $firstInvoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Deposit invoice',
+            'extensions' => [
+                [
+                    'name' => 'Group Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
             'amount' => 1500,
             'invoice_date' => '2026-03-01',
             'due_date' => '2026-03-01',
@@ -2741,6 +2794,16 @@ class ManifestWorkflowTest extends TestCase
         $secondInvoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Second invoice',
+            'extensions' => [
+                [
+                    'name' => 'Group Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
             'amount' => 3000,
             'invoice_date' => '2026-03-10',
             'due_date' => '2026-03-10',
@@ -2758,6 +2821,16 @@ class ManifestWorkflowTest extends TestCase
         $thirdInvoice = Invoice::create([
             'order_id' => $order->id,
             'description' => 'Final invoice',
+            'extensions' => [
+                [
+                    'name' => 'Group Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
             'amount' => 600,
             'invoice_date' => '2026-03-20',
             'due_date' => '2026-03-20',

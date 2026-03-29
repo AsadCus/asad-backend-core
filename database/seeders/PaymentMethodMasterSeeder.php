@@ -14,7 +14,7 @@ class PaymentMethodMasterSeeder extends Seeder
             ['name' => 'Nets', 'value' => 'nets', 'sort_order' => 2, 'is_default' => false],
             ['name' => 'Visa', 'value' => 'visa', 'sort_order' => 3, 'is_default' => false],
             ['name' => 'Master', 'value' => 'master', 'sort_order' => 4, 'is_default' => false],
-            ['name' => 'Paynow', 'value' => 'paynow', 'sort_order' => 5, 'is_default' => false],
+            ['name' => 'Paynow', 'value' => 'paynow', 'sort_order' => 5, 'is_default' => true],
         ];
 
         foreach ($methods as $method) {

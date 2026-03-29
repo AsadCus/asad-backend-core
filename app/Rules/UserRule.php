@@ -11,7 +11,7 @@ class UserRule
             'email' => 'required|email|unique:users,email',
             'contact' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:6|confirmed',
-            'role' => 'required|string|in:admin,sales,customer',
+            'role' => 'required|string|in:admin,sales,operations,customer',
         ];
 
         if ($action === 'update') {
@@ -23,6 +23,10 @@ class UserRule
         }
 
         if ($role === 'admin') {
+            $rules['branch_id'] = 'required|integer|exists:branches,id';
+        }
+
+        if ($role === 'operations') {
             $rules['branch_id'] = 'required|integer|exists:branches,id';
         }
 

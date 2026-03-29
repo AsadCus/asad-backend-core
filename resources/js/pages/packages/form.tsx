@@ -208,6 +208,7 @@ export default function PackageForm({
     } = useForm<PackageSchema>(defaultData);
 
     const lastAppliedPrefillRef = useRef<string | null>(null);
+    const previousDepartureDateRef = useRef<string>('');
     const errorBannerRef = useRef<HTMLDivElement | null>(null);
 
     const getInputIdFromPath = useCallback((path: string): string => {
@@ -342,12 +343,39 @@ export default function PackageForm({
                 return currentData;
             }
 
+            const departureDate = String(
+                currentData.departure_date ?? '',
+            ).trim();
+            const defaultTravelDate =
+                departureDate.length > 0 ? departureDate : '';
+
+            const ensureTicketDate = (
+                ticket: TrainTicketSchema,
+            ): TrainTicketSchema => {
+                if (String(ticket.travel_date ?? '').trim().length > 0) {
+                    return ticket;
+                }
+
+                return {
+                    ...ticket,
+                    travel_date: defaultTravelDate,
+                };
+            };
+
             const nextTickets =
                 desiredCount === 1
-                    ? [currentTickets[0] ?? defaultTrainTickets[0]]
+                    ? [
+                          ensureTicketDate(
+                              currentTickets[0] ?? defaultTrainTickets[0],
+                          ),
+                      ]
                     : [
-                          currentTickets[0] ?? defaultTrainTickets[0],
-                          currentTickets[1] ?? defaultTrainTickets[1],
+                          ensureTicketDate(
+                              currentTickets[0] ?? defaultTrainTickets[0],
+                          ),
+                          ensureTicketDate(
+                              currentTickets[1] ?? defaultTrainTickets[1],
+                          ),
                       ];
 
             return {
@@ -357,8 +385,117 @@ export default function PackageForm({
         });
     }, [data.ticket_type, data.train_tickets, setData]);
 
+    useEffect(() => {
+        const departureDate = String(data.departure_date ?? '').trim();
+        const previousDepartureDate = previousDepartureDateRef.current;
+
+        if (
+            departureDate.length === 0 ||
+            departureDate === previousDepartureDate
+        ) {
+            previousDepartureDateRef.current = departureDate;
+
+            return;
+        }
+
+        const departureParsed = parseDisplayDate(departureDate);
+        if (!departureParsed) {
+            previousDepartureDateRef.current = departureDate;
+
+            return;
+        }
+
+        const shouldPromoteDate = (value?: string | null): boolean => {
+            const trimmed = String(value ?? '').trim();
+
+            if (trimmed.length === 0) {
+                return true;
+            }
+
+            const parsed = parseDisplayDate(trimmed);
+
+            if (!parsed) {
+                return false;
+            }
+
+            const currentDate = new Date(parsed);
+            currentDate.setHours(0, 0, 0, 0);
+
+            const nextDepartureDate = new Date(departureParsed);
+            nextDepartureDate.setHours(0, 0, 0, 0);
+
+            return currentDate < nextDepartureDate;
+        };
+
+        setData((currentData) => {
+            const nextFlights = (currentData.flights ?? []).map((flight) => ({
+                ...flight,
+                departure_datetime: shouldPromoteDate(flight.departure_datetime)
+                    ? departureDate
+                    : (flight.departure_datetime ?? ''),
+                arrival_datetime: shouldPromoteDate(flight.arrival_datetime)
+                    ? departureDate
+                    : (flight.arrival_datetime ?? ''),
+            }));
+
+            const nextTransportationPlans = (
+                currentData.transportation_plans ?? []
+            ).map((plan) => ({
+                ...plan,
+                travel_date: shouldPromoteDate(plan.travel_date)
+                    ? departureDate
+                    : (plan.travel_date ?? ''),
+            }));
+
+            const nextTrainTickets = (currentData.train_tickets ?? []).map(
+                (ticket) => ({
+                    ...ticket,
+                    travel_date: shouldPromoteDate(ticket.travel_date)
+                        ? departureDate
+                        : (ticket.travel_date ?? ''),
+                }),
+            );
+
+            const nextAccommodations = (currentData.accommodations ?? []).map(
+                (accommodation) => ({
+                    ...accommodation,
+                    check_in: shouldPromoteDate(accommodation.check_in)
+                        ? departureDate
+                        : (accommodation.check_in ?? ''),
+                    check_out: shouldPromoteDate(accommodation.check_out)
+                        ? departureDate
+                        : (accommodation.check_out ?? ''),
+                }),
+            );
+
+            const nextRawdahTasreehs = (currentData.rawdah_tasreehs ?? []).map(
+                (tasreeh) => ({
+                    ...tasreeh,
+                    date: shouldPromoteDate(tasreeh.date)
+                        ? departureDate
+                        : (tasreeh.date ?? ''),
+                }),
+            );
+
+            return {
+                ...currentData,
+                return_date: shouldPromoteDate(currentData.return_date)
+                    ? departureDate
+                    : (currentData.return_date ?? ''),
+                flights: nextFlights,
+                transportation_plans: nextTransportationPlans,
+                train_tickets: nextTrainTickets,
+                accommodations: nextAccommodations,
+                rawdah_tasreehs: nextRawdahTasreehs,
+            };
+        });
+
+        previousDepartureDateRef.current = departureDate;
+    }, [data.departure_date, setData]);
+
     const rawdahWomenPassengers = Number(data.rawdah_member_counts?.women ?? 0);
     const rawdahMenPassengers = Number(data.rawdah_member_counts?.men ?? 0);
+    const rawdahTotalPassengers = Number(data.rawdah_member_counts?.total ?? 0);
 
     useEffect(() => {
         const currentRows = data.rawdah_tasreehs ?? [];
@@ -468,6 +605,9 @@ export default function PackageForm({
 
     const addAccommodation = () => {
         const current = data.accommodations || [];
+        const departureDate = String(data.departure_date ?? '').trim();
+        const defaultDate = departureDate.length > 0 ? departureDate : '';
+
         setData('accommodations', [
             ...current,
             {
@@ -475,8 +615,8 @@ export default function PackageForm({
                 hotel_name: '',
                 ic: '',
                 type_of_meal: '',
-                check_in: '',
-                check_out: '',
+                check_in: defaultDate,
+                check_out: defaultDate,
             },
         ]);
     };
@@ -502,6 +642,9 @@ export default function PackageForm({
     // --- Flight helpers ---
     const addFlight = () => {
         const current = data.flights || [];
+        const departureDate = String(data.departure_date ?? '').trim();
+        const defaultDate = departureDate.length > 0 ? departureDate : '';
+
         setData('flights', [
             ...current,
             {
@@ -510,8 +653,8 @@ export default function PackageForm({
                 description: '',
                 airline: '',
                 pnr: '',
-                departure_datetime: '',
-                arrival_datetime: '',
+                departure_datetime: defaultDate,
+                arrival_datetime: defaultDate,
             },
         ]);
     };
@@ -548,12 +691,15 @@ export default function PackageForm({
     // --- Transportation plan helpers ---
     const addTransportationPlan = () => {
         const current = data.transportation_plans || [];
+        const departureDate = String(data.departure_date ?? '').trim();
+        const defaultDate = departureDate.length > 0 ? departureDate : '';
+
         setData('transportation_plans', [
             ...current,
             {
                 from: '',
                 to: '',
-                travel_date: '',
+                travel_date: defaultDate,
                 travel_time: '',
                 remarks: '',
             },
@@ -581,10 +727,13 @@ export default function PackageForm({
     // --- Rawdah tasreeh helpers ---
     const addRawdahTasreeh = () => {
         const current = data.rawdah_tasreehs || [];
+        const departureDate = String(data.departure_date ?? '').trim();
+        const defaultDate = departureDate.length > 0 ? departureDate : '';
+
         setData('rawdah_tasreehs', [
             ...current,
             {
-                date: '',
+                date: defaultDate,
                 women_passengers: rawdahWomenPassengers,
                 women_time: '',
                 men_passengers: rawdahMenPassengers,
@@ -2115,13 +2264,11 @@ export default function PackageForm({
                                         const womenCount =
                                             rawdahWomenPassengers;
                                         const menCount = rawdahMenPassengers;
-                                        const totalCount =
-                                            (Number.isFinite(womenCount)
-                                                ? womenCount
-                                                : 0) +
-                                            (Number.isFinite(menCount)
-                                                ? menCount
-                                                : 0);
+                                        const totalCount = Number.isFinite(
+                                            rawdahTotalPassengers,
+                                        )
+                                            ? rawdahTotalPassengers
+                                            : 0;
 
                                         return (
                                             <div

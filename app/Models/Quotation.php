@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 class Quotation extends Model
 {
@@ -24,6 +25,7 @@ class Quotation extends Model
         'customer_confirmation_id',
         'description',
         'payment_plan',
+        'extensions',
         'status',
         'reason',
         'is_locked',
@@ -32,6 +34,7 @@ class Quotation extends Model
     protected $casts = [
         'quotation_date' => 'date',
         'expiry_date' => 'date',
+        'extensions' => 'array',
         'is_locked' => 'boolean',
         'status' => QuotationStatus::class,
     ];
@@ -59,11 +62,6 @@ class Quotation extends Model
     public function quotationNotes(): HasMany
     {
         return $this->hasMany(QuotationNotes::class);
-    }
-
-    public function quotationExtensions(): HasMany
-    {
-        return $this->hasMany(QuotationExtension::class);
     }
 
     // Computed Attributes
@@ -108,10 +106,16 @@ class Quotation extends Model
 
     private function computeExtensionTotalCents(): int
     {
-        return $this->quotationExtensions->reduce(
-            fn (int $sum, QuotationExtension $extension) => $sum + (int) round(((float) $extension->amount) * 100),
-            0
-        );
+        return $this->extensionsCollection()->reduce(function (int $sum, array $extension): int {
+            return $sum + (int) round(((float) ($extension['amount'] ?? 0)) * 100);
+        }, 0);
+    }
+
+    public function extensionsCollection(): Collection
+    {
+        return collect(is_array($this->extensions) ? $this->extensions : [])
+            ->filter(fn ($extension) => is_array($extension))
+            ->values();
     }
 
     private function computeItemTaxTotalCents(): int

@@ -6,7 +6,6 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Quotation;
-use App\Models\QuotationExtension;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
@@ -41,12 +40,19 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
             'status' => 'converted',
         ]);
 
-        QuotationExtension::create([
-            'quotation_id' => $quotation->id,
-            'name' => 'Group Discount',
-            'type' => 'discount',
-            'amount' => -600,
-            'sort_order' => 1,
+        $quotation->update([
+            'extensions' => [
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Group Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 600,
+                    'amount' => -600,
+                    'sort_order' => 1,
+                ],
+            ],
         ]);
 
         $itemIds = collect(range(1, 3))->map(function (int $index) use ($quotation): int {

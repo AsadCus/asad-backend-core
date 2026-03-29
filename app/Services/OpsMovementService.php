@@ -6,6 +6,7 @@ use App\Helpers\NumberGenerator;
 use App\Models\Manifest;
 use App\Models\Package;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +19,12 @@ class OpsMovementService
      */
     public function getForDataTable(array $filters = [])
     {
-        $data = Package::with(['accommodations', 'manifests.members'])
+        $packageQuery = Package::query()
+            ->with(['accommodations', 'manifests.members']);
+
+        $this->applyOperationsCountryScope($packageQuery);
+
+        $data = $packageQuery
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('package_number', 'like', "%{$value}%")
@@ -77,7 +83,7 @@ class OpsMovementService
      */
     public function getForShow($id): array
     {
-        $package = Package::with([
+        $packageQuery = Package::query()->with([
             'accommodations',
             'flights',
             'trainTickets',
@@ -86,7 +92,11 @@ class OpsMovementService
             'transportationPlans',
             'manifests.members',
             'manifests.files',
-        ])->findOrFail($id);
+        ]);
+
+        $this->applyOperationsCountryScope($packageQuery);
+
+        $package = $packageQuery->findOrFail($id);
 
         $manifest = $package->manifests->sortBy('id')->first();
         $extension = $manifest?->ops_movement_extension ?? [];
@@ -228,11 +238,15 @@ class OpsMovementService
     public function update(int $packageId, array $payload): array
     {
         return DB::transaction(function () use ($packageId, $payload): array {
-            $package = Package::with([
+            $packageQuery = Package::query()->with([
                 'accommodations',
                 'officials',
                 'manifests',
-            ])->findOrFail($packageId);
+            ]);
+
+            $this->applyOperationsCountryScope($packageQuery);
+
+            $package = $packageQuery->findOrFail($packageId);
 
             $manifest = $package->manifests->sortBy('id')->first();
 
@@ -314,6 +328,25 @@ class OpsMovementService
 
             return $this->getForShow($packageId);
         });
+    }
+
+    private function applyOperationsCountryScope(Builder $query): void
+    {
+        $user = auth()->user();
+
+        if (! $user || ! $user->hasRole('operations')) {
+            return;
+        }
+
+        $countryId = (int) ($user->branch?->country_id ?? 0);
+
+        if ($countryId <= 0) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where('country_id', $countryId);
     }
 
     private function resolveAge(mixed $dateOfBirth): int

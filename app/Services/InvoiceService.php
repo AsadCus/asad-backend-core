@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Models\Invoice;
-use App\Models\QuotationExtension;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -117,7 +116,6 @@ class InvoiceService
     {
         $i = Invoice::with([
             'quotationItems.taxes',
-            'order.quotation.quotationExtensions',
             'order.quotation.customer.user',
         ])->findOrFail($id);
 
@@ -153,7 +151,7 @@ class InvoiceService
                 ->values()
                 ->all()
             : $this->allocateExtensionsForTargetTotal(
-                $i->order?->quotation?->quotationExtensions ?? collect(),
+                collect(is_array($i->order?->quotation?->extensions ?? null) ? $i->order?->quotation?->extensions : []),
                 round($extensionTotalAmount - $itemTaxTotal, 2),
             );
 
@@ -269,7 +267,7 @@ class InvoiceService
     }
 
     /**
-     * @param  Collection<int, QuotationExtension>  $extensions
+     * @param  Collection<int, array<string, mixed>>  $extensions
      * @return array<int, array<string, mixed>>
      */
     private function allocateExtensionsForTargetTotal(Collection $extensions, float $targetTotal): array
@@ -282,8 +280,8 @@ class InvoiceService
             ->sortBy('sort_order')
             ->values();
 
-        $sourceTotal = (float) $sortedExtensions->sum(function (QuotationExtension $extension): float {
-            return (float) ($extension->amount ?? 0);
+        $sourceTotal = (float) $sortedExtensions->sum(function (array $extension): float {
+            return (float) ($extension['amount'] ?? 0);
         });
 
         $allocated = [];
@@ -294,7 +292,7 @@ class InvoiceService
             if ($index === $lastIndex) {
                 $amount = round($targetTotal - $runningTotal, 2);
             } elseif (abs($sourceTotal) > 0.00001) {
-                $ratio = (float) ($extension->amount ?? 0) / $sourceTotal;
+                $ratio = (float) ($extension['amount'] ?? 0) / $sourceTotal;
                 $amount = round($targetTotal * $ratio, 2);
             } else {
                 $amount = 0.0;
@@ -303,13 +301,13 @@ class InvoiceService
             $runningTotal += $amount;
 
             $allocated[] = [
-                'id' => $extension->id,
-                'quotation_extension_master_id' => $extension->quotation_extension_master_id,
-                'name' => $extension->name,
-                'type' => $extension->type,
-                'calculation_mode' => $extension->calculation_mode,
-                'calculation_value' => $this->formatService->cleanDecimal($extension->calculation_value),
-                'sort_order' => $extension->sort_order,
+                'id' => null,
+                'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                'name' => $extension['name'] ?? 'Extension',
+                'type' => $extension['type'] ?? 'discount',
+                'calculation_mode' => $extension['calculation_mode'] ?? 'fixed',
+                'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                'sort_order' => $extension['sort_order'] ?? ($index + 1),
                 'amount' => $this->formatService->cleanDecimal($amount),
             ];
         }

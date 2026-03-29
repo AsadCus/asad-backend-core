@@ -57,9 +57,12 @@ class AuthenticatedSessionController extends Controller
 
         $this->customerService->updateLastLogin($user->id);
 
-        // Redirect sales users to enquiries dashboard
         if ($user->hasRole('sales')) {
             return redirect()->intended(route('enquiries.index', absolute: false));
+        }
+
+        if ($user->hasRole('operations')) {
+            return redirect()->intended(route('ops-movements.index', absolute: false));
         }
 
         return redirect()->intended(route('dashboard', absolute: false));

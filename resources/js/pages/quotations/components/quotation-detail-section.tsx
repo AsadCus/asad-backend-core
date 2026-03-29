@@ -201,7 +201,11 @@ export default function QuotationDetailSection({
                     type === 'discount' ? -Math.abs(rawAmount) : rawAmount;
 
                 return {
-                    ...extension,
+                    _key: extension._key,
+                    id: extension.id ?? undefined,
+                    quotation_extension_master_id:
+                        extension.quotation_extension_master_id ?? undefined,
+                    sort_order: extension.sort_order,
                     name: String(extension.name ?? 'Extension'),
                     type,
                     calculation_mode: calculationMode,
@@ -233,7 +237,10 @@ export default function QuotationDetailSection({
                 const amount = Number(extension.amount ?? rawAmount);
 
                 return {
-                    ...extension,
+                    id: extension.id ?? undefined,
+                    quotation_extension_master_id:
+                        extension.quotation_extension_master_id ?? undefined,
+                    sort_order: extension.sort_order,
                     _key:
                         extension._key ??
                         (extension.id

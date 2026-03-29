@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Branch;
+use App\Models\Country;
 use App\Models\Customer;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
@@ -12,14 +14,77 @@ use App\Models\PackageOfficial;
 use App\Models\PackageTrainTicket;
 use App\Models\User;
 use App\Services\OpsMovementService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class OpsMovementWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_operations_user_only_sees_ops_movement_from_own_country(): void
+    {
+        $countryA = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $countryB = Country::create([
+            'name' => 'Indonesia',
+            'adjective' => 'Indonesian',
+        ]);
+
+        $branchA = Branch::create([
+            'name' => 'KL Branch',
+            'country_id' => $countryA->id,
+        ]);
+
+        $operationsUser = User::factory()->create([
+            'branch_id' => $branchA->id,
+        ]);
+
+        Role::findOrCreate('operations', 'web');
+        $operationsUser->assignRole('operations');
+
+        $visiblePackage = Package::create([
+            'package_number' => 'PKG-OPS-COUNTRY-1',
+            'name' => 'Visible Package',
+            'status' => 'open',
+            'country_id' => $countryA->id,
+        ]);
+
+        $hiddenPackage = Package::create([
+            'package_number' => 'PKG-OPS-COUNTRY-2',
+            'name' => 'Hidden Package',
+            'status' => 'open',
+            'country_id' => $countryB->id,
+        ]);
+
+        Manifest::create([
+            'package_id' => $visiblePackage->id,
+            'manifest_number' => 'MNF-VISIBLE',
+        ]);
+
+        Manifest::create([
+            'package_id' => $hiddenPackage->id,
+            'manifest_number' => 'MNF-HIDDEN',
+        ]);
+
+        $this->actingAs($operationsUser);
+
+        $datatableRows = app(OpsMovementService::class)->getForDataTable();
+
+        $this->assertCount(1, $datatableRows);
+        $this->assertSame($visiblePackage->id, (int) $datatableRows->first()['id']);
+
+        $this->expectException(ModelNotFoundException::class);
+
+        app(OpsMovementService::class)->getForShow($hiddenPackage->id);
+    }
 
     public function test_update_persists_editable_ops_movement_fields(): void
     {
@@ -29,6 +94,9 @@ class OpsMovementWorkflowTest extends TestCase
         $customerUser = User::factory()->create([
             'name' => 'Wheelchair Traveler',
         ]);
+        Permission::findOrCreate('ops-movement view', 'web');
+        Permission::findOrCreate('ops-movement edit', 'web');
+        $actingUser->givePermissionTo(['ops-movement view', 'ops-movement edit']);
 
         $this->actingAs($actingUser);
 

@@ -11,10 +11,11 @@ import { index as masterIndex } from '@/routes/master';
 import { index } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
+import masterOperations from '@/routes/master/user/operations';
 import masterSales from '@/routes/master/user/sales';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Plus, Shield, TrendingUp, Users } from 'lucide-react';
+import { Plus, Route, Shield, TrendingUp, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -33,6 +34,7 @@ interface MasterUserProps {
     roleStats: {
         admin: number;
         sales: number;
+        operations: number;
         customer: number;
     };
     countryStats: {
@@ -41,6 +43,10 @@ interface MasterUserProps {
             breakdown: Array<{ country: string; count: number }>;
         };
         sales: {
+            totalCountries: number;
+            breakdown: Array<{ country: string; count: number }>;
+        };
+        operations: {
             totalCountries: number;
             breakdown: Array<{ country: string; count: number }>;
         };
@@ -93,6 +99,15 @@ export default function MasterUser({
             href: masterCustomer.index.url(),
             hasAddButton: true,
             onAdd: () => router.get(masterCustomer.create().url),
+        },
+        {
+            title: 'Operations',
+            description: `Assigned countries: ${countryStats.operations.totalCountries} (${countrySummary(countryStats.operations.breakdown)})`,
+            icon: Route,
+            count: roleStats.operations,
+            href: masterOperations.index.url(),
+            hasAddButton: true,
+            onAdd: () => router.get(masterOperations.create().url),
         },
     ];
 

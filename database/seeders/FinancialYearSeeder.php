@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\FinancialYear;
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
 class FinancialYearSeeder extends Seeder
@@ -12,15 +13,20 @@ class FinancialYearSeeder extends Seeder
      */
     public function run(): void
     {
-        $years = [
-            '2025',
-            '2026',
-        ];
+        $year = (string) now()->year;
+        $startDate = Carbon::create((int) $year, 1, 1)->toDateString();
+        $endDate = Carbon::create((int) $year, 12, 31)->toDateString();
 
-        foreach ($years as $year) {
-            FinancialYear::firstOrCreate(
-                ['year' => $year]
-            );
-        }
+        FinancialYear::query()->where('year', '!=', $year)->delete();
+
+        FinancialYear::query()->updateOrCreate(
+            ['year' => $year],
+            [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'default' => true,
+                'is_active' => true,
+            ]
+        );
     }
 }

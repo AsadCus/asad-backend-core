@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Helpers\FormatService;
 use App\Models\Invoice;
 use App\Models\PaymentMethodMaster;
-use App\Models\QuotationExtension;
 use App\Models\Receipt;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -151,7 +150,6 @@ class ReceiptService
     {
         $r = Receipt::with([
             'invoice.quotationItems.taxes',
-            'invoice.order.quotation.quotationExtensions',
             'invoice.order.quotation.customer.user',
         ])->findOrFail($id);
 
@@ -190,7 +188,7 @@ class ReceiptService
         $quotationExtensions = ! empty($storedInvoiceExtensions)
             ? $storedInvoiceExtensions
             : $this->allocateExtensionsForTargetTotal(
-                $invoice?->order?->quotation?->quotationExtensions ?? collect(),
+                collect(is_array($invoice?->order?->quotation?->extensions ?? null) ? $invoice?->order?->quotation?->extensions : []),
                 round($extensionTotalAmount - $itemTaxTotal, 2),
             );
 
@@ -301,7 +299,7 @@ class ReceiptService
     }
 
     /**
-     * @param  Collection<int, QuotationExtension>  $extensions
+     * @param  Collection<int, array<string, mixed>>  $extensions
      * @return array<int, array<string, mixed>>
      */
     private function allocateExtensionsForTargetTotal(Collection $extensions, float $targetTotal): array
@@ -314,8 +312,8 @@ class ReceiptService
             ->sortBy('sort_order')
             ->values();
 
-        $sourceTotal = (float) $sortedExtensions->sum(function (QuotationExtension $extension): float {
-            return (float) ($extension->amount ?? 0);
+        $sourceTotal = (float) $sortedExtensions->sum(function (array $extension): float {
+            return (float) ($extension['amount'] ?? 0);
         });
 
         $allocated = [];
@@ -326,7 +324,7 @@ class ReceiptService
             if ($index === $lastIndex) {
                 $amount = round($targetTotal - $runningTotal, 2);
             } elseif (abs($sourceTotal) > 0.00001) {
-                $ratio = (float) ($extension->amount ?? 0) / $sourceTotal;
+                $ratio = (float) ($extension['amount'] ?? 0) / $sourceTotal;
                 $amount = round($targetTotal * $ratio, 2);
             } else {
                 $amount = 0.0;
@@ -335,13 +333,13 @@ class ReceiptService
             $runningTotal += $amount;
 
             $allocated[] = [
-                'id' => $extension->id,
-                'quotation_extension_master_id' => $extension->quotation_extension_master_id,
-                'name' => $extension->name,
-                'type' => $extension->type,
-                'calculation_mode' => $extension->calculation_mode,
-                'calculation_value' => $this->formatService->cleanDecimal($extension->calculation_value),
-                'sort_order' => $extension->sort_order,
+                'id' => null,
+                'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                'name' => $extension['name'] ?? 'Extension',
+                'type' => $extension['type'] ?? 'discount',
+                'calculation_mode' => $extension['calculation_mode'] ?? 'fixed',
+                'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                'sort_order' => $extension['sort_order'] ?? ($index + 1),
                 'amount' => $this->formatService->cleanDecimal($amount),
             ];
         }

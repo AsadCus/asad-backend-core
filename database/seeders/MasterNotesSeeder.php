@@ -20,18 +20,8 @@ class MasterNotesSeeder extends Seeder
             // Invoice Notes
             [
                 'model' => 'invoice',
-                'description' => 'Payment due within 14 days',
-                'sort_order' => 1,
-            ],
-            [
-                'model' => 'invoice',
-                'description' => 'Late payment may incur additional charges',
-                'sort_order' => 2,
-            ],
-            [
-                'model' => 'invoice',
                 'description' => 'Please include invoice number in payment reference',
-                'sort_order' => 3,
+                'sort_order' => 1,
             ],
 
             // Receipt Notes
@@ -39,16 +29,6 @@ class MasterNotesSeeder extends Seeder
                 'model' => 'receipt',
                 'description' => 'Thank you for your payment',
                 'sort_order' => 1,
-            ],
-            [
-                'model' => 'receipt',
-                'description' => 'Please keep this receipt for your records',
-                'sort_order' => 2,
-            ],
-            [
-                'model' => 'receipt',
-                'description' => 'For any queries, please contact our office',
-                'sort_order' => 3,
             ],
         ];
 

@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Mail\WelcomeMail;
 use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\SalesService;
+use App\Services\UserRoles\OperationsUserService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
-class UserController extends Controller
+class OperationsController extends Controller
 {
+    protected $operationsUserService;
+
     protected $userService;
 
     protected $branchService;
@@ -23,8 +28,9 @@ class UserController extends Controller
 
     protected $userRule;
 
-    public function __construct(UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
+    public function __construct(OperationsUserService $operationsUserService, UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
     {
+        $this->operationsUserService = $operationsUserService;
         $this->userService = $userService;
         $this->branchService = $branchService;
         $this->countryService = $countryService;
@@ -37,34 +43,16 @@ class UserController extends Controller
      */
     public function index()
     {
-        // $dataUser = $this->userService->getForDataTable();
-        // $dataRole = $this->userService->getRoleForFilter();
-        // $dataBranch = $this->branchService->getForFilter();
-        // $dataCountry = $this->countryService->getForFilter();
-        // $dataSales = $this->salesService->getForFilter();
+        $dataUser = $this->operationsUserService->getForDataTable();
+        $dataRole = $this->userService->getRoleForFilter();
+        $dataBranch = $this->branchService->getForFilter();
+        $dataSales = $this->salesService->getForFilter();
 
-        // Get role statistics
-        $roleStats = [
-            'admin' => $this->userService->countByRole('admin'),
-            'sales' => $this->userService->countByRole('sales'),
-            'operations' => $this->userService->countByRole('operations'),
-            'customer' => $this->userService->countByRole('customer'),
-        ];
-
-        $countryStats = [
-            'admin' => $this->userService->getCountryStatsByRole('admin'),
-            'sales' => $this->userService->getCountryStatsByRole('sales'),
-            'operations' => $this->userService->getCountryStatsByRole('operations'),
-        ];
-
-        return Inertia::render('masters/users/index', [
-            // 'data' => $dataUser,
-            // 'dataRole' => $dataRole,
-            // 'dataBranch' => $dataBranch,
-            // 'dataCountry' => $dataCountry,
-            // 'dataSales' => $dataSales,
-            'roleStats' => $roleStats,
-            'countryStats' => $countryStats,
+        return Inertia::render('masters/users/operations/index', [
+            'dataUser' => $dataUser,
+            'dataRole' => $dataRole,
+            'dataBranch' => $dataBranch,
+            'dataSales' => $dataSales,
         ]);
     }
 
@@ -83,6 +71,8 @@ class UserController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'isOperations' => true,
+            'submitUrl' => '/master/user/operations',
         ]);
     }
 
@@ -91,13 +81,22 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate($this->userRule->rules($request->role));
+        $validated = $request->validate($this->userRule->rules('operations'));
 
-        $validated['role'] = $request->role;
+        $user = $this->operationsUserService->store($validated);
 
-        $this->userService->store($validated);
+        if (! empty($validated['password']) && $request->boolean('send_email')) {
+            Mail::to($user->email)->send(
+                new WelcomeMail($user->name, $validated['email'], $validated['password'])
+            );
+        }
 
-        return redirect()->intended(route('master.user.index'))->with('success', 'User created successfully.');
+        activity()
+            ->performedOn($user)
+            ->withProperties(['subject_type' => 'Operations', 'subject_id' => $user->id ?? null])
+            ->log('Operations user created successfully #'.($user->id ?? null));
+
+        return redirect()->intended(route('master.user.operations.index'))->with('success', 'Operations user created successfully.');
     }
 
     /**
@@ -105,7 +104,7 @@ class UserController extends Controller
      */
     public function show(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->operationsUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
@@ -117,6 +116,7 @@ class UserController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'isOperations' => true,
         ]);
     }
 
@@ -125,7 +125,7 @@ class UserController extends Controller
      */
     public function edit(string $id)
     {
-        $data = $this->userService->getForEditShow($id);
+        $data = $this->operationsUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
@@ -137,6 +137,7 @@ class UserController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'isOperations' => true,
         ]);
     }
 
@@ -145,13 +146,11 @@ class UserController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $validated = $request->validate($this->userRule->rules($request->role, 'update', $id));
+        $validated = $request->validate($this->userRule->rules('operations', 'update', $id));
 
-        $validated['role'] = $request->role;
+        $this->operationsUserService->update($validated, $id);
 
-        $this->userService->update($validated, $id);
-
-        return redirect()->intended(route('master.user.index'))->with('success', 'User updated successfully.');
+        return redirect()->intended(route('master.user.operations.index'))->with('success', 'Operations user updated successfully.');
     }
 
     /**
@@ -166,11 +165,11 @@ class UserController extends Controller
                 $this->userService->delete($userId);
             }
 
-            return redirect()->intended(route('master.user.index'))->with('success', 'Selected users deleted successfully.');
+            return redirect()->intended(route('master.user.operations.index'))->with('success', 'Selected operations users deleted successfully.');
         }
 
         $this->userService->delete($id);
 
-        return redirect()->intended(route('master.user.index'))->with('success', 'User deleted successfully.');
+        return redirect()->intended(route('master.user.operations.index'))->with('success', 'Operations user deleted successfully.');
     }
 }

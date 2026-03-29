@@ -9,7 +9,6 @@ use App\Models\Invoice;
 use App\Models\NumberingSequence;
 use App\Models\Order;
 use App\Models\Quotation;
-use App\Models\QuotationExtension;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
@@ -896,28 +895,39 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             'sort_order' => 1,
         ]);
 
-        QuotationExtension::create([
-            'quotation_id' => $quotation->id,
-            'name' => 'Group Discount',
-            'type' => 'discount',
-            'amount' => -100,
-            'sort_order' => 1,
-        ]);
-
-        QuotationExtension::create([
-            'quotation_id' => $quotation->id,
-            'name' => 'Credit Card Surcharge',
-            'type' => 'credit_card',
-            'amount' => 50,
-            'sort_order' => 2,
-        ]);
-
-        QuotationExtension::create([
-            'quotation_id' => $quotation->id,
-            'name' => 'Legacy Tax Extension',
-            'type' => 'tax',
-            'amount' => 80,
-            'sort_order' => 3,
+        $quotation->update([
+            'extensions' => [
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Group Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Credit Card Surcharge',
+                    'type' => 'credit_card',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 50,
+                    'amount' => 50,
+                    'sort_order' => 2,
+                ],
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Legacy Tax Extension',
+                    'type' => 'tax',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 80,
+                    'amount' => 80,
+                    'sort_order' => 3,
+                ],
+            ],
         ]);
 
         $invoice = Invoice::create([
@@ -1138,15 +1148,17 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
                 && (float) ($extension['amount'] ?? 0) === -50.0;
         }));
 
-        $this->assertDatabaseMissing('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'Group Discount',
-        ]);
+        $quotation->refresh();
 
-        $this->assertDatabaseMissing('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'Credit Card Surcharge',
-        ]);
+        $this->assertFalse(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Group Discount';
+        }));
+
+        $this->assertFalse(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Credit Card Surcharge';
+        }));
     }
 
     public function test_order_update_full_to_installment_persists_header_and_member_children_per_invoice(): void

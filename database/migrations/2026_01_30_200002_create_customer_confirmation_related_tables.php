@@ -29,15 +29,6 @@ return new class extends Migration
             $table->text('remarks')->nullable();
             $table->timestamps();
         });
-
-        Schema::create('receipt_allocations', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('receipt_id')->constrained('receipts')->cascadeOnDelete();
-            $table->foreignId('customer_confirmation_member_id')->constrained('customer_confirmation_members')->cascadeOnDelete();
-            $table->decimal('allocated_amount', 12, 2);
-            $table->text('notes')->nullable();
-            $table->timestamps();
-        });
     }
 
     /**
@@ -45,7 +36,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('receipt_allocations');
         Schema::dropIfExists('manifest_sharing_groups');
         Schema::dropIfExists('manifest_room_members');
     }

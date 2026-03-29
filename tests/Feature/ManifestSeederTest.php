@@ -13,7 +13,6 @@ use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
-use App\Models\ReceiptAllocation;
 use App\Models\User;
 use Database\Seeders\ManifestSeeder;
 use Database\Seeders\PackageSeeder;
@@ -131,13 +130,6 @@ class ManifestSeederTest extends TestCase
             'reference' => 'TEST-PAID-MEMBER',
         ]);
 
-        ReceiptAllocation::create([
-            'receipt_id' => $receipt->id,
-            'customer_confirmation_member_id' => $member->id,
-            'allocated_amount' => 500,
-            'notes' => 'Seeder test allocation',
-        ]);
-
         $this->seed(ManifestSeeder::class);
 
         $manifest = Manifest::query()->where('package_id', $package->id)->firstOrFail();
@@ -221,13 +213,6 @@ class ManifestSeederTest extends TestCase
                 'receipt_date' => now()->toDateString(),
                 'payment_method' => 'transfer',
                 'reference' => 'TEST-RM-SPLIT-'.($index + 1),
-            ]);
-
-            ReceiptAllocation::create([
-                'receipt_id' => $receipt->id,
-                'customer_confirmation_member_id' => $member->id,
-                'allocated_amount' => 500,
-                'notes' => 'Seeder room split allocation',
             ]);
 
             $members->push($member);

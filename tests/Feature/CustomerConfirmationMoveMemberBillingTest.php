@@ -11,7 +11,6 @@ use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
-use App\Models\ReceiptAllocation;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -137,13 +136,6 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
             'description' => 'Payment for moved member',
         ]);
 
-        ReceiptAllocation::create([
-            'receipt_id' => $paidReceipt->id,
-            'customer_confirmation_member_id' => $movedMember->id,
-            'allocated_amount' => 10000,
-            'notes' => 'Paid by moved member',
-        ]);
-
         $newGroup = app(CustomerConfirmationService::class)->moveMembersToHolding(
             $sourceConfirmation->id,
             [$movedMember->id],
@@ -182,17 +174,6 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
             ->where('amount', 10000)
             ->first();
         $this->assertNotNull($newPaidReceipt);
-
-        $this->assertDatabaseHas('receipt_allocations', [
-            'receipt_id' => $newPaidReceipt?->id,
-            'customer_confirmation_member_id' => $newMember?->id,
-            'allocated_amount' => 10000,
-        ]);
-
-        $this->assertDatabaseMissing('receipt_allocations', [
-            'customer_confirmation_member_id' => $movedMember->id,
-            'receipt_id' => $paidReceipt->id,
-        ]);
 
         $this->assertDatabaseMissing('quotation_items', [
             'id' => $movedItem->id,
@@ -281,13 +262,6 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
             'amount' => 10000,
             'receipt_date' => now()->format('Y-m-d'),
             'payment_method' => 'transfer',
-        ]);
-
-        ReceiptAllocation::create([
-            'receipt_id' => $receipt->id,
-            'customer_confirmation_member_id' => $member->id,
-            'allocated_amount' => 10000,
-            'notes' => 'Initial payment',
         ]);
 
         app(CustomerConfirmationService::class)->createRefundReceipts($confirmation->id, [

@@ -25,6 +25,7 @@ interface CreateUserProps {
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
+    isOperations: boolean;
     isCustomer: boolean;
     submitUrl?: string;
 }
@@ -32,14 +33,17 @@ interface CreateUserProps {
 export function resolveUserRoleLabel({
     isAdmin,
     isSales,
+    isOperations,
     isCustomer,
 }: {
     isAdmin: boolean;
     isSales: boolean;
+    isOperations: boolean;
     isCustomer: boolean;
 }) {
     if (isAdmin) return 'Admin';
     if (isSales) return 'Sales';
+    if (isOperations) return 'Operations';
     if (isCustomer) return 'Customer';
     return 'User';
 }
@@ -50,6 +54,7 @@ export default function CreateUser({
     dataSales,
     isAdmin = false,
     isSales = false,
+    isOperations = false,
     isCustomer = false,
     submitUrl,
 }: CreateUserProps) {
@@ -60,6 +65,7 @@ export default function CreateUser({
     const roleLabel = resolveUserRoleLabel({
         isAdmin,
         isSales,
+        isOperations,
         isCustomer,
     });
 
@@ -81,6 +87,7 @@ export default function CreateUser({
                         onCancel={handleCancel}
                         isAdmin={isAdmin}
                         isSales={isSales}
+                        isOperations={isOperations}
                         isCustomer={isCustomer}
                         submitUrl={submitUrl}
                     />

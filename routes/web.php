@@ -15,6 +15,7 @@ use App\Http\Controllers\Master\CountryController as MasterCountryController;
 use App\Http\Controllers\Master\CustomerController as MasterCustomerController;
 use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearController;
 use App\Http\Controllers\Master\MasterController;
+use App\Http\Controllers\Master\OperationsController as MasterOperationsController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
 use App\Http\Controllers\Master\UserController as MasterUserController;
 use App\Http\Controllers\NoteController;
@@ -79,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('user')->name('user.')->group(function () {
             Route::resource('admin', MasterAdminController::class);
             Route::resource('sales', MasterSalesController::class);
+            Route::resource('operations', MasterOperationsController::class);
             Route::resource('customer', MasterCustomerController::class);
             Route::post('customer/{id}/create-quotation', [MasterCustomerController::class, 'createQuotation'])->name('customer.create-quotation');
         });

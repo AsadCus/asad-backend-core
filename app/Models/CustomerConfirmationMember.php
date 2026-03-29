@@ -43,11 +43,6 @@ class CustomerConfirmationMember extends Model
         return $this->hasMany(ManifestMember::class, 'customer_confirmation_member_id');
     }
 
-    public function receiptAllocations(): HasMany
-    {
-        return $this->hasMany(ReceiptAllocation::class, 'customer_confirmation_member_id');
-    }
-
     public function quotationItems(): HasMany
     {
         return $this->hasMany(QuotationItem::class, 'customer_confirmation_member_id');

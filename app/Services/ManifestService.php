@@ -128,6 +128,7 @@ class ManifestService
             $this->syncPackageStatus($manifest, $data['status'] ?? null);
 
             $this->syncMembers($manifest, $data['members'] ?? []);
+            $this->syncPackageRawdahPassengerCounts($manifest);
             $this->syncManifestDocuments($manifest, $data['documents'] ?? []);
             $this->syncRooms($manifest, $data['rooms'] ?? []);
 
@@ -153,9 +154,8 @@ class ManifestService
             'members.files',
             'members.confirmationMember.confirmation.enquiry',
             'members.confirmationMember.customer.user',
-            'members.confirmationMember.receiptAllocations.receipt',
-            'members.confirmationMember.quotationItems.quotation.quotationExtensions',
             'members.confirmationMember.quotationItems.quotation.quotationItems',
+            'members.confirmationMember.quotationItems.quotation.order.invoices',
             'members.confirmationMember.quotationItems.invoices.quotationItems',
             'members.confirmationMember.quotationItems.invoices.receipt',
             'rooms.roomMembers.member',
@@ -499,6 +499,8 @@ class ManifestService
             if (isset($data['members'])) {
                 $this->syncMembers($manifest, $data['members']);
             }
+
+            $this->syncPackageRawdahPassengerCounts($manifest);
 
             if (isset($data['documents'])) {
                 $this->syncManifestDocuments($manifest, $data['documents']);
@@ -1878,6 +1880,46 @@ class ManifestService
         ]);
     }
 
+    private function syncPackageRawdahPassengerCounts(Manifest $manifest): void
+    {
+        $packageId = (int) ($manifest->package_id ?? 0);
+
+        if ($packageId <= 0) {
+            return;
+        }
+
+        $package = $manifest->package()->with('rawdahTasreehs')->first();
+
+        if (! $package || $package->rawdahTasreehs->isEmpty()) {
+            return;
+        }
+
+        $nonOfficialMembers = ManifestMember::query()
+            ->whereHas('manifest', function ($query) use ($packageId): void {
+                $query->where('package_id', $packageId);
+            })
+            ->whereNull('package_official_id')
+            ->where(function ($query): void {
+                $query->whereNull('status')
+                    ->orWhere('status', '!=', 'cancelled');
+            })
+            ->get();
+
+        $womenPassengers = $nonOfficialMembers
+            ->filter(fn (ManifestMember $member): bool => strtolower((string) ($member->gender ?? '')) === 'female')
+            ->count();
+        $menPassengers = $nonOfficialMembers
+            ->filter(fn (ManifestMember $member): bool => strtolower((string) ($member->gender ?? '')) === 'male')
+            ->count();
+
+        foreach ($package->rawdahTasreehs as $tasreeh) {
+            $tasreeh->update([
+                'women_passengers' => $womenPassengers,
+                'men_passengers' => $menPassengers,
+            ]);
+        }
+    }
+
     /**
      * @return array<string, float|string|null>
      */
@@ -1964,33 +2006,7 @@ class ManifestService
             return (float) ($receiptShareById[(int) $receipt->id] ?? 0);
         });
 
-        $allocations = $member->receiptAllocations
-            ->filter(function ($allocation) {
-                return $allocation->receipt !== null;
-            })
-            ->sort(function ($left, $right) {
-                $leftDate = $left->receipt?->receipt_date;
-                $rightDate = $right->receipt?->receipt_date;
-
-                if ($leftDate && $rightDate) {
-                    $comparison = $leftDate->getTimestamp() <=> $rightDate->getTimestamp();
-
-                    if ($comparison !== 0) {
-                        return $comparison;
-                    }
-                }
-
-                return (int) $left->id <=> (int) $right->id;
-            })
-            ->values();
-
-        $paidAmountFromAllocations = (float) $allocations->sum(function ($allocation): float {
-            return (float) ($allocation->allocated_amount ?? 0);
-        });
-
-        $paidAmount = $paidAmountFromReceipts > 0
-            ? $paidAmountFromReceipts
-            : $paidAmountFromAllocations;
+        $paidAmount = $paidAmountFromReceipts;
 
         $quotationPaymentPlans = $member->quotationItems
             ->map(fn ($quotationItem) => strtolower((string) ($quotationItem->quotation?->payment_plan ?? '')))
@@ -2001,8 +2017,7 @@ class ManifestService
         $isFullPaymentOnly = $quotationPaymentPlans->isNotEmpty()
             && $quotationPaymentPlans->every(fn ($plan) => $plan === 'full');
 
-        $firstAllocationReceiptDate = $allocations->first()?->receipt?->receipt_date;
-        $firstPaymentDateSource = $firstReceipt?->receipt_date ?? $firstAllocationReceiptDate;
+        $firstPaymentDateSource = $firstReceipt?->receipt_date;
 
         $quotationIds = $member->quotationItems
             ->pluck('quotation_id')
@@ -2021,10 +2036,16 @@ class ManifestService
                 continue;
             }
 
-            $discountTotal = (float) $quotation->quotationExtensions
-                ->where('type', 'discount')
-                ->sum(function ($extension): float {
-                    return (float) ($extension->amount ?? 0);
+            $discountTotal = (float) collect($quotation->order?->invoices ?? [])
+                ->flatMap(function ($invoice) {
+                    return collect(is_array($invoice->extensions ?? null) ? $invoice->extensions : []);
+                })
+                ->filter(function ($extension): bool {
+                    return is_array($extension)
+                        && strtolower((string) ($extension['type'] ?? '')) === 'discount';
+                })
+                ->sum(function (array $extension): float {
+                    return abs((float) ($extension['amount'] ?? 0));
                 });
 
             $discountTotal = abs($discountTotal);

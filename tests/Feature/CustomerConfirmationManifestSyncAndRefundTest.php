@@ -13,7 +13,6 @@ use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
-use App\Models\ReceiptAllocation;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -143,7 +142,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertSame('Self', (string) $closedManifestMember->relationship);
     }
 
-    public function test_customer_confirmation_member_refund_creates_negative_receipt_and_allocation_without_invoice(): void
+    public function test_customer_confirmation_member_refund_creates_negative_receipt_with_linked_invoice(): void
     {
         $authUser = User::factory()->create();
         $this->actingAs($authUser);
@@ -231,13 +230,6 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'payment_method' => 'transfer',
         ]);
 
-        ReceiptAllocation::create([
-            'receipt_id' => $receipt->id,
-            'customer_confirmation_member_id' => $member->id,
-            'allocated_amount' => 1000,
-            'notes' => 'Base paid amount',
-        ]);
-
         $response = $this->post(route('customer-confirmations.refunds.store', $group->id), [
             'member_refunds' => [
                 [
@@ -251,18 +243,12 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $response->assertRedirect(route('receipt.index'));
 
         $refundReceipt = Receipt::query()
-            ->whereNull('invoice_id')
+            ->where('invoice_id', $invoice->id)
             ->where('amount', '-500.00')
             ->latest('id')
             ->first();
 
         $this->assertNotNull($refundReceipt);
-
-        $this->assertDatabaseHas('receipt_allocations', [
-            'receipt_id' => $refundReceipt?->id,
-            'customer_confirmation_member_id' => $member->id,
-            'allocated_amount' => '-500.00',
-        ]);
 
         $member->refresh();
 

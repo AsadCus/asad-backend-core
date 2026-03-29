@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Services\UserRoles\AdminUserService;
 use App\Services\UserRoles\CustomerUserService;
+use App\Services\UserRoles\OperationsUserService;
 use App\Services\UserRoles\SalesUserService;
 use Spatie\Permission\Models\Role;
 
@@ -13,6 +14,7 @@ class UserService
     public function __construct(
         protected AdminUserService $adminUserService,
         protected SalesUserService $salesUserService,
+        protected OperationsUserService $operationsUserService,
         protected CustomerUserService $customerUserService,
     ) {}
 
@@ -40,6 +42,10 @@ class UserService
             return $this->salesUserService->getForDataTable();
         }
 
+        if ($role === 'operations') {
+            return $this->operationsUserService->getForDataTable();
+        }
+
         if ($role === 'customer') {
             return $this->customerUserService->getForDataTable();
         }
@@ -47,6 +53,7 @@ class UserService
         return collect()
             ->concat($this->adminUserService->getForDataTable())
             ->concat($this->salesUserService->getForDataTable())
+            ->concat($this->operationsUserService->getForDataTable())
             ->concat($this->customerUserService->getForDataTable())
             ->values();
     }
@@ -86,6 +93,15 @@ class UserService
 
             foreach ($salesUsers as $salesUser) {
                 $countryName = $salesUser->sales?->branch?->country?->name ?? 'Unassigned';
+                $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+            }
+        }
+
+        if ($role === 'operations') {
+            $operationsUsers = User::role('operations')->with('branch.country')->get();
+
+            foreach ($operationsUsers as $operationsUser) {
+                $countryName = $operationsUser->branch?->country?->name ?? 'Unassigned';
                 $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
             }
         }
@@ -138,6 +154,7 @@ class UserService
         return match ($role) {
             'admin' => $this->adminUserService,
             'sales' => $this->salesUserService,
+            'operations' => $this->operationsUserService,
             'customer' => $this->customerUserService,
             default => throw new \InvalidArgumentException("Unsupported user role [{$role}]."),
         };

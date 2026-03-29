@@ -13,11 +13,9 @@ use App\Models\ModelFile;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
-use App\Models\QuotationExtension;
 use App\Models\QuotationItem;
 use App\Models\QuotationNotes;
 use App\Models\Receipt;
-use App\Models\ReceiptAllocation;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -280,10 +278,8 @@ class CustomerConfirmationService
     {
         return CustomerConfirmation::with([
             'members.customer.user',
-            'members.receiptAllocations',
             'members.quotationItems',
             'members.quotationItems.invoices.receipt',
-            'members.quotationItems.quotation.quotationExtensions',
             'members.quotationItems.quotation.quotationItems',
             'enquiry.handledBy:id,name',
             'package',
@@ -377,45 +373,60 @@ class CustomerConfirmationService
 
     private function resolveMemberPaidAmount(CustomerConfirmationMember $member): float
     {
-        $allocatedAmount = (float) $member->receiptAllocations->sum('allocated_amount');
+        $memberItems = $member->quotationItems
+            ->filter(fn ($item): bool => ! (bool) $item->is_header)
+            ->values();
 
-        if ($member->receiptAllocations->isNotEmpty()) {
-            return round($allocatedAmount, 2);
-        }
-
-        $paidQuotationIds = $member->quotationItems
-            ->filter(function ($item): bool {
-                return $item->invoices->contains(function ($invoice): bool {
-                    $status = strtolower((string) ($invoice->status ?? ''));
-                    $hasReceipt = $invoice->receipt->isNotEmpty();
-
-                    return $status === 'paid' || $hasReceipt;
-                });
-            })
-            ->pluck('quotation_id')
-            ->filter()
-            ->unique();
-
-        if ($paidQuotationIds->isEmpty()) {
+        if ($memberItems->isEmpty()) {
             return 0.0;
         }
 
-        $fallbackAmount = 0.0;
+        $paidAmount = 0.0;
 
-        foreach ($paidQuotationIds as $quotationId) {
-            $memberItems = $member->quotationItems
-                ->where('quotation_id', $quotationId)
+        $invoices = $memberItems
+            ->flatMap(fn ($item) => $item->invoices)
+            ->unique('id')
+            ->values();
+
+        foreach ($invoices as $invoice) {
+            $invoiceItems = $invoice->quotationItems
                 ->filter(fn ($item): bool => ! (bool) $item->is_header)
                 ->values();
 
-            $itemSubtotal = (float) $memberItems->sum(function ($item): float {
+            if ($invoiceItems->isEmpty()) {
+                continue;
+            }
+
+            $invoiceSubtotal = (float) $invoiceItems->sum(function ($item): float {
                 return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
             });
 
-            $fallbackAmount += $itemSubtotal + $this->resolveDiscountShareFromMemberItems($memberItems);
+            if ($invoiceSubtotal <= 0) {
+                continue;
+            }
+
+            $memberSubtotal = (float) $invoiceItems
+                ->where('customer_confirmation_member_id', $member->id)
+                ->sum(function ($item): float {
+                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                });
+
+            if ($memberSubtotal <= 0) {
+                continue;
+            }
+
+            $receiptTotal = (float) $invoice->receipt->sum(function ($receipt): float {
+                return (float) ($receipt->amount ?? 0);
+            });
+
+            if ($receiptTotal === 0.0) {
+                continue;
+            }
+
+            $paidAmount += $receiptTotal * ($memberSubtotal / $invoiceSubtotal);
         }
 
-        return max(0.0, round($fallbackAmount, 2));
+        return round($paidAmount, 2);
     }
 
     private function resolveMemberTotalAmount(CustomerConfirmationMember $member, ?Package $package): float
@@ -449,9 +460,13 @@ class CustomerConfirmationService
                 continue;
             }
 
-            $discountTotal = (float) $quotation->quotationExtensions
+            $discountTotal = (float) collect(is_array($quotation->extensions) ? $quotation->extensions : [])
                 ->sum(function ($extension): float {
-                    $amount = (float) ($extension->amount ?? 0);
+                    if (! is_array($extension)) {
+                        return 0;
+                    }
+
+                    $amount = (float) ($extension['amount'] ?? 0);
 
                     return $amount < 0 ? $amount : 0;
                 });
@@ -494,10 +509,17 @@ class CustomerConfirmationService
                 continue;
             }
 
-            $discountTotal = (float) $quotation->quotationExtensions
-                ->where('type', 'discount')
+            $discountTotal = (float) collect(is_array($quotation->extensions) ? $quotation->extensions : [])
+                ->filter(function ($extension): bool {
+                    return is_array($extension)
+                        && strtolower((string) ($extension['type'] ?? '')) === 'discount';
+                })
                 ->sum(function ($extension): float {
-                    return (float) ($extension->amount ?? 0);
+                    if (! is_array($extension)) {
+                        return 0;
+                    }
+
+                    return (float) ($extension['amount'] ?? 0);
                 });
 
             $discountTotal = -abs($discountTotal);
@@ -861,10 +883,6 @@ class CustomerConfirmationService
                 ->whereIn('id', $activeItemIds)
                 ->update(['customer_confirmation_member_id' => null]);
         }
-
-        ReceiptAllocation::query()
-            ->where('customer_confirmation_member_id', $memberId)
-            ->delete();
     }
 
     private function activeMemberQuotationItemsQuery(int $memberId)
@@ -1134,7 +1152,6 @@ class CustomerConfirmationService
             ->with([
                 'quotationItems.invoices',
                 'quotationNotes',
-                'quotationExtensions',
                 'order.invoices.quotationItems',
                 'order.invoices.receipt',
             ])
@@ -1183,18 +1200,24 @@ class CustomerConfirmationService
                 ]);
             }
 
-            foreach ($sourceQuotation->quotationExtensions as $extension) {
-                QuotationExtension::create([
-                    'quotation_id' => $newQuotation->id,
-                    'quotation_extension_master_id' => $extension->quotation_extension_master_id,
-                    'name' => $extension->name,
-                    'type' => $extension->type,
-                    'calculation_mode' => $extension->calculation_mode,
-                    'calculation_value' => $extension->calculation_value,
-                    'amount' => $extension->amount,
-                    'sort_order' => $extension->sort_order,
-                ]);
-            }
+            $newQuotation->update([
+                'extensions' => collect(is_array($sourceQuotation->extensions) ? $sourceQuotation->extensions : [])
+                    ->filter(fn ($extension) => is_array($extension))
+                    ->values()
+                    ->map(function (array $extension, int $index): array {
+                        return [
+                            'id' => null,
+                            'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                            'name' => $extension['name'] ?? null,
+                            'type' => $extension['type'] ?? 'discount',
+                            'calculation_mode' => $extension['calculation_mode'] ?? 'fixed',
+                            'calculation_value' => $extension['calculation_value'] ?? 0,
+                            'amount' => $extension['amount'] ?? 0,
+                            'sort_order' => $extension['sort_order'] ?? ($index + 1),
+                        ];
+                    })
+                    ->all(),
+            ]);
 
             $newItemIdsBySourceId = [];
 
@@ -1281,22 +1304,22 @@ class CustomerConfirmationService
                     $newInvoiceIds[] = (int) $newInvoice->id;
 
                     foreach ($sourceInvoice->receipt as $sourceReceipt) {
-                        $movedReceiptAllocations = ReceiptAllocation::query()
-                            ->where('receipt_id', $sourceReceipt->id)
-                            ->whereIn('customer_confirmation_member_id', $sourceMemberIds)
-                            ->get();
+                        $sourceInvoiceAmount = round((float) $sourceInvoice->amount, 2);
+                        $sourceReceiptAmount = round((float) $sourceReceipt->amount, 2);
 
-                        if ($movedReceiptAllocations->isEmpty()) {
+                        if ($sourceInvoiceAmount <= 0 || $sourceReceiptAmount <= 0) {
                             continue;
                         }
 
-                        $movedReceiptAmount = (float) $movedReceiptAllocations->sum('allocated_amount');
+                        $movedReceiptRatio = $movedInvoiceAmount / $sourceInvoiceAmount;
+                        $movedReceiptAmount = round($sourceReceiptAmount * $movedReceiptRatio, 2);
+                        $movedReceiptAmount = max(0.0, min($sourceReceiptAmount, $movedReceiptAmount));
 
                         if ($movedReceiptAmount <= 0) {
                             continue;
                         }
 
-                        $newReceipt = Receipt::create([
+                        Receipt::create([
                             'invoice_id' => $newInvoice->id,
                             'amount' => $movedReceiptAmount,
                             'receipt_date' => optional($sourceReceipt->receipt_date)?->format('Y-m-d') ?? now()->format('Y-m-d'),
@@ -1304,25 +1327,6 @@ class CustomerConfirmationService
                             'reference' => $sourceReceipt->reference,
                             'description' => $sourceReceipt->description,
                         ]);
-
-                        foreach ($movedReceiptAllocations as $allocation) {
-                            $targetMemberId = $memberIdMap[(int) $allocation->customer_confirmation_member_id] ?? null;
-
-                            if (! $targetMemberId) {
-                                continue;
-                            }
-
-                            ReceiptAllocation::create([
-                                'receipt_id' => $newReceipt->id,
-                                'customer_confirmation_member_id' => $targetMemberId,
-                                'allocated_amount' => $allocation->allocated_amount,
-                                'notes' => $allocation->notes,
-                            ]);
-                        }
-
-                        ReceiptAllocation::query()
-                            ->whereIn('id', $movedReceiptAllocations->pluck('id')->all())
-                            ->delete();
 
                         $remainingReceiptAmount = round((float) $sourceReceipt->amount - $movedReceiptAmount, 2);
 
@@ -1857,7 +1861,6 @@ class CustomerConfirmationService
         return DB::transaction(function () use ($confirmationId, $memberRefunds) {
             $group = CustomerConfirmation::with([
                 'members.customer.user',
-                'members.receiptAllocations',
                 'members.quotationItems',
                 'members.quotationItems.invoices.receipt',
             ])->findOrFail($confirmationId);
@@ -1888,21 +1891,19 @@ class CustomerConfirmationService
                 $memberName = $member->customer?->user?->name ?? 'Member #'.$member->id;
                 $refundDescription = 'Refund - '.$memberName;
 
+                $linkedInvoice = $member->quotationItems
+                    ->flatMap(fn ($item) => $item->invoices)
+                    ->sortByDesc('id')
+                    ->first();
+
                 $refundReceipt = Receipt::create([
-                    'invoice_id' => null,
+                    'invoice_id' => $linkedInvoice?->id,
                     'receipt_number' => $this->numberingService->ensureNumber('receipt', null),
                     'amount' => -$refundAmount,
                     'receipt_date' => now()->format('Y-m-d'),
                     'payment_method' => 'refund',
                     'reference' => null,
                     'description' => $refundDescription,
-                ]);
-
-                ReceiptAllocation::create([
-                    'receipt_id' => $refundReceipt->id,
-                    'customer_confirmation_member_id' => $member->id,
-                    'allocated_amount' => -$refundAmount,
-                    'notes' => 'Refund allocation',
                 ]);
 
                 $this->syncOpenManifestMemberSnapshot($member->fresh());

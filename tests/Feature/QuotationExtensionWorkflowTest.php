@@ -59,12 +59,12 @@ class QuotationExtensionWorkflowTest extends TestCase
         $this->assertSame(1000.0, (float) $quotation->item_subtotal_amount);
         $this->assertSame(-100.0, (float) $quotation->extension_total_amount);
         $this->assertSame(900.0, (float) $quotation->total_amount);
-        $this->assertDatabaseHas('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'Promo discount',
-            'type' => 'discount',
-            'amount' => '-100.00',
-        ]);
+        $this->assertTrue(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Promo discount'
+                && ($extension['type'] ?? null) === 'discount'
+                && (float) ($extension['amount'] ?? 0) === -100.0;
+        }));
     }
 
     public function test_update_quotation_replaces_extensions(): void
@@ -93,11 +93,19 @@ class QuotationExtensionWorkflowTest extends TestCase
             'sort_order' => 1,
         ]);
 
-        $oldExtension = $quotation->quotationExtensions()->create([
-            'name' => 'Old discount',
-            'type' => 'discount',
-            'amount' => -50,
-            'sort_order' => 1,
+        $quotation->update([
+            'extensions' => [
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Old discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 50,
+                    'amount' => -50,
+                    'sort_order' => 1,
+                ],
+            ],
         ]);
 
         app(QuotationService::class)->update([
@@ -132,14 +140,15 @@ class QuotationExtensionWorkflowTest extends TestCase
         $quotation->refresh();
 
         $this->assertSame(580.0, (float) $quotation->total_amount);
-        $this->assertDatabaseMissing('quotation_extensions', [
-            'id' => $oldExtension->id,
-        ]);
-        $this->assertDatabaseHas('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'New discount',
-            'amount' => '-120.00',
-        ]);
+        $this->assertFalse(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Old discount';
+        }));
+        $this->assertTrue(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'New discount'
+                && (float) ($extension['amount'] ?? 0) === -120.0;
+        }));
     }
 
     public function test_update_converted_quotation_does_not_override_invoice_owned_extensions(): void
@@ -168,11 +177,19 @@ class QuotationExtensionWorkflowTest extends TestCase
             'sort_order' => 1,
         ]);
 
-        $quotation->quotationExtensions()->create([
-            'name' => 'Initial discount',
-            'type' => 'discount',
-            'amount' => -100,
-            'sort_order' => 1,
+        $quotation->update([
+            'extensions' => [
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Initial discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 100,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
         ]);
 
         $order = Order::create([
@@ -248,10 +265,11 @@ class QuotationExtensionWorkflowTest extends TestCase
                 && (float) ($extension['amount'] ?? 0) === -100.0;
         }));
 
-        $this->assertDatabaseMissing('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'Updated discount',
-        ]);
+        $quotation->refresh();
+        $this->assertFalse(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Updated discount';
+        }));
     }
 
     public function test_store_quotation_with_percentage_tax_extension_calculates_amount_from_items(): void
@@ -297,14 +315,14 @@ class QuotationExtensionWorkflowTest extends TestCase
         $this->assertSame(1000.0, (float) $quotation->item_subtotal_amount);
         $this->assertSame(90.0, (float) $quotation->extension_total_amount);
         $this->assertSame(1090.0, (float) $quotation->total_amount);
-        $this->assertDatabaseHas('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'Tax 9%',
-            'type' => 'tax',
-            'calculation_mode' => 'percentage',
-            'calculation_value' => '9.0000',
-            'amount' => '90.00',
-        ]);
+        $this->assertTrue(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Tax 9%'
+                && ($extension['type'] ?? null) === 'tax'
+                && ($extension['calculation_mode'] ?? null) === 'percentage'
+                && (float) ($extension['calculation_value'] ?? 0) === 9.0
+                && (float) ($extension['amount'] ?? 0) === 90.0;
+        }));
     }
 
     public function test_default_extensions_for_create_follow_selected_payment_method(): void
@@ -392,11 +410,11 @@ class QuotationExtensionWorkflowTest extends TestCase
         $this->assertSame(1000.0, (float) $quotation->item_subtotal_amount);
         $this->assertSame(0.0, (float) $quotation->extension_total_amount);
         $this->assertSame(1000.0, (float) $quotation->total_amount);
-        $this->assertDatabaseHas('quotation_extensions', [
-            'quotation_id' => $quotation->id,
-            'name' => 'Promo 10%',
-            'amount' => '-100.00',
-        ]);
+        $this->assertTrue(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Promo 10%'
+                && (float) ($extension['amount'] ?? 0) === -100.0;
+        }));
     }
 
     public function test_update_converted_quotation_item_tax_syncs_invoice_and_receipt_amounts(): void

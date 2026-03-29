@@ -26,6 +26,7 @@ interface ViewUserProps {
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
+    isOperations: boolean;
     isCustomer: boolean;
 }
 
@@ -36,6 +37,7 @@ export default function ViewUser({
     dataSales,
     isAdmin = false,
     isSales = false,
+    isOperations = false,
     isCustomer = false,
 }: ViewUserProps) {
     const handleCancel = useCallback(() => {
@@ -45,6 +47,7 @@ export default function ViewUser({
     const roleLabel = resolveUserRoleLabel({
         isAdmin,
         isSales,
+        isOperations,
         isCustomer,
     });
 
@@ -65,6 +68,7 @@ export default function ViewUser({
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
+                        isOperations={isOperations}
                     />
                 </div>
             </div>

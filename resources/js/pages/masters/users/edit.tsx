@@ -26,6 +26,7 @@ interface EditUserProps {
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
+    isOperations: boolean;
     isCustomer: boolean;
 }
 
@@ -36,6 +37,7 @@ export default function EditUser({
     dataSales,
     isAdmin = false,
     isSales = false,
+    isOperations = false,
     isCustomer = false,
 }: EditUserProps) {
     const handleCancel = useCallback(() => {
@@ -45,6 +47,7 @@ export default function EditUser({
     const roleLabel = resolveUserRoleLabel({
         isAdmin,
         isSales,
+        isOperations,
         isCustomer,
     });
 
@@ -67,6 +70,7 @@ export default function EditUser({
                         onCancel={handleCancel}
                         isAdmin={isAdmin}
                         isSales={isSales}
+                        isOperations={isOperations}
                         isCustomer={isCustomer}
                     />
                 </div>
