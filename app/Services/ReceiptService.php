@@ -31,8 +31,8 @@ class ReceiptService
     {
         return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->whereHas('invoice.order.quotation.customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
-                    $enquiryQuery->where('handled_by', $value);
+                $q->whereHas('invoice.order.quotation', function ($quotationQuery) use ($value) {
+                    $quotationQuery->where('created_by', $value);
                 });
             })
             ->orderBy('receipt_number', 'desc')->get()->map(function ($r) {

@@ -47,7 +47,7 @@ class InvoiceController extends Controller
         }
 
         $data['invoicesForDatatable'] = $this->invoiceService->getForDataTable($filters);
-        $data['quotations'] = $this->quotationService->getForFilter();
+        $data['quotations'] = $this->quotationService->getForFilter($filters);
         $data['customers'] = $this->customerService->getForFilter();
         $data['salespersons'] = $this->salesService->getForFilter();
 

@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
+use App\Models\QuotationItemTax;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
@@ -298,6 +299,176 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
         $this->assertNotNull($memberRow);
         $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
+    }
+
+    public function test_grouped_index_totals_consider_negative_quotation_and_invoice_extensions(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['quotation']->update([
+            'extensions' => [
+                [
+                    'name' => 'Quotation Promo',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => -300,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        $data['depositInvoice']->update([
+            'extensions' => [
+                [
+                    'name' => 'Invoice Promo',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 200,
+                    'amount' => -200,
+                    'sort_order' => 1,
+                ],
+            ],
+            'status' => 'paid',
+            'amount' => 4500,
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+
+        $this->assertNotNull($group);
+        $this->assertSame(4500.0, (float) ($group['total_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($group['paid_amount'] ?? 0));
+
+        $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(4500.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($memberRow['paid_amount'] ?? 0));
+    }
+
+    public function test_grouped_index_paid_amount_excludes_positive_invoice_extensions_for_paid_invoice_fallback(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['depositInvoice']->update([
+            'extensions' => [
+                [
+                    'name' => 'Admin Fee',
+                    'type' => 'tax',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 500,
+                    'amount' => 500,
+                    'sort_order' => 1,
+                ],
+            ],
+            'status' => 'paid',
+            'amount' => 5500,
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+
+        $this->assertNotNull($group);
+        $this->assertSame(5000.0, (float) ($group['paid_amount'] ?? 0));
+
+        $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
+    }
+
+    public function test_grouped_index_paid_amount_excludes_positive_invoice_extensions_for_receipt_totals(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['depositInvoice']->update([
+            'extensions' => [
+                [
+                    'name' => 'Invoice Tax',
+                    'type' => 'tax',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 500,
+                    'amount' => 500,
+                    'sort_order' => 1,
+                ],
+            ],
+            'amount' => 5500,
+            'status' => 'issued',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5500,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+
+        $this->assertNotNull($group);
+        $this->assertSame(5000.0, (float) ($group['paid_amount'] ?? 0));
+
+        $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
+    }
+
+    public function test_grouped_index_paid_amount_excludes_positive_item_tax_and_respects_discounted_package_payable(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['package']->update([
+            'price_single' => 3000,
+        ]);
+
+        $data['quotation']->update([
+            'extensions' => [
+                [
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 500,
+                    'amount' => -500,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $data['item']->id,
+            'name' => 'Item Tax',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => 210,
+            'sort_order' => 1,
+        ]);
+
+        $data['depositInvoice']->update([
+            'amount' => 1210,
+            'status' => 'issued',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 1210,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+
+        $this->assertNotNull($group);
+        $this->assertSame(2500.0, (float) ($group['total_amount'] ?? 0));
+        $this->assertSame(1000.0, (float) ($group['paid_amount'] ?? 0));
+
+        $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(2500.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(1000.0, (float) ($memberRow['paid_amount'] ?? 0));
     }
 
     public function test_when_package_is_full_paid_member_reverts_to_pending_payment_and_is_not_linked_to_manifest(): void

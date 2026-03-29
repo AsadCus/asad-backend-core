@@ -44,7 +44,7 @@ class ReceiptController extends Controller
         }
 
         $data['receiptsForDatatable'] = $this->receiptService->getForDataTable($filters);
-        $data['invoices'] = $this->invoiceService->getForFilter();
+        $data['invoices'] = $this->invoiceService->getForFilter($filters);
         $data['customers'] = $this->customerService->getForFilter();
         $data['salespersons'] = $this->salesService->getForFilter();
         $data['paymentMethods'] = $this->receiptService->getPaymentMethodOptions();
@@ -56,13 +56,20 @@ class ReceiptController extends Controller
 
     public function create(Request $request)
     {
+        $user = $request->user();
+        $filters = [];
+
+        if ($user && $user->hasRole('sales')) {
+            $filters['sales_id'] = $user->id;
+        }
+
         $data['invoiceId'] = $request->invoice_id;
         $data['defaultPaymentMethod'] = $this->receiptService->getDefaultPaymentMethodValue();
         $data['paymentMethods'] = $this->receiptService->getPaymentMethodOptions();
         if ($data['invoiceId']) {
             $data['invoiceData'] = $this->invoiceService->getForEditShow($request->invoice_id);
         }
-        $data['invoiceOptions'] = $this->invoiceService->getForFilter();
+        $data['invoiceOptions'] = $this->invoiceService->getForFilter($filters);
 
         return Inertia::render('receipts/create', [
             'data' => $data,
@@ -91,8 +98,15 @@ class ReceiptController extends Controller
 
     public function show($id)
     {
+        $user = request()->user();
+        $filters = [];
+
+        if ($user && $user->hasRole('sales')) {
+            $filters['sales_id'] = $user->id;
+        }
+
         $data['data'] = $this->receiptService->getForEditShow($id);
-        $data['invoiceOptions'] = $this->invoiceService->getForFilter();
+        $data['invoiceOptions'] = $this->invoiceService->getForFilter($filters);
 
         return Inertia::render('receipts/view', [
             'data' => $data,
@@ -106,8 +120,15 @@ class ReceiptController extends Controller
 
     public function edit($id)
     {
+        $user = request()->user();
+        $filters = [];
+
+        if ($user && $user->hasRole('sales')) {
+            $filters['sales_id'] = $user->id;
+        }
+
         $data['data'] = $this->receiptService->getForEditShow($id);
-        $data['invoiceOptions'] = $this->invoiceService->getForFilter();
+        $data['invoiceOptions'] = $this->invoiceService->getForFilter($filters);
         $data['paymentMethods'] = $this->receiptService->getPaymentMethodOptions();
 
         return Inertia::render('receipts/edit', [

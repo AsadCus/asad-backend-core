@@ -16,6 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { fetchFormats, suggestNumber } from '@/lib/numbering-formats';
 import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
@@ -562,6 +563,77 @@ const depositTypes = [
 const EMPTY_OPTION_TYPES: OptionType[] = [];
 const EMPTY_EXTENSION_MASTERS: TotalsSummaryExtensionMaster[] = [];
 
+function buildInvoiceNumberFromFormat(
+    formatName: string,
+    increment: number,
+    incrementPadding: number,
+): string {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const yearFull = String(now.getFullYear());
+    const yearShort = yearFull.slice(-2);
+    const sequence = String(Math.max(1, increment)).padStart(
+        Math.max(1, incrementPadding),
+        '0',
+    );
+
+    return (formatName.trim() || '%I%')
+        .replace(/%DD%/g, day)
+        .replace(/%MM%/g, month)
+        .replace(/%YYYY%/g, yearFull)
+        .replace(/%YY%/g, yearShort)
+        .replace(/%I%/g, sequence);
+}
+
+function escapeRegexSegment(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractIncrementFromInvoiceNumber(
+    number: string,
+    formatName: string,
+): number | null {
+    const tokens = formatName.split(/(%DD%|%MM%|%YYYY%|%YY%|%I%)/g);
+
+    if (!tokens.includes('%I%')) {
+        return null;
+    }
+
+    let regexPattern = '^';
+
+    tokens.forEach((token) => {
+        if (token === '%DD%' || token === '%MM%' || token === '%YY%') {
+            regexPattern += '(?:\\d{2})';
+            return;
+        }
+
+        if (token === '%YYYY%') {
+            regexPattern += '(?:\\d{4})';
+            return;
+        }
+
+        if (token === '%I%') {
+            regexPattern += '(\\d+)';
+            return;
+        }
+
+        regexPattern += escapeRegexSegment(token);
+    });
+
+    regexPattern += '$';
+
+    const match = number.match(new RegExp(regexPattern));
+
+    if (!match || !match[1]) {
+        return null;
+    }
+
+    const parsed = Number(match[1]);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 export default function OrderForm({
     mode,
     initialData,
@@ -694,11 +766,6 @@ export default function OrderForm({
                     ),
                 );
 
-                const totalSubtotal = rebuiltInvoices.reduce(
-                    (sum, invoice) => sum + calculateTotal(invoice.items ?? []),
-                    0,
-                );
-
                 const sourceExtensions = aggregateSourceExtensionsForSplit(
                     currentInvoices,
                     (quotation.extensions ?? []) as InvoiceExtensionInput[],
@@ -740,9 +807,6 @@ export default function OrderForm({
                 return normalizeInvoices(
                     rebuiltInvoices.map((invoice, index) => {
                         const existingInvoice = currentInvoices[index];
-                        const subtotalAmount = calculateTotal(
-                            invoice.items ?? [],
-                        );
 
                         const inheritedExtensions = normalizeInvoiceExtensions(
                             sourceExtensions.map(
@@ -900,6 +964,7 @@ export default function OrderForm({
     );
 
     const didInitializeQuotationInvoicesRef = useRef(false);
+    const isInvoiceNumberAutofillRunningRef = useRef(false);
 
     useEffect(() => {
         if (didInitializeQuotationInvoicesRef.current) {
@@ -942,6 +1007,138 @@ export default function OrderForm({
         rebuildInvoicesFromSource,
         serializeInvoicesForComparison,
     ]);
+
+    useEffect(() => {
+        if (isView || processing || isInvoiceNumberAutofillRunningRef.current) {
+            return;
+        }
+
+        const missingIndexes = data.invoices
+            .map((invoice, index) => {
+                const invoiceNumber = String(
+                    invoice.invoice_number ?? '',
+                ).trim();
+
+                return invoiceNumber.length === 0 ? index : null;
+            })
+            .filter((index): index is number => index !== null);
+
+        if (missingIndexes.length === 0) {
+            return;
+        }
+
+        isInvoiceNumberAutofillRunningRef.current = true;
+
+        void (async () => {
+            try {
+                const formats = await fetchFormats('invoice');
+                const counterByScopeKey = new Map<string, number>();
+                const nextInvoices = [...data.invoices];
+
+                nextInvoices.forEach((invoice) => {
+                    const invoiceNumber = String(
+                        invoice.invoice_number ?? '',
+                    ).trim();
+
+                    if (invoiceNumber.length === 0) {
+                        return;
+                    }
+
+                    const matchedFormat =
+                        formats.find(
+                            (format) =>
+                                format.id ===
+                                Number(invoice.number_format_id ?? 0),
+                        ) ??
+                        formats.find((format) => {
+                            return (
+                                extractIncrementFromInvoiceNumber(
+                                    invoiceNumber,
+                                    format.name,
+                                ) !== null
+                            );
+                        });
+
+                    if (!matchedFormat) {
+                        return;
+                    }
+
+                    const parsedIncrement = extractIncrementFromInvoiceNumber(
+                        invoiceNumber,
+                        matchedFormat.name,
+                    );
+
+                    if (parsedIncrement === null) {
+                        return;
+                    }
+
+                    const scopeKey =
+                        matchedFormat.increment_scope === 'model'
+                            ? 'model:invoice'
+                            : `format:${matchedFormat.id}`;
+                    const nextAvailableIncrement = parsedIncrement + 1;
+                    const currentCounter = counterByScopeKey.get(scopeKey) ?? 1;
+
+                    counterByScopeKey.set(
+                        scopeKey,
+                        Math.max(currentCounter, nextAvailableIncrement),
+                    );
+                });
+
+                for (const invoiceIndex of missingIndexes) {
+                    const currentInvoice = nextInvoices[invoiceIndex];
+
+                    if (!currentInvoice) {
+                        continue;
+                    }
+
+                    const suggestion = await suggestNumber(
+                        'invoice',
+                        currentInvoice.number_format_id ?? null,
+                    );
+
+                    const format = formats.find(
+                        (candidate) => candidate.id === suggestion.format_id,
+                    );
+
+                    const scopeKey =
+                        format?.increment_scope === 'model'
+                            ? 'model:invoice'
+                            : `format:${suggestion.format_id}`;
+
+                    const currentCounter = counterByScopeKey.get(scopeKey) ?? 1;
+                    const resolvedIncrement = Math.max(
+                        suggestion.next_increment,
+                        currentCounter,
+                    );
+
+                    const nextInvoiceNumber = format
+                        ? buildInvoiceNumberFromFormat(
+                              format.name,
+                              resolvedIncrement,
+                              format.increment_padding,
+                          )
+                        : suggestion.number;
+
+                    counterByScopeKey.set(scopeKey, resolvedIncrement + 1);
+
+                    nextInvoices[invoiceIndex] = {
+                        ...currentInvoice,
+                        number_format_id:
+                            currentInvoice.number_format_id ??
+                            suggestion.format_id,
+                        invoice_number: nextInvoiceNumber,
+                    };
+                }
+
+                setData('invoices', nextInvoices);
+            } catch {
+                // Keep invoice numbers editable manually if auto-fill cannot be loaded.
+            } finally {
+                isInvoiceNumberAutofillRunningRef.current = false;
+            }
+        })();
+    }, [data.invoices, isView, processing, setData]);
 
     function addInvoice() {
         if (data.payment_plan === 'installment') {
@@ -1137,8 +1334,12 @@ export default function OrderForm({
             const field = parts[2];
 
             const fieldLabelMap: Record<string, string> = {
+                invoice_number: 'invoice number',
+                number_format_id: 'invoice number format',
                 invoice_date: 'invoice date',
                 due_date: 'due date',
+                payment_method: 'payment method',
+                description: 'invoice name',
             };
 
             return `Invoice #${invoiceIndex} ${fieldLabelMap[field] ?? field} ${message.replace(
@@ -1198,6 +1399,61 @@ export default function OrderForm({
 
     const handleReset = () => {
         reset();
+    };
+
+    const focusErrorField = (errorKey: string) => {
+        const parts = errorKey.split('.');
+
+        if (parts[0] === 'invoices' && parts.length >= 3) {
+            const invoiceIndex = Number(parts[1]);
+            const invoiceField = parts[2];
+
+            if (!Number.isFinite(invoiceIndex) || invoiceIndex < 0) {
+                return;
+            }
+
+            const targetInvoice = data.invoices[invoiceIndex];
+
+            if (!targetInvoice) {
+                return;
+            }
+
+            setCollapsedInvoices((prev) => ({
+                ...prev,
+                [targetInvoice._key]: false,
+            }));
+
+            const cardElement = document.getElementById(
+                `order-invoice-card-${invoiceIndex}`,
+            );
+            cardElement?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+
+            setTimeout(() => {
+                if (
+                    invoiceField === 'invoice_number' ||
+                    invoiceField === 'number_format_id'
+                ) {
+                    const modelInput = document.getElementById(
+                        `invoice-number-input-${invoiceIndex}`,
+                    );
+                    modelInput?.focus();
+                    return;
+                }
+
+                const genericField = cardElement?.querySelector(
+                    `#${invoiceField}`,
+                ) as HTMLElement | null;
+                genericField?.focus();
+            }, 180);
+
+            return;
+        }
+
+        const topField = document.getElementById(parts[0]);
+        topField?.focus();
     };
 
     // expand & collapse invoice
@@ -1515,8 +1771,19 @@ export default function OrderForm({
                                         {Object.entries(errors).map(
                                             ([key, message]) => (
                                                 <li key={key}>
-                                                    •{' '}
-                                                    {formatError(key, message)}
+                                                    <button
+                                                        type="button"
+                                                        className="cursor-pointer text-left underline decoration-red-300 underline-offset-2 hover:text-red-900"
+                                                        onClick={() =>
+                                                            focusErrorField(key)
+                                                        }
+                                                    >
+                                                        •{' '}
+                                                        {formatError(
+                                                            key,
+                                                            message,
+                                                        )}
+                                                    </button>
                                                 </li>
                                             ),
                                         )}
@@ -1819,6 +2086,17 @@ export default function OrderForm({
                             {data.invoices.map((invoice, idx) => {
                                 const invoiceHasErrors = hasInvoiceErrors(idx);
                                 const invoiceErrors = getInvoiceErrors(idx);
+                                const invoiceErrorMap = errors as Record<
+                                    string,
+                                    string | undefined
+                                >;
+                                const invoiceNumberError =
+                                    invoiceErrorMap[
+                                        `invoices.${idx}.invoice_number`
+                                    ] ??
+                                    invoiceErrorMap[
+                                        `invoices.${idx}.number_format_id`
+                                    ];
                                 const invoiceSubtotal = calculateTotal(
                                     invoice.items,
                                 );
@@ -1865,16 +2143,17 @@ export default function OrderForm({
 
                                 return (
                                     <Card
+                                        id={`order-invoice-card-${idx}`}
                                         key={invoice._key}
-                                        className={`py-4 shadow-sm transition-shadow hover:shadow ${
+                                        className={`overflow-hidden border-l-4 py-0 shadow-sm transition-shadow hover:shadow-md ${
                                             invoiceHasErrors
-                                                ? 'border-red-300 bg-red-50/30'
-                                                : 'border-muted/80'
+                                                ? 'border-red-200 border-l-red-500 bg-red-50/20'
+                                                : 'border-muted/80 border-l-primary/70 bg-card'
                                         }`}
                                     >
-                                        <CardContent className="space-y-2 px-4">
+                                        <CardContent className="space-y-4 px-0">
                                             {invoiceHasErrors && (
-                                                <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                                                <div className="mx-4 mt-4 rounded-md border border-red-200 bg-red-50 p-3">
                                                     <div className="flex items-start gap-2">
                                                         <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
                                                         <div className="flex-1">
@@ -1906,121 +2185,181 @@ export default function OrderForm({
                                                 </div>
                                             )}
 
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex gap-4">
-                                                    <div className="space-y-0.5">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-base font-medium text-muted-foreground">
-                                                                {invoice.invoice_number ||
-                                                                    `Invoice ${idx + 1}`}
-                                                            </span>
+                                            <div
+                                                className={`border-b px-4 py-4 ${
+                                                    invoiceHasErrors
+                                                        ? 'border-red-200 bg-red-50/40'
+                                                        : 'border-muted/70 bg-muted/20'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="space-y-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="px-2 py-1 text-base font-semibold text-primary"
+                                                                >
+                                                                    {invoice.invoice_number ||
+                                                                        `Invoice #${idx + 1}`}
+                                                                </Badge>
+                                                            </div>
+
+                                                            <p className="text-base font-semibold">
+                                                                {invoice.description ||
+                                                                    '—'}
+                                                            </p>
                                                         </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <Badge className="rounded-md bg-emerald-50 px-3 py-1 text-base font-semibold text-emerald-700">
+                                                                <span className="tabular-nums">
+                                                                    $
+                                                                    {calculateTotal(
+                                                                        invoice.items,
+                                                                    )}
+                                                                </span>
+                                                            </Badge>
 
-                                                        <p className="text-base font-semibold">
-                                                            {invoice.description ||
-                                                                '—'}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <Badge className="rounded-md bg-emerald-50 px-3 py-1 text-base font-semibold text-emerald-700">
-                                                            <span className="tabular-nums">
-                                                                $
-                                                                {calculateTotal(
-                                                                    invoice.items,
-                                                                )}
-                                                            </span>
-                                                        </Badge>
-
-                                                        <Badge
-                                                            className={`${
-                                                                statusColors[
-                                                                    (invoice.status ??
-                                                                        'draft') as keyof typeof statusColors
-                                                                ]
-                                                            } px-3 py-1 text-base`}
-                                                        >
-                                                            {statuses.find(
-                                                                (s) =>
-                                                                    s.value ===
-                                                                    (invoice.status ??
-                                                                        'draft'),
-                                                            )?.label ??
-                                                                invoice.status ??
-                                                                'draft'}
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex gap-2">
-                                                    {/* <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            setPreviewInvoice(
-                                                                invoice,
-                                                            )
-                                                        }
-                                                    >
-                                                        Preview
-                                                    </Button> */}
-
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            toggleInvoice(
-                                                                invoice._key,
-                                                            )
-                                                        }
-                                                    >
-                                                        {collapsedInvoices[
-                                                            invoice._key
-                                                        ]
-                                                            ? 'Expand'
-                                                            : 'Collapse'}
-                                                    </Button>
-
-                                                    {!isView && (
-                                                        <div className="flex justify-end">
-                                                            <Button
-                                                                type="button"
-                                                                variant="destructive"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    removeInvoice(
-                                                                        idx,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    data
-                                                                        .invoices
-                                                                        .length <=
-                                                                    1
-                                                                }
+                                                            <Badge
+                                                                className={`${
+                                                                    statusColors[
+                                                                        (invoice.status ??
+                                                                            'draft') as keyof typeof statusColors
+                                                                    ]
+                                                                } px-3 py-1 text-base`}
                                                             >
-                                                                <Trash />
-                                                            </Button>
+                                                                {statuses.find(
+                                                                    (s) =>
+                                                                        s.value ===
+                                                                        (invoice.status ??
+                                                                            'draft'),
+                                                                )?.label ??
+                                                                    invoice.status ??
+                                                                    'draft'}
+                                                            </Badge>
                                                         </div>
-                                                    )}
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                toggleInvoice(
+                                                                    invoice._key,
+                                                                )
+                                                            }
+                                                        >
+                                                            {collapsedInvoices[
+                                                                invoice._key
+                                                            ]
+                                                                ? 'Expand'
+                                                                : 'Collapse'}
+                                                        </Button>
+
+                                                        {!isView && (
+                                                            <div className="flex justify-end">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="destructive"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        removeInvoice(
+                                                                            idx,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        data
+                                                                            .invoices
+                                                                            .length <=
+                                                                        1
+                                                                    }
+                                                                >
+                                                                    <Trash />
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
                                             {!collapsedInvoices[
                                                 invoice._key
                                             ] && (
-                                                <>
+                                                <div className="space-y-4 px-4 pb-4">
                                                     <InvoiceHeader
                                                         invoice={invoice}
                                                         disabled={
                                                             processing || isView
                                                         }
-                                                        isView={isView}
                                                         renderError={(path) =>
                                                             renderError(
                                                                 `invoices.${idx}.${path}`,
                                                             )
+                                                        }
+                                                        modelNumberField={
+                                                            <ModelNumberInput
+                                                                modelKey="invoice"
+                                                                label="Invoice Number"
+                                                                inputId={`invoice-number-input-${idx}`}
+                                                                value={
+                                                                    invoice.invoice_number ??
+                                                                    ''
+                                                                }
+                                                                formatId={
+                                                                    invoice.number_format_id ??
+                                                                    null
+                                                                }
+                                                                onValueChange={(
+                                                                    nextValue,
+                                                                ) => {
+                                                                    const next =
+                                                                        [
+                                                                            ...data.invoices,
+                                                                        ];
+                                                                    next[idx] =
+                                                                        {
+                                                                            ...next[
+                                                                                idx
+                                                                            ],
+                                                                            invoice_number:
+                                                                                nextValue,
+                                                                        };
+                                                                    setData(
+                                                                        'invoices',
+                                                                        next,
+                                                                    );
+                                                                }}
+                                                                onFormatIdChange={(
+                                                                    nextFormatId,
+                                                                ) => {
+                                                                    const next =
+                                                                        [
+                                                                            ...data.invoices,
+                                                                        ];
+                                                                    next[idx] =
+                                                                        {
+                                                                            ...next[
+                                                                                idx
+                                                                            ],
+                                                                            number_format_id:
+                                                                                nextFormatId,
+                                                                        };
+                                                                    setData(
+                                                                        'invoices',
+                                                                        next,
+                                                                    );
+                                                                }}
+                                                                disabled={
+                                                                    processing ||
+                                                                    isView
+                                                                }
+                                                                error={
+                                                                    invoiceNumberError
+                                                                }
+                                                                hint="Select format to auto-generate invoice number for this invoice."
+                                                            />
                                                         }
                                                         paymentMethodField={
                                                             <PaymentMethodMasterCombobox
@@ -2156,7 +2495,7 @@ export default function OrderForm({
                                                                 invoiceGrandTotal,
                                                         )}
                                                     />
-                                                </>
+                                                </div>
                                             )}
                                         </CardContent>
                                     </Card>

@@ -15,6 +15,7 @@ use App\Models\PackageAccommodation;
 use App\Models\PackageOfficial;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
+use App\Models\QuotationItemTax;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\ManifestService;
@@ -2647,7 +2648,7 @@ class ManifestWorkflowTest extends TestCase
             ->firstWhere('customer_confirmation_member_id', $member->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
+        $this->assertSame(600.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(
             Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             $memberRow['date_of_deposit_payment']
@@ -2663,7 +2664,519 @@ class ManifestWorkflowTest extends TestCase
             $memberRow['date_of_third_payment']
         );
         $this->assertSame(500.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertSame(1700.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertSame(1400.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_accumulates_third_payment_from_third_invoice_and_later(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-003',
+            'name' => 'Manifest Financial Third Bucket',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-003',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member Third Bucket', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+            'extensions' => [
+                [
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => -300,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package installment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $createInvoice = function (string $description, float $amount, string $invoiceDate) use ($order, $quotationItem) {
+            $invoice = Invoice::create([
+                'order_id' => $order->id,
+                'description' => $description,
+                'extensions' => [
+                    [
+                        'name' => 'Promo Discount',
+                        'type' => 'discount',
+                        'calculation_mode' => 'fixed',
+                        'calculation_value' => 100,
+                        'amount' => -100,
+                        'sort_order' => 1,
+                    ],
+                ],
+                'amount' => $amount,
+                'invoice_date' => $invoiceDate,
+                'due_date' => $invoiceDate,
+                'status' => 'issued',
+            ]);
+
+            $invoice->quotationItems()->sync([$quotationItem->id]);
+
+            Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => $amount,
+                'receipt_date' => $invoiceDate,
+                'payment_method' => 'transfer',
+            ]);
+        };
+
+        $createInvoice('Deposit invoice', 1000, '2026-03-01');
+        $createInvoice('Second invoice', 1500, '2026-03-10');
+        $createInvoice('Third invoice', 500, '2026-03-20');
+        $createInvoice('Fourth invoice', 200, '2026-03-25');
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(700.0, (float) ($memberRow['discount'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            $memberRow['date_of_deposit_payment']
+        );
+        $this->assertSame(1000.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            $memberRow['date_of_second_payment']
+        );
+        $this->assertSame(1500.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            $memberRow['date_of_third_payment']
+        );
+        $this->assertSame(700.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(1100.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_payment_buckets_exclude_positive_invoice_extensions_when_invoice_marked_paid_without_receipts(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-004',
+            'name' => 'Manifest Financial Paid Fallback Extension',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-004',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member Fallback Extension', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package full payment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Paid invoice no receipt',
+            'extensions' => [
+                [
+                    'name' => 'Admin Fee',
+                    'type' => 'tax',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => 300,
+                    'sort_order' => 1,
+                ],
+            ],
+            'amount' => 5300,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'paid',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertNull($memberRow['second_payment']);
+        $this->assertNull($memberRow['third_payment']);
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_payment_buckets_exclude_positive_invoice_extensions_for_receipt_totals(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-005',
+            'name' => 'Manifest Financial Receipt Extension Exclusion',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-005',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member Receipt Extension', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package full payment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Issued invoice with tax extension',
+            'extensions' => [
+                [
+                    'name' => 'Admin Fee',
+                    'type' => 'tax',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => 300,
+                    'sort_order' => 1,
+                ],
+            ],
+            'amount' => 5300,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 5300,
+            'receipt_date' => '2026-03-01',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertNull($memberRow['second_payment']);
+        $this->assertNull($memberRow['third_payment']);
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_maps_paid_amounts_to_invoice_sequence_slots(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-006',
+            'name' => 'Manifest Financial Invoice Slot Mapping',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-006',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member Slot Mapping', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package installment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $firstInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Deposit invoice unpaid',
+            'amount' => 1000,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'issued',
+        ]);
+        $firstInvoice->quotationItems()->sync([$quotationItem->id]);
+
+        $secondInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Second invoice paid',
+            'amount' => 1500,
+            'invoice_date' => '2026-03-10',
+            'due_date' => '2026-03-10',
+            'status' => 'issued',
+        ]);
+        $secondInvoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $secondInvoice->id,
+            'amount' => 1500,
+            'receipt_date' => '2026-03-10',
+            'payment_method' => 'transfer',
+        ]);
+
+        $thirdInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Third invoice paid',
+            'amount' => 500,
+            'invoice_date' => '2026-03-20',
+            'due_date' => '2026-03-20',
+            'status' => 'issued',
+        ]);
+        $thirdInvoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $thirdInvoice->id,
+            'amount' => 500,
+            'receipt_date' => '2026-03-20',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertNull($memberRow['deposit_payment']);
+        $this->assertNull($memberRow['date_of_deposit_payment']);
+        $this->assertSame(1500.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            $memberRow['date_of_second_payment']
+        );
+        $this->assertSame(500.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            $memberRow['date_of_third_payment']
+        );
+        $this->assertSame(3000.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_excludes_positive_item_tax_from_payment_columns_and_caps_to_package_minus_discount(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-007',
+            'name' => 'Manifest Financial Item Tax Exclusion',
+            'status' => 'open',
+            'price_double' => 3000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-007',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member Item Tax Exclusion', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'full',
+            'status' => 'converted',
+            'extensions' => [
+                [
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 500,
+                    'amount' => -500,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package full payment with item tax',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 3000,
+            'sort_order' => 1,
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $quotationItem->id,
+            'name' => 'Item Tax',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => 210,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Paid invoice with item tax',
+            'amount' => 2710,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'paid',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(500.0, (float) ($memberRow['discount'] ?? 0));
+        $this->assertSame(2500.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertNull($memberRow['second_payment']);
+        $this->assertNull($memberRow['third_payment']);
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_splits_receipt_amounts_by_carried_members_in_each_receipt(): void
@@ -2851,7 +3364,7 @@ class ManifestWorkflowTest extends TestCase
             ->firstWhere('customer_confirmation_member_id', $primaryMember->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(100.0, (float) ($memberRow['discount'] ?? 0));
+        $this->assertSame(200.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(
             Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             $memberRow['date_of_deposit_payment']
@@ -2867,7 +3380,7 @@ class ManifestWorkflowTest extends TestCase
             $memberRow['date_of_third_payment']
         );
         $this->assertSame(200.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertSame(3200.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertSame(3100.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_patch_manifest_core_section_updates_manifest_fields_and_package_status(): void

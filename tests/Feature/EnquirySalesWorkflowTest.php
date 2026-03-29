@@ -116,6 +116,44 @@ class EnquirySalesWorkflowTest extends TestCase
         $this->assertSame($pipelineA['receipt']->id, (int) $receipts->first()['id']);
     }
 
+    public function test_sales_can_see_quotation_when_customer_confirmation_enquiry_is_handled_by_them_even_if_created_by_another_user(): void
+    {
+        $salesA = User::factory()->create();
+        $salesA->assignRole('sales');
+
+        $salesB = User::factory()->create();
+        $salesB->assignRole('sales');
+
+        $package = Package::create([
+            'package_number' => 'PKG-CC-VIS-001',
+            'name' => 'CC Visibility Package',
+            'status' => 'open',
+        ]);
+
+        $group = $this->createConfirmationGroupHandledBy($salesA->id, $package->id, 'cc-visible');
+        $customerId = $group->leader()?->customer_id;
+
+        $this->assertNotNull($customerId);
+
+        $quotation = Quotation::create([
+            'customer_id' => (int) $customerId,
+            'customer_confirmation_id' => $group->id,
+            'created_by' => $salesB->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'draft',
+            'description' => 'Quotation via CC visibility',
+        ]);
+
+        $quotationsForSalesA = app(QuotationService::class)->getForDataTable([
+            'sales_id' => $salesA->id,
+        ]);
+
+        $this->assertCount(1, $quotationsForSalesA);
+        $this->assertSame($quotation->id, (int) $quotationsForSalesA->first()['id']);
+    }
+
     private function createConfirmationGroupHandledBy(int $handledBy, int $packageId, string $suffix): CustomerConfirmation
     {
         $enquiry = Enquiry::create([
@@ -174,6 +212,7 @@ class EnquirySalesWorkflowTest extends TestCase
         $quotation = Quotation::create([
             'customer_id' => (int) $customerId,
             'customer_confirmation_id' => $group->id,
+            'created_by' => $handledBy,
             'quotation_date' => now()->format('Y-m-d'),
             'expiry_date' => now()->addDays(7)->format('Y-m-d'),
             'payment_plan' => 'full',

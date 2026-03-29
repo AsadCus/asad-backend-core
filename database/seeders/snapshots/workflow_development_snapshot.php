@@ -1230,7 +1230,6 @@ Jawa Barat, Indonesia',
         'quotations' => [
             0 => [
                 'id' => 3,
-                'maid_id' => null,
                 'quotation_number' => 'QTN-2026-003',
                 'quotation_date' => '2026-03-28',
                 'expiry_date' => '2026-04-27',
@@ -1249,7 +1248,6 @@ Jawa Barat, Indonesia',
             ],
             1 => [
                 'id' => 4,
-                'maid_id' => null,
                 'quotation_number' => 'QTN-2026-004',
                 'quotation_date' => '2026-03-28',
                 'expiry_date' => '2026-04-27',

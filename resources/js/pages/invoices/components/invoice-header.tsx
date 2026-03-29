@@ -1,7 +1,6 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
-import { Label } from '@/components/ui/label';
 import { parseDisplayDate } from '@/lib/utils';
 import { InvoiceSchema } from '@/pages/invoices/schema';
 import { isBefore } from 'date-fns';
@@ -11,27 +10,18 @@ export function InvoiceHeader({
     onChange,
     renderError,
     disabled,
-    isView = false,
+    modelNumberField,
     paymentMethodField,
 }: {
     invoice: InvoiceSchema;
     onChange: (patch: Partial<InvoiceSchema>) => void;
     renderError: (path: string) => React.ReactNode;
     disabled: boolean;
-    isView?: boolean;
+    modelNumberField?: React.ReactNode;
     paymentMethodField?: React.ReactNode;
 }) {
     return (
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
-            {isView && invoice.invoice_number && (
-                <div className="grid w-full items-center gap-2">
-                    <Label>Invoice Number</Label>
-                    <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-sm">
-                        {invoice.invoice_number}
-                    </div>
-                </div>
-            )}
-
             <section className="grid grid-cols-1 gap-3">
                 <FormField
                     label="Invoice Name"
@@ -56,6 +46,15 @@ export function InvoiceHeader({
             </section>
 
             <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {modelNumberField && <div>{modelNumberField}</div>}
+
+                {paymentMethodField && (
+                    <FormField label="Payment Method">
+                        {paymentMethodField}
+                        {renderError('payment_method')}
+                    </FormField>
+                )}
+
                 <FormField
                     label="Invoice Date"
                     htmlFor="invoice_date"
@@ -103,13 +102,6 @@ export function InvoiceHeader({
                     />
                     {renderError('due_date')}
                 </FormField>
-
-                {paymentMethodField && (
-                    <FormField label="Payment Method" className="md:col-span-2">
-                        {paymentMethodField}
-                        {renderError('payment_method')}
-                    </FormField>
-                )}
             </section>
         </div>
     );

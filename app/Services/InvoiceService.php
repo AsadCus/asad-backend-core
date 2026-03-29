@@ -33,8 +33,8 @@ class InvoiceService
             ->with('receipt:id,invoice_id')
             ->withCount('receipt')
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->whereHas('order.quotation.customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
-                    $enquiryQuery->where('handled_by', $value);
+                $q->whereHas('order.quotation', function ($quotationQuery) use ($value) {
+                    $quotationQuery->where('created_by', $value);
                 });
             })
             ->orderBy('invoice_number', 'desc')->get()->map(function ($i) {
@@ -64,12 +64,19 @@ class InvoiceService
             });
     }
 
-    public function getForFilter()
+    public function getForFilter(array $filters = [])
     {
-        return Invoice::get()->map(fn ($i) => [
-            'value' => $i->id,
-            'label' => $i->invoice_number,
-        ]);
+        return Invoice::query()
+            ->when($filters['sales_id'] ?? null, function ($query, $value) {
+                $query->whereHas('order.quotation', function ($quotationQuery) use ($value) {
+                    $quotationQuery->where('created_by', $value);
+                });
+            })
+            ->get()
+            ->map(fn ($i) => [
+                'value' => $i->id,
+                'label' => $i->invoice_number,
+            ]);
     }
 
     public function store(array $data): Invoice

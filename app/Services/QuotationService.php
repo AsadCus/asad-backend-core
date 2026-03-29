@@ -40,10 +40,20 @@ class QuotationService
 
     public function getForDataTable(array $filters = [])
     {
-        $data = Quotation::with(['customer.user', 'customer.handledBy', 'customerConfirmation.enquiry.handledBy:id,name', 'quotationItems', 'order'])->withTrashed()
+        $data = Quotation::with([
+            'customer.user',
+            'customer.handledBy',
+            'customerConfirmation.enquiry.handledBy:id,name',
+            'quotationItems',
+            'order',
+            'createdBy:id,name',
+        ])->withTrashed()
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->whereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
-                    $enquiryQuery->where('handled_by', $value);
+                $q->where(function ($visibilityQuery) use ($value) {
+                    $visibilityQuery->where('created_by', $value)
+                        ->orWhereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
+                            $enquiryQuery->where('handled_by', $value);
+                        });
                 });
             })->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
@@ -62,8 +72,8 @@ class QuotationService
                     'customer_id' => $q->customer_id,
                     'customer_number' => $q->customer->customer_number ?? '-',
                     'customer_name' => $q->customer->user->name ?? '-',
-                    'sales_id' => $q->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
-                    'sales_name' => $q->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
+                    'sales_id' => $q->createdBy?->id ?? '-',
+                    'sales_name' => $q->createdBy?->name ?? '-',
                     'description' => $q->description ?? '-',
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,
@@ -81,29 +91,53 @@ class QuotationService
         return $data;
     }
 
-    public function getForFilter()
+    public function getForFilter(array $filters = [])
     {
-        $data = Quotation::select('id', 'quotation_number')->get()->map(function ($q) {
-            return [
-                'value' => $q->id,
-                'label' => $q->quotation_number,
-            ];
-        });
+        $data = Quotation::query()
+            ->select('id', 'quotation_number')
+            ->when($filters['sales_id'] ?? null, function ($query, $value) {
+                $query->where(function ($visibilityQuery) use ($value) {
+                    $visibilityQuery->where('created_by', $value)
+                        ->orWhereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
+                            $enquiryQuery->where('handled_by', $value);
+                        });
+                });
+            })
+            ->get()
+            ->map(function ($q) {
+                return [
+                    'value' => $q->id,
+                    'label' => $q->quotation_number,
+                ];
+            });
 
         return $data;
     }
 
-    public function getCanCreateOrderForFilter()
+    public function getCanCreateOrderForFilter(array $filters = [])
     {
-        $data = Quotation::select('id', 'quotation_number')->whereIn('status', [
-            QuotationStatus::Ready->value,
-            QuotationStatus::Accepted->value,
-        ])->whereDoesntHave('order')->get()->map(function ($q) {
-            return [
-                'value' => $q->id,
-                'label' => $q->quotation_number,
-            ];
-        });
+        $data = Quotation::query()
+            ->select('id', 'quotation_number')
+            ->whereIn('status', [
+                QuotationStatus::Ready->value,
+                QuotationStatus::Accepted->value,
+            ])
+            ->whereDoesntHave('order')
+            ->when($filters['sales_id'] ?? null, function ($query, $value) {
+                $query->where(function ($visibilityQuery) use ($value) {
+                    $visibilityQuery->where('created_by', $value)
+                        ->orWhereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
+                            $enquiryQuery->where('handled_by', $value);
+                        });
+                });
+            })
+            ->get()
+            ->map(function ($q) {
+                return [
+                    'value' => $q->id,
+                    'label' => $q->quotation_number,
+                ];
+            });
 
         return $data;
     }
@@ -453,6 +487,7 @@ class QuotationService
                 ),
                 'customer_id' => $data['customer_id'] ?? null,
                 'customer_confirmation_id' => $data['customer_confirmation_id'] ?? null,
+                'created_by' => auth()->id(),
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
@@ -1040,7 +1075,15 @@ class QuotationService
             ->where(function ($query) use ($includeConfirmationId) {
                 $query->whereHas('members', function ($memberQuery) {
                     $memberQuery->whereIn('status', ['pending_payment'])
-                        ->whereDoesntHave('quotationItems');
+                        ->whereDoesntHave('quotationItems', function ($quotationItemQuery) {
+                            $quotationItemQuery->whereHas('quotation', function ($quotationQuery) {
+                                $quotationQuery->whereNotIn('status', [
+                                    QuotationStatus::Rejected->value,
+                                    QuotationStatus::Expired->value,
+                                    QuotationStatus::Cancelled->value,
+                                ]);
+                            });
+                        });
                 });
 
                 if ($includeConfirmationId) {
@@ -1055,7 +1098,7 @@ class QuotationService
 
                 return [
                     'value' => $confirmation->id,
-                    'label' => 'CC-'.$confirmation->id.' - '.($leader?->customer?->user?->name ?? 'Unknown'),
+                    'label' => $confirmation->number.' - '.($leader?->customer?->user?->name ?? 'Unknown'),
                 ];
             })
             ->values()

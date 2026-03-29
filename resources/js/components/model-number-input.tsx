@@ -56,6 +56,7 @@ interface NumberingFormatFormState {
 interface ModelNumberInputProps {
     modelKey: string;
     label: string;
+    inputId?: string;
     value?: string | null;
     formatId?: number | null;
     onValueChange: (value: string) => void;
@@ -191,6 +192,7 @@ const normalizeScope = (
 export default function ModelNumberInput({
     modelKey,
     label,
+    inputId,
     value,
     formatId,
     onValueChange,
@@ -460,6 +462,7 @@ export default function ModelNumberInput({
                     <PopoverTrigger asChild>
                         <div className="relative">
                             <Input
+                                id={inputId}
                                 value={value ?? ''}
                                 onChange={(event) => {
                                     if (!isComponentBusy) {

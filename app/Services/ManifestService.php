@@ -157,6 +157,7 @@ class ManifestService
             'members.confirmationMember.quotationItems.quotation.quotationItems',
             'members.confirmationMember.quotationItems.quotation.order.invoices',
             'members.confirmationMember.quotationItems.invoices.quotationItems',
+            'members.confirmationMember.quotationItems.invoices.quotationItems.taxes',
             'members.confirmationMember.quotationItems.invoices.receipt',
             'rooms.roomMembers.member',
             'files',
@@ -1941,75 +1942,24 @@ class ManifestService
             ];
         }
 
-        $receiptRows = $member->quotationItems
-            ->flatMap(function ($quotationItem) {
-                return $quotationItem->invoices
-                    ->flatMap(function ($invoice) {
-                        $memberCount = $invoice->quotationItems
-                            ->pluck('customer_confirmation_member_id')
-                            ->filter()
-                            ->unique()
-                            ->count();
+        $invoiceShares = $this->resolveInvoiceSharesForMember($member);
 
-                        $divisor = max($memberCount, 1);
-
-                        return $invoice->receipt
-                            ->map(function ($receipt) use ($divisor) {
-                                return [
-                                    'receipt' => $receipt,
-                                    'share_amount' => (float) ($receipt->amount ?? 0) / $divisor,
-                                ];
-                            });
-                    });
-            })
-            ->filter(function (array $row) {
-                return isset($row['receipt']) && $row['receipt'] !== null;
-            })
-            ->unique(function (array $row): int {
-                return (int) $row['receipt']->id;
-            })
-            ->sort(function ($left, $right) {
-                $leftDate = $left['receipt']->receipt_date;
-                $rightDate = $right['receipt']->receipt_date;
-
-                if ($leftDate && $rightDate) {
-                    $comparison = $leftDate->getTimestamp() <=> $rightDate->getTimestamp();
-
-                    if ($comparison !== 0) {
-                        return $comparison;
-                    }
-                }
-
-                return (int) $left['receipt']->id <=> (int) $right['receipt']->id;
-            })
-            ->values();
-
-        $receipts = $receiptRows
-            ->pluck('receipt')
-            ->values();
-
-        $receiptShareById = $receiptRows
-            ->mapWithKeys(function (array $row): array {
-                return [
-                    (int) $row['receipt']->id => (float) ($row['share_amount'] ?? 0),
-                ];
-            });
-
-        $firstReceipt = $receipts->get(0);
-        $secondReceipt = $receipts->get(1);
-        $thirdAndLaterReceipts = $receipts->slice(2)->values();
-        $latestThirdPaymentReceipt = $thirdAndLaterReceipts->last();
-
-        $paidAmountFromReceipts = (float) $receiptShareById->sum();
-
-        $thirdAndLaterAmount = (float) $thirdAndLaterReceipts->sum(function ($receipt) use ($receiptShareById): float {
-            return (float) ($receiptShareById[(int) $receipt->id] ?? 0);
+        $firstInvoiceShare = $invoiceShares->get(0);
+        $secondInvoiceShare = $invoiceShares->get(1);
+        $thirdAndLaterInvoiceShares = $invoiceShares->slice(2)->values();
+        $firstPaidInvoiceShare = $invoiceShares->first(function (array $row): bool {
+            return (float) ($row['share_amount'] ?? 0) > 0;
+        });
+        $firstPaidThirdAndLaterInvoiceShare = $thirdAndLaterInvoiceShares->first(function (array $row): bool {
+            return (float) ($row['share_amount'] ?? 0) > 0;
         });
 
-        $paidAmount = $paidAmountFromReceipts;
+        $paidAmount = (float) $invoiceShares->sum(function (array $row): float {
+            return (float) ($row['share_amount'] ?? 0);
+        });
 
         $quotationPaymentPlans = $member->quotationItems
-            ->map(fn ($quotationItem) => strtolower((string) ($quotationItem->quotation?->payment_plan ?? '')))
+            ->map(fn ($quotationItem) => strtolower((string) ($quotationItem->quotation?->order?->payment_plan ?? '')))
             ->filter(fn ($plan) => $plan !== '')
             ->unique()
             ->values();
@@ -2017,69 +1967,22 @@ class ManifestService
         $isFullPaymentOnly = $quotationPaymentPlans->isNotEmpty()
             && $quotationPaymentPlans->every(fn ($plan) => $plan === 'full');
 
-        $firstPaymentDateSource = $firstReceipt?->receipt_date;
+        $discount = $this->resolveNegativeExtensionDiscountShareForMember($member);
 
-        $quotationIds = $member->quotationItems
-            ->pluck('quotation_id')
-            ->filter()
-            ->unique()
-            ->values();
+        $depositPaymentAmount = round((float) ($firstInvoiceShare['share_amount'] ?? 0), 2);
+        $depositPayment = $depositPaymentAmount > 0 ? $depositPaymentAmount : null;
 
-        $discount = 0.0;
+        $secondPaymentAmount = round((float) ($secondInvoiceShare['share_amount'] ?? 0), 2);
+        $secondPayment = $secondPaymentAmount > 0 ? $secondPaymentAmount : null;
 
-        foreach ($quotationIds as $quotationId) {
-            $quotation = $member->quotationItems
-                ->firstWhere('quotation_id', $quotationId)
-                ?->quotation;
+        $thirdPaymentAmount = (float) $thirdAndLaterInvoiceShares->sum(function (array $row): float {
+            return (float) ($row['share_amount'] ?? 0);
+        });
 
-            if (! $quotation) {
-                continue;
-            }
-
-            $discountTotal = (float) collect($quotation->order?->invoices ?? [])
-                ->flatMap(function ($invoice) {
-                    return collect(is_array($invoice->extensions ?? null) ? $invoice->extensions : []);
-                })
-                ->filter(function ($extension): bool {
-                    return is_array($extension)
-                        && strtolower((string) ($extension['type'] ?? '')) === 'discount';
-                })
-                ->sum(function (array $extension): float {
-                    return abs((float) ($extension['amount'] ?? 0));
-                });
-
-            $discountTotal = abs($discountTotal);
-
-            if ($discountTotal <= 0) {
-                continue;
-            }
-
-            $quotedMemberCount = $quotation->quotationItems
-                ->pluck('customer_confirmation_member_id')
-                ->filter()
-                ->unique()
-                ->count();
-
-            $divisor = max($quotedMemberCount, 1);
-            $discount += $discountTotal / $divisor;
-        }
-
-        $depositPayment = $firstReceipt
-            ? round((float) ($receiptShareById[(int) $firstReceipt->id] ?? 0), 2)
-            : null;
-
-        $secondPayment = $secondReceipt
-            ? round((float) ($receiptShareById[(int) $secondReceipt->id] ?? 0), 2)
-            : null;
-
-        $thirdPaymentAmount = max(
-            $paidAmount - (float) ($depositPayment ?? 0) - (float) ($secondPayment ?? 0),
-            0
-        );
         $thirdPayment = $thirdPaymentAmount > 0
             ? round($thirdPaymentAmount, 2)
             : null;
-        $thirdPaymentDateSource = $latestThirdPaymentReceipt ?? $receipts->last();
+        $thirdPaymentDateSource = $firstPaidThirdAndLaterInvoiceShare['paid_date'] ?? null;
 
         $balanceDue = round(max(
             $packagePrice
@@ -2091,32 +1994,261 @@ class ManifestService
         ), 2);
 
         if ($isFullPaymentOnly) {
-            $packageCostPaid = round(min(max($paidAmount, 0), max($packagePrice, 0)), 2);
+            $memberPayableAmount = round(max($packagePrice - $discount, 0), 2);
+            $packageCostPaid = round(min(max($paidAmount, 0), $memberPayableAmount), 2);
 
             return [
                 'discount' => round($discount, 2),
-                'date_of_deposit_payment' => $this->formatDateForUi($firstPaymentDateSource),
+                'date_of_deposit_payment' => $this->formatDateForUi($firstPaidInvoiceShare['paid_date'] ?? null),
                 'deposit_payment' => $packageCostPaid > 0 ? $packageCostPaid : null,
                 'date_of_second_payment' => null,
                 'second_payment' => null,
                 'date_of_third_payment' => null,
                 'third_payment' => null,
-                'balance_due' => round(max($packagePrice - $packageCostPaid, 0), 2),
+                'balance_due' => round(max($memberPayableAmount - $packageCostPaid, 0), 2),
             ];
         }
 
         return [
             'discount' => round($discount, 2),
-            'date_of_deposit_payment' => $this->formatDateForUi($firstReceipt?->receipt_date),
+            'date_of_deposit_payment' => $depositPayment !== null
+                ? $this->formatDateForUi($firstInvoiceShare['paid_date'] ?? null)
+                : null,
             'deposit_payment' => $depositPayment,
-            'date_of_second_payment' => $this->formatDateForUi($secondReceipt?->receipt_date),
+            'date_of_second_payment' => $secondPayment !== null
+                ? $this->formatDateForUi($secondInvoiceShare['paid_date'] ?? null)
+                : null,
             'second_payment' => $secondPayment,
             'date_of_third_payment' => $thirdPayment !== null
-                ? $this->formatDateForUi($thirdPaymentDateSource?->receipt_date)
+                ? $this->formatDateForUi($thirdPaymentDateSource)
                 : null,
             'third_payment' => $thirdPayment,
             'balance_due' => $balanceDue,
         ];
+    }
+
+    /**
+     * @return Collection<int, array{invoice: \App\Models\Invoice, share_amount: float, paid_date: mixed}>
+     */
+    private function resolveInvoiceSharesForMember(CustomerConfirmationMember $member): Collection
+    {
+        $memberItems = $member->quotationItems
+            ->filter(fn ($item): bool => ! (bool) $item->is_header)
+            ->values();
+
+        if ($memberItems->isEmpty()) {
+            return collect();
+        }
+
+        return $memberItems
+            ->flatMap(fn ($item) => $item->invoices)
+            ->unique('id')
+            ->map(function ($invoice) use ($member): ?array {
+                $invoiceItems = $invoice->quotationItems
+                    ->filter(fn ($item): bool => ! (bool) $item->is_header)
+                    ->values();
+
+                if ($invoiceItems->isEmpty()) {
+                    return null;
+                }
+
+                $invoiceSubtotal = (float) $invoiceItems->sum(function ($item): float {
+                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                });
+
+                $memberSubtotal = (float) $invoiceItems
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->sum(function ($item): float {
+                        return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                    });
+
+                if ($invoiceSubtotal <= 0 || $memberSubtotal <= 0) {
+                    return null;
+                }
+
+                $receiptTotal = (float) $invoice->receipt->sum(function ($receipt): float {
+                    return (float) ($receipt->amount ?? 0);
+                });
+
+                $positiveExtensionTotal = (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
+                    ->sum(function ($extension): float {
+                        if (! is_array($extension)) {
+                            return 0;
+                        }
+
+                        $amount = (float) ($extension['amount'] ?? 0);
+
+                        return $amount > 0 ? $amount : 0;
+                    });
+
+                $positiveItemTaxTotal = $this->resolvePositiveItemTaxTotalFromInvoiceItems($invoiceItems);
+
+                $packageOnlyInvoiceAmount = max((float) ($invoice->amount ?? 0) - $positiveExtensionTotal - $positiveItemTaxTotal, 0.0);
+
+                $fallbackPaidAmount = strtolower((string) ($invoice->status ?? '')) === 'paid'
+                    ? $packageOnlyInvoiceAmount
+                    : 0.0;
+
+                $paidAmount = $receiptTotal !== 0.0
+                    ? min($receiptTotal, $packageOnlyInvoiceAmount)
+                    : $fallbackPaidAmount;
+
+                $latestReceipt = $invoice->receipt
+                    ->sortByDesc(function ($receipt) {
+                        return $receipt->receipt_date?->getTimestamp() ?? 0;
+                    })
+                    ->first();
+
+                return [
+                    'invoice' => $invoice,
+                    'share_amount' => $paidAmount * ($memberSubtotal / $invoiceSubtotal),
+                    'paid_date' => $paidAmount > 0
+                        ? ($latestReceipt?->receipt_date ?? $invoice->invoice_date)
+                        : null,
+                ];
+            })
+            ->filter()
+            ->sort(function (array $left, array $right): int {
+                $leftDate = $left['invoice']->invoice_date;
+                $rightDate = $right['invoice']->invoice_date;
+
+                if ($leftDate && $rightDate) {
+                    $comparison = $leftDate->getTimestamp() <=> $rightDate->getTimestamp();
+                    if ($comparison !== 0) {
+                        return $comparison;
+                    }
+                }
+
+                return (int) ($left['invoice']->id ?? 0) <=> (int) ($right['invoice']->id ?? 0);
+            })
+            ->values();
+    }
+
+    /**
+     * @param  Collection<int, \App\Models\QuotationItem>  $invoiceItems
+     */
+    private function resolvePositiveItemTaxTotalFromInvoiceItems(Collection $invoiceItems): float
+    {
+        $taxTotal = 0.0;
+
+        foreach ($invoiceItems as $invoiceItem) {
+            $lineAmount = (float) ($invoiceItem->quantity ?? 0) * (float) ($invoiceItem->rate ?? 0);
+
+            foreach ($invoiceItem->taxes ?? [] as $tax) {
+                $calculationMode = strtolower(trim((string) ($tax->calculation_mode ?? '')));
+                $calculationValue = (float) ($tax->calculation_value ?? 0);
+
+                if ($calculationValue <= 0 || ! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    continue;
+                }
+
+                $taxAmount = $calculationMode === 'percentage'
+                    ? ($lineAmount * $calculationValue / 100)
+                    : $calculationValue;
+
+                if ($taxAmount > 0) {
+                    $taxTotal += $taxAmount;
+                }
+            }
+        }
+
+        return round($taxTotal, 2);
+    }
+
+    private function resolveNegativeExtensionDiscountShareForMember(CustomerConfirmationMember $member): float
+    {
+        $memberItems = $member->quotationItems
+            ->filter(fn ($item): bool => ! (bool) $item->is_header)
+            ->values();
+
+        if ($memberItems->isEmpty()) {
+            return 0.0;
+        }
+
+        $discountShare = 0.0;
+        $memberItemsByQuotation = $memberItems
+            ->filter(fn ($item): bool => ! empty($item->quotation_id))
+            ->groupBy('quotation_id');
+
+        foreach ($memberItemsByQuotation as $groupedItems) {
+            $quotation = $groupedItems->first()?->quotation;
+
+            if (! $quotation || $quotation->trashed()) {
+                continue;
+            }
+
+            $quotationSubtotal = (float) $quotation->quotationItems
+                ->where('is_header', false)
+                ->sum(function ($item): float {
+                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                });
+
+            $memberSubtotal = (float) $groupedItems->sum(function ($item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            });
+
+            if ($quotationSubtotal <= 0 || $memberSubtotal <= 0) {
+                continue;
+            }
+
+            $quotationDiscountTotal = (float) collect(is_array($quotation->extensions) ? $quotation->extensions : [])
+                ->sum(function ($extension): float {
+                    if (! is_array($extension)) {
+                        return 0;
+                    }
+
+                    $amount = (float) ($extension['amount'] ?? 0);
+
+                    return $amount < 0 ? abs($amount) : 0;
+                });
+
+            if ($quotationDiscountTotal > 0) {
+                $discountShare += $quotationDiscountTotal * ($memberSubtotal / $quotationSubtotal);
+            }
+
+            foreach ($quotation->order?->invoices ?? collect() as $invoice) {
+                $invoiceItems = $invoice->quotationItems
+                    ->filter(fn ($item): bool => ! (bool) $item->is_header)
+                    ->values();
+
+                if ($invoiceItems->isEmpty()) {
+                    continue;
+                }
+
+                $invoiceSubtotal = (float) $invoiceItems->sum(function ($item): float {
+                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                });
+
+                $memberInvoiceSubtotal = (float) $invoiceItems
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->sum(function ($item): float {
+                        return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                    });
+
+                if ($invoiceSubtotal <= 0 || $memberInvoiceSubtotal <= 0) {
+                    continue;
+                }
+
+                $invoiceDiscountTotal = (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
+                    ->sum(function ($extension): float {
+                        if (! is_array($extension)) {
+                            return 0;
+                        }
+
+                        $amount = (float) ($extension['amount'] ?? 0);
+
+                        return $amount < 0 ? abs($amount) : 0;
+                    });
+
+                if ($invoiceDiscountTotal <= 0) {
+                    continue;
+                }
+
+                $discountShare += $invoiceDiscountTotal * ($memberInvoiceSubtotal / $invoiceSubtotal);
+            }
+        }
+
+        return round($discountShare, 2);
     }
 
     /**

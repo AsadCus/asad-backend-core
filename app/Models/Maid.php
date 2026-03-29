@@ -181,11 +181,6 @@ class Maid extends Model
         return $this->hasMany(Order::class, 'maid_id');
     }
 
-    public function quotations(): HasMany
-    {
-        return $this->hasMany(Quotation::class, 'maid_id');
-    }
-
     // Formatting Helpers
     public function getDateOfBirthFormattedAttribute(): ?string
     {

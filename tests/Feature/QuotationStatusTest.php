@@ -153,6 +153,46 @@ class QuotationStatusTest extends TestCase
         ]);
     }
 
+    public function test_customer_confirmation_create_options_include_only_members_without_active_quotation_links(): void
+    {
+        $activeStatuses = [
+            QuotationStatus::Draft->value,
+            QuotationStatus::Ready->value,
+            QuotationStatus::Accepted->value,
+            QuotationStatus::Converted->value,
+        ];
+
+        $inactiveStatuses = [
+            QuotationStatus::Rejected->value,
+            QuotationStatus::Expired->value,
+            QuotationStatus::Cancelled->value,
+        ];
+
+        $availableConfirmation = $this->createConfirmationWithMemberAndQuotationStatus(null, 'CC Available Member');
+        $activeLinkedConfirmation = $this->createConfirmationWithMemberAndQuotationStatus(
+            $activeStatuses[0],
+            'CC Active Linked Member'
+        );
+
+        $inactiveLinkedConfirmationIds = [];
+        foreach ($inactiveStatuses as $index => $inactiveStatus) {
+            $confirmation = $this->createConfirmationWithMemberAndQuotationStatus(
+                $inactiveStatus,
+                'CC Inactive Linked Member '.($index + 1)
+            );
+            $inactiveLinkedConfirmationIds[] = (int) $confirmation->id;
+        }
+
+        $options = app(QuotationService::class)->getCustomerConfirmationCreateOptions();
+        $optionIds = collect($options)->pluck('value')->map(fn ($value) => (int) $value)->all();
+
+        $this->assertContains((int) $availableConfirmation->id, $optionIds);
+        foreach ($inactiveLinkedConfirmationIds as $confirmationId) {
+            $this->assertContains($confirmationId, $optionIds);
+        }
+        $this->assertNotContains((int) $activeLinkedConfirmation->id, $optionIds);
+    }
+
     public function test_reject_quotation_resets_linked_confirmation_members_to_pending_payment(): void
     {
         $user = User::factory()->create();
@@ -195,6 +235,51 @@ class QuotationStatusTest extends TestCase
             'id' => $member->id,
             'status' => 'pending_payment',
         ]);
+    }
+
+    private function createConfirmationWithMemberAndQuotationStatus(?string $quotationStatus, string $customerName): CustomerConfirmation
+    {
+        $user = User::factory()->create(['name' => $customerName]);
+
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-'.strtoupper(substr(str_replace(' ', '', $customerName), 0, 8)).'-'.random_int(100, 999),
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'double',
+        ]);
+
+        if ($quotationStatus !== null) {
+            $quotation = Quotation::create([
+                'customer_id' => $customer->id,
+                'customer_confirmation_id' => $confirmation->id,
+                'quotation_date' => now()->format('Y-m-d'),
+                'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+                'status' => $quotationStatus,
+                'payment_plan' => 'full',
+            ]);
+
+            QuotationItem::create([
+                'quotation_id' => $quotation->id,
+                'customer_confirmation_member_id' => $member->id,
+                'description' => 'Linked item',
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => 100,
+                'sort_order' => 1,
+            ]);
+        }
+
+        return $confirmation;
     }
 
     public function test_expire_quotation_resets_member_removes_manifest_member_and_cancels_invoice(): void

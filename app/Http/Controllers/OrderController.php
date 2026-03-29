@@ -43,7 +43,7 @@ class OrderController extends Controller
         $data['ordersForDatatable'] = $this->orderService->getForDataTable($filters);
         $data['customers'] = $this->customerService->getForFilter();
         $data['salespersons'] = $this->salesService->getForFilter();
-        $data['convertableQuotations'] = $this->quotationService->getCanCreateOrderForFilter();
+        $data['convertableQuotations'] = $this->quotationService->getCanCreateOrderForFilter($filters);
 
         return Inertia::render('orders/index', [
             'data' => $data,

@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('quotations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('maid_id')->nullable()->constrained()->nullOnDelete();
             $table->string('quotation_number')->unique()->nullable();
             $table->date('quotation_date')->nullable();
             $table->date('expiry_date')->nullable();

@@ -23,6 +23,7 @@ class Quotation extends Model
         'expiry_date',
         'customer_id',
         'customer_confirmation_id',
+        'created_by',
         'description',
         'payment_plan',
         'extensions',
@@ -47,6 +48,11 @@ class Quotation extends Model
     public function customerConfirmation(): BelongsTo
     {
         return $this->belongsTo(CustomerConfirmation::class);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function order(): HasOne

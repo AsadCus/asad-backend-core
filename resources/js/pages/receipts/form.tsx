@@ -1,6 +1,8 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
+import ModelNumberInput from '@/components/model-number-input';
 import PaymentMethodMasterCombobox from '@/components/payment-method-master-combobox';
+import { ProperInput } from '@/components/proper-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -58,7 +60,9 @@ export default function ReceiptForm({
         invoice_id: invoiceId ? Number(invoiceId) : undefined,
         amount: selectedInvoice?.amount,
         receipt_date: formatDateForDisplay(new Date()),
-        payment_method: resolvedDefaultPaymentMethod,
+        payment_method:
+            String(selectedInvoice?.payment_method ?? '') ||
+            resolvedDefaultPaymentMethod,
         reference: '',
         description: '',
     };
@@ -69,6 +73,9 @@ export default function ReceiptForm({
 
     const { data, setData, post, put, processing, errors } =
         useForm<ReceiptSchema>(defaultData);
+    const modelNumberError =
+        (errors as Record<string, string | undefined>).receipt_number ??
+        (errors as Record<string, string | undefined>).number_format_id;
 
     // invoice
     const getInvoiceDetail = async (id: number) => {
@@ -78,6 +85,11 @@ export default function ReceiptForm({
             const invoice = await response.json();
             setSelectedInvoice(invoice);
             setData('amount', invoice?.amount);
+            setData(
+                'payment_method',
+                String(invoice?.payment_method ?? '') ||
+                    resolvedDefaultPaymentMethod,
+            );
         } catch (err) {
             console.error('Failed to fetch customer details:', err);
         }
@@ -114,31 +126,49 @@ export default function ReceiptForm({
                         }}
                         error={errors.invoice_id}
                     >
-                        <Select
-                            value={
-                                data.invoice_id ? String(data.invoice_id) : ''
-                            }
-                            onValueChange={(v) => {
-                                const id = Number(v);
-                                getInvoiceDetail(id);
-                                setData('invoice_id', id);
-                            }}
-                            disabled={isEditMode || !!invoiceId}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select invoice" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {invoiceOptions.map((option) => (
-                                    <SelectItem
-                                        key={option.value}
-                                        value={String(option.value)}
-                                    >
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {isEditMode || !!invoiceId ? (
+                            <ProperInput
+                                value={
+                                    selectedInvoice?.invoice_number ??
+                                    invoiceOptions.find(
+                                        (option) =>
+                                            Number(option.value) ===
+                                            Number(data.invoice_id ?? 0),
+                                    )?.label ??
+                                    ''
+                                }
+                                onCommit={() => {}}
+                                disabled
+                            />
+                        ) : (
+                            <Select
+                                value={
+                                    data.invoice_id
+                                        ? String(data.invoice_id)
+                                        : ''
+                                }
+                                onValueChange={(v) => {
+                                    const id = Number(v);
+                                    getInvoiceDetail(id);
+                                    setData('invoice_id', id);
+                                }}
+                                disabled={isEditMode || !!invoiceId}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select invoice" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {invoiceOptions.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={String(option.value)}
+                                        >
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </FormField>
 
                     {/* Amount */}
@@ -150,16 +180,30 @@ export default function ReceiptForm({
                         }}
                         error={errors.amount}
                     >
-                        <Input
-                            type="number"
-                            step="any"
+                        <ProperInput
                             value={data.amount || selectedInvoice?.amount || ''}
-                            onChange={(e) => setData('amount', e.target.value)}
+                            onCommit={() => {}}
                             disabled
                         />
                     </FormField>
 
                     {/* Receipt Date */}
+                    <ModelNumberInput
+                        modelKey="receipt"
+                        label="Receipt Number"
+                        value={data.receipt_number ?? ''}
+                        formatId={data.number_format_id ?? null}
+                        onValueChange={(nextValue) =>
+                            setData('receipt_number', nextValue)
+                        }
+                        onFormatIdChange={(nextFormatId) =>
+                            setData('number_format_id', nextFormatId)
+                        }
+                        disabled={processing}
+                        error={modelNumberError}
+                        hint="Select a format to auto-generate receipt number."
+                    />
+
                     <FormField
                         label="Receipt Date"
                         fieldRequirementsProps={{
@@ -207,6 +251,7 @@ export default function ReceiptForm({
                     >
                         <Input
                             value={data.reference ?? ''}
+                            placeholder="Enter bank transfer reference / transaction ID"
                             onChange={(e) =>
                                 setData('reference', e.target.value)
                             }
@@ -223,6 +268,7 @@ export default function ReceiptForm({
                     >
                         <Textarea
                             rows={4}
+                            placeholder="Add internal remarks (optional)"
                             value={data.description ?? ''}
                             onChange={(e) =>
                                 setData('description', e.target.value)

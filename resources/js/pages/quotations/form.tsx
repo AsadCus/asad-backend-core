@@ -802,7 +802,9 @@ export function QuotationForm({
                     return true;
                 }
 
-                return member.status === 'draft' && !member.has_quotation;
+                return (
+                    member.status === 'pending_payment' && !member.has_quotation
+                );
             });
 
             setAvailableMembers(eligible);
