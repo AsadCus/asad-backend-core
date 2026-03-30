@@ -989,6 +989,7 @@ export default function PackageForm({
                             >
                                 <DatePickerField
                                     id="departure_date"
+                                    key={`departure_date-${data.departure_date || ''}`}
                                     value={data.departure_date || ''}
                                     fromYear={new Date().getFullYear()}
                                     toYear={new Date().getFullYear() + 5}
@@ -1007,6 +1008,7 @@ export default function PackageForm({
                             >
                                 <DatePickerField
                                     id="return_date"
+                                    key={`return_date-${data.return_date || ''}`}
                                     value={data.return_date || ''}
                                     fromYear={new Date().getFullYear()}
                                     toYear={new Date().getFullYear() + 5}
@@ -1352,6 +1354,7 @@ export default function PackageForm({
                                             >
                                                 <DatePickerField
                                                     id={`flight_departure_${index}`}
+                                                    key={`flight_departure_${index}-${flight.departure_datetime || ''}`}
                                                     value={
                                                         flight.departure_datetime ||
                                                         ''
@@ -1385,6 +1388,7 @@ export default function PackageForm({
                                             >
                                                 <DatePickerField
                                                     id={`flight_arrival_${index}`}
+                                                    key={`flight_arrival_${index}-${flight.arrival_datetime || ''}`}
                                                     value={
                                                         flight.arrival_datetime ||
                                                         ''
@@ -1534,6 +1538,7 @@ export default function PackageForm({
                                                 >
                                                     <DatePickerField
                                                         id={`transport_date_${index}`}
+                                                        key={`transport_date_${index}-${plan.travel_date || ''}`}
                                                         value={
                                                             plan.travel_date ||
                                                             ''
@@ -1849,6 +1854,7 @@ export default function PackageForm({
                                                 >
                                                     <DatePickerField
                                                         id={`train_date_${index}`}
+                                                        key={`train_date_${index}-${ticket.travel_date || ''}`}
                                                         value={
                                                             ticket.travel_date ||
                                                             ''
@@ -2127,6 +2133,7 @@ export default function PackageForm({
                                                 >
                                                     <DatePickerField
                                                         id={`acc_check_in_${index}`}
+                                                        key={`acc_check_in_${index}-${accommodation.check_in || ''}`}
                                                         value={
                                                             accommodation.check_in ||
                                                             ''
@@ -2162,6 +2169,7 @@ export default function PackageForm({
                                                 >
                                                     <DatePickerField
                                                         id={`acc_check_out_${index}`}
+                                                        key={`acc_check_out_${index}-${accommodation.check_out || ''}`}
                                                         value={
                                                             accommodation.check_out ||
                                                             ''
@@ -2310,6 +2318,7 @@ export default function PackageForm({
                                                     >
                                                         <DatePickerField
                                                             id={`rawdah_date_${index}`}
+                                                            key={`rawdah_date_${index}-${tasreeh.date || ''}`}
                                                             value={
                                                                 tasreeh.date ||
                                                                 ''
@@ -2755,6 +2764,7 @@ export default function PackageForm({
                                                 >
                                                     <DatePickerField
                                                         id={`official_dob_${index}`}
+                                                        key={`official_dob_${index}-${official.date_of_birth || ''}`}
                                                         value={
                                                             official.date_of_birth ||
                                                             ''
@@ -2787,6 +2797,7 @@ export default function PackageForm({
                                                 >
                                                     <DatePickerField
                                                         id={`official_issue_${index}`}
+                                                        key={`official_issue_${index}-${official.passport_issue_date || ''}`}
                                                         value={
                                                             official.passport_issue_date ||
                                                             ''
@@ -2822,6 +2833,7 @@ export default function PackageForm({
                                                 >
                                                     <DatePickerField
                                                         id={`official_expiry_${index}`}
+                                                        key={`official_expiry_${index}-${official.passport_expiry_date || ''}`}
                                                         value={
                                                             official.passport_expiry_date ||
                                                             ''
