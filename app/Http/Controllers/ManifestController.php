@@ -1580,6 +1580,7 @@ class ManifestController extends Controller
             'quad' => 'quad',
             'triple' => 'triple',
             'double' => 'double',
+            'child_with_bed', 'child_no_bed', 'infant' => 'single',
             'single' => 'single',
             default => null,
         };

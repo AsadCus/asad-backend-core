@@ -80,14 +80,14 @@ export default function ConfirmedCustomerFormFields({
                 )}
 
                 <FormField
-                    label="Sharing Plan"
+                    label="Pricing Plan"
                     htmlFor={fieldPath('sharing_plan')}
                     error={getError(fieldPath('sharing_plan'))}
                     fieldRequirementsProps={{
                         required: false,
-                        hint: 'Room sharing arrangement',
-                        example: 'double',
-                        format: 'single, double, triple, or quad',
+                        hint: 'Selected package pricing plan',
+                        example: 'double or child_with_bed',
+                        format: 'single, double, triple, quad, child_with_bed, child_no_bed, or infant',
                     }}
                 >
                     <ProperInputSelect
@@ -104,7 +104,7 @@ export default function ConfirmedCustomerFormFields({
                                 value ? String(value) : null,
                             )
                         }
-                        placeholder="Select sharing plan"
+                        placeholder="Select pricing plan"
                         disabled={disabled}
                         searchable={false}
                     />

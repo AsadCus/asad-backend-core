@@ -844,12 +844,12 @@ export default function OpsMovementForm({
                             </p>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Adult (Non-Official)">{`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} male / ${data.passengers?.adult_female ?? 0} female)`}</FormField>
-                            <FormField label="Child (Non-Official)">{`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} boy / ${data.passengers?.child_girl ?? 0} girl)`}</FormField>
+                            <FormField label="Adult">{`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} male / ${data.passengers?.adult_female ?? 0} female)`}</FormField>
+                            <FormField label="Child">{`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} boy / ${data.passengers?.child_girl ?? 0} girl)`}</FormField>
                             <FormField label="Official Total">
                                 {String(data.passengers?.official_total ?? 0)}
                             </FormField>
-                            <FormField label="Wheelchair (Non-Official)">
+                            <FormField label="Wheelchair">
                                 {String(
                                     data.passengers
                                         ?.wheelchair_non_official_total ?? 0,

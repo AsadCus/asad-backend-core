@@ -224,6 +224,9 @@ class PaymentStatusService
             'double' => (float) ($package->price_double ?? 0),
             'triple' => (float) ($package->price_triple ?? 0),
             'quad' => (float) ($package->price_quad ?? 0),
+            'child_with_bed' => (float) ($package->child_with_bed_price ?? 0),
+            'child_no_bed' => (float) ($package->child_no_bed_price ?? 0),
+            'infant' => (float) ($package->infant_price ?? 0),
             default => 0.0,
         };
     }

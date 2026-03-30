@@ -63,7 +63,7 @@ class ManifestRule
             'members.*.role' => ['nullable', 'string', 'max:100'],
             'members.*.relationship' => ['nullable', 'string', 'max:100'],
             'members.*.group_relationship' => ['nullable', 'string', 'max:100'],
-            'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
+            'members.*.sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad,child_with_bed,child_no_bed,infant'],
             'members.*.group_remarks' => ['nullable', 'string'],
             'members.*.contact_no' => ['nullable', 'string', 'max:255'],
             'members.*.nationality' => ['nullable', 'string', 'max:100'],

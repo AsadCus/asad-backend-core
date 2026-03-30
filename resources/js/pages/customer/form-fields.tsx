@@ -16,7 +16,6 @@ interface CustomerFormFieldsProps {
     index?: number;
     fieldPrefix?: string;
     useGeneratedDocumentName?: boolean;
-    confirmationNumber?: string | null;
     isView: boolean;
     processing: boolean;
     getError: (path: string) => string | undefined;
@@ -56,7 +55,6 @@ export default function CustomerFormFields({
     index,
     fieldPrefix,
     useGeneratedDocumentName = false,
-    confirmationNumber = null,
     isView,
     processing,
     getError,
@@ -73,15 +71,10 @@ export default function CustomerFormFields({
         ? parseDisplayDate(customer.passport_issue_date)
         : null;
 
-    const buildGeneratedFileName = (): string => {
+    const buildGeneratedFileName = (fieldLabel: string): string => {
         const safeName = (customer.name ?? '').trim() || 'Customer';
-        const safeConfirmationNumber = (confirmationNumber ?? '').trim();
 
-        if (safeConfirmationNumber === '') {
-            return `Customer ${safeName}`;
-        }
-
-        return `Customer ${safeName} - ${safeConfirmationNumber}`;
+        return `${fieldLabel} ${safeName}`;
     };
 
     return (
@@ -536,10 +529,13 @@ export default function CustomerFormFields({
                                 if (useGeneratedDocumentName) {
                                     onUpdateCustomer(
                                         doc.nameKey,
-                                        buildGeneratedFileName(),
+                                        buildGeneratedFileName(doc.label),
                                     );
                                 } else if (!customer[doc.nameKey]) {
-                                    onUpdateCustomer(doc.nameKey, file.name);
+                                    onUpdateCustomer(
+                                        doc.nameKey,
+                                        buildGeneratedFileName(doc.label),
+                                    );
                                 }
                             }}
                             onFileNameChange={(fileName) =>

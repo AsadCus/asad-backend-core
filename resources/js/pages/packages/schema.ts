@@ -175,6 +175,9 @@ export const sharingPlanOptions = [
     { label: 'Double', value: 'double' },
     { label: 'Triple', value: 'triple' },
     { label: 'Quad', value: 'quad' },
+    { label: 'Child with Bed', value: 'child_with_bed' },
+    { label: 'Child without Bed', value: 'child_no_bed' },
+    { label: 'Infant', value: 'infant' },
 ];
 
 export const sharingPlanLabels: Record<string, string> = {
@@ -182,6 +185,9 @@ export const sharingPlanLabels: Record<string, string> = {
     double: 'Double',
     triple: 'Triple',
     quad: 'Quad',
+    child_with_bed: 'Child with Bed',
+    child_no_bed: 'Child without Bed',
+    infant: 'Infant',
 };
 
 export const sharingPlanBadgeColors: Record<string, string> = {
@@ -189,6 +195,9 @@ export const sharingPlanBadgeColors: Record<string, string> = {
     double: 'bg-purple-100 text-purple-800',
     triple: 'bg-indigo-100 text-indigo-800',
     quad: 'bg-pink-100 text-pink-800',
+    child_with_bed: 'bg-yellow-100 text-yellow-800',
+    child_no_bed: 'bg-green-100 text-green-800',
+    infant: 'bg-orange-100 text-orange-800',
 };
 
 export const sharingPlanPriceLabels = [

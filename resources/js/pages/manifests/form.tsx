@@ -8,6 +8,20 @@ import { Accordion } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -35,6 +49,9 @@ import {
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fields';
+import CustomerFormFields from '../customer/form-fields';
+import { type CustomerSchema } from '../customer/schema';
 import AccommodationInformationCard from './components/accommodation-information-card';
 import ManifestDatatable from './components/datatable';
 import FlightDetailInformationCard from './components/flight-detail-information-card';
@@ -99,6 +116,89 @@ const MANIFEST_DOCUMENT_TABS: Array<{
         accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
     },
 ];
+
+const PRICING_PLAN_SINGLE_EQUIVALENT_VALUES = new Set([
+    'child_with_bed',
+    'child_no_bed',
+    'infant',
+]);
+
+function toManifestRoomTypeSharingPlan(
+    sharingPlan?: string | null,
+): string | null {
+    const value = String(sharingPlan ?? '')
+        .toLowerCase()
+        .trim();
+
+    if (value === 'single') {
+        return 'single';
+    }
+
+    if (value === 'double') {
+        return 'double';
+    }
+
+    if (value === 'triple') {
+        return 'triple';
+    }
+
+    if (value === 'quad') {
+        return 'quad';
+    }
+
+    if (PRICING_PLAN_SINGLE_EQUIVALENT_VALUES.has(value)) {
+        return 'single';
+    }
+
+    return null;
+}
+
+function buildMemberIdentityDocuments(
+    members: MemberWithUI[],
+    field: 'passport' | 'photo',
+): ManifestDocumentItem[] {
+    const rows: ManifestDocumentItem[] = [];
+
+    members.forEach((member, index) => {
+        const filePath = String(
+            field === 'passport'
+                ? (member.passport_path ?? '')
+                : (member.photo_path ?? ''),
+        ).trim();
+
+        if (filePath.length === 0) {
+            return;
+        }
+
+        const memberName = String(
+            member.name_as_per_passport ?? member.customer_name ?? '',
+        ).trim();
+        const fallbackName =
+            memberName.length > 0 ? memberName : `Member ${index + 1}`;
+        const preferredStoredFileName = String(
+            field === 'passport'
+                ? (member.passport_file_name ?? '')
+                : (member.photo_file_name ?? ''),
+        ).trim();
+        const fallbackFileName =
+            field === 'passport'
+                ? `Passport ${fallbackName}`
+                : `Photo ${fallbackName}`;
+        const fileName =
+            preferredStoredFileName.length > 0
+                ? preferredStoredFileName
+                : fallbackFileName;
+
+        rows.push({
+            file: null,
+            file_name: fileName,
+            file_path: filePath,
+            removed: false,
+        });
+    });
+
+    return rows;
+}
 
 function createEmptyDocumentEntry(): ManifestDocumentItem {
     return {
@@ -613,18 +713,8 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
                   removed: doc.removed ?? false,
               }))
             : fallbackDocuments.hotel,
-        passport: sourceDocuments?.passport?.length
-            ? sourceDocuments.passport.map((doc) => ({
-                  ...doc,
-                  removed: doc.removed ?? false,
-              }))
-            : fallbackDocuments.passport,
-        photo: sourceDocuments?.photo?.length
-            ? sourceDocuments.photo.map((doc) => ({
-                  ...doc,
-                  removed: doc.removed ?? false,
-              }))
-            : fallbackDocuments.photo,
+        passport: buildMemberIdentityDocuments(members, 'passport'),
+        photo: buildMemberIdentityDocuments(members, 'photo'),
     };
 
     const canonicalRoomLists = buildRoomListsFromCanonicalRooms(
@@ -671,34 +761,10 @@ function buildRoomRowsFromMembers(
     accommodationKey: string,
     defaultMealPlan: string,
 ): MemberWithUI[] {
-    const toRoomTypeFromSharingPlan = (
-        sharingPlan?: string | null,
-    ): string | undefined => {
-        const value = String(sharingPlan ?? '').toLowerCase();
-
-        if (value === 'single') {
-            return 'single';
-        }
-
-        if (value === 'double') {
-            return 'double';
-        }
-
-        if (value === 'triple') {
-            return 'triple';
-        }
-
-        if (value === 'quad') {
-            return 'quad';
-        }
-
-        return undefined;
-    };
-
     const toBedTypeFromSharingPlan = (
         sharingPlan?: string | null,
     ): string | undefined => {
-        const value = String(sharingPlan ?? '').toLowerCase();
+        const value = toManifestRoomTypeSharingPlan(sharingPlan) ?? '';
 
         if (value === 'double' || value === 'quad') {
             return 'king';
@@ -719,7 +785,8 @@ function buildRoomRowsFromMembers(
         );
 
         const sharingPlan = member.sharing_plan;
-        const fallbackRoomType = toRoomTypeFromSharingPlan(sharingPlan);
+        const fallbackRoomType =
+            toManifestRoomTypeSharingPlan(sharingPlan) ?? undefined;
         const fallbackBedType = toBedTypeFromSharingPlan(sharingPlan);
 
         return {
@@ -1611,14 +1678,112 @@ function normalizeSectionErrors(
     );
 }
 
+function resolveCsrfToken(): string | null {
+    const metaToken = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content')
+        ?.trim();
+
+    if (metaToken && metaToken.length > 0) {
+        return metaToken;
+    }
+
+    const cookieEntry = document.cookie
+        .split(';')
+        .map((segment) => segment.trim())
+        .find((segment) => segment.startsWith('XSRF-TOKEN='));
+
+    if (!cookieEntry) {
+        return null;
+    }
+
+    const encodedValue = cookieEntry.slice('XSRF-TOKEN='.length);
+
+    if (!encodedValue) {
+        return null;
+    }
+
+    try {
+        return decodeURIComponent(encodedValue);
+    } catch {
+        return encodedValue;
+    }
+}
+
+function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
+    const passportPath = String(member.passport_path ?? '').trim();
+    const photoPath = String(member.photo_path ?? '').trim();
+
+    return {
+        customer_number: String(member.customer_number ?? ''),
+        member_id: member.customer_confirmation_member_id ?? undefined,
+        customer_id: member.customer_id ?? undefined,
+        is_leader: false,
+        name: String(member.name_as_per_passport ?? member.customer_name ?? ''),
+        email: String((member as { email?: string }).email ?? ''),
+        contact_number: String(member.contact_no ?? ''),
+        nric_number: String(
+            (member as { nric_number?: string }).nric_number ?? '',
+        ),
+        address: String(member.address ?? ''),
+        nationality: String(member.nationality ?? ''),
+        passport_number: String(member.passport_number ?? ''),
+        passport_issue_date: String(member.date_of_issue ?? ''),
+        passport_expiry_date: String(member.date_of_expiry ?? ''),
+        passport_place_of_issue: String(member.issue_place ?? ''),
+        gender: String(member.gender ?? ''),
+        marital_status: String(
+            (member as { marital_status?: string }).marital_status ?? '',
+        ),
+        date_of_birth: String(member.date_of_birth ?? ''),
+        place_of_birth: String(member.birth_place ?? ''),
+        first_time_umrah:
+            typeof member.first_time_umrah === 'boolean'
+                ? member.first_time_umrah
+                : null,
+        has_chronic_disease:
+            typeof member.has_chronic_disease === 'boolean'
+                ? member.has_chronic_disease
+                : null,
+        is_using_wheelchair:
+            typeof member.is_using_wheelchair === 'boolean'
+                ? member.is_using_wheelchair
+                : null,
+        chronic_disease_details: String(member.chronic_disease_details ?? ''),
+        status: String(member.status ?? 'pending_payment'),
+        sharing_plan: member.sharing_plan ? String(member.sharing_plan) : null,
+        relationship: member.relationship ? String(member.relationship) : null,
+        passport_file: undefined,
+        photo_file: undefined,
+        passport_file_name: null,
+        photo_file_name: null,
+        passport_file_removed: false,
+        photo_file_removed: false,
+        passport_document:
+            passportPath.length > 0
+                ? {
+                      field: 'passport',
+                      file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Passport`,
+                      file_path: passportPath,
+                  }
+                : null,
+        photo_document:
+            photoPath.length > 0
+                ? {
+                      field: 'photo',
+                      file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Photo`,
+                      file_path: photoPath,
+                  }
+                : null,
+    };
+}
+
 async function submitSectionPayload(
     url: string,
     payload: Record<string, unknown>,
     options: { forceFormData?: boolean; validateOnly?: boolean } = {},
 ): Promise<SectionRequestResult> {
-    const csrfToken = document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute('content');
+    const csrfToken = resolveCsrfToken();
     const useFormData = options.forceFormData ?? false;
     const validateOnly = options.validateOnly ?? false;
 
@@ -1685,11 +1850,16 @@ async function submitSectionPayload(
             return JSON.stringify({
                 ...payload,
                 ...(validateOnly ? { validate_only: true } : {}),
+                ...(csrfToken ? { _token: csrfToken } : {}),
             });
         }
 
         const formData = new FormData();
         formData.append('_method', 'patch');
+
+        if (csrfToken) {
+            formData.append('_token', csrfToken);
+        }
 
         if (validateOnly) {
             formData.append('validate_only', '1');
@@ -1705,7 +1875,12 @@ async function submitSectionPayload(
     const headers: Record<string, string> = {
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+        ...(csrfToken
+            ? {
+                  'X-CSRF-TOKEN': csrfToken,
+                  'X-XSRF-TOKEN': csrfToken,
+              }
+            : {}),
     };
 
     if (!useFormData) {
@@ -1920,6 +2095,10 @@ export default function ManifestForm({
     const [airlineRowsState, setAirlineRowsState] = useState<MemberWithUI[]>(
         () => ((defaults.manifest_members ?? []) as MemberWithUI[]) ?? [],
     );
+    const [isMemberDetailDialogOpen, setIsMemberDetailDialogOpen] =
+        useState(false);
+    const [selectedMemberForDetail, setSelectedMemberForDetail] =
+        useState<MemberWithUI | null>(null);
 
     useEffect(() => {
         const canonicalRooms = buildCanonicalRoomsFromRoomLists(
@@ -1933,6 +2112,45 @@ export default function ManifestForm({
 
         setFormData('manifest_rooms', canonicalRooms);
     }, [roomListsState, setFormData]);
+
+    useEffect(() => {
+        const members = ((data.manifest_members ?? []) as MemberWithUI[]) ?? [];
+        const currentDocuments =
+            data.documents ?? buildEmptyManifestDocuments();
+
+        const mirroredPassportRows = buildMemberIdentityDocuments(
+            members,
+            'passport',
+        );
+        const mirroredPhotoRows = buildMemberIdentityDocuments(
+            members,
+            'photo',
+        );
+
+        const currentPassportRows =
+            (currentDocuments.passport as ManifestDocumentItem[]) ?? [];
+        const currentPhotoRows =
+            (currentDocuments.photo as ManifestDocumentItem[]) ?? [];
+
+        const isPassportSynced = areDocumentEntriesEquivalent(
+            currentPassportRows,
+            mirroredPassportRows,
+        );
+        const isPhotoSynced = areDocumentEntriesEquivalent(
+            currentPhotoRows,
+            mirroredPhotoRows,
+        );
+
+        if (isPassportSynced && isPhotoSynced) {
+            return;
+        }
+
+        setFormData('documents', {
+            ...currentDocuments,
+            passport: mirroredPassportRows,
+            photo: mirroredPhotoRows,
+        });
+    }, [data.documents, data.manifest_members, setFormData]);
 
     const updateSaveProgressStep = useCallback(
         (
@@ -3140,8 +3358,36 @@ export default function ManifestForm({
         [],
     );
 
-    console.log(data);
-    console.log(formErrors);
+    const selectedMemberCustomerFormData = useMemo(() => {
+        if (!selectedMemberForDetail) {
+            return null;
+        }
+
+        return mapMemberToCustomerSchema(selectedMemberForDetail);
+    }, [selectedMemberForDetail]);
+
+    const memberDetailSharingPlanOptions = useMemo(() => {
+        return [
+            { value: 'single', label: 'Single' },
+            { value: 'double', label: 'Double' },
+            { value: 'triple', label: 'Triple' },
+            { value: 'quad', label: 'Quad' },
+            { value: 'child_with_bed', label: 'Child (7-11 years)' },
+            { value: 'child_no_bed', label: 'Child (2-6 years)' },
+            { value: 'infant', label: 'Infant (0-2 years)' },
+        ];
+    }, []);
+
+    const viewOnlyCustomerUpdate = useCallback(
+        (
+            field: keyof CustomerSchema,
+            value: string | boolean | File | null,
+        ) => {
+            void field;
+            void value;
+        },
+        [],
+    );
 
     return (
         <div className="mx-auto w-full">
@@ -3198,6 +3444,90 @@ export default function ManifestForm({
                     </div>
                 </div>
             )}
+
+            <Dialog
+                open={isMemberDetailDialogOpen}
+                onOpenChange={setIsMemberDetailDialogOpen}
+            >
+                <DialogContent className="flex max-h-[95vh] max-w-[95vw] min-w-[95vw] flex-col overflow-y-auto">
+                    <DialogHeader className="gap-0">
+                        <DialogTitle className="text-xl">
+                            View Customer Detail
+                        </DialogTitle>
+                        <DialogDescription>
+                            Customer and customer confirmation member detail.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedMemberCustomerFormData && (
+                        <div className="space-y-4 pb-2">
+                            <Card>
+                                <CardHeader className="gap-0">
+                                    <CardTitle className="text-xl">
+                                        Customer Confirmation Information
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Payment status, pricing plan, and
+                                        relationship data.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <ConfirmedCustomerFormFields
+                                        customer={
+                                            selectedMemberCustomerFormData
+                                        }
+                                        isView
+                                        processing={false}
+                                        sharingPlanSelectOptions={
+                                            memberDetailSharingPlanOptions
+                                        }
+                                        getError={() => undefined}
+                                        onUpdateCustomer={
+                                            viewOnlyCustomerUpdate
+                                        }
+                                    />
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader className="gap-0">
+                                    <CardTitle className="text-xl">
+                                        Customer Information
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Personal and document details.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <CustomerFormFields
+                                        customer={
+                                            selectedMemberCustomerFormData
+                                        }
+                                        isView
+                                        processing={false}
+                                        getError={() => undefined}
+                                        onUpdateCustomer={
+                                            viewOnlyCustomerUpdate
+                                        }
+                                    />
+                                </CardContent>
+                            </Card>
+
+                            <div className="flex justify-end">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                        setIsMemberDetailDialogOpen(false)
+                                    }
+                                >
+                                    Close
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             {mode !== 'view' && (
                 <FormProgressHeader
@@ -3458,6 +3788,10 @@ export default function ManifestForm({
                             }
                             onRoomAssignmentChange={handleRoomAssignmentChange}
                             onMoveToHolding={moveMemberToHolding}
+                            onViewMember={(member) => {
+                                setSelectedMemberForDetail(member);
+                                setIsMemberDetailDialogOpen(true);
+                            }}
                             onRowsChange={updateFromMembers}
                         />
                     </TabsContent>
@@ -4129,6 +4463,8 @@ export default function ManifestForm({
                     </TabsContent>
 
                     {MANIFEST_DOCUMENT_TABS.map((tab) => {
+                        const isMemberMirroredDocumentTab =
+                            tab.key === 'passport' || tab.key === 'photo';
                         const allRows =
                             (data.documents?.[tab.key] as
                                 | ManifestDocumentItem[]
@@ -4171,26 +4507,29 @@ export default function ManifestForm({
                                                 {tab.label} Documents
                                             </h3>
                                             <p className="text-sm text-muted-foreground">
-                                                {tab.hint}
+                                                {isMemberMirroredDocumentTab
+                                                    ? `Auto-synced from member ${tab.label.toLowerCase()} files in customer confirmation.`
+                                                    : tab.hint}
                                             </p>
                                         </div>
-                                        {!isView && (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => {
-                                                    updateManifestDocuments(
-                                                        tab.key,
-                                                        [
-                                                            ...allRows,
-                                                            createEmptyDocumentEntry(),
-                                                        ],
-                                                    );
-                                                }}
-                                            >
-                                                Add Document
-                                            </Button>
-                                        )}
+                                        {!isView &&
+                                            !isMemberMirroredDocumentTab && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        updateManifestDocuments(
+                                                            tab.key,
+                                                            [
+                                                                ...allRows,
+                                                                createEmptyDocumentEntry(),
+                                                            ],
+                                                        );
+                                                    }}
+                                                >
+                                                    Add Document
+                                                </Button>
+                                            )}
                                     </div>
 
                                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -4207,6 +4546,7 @@ export default function ManifestForm({
                                                     className="rounded-lg border p-3"
                                                 >
                                                     {!isView &&
+                                                        !isMemberMirroredDocumentTab &&
                                                         actualIndex >= 0 && (
                                                             <div className="mb-3 flex justify-end">
                                                                 <Button
@@ -4246,12 +4586,18 @@ export default function ManifestForm({
                                                             undefined
                                                         }
                                                         useFileNameInput
+                                                        showRemoveButton={
+                                                            !isMemberMirroredDocumentTab
+                                                        }
                                                         fileNameValue={
                                                             row.file_name ??
                                                             null
                                                         }
                                                         isView={isView}
-                                                        disabled={isView}
+                                                        disabled={
+                                                            isView ||
+                                                            isMemberMirroredDocumentTab
+                                                        }
                                                         onSelect={(file) => {
                                                             const nextRows =
                                                                 allRows.length >

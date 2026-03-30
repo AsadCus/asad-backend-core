@@ -1,6 +1,5 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
-import ModelNumberInput from '@/components/model-number-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +88,9 @@ interface LinkedPackageInfo {
     price_double?: number | null;
     price_triple?: number | null;
     price_quad?: number | null;
+    child_with_bed_price?: number | null;
+    child_no_bed_price?: number | null;
+    infant_price?: number | null;
 }
 
 export interface CustomerConfirmationFormProps {
@@ -241,6 +243,9 @@ export default function CustomerConfirmationForm({
                 price_double: pkg.price_double,
                 price_triple: pkg.price_triple,
                 price_quad: pkg.price_quad,
+                child_with_bed_price: pkg.child_with_bed_price,
+                child_no_bed_price: pkg.child_no_bed_price,
+                infant_price: pkg.infant_price,
             });
             setLinkedPackageData(pkg);
         } finally {
@@ -324,7 +329,6 @@ export default function CustomerConfirmationForm({
     const form = useForm<CustomerConfirmationFormData>(defaultData);
     const { data, setData, post, processing, clearErrors, setError } = form;
     const errors: Record<string, string | undefined> = form.errors;
-    const modelNumberError = errors.number ?? errors.number_format_id;
     const normalizedPackageOptions =
         packageOptions as CustomerConfirmationPackageOption[];
     const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
@@ -376,7 +380,6 @@ export default function CustomerConfirmationForm({
 
         visiblePackages.forEach((option) => {
             const departureDate = parseDisplayDate(option.departure_date);
-            const returnDate = parseDisplayDate(option.return_date);
 
             const groupKey = departureDate
                 ? departureDate.toLocaleDateString('en-US', {
@@ -393,20 +396,6 @@ export default function CustomerConfirmationForm({
                 previousGroupKey = groupKey;
             }
 
-            const departureDay = departureDate
-                ? String(departureDate.getDate()).padStart(2, '0')
-                : null;
-            const returnLabel = returnDate
-                ? formatDateForDisplay(returnDate)
-                : null;
-            const departureLabel = departureDate
-                ? formatDateForDisplay(departureDate)
-                : null;
-            const dateRangeLabel =
-                departureDay && returnLabel
-                    ? `${departureDay} - ${returnLabel}`
-                    : (departureLabel ?? '');
-
             const seatsLeft = Number(option.seats_left ?? 0);
             const seatsLeftLabel = Number.isFinite(seatsLeft)
                 ? ` (${seatsLeft} Seats Left)`
@@ -414,7 +403,7 @@ export default function CustomerConfirmationForm({
 
             options.push({
                 ...option,
-                label: `${dateRangeLabel} ${option.label}${seatsLeftLabel}`.trim(),
+                label: `${option.label}${seatsLeftLabel}`.trim(),
             });
         });
 
@@ -490,6 +479,9 @@ export default function CustomerConfirmationForm({
                 price_double: current?.price_double,
                 price_triple: current?.price_triple,
                 price_quad: current?.price_quad,
+                child_with_bed_price: current?.child_with_bed_price,
+                child_no_bed_price: current?.child_no_bed_price,
+                infant_price: current?.infant_price,
             }));
         }
 
@@ -504,6 +496,9 @@ export default function CustomerConfirmationForm({
                 price_double?: number | null;
                 price_triple?: number | null;
                 price_quad?: number | null;
+                child_with_bed_price?: number | null;
+                child_no_bed_price?: number | null;
+                infant_price?: number | null;
             } | null);
 
         if (!packagePriceSource) {
@@ -530,6 +525,21 @@ export default function CustomerConfirmationForm({
                 value: 'quad',
                 label: 'Quad',
                 price: Number(packagePriceSource.price_quad ?? 0),
+            },
+            {
+                value: 'child_with_bed',
+                label: 'Child (7-11 years)',
+                price: Number(packagePriceSource.child_with_bed_price ?? 0),
+            },
+            {
+                value: 'child_no_bed',
+                label: 'Child (2-6 years)',
+                price: Number(packagePriceSource.child_no_bed_price ?? 0),
+            },
+            {
+                value: 'infant',
+                label: 'Infant (0-2 years)',
+                price: Number(packagePriceSource.infant_price ?? 0),
             },
         ]
             .filter((item) => item.price > 0)
@@ -804,9 +814,7 @@ export default function CustomerConfirmationForm({
             return;
         }
 
-        window.setTimeout(() => {
-            applyCustomerUpdate(index, field, value);
-        }, 0);
+        applyCustomerUpdate(index, field, value);
     };
 
     // Submit
@@ -1205,16 +1213,6 @@ export default function CustomerConfirmationForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="px-3 md:px-6">
-                        {data.number && (
-                            <div className="mb-4 flex items-center gap-2">
-                                <Label className="font-semibold">
-                                    Confirmation Number:
-                                </Label>
-                                <Badge variant="outline" className="font-mono">
-                                    {data.number}
-                                </Badge>
-                            </div>
-                        )}
                         <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                             <FormField
                                 label="Package"
@@ -1304,24 +1302,6 @@ export default function CustomerConfirmationForm({
                                     disabled={isView || processing}
                                 />
                             </FormField>
-
-                            {!isView && !isPublic && (
-                                <ModelNumberInput
-                                    modelKey="customer_confirmation"
-                                    label="Confirmation Number"
-                                    value={data.number ?? ''}
-                                    formatId={data.number_format_id ?? null}
-                                    onValueChange={(value) =>
-                                        setData('number', value)
-                                    }
-                                    onFormatIdChange={(formatId) =>
-                                        setData('number_format_id', formatId)
-                                    }
-                                    disabled={processing}
-                                    error={modelNumberError}
-                                    hint="Select a format from the number input to auto-generate confirmation number."
-                                />
-                            )}
 
                             <FormField
                                 label="Date of Application"
@@ -1510,7 +1490,7 @@ export default function CustomerConfirmationForm({
                                                         processing={processing}
                                                         showStatusField={true}
                                                         forceStatusDisabled={
-                                                            isPublic
+                                                            isPublic || isEdit
                                                         }
                                                         getError={getError}
                                                         sharingPlanSelectOptions={
@@ -1545,9 +1525,6 @@ export default function CustomerConfirmationForm({
                                                         customer={customer}
                                                         index={idx}
                                                         useGeneratedDocumentName
-                                                        confirmationNumber={
-                                                            data.number ?? null
-                                                        }
                                                         isView={isView}
                                                         processing={processing}
                                                         getError={getError}

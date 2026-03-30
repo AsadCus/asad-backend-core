@@ -86,7 +86,7 @@ class QuotationItemRule
             "$prefix.*._key" => ['required', 'string'],
             "$prefix.*.id" => ['nullable'],
             "$prefix.*.customer_confirmation_member_id" => ['nullable', 'integer', 'exists:customer_confirmation_members,id'],
-            "$prefix.*.sharing_plan" => ['nullable', 'string', 'in:single,double,triple,quad'],
+            "$prefix.*.sharing_plan" => ['nullable', 'string', 'in:single,double,triple,quad,child_with_bed,child_no_bed,infant'],
             "$prefix.*.parent_key" => ['nullable', 'string'],
             "$prefix.*.parent_id" => ['nullable'],
             "$prefix.*.description" => ['required', 'string'],

@@ -682,6 +682,61 @@ class CustomerConfirmationFormTest extends TestCase
         Storage::disk('public')->assertExists($storedPassportFile->file_path);
     }
 
+    public function test_update_member_stores_passport_png_file(): void
+    {
+        $this->actingAs($this->adminUser);
+        Storage::fake('public');
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Passport PNG Upload Test',
+            'contact_number' => '0128899000',
+            'email' => 'passport-png-upload@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-02',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Passport PNG Member',
+                    'email' => 'passport-png-member@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer')->where('enquiry_id', $enquiry->id)->firstOrFail();
+        $member = $group->members->firstOrFail();
+
+        $passportFile = UploadedFile::fake()->image('passport-photo.png', 800, 800);
+
+        $response = $this->post("/customer-confirmations/members/{$member->id}", [
+            '_method' => 'PUT',
+            'name' => 'Passport PNG Member',
+            'email' => 'passport-png-member@test.com',
+            'contact_number' => '0128899000',
+            'status' => 'pending_payment',
+            'passport_file' => $passportFile,
+            'passport_file_name' => 'Passport PNG Member.png',
+        ]);
+
+        $response->assertRedirect();
+
+        $storedPassportFile = ModelFile::query()
+            ->where('fileable_type', Customer::class)
+            ->where('fileable_id', $member->customer_id)
+            ->where('field', 'passport')
+            ->first();
+
+        $this->assertNotNull($storedPassportFile);
+        $this->assertSame('Passport PNG Member.png', $storedPassportFile->file_name);
+        $this->assertMatchesRegularExpression('/^customers\/passport\/.+$/', $storedPassportFile->file_path);
+        Storage::disk('public')->assertExists($storedPassportFile->file_path);
+    }
+
     public function test_update_member_rejects_passport_attachment_larger_than_5000kb(): void
     {
         $this->actingAs($this->adminUser);
@@ -735,6 +790,134 @@ class CustomerConfirmationFormTest extends TestCase
         $response->assertSessionHasErrors([
             'passport_file' => 'Passport attachment file must not be more than 5000KB (5MB).',
         ]);
+    }
+
+    public function test_update_member_generates_default_document_names_with_field_prefix(): void
+    {
+        $this->actingAs($this->adminUser);
+        Storage::fake('public');
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Doc Name Format Test',
+            'contact_number' => '0128777000',
+            'email' => 'doc-name-format@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-03',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Formatted Name Member',
+                    'email' => 'formatted-name-member@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer')
+            ->where('enquiry_id', $enquiry->id)
+            ->firstOrFail();
+        $member = $group->members->firstOrFail();
+
+        $photoFile = UploadedFile::fake()->image('portrait.png', 1200, 1200);
+
+        $response = $this->post("/customer-confirmations/members/{$member->id}", [
+            '_method' => 'PUT',
+            'name' => 'Formatted Name Member',
+            'email' => 'formatted-name-member@test.com',
+            'contact_number' => '0128777000',
+            'status' => 'pending_payment',
+            'photo_file' => $photoFile,
+        ]);
+
+        $response->assertRedirect();
+
+        $storedPhotoFile = ModelFile::query()
+            ->where('fileable_type', Customer::class)
+            ->where('fileable_id', $member->customer_id)
+            ->where('field', 'photo')
+            ->first();
+
+        $this->assertNotNull($storedPhotoFile);
+        $this->assertStringStartsWith('Photo Formatted Name Member', (string) $storedPhotoFile->file_name);
+    }
+
+    public function test_group_update_with_member_photo_upload_persists_and_is_returned_in_show_payload(): void
+    {
+        $this->actingAs($this->adminUser);
+        Storage::fake('public');
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Group Photo Upload',
+            'contact_number' => '0128222000',
+            'email' => 'group-photo-upload@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-03',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Group Upload Member',
+                    'email' => 'group-upload-member@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer')
+            ->where('enquiry_id', $enquiry->id)
+            ->firstOrFail();
+        $member = $group->members->firstOrFail();
+
+        $photoFile = UploadedFile::fake()->image('group-member-photo.png', 1200, 1200);
+
+        $response = $this->post(route('customer-confirmations.update', $group->id), [
+            '_method' => 'PUT',
+            'date_of_application' => '2026-01-20',
+            'members' => [
+                $this->memberPayload([
+                    'member_id' => $member->id,
+                    'customer_id' => $member->customer_id,
+                    'name' => 'Group Upload Member',
+                    'email' => 'group-upload-member@test.com',
+                    'is_leader' => true,
+                    'photo_file' => $photoFile,
+                    'photo_file_name' => 'Photo Group Upload Member.png',
+                    'photo_file_removed' => false,
+                ]),
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $storedPhotoFile = ModelFile::query()
+            ->where('fileable_type', Customer::class)
+            ->where('fileable_id', $member->customer_id)
+            ->where('field', 'photo')
+            ->first();
+
+        $this->assertNotNull($storedPhotoFile);
+        $this->assertSame('Photo Group Upload Member.png', $storedPhotoFile->file_name);
+        $this->assertMatchesRegularExpression('/^customers\/photo\/.+$/', $storedPhotoFile->file_path);
+        Storage::disk('public')->assertExists($storedPhotoFile->file_path);
+
+        $showResponse = $this->getJson(route('customer-confirmations.show', $group->id));
+        $showResponse->assertOk();
+
+        $updatedMember = collect($showResponse->json('members'))
+            ->firstWhere('member_id', $member->id);
+
+        $this->assertIsArray($updatedMember);
+        $this->assertSame('Photo Group Upload Member.png', Arr::get($updatedMember, 'photo_document.file_name'));
+        $this->assertNotEmpty(Arr::get($updatedMember, 'photo_document.file_path'));
     }
 
     public function test_customer_confirmation_update_blocks_removing_member_with_paid_billing(): void
@@ -958,14 +1141,15 @@ class CustomerConfirmationFormTest extends TestCase
 
         $response->assertRedirect();
 
+        // Paid billing locks sharing plan changes to protect settled financial links.
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
-            'sharing_plan' => 'double',
+            'sharing_plan' => 'single',
         ]);
 
         $this->assertDatabaseHas('quotation_items', [
             'id' => $quotationItem->id,
-            'customer_confirmation_member_id' => null,
+            'customer_confirmation_member_id' => $member->id,
         ]);
 
         $this->assertDatabaseHas('receipts', [
@@ -1614,6 +1798,14 @@ class CustomerConfirmationFormTest extends TestCase
         $response
             ->assertRedirect(route('quotation.index'))
             ->assertSessionHas('success', '1 quotation(s) created successfully.');
+
+        $quotation = Quotation::query()
+            ->where('customer_confirmation_id', $confirmation->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($quotation);
+        $this->assertSame((int) $this->adminUser->id, (int) $quotation->created_by);
     }
 
     public function test_generate_quotations_wraps_member_items_under_umrah_packages_header(): void
@@ -1675,6 +1867,60 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->assertNotNull($memberItem);
         $this->assertSame((int) $header->id, (int) $memberItem->parent_id);
+    }
+
+    public function test_generate_quotations_formats_child_sharing_plan_label_in_item_description(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-GEN-CHILD-001',
+            'name' => 'Generate Quotation Child Label Package',
+            'status' => 'open',
+            'child_with_bed_price' => 3500,
+        ]);
+
+        $payerUser = User::factory()->create(['email' => 'payer-child-label@test.com']);
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-PAYER-CHILD-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'child_with_bed',
+        ]);
+
+        $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+            'payer_to_members' => [
+                (string) $payerMember->id => [$payerMember->id],
+            ],
+        ])->assertRedirect(route('quotation.index'));
+
+        $quotation = Quotation::query()
+            ->where('customer_confirmation_id', $confirmation->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($quotation);
+
+        $memberItem = QuotationItem::query()
+            ->where('quotation_id', $quotation->id)
+            ->where('is_header', false)
+            ->first();
+
+        $this->assertNotNull($memberItem);
+        $this->assertStringContainsString('Child with Bed sharing', (string) $memberItem->description);
+        $this->assertStringNotContainsString('child_with_bed', (string) $memberItem->description);
     }
 
     public function test_generate_quotations_autofills_master_quotation_notes(): void

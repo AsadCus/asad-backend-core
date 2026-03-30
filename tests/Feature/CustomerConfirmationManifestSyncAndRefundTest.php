@@ -15,6 +15,7 @@ use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
+use App\Services\ManifestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,6 +39,20 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'customer_number' => 'CUST-SYNC-001',
             'passport_number' => 'OLD-PASSPORT',
             'nationality' => 'Malaysia',
+            'passport_path' => 'customers/passport/passport-sync-member.pdf',
+            'photo_path' => 'customers/photo/photo-sync-member.jpg',
+        ]);
+
+        $customer->files()->create([
+            'field' => 'passport',
+            'file_name' => 'Member Passport.pdf',
+            'file_path' => 'customers/passport/passport-sync-member.pdf',
+        ]);
+
+        $customer->files()->create([
+            'field' => 'photo',
+            'file_name' => 'Member Photo.jpg',
+            'file_path' => 'customers/photo/photo-sync-member.jpg',
         ]);
 
         $group = CustomerConfirmation::create([
@@ -136,10 +151,131 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertSame('double', (string) $openManifestMember->sharing_plan);
         $this->assertSame('Brother', (string) $openManifestMember->relationship);
 
+        $openPassportFile = $openManifest->files()
+            ->where('field', 'passport')
+            ->first();
+        $openPhotoFile = $openManifest->files()
+            ->where('field', 'photo')
+            ->first();
+
+        $this->assertNotNull($openPassportFile);
+        $this->assertNotNull($openPhotoFile);
+        $this->assertSame(
+            'customers/passport/passport-sync-member.pdf',
+            (string) $openPassportFile?->file_path,
+        );
+        $this->assertSame(
+            'customers/photo/photo-sync-member.jpg',
+            (string) $openPhotoFile?->file_path,
+        );
+
         $this->assertSame('Original Name', (string) $closedManifestMember->name);
         $this->assertSame('OLD-PASSPORT', (string) $closedManifestMember->passport_number);
         $this->assertSame('single', (string) $closedManifestMember->sharing_plan);
         $this->assertSame('Self', (string) $closedManifestMember->relationship);
+
+        $this->assertFalse(
+            $closedManifest->files()->whereIn('field', ['passport', 'photo'])->exists(),
+        );
+    }
+
+    public function test_customer_confirmation_member_sync_uses_customer_file_paths_when_customer_columns_are_empty(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'File Path Fallback Member',
+            'email' => 'file-path-fallback@example.com',
+            'contact' => '18887777',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-FILE-FALLBACK-001',
+            'passport_path' => null,
+            'photo_path' => null,
+        ]);
+
+        $customer->files()->create([
+            'field' => 'passport',
+            'file_name' => 'Fallback Passport.pdf',
+            'file_path' => 'customers/passport/fallback-passport.pdf',
+        ]);
+
+        $customer->files()->create([
+            'field' => 'photo',
+            'file_name' => 'Fallback Photo.jpg',
+            'file_path' => 'customers/photo/fallback-photo.jpg',
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+        ]);
+
+        $openPackage = Package::create([
+            'package_number' => 'PKG-FILE-FALLBACK-OPEN',
+            'name' => 'File Path Fallback Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $openPackage->id,
+            'manifest_number' => 'MNF-FILE-FALLBACK-001',
+        ]);
+
+        $manifestMember = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'name' => 'File Path Fallback Member',
+            'passport_path' => null,
+            'photo_path' => null,
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+        ]);
+
+        app(CustomerConfirmationService::class)->updateMemberDetails(
+            (int) $member->id,
+            [
+                'status' => 'pending_payment',
+                'sharing_plan' => 'single',
+                'relationship' => 'Self',
+            ],
+        );
+
+        $manifestMember->refresh();
+
+        $this->assertSame(
+            'customers/passport/fallback-passport.pdf',
+            (string) $manifestMember->passport_path,
+        );
+        $this->assertSame(
+            'customers/photo/fallback-photo.jpg',
+            (string) $manifestMember->photo_path,
+        );
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Manifest::class,
+            'fileable_id' => $manifest->id,
+            'field' => 'passport',
+            'file_path' => 'customers/passport/fallback-passport.pdf',
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Manifest::class,
+            'fileable_id' => $manifest->id,
+            'field' => 'photo',
+            'file_path' => 'customers/photo/fallback-photo.jpg',
+        ]);
     }
 
     public function test_customer_confirmation_member_refund_creates_negative_receipt_with_linked_invoice(): void
@@ -340,5 +476,287 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'customer_confirmation_member_id' => $member->id,
             'description' => 'Quotation Package - Quoted Member - Single sharing',
         ]);
+    }
+
+    public function test_manifest_member_add_auto_syncs_passport_and_photo_documents(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Manifest Auto Doc Member',
+            'email' => 'manifest-auto-doc@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-MANIFEST-AUTO-001',
+            'passport_path' => 'customers/passport/manifest-auto-passport.pdf',
+            'photo_path' => 'customers/photo/manifest-auto-photo.jpg',
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MANIFEST-AUTO-001',
+            'name' => 'Manifest Auto Doc Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-MANIFEST-AUTO-001',
+        ]);
+
+        app(ManifestService::class)->update([
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'customer_confirmation_id' => $group->id,
+                    'sharing_plan' => 'single',
+                    'name_as_per_passport' => 'Manifest Auto Doc Member',
+                    'relationship' => 'Self',
+                ],
+            ],
+        ], $manifest->id);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Manifest::class,
+            'fileable_id' => $manifest->id,
+            'field' => 'passport',
+            'file_path' => 'customers/passport/manifest-auto-passport.pdf',
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Manifest::class,
+            'fileable_id' => $manifest->id,
+            'field' => 'photo',
+            'file_path' => 'customers/photo/manifest-auto-photo.jpg',
+        ]);
+    }
+
+    public function test_manifest_edit_payload_includes_stored_customer_document_file_names(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Manifest Name Sync Member',
+            'email' => 'manifest-name-sync@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-MANIFEST-NAME-001',
+            'passport_path' => 'customers/passport/name-sync-passport.pdf',
+            'photo_path' => 'customers/photo/name-sync-photo.jpg',
+        ]);
+
+        $customer->files()->create([
+            'field' => 'passport',
+            'file_name' => 'Passport Manifest Name Sync',
+            'file_path' => 'customers/passport/name-sync-passport.pdf',
+        ]);
+
+        $customer->files()->create([
+            'field' => 'photo',
+            'file_name' => 'Photo Manifest Name Sync',
+            'file_path' => 'customers/photo/name-sync-photo.jpg',
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MANIFEST-NAME-001',
+            'name' => 'Manifest Name Sync Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-MANIFEST-NAME-001',
+        ]);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'name' => 'Manifest Name Sync Member',
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+            'passport_path' => 'customers/passport/name-sync-passport.pdf',
+            'photo_path' => 'customers/photo/name-sync-photo.jpg',
+        ]);
+
+        $payload = app(ManifestService::class)->getForEditShow((int) $manifest->id);
+        $memberRow = collect($payload['members'] ?? [])->first();
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame('Passport Manifest Name Sync', (string) ($memberRow['passport_file_name'] ?? ''));
+        $this->assertSame('Photo Manifest Name Sync', (string) ($memberRow['photo_file_name'] ?? ''));
+    }
+
+    public function test_customer_confirmation_update_preserves_paid_member_billing_when_adding_member(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $primaryUser = User::factory()->create([
+            'name' => 'Paid Member',
+            'email' => 'paid-member-preserve@example.com',
+            'contact' => '81112222',
+        ]);
+
+        $primaryCustomer = Customer::create([
+            'user_id' => $primaryUser->id,
+            'customer_number' => 'CUST-PRESERVE-001',
+            'passport_number' => 'PAID-PASS-001',
+        ]);
+
+        $newMemberUser = User::factory()->create([
+            'name' => 'New Added Member',
+            'email' => 'new-added-member@example.com',
+            'contact' => '83334444',
+        ]);
+
+        $newMemberCustomer = Customer::create([
+            'user_id' => $newMemberUser->id,
+            'customer_number' => 'CUST-PRESERVE-NEW-001',
+            'passport_number' => 'NEW-PASS-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-PRESERVE-001',
+            'name' => 'Preserve Billing Package',
+            'status' => 'open',
+            'price_single' => 1000,
+            'price_double' => 900,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $paidMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $primaryCustomer->id,
+            'is_leader' => true,
+            'status' => 'fully_paid',
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $primaryCustomer->id,
+            'customer_confirmation_id' => $group->id,
+            'created_by' => $authUser->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $paidMember->id,
+            'description' => 'Paid member package item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Paid member invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+            'members' => [
+                [
+                    'member_id' => $paidMember->id,
+                    'customer_id' => $primaryCustomer->id,
+                    'is_leader' => true,
+                    'name' => 'Paid Member',
+                    'email' => 'paid-member-preserve@example.com',
+                    'contact_number' => '81112222',
+                    'status' => 'fully_paid',
+                    'sharing_plan' => 'double',
+                    'relationship' => 'Self',
+                ],
+                [
+                    'customer_id' => $newMemberCustomer->id,
+                    'is_leader' => false,
+                    'name' => 'New Added Member',
+                    'email' => 'new-added-member@example.com',
+                    'contact_number' => '83334444',
+                    'status' => 'pending_payment',
+                    'sharing_plan' => 'single',
+                    'relationship' => 'Sibling',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $paidMember->refresh();
+        $quotationItem->refresh();
+
+        $this->assertSame($paidMember->id, $quotationItem->customer_confirmation_member_id);
+        $this->assertSame('single', (string) $paidMember->sharing_plan);
+        $this->assertSame('fully_paid', (string) $paidMember->status);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex();
+        $groupRow = collect($grouped)->firstWhere('id', $group->id);
+
+        $this->assertNotNull($groupRow);
+        $memberRows = collect($groupRow['members'] ?? []);
+        $paidMemberRow = $memberRows->firstWhere('id', $paidMember->id);
+
+        $this->assertNotNull($paidMemberRow);
+        $this->assertSame(1000.0, (float) ($paidMemberRow['paid_amount'] ?? 0));
+        $this->assertTrue((bool) ($paidMemberRow['has_quotation'] ?? false));
     }
 }

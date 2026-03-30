@@ -90,6 +90,9 @@ const SHARING_PLAN_OPTIONS: SelectOption[] = [
     { value: 'triple', label: 'Triple' },
     { value: 'double', label: 'Double' },
     { value: 'single', label: 'Single' },
+    { value: 'child_with_bed', label: 'Single' },
+    { value: 'child_no_bed', label: 'Single' },
+    { value: 'infant', label: 'Single' },
 ];
 
 const BED_TYPE_OPTIONS: SelectOption[] = [
@@ -114,6 +117,9 @@ const SHARING_PLAN_CAPACITY: Record<string, number> = {
     triple: 3,
     double: 2,
     single: 1,
+    child_with_bed: 1,
+    child_no_bed: 1,
+    infant: 1,
 };
 
 const MANIFEST_DATATABLE_EXPANDED_STORAGE_PREFIX =
@@ -162,6 +168,7 @@ interface ManifestDatatableProps {
     ) => void;
     onRowsChange: (rows: MemberWithUI[]) => void;
     onMoveToHolding?: (member: MemberWithUI) => void;
+    onViewMember?: (member: MemberWithUI) => void;
 }
 
 function normalizeRoomLocationKey(value: string): string {
@@ -406,6 +413,7 @@ export default function ManifestDatatable({
     onRoomAssignmentChange,
     onRowsChange,
     onMoveToHolding,
+    onViewMember,
 }: ManifestDatatableProps) {
     const isGrouped =
         mode === 'members' ||
@@ -2071,6 +2079,8 @@ export default function ManifestDatatable({
 
         const canShowMoveToHoldingAction =
             mode === 'members' && canMoveToHolding && !disabled;
+        const canShowViewMemberAction =
+            mode === 'members' && !isOfficialRoomMember;
         const canShowToggleRoomAction =
             (mode === 'room' || mode === 'room_check') &&
             canToggleRoomAssignment &&
@@ -2083,6 +2093,7 @@ export default function ManifestDatatable({
             !disabled &&
             currentGroupMemberCount > 1;
         const hasMemberAction =
+            canShowViewMemberAction ||
             canShowMoveToHoldingAction ||
             canShowToggleRoomAction ||
             canSplitMemberFromGroup ||
@@ -3073,6 +3084,15 @@ export default function ManifestDatatable({
                                 <DropdownMenuContent align="end">
                                     {hasMemberAction ? (
                                         <>
+                                            {canShowViewMemberAction && (
+                                                <DropdownMenuItem
+                                                    onClick={() =>
+                                                        onViewMember?.(member)
+                                                    }
+                                                >
+                                                    View Member Details
+                                                </DropdownMenuItem>
+                                            )}
                                             {canSplitMemberFromGroup && (
                                                 <DropdownMenuItem
                                                     onClick={() =>
@@ -3228,6 +3248,13 @@ export default function ManifestDatatable({
                 <ContextMenuContent className="w-48">
                     {hasMemberAction ? (
                         <>
+                            {canShowViewMemberAction && (
+                                <ContextMenuItem
+                                    onClick={() => onViewMember?.(member)}
+                                >
+                                    View Member Details
+                                </ContextMenuItem>
+                            )}
                             {canSplitMemberFromGroup && (
                                 <ContextMenuItem
                                     onClick={() =>

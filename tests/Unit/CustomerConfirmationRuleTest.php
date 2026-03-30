@@ -41,4 +41,18 @@ class CustomerConfirmationRuleTest extends TestCase
             $this->assertNotContains('required', $rules[$field]);
         }
     }
+
+    public function test_member_sharing_plan_rule_allows_child_and_infant_values(): void
+    {
+        $rule = new CustomerConfirmationRule;
+        $rules = $rule->rules();
+
+        $sharingPlanRule = collect($rules['members.*.sharing_plan'])
+            ->first(fn ($item) => is_string($item) && str_starts_with($item, 'in:'));
+
+        $this->assertIsString($sharingPlanRule);
+        $this->assertStringContainsString('child_with_bed', $sharingPlanRule);
+        $this->assertStringContainsString('child_no_bed', $sharingPlanRule);
+        $this->assertStringContainsString('infant', $sharingPlanRule);
+    }
 }

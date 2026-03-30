@@ -36,7 +36,7 @@ import {
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fields';
 import CustomerFormFields from '../customer/form-fields';
@@ -51,7 +51,11 @@ import {
 } from '../customer/schema';
 import { customerValidationSchema } from '../customer/validation';
 import { statusColors, typeColors } from '../enquiries/schema';
-import { sharingPlanOptions } from '../packages/schema';
+import {
+    sharingPlanBadgeColors,
+    sharingPlanLabels,
+    sharingPlanOptions,
+} from '../packages/schema';
 import CustomerConfirmationForm from './form';
 
 const formatCurrency = (value: number): string => {
@@ -65,11 +69,6 @@ const formatCurrency = (value: number): string => {
 
 const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     createSelectColumn<CustomerConfirmationDatatableSchema>(),
-    {
-        accessorKey: 'number',
-        header: 'CC No',
-        meta: { exportable: true },
-    },
     {
         accessorKey: 'customer_name',
         header: 'Customer Name',
@@ -251,7 +250,7 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
     },
     {
         accessorKey: 'sharing_plan',
-        header: 'Sharing Plan',
+        header: 'Pricing Plan',
         meta: { exportable: true },
         cell: ({ row }) => {
             const sharingPlan = row.original.sharing_plan;
@@ -260,9 +259,17 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
                 return <span className="text-muted-foreground">-</span>;
             }
 
+            const normalizedPlan = String(sharingPlan).trim().toLowerCase();
+            const label = sharingPlanLabels[normalizedPlan] ?? sharingPlan;
+            const colorClass =
+                sharingPlanBadgeColors[normalizedPlan] ??
+                'bg-gray-100 text-gray-800';
+
             return (
-                <Badge variant="outline">
-                    {sharingPlan.charAt(0).toUpperCase() + sharingPlan.slice(1)}
+                <Badge
+                    className={`${colorClass} rounded-full px-3 py-1 text-base`}
+                >
+                    {label}
                 </Badge>
             );
         },
@@ -387,8 +394,7 @@ export default function ConfirmedCustomerIndex({
     );
     const [memberDialogData, setMemberDialogData] =
         useState<CustomerMemberFormData | null>(null);
-    const [memberDialogConfirmationNumber, setMemberDialogConfirmationNumber] =
-        useState<string | null>(null);
+    const memberDialogDataRef = useRef<CustomerMemberFormData | null>(null);
     const [memberDialogMemberId, setMemberDialogMemberId] = useState<
         number | null
     >(null);
@@ -429,6 +435,9 @@ export default function ConfirmedCustomerIndex({
                   price_double?: number | null;
                   price_triple?: number | null;
                   price_quad?: number | null;
+                  child_with_bed_price?: number | null;
+                  child_no_bed_price?: number | null;
+                  infant_price?: number | null;
               }
             | null
             | undefined,
@@ -457,6 +466,21 @@ export default function ConfirmedCustomerIndex({
                 value: 'quad',
                 label: 'Quad',
                 price: Number(packageData.price_quad ?? 0),
+            },
+            {
+                value: 'child_with_bed',
+                label: 'Child (7-11 years)',
+                price: Number(packageData.child_with_bed_price ?? 0),
+            },
+            {
+                value: 'child_no_bed',
+                label: 'Child (2-6 years)',
+                price: Number(packageData.child_no_bed_price ?? 0),
+            },
+            {
+                value: 'infant',
+                label: 'Infant (0-2 years)',
+                price: Number(packageData.infant_price ?? 0),
             },
         ]
             .filter((item) => item.price > 0)
@@ -611,13 +635,15 @@ export default function ConfirmedCustomerIndex({
                 return;
             }
 
-            setMemberDialogMemberId(memberId);
-            setMemberDialogConfirmationNumber(data.number ?? null);
-            setMemberDialogData({
+            const initialMemberDialogData: CustomerMemberFormData = {
                 ...emptyMember(false),
                 ...selectedMember,
                 member_id: memberId,
-            });
+            };
+
+            setMemberDialogMemberId(memberId);
+            memberDialogDataRef.current = initialMemberDialogData;
+            setMemberDialogData(initialMemberDialogData);
             setMemberDialogOpen(true);
 
             if (data.package_id) {
@@ -631,6 +657,9 @@ export default function ConfirmedCustomerIndex({
                         price_double?: number | null;
                         price_triple?: number | null;
                         price_quad?: number | null;
+                        child_with_bed_price?: number | null;
+                        child_no_bed_price?: number | null;
+                        infant_price?: number | null;
                     };
                     setMemberSharingPlanOptions(
                         buildSharingPlanOptions(packageData),
@@ -655,10 +684,14 @@ export default function ConfirmedCustomerIndex({
                 return prev;
             }
 
-            return {
+            const updatedDraft: CustomerMemberFormData = {
                 ...prev,
                 [field]: value,
             };
+
+            memberDialogDataRef.current = updatedDraft;
+
+            return updatedDraft;
         });
     };
 
@@ -709,7 +742,10 @@ export default function ConfirmedCustomerIndex({
     };
 
     const submitMemberUpdate = () => {
-        if (!memberDialogData || !memberDialogMemberId) {
+        const latestMemberDialogData =
+            memberDialogDataRef.current ?? memberDialogData;
+
+        if (!latestMemberDialogData || !memberDialogMemberId) {
             return;
         }
 
@@ -719,53 +755,123 @@ export default function ConfirmedCustomerIndex({
 
         setIsSavingMember(true);
 
-        const payload: Record<string, string | boolean | File | undefined> = {
-            _method: 'PUT',
-            name: memberDialogData.name ?? '',
-            email: memberDialogData.email ?? '',
-            contact_number: memberDialogData.contact_number ?? '',
-            nric_number: memberDialogData.nric_number ?? '',
-            address: memberDialogData.address ?? '',
-            nationality: memberDialogData.nationality ?? '',
-            passport_number: memberDialogData.passport_number ?? '',
-            passport_issue_date: memberDialogData.passport_issue_date ?? '',
-            passport_expiry_date: memberDialogData.passport_expiry_date ?? '',
-            passport_place_of_issue:
-                memberDialogData.passport_place_of_issue ?? '',
-            gender: memberDialogData.gender ?? '',
-            marital_status: memberDialogData.marital_status ?? '',
-            date_of_birth: memberDialogData.date_of_birth ?? '',
-            place_of_birth: memberDialogData.place_of_birth ?? '',
-            first_time_umrah: Boolean(memberDialogData.first_time_umrah),
-            has_chronic_disease: Boolean(memberDialogData.has_chronic_disease),
-            chronic_disease_details:
-                memberDialogData.chronic_disease_details ?? '',
-            status: String(
-                (memberDialogData as { status?: string }).status ?? '',
-            ),
-            sharing_plan: String(memberDialogData.sharing_plan ?? ''),
-            relationship: String(memberDialogData.relationship ?? ''),
-            passport_file:
-                memberDialogData.passport_file instanceof File
-                    ? memberDialogData.passport_file
-                    : undefined,
-            photo_file:
-                memberDialogData.photo_file instanceof File
-                    ? memberDialogData.photo_file
-                    : undefined,
-            passport_file_name: memberDialogData.passport_file_name ?? '',
-            photo_file_name: memberDialogData.photo_file_name ?? '',
-            passport_file_removed: Boolean(
-                memberDialogData.passport_file_removed,
-            ),
-            photo_file_removed: Boolean(memberDialogData.photo_file_removed),
+        const payload = new FormData();
+        const appendValue = (
+            key: string,
+            value: string | boolean | File | null | undefined,
+        ) => {
+            if (value === undefined || value === null) {
+                payload.append(key, '');
+
+                return;
+            }
+
+            if (typeof value === 'boolean') {
+                payload.append(key, value ? '1' : '0');
+
+                return;
+            }
+
+            payload.append(key, value);
         };
+
+        appendValue('_method', 'PUT');
+        appendValue('name', latestMemberDialogData.name ?? '');
+        appendValue('email', latestMemberDialogData.email ?? '');
+        appendValue(
+            'contact_number',
+            latestMemberDialogData.contact_number ?? '',
+        );
+        appendValue('nric_number', latestMemberDialogData.nric_number ?? '');
+        appendValue('address', latestMemberDialogData.address ?? '');
+        appendValue('nationality', latestMemberDialogData.nationality ?? '');
+        appendValue(
+            'passport_number',
+            latestMemberDialogData.passport_number ?? '',
+        );
+        appendValue(
+            'passport_issue_date',
+            latestMemberDialogData.passport_issue_date ?? '',
+        );
+        appendValue(
+            'passport_expiry_date',
+            latestMemberDialogData.passport_expiry_date ?? '',
+        );
+        appendValue(
+            'passport_place_of_issue',
+            latestMemberDialogData.passport_place_of_issue ?? '',
+        );
+        appendValue('gender', latestMemberDialogData.gender ?? '');
+        appendValue(
+            'marital_status',
+            latestMemberDialogData.marital_status ?? '',
+        );
+        appendValue(
+            'date_of_birth',
+            latestMemberDialogData.date_of_birth ?? '',
+        );
+        appendValue(
+            'place_of_birth',
+            latestMemberDialogData.place_of_birth ?? '',
+        );
+        appendValue(
+            'first_time_umrah',
+            Boolean(latestMemberDialogData.first_time_umrah),
+        );
+        appendValue(
+            'has_chronic_disease',
+            Boolean(latestMemberDialogData.has_chronic_disease),
+        );
+        appendValue(
+            'chronic_disease_details',
+            latestMemberDialogData.chronic_disease_details ?? '',
+        );
+        appendValue(
+            'status',
+            String(
+                (latestMemberDialogData as { status?: string }).status ?? '',
+            ),
+        );
+        appendValue(
+            'sharing_plan',
+            String(latestMemberDialogData.sharing_plan ?? ''),
+        );
+        appendValue(
+            'relationship',
+            String(latestMemberDialogData.relationship ?? ''),
+        );
+        appendValue(
+            'passport_file_name',
+            latestMemberDialogData.passport_file_name ?? '',
+        );
+        appendValue(
+            'photo_file_name',
+            latestMemberDialogData.photo_file_name ?? '',
+        );
+        appendValue(
+            'passport_file_removed',
+            Boolean(latestMemberDialogData.passport_file_removed),
+        );
+        appendValue(
+            'photo_file_removed',
+            Boolean(latestMemberDialogData.photo_file_removed),
+        );
+
+        if (latestMemberDialogData.passport_file instanceof File) {
+            payload.append(
+                'passport_file',
+                latestMemberDialogData.passport_file,
+            );
+        }
+
+        if (latestMemberDialogData.photo_file instanceof File) {
+            payload.append('photo_file', latestMemberDialogData.photo_file);
+        }
 
         router.post(
             `/customer-confirmations/members/${memberDialogMemberId}`,
             payload,
             {
-                forceFormData: true,
                 preserveScroll: true,
                 preserveState: false,
                 onSuccess: () => {
@@ -1580,9 +1686,6 @@ export default function ConfirmedCustomerIndex({
                                         <CustomerFormFields
                                             customer={memberDialogData}
                                             useGeneratedDocumentName
-                                            confirmationNumber={
-                                                memberDialogConfirmationNumber
-                                            }
                                             isView={isMemberView}
                                             processing={isSavingMember}
                                             getError={(path) =>

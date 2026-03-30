@@ -76,6 +76,7 @@ export interface PackageOfficialOption {
 }
 
 export interface PackageForManifestOption extends ValueNumberOptionType {
+    package_number?: string;
     status?: 'open' | 'closed' | string;
     departure_date?: string;
     return_date?: string;
@@ -198,6 +199,7 @@ export type MemberWithUI = MemberSchema & {
     customer_confirmation_id?: number;
     customer_confirmation_number?: string | null;
     customer_name?: string;
+    customer_number?: string | null;
     manifest_sharing_group_id?: number;
     sharing_group_id?: number;
     sharing_group_key?: string;

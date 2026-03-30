@@ -15,6 +15,7 @@ export interface DocumentFieldProps {
     existingPath?: string;
     existingFileName?: string | null;
     useFileNameInput?: boolean;
+    showRemoveButton?: boolean;
     fileNameValue?: string | null;
     isView: boolean;
     disabled: boolean;
@@ -109,6 +110,7 @@ export function DocumentField({
     existingPath,
     existingFileName,
     useFileNameInput = false,
+    showRemoveButton = true,
     fileNameValue,
     isView,
     disabled,
@@ -487,7 +489,7 @@ export function DocumentField({
                                 </a>
                             ) : null}
 
-                            {!isView && (
+                            {!isView && showRemoveButton && (
                                 <button
                                     type="button"
                                     className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600 focus:outline-none"
@@ -495,7 +497,9 @@ export function DocumentField({
                                     aria-label={`Remove ${label}`}
                                     title={`Remove ${label}`}
                                     disabled={disabled}
-                                    {...{ [PREVENT_UPLOAD_CLICK_ATTR]: 'true' }}
+                                    {...{
+                                        [PREVENT_UPLOAD_CLICK_ATTR]: 'true',
+                                    }}
                                 >
                                     <X className="h-4 w-4" aria-hidden="true" />
                                 </button>

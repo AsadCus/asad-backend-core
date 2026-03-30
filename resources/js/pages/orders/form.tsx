@@ -634,6 +634,64 @@ function extractIncrementFromInvoiceNumber(
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function buildInvoiceNumberFromSuggestion(
+    suggestedNumber: string,
+    increment: number,
+): string {
+    const normalizedSuggestion = String(suggestedNumber ?? '').trim();
+
+    if (normalizedSuggestion.length === 0) {
+        return String(Math.max(1, increment));
+    }
+
+    const trailingIncrementMatch = normalizedSuggestion.match(/^(.*?)(\d+)$/);
+
+    if (!trailingIncrementMatch) {
+        return `${normalizedSuggestion}-${Math.max(1, increment)}`;
+    }
+
+    const prefix = trailingIncrementMatch[1] ?? '';
+    const padding = String(trailingIncrementMatch[2] ?? '').length;
+    const nextSequence = String(Math.max(1, increment)).padStart(
+        Math.max(1, padding),
+        '0',
+    );
+
+    return `${prefix}${nextSequence}`;
+}
+
+function extractIncrementFromSuggestedNumber(
+    suggestedNumber: string,
+    formatName?: string,
+): number | null {
+    const normalizedSuggestion = String(suggestedNumber ?? '').trim();
+
+    if (normalizedSuggestion.length === 0) {
+        return null;
+    }
+
+    if (formatName) {
+        const parsedFromFormat = extractIncrementFromInvoiceNumber(
+            normalizedSuggestion,
+            formatName,
+        );
+
+        if (parsedFromFormat !== null) {
+            return parsedFromFormat;
+        }
+    }
+
+    const trailingIncrementMatch = normalizedSuggestion.match(/(\d+)$/);
+
+    if (!trailingIncrementMatch?.[1]) {
+        return null;
+    }
+
+    const parsed = Number(trailingIncrementMatch[1]);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 export default function OrderForm({
     mode,
     initialData,
@@ -1019,7 +1077,9 @@ export default function OrderForm({
                     invoice.invoice_number ?? '',
                 ).trim();
 
-                return invoiceNumber.length === 0 ? index : null;
+                return invoiceNumber.length === 0 || invoiceNumber === '-'
+                    ? index
+                    : null;
             })
             .filter((index): index is number => index !== null);
 
@@ -1040,7 +1100,7 @@ export default function OrderForm({
                         invoice.invoice_number ?? '',
                     ).trim();
 
-                    if (invoiceNumber.length === 0) {
+                    if (invoiceNumber.length === 0 || invoiceNumber === '-') {
                         return;
                     }
 
@@ -1107,10 +1167,15 @@ export default function OrderForm({
                             : `format:${suggestion.format_id}`;
 
                     const currentCounter = counterByScopeKey.get(scopeKey) ?? 1;
+                    const parsedSuggestedIncrement =
+                        extractIncrementFromSuggestedNumber(
+                            suggestion.number,
+                            format?.name,
+                        );
                     const suggestedIncrement =
                         typeof suggestion.next_increment === 'number'
                             ? suggestion.next_increment
-                            : currentCounter;
+                            : (parsedSuggestedIncrement ?? currentCounter);
                     const resolvedIncrement = Math.max(
                         suggestedIncrement,
                         currentCounter,
@@ -1122,7 +1187,10 @@ export default function OrderForm({
                               resolvedIncrement,
                               format.increment_padding,
                           )
-                        : suggestion.number;
+                        : buildInvoiceNumberFromSuggestion(
+                              suggestion.number,
+                              resolvedIncrement,
+                          );
 
                     counterByScopeKey.set(scopeKey, resolvedIncrement + 1);
 

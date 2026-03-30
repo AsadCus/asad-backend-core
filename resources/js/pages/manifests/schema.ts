@@ -33,6 +33,8 @@ export const memberSchema = z.object({
     chronic_disease_details: z.string().nullable().optional(),
     passport_path: z.string().nullable().optional(),
     photo_path: z.string().nullable().optional(),
+    passport_file_name: z.string().nullable().optional(),
+    photo_file_name: z.string().nullable().optional(),
     package_price: z.coerce.number().nullable().optional(),
     discount: z.coerce.number().nullable().optional(),
     date_of_deposit_payment: z.string().nullable().optional(),

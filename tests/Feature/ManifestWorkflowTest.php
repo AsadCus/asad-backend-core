@@ -1211,7 +1211,7 @@ class ManifestWorkflowTest extends TestCase
             'meal' => 'Full Board',
         ]);
 
-        foreach (['train_tickets', 'flight_tickets', 'visa', 'hotel', 'passport', 'photo'] as $field) {
+        foreach (['train_tickets', 'flight_tickets', 'visa', 'hotel'] as $field) {
             $this->assertDatabaseHas('model_files', [
                 'fileable_type' => Manifest::class,
                 'fileable_id' => $manifest->id,
@@ -1227,8 +1227,8 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotEmpty($rehydrated['documents']['flight_tickets'] ?? []);
         $this->assertNotEmpty($rehydrated['documents']['visa'] ?? []);
         $this->assertNotEmpty($rehydrated['documents']['hotel'] ?? []);
-        $this->assertNotEmpty($rehydrated['documents']['passport'] ?? []);
-        $this->assertNotEmpty($rehydrated['documents']['photo'] ?? []);
+        $this->assertEmpty($rehydrated['documents']['passport'] ?? []);
+        $this->assertEmpty($rehydrated['documents']['photo'] ?? []);
     }
 
     public function test_store_rejects_customer_confirmation_member_from_different_package(): void

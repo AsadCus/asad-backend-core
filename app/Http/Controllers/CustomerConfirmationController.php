@@ -156,7 +156,7 @@ class CustomerConfirmationController extends Controller
             'passport_file_removed' => ['nullable', 'boolean'],
             'photo_file_removed' => ['nullable', 'boolean'],
             'status' => ['required', 'string', 'in:pending_payment,partially_paid,fully_paid,overpaid,cancelled'],
-            'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad'],
+            'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad,child_with_bed,child_no_bed,infant'],
             'relationship' => ['nullable', 'string', 'max:255'],
             'role' => ['nullable', 'string', 'max:255'],
         ], [

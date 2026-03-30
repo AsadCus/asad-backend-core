@@ -1,6 +1,5 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
-import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import {
@@ -35,8 +34,7 @@ export default function ManifestInformationCard({
         (p) => Number(p.value) === Number(data.package_id),
     );
 
-    const modelNumberError =
-        errors?.manifest_number ?? errors?.number_format_id;
+    void errors;
 
     return (
         <Card className="bg-transparent">
@@ -86,22 +84,20 @@ export default function ManifestInformationCard({
                         {renderError('package_id')}
                     </FormField>
 
-                    {isView && data.manifest_number && (
-                        <FormField
-                            label="Manifest Number"
-                            htmlFor="manifest_number"
-                            fieldRequirementsProps={{
-                                hint: 'Auto-generated manifest identifier',
-                            }}
-                        >
-                            <ProperInput
-                                id="manifest_number"
-                                value={data.manifest_number}
-                                onCommit={() => undefined}
-                                disabled
-                            />
-                        </FormField>
-                    )}
+                    <FormField
+                        label="Package Number"
+                        htmlFor="package_number"
+                        fieldRequirementsProps={{
+                            hint: 'Auto-filled from selected package',
+                        }}
+                    >
+                        <ProperInput
+                            id="package_number"
+                            value={selectedPackage?.package_number ?? '-'}
+                            onCommit={() => undefined}
+                            disabled
+                        />
+                    </FormField>
 
                     <FormField label="Status" htmlFor="status">
                         <ProperInputSelect
@@ -122,22 +118,6 @@ export default function ManifestInformationCard({
                         {renderError('status')}
                     </FormField>
 
-                    {!isView && (
-                        <ModelNumberInput
-                            modelKey="manifest"
-                            label="Manifest Number"
-                            value={data.manifest_number ?? ''}
-                            formatId={data.number_format_id ?? null}
-                            onValueChange={(value) =>
-                                setData('manifest_number', value)
-                            }
-                            onFormatIdChange={(formatId) =>
-                                setData('number_format_id', formatId)
-                            }
-                            error={modelNumberError}
-                            hint="Select a format from the number input to auto-generate manifest number."
-                        />
-                    )}
                 </div>
 
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">

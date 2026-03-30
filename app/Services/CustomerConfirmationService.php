@@ -8,6 +8,7 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
 use App\Models\Invoice;
+use App\Models\Manifest;
 use App\Models\ManifestMember;
 use App\Models\ModelFile;
 use App\Models\Order;
@@ -864,8 +865,17 @@ class CustomerConfirmationService
                 if ($matchedMember) {
                     $incomingSharingPlan = $memberData['sharing_plan'] ?? null;
                     $sharingPlanChanged = $incomingSharingPlan !== $matchedMember->sharing_plan;
+                    $hasAnyBilling = $this->memberHasAnyBilling($matchedMember->id);
+                    $hasPaidBilling = $this->memberHasPaidBilling($matchedMember->id);
 
-                    if ($sharingPlanChanged && $this->memberHasAnyBilling($matchedMember->id)) {
+                    $resolvedSharingPlan = $incomingSharingPlan;
+
+                    if ($sharingPlanChanged && $hasPaidBilling) {
+                        // Preserve paid member billing integrity by keeping the persisted sharing plan.
+                        $resolvedSharingPlan = $matchedMember->sharing_plan;
+                    }
+
+                    if ($sharingPlanChanged && $hasAnyBilling && ! $hasPaidBilling) {
                         $this->resetMemberBillingLinksForRecreate($matchedMember->id);
                     }
 
@@ -873,7 +883,7 @@ class CustomerConfirmationService
                         'customer_id' => $customer->id,
                         'is_leader' => (bool) ($memberData['is_leader'] ?? false),
                         'status' => $this->resolveMemberStatusOnGroupUpdate($matchedMember, $memberData),
-                        'sharing_plan' => $incomingSharingPlan,
+                        'sharing_plan' => $resolvedSharingPlan,
                         'relationship' => $memberData['relationship'] ?? $memberData['role'] ?? null,
                     ]);
 
@@ -1992,6 +2002,9 @@ class CustomerConfirmationService
             'double' => (float) ($package->price_double ?? 0),
             'triple' => (float) ($package->price_triple ?? 0),
             'quad' => (float) ($package->price_quad ?? 0),
+            'child_with_bed' => (float) ($package->child_with_bed_price ?? 0),
+            'child_no_bed' => (float) ($package->child_no_bed_price ?? 0),
+            'infant' => (float) ($package->infant_price ?? 0),
             default => 0,
         };
     }
@@ -2004,8 +2017,17 @@ class CustomerConfirmationService
                 $query->where('status', 'open');
             });
 
+        $manifestIds = (clone $openManifestMembers)
+            ->pluck('manifest_id')
+            ->map(fn ($manifestId) => (int) $manifestId)
+            ->filter(fn (int $manifestId) => $manifestId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
         if ($this->normalizePaymentStatus($member->status ?? null) === 'cancelled') {
             $openManifestMembers->delete();
+            $this->syncIdentityDocumentsForManifests($manifestIds);
 
             return;
         }
@@ -2035,9 +2057,74 @@ class CustomerConfirmationService
             'has_chronic_disease' => $customer->has_chronic_disease,
             'is_using_wheelchair' => $customer->is_using_wheelchair,
             'chronic_disease_details' => $customer->chronic_disease_details,
-            'passport_path' => $customer->passport_path,
-            'photo_path' => $customer->photo_path,
+            'passport_path' => $this->resolveCustomerDocumentPath($customer, 'passport'),
+            'photo_path' => $this->resolveCustomerDocumentPath($customer, 'photo'),
         ]);
+
+        $this->syncIdentityDocumentsForManifests($manifestIds);
+    }
+
+    /**
+     * @param  array<int, int>  $manifestIds
+     */
+    private function syncIdentityDocumentsForManifests(array $manifestIds): void
+    {
+        if ($manifestIds === []) {
+            return;
+        }
+
+        $manifests = Manifest::query()
+            ->whereIn('id', $manifestIds)
+            ->with(['members'])
+            ->get();
+
+        foreach ($manifests as $manifest) {
+            $passportRows = $this->buildIdentityDocumentRowsForManifest($manifest, 'passport');
+            $photoRows = $this->buildIdentityDocumentRowsForManifest($manifest, 'photo');
+
+            $manifest->files()->whereIn('field', ['passport', 'photo'])->delete();
+
+            foreach ($passportRows as $row) {
+                $manifest->files()->create($row);
+            }
+
+            foreach ($photoRows as $row) {
+                $manifest->files()->create($row);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, array{field: string, file_name: string, file_path: string}>
+     */
+    private function buildIdentityDocumentRowsForManifest(Manifest $manifest, string $field): array
+    {
+        return $manifest->members
+            ->values()
+            ->map(function (ManifestMember $manifestMember, int $index) use ($field): ?array {
+                $path = $field === 'passport'
+                    ? $this->normalizeNullableString($manifestMember->passport_path)
+                    : $this->normalizeNullableString($manifestMember->photo_path);
+
+                if (! $path) {
+                    return null;
+                }
+
+                $memberName = trim((string) ($manifestMember->name ?? ''));
+                $resolvedMemberName = $memberName !== '' ? $memberName : 'Member '.($index + 1);
+                $fileName = $field === 'passport'
+                    ? $resolvedMemberName.' Passport'
+                    : $resolvedMemberName.' Photo';
+
+                return [
+                    'field' => $field,
+                    'file_name' => $fileName,
+                    'file_path' => $path,
+                ];
+            })
+            ->filter(fn ($row) => is_array($row))
+            ->values()
+            ->all();
     }
 
     /** Store one uploaded file and return its hashed path. */
@@ -2070,6 +2157,7 @@ class CustomerConfirmationService
 
         $customerName = $customer->user?->name ?? 'customer';
         $existingFiles = $this->getCustomerDocumentsByField($customer);
+        $customerPathUpdates = [];
 
         foreach ($documentConfigs as $documentConfig) {
             $field = $documentConfig['field'];
@@ -2100,14 +2188,55 @@ class CustomerConfirmationService
                     ],
                 );
 
+                $customerPathUpdates[$field.'_path'] = $path;
+
                 continue;
             }
 
-            if ($isMarkedAsRemoved && $existingFile) {
-                Storage::disk('public')->delete($existingFile->file_path);
-                $existingFile->delete();
+            if ($isMarkedAsRemoved) {
+                if ($existingFile) {
+                    Storage::disk('public')->delete($existingFile->file_path);
+                    $existingFile->delete();
+                }
+
+                $customerPathUpdates[$field.'_path'] = null;
             }
         }
+
+        if ($customerPathUpdates !== []) {
+            $customer->update($customerPathUpdates);
+        }
+    }
+
+    private function resolveCustomerDocumentPath(Customer $customer, string $field): ?string
+    {
+        $column = match ($field) {
+            'passport' => 'passport_path',
+            'photo' => 'photo_path',
+            default => null,
+        };
+
+        if ($column === null) {
+            return null;
+        }
+
+        $columnPath = $this->normalizeNullableString($customer->{$column});
+
+        if ($columnPath !== null) {
+            return $columnPath;
+        }
+
+        $files = $customer->relationLoaded('files')
+            ? $customer->files
+            : $customer->files()->get();
+
+        $matchingFile = $files->firstWhere('field', $field);
+
+        if (! $matchingFile instanceof ModelFile) {
+            return null;
+        }
+
+        return $this->normalizeNullableString($matchingFile->file_path);
     }
 
     private function buildDefaultDocumentName(string $field, string $customerName, UploadedFile $file): string
@@ -2116,7 +2245,7 @@ class CustomerConfirmationService
         $fieldLabel = ucfirst($field);
         $safeCustomerName = trim($customerName) !== '' ? trim($customerName) : 'Customer';
 
-        return $safeCustomerName.' '.$fieldLabel.($extension !== '' ? '.'.$extension : '');
+        return $fieldLabel.' '.$safeCustomerName.($extension !== '' ? '.'.$extension : '');
     }
 
     /**
@@ -2173,6 +2302,7 @@ class CustomerConfirmationService
                 $quotation = Quotation::create([
                     'customer_id' => $payerMember->customer->id,
                     'customer_confirmation_id' => $confirmationId,
+                    'created_by' => auth()->id(),
                     'quotation_date' => now()->format('Y-m-d'),
                     'expiry_date' => now()->addDays(30)->format('Y-m-d'),
                     'payment_plan' => 'full',
@@ -2220,7 +2350,7 @@ class CustomerConfirmationService
 
                     $sharingPlan = $member->sharing_plan;
                     $rate = $this->getPackagePriceForSharingPlan($package, $sharingPlan);
-                    $planLabel = ucfirst($sharingPlan ?? 'standard');
+                    $planLabel = $this->formatSharingPlanLabel($sharingPlan);
                     $memberName = $member->customer->user->name ?? 'Member #'.$member->id;
 
                     QuotationItem::create([
@@ -2246,6 +2376,22 @@ class CustomerConfirmationService
 
             return $createdQuotations;
         });
+    }
+
+    private function formatSharingPlanLabel(?string $sharingPlan): string
+    {
+        $normalized = strtolower(trim((string) $sharingPlan));
+
+        return match ($normalized) {
+            'single' => 'Single',
+            'double' => 'Double',
+            'triple' => 'Triple',
+            'quad' => 'Quad',
+            'child_with_bed' => 'Child with Bed',
+            'child_no_bed' => 'Child without Bed',
+            'infant' => 'Infant',
+            default => 'Standard',
+        };
     }
 
     /**

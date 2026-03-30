@@ -12,6 +12,7 @@ import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserSchema } from '../masters/users/schema';
 import { NoteSchema } from '../notes/schema';
+import { sharingPlanLabels } from '../packages/schema';
 import QuotationDetailSection from './components/quotation-detail-section';
 import QuotationInformationSection from './components/quotation-information-section';
 import QuotationPreviewModal from './components/quotation-preview-modal';
@@ -81,6 +82,16 @@ const EMPTY_PACKAGE_PRICES: PackagePrices = {
 };
 
 const UMRAH_PACKAGES_HEADER_LABEL = 'Umrah Packages';
+
+function formatSharingPlanLabel(sharingPlan: string | null): string {
+    const normalized = String(sharingPlan ?? '').trim().toLowerCase();
+
+    if (normalized.length === 0) {
+        return 'Standard';
+    }
+
+    return sharingPlanLabels[normalized] ?? String(sharingPlan);
+}
 
 function isUmrahPackagesRootHeader(item: QuotationItemSchema): boolean {
     return (
@@ -692,6 +703,10 @@ export function QuotationForm({
                 );
 
                 if (existingItem) {
+                    const sharingPlanLabel = formatSharingPlanLabel(
+                        member.sharing_plan,
+                    );
+
                     return {
                         ...existingItem,
                         _key:
@@ -703,11 +718,15 @@ export function QuotationForm({
                         sharing_plan: member.sharing_plan,
                         parent_id: umrahHeader.id ?? null,
                         parent_key: umrahHeader._key,
+                        description: `${resolvedPackageName} - ${member.name} - ${sharingPlanLabel} sharing`,
                         sort_order: index + 2,
                     };
                 }
 
                 const rate = getRateForPlan(member.sharing_plan);
+                const sharingPlanLabel = formatSharingPlanLabel(
+                    member.sharing_plan,
+                );
 
                 return {
                     _key: nanoid(),
@@ -717,7 +736,7 @@ export function QuotationForm({
                     sharing_plan: member.sharing_plan,
                     parent_id: umrahHeader.id ?? null,
                     parent_key: umrahHeader._key,
-                    description: `${resolvedPackageName} - ${member.name} - ${member.sharing_plan ? `${member.sharing_plan.charAt(0).toUpperCase()}${member.sharing_plan.slice(1)}` : 'Standard'} sharing`,
+                    description: `${resolvedPackageName} - ${member.name} - ${sharingPlanLabel} sharing`,
                     is_header: false,
                     is_optional: false,
                     quantity: 1,
