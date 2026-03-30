@@ -100,7 +100,7 @@ const SchedulePreview = forwardRef<HTMLDivElement, Props>(
                             </tr>
                             <tr>
                                 <td className="w-2/5 border border-gray-900 bg-gray-100 p-1 font-bold">
-                                    Total Placement Fee
+                                    Total Payment Plan
                                 </td>
                                 <td className="border border-gray-900 p-1">
                                     {schedule.loan_amount

@@ -215,7 +215,7 @@
                             <td>{{ $data['quotation_number'] ?? '-' }}</td>
                         </tr>
                         <tr>
-                            <td class="lbl">Placement Fee</td>
+                            <td class="lbl">Payment Plan</td>
                             <td class="sep">:</td>
                             <td>{{ $data['payment_plan_label'] ?? '-' }}</td>
                         </tr>
