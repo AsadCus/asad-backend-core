@@ -151,6 +151,7 @@ class ReceiptService
         $r = Receipt::with([
             'invoice.quotationItems.taxes',
             'invoice.order.quotation.customer.user',
+            'receiptNotes',
         ])->findOrFail($id);
 
         $invoice = $r->invoice;
@@ -214,6 +215,7 @@ class ReceiptService
             'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
             'total_amount' => $this->formatService->cleanDecimal($totalAmount),
             'extensions' => $extensions,
+            'notes' => $r->receiptNotes->sortBy('sort_order')->values()->toArray(),
             'items' => $r->invoice?->quotationItems->map(fn ($item) => [
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,

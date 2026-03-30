@@ -411,6 +411,7 @@ class ReportTemplateController extends Controller
             'sales' => 'sales.report-content',
             'package' => 'packages.report-content',
             'manifest_arabic_names' => 'manifests.arabic-names-report-content',
+            'manifest_airline_names' => 'manifests.airline-names-report-content',
             'manifest_namelist_course_items' => 'manifests.namelist-course-items-report-content',
             'manifest_room_check' => 'manifests.room-check-report-content',
             'ops_movement' => 'ops-movements.report-content',

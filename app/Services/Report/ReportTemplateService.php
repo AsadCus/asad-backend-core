@@ -79,6 +79,7 @@ class ReportTemplateService
                 'sales' => $settings->getModuleTemplate('sales'),
                 'package' => $settings->getModuleTemplate('package'),
                 'manifest_arabic_names' => $settings->getModuleTemplate('manifest_arabic_names'),
+                'manifest_airline_names' => $settings->getModuleTemplate('manifest_airline_names'),
                 'manifest_namelist_course_items' => $settings->getModuleTemplate('manifest_namelist_course_items'),
                 'manifest_room_check' => $settings->getModuleTemplate('manifest_room_check'),
                 'ops_movement' => $settings->getModuleTemplate('ops_movement'),

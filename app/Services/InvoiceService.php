@@ -124,6 +124,7 @@ class InvoiceService
         $i = Invoice::with([
             'quotationItems.taxes',
             'order.quotation.customer.user',
+            'invoiceNotes',
         ])->findOrFail($id);
 
         $subtotalAmount = (float) $i->quotationItems
@@ -189,6 +190,7 @@ class InvoiceService
             'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
             'total_amount' => $this->formatService->cleanDecimal($totalAmount),
             'extensions' => $extensions,
+            'notes' => $i->invoiceNotes->sortBy('sort_order')->values()->toArray(),
             'items' => $i->quotationItems->map(fn ($item) => [
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,

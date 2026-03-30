@@ -145,7 +145,7 @@
         }
 
         .footer-note {
-            text-align: center;
+            text-align: right;
             margin-bottom: 8px;
             line-height: 1.5;
             color: #333;
@@ -215,7 +215,7 @@
                             <td>{{ $data['quotation_number'] ?? '-' }}</td>
                         </tr>
                         <tr>
-                            <td class="lbl">Placement Fee</td>
+                            <td class="lbl">Payment Plan</td>
                             <td class="sep">:</td>
                             <td>{{ $data['payment_plan_label'] ?? '-' }}</td>
                         </tr>
@@ -313,6 +313,10 @@
                     ];
                 })
                 ->values();
+
+            $allExtensions = $itemTaxExtensions
+                ->concat(collect($data['extensions'] ?? []))
+                ->values();
         @endphp
         <div class="totals-wrapper">
             <table class="totals-table">
@@ -321,18 +325,10 @@
                         <td class="total-label">Sub Total:</td>
                         <td class="total-amount">{{ formatCurrency($subtotal) }}</td>
                     </tr>
-                    @if ($itemTaxExtensions->isNotEmpty())
-                        @foreach ($itemTaxExtensions as $itemTax)
+                    @if ($allExtensions->isNotEmpty())
+                        @foreach ($allExtensions as $extension)
                             <tr>
-                                <td class="total-label">{{ $itemTax['name'] ?? 'Tax' }} (Item Tax):</td>
-                                <td class="total-amount">{{ formatCurrency($itemTax['amount'] ?? 0) }}</td>
-                            </tr>
-                        @endforeach
-                    @endif
-                    @if (!empty($data['extensions']) && count($data['extensions']) > 0)
-                        @foreach ($data['extensions'] as $extension)
-                            <tr>
-                                <td class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:</td>
+                                <td class="total-label">{{ $extension['name'] ?? 'Extension' }}:</td>
                                 <td class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</td>
                             </tr>
                         @endforeach
@@ -348,14 +344,14 @@
 
     {{-- ── FOOTER ── --}}
     <div class="footer-section">
-        @if (!empty($branding['footer_text']))
+        @if (!empty($data['notes']) && count($data['notes']) > 0)
+            @foreach ($data['notes'] as $note)
+                <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
+            @endforeach
+        @elseif (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @else
-            @forelse($data['notes'] ?? [] as $note)
-                <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
-            @empty
-                <div class="footer-note">Thank you for your business!</div>
-            @endforelse
+            <div class="footer-note">Thank you for your business!</div>
         @endif
 
         @include('partials.report-signature-stamp')

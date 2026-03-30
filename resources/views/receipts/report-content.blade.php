@@ -145,7 +145,7 @@
         }
 
         .footer-note {
-            text-align: center;
+            text-align: right;
             margin-bottom: 8px;
             line-height: 1.5;
             color: #333;
@@ -302,7 +302,7 @@
                     @if (!empty($data['extensions']) && count($data['extensions']) > 0)
                         @foreach ($data['extensions'] as $extension)
                             <tr>
-                                <td class="total-label">{{ $extension['name'] ?? 'Quotation Extension' }}:</td>
+                                <td class="total-label">{{ $extension['name'] ?? 'Extension' }}:</td>
                                 <td class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</td>
                             </tr>
                         @endforeach
@@ -318,7 +318,11 @@
 
     {{-- ── FOOTER ── --}}
     <div class="footer-section">
-        @if (!empty($branding['footer_text']))
+        @if (!empty($data['notes']) && count($data['notes']) > 0)
+            @foreach ($data['notes'] as $note)
+                <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
+            @endforeach
+        @elseif (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @else
             <div class="footer-note">Thank you for your business!</div>

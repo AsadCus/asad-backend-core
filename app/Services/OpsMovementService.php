@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class OpsMovementService
 {
@@ -91,6 +92,7 @@ class OpsMovementService
             'rawdahTasreehs',
             'transportationPlans',
             'manifests.members',
+            'manifests.rooms',
             'manifests.files',
         ]);
 
@@ -117,6 +119,7 @@ class OpsMovementService
         $officialMembers = collect($manifest?->members ?? [])
             ->filter(fn ($member) => $member->package_official_id !== null && $member->status !== 'cancelled')
             ->values();
+        $roomCountsByLocation = $this->buildRoomCountsByLocationFromManifest($manifest);
 
         $adultMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) >= 18);
         $childMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) < 18 && $this->resolveAge($member->date_of_birth) >= 2);
@@ -172,9 +175,10 @@ class OpsMovementService
                         ? $accommodation->check_in->diffInDays($accommodation->check_out)
                         : 0,
                     'room_counts' => [
-                        'double' => 0,
-                        'triple' => 0,
-                        'quad' => 0,
+                        'single' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['single'] ?? 0,
+                        'double' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['double'] ?? 0,
+                        'triple' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['triple'] ?? 0,
+                        'quad' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['quad'] ?? 0,
                     ],
                     'remarks' => $accommodation->remarks ?? null,
                 ];
@@ -278,7 +282,7 @@ class OpsMovementService
                 ];
             })->values()->toArray(),
             'pif' => [
-                'tour_leaders' => $extension['pif']['tour_leaders'] ?? [],
+                'tour_leaders' => $this->normalizePifTourLeaders($extension['pif']['tour_leaders'] ?? []),
             ],
         ];
     }
@@ -406,6 +410,11 @@ class OpsMovementService
                 ->values()
                 ->toArray();
             $extension['budget'] = $this->normalizeBudgetPayload($payload['budget'] ?? []);
+            $extension['pif'] = [
+                'tour_leaders' => $this->normalizePifTourLeaders(
+                    data_get($payload, 'pif.tour_leaders', []),
+                ),
+            ];
 
             if (array_key_exists('documents', $payload) && is_array($payload['documents'])) {
                 $this->syncOpsMovementDocuments($manifest, $payload['documents']);
@@ -638,5 +647,86 @@ class OpsMovementService
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @return array<string, array{single:int,double:int,triple:int,quad:int}>
+     */
+    private function buildRoomCountsByLocationFromManifest(?Manifest $manifest): array
+    {
+        if (! $manifest) {
+            return [];
+        }
+
+        $countsByLocation = [];
+
+        foreach ($manifest->rooms ?? [] as $room) {
+            $locationKey = $this->normalizeLocationKey($room->location);
+
+            if (! isset($countsByLocation[$locationKey])) {
+                $countsByLocation[$locationKey] = [
+                    'single' => 0,
+                    'double' => 0,
+                    'triple' => 0,
+                    'quad' => 0,
+                ];
+            }
+
+            $normalizedRoomType = $this->normalizeRoomTypeLabel($room->room_type);
+
+            if ($normalizedRoomType !== null) {
+                $countsByLocation[$locationKey][$normalizedRoomType]++;
+            }
+        }
+
+        return $countsByLocation;
+    }
+
+    private function normalizeRoomTypeLabel(mixed $roomType): ?string
+    {
+        if (! is_string($roomType)) {
+            return null;
+        }
+
+        $normalized = Str::lower(trim($roomType));
+
+        return match ($normalized) {
+            'single' => 'single',
+            'double', 'twin' => 'double',
+            'triple' => 'triple',
+            'quad' => 'quad',
+            default => null,
+        };
+    }
+
+    private function normalizeLocationKey(mixed $location): string
+    {
+        return Str::slug((string) ($location ?? '')) ?: 'general';
+    }
+
+    /**
+     * @return array<int, array{type:?string,name:?string,contact_number:?string}>
+     */
+    private function normalizePifTourLeaders(mixed $tourLeaders): array
+    {
+        $rows = collect(is_array($tourLeaders) ? $tourLeaders : [])
+            ->filter(fn ($row) => is_array($row))
+            ->map(function (array $row): array {
+                return [
+                    'type' => $this->normalizeNullableString($row['type'] ?? null),
+                    'name' => $this->normalizeNullableString($row['name'] ?? null),
+                    'contact_number' => $this->normalizeNullableString($row['contact_number'] ?? null),
+                ];
+            })
+            ->values();
+
+        if ($rows->isEmpty()) {
+            return [
+                ['type' => 'Saudi', 'name' => null, 'contact_number' => null],
+                ['type' => 'Singapore', 'name' => null, 'contact_number' => null],
+            ];
+        }
+
+        return $rows->all();
     }
 }

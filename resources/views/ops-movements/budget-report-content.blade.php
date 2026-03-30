@@ -62,6 +62,7 @@
         }
 
         .footer-note {
+            text-align: right;
             margin-bottom: 6px;
         }
     </style>
@@ -158,7 +159,9 @@
     </table>
 
     <div class="footer-section">
-        @if (!empty($branding['footer_text']))
+        @if (!empty($opsMovement['notes']))
+            <div class="footer-note">{!! nl2br(e((string) $opsMovement['notes'])) !!}</div>
+        @elseif (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @endif
 

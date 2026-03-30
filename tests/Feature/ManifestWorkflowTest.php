@@ -2423,6 +2423,48 @@ class ManifestWorkflowTest extends TestCase
         $response->assertHeader('content-type', 'application/pdf');
     }
 
+    public function test_airline_names_pdf_export_returns_pdf_response(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-AIRLINE-PDF-001',
+            'name' => 'Airline PDF Package',
+            'status' => 'open',
+            'departure_date' => '2026-05-01',
+            'return_date' => '2026-05-11',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-AIRLINE-PDF-001',
+            'status' => 'draft',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Airline Pdf Member', $actingUser->id);
+
+        $this->post(route('manifests.store'), [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'customer_confirmation_member_id' => $member->id,
+                    'name_as_per_passport' => 'Airline Pdf Member',
+                    'passport_number' => 'A123456789',
+                    'nationality' => 'Singaporean',
+                    'gender' => 'male',
+                ],
+            ],
+        ])->assertRedirect(route('manifests.index'));
+
+        $response = $this->get(route('manifests.airline-names-pdf', $manifest->id));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
     public function test_room_check_pdf_export_returns_pdf_response_for_location(): void
     {
         $actingUser = User::factory()->create();

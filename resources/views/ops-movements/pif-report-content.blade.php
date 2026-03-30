@@ -62,6 +62,7 @@
         }
 
         .footer-note {
+            text-align: right;
             margin-bottom: 6px;
         }
     </style>
@@ -152,6 +153,7 @@
             <th>Check In</th>
             <th>Check Out</th>
             <th class="text-right">Nights</th>
+            <th class="text-right">Single</th>
             <th class="text-right">DBL</th>
             <th class="text-right">TRP</th>
             <th class="text-right">Quad</th>
@@ -164,6 +166,7 @@
                 <td>{{ $accommodation['check_in'] ?? '-' }}</td>
                 <td>{{ $accommodation['check_out'] ?? '-' }}</td>
                 <td class="text-right">{{ (int) ($accommodation['nights'] ?? 0) }}</td>
+                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.single', 0) }}</td>
                 <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.double', 0) }}</td>
                 <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.triple', 0) }}</td>
                 <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.quad', 0) }}</td>
@@ -171,7 +174,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="9" class="text-center">No accommodation data.</td>
+                <td colspan="10" class="text-center">No accommodation data.</td>
             </tr>
         @endforelse
     </table>
@@ -236,7 +239,9 @@
     </table>
 
     <div class="footer-section">
-        @if (!empty($branding['footer_text']))
+        @if (!empty($opsMovement['notes']))
+            <div class="footer-note">{!! nl2br(e((string) $opsMovement['notes'])) !!}</div>
+        @elseif (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @endif
 

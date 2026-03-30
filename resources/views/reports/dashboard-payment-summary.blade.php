@@ -36,6 +36,12 @@
             word-break: break-word;
         }
 
+        .th-date-sub,
+        .td-date-sub {
+            white-space: nowrap;
+            word-break: normal !important;
+        }
+
         .summary-grid th,
         .section-table th {
             background: #f4f8fb;
@@ -494,13 +500,37 @@
         if ($mode === 'daily') {
             // ── DAILY: no L1/L2 grouping ──────────────────────────
             foreach ($groups as $group) {
+                $dailyDateLabel = (string) ($group['label'] ?? '-');
+                $dailyDayLabel = $group['day_name'] ?? null;
+
+                if (str_contains($dailyDateLabel, ' - ')) {
+                    [$startLabel, $endLabel] = array_pad(explode(' - ', $dailyDateLabel, 2), 2, null);
+                    $startLabel = trim((string) $startLabel);
+                    $endLabel = trim((string) $endLabel);
+
+                    if ($startLabel !== '' && $endLabel !== '' && $startLabel === $endLabel) {
+                        $dailyDateLabel = $startLabel;
+                    }
+                }
+
+                try {
+                    $parsedDailyDate = \Carbon\Carbon::parse($dailyDateLabel);
+                    $dailyDateLabel = $parsedDailyDate->format('d F Y');
+
+                    if (empty($dailyDayLabel)) {
+                        $dailyDayLabel = $parsedDailyDate->format('l');
+                    }
+                } catch (\Throwable $e) {
+                    // Keep original fallback labels when parsing fails.
+                }
+
                 $rows = $group['rows'] ?? [];
                 $cats = $buildCatBlocks($rows);
                 $catSpanSum = array_sum(array_column($cats, 'rowspan'));
                 $plan[] = [
                     'type' => 'daily',
-                    'label' => $group['label'] ?? '-',
-                    'day_name' => $group['day_name'] ?? null,
+                    'label' => $dailyDateLabel,
+                    'day_name' => $dailyDayLabel,
                     'cats' => $cats,
                     'total' => $sumRows($rows),
                     'rowspan' => $catSpanSum + 1, // +1 for the grand-total row
@@ -580,9 +610,29 @@
     <table class="section-table">
 
         {{-- Column headers --}}
-        <tr>
-            <th style="width:6%;">{{ $col1Label }}</th>
-            @if (!$isDailyMode)
+        @if ($isDailyMode)
+            <tr>
+                <th colspan="2">Date</th>
+                <th rowspan="2" style="width:12%;">Category</th>
+                <th rowspan="2" style="width:17%;">Package / Item</th>
+                <th rowspan="2" style="width:6%;">Ref No.</th>
+                <th rowspan="2" style="width:7%;" class="text-right">Amount</th>
+                <th rowspan="2" style="width:6%;" class="text-right">Cash</th>
+                <th rowspan="2" style="width:6%;" class="text-right">Nets</th>
+                <th rowspan="2" style="width:6%;" class="text-right">Visa</th>
+                <th rowspan="2" style="width:6%;" class="text-right">Master</th>
+                <th rowspan="2" style="width:7%;" class="text-right">Paynow</th>
+                <th rowspan="2" style="width:7%;" class="text-right">Total Sale</th>
+                <th rowspan="2" style="width:5%;">Maker</th>
+                <th rowspan="2" style="width:9%;">Remarks</th>
+            </tr>
+            <tr>
+                <th style="width:6%;" class="th-date-sub">Tanggal</th>
+                <th style="width:6%;" class="th-date-sub">Hari</th>
+            </tr>
+        @else
+            <tr>
+                <th style="width:6%;">{{ $col1Label }}</th>
                 <th style="width:6%;">{{ $col2Label }}</th>
             @endif
             <th style="width:12%;">Category</th>
@@ -614,9 +664,9 @@
                             @if (!$dateRendered)
                                 <td class="td-date" rowspan="{{ $grp['rowspan'] }}">
                                     {{ $grp['label'] }}
-                                    @if ($grp['day_name'])
-                                        <span class="day-name">{{ $grp['day_name'] }}</span>
-                                    @endif
+                                </td>
+                                <td class="td-date td-date-sub" rowspan="{{ $grp['rowspan'] }}">
+                                    {{ $grp['day_name'] ?? '-' }}
                                 </td>
                                 @php $dateRendered = true; @endphp
                             @endif
@@ -636,9 +686,9 @@
                                 @if (!$dateRendered)
                                     <td class="td-date" rowspan="{{ $grp['rowspan'] }}">
                                         {{ $grp['label'] }}
-                                        @if ($grp['day_name'])
-                                            <span class="day-name">{{ $grp['day_name'] }}</span>
-                                        @endif
+                                    </td>
+                                    <td class="td-date td-date-sub" rowspan="{{ $grp['rowspan'] }}">
+                                        {{ $grp['day_name'] ?? '-' }}
                                     </td>
                                     @php $dateRendered = true; @endphp
                                 @endif
@@ -770,7 +820,7 @@
         {{-- Overall grand total — only when multiple L1 groups --}}
         @if ($multiL1)
             <tr class="row-overall-total">
-                <td colspan="{{ $isDailyMode ? 4 : 5 }}" class="text-right">Overall Grand Total</td>
+                <td colspan="{{ $isDailyMode ? 5 : 5 }}" class="text-right">Overall Grand Total</td>
                 @foreach ($fields as $f)
                     <td class="text-right">{{ $fmt($overallTotal[$f]) }}</td>
                 @endforeach
@@ -781,7 +831,9 @@
     </table>
 
     <div class="footer-section">
-        @if (!empty($branding['footer_text']))
+        @if (!empty($report['notes']))
+            <div class="footer-note">{!! nl2br(e((string) $report['notes'])) !!}</div>
+        @elseif (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @endif
         @include('partials.report-signature-stamp')

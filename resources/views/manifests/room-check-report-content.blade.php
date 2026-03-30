@@ -310,7 +310,9 @@
     </table>
 
     <div class="footer-section">
-        @if (!empty($branding['footer_text']))
+        @if (!empty($manifest['notes']))
+            <div class="footer-note">{!! nl2br(e((string) $manifest['notes'])) !!}</div>
+        @elseif (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @endif
 

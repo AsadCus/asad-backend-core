@@ -54,9 +54,6 @@ export function PdfPreview({
                             <div className="mt-0.5">Tel: {companyPhone}</div>
                         )}
                         {companyEmail && <div>Email: {companyEmail}</div>}
-                        <div className="mt-0.5 font-semibold">
-                            LICENCE NO. 25C2708
-                        </div>
                     </div>
                 </div>
                 <div

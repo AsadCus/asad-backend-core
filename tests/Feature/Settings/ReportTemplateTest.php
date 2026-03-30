@@ -133,6 +133,7 @@ class ReportTemplateTest extends TestCase
             resource_path('views/sales/report-content.blade.php'),
             resource_path('views/packages/report-content.blade.php'),
             resource_path('views/manifests/arabic-names-report-content.blade.php'),
+            resource_path('views/manifests/airline-names-report-content.blade.php'),
             resource_path('views/manifests/namelist-course-items-report-content.blade.php'),
             resource_path('views/manifests/room-check-report-content.blade.php'),
             resource_path('views/ops-movements/report-content.blade.php'),
@@ -160,6 +161,12 @@ class ReportTemplateTest extends TestCase
         $this->assertStringContainsString('class="totals-table"', $quotationTemplate);
         $this->assertStringContainsString('class="totals-table"', $invoiceTemplate);
         $this->assertStringContainsString('class="totals-table"', $receiptTemplate);
+        $this->assertStringContainsString('!empty($data[\'notes\'])', $quotationTemplate);
+        $this->assertStringContainsString('!empty($data[\'notes\'])', $invoiceTemplate);
+        $this->assertStringContainsString('!empty($data[\'notes\'])', $receiptTemplate);
+        $this->assertStringContainsString('text-align: right;', $quotationTemplate);
+        $this->assertStringContainsString('text-align: right;', $invoiceTemplate);
+        $this->assertStringContainsString('text-align: right;', $receiptTemplate);
         $this->assertStringNotContainsString('remarks-section', $receiptTemplate);
         $this->assertStringNotContainsString('remarks-box', $receiptTemplate);
     }

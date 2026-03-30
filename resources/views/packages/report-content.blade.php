@@ -74,6 +74,10 @@
             background: #fafafa;
         }
 
+        .footer-note {
+            text-align: right;
+        }
+
         /* ── Empty state ── */
         .muted {
             color: #888;
@@ -357,7 +361,13 @@
 
         {{-- ── FOOTER ── --}}
         <div class="footer-section">
-            @if (!empty($branding['footer_text']))
+            @if (!empty($data['notes']) && count($data['notes']) > 0)
+                @foreach ($data['notes'] as $note)
+                    <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
+                @endforeach
+            @elseif (!empty($data['remarks']))
+                <div class="footer-note">{!! nl2br(e($data['remarks'])) !!}</div>
+            @elseif (!empty($branding['footer_text']))
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @endif
 
