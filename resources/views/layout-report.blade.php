@@ -89,7 +89,7 @@
         }
 
         .footer-note {
-            text-align: center;
+            text-align: right;
             margin-bottom: 4px;
             line-height: 1.5;
             color: #333;
@@ -185,7 +185,6 @@
                 </div>
                 <div class="company-reg">
                     @yield('extra-company-reg')
-                    LICENCE NO. 25C2708
                 </div>
             </td>
         </tr>

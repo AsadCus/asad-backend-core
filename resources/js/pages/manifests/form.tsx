@@ -3832,6 +3832,38 @@ export default function ManifestForm({
                     })}
 
                     <TabsContent value="airline" className="space-y-4">
+                        <div className="flex items-center justify-end">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={!data.id}
+                                onClick={() => {
+                                    if (!data.id) {
+                                        return;
+                                    }
+
+                                    exportPdfWithSnapshot(
+                                        `/manifests/${data.id}/airline-names-pdf`,
+                                        {
+                                            members:
+                                                nonCancelledNonOfficialMembers,
+                                            manifest_number:
+                                                data.manifest_number,
+                                            package_name:
+                                                selectedPackage?.label,
+                                            departure_date:
+                                                selectedPackage?.departure_date,
+                                            return_date:
+                                                selectedPackage?.return_date,
+                                        },
+                                    );
+                                }}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export PDF
+                            </Button>
+                        </div>
+
                         <ManifestDatatable
                             mode="airline"
                             rows={(

@@ -130,7 +130,7 @@ class OpsMovementController extends Controller
             $fileName = 'Ops Movement PIF - '.($opsMovement['ops_movement_number'] ?? $opsMovement['id']).'.pdf';
 
             return Pdf::loadHTML($html)
-                ->setPaper('a4', 'landscape')
+                ->setPaper('a4', 'portrait')
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('dpi', 96)

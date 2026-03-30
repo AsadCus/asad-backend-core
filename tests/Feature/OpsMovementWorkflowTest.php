@@ -253,6 +253,20 @@ class OpsMovementWorkflowTest extends TestCase
                     ],
                 ],
             ],
+            'pif' => [
+                'tour_leaders' => [
+                    [
+                        'type' => 'Saudi',
+                        'name' => 'TL Saudi',
+                        'contact_number' => '+9665000001',
+                    ],
+                    [
+                        'type' => 'Singapore',
+                        'name' => 'TL Singapore',
+                        'contact_number' => '+6591000002',
+                    ],
+                ],
+            ],
         ];
 
         $this->put(route('ops-movements.update', $package->id), $payload)
@@ -289,6 +303,8 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('IC-FLT-01', data_get($manifest->ops_movement_extension, 'flights.0.ic'));
         $this->assertSame('Transportation', data_get($manifest->ops_movement_extension, 'budget.0.title'));
         $this->assertSame(500.5, data_get($manifest->ops_movement_extension, 'budget.0.items.0.unit_price'));
+        $this->assertSame('TL Saudi', data_get($manifest->ops_movement_extension, 'pif.tour_leaders.0.name'));
+        $this->assertSame('+6591000002', data_get($manifest->ops_movement_extension, 'pif.tour_leaders.1.contact_number'));
 
         $this->assertDatabaseHas('model_files', [
             'fileable_type' => Manifest::class,
@@ -316,5 +332,60 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertTrue((bool) data_get($opsMovement, 'visa_submitted_to_z_umrah'));
         $this->assertTrue((bool) data_get($opsMovement, 'visa_approved'));
         $this->assertSame('Transportation', data_get($opsMovement, 'budget.0.title'));
+        $this->assertSame('TL Saudi', data_get($opsMovement, 'pif.tour_leaders.0.name'));
+    }
+
+    public function test_ops_movement_export_routes_return_pdf_responses(): void
+    {
+        $actingUser = User::factory()->create();
+        Permission::findOrCreate('ops-movement view', 'web');
+        $actingUser->givePermissionTo(['ops-movement view']);
+
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-OPS-EXPORT-001',
+            'name' => 'Ops Export Package',
+            'status' => 'open',
+            'departure_date' => '2026-06-01',
+            'return_date' => '2026-06-10',
+        ]);
+
+        Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-OPS-EXPORT-001',
+            'ops_movement_extension' => [
+                'pif' => [
+                    'tour_leaders' => [
+                        ['type' => 'Saudi', 'name' => 'TL Saudi', 'contact_number' => '+9665000001'],
+                    ],
+                ],
+                'budget' => [
+                    [
+                        'title' => 'Transport',
+                        'items' => [
+                            [
+                                'item_name' => 'Bus',
+                                'unit_price' => 100,
+                                'quantity' => 2,
+                                'remarks' => null,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $reportResponse = $this->get(route('ops-movements.export-pdf', $package->id));
+        $reportResponse->assertOk();
+        $reportResponse->assertHeader('content-type', 'application/pdf');
+
+        $pifResponse = $this->get(route('ops-movements.export-pif-pdf', $package->id));
+        $pifResponse->assertOk();
+        $pifResponse->assertHeader('content-type', 'application/pdf');
+
+        $budgetResponse = $this->get(route('ops-movements.export-budget-pdf', $package->id));
+        $budgetResponse->assertOk();
+        $budgetResponse->assertHeader('content-type', 'application/pdf');
     }
 }

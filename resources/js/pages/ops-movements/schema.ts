@@ -8,6 +8,16 @@ export const opsAccommodationSchema = z.object({
     type_of_meal: z.string().nullable().optional(),
     check_in: z.string().nullable().optional(),
     check_out: z.string().nullable().optional(),
+    nights: z.number().nullable().optional(),
+    room_counts: z
+        .object({
+            single: z.number().optional(),
+            double: z.number().optional(),
+            triple: z.number().optional(),
+            quad: z.number().optional(),
+        })
+        .optional(),
+    remarks: z.string().nullable().optional(),
 });
 
 export const opsOfficialSchema = z.object({
@@ -34,6 +44,36 @@ export const opsFlightSchema = z.object({
     ic: z.string().nullable().optional(),
     to: z.string().nullable().optional(),
     arrival_datetime: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
+});
+
+export const opsRawdahTasreehSchema = z.object({
+    id: z.number(),
+    date: z.string().nullable().optional(),
+    women_passengers: z.number().nullable().optional(),
+    women_time: z.string().nullable().optional(),
+    men_passengers: z.number().nullable().optional(),
+    men_time: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
+});
+
+export const opsTransportationPlanSchema = z.object({
+    id: z.number(),
+    from: z.string().nullable().optional(),
+    to: z.string().nullable().optional(),
+    travel_date: z.string().nullable().optional(),
+    travel_time: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
+});
+
+export const opsTourLeaderSchema = z.object({
+    type: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+    contact_number: z.string().nullable().optional(),
+});
+
+export const opsPifSchema = z.object({
+    tour_leaders: z.array(opsTourLeaderSchema).optional(),
 });
 
 export const opsTrainTicketSchema = z.object({
@@ -106,6 +146,8 @@ export const opsMovementSchema = z.object({
     accommodations: z.array(opsAccommodationSchema).optional(),
     officials: z.array(opsOfficialSchema).optional(),
     flights: z.array(opsFlightSchema).optional(),
+    rawdah_tasreehs: z.array(opsRawdahTasreehSchema).optional(),
+    transportation_plans: z.array(opsTransportationPlanSchema).optional(),
     train_tickets: z.array(opsTrainTicketSchema).optional(),
     documents: z
         .object({
@@ -114,6 +156,7 @@ export const opsMovementSchema = z.object({
         })
         .optional(),
     budget: z.array(opsBudgetTitleSchema).optional(),
+    pif: opsPifSchema.optional(),
 });
 
 export type OpsMovementSchema = z.infer<typeof opsMovementSchema>;
@@ -121,6 +164,12 @@ export type OpsAccommodationSchema = z.infer<typeof opsAccommodationSchema>;
 export type OpsOfficialSchema = z.infer<typeof opsOfficialSchema>;
 export type OpsFlightSchema = z.infer<typeof opsFlightSchema>;
 export type OpsTrainTicketSchema = z.infer<typeof opsTrainTicketSchema>;
+export type OpsRawdahTasreehSchema = z.infer<typeof opsRawdahTasreehSchema>;
+export type OpsTransportationPlanSchema = z.infer<
+    typeof opsTransportationPlanSchema
+>;
+export type OpsTourLeaderSchema = z.infer<typeof opsTourLeaderSchema>;
+export type OpsPifSchema = z.infer<typeof opsPifSchema>;
 export type OpsDocumentItemSchema = z.infer<typeof opsDocumentItemSchema>;
 export type OpsBudgetItemSchema = z.infer<typeof opsBudgetItemSchema>;
 export type OpsBudgetTitleSchema = z.infer<typeof opsBudgetTitleSchema>;

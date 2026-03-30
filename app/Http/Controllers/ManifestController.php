@@ -494,6 +494,72 @@ class ManifestController extends Controller
         }
     }
 
+    public function exportAirlineNamesPdf(Request $request, string $id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $manifest = $this->manifestService->getForEditShow((int) $id);
+            $snapshot = $request->input('snapshot');
+
+            if (is_string($snapshot) && $snapshot !== '') {
+                $decodedSnapshot = json_decode($snapshot, true);
+
+                if (is_array($decodedSnapshot)) {
+                    if (isset($decodedSnapshot['members']) && is_array($decodedSnapshot['members'])) {
+                        $manifest['members'] = $decodedSnapshot['members'];
+                    }
+
+                    if (isset($decodedSnapshot['manifest_number'])) {
+                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
+                    }
+
+                    if (isset($decodedSnapshot['package_name'])) {
+                        $manifest['package_name'] = $decodedSnapshot['package_name'];
+                    }
+
+                    if (isset($decodedSnapshot['departure_date'])) {
+                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
+                    }
+
+                    if (isset($decodedSnapshot['return_date'])) {
+                        $manifest['return_date'] = $decodedSnapshot['return_date'];
+                    }
+                }
+            }
+
+            $reportData = $this->reportTemplateService->build('manifest_airline_names', [
+                'manifest' => $manifest,
+            ]);
+
+            $html = view('manifests.airline-names-report-content', [
+                'manifest' => $manifest,
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $manifestNumber = trim((string) ($manifest['manifest_number'] ?? 'Manifest'));
+            $fileName = 'Manifest Airline Names - '.$manifestNumber.'.pdf';
+
+            return Pdf::loadHTML($html)
+                ->setPaper('a4', 'landscape')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96)
+                ->stream($fileName);
+        } catch (\Throwable $e) {
+            Log::error('Manifest airline names PDF generation error', [
+                'manifest_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to generate PDF: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function exportRoomCheckPdf(Request $request, string $id)
     {
         try {

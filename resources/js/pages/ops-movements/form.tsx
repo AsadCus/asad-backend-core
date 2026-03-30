@@ -18,6 +18,7 @@ import {
     type OpsFlightSchema,
     type OpsMovementSchema,
     type OpsOfficialSchema,
+    type OpsTourLeaderSchema,
 } from './schema';
 import { opsMovementValidationSchema } from './validation';
 
@@ -171,6 +172,29 @@ function createEmptyBudgetTitle(index: number): OpsBudgetTitleSchema {
     };
 }
 
+function createEmptyTourLeader(): OpsTourLeaderSchema {
+    return {
+        type: '',
+        name: '',
+        contact_number: '',
+    };
+}
+
+function createDefaultTourLeaders(): OpsTourLeaderSchema[] {
+    return [
+        {
+            type: 'Saudi',
+            name: '',
+            contact_number: '',
+        },
+        {
+            type: 'Singapore',
+            name: '',
+            contact_number: '',
+        },
+    ];
+}
+
 function toDecimal(value: unknown): number {
     const parsed = Number(value ?? 0);
 
@@ -218,6 +242,13 @@ export default function OpsMovementForm({
             Array.isArray(initialData.budget) && initialData.budget.length > 0
                 ? initialData.budget
                 : [createEmptyBudgetTitle(0)],
+        pif: {
+            tour_leaders:
+                Array.isArray(initialData.pif?.tour_leaders) &&
+                initialData.pif.tour_leaders.length > 0
+                    ? initialData.pif.tour_leaders
+                    : createDefaultTourLeaders(),
+        },
     });
     const { data, setData, processing, post, transform } = form;
     const errors =
@@ -303,6 +334,15 @@ export default function OpsMovementForm({
                     sort_order: itemIndex + 1,
                 })),
             })),
+            pif: {
+                tour_leaders: (data.pif?.tour_leaders ?? []).map(
+                    (tourLeader) => ({
+                        type: tourLeader.type ?? null,
+                        name: tourLeader.name ?? null,
+                        contact_number: tourLeader.contact_number ?? null,
+                    }),
+                ),
+            },
         };
     }, [data]);
 
@@ -556,6 +596,55 @@ export default function OpsMovementForm({
         setFormData('budget', current);
     };
 
+    const updateTourLeader = (
+        index: number,
+        field: keyof OpsTourLeaderSchema,
+        value: string | null,
+    ) => {
+        const nextRows = [...(data.pif?.tour_leaders ?? [])];
+        const target = nextRows[index];
+
+        if (!target) {
+            return;
+        }
+
+        nextRows[index] = {
+            ...target,
+            [field]: value,
+        };
+
+        setFormData('pif', {
+            ...(data.pif ?? {}),
+            tour_leaders: nextRows,
+        });
+    };
+
+    const addTourLeader = () => {
+        setFormData('pif', {
+            ...(data.pif ?? {}),
+            tour_leaders: [
+                ...(data.pif?.tour_leaders ?? createDefaultTourLeaders()),
+                createEmptyTourLeader(),
+            ],
+        });
+    };
+
+    const removeTourLeader = (index: number) => {
+        const nextRows = [...(data.pif?.tour_leaders ?? [])];
+
+        if (index < 0 || index >= nextRows.length) {
+            return;
+        }
+
+        nextRows.splice(index, 1);
+
+        setFormData('pif', {
+            ...(data.pif ?? {}),
+            tour_leaders:
+                nextRows.length > 0 ? nextRows : createDefaultTourLeaders(),
+        });
+    };
+
     const budgetTotals = useMemo(() => {
         const sections = (data.budget ?? []).map((section) => {
             const sectionTotal = (section.items ?? []).reduce((sum, item) => {
@@ -643,6 +732,9 @@ export default function OpsMovementForm({
                         </TabsTrigger>
                         <TabsTrigger value="budget" className="text-lg">
                             Budget
+                        </TabsTrigger>
+                        <TabsTrigger value="pif" className="text-lg">
+                            PIF
                         </TabsTrigger>
                     </TabsList>
                     <ScrollBar orientation="horizontal" />
@@ -1650,6 +1742,370 @@ export default function OpsMovementForm({
                                     </span>
                                 </p>
                             </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="pif" className="space-y-6">
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <CardTitle className="text-xl">
+                                        Passenger Details - Tour Leader
+                                    </CardTitle>
+                                    <p className="text-sm text-muted-foreground">
+                                        Tour leader rows are editable for PIF.
+                                        Other PIF sections are read-only and
+                                        sourced from package and manifest.
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={processing}
+                                    onClick={addTourLeader}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add Tour Leader
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.pif?.tour_leaders ?? []).map(
+                                (tourLeader, index) => (
+                                    <div
+                                        key={`tour-leader-${index}`}
+                                        className="grid grid-cols-1 items-end gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                                    >
+                                        <FormField
+                                            label="Office Type"
+                                            error={getError(
+                                                `pif.tour_leaders.${index}.type`,
+                                            )}
+                                        >
+                                            <ProperInput
+                                                value={tourLeader.type ?? ''}
+                                                disabled={processing}
+                                                onCommit={(value) =>
+                                                    updateTourLeader(
+                                                        index,
+                                                        'type',
+                                                        value,
+                                                    )
+                                                }
+                                                placeholder="Saudi / Singapore"
+                                            />
+                                        </FormField>
+                                        <FormField
+                                            label="Official Name"
+                                            error={getError(
+                                                `pif.tour_leaders.${index}.name`,
+                                            )}
+                                        >
+                                            <ProperInput
+                                                value={tourLeader.name ?? ''}
+                                                disabled={processing}
+                                                onCommit={(value) =>
+                                                    updateTourLeader(
+                                                        index,
+                                                        'name',
+                                                        value,
+                                                    )
+                                                }
+                                                placeholder="Enter official name"
+                                            />
+                                        </FormField>
+                                        <FormField
+                                            label="Contact Number"
+                                            error={getError(
+                                                `pif.tour_leaders.${index}.contact_number`,
+                                            )}
+                                        >
+                                            <ProperInput
+                                                value={
+                                                    tourLeader.contact_number ??
+                                                    ''
+                                                }
+                                                disabled={processing}
+                                                onCommit={(value) =>
+                                                    updateTourLeader(
+                                                        index,
+                                                        'contact_number',
+                                                        value,
+                                                    )
+                                                }
+                                                placeholder="Enter contact number"
+                                            />
+                                        </FormField>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={processing}
+                                            onClick={() =>
+                                                removeTourLeader(index)
+                                            }
+                                            className="text-destructive"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ),
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Flight Schedule
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.flights ?? []).map((flight, index) => (
+                                <div
+                                    key={`pif-flight-${flight.id}`}
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                >
+                                    <FormField label="Description">
+                                        <CopyableText
+                                            value={flight.description}
+                                        />
+                                    </FormField>
+                                    <FormField label="From">
+                                        <CopyableText value={flight.from} />
+                                    </FormField>
+                                    <FormField label="To">
+                                        <CopyableText value={flight.to} />
+                                    </FormField>
+                                    <FormField label="Airline">
+                                        <CopyableText value={flight.airline} />
+                                    </FormField>
+                                    <FormField label="Departure Datetime">
+                                        <CopyableText
+                                            value={flight.departure_datetime}
+                                        />
+                                    </FormField>
+                                    <FormField label="Arrival Datetime">
+                                        <CopyableText
+                                            value={flight.arrival_datetime}
+                                        />
+                                    </FormField>
+                                    <FormField label="PNR" className="md:col-span-2">
+                                        <CopyableText value={flight.pnr} />
+                                    </FormField>
+                                    <FormField
+                                        label="Remarks"
+                                        className="md:col-span-4"
+                                    >
+                                        <CopyableText value={flight.remarks} />
+                                    </FormField>
+                                </div>
+                            ))}
+                            {(data.flights ?? []).length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    No flight data available.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Accommodation
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.accommodations ?? []).map(
+                                (accommodation) => (
+                                    <div
+                                        key={`pif-accommodation-${accommodation.id}`}
+                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                    >
+                                        <FormField label="Location">
+                                            <CopyableText
+                                                value={accommodation.location}
+                                            />
+                                        </FormField>
+                                        <FormField label="Hotel Name">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.hotel_name
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Check In">
+                                            <CopyableText
+                                                value={accommodation.check_in}
+                                            />
+                                        </FormField>
+                                        <FormField label="Check Out">
+                                            <CopyableText
+                                                value={accommodation.check_out}
+                                            />
+                                        </FormField>
+                                        <FormField label="Nights">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.nights ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Meal">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.type_of_meal
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Single">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.single ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Double">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.double ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Triple">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.triple ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Quad">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.room_counts
+                                                        ?.quad ?? 0
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField
+                                            label="Remarks"
+                                            className="md:col-span-2"
+                                        >
+                                            <CopyableText
+                                                value={accommodation.remarks}
+                                            />
+                                        </FormField>
+                                    </div>
+                                ),
+                            )}
+                            {(data.accommodations ?? []).length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    No accommodation data available.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Rawdah Tasreeh
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.rawdah_tasreehs ?? []).map((row) => (
+                                <div
+                                    key={`pif-rawdah-${row.id}`}
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-7"
+                                >
+                                    <FormField label="Date">
+                                        <CopyableText value={row.date} />
+                                    </FormField>
+                                    <FormField label="Women Pax">
+                                        <CopyableText
+                                            value={row.women_passengers ?? 0}
+                                        />
+                                    </FormField>
+                                    <FormField label="Women Time">
+                                        <CopyableText
+                                            value={row.women_time}
+                                        />
+                                    </FormField>
+                                    <FormField label="Men Pax">
+                                        <CopyableText
+                                            value={row.men_passengers ?? 0}
+                                        />
+                                    </FormField>
+                                    <FormField label="Men Time">
+                                        <CopyableText value={row.men_time} />
+                                    </FormField>
+                                    <FormField label="Total Pax">
+                                        <CopyableText
+                                            value={
+                                                (row.women_passengers ?? 0) +
+                                                (row.men_passengers ?? 0)
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField label="Remarks">
+                                        <CopyableText value={row.remarks} />
+                                    </FormField>
+                                </div>
+                            ))}
+                            {(data.rawdah_tasreehs ?? []).length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    No rawdah tasreeh data available.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Transportation Plan
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(data.transportation_plans ?? []).map((row) => (
+                                <div
+                                    key={`pif-transport-${row.id}`}
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                >
+                                    <FormField label="From">
+                                        <CopyableText value={row.from} />
+                                    </FormField>
+                                    <FormField label="To">
+                                        <CopyableText value={row.to} />
+                                    </FormField>
+                                    <FormField label="Date">
+                                        <CopyableText
+                                            value={row.travel_date}
+                                        />
+                                    </FormField>
+                                    <FormField label="Time">
+                                        <CopyableText
+                                            value={row.travel_time}
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Remarks"
+                                        className="md:col-span-2"
+                                    >
+                                        <CopyableText value={row.remarks} />
+                                    </FormField>
+                                </div>
+                            ))}
+                            {(data.transportation_plans ?? []).length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    No transportation data available.
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

@@ -219,6 +219,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
     Route::match(['get', 'post'], 'manifests/{id}/collection-items-pdf', [ManifestController::class, 'exportCollectionItemsPdf'])->name('manifests.collection-items-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/arabic-names-pdf', [ManifestController::class, 'exportArabicNamesPdf'])->name('manifests.arabic-names-pdf');
+    Route::match(['get', 'post'], 'manifests/{id}/airline-names-pdf', [ManifestController::class, 'exportAirlineNamesPdf'])->name('manifests.airline-names-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/room-check-pdf', [ManifestController::class, 'exportRoomCheckPdf'])->name('manifests.room-check-pdf');
     Route::patch('manifests/{manifestId}/sections/core', [ManifestController::class, 'updateCoreSection'])->name('manifests.sections.core.update');
     Route::patch('manifests/{manifestId}/sections/sharing-groups', [ManifestController::class, 'updateSharingGroupsSection'])->name('manifests.sections.sharing-groups.update');

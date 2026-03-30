@@ -87,7 +87,7 @@
         }
 
         .footer-note {
-            text-align: center;
+            text-align: right;
             margin-bottom: 10px;
             line-height: 1.4;
         }
@@ -123,7 +123,11 @@
 
         <!-- Footer -->
         <div class="footer-section">
-            @if (!empty($branding['footer_text']))
+            @if (!empty($data['notes']) && count($data['notes']) > 0)
+                @foreach ($data['notes'] as $note)
+                    <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
+                @endforeach
+            @elseif (!empty($branding['footer_text']))
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @endif
 

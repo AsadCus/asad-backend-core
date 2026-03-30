@@ -57,6 +57,12 @@ class OpsMovementRule
             'budget.*.items.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'budget.*.items.*.remarks' => ['nullable', 'string'],
             'budget.*.items.*.sort_order' => ['nullable', 'integer', 'min:1'],
+
+            'pif' => ['nullable', 'array'],
+            'pif.tour_leaders' => ['nullable', 'array'],
+            'pif.tour_leaders.*.type' => ['nullable', 'string', 'max:255'],
+            'pif.tour_leaders.*.name' => ['nullable', 'string', 'max:255'],
+            'pif.tour_leaders.*.contact_number' => ['nullable', 'string', 'max:255'],
         ];
     }
 }
