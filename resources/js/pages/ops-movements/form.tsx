@@ -1863,7 +1863,7 @@ export default function OpsMovementForm({
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {(data.flights ?? []).map((flight, index) => (
+                            {(data.flights ?? []).map((flight) => (
                                 <div
                                     key={`pif-flight-${flight.id}`}
                                     className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
@@ -1892,7 +1892,10 @@ export default function OpsMovementForm({
                                             value={flight.arrival_datetime}
                                         />
                                     </FormField>
-                                    <FormField label="PNR" className="md:col-span-2">
+                                    <FormField
+                                        label="PNR"
+                                        className="md:col-span-2"
+                                    >
                                         <CopyableText value={flight.pnr} />
                                     </FormField>
                                     <FormField
@@ -1931,9 +1934,7 @@ export default function OpsMovementForm({
                                         </FormField>
                                         <FormField label="Hotel Name">
                                             <CopyableText
-                                                value={
-                                                    accommodation.hotel_name
-                                                }
+                                                value={accommodation.hotel_name}
                                             />
                                         </FormField>
                                         <FormField label="Check In">
@@ -2032,9 +2033,7 @@ export default function OpsMovementForm({
                                         />
                                     </FormField>
                                     <FormField label="Women Time">
-                                        <CopyableText
-                                            value={row.women_time}
-                                        />
+                                        <CopyableText value={row.women_time} />
                                     </FormField>
                                     <FormField label="Men Pax">
                                         <CopyableText
@@ -2084,14 +2083,10 @@ export default function OpsMovementForm({
                                         <CopyableText value={row.to} />
                                     </FormField>
                                     <FormField label="Date">
-                                        <CopyableText
-                                            value={row.travel_date}
-                                        />
+                                        <CopyableText value={row.travel_date} />
                                     </FormField>
                                     <FormField label="Time">
-                                        <CopyableText
-                                            value={row.travel_time}
-                                        />
+                                        <CopyableText value={row.travel_time} />
                                     </FormField>
                                     <FormField
                                         label="Remarks"
