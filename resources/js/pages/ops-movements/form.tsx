@@ -4,7 +4,13 @@ import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from '@inertiajs/react';
@@ -292,6 +298,7 @@ export default function OpsMovementForm({
                 (accommodation) => ({
                     id: accommodation.id,
                     ic: accommodation.ic ?? null,
+                    remarks: accommodation.remarks ?? null,
                 }),
             ),
             officials: (data.officials ?? []).map((official) => ({
@@ -311,6 +318,7 @@ export default function OpsMovementForm({
             flights: (data.flights ?? []).map((flight) => ({
                 id: flight.id,
                 ic: flight.ic ?? null,
+                remarks: flight.remarks ?? null,
             })),
             location: data.location ?? null,
             doa_by: data.doa_by ?? null,
@@ -333,6 +341,10 @@ export default function OpsMovementForm({
                     remarks: item.remarks ?? null,
                     sort_order: itemIndex + 1,
                 })),
+            })),
+            rawdah_tasreehs: (data.rawdah_tasreehs ?? []).map((row) => ({
+                id: row.id,
+                remarks: row.remarks ?? null,
             })),
             pif: {
                 tour_leaders: (data.pif?.tour_leaders ?? []).map(
@@ -480,6 +492,37 @@ export default function OpsMovementForm({
             [field]: value,
         };
         setFormData('flights', nextRows);
+    };
+
+    const updatePifFlightRemarks = (
+        index: number,
+        value: string | null,
+    ) => {
+        updateFlight(index, 'remarks', value);
+    };
+
+    const updatePifAccommodationRemarks = (
+        index: number,
+        value: string | null,
+    ) => {
+        const nextRows = [...(data.accommodations ?? [])];
+        nextRows[index] = {
+            ...nextRows[index],
+            remarks: value,
+        };
+        setFormData('accommodations', nextRows);
+    };
+
+    const updatePifRawdahRemarks = (
+        index: number,
+        value: string | null,
+    ) => {
+        const nextRows = [...(data.rawdah_tasreehs ?? [])];
+        nextRows[index] = {
+            ...nextRows[index],
+            remarks: value,
+        };
+        setFormData('rawdah_tasreehs', nextRows);
     };
 
     const updateDocumentRows = (
