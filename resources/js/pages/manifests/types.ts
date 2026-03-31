@@ -162,6 +162,7 @@ export interface CanonicalManifestRoomMember {
     manifest_member_id?: number | null;
     customer_confirmation_member_id?: number | null;
     package_official_id?: number | null;
+    sharing_plan?: string | null;
     sort_order?: number | null;
     remarks?: string | null;
 }

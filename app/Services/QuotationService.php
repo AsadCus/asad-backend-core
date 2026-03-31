@@ -14,6 +14,7 @@ use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
 use App\Models\QuotationExtensionMaster;
 use App\Models\QuotationItem;
+use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -49,12 +50,7 @@ class QuotationService
             'createdBy:id,name',
         ])->withTrashed()
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->where(function ($visibilityQuery) use ($value) {
-                    $visibilityQuery->where('created_by', $value)
-                        ->orWhereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
-                            $enquiryQuery->where('handled_by', $value);
-                        });
-                });
+                $q->where('created_by', $value);
             })->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
             })->when($filters['customer_id'] ?? null, function ($q, $value) {
@@ -96,12 +92,7 @@ class QuotationService
         $data = Quotation::query()
             ->select('id', 'quotation_number')
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
-                $query->where(function ($visibilityQuery) use ($value) {
-                    $visibilityQuery->where('created_by', $value)
-                        ->orWhereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
-                            $enquiryQuery->where('handled_by', $value);
-                        });
-                });
+                $query->where('created_by', $value);
             })
             ->get()
             ->map(function ($q) {
@@ -124,12 +115,7 @@ class QuotationService
             ])
             ->whereDoesntHave('order')
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
-                $query->where(function ($visibilityQuery) use ($value) {
-                    $visibilityQuery->where('created_by', $value)
-                        ->orWhereHas('customerConfirmation.enquiry', function ($enquiryQuery) use ($value) {
-                            $enquiryQuery->where('handled_by', $value);
-                        });
-                });
+                $query->where('created_by', $value);
             })
             ->get()
             ->map(function ($q) {
@@ -525,15 +511,22 @@ class QuotationService
 
     public function getForEditShow($id): array
     {
-        $quotation = Quotation::with([
+        $quotationQuery = Quotation::with([
             'customer.user',
             'quotationItems.confirmationMember',
             'quotationItems.taxes',
             'customerConfirmation.package',
             'order.invoices',
-        ])->findOrFail($id);
+        ]);
+
+        if (DataScope::shouldScopeSalesOwnership()) {
+            $quotationQuery->where('created_by', auth()->id());
+        }
+
+        $quotation = $quotationQuery->findOrFail($id);
 
         $invoiceExtensions = $this->buildInvoiceExtensionsForQuotationDisplay($quotation);
+        $hasOrderInvoices = $quotation->order?->invoices->isNotEmpty() ?? false;
 
         return [
             'id' => $quotation->id,
@@ -562,21 +555,26 @@ class QuotationService
             'package_price_double' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_double),
             'package_price_triple' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_triple),
             'package_price_quad' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->price_quad),
+            'package_price_child_with_bed' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->child_with_bed_price),
+            'package_price_child_no_bed' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->child_no_bed_price),
+            'package_price_infant' => $this->formatService->cleanDecimal($quotation->customerConfirmation?->package?->infant_price),
             'sales_registration_number' => $quotation->sales_registration_number,
             'model' => 'quotation',
             'notes' => $quotation->quotationNotes->sortBy('sort_order')->values()->toArray(),
-            'extensions' => collect(is_array($quotation->extensions) ? $quotation->extensions : [])->sortBy('sort_order')->values()->map(function (array $extension) {
-                return [
-                    'id' => $extension['id'] ?? null,
-                    'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
-                    'name' => $extension['name'] ?? null,
-                    'type' => $extension['type'] ?? null,
-                    'calculation_mode' => $extension['calculation_mode'] ?? null,
-                    'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
-                    'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0),
-                    'sort_order' => $extension['sort_order'] ?? null,
-                ];
-            })->values()->toArray(),
+            'extensions' => $hasOrderInvoices
+                ? []
+                : collect(is_array($quotation->extensions) ? $quotation->extensions : [])->sortBy('sort_order')->values()->map(function (array $extension) {
+                    return [
+                        'id' => $extension['id'] ?? null,
+                        'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                        'name' => $extension['name'] ?? null,
+                        'type' => $extension['type'] ?? null,
+                        'calculation_mode' => $extension['calculation_mode'] ?? null,
+                        'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                        'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? 0),
+                        'sort_order' => $extension['sort_order'] ?? null,
+                    ];
+                })->values()->toArray(),
             'invoice_extensions' => $invoiceExtensions,
             'items' => $quotation->quotationItems->sortBy('sort_order')->map(function (QuotationItem $it) {
                 return [
@@ -660,6 +658,8 @@ class QuotationService
                 && is_array($data['extensions'])
             ) {
                 $this->syncQuotationExtensions($quotation, $data['extensions']);
+            } elseif ($hasOrderInvoices && ! empty($quotation->extensions)) {
+                $quotation->update(['extensions' => []]);
             }
 
             $currentLinkedMemberIds = $quotation->quotationItems()
@@ -1451,7 +1451,9 @@ class QuotationService
             ->values()
             ->all();
 
-        $this->syncQuotationExtensions($quotation, $aggregatedExtensions);
+        if (! empty($quotation->extensions)) {
+            $quotation->update(['extensions' => []]);
+        }
         $this->syncConvertedOrderInvoiceAndReceiptAmounts($quotation);
     }
 

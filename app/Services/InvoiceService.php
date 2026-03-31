@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Models\Invoice;
+use App\Support\DataScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -121,11 +122,19 @@ class InvoiceService
 
     public function getForEditShow($id)
     {
-        $i = Invoice::with([
+        $query = Invoice::with([
             'quotationItems.taxes',
             'order.quotation.customer.user',
             'invoiceNotes',
-        ])->findOrFail($id);
+        ]);
+
+        if (DataScope::shouldScopeSalesOwnership()) {
+            $query->whereHas('order.quotation', function ($quotationQuery) {
+                $quotationQuery->where('created_by', auth()->id());
+            });
+        }
+
+        $i = $query->findOrFail($id);
 
         $subtotalAmount = (float) $i->quotationItems
             ->where('is_header', false)
@@ -328,6 +337,12 @@ class InvoiceService
     {
         return DB::transaction(function () use ($data, $id) {
             $query = Invoice::with('order.quotation');
+
+            if (DataScope::shouldScopeSalesOwnership()) {
+                $query->whereHas('order.quotation', function ($quotationQuery) {
+                    $quotationQuery->where('created_by', auth()->id());
+                });
+            }
 
             // If order_id is provided, scope to that order
             if (! empty($data['order_id'])) {

@@ -11,6 +11,7 @@ use App\Services\QuotationItemService;
 use App\Services\QuotationService;
 use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
+use App\Support\DataScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
 use Illuminate\Http\Request;
@@ -49,7 +50,7 @@ class QuotationController extends Controller
         $user = $request->user();
         $filters = [];
 
-        if ($user->hasRole('sales')) {
+        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
             $filters['sales_id'] = $user->id;
         }
 

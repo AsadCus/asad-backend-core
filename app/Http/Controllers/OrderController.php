@@ -7,6 +7,7 @@ use App\Services\CustomerService;
 use App\Services\OrderService;
 use App\Services\QuotationService;
 use App\Services\SalesService;
+use App\Support\DataScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -36,7 +37,7 @@ class OrderController extends Controller
         $user = $request->user();
         $filters = [];
 
-        if ($user->hasRole('sales')) {
+        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
             $filters['sales_id'] = $user->id;
         }
 

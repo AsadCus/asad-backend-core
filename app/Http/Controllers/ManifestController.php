@@ -11,7 +11,9 @@ use App\Services\CustomerConfirmationService;
 use App\Services\ManifestService;
 use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
+use App\Support\DataScope;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -156,7 +158,7 @@ class ManifestController extends Controller
 
     public function updateCoreSection(Request $request, string $manifestId): JsonResponse
     {
-        $manifest = Manifest::query()->findOrFail((int) $manifestId);
+        $manifest = $this->resolveScopedManifest((int) $manifestId);
         $payload = [
             'id' => $manifest->id,
             'package_id' => $manifest->package_id,
@@ -202,7 +204,7 @@ class ManifestController extends Controller
 
     public function updateSharingGroupsSection(Request $request, string $manifestId): JsonResponse
     {
-        $manifest = Manifest::query()->findOrFail((int) $manifestId);
+        $manifest = $this->resolveScopedManifest((int) $manifestId);
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $normalized = $this->normalizeSharingGroupsSectionPayload($requestPayload, $manifest->id);
         $rules = $this->extractRulesByPrefix(
@@ -231,7 +233,7 @@ class ManifestController extends Controller
 
     public function updateRoomsSection(Request $request, string $manifestId): JsonResponse
     {
-        $manifest = Manifest::query()->findOrFail((int) $manifestId);
+        $manifest = $this->resolveScopedManifest((int) $manifestId);
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $normalized = $this->normalizeRoomsSectionPayload($requestPayload, $manifest->id);
         $rules = $this->extractRulesByPrefix(
@@ -258,7 +260,7 @@ class ManifestController extends Controller
 
     public function updateDocumentsSection(Request $request, string $manifestId): JsonResponse
     {
-        $manifest = Manifest::query()->findOrFail((int) $manifestId);
+        $manifest = $this->resolveScopedManifest((int) $manifestId);
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $normalized = $this->normalizeDocumentsSectionPayload($requestPayload, $manifest->id);
         $rules = $this->extractRulesByPrefix(
@@ -285,7 +287,7 @@ class ManifestController extends Controller
 
     public function updateReceiptDocumentsSection(Request $request, string $manifestId): JsonResponse
     {
-        $manifest = Manifest::query()->findOrFail((int) $manifestId);
+        $manifest = $this->resolveScopedManifest((int) $manifestId);
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $normalized = $this->normalizeReceiptDocumentsSectionPayload($requestPayload, $manifest->id);
         $rules = $this->extractRulesByPrefix(
@@ -1681,6 +1683,25 @@ class ManifestController extends Controller
         }
 
         return $normalized;
+    }
+
+    private function resolveScopedManifest(int $manifestId): Manifest
+    {
+        $query = Manifest::query();
+
+        $user = DataScope::user();
+
+        if ($user && DataScope::shouldScopePackageAndManifestCountry($user)) {
+            $countryId = DataScope::scopedCountryId($user);
+
+            if ($countryId !== null) {
+                $query->whereHas('package', function (Builder $packageQuery) use ($countryId) {
+                    $packageQuery->where('country_id', $countryId);
+                });
+            }
+        }
+
+        return $query->findOrFail($manifestId);
     }
 
     /**

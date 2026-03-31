@@ -52,6 +52,18 @@ export const quotationSchema = z.object({
         .nullable()
         .optional(),
     package_price_quad: z.union([z.string(), z.number()]).nullable().optional(),
+    package_price_child_with_bed: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_child_no_bed: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
+    package_price_infant: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
     status: z.string().optional(),
     items_count: z.number().optional(),
     subtotal_amount: z.union([z.string(), z.number()]).nullable().optional(),

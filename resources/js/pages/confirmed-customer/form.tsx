@@ -22,7 +22,11 @@ import {
 import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
+import {
+    formatCurrency,
+    formatDateForDisplay,
+    parseDisplayDate,
+} from '@/lib/utils';
 import { update as updateGroup } from '@/routes/customer-confirmations';
 import {
     confirm as confirmEnquiry,
@@ -186,7 +190,7 @@ export default function CustomerConfirmationForm({
 }: CustomerConfirmationFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
-    // const isCreate = mode === 'create';
+    const isCreate = mode === 'create';
 
     // State
     const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>(
@@ -545,7 +549,7 @@ export default function CustomerConfirmationForm({
             .filter((item) => item.price > 0)
             .map((item) => ({
                 value: item.value,
-                label: `${item.label} (${item.price.toFixed(2)})`,
+                label: `${item.label} (${formatCurrency(item.price)})`,
             }));
 
         return dynamic.length > 0 ? dynamic : sharingPlanOptions;
@@ -1490,7 +1494,9 @@ export default function CustomerConfirmationForm({
                                                         processing={processing}
                                                         showStatusField={true}
                                                         forceStatusDisabled={
-                                                            isPublic || isEdit
+                                                            isPublic ||
+                                                            isEdit ||
+                                                            isCreate
                                                         }
                                                         getError={getError}
                                                         sharingPlanSelectOptions={

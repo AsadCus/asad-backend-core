@@ -27,6 +27,9 @@ const sidebarNavItems: NavItem[] = [
     //     href: show(),
     //     icon: null,
     // },
+];
+
+const adminOnlySidebarNavItems: NavItem[] = [
     {
         title: 'Appearance',
         href: editAppearance(),
@@ -64,7 +67,11 @@ export default function SettingsLayout({
     const { auth } = usePage<SharedData>().props;
     const isAdmin = auth.roles.includes('admin');
     const navItems = isAdmin
-        ? [...sidebarNavItems, modelNumberSettingsNavItem]
+        ? [
+              ...sidebarNavItems,
+              ...adminOnlySidebarNavItems,
+              modelNumberSettingsNavItem,
+          ]
         : sidebarNavItems;
 
     // When server-side rendering, we only render the layout on the client...

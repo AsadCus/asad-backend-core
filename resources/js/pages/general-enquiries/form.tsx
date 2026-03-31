@@ -16,10 +16,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { parseDisplayDate } from '@/lib/utils';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PackageForm from '../packages/form';
 import PackageInformationSection from '../packages/package-information-section';
 import { type PackageSchema } from '../packages/schema';
@@ -34,6 +35,11 @@ interface GeneralEnquiryFormProps {
     initialData?: GeneralEnquirySchema;
     packageOptions?: OptionType[];
     onCancel?: () => void;
+}
+
+interface GeneralEnquiryPackageOption extends OptionType {
+    departure_date?: string | null;
+    seats_left?: number | null;
 }
 
 export default function GeneralEnquiryForm({
@@ -70,6 +76,63 @@ export default function GeneralEnquiryForm({
         setError,
         clearErrors,
     } = useForm<GeneralEnquirySchema>(defaultData);
+
+    const normalizedPackageOptions =
+        packageOptions as GeneralEnquiryPackageOption[];
+
+    const groupedPackageOptions = useMemo(() => {
+        const options = [...normalizedPackageOptions].sort((left, right) => {
+            const leftDate = parseDisplayDate(left.departure_date);
+            const rightDate = parseDisplayDate(right.departure_date);
+
+            if (leftDate && rightDate) {
+                return leftDate.getTime() - rightDate.getTime();
+            }
+
+            if (leftDate) {
+                return -1;
+            }
+
+            if (rightDate) {
+                return 1;
+            }
+
+            return String(left.label).localeCompare(String(right.label));
+        });
+
+        const grouped: GeneralEnquiryPackageOption[] = [];
+        let previousGroupKey = '';
+
+        options.forEach((option) => {
+            const departureDate = parseDisplayDate(option.departure_date);
+            const groupKey = departureDate
+                ? departureDate.toLocaleDateString('en-US', {
+                      month: 'long',
+                      year: 'numeric',
+                  })
+                : 'No Departure Date';
+
+            if (groupKey !== previousGroupKey) {
+                grouped.push({
+                    value: `__group__:${groupKey}`,
+                    label: groupKey,
+                });
+                previousGroupKey = groupKey;
+            }
+
+            const seatsLeft = Number(option.seats_left ?? NaN);
+            const seatsLeftLabel = Number.isFinite(seatsLeft)
+                ? ` (${seatsLeft} Seats Left)`
+                : '';
+
+            grouped.push({
+                ...option,
+                label: `${option.label}${seatsLeftLabel}`.trim(),
+            });
+        });
+
+        return grouped;
+    }, [normalizedPackageOptions]);
 
     const [linkedPackageInfo, setLinkedPackageInfo] = useState<{
         id: number;
@@ -239,18 +302,28 @@ export default function GeneralEnquiryForm({
                                 }
                             >
                                 <ProperInputSelect
-                                    options={packageOptions}
+                                    options={groupedPackageOptions}
                                     value={
                                         data.package_id
                                             ? String(data.package_id)
                                             : ''
                                     }
-                                    onValueChange={(v) =>
+                                    onValueChange={(v) => {
+                                        if (Array.isArray(v)) {
+                                            return;
+                                        }
+
+                                        if (
+                                            String(v).startsWith('__group__:')
+                                        ) {
+                                            return;
+                                        }
+
                                         setData(
                                             'package_id',
                                             v ? Number(v) : null,
-                                        )
-                                    }
+                                        );
+                                    }}
                                     placeholder="Select package..."
                                     disabled={isView || processing}
                                     truncate={30}

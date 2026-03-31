@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Helpers\FormatService;
 use App\Helpers\NumberGenerator;
 use App\Models\Order;
+use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -171,11 +172,19 @@ class OrderService
 
     public function getForEditShow($id)
     {
-        $o = Order::with([
+        $query = Order::with([
             'quotation',
             'invoices.quotationItems.confirmationMember',
             'invoices.quotationItems.taxes',
-        ])->findOrFail($id);
+        ]);
+
+        if (DataScope::shouldScopeSalesOwnership()) {
+            $query->whereHas('quotation', function ($quotationQuery) {
+                $quotationQuery->where('created_by', auth()->id());
+            });
+        }
+
+        $o = $query->findOrFail($id);
 
         return [
             'id' => $o->id,
@@ -235,7 +244,15 @@ class OrderService
     public function update(array $data, int $id): Order
     {
         return DB::transaction(function () use ($data, $id) {
-            $order = Order::with(['invoices.receipt', 'quotation'])->findOrFail($id);
+            $orderQuery = Order::with(['invoices.receipt', 'quotation']);
+
+            if (DataScope::shouldScopeSalesOwnership()) {
+                $orderQuery->whereHas('quotation', function ($quotationQuery) {
+                    $quotationQuery->where('created_by', auth()->id());
+                });
+            }
+
+            $order = $orderQuery->findOrFail($id);
             $order->quotation()->where('is_locked', false)->update(['is_locked' => true]);
 
             $resolvedOrderNumber = array_key_exists('order_number', $data)

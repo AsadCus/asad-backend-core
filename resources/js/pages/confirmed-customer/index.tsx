@@ -486,7 +486,7 @@ export default function ConfirmedCustomerIndex({
             .filter((item) => item.price > 0)
             .map((item) => ({
                 value: item.value,
-                label: `${item.label} (${item.price.toFixed(2)})`,
+                label: `${item.label} (${formatCurrency(item.price)})`,
             }));
 
         return dynamic.length > 0 ? dynamic : sharingPlanOptions;
@@ -1420,7 +1420,10 @@ export default function ConfirmedCustomerIndex({
             </AppLayout>
 
             <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                >
                     <DialogHeader className="gap-0">
                         <DialogTitle className="text-xl">
                             {groupDialogMode === 'create'

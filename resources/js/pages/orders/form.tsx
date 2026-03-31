@@ -692,6 +692,103 @@ function extractIncrementFromSuggestedNumber(
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function continueInstallmentInvoiceNumberSequence(
+    rebuiltInvoices: InvoiceSchema[],
+    sourceInvoices: InvoiceSchema[],
+): InvoiceSchema[] {
+    if (rebuiltInvoices.length === 0) {
+        return rebuiltInvoices;
+    }
+
+    const sourceInvoiceWithNumber = sourceInvoices.find((invoice) => {
+        const invoiceNumber = String(invoice.invoice_number ?? '').trim();
+
+        return invoiceNumber.length > 0 && invoiceNumber !== '-';
+    });
+
+    if (!sourceInvoiceWithNumber) {
+        return rebuiltInvoices;
+    }
+
+    const sourceInvoiceNumber = String(
+        sourceInvoiceWithNumber.invoice_number ?? '',
+    ).trim();
+
+    if (sourceInvoiceNumber.length === 0 || sourceInvoiceNumber === '-') {
+        return rebuiltInvoices;
+    }
+
+    let nextIncrement =
+        extractIncrementFromSuggestedNumber(sourceInvoiceNumber);
+
+    if (nextIncrement === null) {
+        return rebuiltInvoices;
+    }
+
+    const nextInvoices = [...rebuiltInvoices];
+    const sourceFormatId = sourceInvoiceWithNumber.number_format_id ?? null;
+    const firstInvoice = nextInvoices[0];
+
+    if (firstInvoice) {
+        const firstInvoiceNumber = String(
+            firstInvoice.invoice_number ?? '',
+        ).trim();
+
+        if (firstInvoiceNumber.length === 0 || firstInvoiceNumber === '-') {
+            nextInvoices[0] = {
+                ...firstInvoice,
+                number_format_id:
+                    firstInvoice.number_format_id ?? sourceFormatId,
+                invoice_number: sourceInvoiceNumber,
+            };
+        }
+
+        const seededIncrement = extractIncrementFromSuggestedNumber(
+            String(nextInvoices[0].invoice_number ?? '').trim(),
+        );
+
+        if (seededIncrement !== null) {
+            nextIncrement = seededIncrement;
+        }
+    }
+
+    for (let index = 1; index < nextInvoices.length; index += 1) {
+        const currentInvoice = nextInvoices[index];
+
+        if (!currentInvoice) {
+            continue;
+        }
+
+        const currentInvoiceNumber = String(
+            currentInvoice.invoice_number ?? '',
+        ).trim();
+
+        if (currentInvoiceNumber.length > 0 && currentInvoiceNumber !== '-') {
+            const currentIncrement =
+                extractIncrementFromSuggestedNumber(currentInvoiceNumber);
+
+            if (currentIncrement !== null) {
+                nextIncrement = Math.max(nextIncrement, currentIncrement);
+            }
+
+            continue;
+        }
+
+        nextIncrement += 1;
+
+        nextInvoices[index] = {
+            ...currentInvoice,
+            number_format_id: currentInvoice.number_format_id ?? sourceFormatId,
+            invoice_number: buildInvoiceNumberFromSuggestion(
+                sourceInvoiceNumber,
+                nextIncrement,
+            ),
+        };
+    }
+
+    return nextInvoices;
+}
+
 export default function OrderForm({
     mode,
     initialData,
@@ -862,7 +959,7 @@ export default function OrderForm({
                     );
                 });
 
-                return normalizeInvoices(
+                const normalizedRebuiltInvoices = normalizeInvoices(
                     rebuiltInvoices.map((invoice, index) => {
                         const existingInvoice = currentInvoices[index];
 
@@ -966,9 +1063,18 @@ export default function OrderForm({
                         });
                     }),
                 );
+
+                if (paymentPlan === 'installment') {
+                    return continueInstallmentInvoiceNumberSequence(
+                        normalizedRebuiltInvoices,
+                        currentInvoices,
+                    );
+                }
+
+                return normalizedRebuiltInvoices;
             }
 
-            return normalizeInvoices(
+            const normalizedRebuiltInvoices = normalizeInvoices(
                 buildInvoices(
                     paymentPlan,
                     currentInvoices,
@@ -992,6 +1098,15 @@ export default function OrderForm({
                     );
                 }),
             );
+
+            if (paymentPlan === 'installment') {
+                return continueInstallmentInvoiceNumberSequence(
+                    normalizedRebuiltInvoices,
+                    currentInvoices,
+                );
+            }
+
+            return normalizedRebuiltInvoices;
         },
         [defaultPaymentMethod, normalizedOrderExtensionMasters, quotation],
     );
@@ -1093,6 +1208,10 @@ export default function OrderForm({
             try {
                 const formats = await fetchFormats('invoice');
                 const counterByScopeKey = new Map<string, number>();
+                const suggestionCacheByScope = new Map<
+                    string,
+                    Awaited<ReturnType<typeof suggestNumber>>
+                >();
                 const nextInvoices = [...data.invoices];
 
                 nextInvoices.forEach((invoice) => {
@@ -1128,7 +1247,14 @@ export default function OrderForm({
                         matchedFormat.name,
                     );
 
-                    if (parsedIncrement === null) {
+                    const fallbackParsedIncrement =
+                        parsedIncrement ??
+                        extractIncrementFromSuggestedNumber(
+                            invoiceNumber,
+                            matchedFormat.name,
+                        );
+
+                    if (fallbackParsedIncrement === null) {
                         return;
                     }
 
@@ -1136,7 +1262,7 @@ export default function OrderForm({
                         matchedFormat.increment_scope === 'model'
                             ? 'model:invoice'
                             : `format:${matchedFormat.id}`;
-                    const nextAvailableIncrement = parsedIncrement + 1;
+                    const nextAvailableIncrement = fallbackParsedIncrement + 1;
                     const currentCounter = counterByScopeKey.get(scopeKey) ?? 1;
 
                     counterByScopeKey.set(
@@ -1152,10 +1278,23 @@ export default function OrderForm({
                         continue;
                     }
 
-                    const suggestion = await suggestNumber(
-                        'invoice',
-                        currentInvoice.number_format_id ?? null,
-                    );
+                    const preferredFormatId =
+                        currentInvoice.number_format_id ?? null;
+                    const suggestionScopeKey =
+                        preferredFormatId !== null
+                            ? `format:${preferredFormatId}`
+                            : 'model:invoice';
+
+                    const suggestion =
+                        suggestionCacheByScope.get(suggestionScopeKey) ??
+                        (await suggestNumber('invoice', preferredFormatId));
+
+                    if (!suggestionCacheByScope.has(suggestionScopeKey)) {
+                        suggestionCacheByScope.set(
+                            suggestionScopeKey,
+                            suggestion,
+                        );
+                    }
 
                     const format = formats.find(
                         (candidate) => candidate.id === suggestion.format_id,
@@ -2638,6 +2777,15 @@ export default function OrderForm({
                                                     }
                                                     quadPrice={
                                                         quotation.package_price_quad
+                                                    }
+                                                    childWithBedPrice={
+                                                        quotation.package_price_child_with_bed
+                                                    }
+                                                    childNoBedPrice={
+                                                        quotation.package_price_child_no_bed
+                                                    }
+                                                    infantPrice={
+                                                        quotation.package_price_infant
                                                     }
                                                     className="text-sm"
                                                 />

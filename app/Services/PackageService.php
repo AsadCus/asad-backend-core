@@ -6,6 +6,8 @@ use App\Helpers\FormatService;
 use App\Models\Manifest;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
+use App\Support\DataScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class PackageService
@@ -30,13 +32,17 @@ class PackageService
 
     public function getForDataTable(array $filters = [])
     {
-        $data = Package::query()
+        $query = Package::query()
             ->withCount('manifests')
             ->with([
                 'manifests.members' => function ($query) {
                     $query->whereNull('package_official_id');
                 },
-            ])
+            ]);
+
+        $this->applyPackageCountryScope($query);
+
+        $data = $query
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('name', 'like', "%{$value}%")
@@ -76,7 +82,11 @@ class PackageService
 
     public function getForFilter()
     {
-        return Package::with(['accommodations', 'flights', 'officials'])->get()->map(function ($q) {
+        $query = Package::with(['accommodations', 'flights', 'officials']);
+
+        $this->applyPackageCountryScope($query);
+
+        return $query->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => $q->name,
@@ -200,7 +210,7 @@ class PackageService
 
     public function getForEditShow($id): array
     {
-        $package = Package::with([
+        $query = Package::with([
             'accommodations',
             'flights',
             'trainTickets',
@@ -208,7 +218,11 @@ class PackageService
             'rawdahTasreehs',
             'officials',
             'manifests.members',
-        ])->findOrFail($id);
+        ]);
+
+        $this->applyPackageCountryScope($query);
+
+        $package = $query->findOrFail($id);
 
         $occupiedSeats = $this->packageSeatService->occupiedSeatsCount((int) $package->id);
         $seatsLeft = $package->total_seats === null
@@ -341,7 +355,10 @@ class PackageService
     public function update(array $data, int $id): Package
     {
         return DB::transaction(function () use ($data, $id) {
-            $package = Package::findOrFail($id);
+            $query = Package::query();
+            $this->applyPackageCountryScope($query);
+
+            $package = $query->findOrFail($id);
 
             $resolvedPackageNumber = array_key_exists('package_number', $data)
                 ? $this->numberingService->ensureNumber(
@@ -429,7 +446,10 @@ class PackageService
 
     public function delete($id)
     {
-        $package = Package::find($id);
+        $query = Package::query();
+        $this->applyPackageCountryScope($query);
+
+        $package = $query->find($id);
         if (! $package) {
             return false;
         }
@@ -588,6 +608,23 @@ class PackageService
         }
 
         return $payload;
+    }
+
+    private function applyPackageCountryScope(Builder $query): void
+    {
+        $user = DataScope::user();
+
+        if (! $user || ! DataScope::shouldScopePackageAndManifestCountry($user)) {
+            return;
+        }
+
+        $countryId = DataScope::scopedCountryId($user);
+
+        if ($countryId === null) {
+            return;
+        }
+
+        $query->where('country_id', $countryId);
     }
 
     /**

@@ -71,9 +71,11 @@
 
         .arabic-cell {
             direction: rtl;
+            unicode-bidi: isolate;
             text-align: right;
             font-size: 11px;
             font-family: DejaVu Sans, sans-serif;
+            white-space: pre-wrap;
         }
 
         .muted-note {
@@ -127,7 +129,7 @@
                 <tr>
                     <td class="col-no">{{ $index + 1 }}</td>
                     <td class="col-name">{{ $member['name_as_per_passport'] ?? '-' }}</td>
-                    <td class="col-arabic arabic-cell">{{ $member['arabic_name'] ?? '-' }}</td>
+                    <td class="col-arabic arabic-cell" dir="rtl" lang="ar">{{ $member['arabic_name'] ?? '-' }}</td>
                 </tr>
             @empty
                 <tr>

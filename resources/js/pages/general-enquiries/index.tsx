@@ -406,7 +406,10 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
 
             {/* Customer Confirmation Form Dialog */}
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                <DialogContent
+                    className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                >
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation Form</DialogTitle>
                         <DialogDescription>

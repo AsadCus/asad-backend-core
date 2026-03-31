@@ -431,6 +431,13 @@ export default function QuotationDetailSection({
                                     doublePrice={data.package_price_double}
                                     triplePrice={data.package_price_triple}
                                     quadPrice={data.package_price_quad}
+                                    childWithBedPrice={
+                                        data.package_price_child_with_bed
+                                    }
+                                    childNoBedPrice={
+                                        data.package_price_child_no_bed
+                                    }
+                                    infantPrice={data.package_price_infant}
                                 />
                             </FormField>
                         )}

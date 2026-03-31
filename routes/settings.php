@@ -21,15 +21,31 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:6,1')
         ->name('password.update');
 
-    Route::get('settings/appearance', [AppearanceController::class, 'edit'])->name('appearance.edit');
-    Route::post('settings/appearance', [AppearanceController::class, 'update'])->name('appearance.update');
+    Route::get('settings/appearance', [AppearanceController::class, 'edit'])
+        ->middleware('role:admin')
+        ->name('appearance.edit');
+    Route::post('settings/appearance', [AppearanceController::class, 'update'])
+        ->middleware('role:admin')
+        ->name('appearance.update');
 
-    Route::get('settings/report-template', [ReportTemplateController::class, 'index'])->name('report-template.edit');
-    Route::put('settings/report-template', [ReportTemplateController::class, 'update'])->name('report-template.update');
-    Route::post('settings/report-template/modules', [ReportTemplateController::class, 'storeModule'])->name('report-template.modules.store');
-    Route::delete('settings/report-template/modules/{key}', [ReportTemplateController::class, 'destroyModule'])->name('report-template.modules.destroy');
-    Route::get('api/report-template/branding', [ReportTemplateController::class, 'getBrandingData'])->name('report-template.branding.get');
-    Route::post('api/report-template/preview', [ReportTemplateController::class, 'preview'])->name('report-template.preview');
+    Route::get('settings/report-template', [ReportTemplateController::class, 'index'])
+        ->middleware('role:admin')
+        ->name('report-template.edit');
+    Route::put('settings/report-template', [ReportTemplateController::class, 'update'])
+        ->middleware('role:admin')
+        ->name('report-template.update');
+    Route::post('settings/report-template/modules', [ReportTemplateController::class, 'storeModule'])
+        ->middleware('role:admin')
+        ->name('report-template.modules.store');
+    Route::delete('settings/report-template/modules/{key}', [ReportTemplateController::class, 'destroyModule'])
+        ->middleware('role:admin')
+        ->name('report-template.modules.destroy');
+    Route::get('api/report-template/branding', [ReportTemplateController::class, 'getBrandingData'])
+        ->middleware('role:admin')
+        ->name('report-template.branding.get');
+    Route::post('api/report-template/preview', [ReportTemplateController::class, 'preview'])
+        ->middleware('role:admin')
+        ->name('report-template.preview');
 
     Route::get('settings/model-number-formats', [ModelNumberFormatController::class, 'edit'])
         ->middleware('role:admin')

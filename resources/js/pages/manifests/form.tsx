@@ -34,21 +34,20 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { index as manifestsIndex, store } from '@/routes/manifests';
+import { store } from '@/routes/manifests';
 import manifestSections from '@/routes/manifests/sections';
 import { useForm } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowLeft,
-    CheckCircle2,
     ChevronDown,
-    CircleDashed,
     Download,
     Loader2,
     RotateCcw,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fields';
 import CustomerFormFields from '../customer/form-fields';
 import { type CustomerSchema } from '../customer/schema';
@@ -858,6 +857,43 @@ function countRoomGroups(rows: MemberWithUI[]): number {
     return groupKeys.size;
 }
 
+function normalizeSharingPlanValue(sharingPlan?: string | null): string {
+    return String(sharingPlan ?? '')
+        .toLowerCase()
+        .trim();
+}
+
+function isNoBedCapacitySharingPlan(sharingPlan?: string | null): boolean {
+    const normalized = normalizeSharingPlanValue(sharingPlan);
+
+    return normalized === 'child_no_bed' || normalized === 'infant';
+}
+
+function isExtraBedSharingPlan(sharingPlan?: string | null): boolean {
+    return normalizeSharingPlanValue(sharingPlan) === 'child_with_bed';
+}
+
+function normalizeExtraBedRemark(
+    remarks: string | null | undefined,
+    sharingPlan?: string | null,
+): string | null {
+    const normalizedRemarks = String(remarks ?? '').trim();
+
+    if (!isExtraBedSharingPlan(sharingPlan)) {
+        return normalizedRemarks === '' ? null : normalizedRemarks;
+    }
+
+    if (normalizedRemarks === '') {
+        return 'Extra bed';
+    }
+
+    if (/\bextra\s*bed\b/i.test(normalizedRemarks)) {
+        return normalizedRemarks;
+    }
+
+    return `${normalizedRemarks}; Extra bed`;
+}
+
 function capacityFromSharingPlan(sharingPlan?: string | null): number {
     const plan = String(sharingPlan ?? '')
         .toLowerCase()
@@ -1548,9 +1584,13 @@ function buildCanonicalRoomsFromRoomLists(
                         sort_order: Number(
                             member.sort_order ?? memberIndex + 1,
                         ),
-                        remarks:
+                        sharing_plan:
+                            String(member.sharing_plan ?? '').trim() || null,
+                        remarks: normalizeExtraBedRemark(
                             (member.remarks as string | null | undefined) ??
-                            null,
+                                null,
+                            String(member.sharing_plan ?? ''),
+                        ),
                     })),
                 });
             },
@@ -1637,17 +1677,22 @@ function validateRoomCapacityOnSubmit(
     const errors: Record<string, string> = {};
 
     rooms.forEach((room, roomIndex) => {
-        const membersCount = Array.isArray(room.members)
-            ? room.members.length
-            : 0;
+        const roomMembers = Array.isArray(room.members) ? room.members : [];
+        const membersCount = roomMembers.filter((member) => {
+            return !isNoBedCapacitySharingPlan(member.sharing_plan ?? null);
+        }).length;
+        const extraBedCount = roomMembers.filter((member) => {
+            return isExtraBedSharingPlan(member.sharing_plan ?? null);
+        }).length;
         const maxCapacity = capacityFromRoomType(room.room_type ?? null);
+        const allowedCapacity = maxCapacity + extraBedCount;
 
-        if (membersCount > maxCapacity) {
+        if (membersCount > allowedCapacity) {
             const roomTypeLabel = String(
                 room.room_type ?? 'single',
             ).toUpperCase();
             errors[`rooms.${roomIndex}.remarks`] =
-                `Room is over capacity for ${roomTypeLabel}: ${membersCount}/${maxCapacity} pax.`;
+                `Room is over capacity for ${roomTypeLabel}: ${membersCount}/${allowedCapacity} pax.`;
         }
     });
 
@@ -1658,6 +1703,11 @@ type SectionRequestResult = {
     ok: boolean;
     errors?: Record<string, string>;
     isValidationError?: boolean;
+};
+
+type ResolvedCsrfToken = {
+    value: string;
+    source: 'meta' | 'cookie';
 };
 
 function normalizeSectionErrors(
@@ -1678,36 +1728,43 @@ function normalizeSectionErrors(
     );
 }
 
-function resolveCsrfToken(): string | null {
+function resolveCsrfToken(): ResolvedCsrfToken | null {
+    const cookieEntry = document.cookie
+        .split(';')
+        .map((segment) => segment.trim())
+        .find((segment) => segment.startsWith('XSRF-TOKEN='));
+
+    if (cookieEntry) {
+        const encodedValue = cookieEntry.slice('XSRF-TOKEN='.length);
+
+        if (encodedValue) {
+            try {
+                return {
+                    value: decodeURIComponent(encodedValue),
+                    source: 'cookie',
+                };
+            } catch {
+                return {
+                    value: encodedValue,
+                    source: 'cookie',
+                };
+            }
+        }
+    }
+
     const metaToken = document
         .querySelector('meta[name="csrf-token"]')
         ?.getAttribute('content')
         ?.trim();
 
     if (metaToken && metaToken.length > 0) {
-        return metaToken;
+        return {
+            value: metaToken,
+            source: 'meta',
+        };
     }
 
-    const cookieEntry = document.cookie
-        .split(';')
-        .map((segment) => segment.trim())
-        .find((segment) => segment.startsWith('XSRF-TOKEN='));
-
-    if (!cookieEntry) {
-        return null;
-    }
-
-    const encodedValue = cookieEntry.slice('XSRF-TOKEN='.length);
-
-    if (!encodedValue) {
-        return null;
-    }
-
-    try {
-        return decodeURIComponent(encodedValue);
-    } catch {
-        return encodedValue;
-    }
+    return null;
 }
 
 function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
@@ -1784,6 +1841,8 @@ async function submitSectionPayload(
     options: { forceFormData?: boolean; validateOnly?: boolean } = {},
 ): Promise<SectionRequestResult> {
     const csrfToken = resolveCsrfToken();
+    const csrfTokenValue = csrfToken?.value ?? null;
+    const csrfTokenSource = csrfToken?.source ?? null;
     const useFormData = options.forceFormData ?? false;
     const validateOnly = options.validateOnly ?? false;
 
@@ -1850,15 +1909,17 @@ async function submitSectionPayload(
             return JSON.stringify({
                 ...payload,
                 ...(validateOnly ? { validate_only: true } : {}),
-                ...(csrfToken ? { _token: csrfToken } : {}),
+                ...(csrfTokenSource === 'meta' && csrfTokenValue
+                    ? { _token: csrfTokenValue }
+                    : {}),
             });
         }
 
         const formData = new FormData();
         formData.append('_method', 'patch');
 
-        if (csrfToken) {
-            formData.append('_token', csrfToken);
+        if (csrfTokenSource === 'meta' && csrfTokenValue) {
+            formData.append('_token', csrfTokenValue);
         }
 
         if (validateOnly) {
@@ -1875,11 +1936,11 @@ async function submitSectionPayload(
     const headers: Record<string, string> = {
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        ...(csrfToken
-            ? {
-                  'X-CSRF-TOKEN': csrfToken,
-                  'X-XSRF-TOKEN': csrfToken,
-              }
+        ...(csrfTokenSource === 'meta' && csrfTokenValue
+            ? { 'X-CSRF-TOKEN': csrfTokenValue }
+            : {}),
+        ...(csrfTokenSource === 'cookie' && csrfTokenValue
+            ? { 'X-XSRF-TOKEN': csrfTokenValue }
             : {}),
     };
 
@@ -1938,50 +1999,6 @@ async function submitSectionPayload(
         },
     };
 }
-
-type SaveProgressStepKey =
-    | 'manifest'
-    | 'sharing-groups'
-    | 'rooms'
-    | 'documents'
-    | 'receipt-documents';
-
-type SaveProgressStepStatus = 'pending' | 'running' | 'success' | 'failed';
-
-type SaveProgressStep = {
-    key: SaveProgressStepKey;
-    label: string;
-    status: SaveProgressStepStatus;
-    errorMessage?: string;
-};
-
-const SAVE_PROGRESS_TEMPLATE: SaveProgressStep[] = [
-    {
-        key: 'manifest',
-        label: 'Saving manifest fields',
-        status: 'pending',
-    },
-    {
-        key: 'sharing-groups',
-        label: 'Saving member sharing groups',
-        status: 'pending',
-    },
-    {
-        key: 'rooms',
-        label: 'Saving room assignments',
-        status: 'pending',
-    },
-    {
-        key: 'documents',
-        label: 'Saving manifest documents',
-        status: 'pending',
-    },
-    {
-        key: 'receipt-documents',
-        label: 'Saving member receipt files',
-        status: 'pending',
-    },
-];
 
 function buildManifestMemberReceiptsPayload(members: MemberWithUI[]): Array<{
     manifest_member_id: number | null;
@@ -2074,15 +2091,6 @@ export default function ManifestForm({
         'manifest_information',
     ]);
     const [isSectionSaving, setIsSectionSaving] = useState(false);
-    const [showSaveProgressPopup, setShowSaveProgressPopup] = useState(false);
-    const [saveProgressSteps, setSaveProgressSteps] = useState<
-        SaveProgressStep[]
-    >(SAVE_PROGRESS_TEMPLATE);
-
-    const completedSaveStepsCount = useMemo(() => {
-        return saveProgressSteps.filter((step) => step.status === 'success')
-            .length;
-    }, [saveProgressSteps]);
 
     const [roomListsState, setRoomListsState] = useState<
         Record<string, MemberWithUI[]>
@@ -2151,29 +2159,6 @@ export default function ManifestForm({
             photo: mirroredPhotoRows,
         });
     }, [data.documents, data.manifest_members, setFormData]);
-
-    const updateSaveProgressStep = useCallback(
-        (
-            key: SaveProgressStepKey,
-            status: SaveProgressStepStatus,
-            errorMessage?: string,
-        ) => {
-            setSaveProgressSteps((currentSteps) => {
-                return currentSteps.map((step) => {
-                    if (step.key !== key) {
-                        return step;
-                    }
-
-                    return {
-                        ...step,
-                        status,
-                        errorMessage,
-                    };
-                });
-            });
-        },
-        [],
-    );
 
     const scrollToErrorBanner = useCallback(() => {
         setTimeout(() => {
@@ -2903,7 +2888,6 @@ export default function ManifestForm({
         if (isEdit && submitPayload.id) {
             const sectionRequests = [
                 {
-                    key: 'manifest' as const,
                     url: manifestSections.core.update.url(submitPayload.id),
                     payload: {
                         package_id: submitPayload.package_id ?? null,
@@ -2915,7 +2899,6 @@ export default function ManifestForm({
                     forceFormData: false,
                 },
                 {
-                    key: 'sharing-groups' as const,
                     url: manifestSections.sharingGroups.update.url(
                         submitPayload.id,
                     ),
@@ -2926,7 +2909,6 @@ export default function ManifestForm({
                     forceFormData: false,
                 },
                 {
-                    key: 'rooms' as const,
                     url: manifestSections.rooms.update.url(submitPayload.id),
                     payload: {
                         manifest_rooms: submitPayload.manifest_rooms ?? [],
@@ -2934,7 +2916,6 @@ export default function ManifestForm({
                     forceFormData: false,
                 },
                 {
-                    key: 'documents' as const,
                     url: manifestSections.documents.update.url(
                         submitPayload.id,
                     ),
@@ -2946,7 +2927,6 @@ export default function ManifestForm({
                     forceFormData: true,
                 },
                 {
-                    key: 'receipt-documents' as const,
                     url: manifestSections.receiptDocuments.update.url(
                         submitPayload.id,
                     ),
@@ -2958,8 +2938,6 @@ export default function ManifestForm({
             ];
 
             setIsSectionSaving(true);
-            setShowSaveProgressPopup(true);
-            setSaveProgressSteps(SAVE_PROGRESS_TEMPLATE);
 
             try {
                 for (const sectionRequest of sectionRequests) {
@@ -2980,17 +2958,11 @@ export default function ManifestForm({
                             },
                         );
 
-                        setShowSaveProgressPopup(false);
-
                         return;
                     }
                 }
 
-                setSaveProgressSteps(SAVE_PROGRESS_TEMPLATE);
-
                 for (const sectionRequest of sectionRequests) {
-                    updateSaveProgressStep(sectionRequest.key, 'running');
-
                     const result = await submitSectionPayload(
                         sectionRequest.url,
                         sectionRequest.payload,
@@ -3000,12 +2972,6 @@ export default function ManifestForm({
                     );
 
                     if (!result.ok) {
-                        updateSaveProgressStep(
-                            sectionRequest.key,
-                            'failed',
-                            result.errors?.section_save,
-                        );
-
                         handleError(
                             result.errors ?? {
                                 section_save:
@@ -3013,18 +2979,13 @@ export default function ManifestForm({
                             },
                         );
 
-                        setShowSaveProgressPopup(false);
-
                         return;
                     }
-
-                    updateSaveProgressStep(sectionRequest.key, 'success');
                 }
 
-                window.location.assign(manifestsIndex().url);
+                toast.success('Manifest updated successfully.');
             } finally {
                 setIsSectionSaving(false);
-                setShowSaveProgressPopup(false);
             }
 
             return;
@@ -3188,6 +3149,32 @@ export default function ManifestForm({
             (member) => !member.package_official_id,
         );
     }, [nonCancelledMembers]);
+
+    const nonCancelledNonOfficialMembersForArabicExport = useMemo(() => {
+        return nonCancelledNonOfficialMembers.map((member) => {
+            const memberName = String(member.name_as_per_passport ?? '').trim();
+            const arabicName = String(member.arabic_name ?? '').trim();
+
+            if (arabicName.length > 0) {
+                return {
+                    ...member,
+                    arabic_name: normalizeArabicNameInput(arabicName),
+                };
+            }
+
+            if (memberName.length > 0) {
+                return {
+                    ...member,
+                    arabic_name: convertNameToArabic(memberName),
+                };
+            }
+
+            return {
+                ...member,
+                arabic_name: '',
+            };
+        });
+    }, [nonCancelledNonOfficialMembers]);
 
     useEffect(() => {
         const members = (data.manifest_members ?? []) as MemberWithUI[];
@@ -3391,60 +3378,6 @@ export default function ManifestForm({
 
     return (
         <div className="mx-auto w-full">
-            {showSaveProgressPopup && isSectionSaving && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-                    <div className="w-full max-w-xl rounded-xl border bg-white p-5 shadow-2xl">
-                        <div className="mb-4 flex items-center justify-between gap-4">
-                            <div>
-                                <p className="text-sm font-semibold text-slate-900">
-                                    Processing Manifest Sections
-                                </p>
-                                <p className="text-xs text-slate-600">
-                                    {completedSaveStepsCount}/
-                                    {saveProgressSteps.length} sections
-                                    completed
-                                </p>
-                            </div>
-                            <Loader2 className="h-5 w-5 animate-spin text-slate-600" />
-                        </div>
-
-                        <div className="space-y-2">
-                            {saveProgressSteps.map((step) => {
-                                const icon =
-                                    step.status === 'success' ? (
-                                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                    ) : step.status === 'running' ? (
-                                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                                    ) : step.status === 'failed' ? (
-                                        <AlertCircle className="h-4 w-4 text-red-600" />
-                                    ) : (
-                                        <CircleDashed className="h-4 w-4 text-slate-400" />
-                                    );
-
-                                return (
-                                    <div
-                                        key={step.key}
-                                        className="rounded-md border border-slate-200 px-3 py-2"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            {icon}
-                                            <p className="text-sm text-slate-800">
-                                                {step.label}
-                                            </p>
-                                        </div>
-                                        {step.errorMessage && (
-                                            <p className="mt-1 text-xs text-red-600">
-                                                {step.errorMessage}
-                                            </p>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
-
             <Dialog
                 open={isMemberDetailDialogOpen}
                 onOpenChange={setIsMemberDetailDialogOpen}
@@ -4756,7 +4689,7 @@ export default function ManifestForm({
                                                 `/manifests/${data.id}/arabic-names-pdf`,
                                                 {
                                                     members:
-                                                        nonCancelledNonOfficialMembers,
+                                                        nonCancelledNonOfficialMembersForArabicExport,
                                                     manifest_number:
                                                         data.manifest_number,
                                                     package_name:
@@ -5145,7 +5078,7 @@ export default function ManifestForm({
                                     <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                                 )}
                                 {isSectionSaving
-                                    ? `Updating Manifest (${completedSaveStepsCount}/${saveProgressSteps.length})`
+                                    ? 'Updating Manifest...'
                                     : 'Update Manifest'}
                             </Button>
                         </>

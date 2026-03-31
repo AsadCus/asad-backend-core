@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\User;
+use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -56,7 +57,7 @@ class CustomerService
     public function getForDataTable($request)
     {
         $data = User::role('customer')->with('customer')
-            ->when($request->user()->hasRole('sales'), function ($query) use ($request) {
+            ->when(DataScope::shouldScopeSalesEnquiries($request->user()), function ($query) use ($request) {
                 $query->whereHas('customer', function ($q) use ($request) {
                     $q->where('handled_by', $request->user()->id)->orWhereNull('handled_by');
                 });

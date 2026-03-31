@@ -122,6 +122,37 @@ const SHARING_PLAN_CAPACITY: Record<string, number> = {
     infant: 1,
 };
 
+function normalizeSharingPlanValue(sharingPlan?: string | null): string {
+    return String(sharingPlan ?? '')
+        .toLowerCase()
+        .trim();
+}
+
+function isChildWithBedSharingPlan(sharingPlan?: string | null): boolean {
+    return normalizeSharingPlanValue(sharingPlan) === 'child_with_bed';
+}
+
+function ensureExtraBedRemarks(
+    remarks: string | null | undefined,
+    sharingPlan?: string | null,
+): string {
+    const normalizedRemarks = String(remarks ?? '').trim();
+
+    if (!isChildWithBedSharingPlan(sharingPlan)) {
+        return normalizedRemarks;
+    }
+
+    if (normalizedRemarks.length === 0) {
+        return 'Extra bed';
+    }
+
+    if (/\bextra\s*bed\b/i.test(normalizedRemarks)) {
+        return normalizedRemarks;
+    }
+
+    return `${normalizedRemarks}; Extra bed`;
+}
+
 const MANIFEST_DATATABLE_EXPANDED_STORAGE_PREFIX =
     'manifest-datatable-expanded';
 
@@ -1469,6 +1500,8 @@ export default function ManifestDatatable({
         const groupLeadMember = groups.find(
             (group) => group.key === item.groupKey,
         )?.members?.[0]?.member;
+        const groupMembers =
+            groups.find((group) => group.key === item.groupKey)?.members ?? [];
         const roomInfo = isRoomMode ? getGroupRoomInfo(item.groupKey) : null;
         const groupConfirmationNumber = !isRoomMode
             ? groupLeadMember?.customer_confirmation_number
@@ -1482,6 +1515,14 @@ export default function ManifestDatatable({
         const isAtCapacity =
             Number.isFinite(capacity) && item.memberCount >= capacity;
         const disableRoomFields = isRoomCheckMode || disabled;
+        const extraBedCount = groupMembers.filter(({ member }) =>
+            isChildWithBedSharingPlan(member.sharing_plan),
+        ).length;
+        const bedsCheckedCount =
+            getBedsCountByRoomTypeAndBedType(
+                roomInfo?.room_type,
+                roomInfo?.bed_type,
+            ) + (isRoomCheckMode ? extraBedCount : 0);
 
         const canSplitGroup =
             (mode === 'members' || mode === 'room') &&
@@ -1748,12 +1789,7 @@ export default function ManifestDatatable({
                         {mode === 'room_check' && (
                             <TableCell>
                                 <div className="inline-flex items-center gap-3 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2 text-base">
-                                    <span>
-                                        {getBedsCountByRoomTypeAndBedType(
-                                            roomInfo?.room_type,
-                                            roomInfo?.bed_type,
-                                        )}
-                                    </span>
+                                    <span>{bedsCheckedCount}</span>
                                     <span className="h-5 w-px bg-muted-foreground/40" />
                                     <Checkbox
                                         checked={
@@ -1943,6 +1979,10 @@ export default function ManifestDatatable({
 
         const memberDisabled = mode === 'room_check' || disabled;
         const remarksDisabled = disabled;
+        const effectiveMemberRemarks =
+            mode === 'room_check'
+                ? ensureExtraBedRemarks(member.remarks, member.sharing_plan)
+                : String(member.remarks ?? '');
         const isOfficialMemberRow = isOfficialMember(member);
         const receiptDocuments = (member.receipt_documents ?? [])
             .filter((document) => {
@@ -3049,9 +3089,18 @@ export default function ManifestDatatable({
                                     ? getErrorPath(flatIndex, 'remarks')
                                     : undefined
                             }
-                            value={member.remarks ?? ''}
+                            value={effectiveMemberRemarks}
                             onCommit={(value) =>
-                                updateMemberField(flatIndex, 'remarks', value)
+                                updateMemberField(
+                                    flatIndex,
+                                    'remarks',
+                                    mode === 'room_check'
+                                        ? ensureExtraBedRemarks(
+                                              value,
+                                              member.sharing_plan,
+                                          )
+                                        : value,
+                                )
                             }
                             disabled={remarksDisabled}
                             textarea

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Helpers\NumberGenerator;
 use App\Models\Manifest;
 use App\Models\Package;
+use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -430,17 +431,15 @@ class OpsMovementService
 
     private function applyOperationsCountryScope(Builder $query): void
     {
-        $user = auth()->user();
+        $user = DataScope::user();
 
-        if (! $user || ! $user->hasRole('operations')) {
+        if (! $user || ! DataScope::shouldScopeOpsMovementCountry($user)) {
             return;
         }
 
-        $countryId = (int) ($user->branch?->country_id ?? 0);
+        $countryId = DataScope::scopedCountryId($user);
 
-        if ($countryId <= 0) {
-            $query->whereRaw('1 = 0');
-
+        if ($countryId === null) {
             return;
         }
 

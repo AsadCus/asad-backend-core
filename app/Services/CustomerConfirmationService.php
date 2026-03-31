@@ -18,6 +18,7 @@ use App\Models\QuotationItem;
 use App\Models\QuotationNotes;
 use App\Models\Receipt;
 use App\Models\User;
+use App\Support\DataScope;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -289,9 +290,13 @@ class CustomerConfirmationService
             'enquiry.handledBy:id,name',
             'package',
         ])
-            ->when(auth()->user()?->hasRole('sales'), function ($query) {
-                $query->whereHas('enquiry', function ($enquiryQuery) {
-                    $enquiryQuery->where('handled_by', auth()->id());
+            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+                $query->where(function ($visibilityQuery) {
+                    $visibilityQuery
+                        ->whereHas('enquiry', function ($enquiryQuery) {
+                            $enquiryQuery->where('handled_by', auth()->id());
+                        })
+                        ->orWhereDoesntHave('enquiry');
                 });
             })
             ->when($withPackage === true, function ($query) {
@@ -769,6 +774,9 @@ class CustomerConfirmationService
             'package_price_double' => $group->package?->price_double,
             'package_price_triple' => $group->package?->price_triple,
             'package_price_quad' => $group->package?->price_quad,
+            'child_with_bed_price' => $group->package?->child_with_bed_price,
+            'child_no_bed_price' => $group->package?->child_no_bed_price,
+            'infant_price' => $group->package?->infant_price,
             'package_room_type' => $group->package_room_type,
             'package_category' => $group->package_category,
             'date_of_application' => $group->date_of_application_formatted,

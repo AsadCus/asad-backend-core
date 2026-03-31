@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\EnquiryStatus;
 use App\Models\Enquiry;
+use App\Support\DataScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class EnquiryService
@@ -22,7 +24,7 @@ class EnquiryService
      */
     public function getForDataTable(array $filters = []): array
     {
-        return Enquiry::query()
+        $query = Enquiry::query()
             ->with(['package', 'latestRemark', 'handledBy:id,name'])
             ->when($filters['from_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filters['to_date'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
@@ -34,7 +36,11 @@ class EnquiryService
                 });
             })
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
-            ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('type', $v))
+            ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('type', $v));
+
+        $this->applySalesEnquiryScope($query);
+
+        return $query
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($enquiry) {
@@ -76,14 +82,17 @@ class EnquiryService
      */
     public function getSummaryCounts(): array
     {
+        $query = Enquiry::query();
+        $this->applySalesEnquiryScope($query);
+
         return [
-            'total' => Enquiry::count(),
-            'general' => Enquiry::where('type', 'general')->count(),
-            'private' => Enquiry::where('type', 'private')->count(),
-            'new_lead' => Enquiry::where('status', EnquiryStatus::NewLead)->count(),
-            'contacted' => Enquiry::where('status', EnquiryStatus::Contacted)->count(),
-            'negotiating' => Enquiry::where('status', 'negotiating')->count(),
-            'confirmed' => Enquiry::where('status', EnquiryStatus::Confirmed)->count(),
+            'total' => (clone $query)->count(),
+            'general' => (clone $query)->where('type', 'general')->count(),
+            'private' => (clone $query)->where('type', 'private')->count(),
+            'new_lead' => (clone $query)->where('status', EnquiryStatus::NewLead)->count(),
+            'contacted' => (clone $query)->where('status', EnquiryStatus::Contacted)->count(),
+            'negotiating' => (clone $query)->where('status', 'negotiating')->count(),
+            'confirmed' => (clone $query)->where('status', EnquiryStatus::Confirmed)->count(),
         ];
     }
 
@@ -179,7 +188,11 @@ class EnquiryService
      */
     public function getById(int $id): Enquiry
     {
-        return Enquiry::with(['generalEnquiry', 'privateEnquiry', 'customerConfirmation.members.customer.user'])->findOrFail($id);
+        $query = Enquiry::with(['generalEnquiry', 'privateEnquiry', 'customerConfirmation.members.customer.user']);
+
+        $this->applySalesEnquiryScope($query);
+
+        return $query->findOrFail($id);
     }
 
     /**
@@ -219,9 +232,13 @@ class EnquiryService
      */
     public function getConfirmedWithoutGroup(): array
     {
-        return Enquiry::query()
+        $query = Enquiry::query()
             ->where('status', EnquiryStatus::Confirmed)
-            ->whereDoesntHave('customerConfirmation')
+            ->whereDoesntHave('customerConfirmation');
+
+        $this->applySalesEnquiryScope($query);
+
+        return $query
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(fn (Enquiry $enquiry) => [
@@ -229,5 +246,18 @@ class EnquiryService
                 'label' => "#{$enquiry->id} - {$enquiry->name} ({$enquiry->email})",
             ])
             ->all();
+    }
+
+    private function applySalesEnquiryScope(Builder $query): void
+    {
+        if (! DataScope::shouldScopeSalesEnquiries()) {
+            return;
+        }
+
+        $query->where(function (Builder $visibilityQuery) {
+            $visibilityQuery
+                ->where('handled_by', auth()->id())
+                ->orWhereNull('handled_by');
+        });
     }
 }

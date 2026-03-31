@@ -585,7 +585,10 @@ export default function Index({ data }: PrivateEnquiriesProps) {
 
             {/* Private Enquiry Step-by-Step Confirmation Flow */}
             <Dialog open={privateFlowOpen} onOpenChange={cancelPrivateFlow}>
-                <DialogContent className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                <DialogContent
+                    className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                >
                     <DialogHeader>
                         <DialogTitle>
                             {privateFlowStep === 'package'

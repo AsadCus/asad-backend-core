@@ -617,11 +617,9 @@
                 <th rowspan="2" style="width:17%;">Package / Item</th>
                 <th rowspan="2" style="width:6%;">Ref No.</th>
                 <th rowspan="2" style="width:7%;" class="text-right">Amount</th>
-                <th rowspan="2" style="width:6%;" class="text-right">Cash</th>
-                <th rowspan="2" style="width:6%;" class="text-right">Nets</th>
-                <th rowspan="2" style="width:6%;" class="text-right">Visa</th>
-                <th rowspan="2" style="width:6%;" class="text-right">Master</th>
-                <th rowspan="2" style="width:7%;" class="text-right">Paynow</th>
+                @foreach ($paymentMethodColumns as $paymentMethodColumn)
+                    <th rowspan="2" style="width:6%;" class="text-right">{{ $methodHeaderLabel($paymentMethodColumn) }}</th>
+                @endforeach
                 <th rowspan="2" style="width:7%;" class="text-right">Total Sale</th>
                 <th rowspan="2" style="width:5%;">Maker</th>
                 <th rowspan="2" style="width:9%;">Remarks</th>
@@ -634,18 +632,18 @@
             <tr>
                 <th style="width:6%;">{{ $col1Label }}</th>
                 <th style="width:6%;">{{ $col2Label }}</th>
-            @endif
-            <th style="width:12%;">Category</th>
-            <th style="width:{{ $isDailyMode ? '17%' : '15%' }};">Package / Item</th>
-            <th style="width:6%;">Ref No.</th>
-            <th style="width:7%;" class="text-right">Amount</th>
-            @foreach ($paymentMethodColumns as $paymentMethodColumn)
-                <th style="width:6%;" class="text-right">{{ $methodHeaderLabel($paymentMethodColumn) }}</th>
-            @endforeach
-            <th style="width:7%;" class="text-right">Total Sale</th>
-            <th style="width:5%;">Maker</th>
-            <th style="width:{{ $isDailyMode ? '9%' : '7%' }};">Remarks</th>
-        </tr>
+                <th style="width:12%;">Category</th>
+                <th style="width:15%;">Package / Item</th>
+                <th style="width:6%;">Ref No.</th>
+                <th style="width:7%;" class="text-right">Amount</th>
+                @foreach ($paymentMethodColumns as $paymentMethodColumn)
+                    <th style="width:6%;" class="text-right">{{ $methodHeaderLabel($paymentMethodColumn) }}</th>
+                @endforeach
+                <th style="width:7%;" class="text-right">Total Sale</th>
+                <th style="width:5%;">Maker</th>
+                <th style="width:7%;">Remarks</th>
+            </tr>
+        @endif
 
         @foreach ($plan as $grp)
 

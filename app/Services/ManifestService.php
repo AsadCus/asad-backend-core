@@ -11,7 +11,9 @@ use App\Models\ManifestRoom;
 use App\Models\ManifestSharingGroup;
 use App\Models\ModelFile;
 use App\Models\PackageOfficial;
+use App\Support\DataScope;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -32,24 +34,16 @@ class ManifestService
 
     public function getForDataTable(array $filters = [])
     {
-        $authUser = auth()->user();
-        $authCountryId = $authUser?->branch?->country_id ? (int) $authUser->branch->country_id : null;
-        $isCountryScopedRole =
-            $authUser !== null
-            && (method_exists($authUser, 'hasRole'))
-            && ($authUser->hasRole('admin') || $authUser->hasRole('sales'));
-
-        $data = Manifest::with('package')
+        $query = Manifest::with('package')
             ->withCount([
                 'members as members_count' => function ($query) {
                     $query->whereNull('package_official_id');
                 },
-            ])
-            ->when($isCountryScopedRole && $authCountryId !== null, function ($query) use ($authCountryId) {
-                $query->whereHas('package', function ($packageQuery) use ($authCountryId) {
-                    $packageQuery->where('country_id', $authCountryId);
-                });
-            })
+            ]);
+
+        $this->applyManifestCountryScope($query);
+
+        $data = $query
             ->when($filters['search'] ?? null, function ($q, $value) {
                 $q->where(function ($query) use ($value) {
                     $query->where('manifest_number', 'like', "%{$value}%")
@@ -84,7 +78,7 @@ class ManifestService
 
     public function getForFilter()
     {
-        $data = Manifest::get()->map(function ($q) {
+        $data = $this->scopedManifestQuery()->get()->map(function ($q) {
             return [
                 'value' => $q->id,
                 'label' => $q->manifest_number,
@@ -96,7 +90,7 @@ class ManifestService
 
     public function getForFilterByName()
     {
-        $data = Manifest::get()->map(function ($q) {
+        $data = $this->scopedManifestQuery()->get()->map(function ($q) {
             return [
                 'value' => $q->manifest_number,
                 'label' => $q->manifest_number,
@@ -144,7 +138,7 @@ class ManifestService
 
     public function getForEditShow($id): array
     {
-        $manifest = Manifest::with([
+        $manifest = $this->scopedManifestQuery()->with([
             'package.accommodations',
             'package.flights',
             'package.officials',
@@ -478,7 +472,7 @@ class ManifestService
     public function update(array $data, int $id): Manifest
     {
         return DB::transaction(function () use ($data, $id) {
-            $manifest = Manifest::findOrFail($id);
+            $manifest = $this->scopedManifestQuery()->findOrFail($id);
 
             $manifestAttributes = [
                 'package_id' => $data['package_id'] ?? $manifest->package_id,
@@ -584,7 +578,7 @@ class ManifestService
 
     public function delete($id)
     {
-        $manifest = Manifest::find($id);
+        $manifest = $this->scopedManifestQuery()->find($id);
         if (! $manifest) {
             return false;
         }
@@ -603,7 +597,7 @@ class ManifestService
     public function addRoom(int $manifestId, array $data): ManifestRoom
     {
         return DB::transaction(function () use ($manifestId, $data) {
-            $manifest = Manifest::findOrFail($manifestId);
+            $manifest = $this->scopedManifestQuery()->findOrFail($manifestId);
 
             $room = $manifest->rooms()->create([
                 'sort_order' => $data['sort_order'] ?? (((int) $manifest->rooms()->max('sort_order')) + 1),
@@ -715,7 +709,7 @@ class ManifestService
      */
     public function attachSharingGroup(int $manifestId, int $customerConfirmationId): ManifestSharingGroup
     {
-        $manifest = Manifest::findOrFail($manifestId);
+        $manifest = $this->scopedManifestQuery()->findOrFail($manifestId);
 
         $msg = ManifestSharingGroup::firstOrCreate([
             'manifest_id' => $manifestId,
@@ -751,6 +745,33 @@ class ManifestService
         }
 
         return $deleted > 0;
+    }
+
+    private function scopedManifestQuery(): Builder
+    {
+        $query = Manifest::query();
+        $this->applyManifestCountryScope($query);
+
+        return $query;
+    }
+
+    private function applyManifestCountryScope(Builder $query): void
+    {
+        $user = DataScope::user();
+
+        if (! $user || ! DataScope::shouldScopePackageAndManifestCountry($user)) {
+            return;
+        }
+
+        $countryId = DataScope::scopedCountryId($user);
+
+        if ($countryId === null) {
+            return;
+        }
+
+        $query->whereHas('package', function (Builder $packageQuery) use ($countryId) {
+            $packageQuery->where('country_id', $countryId);
+        });
     }
 
     /**
@@ -2231,6 +2252,8 @@ class ManifestService
                 continue;
             }
 
+            $hasInvoiceSource = $quotation->order?->invoices?->isNotEmpty() ?? false;
+
             $quotationSubtotal = (float) $quotation->quotationItems
                 ->where('is_header', false)
                 ->sum(function ($item): float {
@@ -2245,19 +2268,21 @@ class ManifestService
                 continue;
             }
 
-            $quotationDiscountTotal = (float) collect(is_array($quotation->extensions) ? $quotation->extensions : [])
-                ->sum(function ($extension): float {
-                    if (! is_array($extension)) {
-                        return 0;
-                    }
+            if (! $hasInvoiceSource) {
+                $quotationDiscountTotal = (float) collect(is_array($quotation->extensions) ? $quotation->extensions : [])
+                    ->sum(function ($extension): float {
+                        if (! is_array($extension)) {
+                            return 0;
+                        }
 
-                    $amount = (float) ($extension['amount'] ?? 0);
+                        $amount = (float) ($extension['amount'] ?? 0);
 
-                    return $amount < 0 ? abs($amount) : 0;
-                });
+                        return $amount < 0 ? abs($amount) : 0;
+                    });
 
-            if ($quotationDiscountTotal > 0) {
-                $discountShare += $quotationDiscountTotal * ($memberSubtotal / $quotationSubtotal);
+                if ($quotationDiscountTotal > 0) {
+                    $discountShare += $quotationDiscountTotal * ($memberSubtotal / $quotationSubtotal);
+                }
             }
 
             foreach ($quotation->order?->invoices ?? collect() as $invoice) {
@@ -2617,6 +2642,9 @@ class ManifestService
             'double' => (float) ($package->price_double ?? 0),
             'triple' => (float) ($package->price_triple ?? 0),
             'quad' => (float) ($package->price_quad ?? 0),
+            'child_with_bed' => (float) ($package->child_with_bed_price ?? 0),
+            'child_no_bed' => (float) ($package->child_no_bed_price ?? 0),
+            'infant' => (float) ($package->infant_price ?? 0),
             default => 0.0,
         };
     }

@@ -6,6 +6,7 @@ use App\Helpers\FormatService;
 use App\Models\Invoice;
 use App\Models\PaymentMethodMaster;
 use App\Models\Receipt;
+use App\Support\DataScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -110,7 +111,15 @@ class ReceiptService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $invoice = Invoice::query()->findOrFail((int) $data['invoice_id']);
+            $invoiceQuery = Invoice::query();
+
+            if (DataScope::shouldScopeSalesOwnership()) {
+                $invoiceQuery->whereHas('order.quotation', function ($quotationQuery) {
+                    $quotationQuery->where('created_by', auth()->id());
+                });
+            }
+
+            $invoice = $invoiceQuery->findOrFail((int) $data['invoice_id']);
 
             $alreadyHasReceipt = Receipt::query()
                 ->where('invoice_id', $invoice->id)
@@ -148,11 +157,19 @@ class ReceiptService
 
     public function getForEditShow($id)
     {
-        $r = Receipt::with([
+        $query = Receipt::with([
             'invoice.quotationItems.taxes',
             'invoice.order.quotation.customer.user',
             'receiptNotes',
-        ])->findOrFail($id);
+        ]);
+
+        if (DataScope::shouldScopeSalesOwnership()) {
+            $query->whereHas('invoice.order.quotation', function ($quotationQuery) {
+                $quotationQuery->where('created_by', auth()->id());
+            });
+        }
+
+        $r = $query->findOrFail($id);
 
         $invoice = $r->invoice;
 
@@ -352,7 +369,15 @@ class ReceiptService
     public function update(array $data, $id)
     {
         return DB::transaction(function () use ($data, $id) {
-            $receipt = Receipt::findOrFail($id);
+            $receiptQuery = Receipt::query();
+
+            if (DataScope::shouldScopeSalesOwnership()) {
+                $receiptQuery->whereHas('invoice.order.quotation', function ($quotationQuery) {
+                    $quotationQuery->where('created_by', auth()->id());
+                });
+            }
+
+            $receipt = $receiptQuery->findOrFail($id);
 
             $targetInvoiceId = array_key_exists('invoice_id', $data) && $data['invoice_id'] !== null
                 ? (int) $data['invoice_id']

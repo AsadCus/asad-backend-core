@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\PrivateEnquiry;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +20,15 @@ class PrivateEnquiryService
     {
         $data = PrivateEnquiry::query()
             ->with(['enquiry.latestRemark', 'enquiry.handledBy:id,name'])
+            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+                $query->whereHas('enquiry', function ($enquiryQuery) {
+                    $enquiryQuery->where(function ($visibilityQuery) {
+                        $visibilityQuery
+                            ->where('handled_by', auth()->id())
+                            ->orWhereNull('handled_by');
+                    });
+                });
+            })
             ->when($filters['from_date'] ?? null, function ($q, $value) {
                 $q->whereDate('created_at', '>=', $value);
             })
@@ -158,7 +168,19 @@ class PrivateEnquiryService
 
     public function getForEditShow($id): array
     {
-        $privateEnquiry = PrivateEnquiry::with('enquiry')->findOrFail($id);
+        $query = PrivateEnquiry::with('enquiry');
+
+        if (DataScope::shouldScopeSalesEnquiries()) {
+            $query->whereHas('enquiry', function ($enquiryQuery) {
+                $enquiryQuery->where(function ($visibilityQuery) {
+                    $visibilityQuery
+                        ->where('handled_by', auth()->id())
+                        ->orWhereNull('handled_by');
+                });
+            });
+        }
+
+        $privateEnquiry = $query->findOrFail($id);
 
         return [
             'id' => $privateEnquiry->id,

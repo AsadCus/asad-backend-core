@@ -6,6 +6,9 @@ interface PackageSharingPlanInfoProps {
     doublePrice?: number | string | null;
     triplePrice?: number | string | null;
     quadPrice?: number | string | null;
+    childWithBedPrice?: number | string | null;
+    childNoBedPrice?: number | string | null;
+    infantPrice?: number | string | null;
     className?: string;
     packageLabel?: string;
 }
@@ -20,6 +23,9 @@ export default function PackageSharingPlanInfo({
     doublePrice,
     triplePrice,
     quadPrice,
+    childWithBedPrice,
+    childNoBedPrice,
+    infantPrice,
     className,
     packageLabel = 'Package',
 }: PackageSharingPlanInfoProps) {
@@ -56,6 +62,21 @@ export default function PackageSharingPlanInfo({
                 <div className="flex items-center justify-between gap-3">
                     <span>Quad</span>
                     <span>${formatPrice(quadPrice)}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                    <span>Child with Bed</span>
+                    <span>${formatPrice(childWithBedPrice)}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                    <span>Child without Bed</span>
+                    <span>${formatPrice(childNoBedPrice)}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                    <span>Infant</span>
+                    <span>${formatPrice(infantPrice)}</span>
                 </div>
             </div>
         </div>

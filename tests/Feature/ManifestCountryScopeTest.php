@@ -18,6 +18,8 @@ class ManifestCountryScopeTest extends TestCase
 
     public function test_admin_with_country_sees_only_manifests_in_same_country(): void
     {
+        config(['data_scope.enabled' => true]);
+
         $adminRole = Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
 
         $countryA = Country::create([
@@ -74,6 +76,8 @@ class ManifestCountryScopeTest extends TestCase
 
     public function test_admin_without_country_sees_all_manifests(): void
     {
+        config(['data_scope.enabled' => true]);
+
         $adminRole = Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
 
         $countryA = Country::create([
@@ -116,6 +120,121 @@ class ManifestCountryScopeTest extends TestCase
         ]);
 
         $this->actingAs($adminUser);
+
+        $manifests = app(ManifestService::class)->getForDataTable();
+
+        $this->assertCount(2, $manifests);
+    }
+
+    public function test_sales_with_country_sees_only_manifests_in_same_country_when_scope_enabled(): void
+    {
+        config(['data_scope.enabled' => true]);
+
+        $salesRole = Role::query()->firstOrCreate(['name' => 'sales', 'guard_name' => 'web']);
+
+        $countryA = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $countryB = Country::create([
+            'name' => 'Indonesia',
+            'adjective' => 'Indonesian',
+        ]);
+
+        $branchA = Branch::create([
+            'name' => 'KL Branch',
+            'country_id' => $countryA->id,
+        ]);
+
+        $salesUser = User::factory()->create([
+            'branch_id' => $branchA->id,
+        ]);
+        $salesUser->assignRole($salesRole);
+
+        $packageA = Package::create([
+            'package_number' => 'PKG-SALES-A',
+            'name' => 'Package Sales A',
+            'status' => 'open',
+            'country_id' => $countryA->id,
+        ]);
+
+        $packageB = Package::create([
+            'package_number' => 'PKG-SALES-B',
+            'name' => 'Package Sales B',
+            'status' => 'open',
+            'country_id' => $countryB->id,
+        ]);
+
+        $manifestA = Manifest::create([
+            'package_id' => $packageA->id,
+            'manifest_number' => 'MAN-SALES-A',
+        ]);
+
+        Manifest::create([
+            'package_id' => $packageB->id,
+            'manifest_number' => 'MAN-SALES-B',
+        ]);
+
+        $this->actingAs($salesUser);
+
+        $manifests = app(ManifestService::class)->getForDataTable();
+
+        $this->assertCount(1, $manifests);
+        $this->assertSame($manifestA->id, $manifests->first()['id']);
+    }
+
+    public function test_scope_disabled_allows_sales_to_see_all_manifests(): void
+    {
+        config(['data_scope.enabled' => false]);
+
+        $salesRole = Role::query()->firstOrCreate(['name' => 'sales', 'guard_name' => 'web']);
+
+        $countryA = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $countryB = Country::create([
+            'name' => 'Indonesia',
+            'adjective' => 'Indonesian',
+        ]);
+
+        $branchA = Branch::create([
+            'name' => 'KL Branch',
+            'country_id' => $countryA->id,
+        ]);
+
+        $salesUser = User::factory()->create([
+            'branch_id' => $branchA->id,
+        ]);
+        $salesUser->assignRole($salesRole);
+
+        $packageA = Package::create([
+            'package_number' => 'PKG-SCOPE-OFF-A',
+            'name' => 'Package Scope Off A',
+            'status' => 'open',
+            'country_id' => $countryA->id,
+        ]);
+
+        $packageB = Package::create([
+            'package_number' => 'PKG-SCOPE-OFF-B',
+            'name' => 'Package Scope Off B',
+            'status' => 'open',
+            'country_id' => $countryB->id,
+        ]);
+
+        Manifest::create([
+            'package_id' => $packageA->id,
+            'manifest_number' => 'MAN-SCOPE-OFF-A',
+        ]);
+
+        Manifest::create([
+            'package_id' => $packageB->id,
+            'manifest_number' => 'MAN-SCOPE-OFF-B',
+        ]);
+
+        $this->actingAs($salesUser);
 
         $manifests = app(ManifestService::class)->getForDataTable();
 

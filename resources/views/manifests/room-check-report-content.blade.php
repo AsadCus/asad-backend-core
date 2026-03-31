@@ -227,6 +227,11 @@
                     $first = $groupRows[0];
                     $groupColorClass = $roomColorMap[$groupKey] ?? 'group-bg-a';
                     $bedsCount = (int) ($first['no_of_beds_checked'] ?? 0);
+                    $extraBedCount = collect($groupRows)
+                        ->filter(function ($memberRow) {
+                            return strtolower(trim((string) ($memberRow['sharing_plan'] ?? ''))) === 'child_with_bed';
+                        })
+                        ->count();
 
                     if ($bedsCount < 1) {
                         $roomType = strtolower((string) ($first['room_type'] ?? ''));
@@ -246,11 +251,23 @@
                             $bedsCount = 1;
                         }
                     }
+
+                    $bedsCount += $extraBedCount;
                 @endphp
 
                 @foreach ($groupRows as $memberIndex => $row)
                     @php
                         $memberRemarks = trim((string) ($row['remarks'] ?? ''));
+                        $memberSharingPlan = strtolower(trim((string) ($row['sharing_plan'] ?? '')));
+
+                        if ($memberSharingPlan === 'child_with_bed') {
+                            if ($memberRemarks === '') {
+                                $memberRemarks = 'Extra bed';
+                            } elseif (!preg_match('/\bextra\s*bed\b/i', $memberRemarks)) {
+                                $memberRemarks .= '; Extra bed';
+                            }
+                        }
+
                         $roomRemarks = trim((string) ($first['room_remarks'] ?? ''));
                     @endphp
 

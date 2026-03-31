@@ -288,7 +288,13 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                             (s) =>
                                                 `quotation-status-${s}` as ActionType,
                                         );
-                                    rowActions.push(...statusActions);
+                                    rowActions.push(
+                                        ...statusActions.filter(
+                                            (action) =>
+                                                action !==
+                                                'quotation-status-ready',
+                                        ),
+                                    );
                                 }
 
                                 if (

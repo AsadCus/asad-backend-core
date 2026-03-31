@@ -5,6 +5,7 @@ import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -127,6 +128,44 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
             );
         },
         filterFn: 'includesValue',
+    },
+    {
+        id: 'create_receipt',
+        header: 'Create Receipt',
+        meta: { exportable: false },
+        cell: ({ row }) => {
+            const invoice = row.original;
+            const canCreateReceipt =
+                invoice.status !== 'paid' &&
+                invoice.status !== 'cancelled' &&
+                !invoice.has_receipt &&
+                Boolean(invoice.id);
+
+            if (!canCreateReceipt) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
+            return (
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={(event) => {
+                        event.stopPropagation();
+
+                        if (!invoice.id) {
+                            return;
+                        }
+
+                        router.get(createReceipt.url(), {
+                            invoice_id: invoice.id,
+                        });
+                    }}
+                >
+                    Create
+                </Button>
+            );
+        },
     },
     {
         accessorKey: 'description',

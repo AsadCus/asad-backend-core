@@ -7,6 +7,7 @@ use App\Services\InvoiceService;
 use App\Services\ReceiptService;
 use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
+use App\Support\DataScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -39,7 +40,7 @@ class ReceiptController extends Controller
         $user = $request->user();
         $filters = [];
 
-        if ($user->hasRole('sales')) {
+        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
             $filters['sales_id'] = $user->id;
         }
 
@@ -59,7 +60,7 @@ class ReceiptController extends Controller
         $user = $request->user();
         $filters = [];
 
-        if ($user && $user->hasRole('sales')) {
+        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
             $filters['sales_id'] = $user->id;
         }
 
@@ -101,7 +102,7 @@ class ReceiptController extends Controller
         $user = request()->user();
         $filters = [];
 
-        if ($user && $user->hasRole('sales')) {
+        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
             $filters['sales_id'] = $user->id;
         }
 
@@ -123,7 +124,7 @@ class ReceiptController extends Controller
         $user = request()->user();
         $filters = [];
 
-        if ($user && $user->hasRole('sales')) {
+        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
             $filters['sales_id'] = $user->id;
         }
 

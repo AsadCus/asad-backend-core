@@ -72,6 +72,9 @@ type PackagePrices = {
     double: number;
     triple: number;
     quad: number;
+    childWithBed: number;
+    childNoBed: number;
+    infant: number;
 };
 
 const EMPTY_PACKAGE_PRICES: PackagePrices = {
@@ -79,12 +82,17 @@ const EMPTY_PACKAGE_PRICES: PackagePrices = {
     double: 0,
     triple: 0,
     quad: 0,
+    childWithBed: 0,
+    childNoBed: 0,
+    infant: 0,
 };
 
 const UMRAH_PACKAGES_HEADER_LABEL = 'Umrah Packages';
 
 function formatSharingPlanLabel(sharingPlan: string | null): string {
-    const normalized = String(sharingPlan ?? '').trim().toLowerCase();
+    const normalized = String(sharingPlan ?? '')
+        .trim()
+        .toLowerCase();
 
     if (normalized.length === 0) {
         return 'Standard';
@@ -121,12 +129,31 @@ function getPackagePricesFromConfirmation(confirmation: {
     package_price_double?: number | string | null;
     package_price_triple?: number | string | null;
     package_price_quad?: number | string | null;
+    package_price_child_with_bed?: number | string | null;
+    package_price_child_no_bed?: number | string | null;
+    package_price_infant?: number | string | null;
+    child_with_bed_price?: number | string | null;
+    child_no_bed_price?: number | string | null;
+    infant_price?: number | string | null;
 }): PackagePrices {
     return {
         single: Number(confirmation.package_price_single ?? 0),
         double: Number(confirmation.package_price_double ?? 0),
         triple: Number(confirmation.package_price_triple ?? 0),
         quad: Number(confirmation.package_price_quad ?? 0),
+        childWithBed: Number(
+            confirmation.package_price_child_with_bed ??
+                confirmation.child_with_bed_price ??
+                0,
+        ),
+        childNoBed: Number(
+            confirmation.package_price_child_no_bed ??
+                confirmation.child_no_bed_price ??
+                0,
+        ),
+        infant: Number(
+            confirmation.package_price_infant ?? confirmation.infant_price ?? 0,
+        ),
     };
 }
 
@@ -635,6 +662,11 @@ export function QuotationForm({
                 if (sharingPlan === 'double') return prices.double;
                 if (sharingPlan === 'triple') return prices.triple;
                 if (sharingPlan === 'quad') return prices.quad;
+                if (sharingPlan === 'child_with_bed') {
+                    return prices.childWithBed;
+                }
+                if (sharingPlan === 'child_no_bed') return prices.childNoBed;
+                if (sharingPlan === 'infant') return prices.infant;
                 return 0;
             };
 
@@ -891,6 +923,21 @@ export function QuotationForm({
                 package_price_quad: Number(
                     confirmation.package_price_quad ?? 0,
                 ),
+                package_price_child_with_bed: Number(
+                    confirmation.package_price_child_with_bed ??
+                        confirmation.child_with_bed_price ??
+                        0,
+                ),
+                package_price_child_no_bed: Number(
+                    confirmation.package_price_child_no_bed ??
+                        confirmation.child_no_bed_price ??
+                        0,
+                ),
+                package_price_infant: Number(
+                    confirmation.package_price_infant ??
+                        confirmation.infant_price ??
+                        0,
+                ),
                 ...(isCreate
                     ? {
                           items: buildItemsFromMembers(
@@ -971,6 +1018,9 @@ export function QuotationForm({
             package_price_double: 0,
             package_price_triple: 0,
             package_price_quad: 0,
+            package_price_child_with_bed: 0,
+            package_price_child_no_bed: 0,
+            package_price_infant: 0,
         }));
     }, [setData]);
 

@@ -527,7 +527,10 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
             {/* Customer Confirmation Form Dialog */}
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                >
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation</DialogTitle>
                         <DialogDescription>
@@ -562,7 +565,10 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
 
             {/* Private Enquiry Step-by-Step Confirmation Flow */}
             <Dialog open={privateFlowOpen} onOpenChange={cancelPrivateFlow}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                >
                     <DialogHeader>
                         <DialogTitle>
                             {privateFlowStep === 'package'
