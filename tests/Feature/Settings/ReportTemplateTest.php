@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ReportTemplateTest extends TestCase
@@ -17,11 +18,20 @@ class ReportTemplateTest extends TestCase
     {
         parent::setUp();
         Storage::fake('public');
+        Role::findOrCreate('admin', 'web');
+    }
+
+    private function createAdminUser(): User
+    {
+        $user = User::factory()->create();
+        $user->assignRole('admin');
+
+        return $user;
     }
 
     public function test_report_template_page_is_displayed(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
 
         $response = $this
             ->actingAs($user)
@@ -32,7 +42,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_report_template_settings_can_be_updated(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
 
         $response = $this
             ->actingAs($user)
@@ -60,7 +70,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_company_name_is_required(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
 
         $response = $this
             ->actingAs($user)
@@ -73,7 +83,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_logo_file_can_be_uploaded(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $file = UploadedFile::fake()->image('logo.png', 200, 200);
 
         $response = $this
@@ -92,7 +102,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_stamp_and_signature_files_can_be_uploaded(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $stamp = UploadedFile::fake()->image('stamp.png');
         $signature = UploadedFile::fake()->image('signature.png');
 
@@ -173,7 +183,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_invalid_file_type_is_rejected(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $file = UploadedFile::fake()->create('document.pdf', 1000);
 
         $response = $this
@@ -188,7 +198,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_file_size_limit_is_enforced(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $file = UploadedFile::fake()->image('logo.png')->size(3000); // 3MB
 
         $response = $this
@@ -203,7 +213,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_updating_one_file_does_not_delete_other_files(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
 
         // Upload all three files initially
         $logo = UploadedFile::fake()->image('logo.png');

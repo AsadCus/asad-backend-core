@@ -116,7 +116,7 @@ class EnquirySalesWorkflowTest extends TestCase
         $this->assertSame($pipelineA['receipt']->id, (int) $receipts->first()['id']);
     }
 
-    public function test_sales_can_see_quotation_when_customer_confirmation_enquiry_is_handled_by_them_even_if_created_by_another_user(): void
+    public function test_sales_cannot_see_quotation_when_it_was_created_by_another_user_even_if_enquiry_was_handled_by_them(): void
     {
         $salesA = User::factory()->create();
         $salesA->assignRole('sales');
@@ -150,8 +150,7 @@ class EnquirySalesWorkflowTest extends TestCase
             'sales_id' => $salesA->id,
         ]);
 
-        $this->assertCount(1, $quotationsForSalesA);
-        $this->assertSame($quotation->id, (int) $quotationsForSalesA->first()['id']);
+        $this->assertCount(0, $quotationsForSalesA);
     }
 
     private function createConfirmationGroupHandledBy(int $handledBy, int $packageId, string $suffix): CustomerConfirmation

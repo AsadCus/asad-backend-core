@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ArabicTextHelper;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
@@ -464,6 +465,18 @@ class ManifestController extends Controller
                     }
                 }
             }
+
+            $manifest['members'] = collect($manifest['members'] ?? [])
+                ->map(function ($member) {
+                    if (! is_array($member)) {
+                        return $member;
+                    }
+
+                    $member['arabic_name'] = ArabicTextHelper::shapeForPdf($member['arabic_name'] ?? null);
+
+                    return $member;
+                })
+                ->all();
 
             $reportData = $this->reportTemplateService->build('manifest_arabic_names', [
                 'manifest' => $manifest,
