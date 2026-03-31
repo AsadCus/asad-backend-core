@@ -315,12 +315,23 @@ class PaymentStatusService
             return;
         }
 
-        $sharingGroup = ManifestSharingGroup::query()
-            ->where('manifest_id', $manifest->id)
-            ->where('source_quotation_id', $quotation->id)
-            ->first();
+        $sharingGroup = null;
+        $assignedMemberIds = [];
 
-        if (! $sharingGroup) {
+        $ensureAutoSharingGroup = function () use ($manifest, $quotation, &$sharingGroup): ManifestSharingGroup {
+            if ($sharingGroup instanceof ManifestSharingGroup) {
+                return $sharingGroup;
+            }
+
+            $sharingGroup = ManifestSharingGroup::query()
+                ->where('manifest_id', $manifest->id)
+                ->where('source_quotation_id', $quotation->id)
+                ->first();
+
+            if ($sharingGroup instanceof ManifestSharingGroup) {
+                return $sharingGroup;
+            }
+
             $sharingGroup = ManifestSharingGroup::query()->create([
                 'manifest_id' => $manifest->id,
                 'customer_confirmation_id' => (int) $quotation->customer_confirmation_id,
@@ -328,9 +339,9 @@ class PaymentStatusService
                 'sort_order' => ((int) ManifestSharingGroup::query()->where('manifest_id', $manifest->id)->max('sort_order')) + 1,
                 'remarks' => 'Auto-linked from quotation #'.$quotation->quotation_number,
             ]);
-        }
 
-        $memberIds = [];
+            return $sharingGroup;
+        };
 
         foreach ($eligibleMembers->values() as $index => $confirmationMember) {
             $manifestMember = ManifestMember::query()
@@ -339,24 +350,33 @@ class PaymentStatusService
                 ->first();
 
             if (! $manifestMember) {
+                $autoGroup = $ensureAutoSharingGroup();
+
                 $manifestMember = ManifestMember::query()->create([
                     'manifest_id' => $manifest->id,
-                    'manifest_sharing_group_id' => $sharingGroup->id,
+                    'manifest_sharing_group_id' => $autoGroup->id,
                     'customer_confirmation_member_id' => (int) $confirmationMember->id,
                     'sharing_plan' => $confirmationMember->sharing_plan,
                     'sort_order' => $index + 1,
                 ]);
-            } else {
-                $manifestMember->update([
-                    'manifest_sharing_group_id' => $sharingGroup->id,
-                    'sharing_plan' => $confirmationMember->sharing_plan,
-                ]);
-            }
 
-            $memberIds[] = (int) $manifestMember->id;
+                $assignedMemberIds[] = (int) $manifestMember->id;
+            } else {
+                $updates = [
+                    'sharing_plan' => $confirmationMember->sharing_plan,
+                ];
+
+                if ((int) ($manifestMember->manifest_sharing_group_id ?? 0) <= 0) {
+                    $autoGroup = $ensureAutoSharingGroup();
+                    $updates['manifest_sharing_group_id'] = $autoGroup->id;
+                    $assignedMemberIds[] = (int) $manifestMember->id;
+                }
+
+                $manifestMember->update($updates);
+            }
         }
 
-        if (empty($memberIds)) {
+        if (empty($assignedMemberIds)) {
             return;
         }
 
@@ -387,10 +407,10 @@ class PaymentStatusService
         }
 
         $room->roomMembers()
-            ->whereNotIn('manifest_member_id', $memberIds)
+            ->whereNotIn('manifest_member_id', $assignedMemberIds)
             ->delete();
 
-        foreach (array_values($memberIds) as $index => $memberId) {
+        foreach (array_values($assignedMemberIds) as $index => $memberId) {
             $room->roomMembers()->updateOrCreate(
                 ['manifest_member_id' => $memberId],
                 ['sort_order' => $index + 1]

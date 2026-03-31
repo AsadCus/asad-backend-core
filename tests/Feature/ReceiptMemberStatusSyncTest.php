@@ -723,4 +723,127 @@ class ReceiptMemberStatusSyncTest extends TestCase
                 ->count()
         );
     }
+
+    public function test_receipt_sync_preserves_existing_manual_manifest_group_for_member(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MANUAL-GROUP-001',
+            'name' => 'Manual Group Preserve Package',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 10,
+            'seats_left' => 10,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-MANUAL-GROUP-001',
+            'status' => 'draft',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+        ]);
+
+        $memberUsers = [
+            User::factory()->create(['name' => 'Manual Group Member One']),
+            User::factory()->create(['name' => 'Manual Group Member Two']),
+        ];
+
+        $members = collect($memberUsers)->map(function (User $user, int $index) use ($confirmation) {
+            $customer = Customer::create([
+                'user_id' => $user->id,
+                'customer_number' => 'CUST-MANUAL-'.$index,
+            ]);
+
+            return CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'is_leader' => $index === 0,
+                'status' => 'pending_payment',
+                'sharing_plan' => 'double',
+            ]);
+        })->values();
+
+        $manualGroupId = (int) \DB::table('manifest_sharing_groups')->insertGetId([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'source_quotation_id' => null,
+            'sort_order' => 1,
+            'group_relationship' => null,
+            'remarks' => 'Manual grouping',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $manifestMemberIds = $members->map(function (CustomerConfirmationMember $member, int $index) use ($manifest, $manualGroupId): int {
+            return (int) \DB::table('manifest_members')->insertGetId([
+                'manifest_id' => $manifest->id,
+                'manifest_sharing_group_id' => $manualGroupId,
+                'customer_confirmation_member_id' => $member->id,
+                'sharing_plan' => 'double',
+                'name' => 'Manual Member '.($index + 1),
+                'sort_order' => $index + 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        })->values();
+
+        $quotation = Quotation::create([
+            'customer_id' => $members[0]->customer_id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $members[0]->id,
+            'description' => 'Manual preserve member',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Manual preserve invoice',
+            'amount' => 5000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $this->assertSame(
+            $manualGroupId,
+            (int) \DB::table('manifest_members')->where('id', $manifestMemberIds[0])->value('manifest_sharing_group_id')
+        );
+
+        $this->assertSame(
+            0,
+            (int) \DB::table('manifest_sharing_groups')
+                ->where('manifest_id', $manifest->id)
+                ->where('source_quotation_id', $quotation->id)
+                ->count()
+        );
+    }
 }
