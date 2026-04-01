@@ -29,7 +29,7 @@ class CustomerConfirmationController extends Controller
      */
     public function index()
     {
-        $dataGroups = $this->customerConfirmationService->getForGroupedIndex(true);
+        $dataGroups = $this->customerConfirmationService->getForConfirmedIndex();
         $packageOptions = $this->packageService->getForFilter();
 
         return Inertia::render('confirmed-customer/index', [
@@ -45,7 +45,7 @@ class CustomerConfirmationController extends Controller
      */
     public function holdingIndex()
     {
-        $dataGroups = $this->customerConfirmationService->getForGroupedIndex(false);
+        $dataGroups = $this->customerConfirmationService->getForHoldingIndex();
         $packageOptions = $this->packageService->getForFilter();
 
         return Inertia::render('confirmed-customer/index', [

@@ -299,7 +299,7 @@ class CustomerConfirmationService
                         ->orWhereDoesntHave('enquiry');
                 });
             })
-            ->when($withPackage === true, function ($query) {
+            ->when($withPackage, function ($query) {
                 $query->whereNotNull('package_id');
             })
             ->when($withPackage === false, function ($query) {
@@ -336,6 +336,209 @@ class CustomerConfirmationService
                     'id' => $group->id,
                     'number' => $group->number,
                     'enquiry_id' => $group->enquiry_id,
+                    'package_id' => $group->package_id,
+                    'package_name' => $group->package?->name ?? '-',
+                    'date_of_application' => $group->date_of_application_formatted,
+                    'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,
+                    'enquiry_status' => $group->enquiry?->status?->label(),
+                    'customer_name' => $leader?->customer?->user?->name ?? '-',
+                    'customer_number' => $leader?->customer?->customer_number ?? '-',
+                    'enquiry_email' => $group->enquiry?->email ?? ($leader?->customer?->user?->email ?? '-'),
+                    'enquiry_contact' => $group->enquiry?->contact_number ?? ($leader?->customer?->user?->contact ?? '-'),
+                    'member_count' => $group->members->count(),
+                    'active_member_count' => $activeMembers->count(),
+                    'quoted_member_count' => $quotedMemberCount,
+                    'paid_amount' => round($groupPaidAmount, 2),
+                    'total_amount' => round($groupTotalAmount, 2),
+                    'overpaid_amount' => round($groupOverpaidAmount, 2),
+                    'can_create_quotation' => $canCreateQuotation,
+                    'created_at' => $group->created_at?->translatedFormat('d F Y'),
+                    'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
+                        $summary = $this->resolveMemberFinancialSnapshot($member, $group->package);
+
+                        return [
+                            'id' => $member->id,
+                            'group_id' => $member->customer_confirmation_id,
+                            'customer_id' => $member->customer_id,
+                            'is_leader' => $member->is_leader,
+                            'status' => $summary['status'],
+                            'sharing_plan' => $member->sharing_plan,
+                            'relationship' => $member->relationship,
+                            'has_quotation' => $this->hasActiveQuotationItemLink($member),
+                            'paid_amount' => round((float) $summary['paid_amount'], 2),
+                            'total_amount' => round((float) $summary['total_amount'], 2),
+                            'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'name' => $member->customer?->user?->name ?? '-',
+                            'email' => $member->customer?->user?->email ?? '-',
+                            'contact' => $member->customer?->user?->contact ?? '-',
+                            'customer_number' => $member->customer?->customer_number ?? '-',
+                            'nric_number' => $member->customer?->nric_number ?? '-',
+                            'nationality' => $member->customer?->nationality ?? '-',
+                            'passport_number' => $member->customer?->passport_number ?? '-',
+                        ];
+                    })->all(),
+                ];
+            })
+            ->all();
+    }
+
+    public function getForConfirmedIndex(): array
+    {
+        return CustomerConfirmation::with([
+            'members.customer.user',
+            'members.quotationItems',
+            'members.quotationItems.invoices.receipt',
+            'members.quotationItems.invoices.quotationItems',
+            'members.quotationItems.invoices.quotationItems.taxes',
+            'members.quotationItems.quotation.quotationItems',
+            'members.quotationItems.quotation.order.invoices.quotationItems',
+            'members.quotationItems.quotation.order.invoices.quotationItems.taxes',
+            'enquiry.handledBy:id,name',
+            'package',
+        ])
+            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+                $query->where(function ($visibilityQuery) {
+                    $visibilityQuery
+                        ->whereHas('enquiry', function ($enquiryQuery) {
+                            $enquiryQuery->where('handled_by', auth()->id());
+                        })
+                        ->orWhereDoesntHave('enquiry');
+                });
+            })
+            ->where('is_holding', false)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function (CustomerConfirmation $group) {
+                $leader = $group->members->firstWhere('is_leader', true);
+
+                $activeMembers = $group->members->filter(
+                    fn (CustomerConfirmationMember $member) => $member->status !== 'cancelled'
+                );
+
+                $memberSummaries = $activeMembers
+                    ->mapWithKeys(function (CustomerConfirmationMember $member) use ($group) {
+                        return [
+                            (int) $member->id => $this->resolveMemberFinancialSnapshot($member, $group->package),
+                        ];
+                    });
+
+                $groupTotalAmount = (float) $memberSummaries->sum('total_amount');
+                $groupPaidAmount = (float) $memberSummaries->sum('paid_amount');
+                $groupOverpaidAmount = (float) $memberSummaries->sum('overpaid_amount');
+
+                $quotedMemberCount = $activeMembers->filter(
+                    fn (CustomerConfirmationMember $member) => $this->hasActiveQuotationItemLink($member)
+                )->count();
+
+                $canCreateQuotation = $activeMembers
+                    ->contains(fn (CustomerConfirmationMember $member) => ! $this->hasActiveQuotationItemLink($member));
+
+                return [
+                    'id' => $group->id,
+                    'number' => $group->number,
+                    'enquiry_id' => $group->enquiry_id,
+                    'package_id' => $group->package_id,
+                    'package_name' => $group->package?->name ?? '-',
+                    'date_of_application' => $group->date_of_application_formatted,
+                    'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,
+                    'enquiry_status' => $group->enquiry?->status?->label(),
+                    'customer_name' => $leader?->customer?->user?->name ?? '-',
+                    'customer_number' => $leader?->customer?->customer_number ?? '-',
+                    'enquiry_email' => $group->enquiry?->email ?? ($leader?->customer?->user?->email ?? '-'),
+                    'enquiry_contact' => $group->enquiry?->contact_number ?? ($leader?->customer?->user?->contact ?? '-'),
+                    'member_count' => $group->members->count(),
+                    'active_member_count' => $activeMembers->count(),
+                    'quoted_member_count' => $quotedMemberCount,
+                    'paid_amount' => round($groupPaidAmount, 2),
+                    'total_amount' => round($groupTotalAmount, 2),
+                    'overpaid_amount' => round($groupOverpaidAmount, 2),
+                    'can_create_quotation' => $canCreateQuotation,
+                    'created_at' => $group->created_at?->translatedFormat('d F Y'),
+                    'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
+                        $summary = $this->resolveMemberFinancialSnapshot($member, $group->package);
+
+                        return [
+                            'id' => $member->id,
+                            'group_id' => $member->customer_confirmation_id,
+                            'customer_id' => $member->customer_id,
+                            'is_leader' => $member->is_leader,
+                            'status' => $summary['status'],
+                            'sharing_plan' => $member->sharing_plan,
+                            'relationship' => $member->relationship,
+                            'has_quotation' => $this->hasActiveQuotationItemLink($member),
+                            'paid_amount' => round((float) $summary['paid_amount'], 2),
+                            'total_amount' => round((float) $summary['total_amount'], 2),
+                            'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'name' => $member->customer?->user?->name ?? '-',
+                            'email' => $member->customer?->user?->email ?? '-',
+                            'contact' => $member->customer?->user?->contact ?? '-',
+                            'customer_number' => $member->customer?->customer_number ?? '-',
+                            'nric_number' => $member->customer?->nric_number ?? '-',
+                            'nationality' => $member->customer?->nationality ?? '-',
+                            'passport_number' => $member->customer?->passport_number ?? '-',
+                        ];
+                    })->all(),
+                ];
+            })
+            ->all();
+    }
+
+    public function getForHoldingIndex(): array
+    {
+        return CustomerConfirmation::with([
+            'members.customer.user',
+            'members.quotationItems',
+            'members.quotationItems.invoices.receipt',
+            'members.quotationItems.invoices.quotationItems',
+            'members.quotationItems.invoices.quotationItems.taxes',
+            'members.quotationItems.quotation.quotationItems',
+            'members.quotationItems.quotation.order.invoices.quotationItems',
+            'members.quotationItems.quotation.order.invoices.quotationItems.taxes',
+            'enquiry.handledBy:id,name',
+            'package',
+        ])
+            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+                $query->where(function ($visibilityQuery) {
+                    $visibilityQuery
+                        ->whereHas('enquiry', function ($enquiryQuery) {
+                            $enquiryQuery->where('handled_by', auth()->id());
+                        })
+                        ->orWhereDoesntHave('enquiry');
+                });
+            })
+            ->where('is_holding', true)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function (CustomerConfirmation $group) {
+                $leader = $group->members->firstWhere('is_leader', true);
+
+                $activeMembers = $group->members->filter(
+                    fn (CustomerConfirmationMember $member) => $member->status !== 'cancelled'
+                );
+
+                $memberSummaries = $activeMembers
+                    ->mapWithKeys(function (CustomerConfirmationMember $member) use ($group) {
+                        return [
+                            (int) $member->id => $this->resolveMemberFinancialSnapshot($member, $group->package),
+                        ];
+                    });
+
+                $groupTotalAmount = (float) $memberSummaries->sum('total_amount');
+                $groupPaidAmount = (float) $memberSummaries->sum('paid_amount');
+                $groupOverpaidAmount = (float) $memberSummaries->sum('overpaid_amount');
+
+                $quotedMemberCount = $activeMembers->filter(
+                    fn (CustomerConfirmationMember $member) => $this->hasActiveQuotationItemLink($member)
+                )->count();
+
+                $canCreateQuotation = $activeMembers
+                    ->contains(fn (CustomerConfirmationMember $member) => ! $this->hasActiveQuotationItemLink($member));
+
+                return [
+                    'id' => $group->id,
+                    'number' => $group->number,
+                    'enquiry_id' => $group->enquiry_id,
+                    'package_id' => $group->package_id,
                     'package_name' => $group->package?->name ?? '-',
                     'date_of_application' => $group->date_of_application_formatted,
                     'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,
@@ -856,6 +1059,7 @@ class CustomerConfirmationService
                     : $group->number,
                 // 'package_id' => $data['package_id'] ?? $group->package_id,
                 'package_id' => $data['package_id'] ?? null,
+                'is_holding' => ($group->is_holding && ! empty($data['package_id'])) ? false : $group->is_holding,
                 'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
                 'package_category' => $data['package_category'] ?? $group->package_category,
                 'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
@@ -1242,6 +1446,7 @@ class CustomerConfirmationService
                 'enquiry_id' => $sourceGroup->enquiry_id,
                 'created_by' => auth()->id(),
                 'package_id' => $targetPackageId,
+                'is_holding' => true,
                 'package_room_type' => $sourceGroup->package_room_type,
                 'package_category' => $sourceGroup->package_category,
                 'date_of_application' => now(),

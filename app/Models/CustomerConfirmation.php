@@ -17,6 +17,7 @@ class CustomerConfirmation extends Model
         'enquiry_id',
         'created_by',
         'package_id',
+        'is_holding',
         'package_room_type',
         'package_category',
         'date_of_application',
@@ -26,6 +27,7 @@ class CustomerConfirmation extends Model
     {
         return [
             'date_of_application' => 'date',
+            'is_holding' => 'boolean',
         ];
     }
 

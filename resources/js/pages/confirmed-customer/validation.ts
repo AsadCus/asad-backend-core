@@ -18,6 +18,15 @@ export function validateQuotationGenerationPayload(
         };
     }
 
+    if (!group.package_id) {
+        return {
+            isValid: false,
+            errorMessage:
+                'Cannot create quotation: please select package in customer confirmation first.',
+            payerToMembers: {},
+        };
+    }
+
     const activeMembers = group.members.filter(
         (member) => member.status !== 'cancelled' && !member.has_quotation,
     );

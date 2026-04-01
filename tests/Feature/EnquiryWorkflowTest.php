@@ -948,7 +948,7 @@ class EnquiryWorkflowTest extends TestCase
         );
     }
 
-    public function test_confirmed_and_holding_customer_indexes_are_split_by_package_assignment(): void
+    public function test_confirmed_and_holding_customer_indexes_are_split_by_holding_flag(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -961,14 +961,30 @@ class EnquiryWorkflowTest extends TestCase
             'status' => 'active',
         ]);
 
-        $withPackage = CustomerConfirmation::create([
+        $confirmedWithPackage = CustomerConfirmation::create([
             'package_id' => $package->id,
+            'is_holding' => false,
             'created_by' => $this->adminUser->id,
             'date_of_application' => now()->toDateString(),
         ]);
 
-        $withoutPackage = CustomerConfirmation::create([
+        $confirmedWithoutPackage = CustomerConfirmation::create([
             'package_id' => null,
+            'is_holding' => false,
+            'created_by' => $this->adminUser->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $holdingWithoutPackage = CustomerConfirmation::create([
+            'package_id' => null,
+            'is_holding' => true,
+            'created_by' => $this->adminUser->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $holdingWithPackage = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'is_holding' => true,
             'created_by' => $this->adminUser->id,
             'date_of_application' => now()->toDateString(),
         ]);
@@ -979,11 +995,13 @@ class EnquiryWorkflowTest extends TestCase
             fn ($page) => $page
                 ->component('confirmed-customer/index')
                 ->where('pageTitle', 'Confirmed Customers')
-                ->where('dataGroups', function ($groups) use ($withPackage, $withoutPackage) {
+                ->where('dataGroups', function ($groups) use ($confirmedWithPackage, $confirmedWithoutPackage, $holdingWithPackage, $holdingWithoutPackage) {
                     $ids = collect($groups)->pluck('id')->all();
 
-                    return in_array($withPackage->id, $ids, true)
-                        && ! in_array($withoutPackage->id, $ids, true);
+                    return in_array($confirmedWithPackage->id, $ids, true)
+                        && in_array($confirmedWithoutPackage->id, $ids, true)
+                        && ! in_array($holdingWithPackage->id, $ids, true)
+                        && ! in_array($holdingWithoutPackage->id, $ids, true);
                 })
         );
 
@@ -993,11 +1011,13 @@ class EnquiryWorkflowTest extends TestCase
             fn ($page) => $page
                 ->component('confirmed-customer/index')
                 ->where('pageTitle', 'Customer Holding')
-                ->where('dataGroups', function ($groups) use ($withPackage, $withoutPackage) {
+                ->where('dataGroups', function ($groups) use ($confirmedWithPackage, $confirmedWithoutPackage, $holdingWithPackage, $holdingWithoutPackage) {
                     $ids = collect($groups)->pluck('id')->all();
 
-                    return in_array($withoutPackage->id, $ids, true)
-                        && ! in_array($withPackage->id, $ids, true);
+                    return in_array($holdingWithPackage->id, $ids, true)
+                        && in_array($holdingWithoutPackage->id, $ids, true)
+                        && ! in_array($confirmedWithPackage->id, $ids, true)
+                        && ! in_array($confirmedWithoutPackage->id, $ids, true);
                 })
         );
     }

@@ -1857,6 +1857,41 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertDatabaseCount('quotations', 0);
     }
 
+    public function test_generate_quotations_requires_selected_package_before_submit(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $payerUser = User::factory()->create(['email' => 'payer-no-package@test.com']);
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-PAYER-NO-PACKAGE-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => null,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $response = $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+            'payer_to_members' => [
+                (string) $payerMember->id => [$payerMember->id],
+            ],
+        ]);
+
+        $response->assertSessionHasErrors('payer_to_members');
+
+        $this->assertDatabaseCount('quotations', 0);
+    }
+
     public function test_generate_quotations_with_inertia_request_redirects_to_quotation_index(): void
     {
         $this->actingAs($this->adminUser);

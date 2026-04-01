@@ -170,6 +170,7 @@ export interface CustomerConfirmationDatatableSchema {
     id: number;
     number: string | null;
     enquiry_id: number | null;
+    package_id?: number | null;
     package_name: string;
     date_of_application: string | null;
     enquiry_type: string | null;

@@ -341,6 +341,9 @@ export default function CustomerConfirmationForm({
         (effectiveLinkedEnquiry?.type ?? enquiryType ?? '').toLowerCase() ===
             'private' &&
         !!initialData?.package_id;
+    const isPackageAlreadySelected = Boolean(
+        initialData?.package_id ?? prefillPackageId,
+    );
 
     const groupedPackageOptions = useMemo(() => {
         const selectedPackageId = Number(data.package_id ?? 0);
@@ -1267,6 +1270,7 @@ export default function CustomerConfirmationForm({
                                         disabled={
                                             isView ||
                                             processing ||
+                                            isPackageAlreadySelected ||
                                             isPrivateWithLinkedPackage ||
                                             (isPublic &&
                                                 Boolean(data.package_id))

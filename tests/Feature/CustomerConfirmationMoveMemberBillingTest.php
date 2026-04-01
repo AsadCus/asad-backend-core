@@ -143,6 +143,7 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         );
 
         $this->assertSame($targetPackage->id, (int) $newGroup->package_id);
+        $this->assertTrue((bool) $newGroup->is_holding);
 
         $newMember = CustomerConfirmationMember::query()
             ->where('customer_confirmation_id', $newGroup->id)
@@ -174,6 +175,12 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
             ->where('amount', 10000)
             ->first();
         $this->assertNotNull($newPaidReceipt);
+
+        $holdingRows = app(CustomerConfirmationService::class)->getForHoldingIndex();
+        $confirmedRows = app(CustomerConfirmationService::class)->getForConfirmedIndex();
+
+        $this->assertNotNull(collect($holdingRows)->firstWhere('id', $newGroup->id));
+        $this->assertNull(collect($confirmedRows)->firstWhere('id', $newGroup->id));
 
         app(CustomerConfirmationService::class)->updateGroup($newGroup->id, [
             'package_id' => $targetPackage->id,
@@ -217,6 +224,12 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $this->assertNotNull($newGroupedRow);
         $this->assertSame(10000.0, (float) ($newGroupedRow['paid_amount'] ?? 0));
         $this->assertSame(11000.0, (float) ($newGroupedRow['total_amount'] ?? 0));
+
+        $holdingRowsAfterPackageSelect = app(CustomerConfirmationService::class)->getForHoldingIndex();
+        $confirmedRowsAfterPackageSelect = app(CustomerConfirmationService::class)->getForConfirmedIndex();
+
+        $this->assertNull(collect($holdingRowsAfterPackageSelect)->firstWhere('id', $newGroup->id));
+        $this->assertNotNull(collect($confirmedRowsAfterPackageSelect)->firstWhere('id', $newGroup->id));
     }
 
     public function test_refund_creation_does_not_cancel_member(): void
