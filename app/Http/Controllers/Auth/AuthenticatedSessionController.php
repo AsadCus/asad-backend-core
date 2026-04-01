@@ -40,6 +40,8 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
+        $this->ensureFreshCsrfToken($request);
+
         $user = $request->validateCredentials();
 
         if (Features::enabled(Features::twoFactorAuthentication()) && $user->hasEnabledTwoFactorAuthentication()) {
@@ -79,5 +81,10 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    private function ensureFreshCsrfToken(Request $request): void
+    {
+        $request->session()->regenerateToken();
     }
 }

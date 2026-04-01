@@ -32,6 +32,18 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
+    public function test_unauthenticated_inertia_requests_receive_401_response()
+    {
+        $response = $this->withHeaders([
+            'X-Inertia' => 'true',
+        ])->get(route('dashboard'));
+
+        $response->assertStatus(401);
+        $response->assertJson([
+            'message' => 'Unauthenticated.',
+        ]);
+    }
+
     public function test_users_with_two_factor_enabled_are_redirected_to_two_factor_challenge()
     {
         if (! Features::canManageTwoFactorAuthentication()) {
