@@ -13,6 +13,7 @@ use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
@@ -151,6 +152,105 @@ class DashboardTest extends TestCase
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_fiscal_year_total_sales_uses_fytd_invoice_count_and_amount_from_converted_quotations(): void
+    {
+        Carbon::setTestNow('2026-03-31 10:00:00');
+
+        try {
+            $this->actingAs(User::factory()->create());
+
+            $fiscalYear = FinancialYear::create([
+                'year' => '2026',
+                'start_date' => '2026-01-01',
+                'end_date' => '2026-12-31',
+                'default' => true,
+                'is_active' => true,
+            ]);
+
+            $customerUser = User::factory()->create();
+            $customer = Customer::create([
+                'user_id' => $customerUser->id,
+                'customer_number' => 'CUST-DB-FYTD-001',
+            ]);
+
+            $convertedQuotation = Quotation::create([
+                'customer_id' => $customer->id,
+                'quotation_date' => '2026-01-01',
+                'expiry_date' => '2026-01-08',
+                'payment_plan' => 'full',
+                'payment_method' => 'transfer',
+                'status' => 'converted',
+                'description' => 'Converted quotation for FYTD sales',
+            ]);
+
+            $draftQuotation = Quotation::create([
+                'customer_id' => $customer->id,
+                'quotation_date' => '2026-01-01',
+                'expiry_date' => '2026-01-08',
+                'payment_plan' => 'full',
+                'payment_method' => 'transfer',
+                'status' => 'draft',
+                'description' => 'Draft quotation should be excluded',
+            ]);
+
+            $convertedOrder = Order::create([
+                'quotation_id' => $convertedQuotation->id,
+                'payment_plan' => 'full',
+            ]);
+
+            $draftOrder = Order::create([
+                'quotation_id' => $draftQuotation->id,
+                'payment_plan' => 'full',
+            ]);
+
+            Invoice::create([
+                'order_id' => $convertedOrder->id,
+                'description' => 'FYTD invoice one',
+                'amount' => 100,
+                'invoice_date' => '2026-01-10',
+                'due_date' => '2026-01-10',
+                'status' => 'issued',
+            ]);
+
+            Invoice::create([
+                'order_id' => $convertedOrder->id,
+                'description' => 'FYTD invoice two',
+                'amount' => 250,
+                'invoice_date' => '2026-03-20',
+                'due_date' => '2026-03-20',
+                'status' => 'issued',
+            ]);
+
+            Invoice::create([
+                'order_id' => $convertedOrder->id,
+                'description' => 'Future invoice should be excluded from FYTD',
+                'amount' => 500,
+                'invoice_date' => '2026-07-01',
+                'due_date' => '2026-07-01',
+                'status' => 'issued',
+            ]);
+
+            Invoice::create([
+                'order_id' => $draftOrder->id,
+                'description' => 'Non-converted quotation invoice should be excluded',
+                'amount' => 999,
+                'invoice_date' => '2026-02-15',
+                'due_date' => '2026-02-15',
+                'status' => 'issued',
+            ]);
+
+            $response = $this->getJson(route('dashboard.fiscal-year-total-sales', [
+                'financial_year_id' => $fiscalYear->id,
+            ]));
+
+            $response->assertOk();
+            $response->assertJsonPath('count', 2);
+            $this->assertSame(350.0, (float) $response->json('amount'));
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_dashboard_payment_summary_rows_include_ref_no_maker_installment_remarks_and_method_columns(): void

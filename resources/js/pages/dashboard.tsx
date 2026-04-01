@@ -437,7 +437,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                             {fiscalYearTotalSalesData.count}
                                         </p>
                                         <p className="text-sm text-muted-foreground">
-                                            Total converted quotations
+                                            Total Number of Sales
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -454,7 +454,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                             )}
                                         </p>
                                         <p className="text-sm text-muted-foreground">
-                                            Total quotation amount
+                                            Total Amount
                                         </p>
                                     </CardContent>
                                 </Card>

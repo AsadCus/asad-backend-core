@@ -143,7 +143,7 @@ class SalesService
     }
 
     /**
-     * Get fiscal year total sales (FYTD # and $) - converted quotations count and amount
+     * Get fiscal year total sales (FYTD # and $) - converted quotation invoice count and amount
      */
     public function getFiscalYearTotalSales(?FinancialYear $fiscalYear = null): array
     {
@@ -158,15 +158,23 @@ class SalesService
 
         $fiscalYearStart = Carbon::parse($currentFiscalYear->start_date);
         $fiscalYearEnd = Carbon::parse($currentFiscalYear->end_date);
+        $today = Carbon::now();
+        $fiscalYearToDateEnd = $today->lessThan($fiscalYearEnd) ? $today : $fiscalYearEnd;
 
-        $convertedQuotations = Quotation::where('status', 'converted')
-            ->whereBetween('quotation_date', [$fiscalYearStart, $fiscalYearEnd])
-            ->get();
+        if ($fiscalYearToDateEnd->lessThan($fiscalYearStart)) {
+            return [
+                'count' => 0,
+                'amount' => 0,
+            ];
+        }
 
-        $count = $convertedQuotations->count();
-        $amount = $convertedQuotations->sum(function ($quotation) {
-            return $quotation->total_amount;
-        });
+        $convertedQuotationInvoices = Invoice::whereBetween('invoice_date', [$fiscalYearStart, $fiscalYearToDateEnd])
+            ->whereHas('order.quotation', function ($query) {
+                $query->where('status', 'converted');
+            });
+
+        $count = $convertedQuotationInvoices->count();
+        $amount = $convertedQuotationInvoices->sum('amount');
 
         return [
             'count' => $count,
