@@ -53,6 +53,7 @@ class PackageRule
             'accommodations.*.location' => ['required', 'string', 'max:255'],
             'accommodations.*.hotel_name' => ['required', 'string', 'max:255'],
             'accommodations.*.ic' => ['nullable', 'string', 'max:255'],
+            'accommodations.*.remarks' => ['nullable', 'string'],
             'accommodations.*.type_of_meal' => ['nullable', 'string', 'max:255'],
             'accommodations.*.check_in' => ['nullable', 'date'],
             'accommodations.*.check_out' => ['nullable', 'date'],
@@ -66,6 +67,7 @@ class PackageRule
             'flights.*.pnr' => ['nullable', 'string', 'max:255'],
             'flights.*.departure_datetime' => ['nullable', 'date'],
             'flights.*.arrival_datetime' => ['nullable', 'date'],
+            'flights.*.remarks' => ['nullable', 'string'],
 
             // Train Tickets (dynamic)
             'train_tickets' => ['nullable', 'array'],

@@ -93,6 +93,15 @@
             <th>Visa Type</th>
             <td>{{ $opsMovement['visa_type'] ?? '-' }}</td>
         </tr>
+        <tr>
+            <th>Child With Bed</th>
+            <td>{{ (int) data_get($opsMovement, 'passengers.child_with_bed_total', 0) }}</td>
+            <th>Child No Bed / Infant</th>
+            <td>
+                {{ (int) data_get($opsMovement, 'passengers.child_no_bed_total', 0) }} /
+                {{ (int) data_get($opsMovement, 'passengers.infant_total', 0) }}
+            </td>
+        </tr>
     </table>
 
     {{-- Passenger Details - Tour Leaders --}}
@@ -158,6 +167,12 @@
             <th class="text-right">TRP</th>
             <th class="text-right">Quad</th>
             <th>Remarks</th>
+        </tr>
+        <tr>
+            <th colspan="5">Passenger Category Count</th>
+            <td class="text-right" colspan="2">Child With Bed: {{ (int) data_get($opsMovement, 'passengers.child_with_bed_total', 0) }}</td>
+            <td class="text-right" colspan="2">Child No Bed: {{ (int) data_get($opsMovement, 'passengers.child_no_bed_total', 0) }}</td>
+            <td>Infant: {{ (int) data_get($opsMovement, 'passengers.infant_total', 0) }}</td>
         </tr>
         @forelse ($accommodations as $accommodation)
             <tr>

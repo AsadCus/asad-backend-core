@@ -5,6 +5,7 @@ export const accommodationSchema = z.object({
     location: z.string().optional(),
     hotel_name: z.string().optional(),
     ic: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
     type_of_meal: z.string().nullable().optional(),
     check_in: z.string().nullable().optional(),
     check_out: z.string().nullable().optional(),
@@ -19,6 +20,7 @@ export const flightSchema = z.object({
     pnr: z.string().nullable().optional(),
     departure_datetime: z.string().nullable().optional(),
     arrival_datetime: z.string().nullable().optional(),
+    remarks: z.string().nullable().optional(),
 });
 
 export const trainTicketSchema = z.object({

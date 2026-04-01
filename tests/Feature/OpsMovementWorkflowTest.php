@@ -11,7 +11,9 @@ use App\Models\Package;
 use App\Models\PackageAccommodation;
 use App\Models\PackageFlight;
 use App\Models\PackageOfficial;
+use App\Models\PackageRawdahTasreeh;
 use App\Models\PackageTrainTicket;
+use App\Models\PackageTransportationPlan;
 use App\Models\User;
 use App\Services\OpsMovementService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -139,6 +141,23 @@ class OpsMovementWorkflowTest extends TestCase
             'arrival_datetime' => '2026-01-08 13:00:00',
         ]);
 
+        $transportationPlan = PackageTransportationPlan::create([
+            'package_id' => $package->id,
+            'from' => 'Airport',
+            'to' => 'Hotel',
+            'travel_date' => '2026-01-08',
+            'travel_time' => '15:30',
+        ]);
+
+        $rawdahTasreeh = PackageRawdahTasreeh::create([
+            'package_id' => $package->id,
+            'date' => '2026-01-10',
+            'women_passengers' => 2,
+            'women_time' => '09:00',
+            'men_passengers' => 2,
+            'men_time' => '10:00',
+        ]);
+
         PackageTrainTicket::create([
             'package_id' => $package->id,
             'from' => 'Makkah',
@@ -168,6 +187,27 @@ class OpsMovementWorkflowTest extends TestCase
             'gender' => 'male',
             'date_of_birth' => '1990-01-01',
             'is_using_wheelchair' => true,
+            'sharing_plan' => 'child_with_bed',
+        ]);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => null,
+            'package_official_id' => null,
+            'name' => 'Child No Bed Member',
+            'gender' => 'female',
+            'date_of_birth' => '2016-01-01',
+            'sharing_plan' => 'child_no_bed',
+        ]);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => null,
+            'package_official_id' => null,
+            'name' => 'Infant Member',
+            'gender' => 'female',
+            'date_of_birth' => '2025-01-01',
+            'sharing_plan' => 'infant',
         ]);
 
         ManifestMember::create([
@@ -195,6 +235,7 @@ class OpsMovementWorkflowTest extends TestCase
                 [
                     'id' => $accommodation->id,
                     'ic' => 'IC-HOTEL-01',
+                    'remarks' => 'Accommodation remark updated',
                 ],
             ],
             'officials' => [
@@ -213,6 +254,19 @@ class OpsMovementWorkflowTest extends TestCase
                 [
                     'id' => $flight->id,
                     'ic' => 'IC-FLT-01',
+                    'remarks' => 'Flight remark updated',
+                ],
+            ],
+            'rawdah_tasreehs' => [
+                [
+                    'id' => $rawdahTasreeh->id,
+                    'remarks' => 'Rawdah remark updated',
+                ],
+            ],
+            'transportation_plans' => [
+                [
+                    'id' => $transportationPlan->id,
+                    'remarks' => 'Transportation remark updated',
                 ],
             ],
             'documents' => [
@@ -283,6 +337,22 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertDatabaseHas('package_accommodations', [
             'id' => $accommodation->id,
             'ic' => 'IC-HOTEL-01',
+            'remarks' => 'Accommodation remark updated',
+        ]);
+
+        $this->assertDatabaseHas('package_flights', [
+            'id' => $flight->id,
+            'remarks' => 'Flight remark updated',
+        ]);
+
+        $this->assertDatabaseHas('package_rawdah_tasreehs', [
+            'id' => $rawdahTasreeh->id,
+            'remarks' => 'Rawdah remark updated',
+        ]);
+
+        $this->assertDatabaseHas('package_transportation_plans', [
+            'id' => $transportationPlan->id,
+            'remarks' => 'Transportation remark updated',
         ]);
 
         $this->assertDatabaseHas('package_officials', [
@@ -333,6 +403,42 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertTrue((bool) data_get($opsMovement, 'visa_approved'));
         $this->assertSame('Transportation', data_get($opsMovement, 'budget.0.title'));
         $this->assertSame('TL Saudi', data_get($opsMovement, 'pif.tour_leaders.0.name'));
+        $this->assertSame(1, data_get($opsMovement, 'passengers.child_with_bed_total'));
+        $this->assertSame(1, data_get($opsMovement, 'passengers.child_no_bed_total'));
+        $this->assertSame(1, data_get($opsMovement, 'passengers.infant_total'));
+    }
+
+    public function test_ops_movement_uses_newest_manifest_data(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-OPS-LATEST',
+            'name' => 'Ops Latest Manifest Package',
+            'status' => 'open',
+        ]);
+
+        Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-OLD',
+            'ops_movement_extension' => [
+                'ops_base' => 'Old Base',
+                'infotech_ref' => 'OLD-REF',
+            ],
+        ]);
+
+        Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-NEW',
+            'ops_movement_extension' => [
+                'ops_base' => 'New Base',
+                'infotech_ref' => 'NEW-REF',
+            ],
+        ]);
+
+        $opsMovement = app(OpsMovementService::class)->getForShow($package->id);
+
+        $this->assertSame('MAN-NEW', data_get($opsMovement, 'manifest_number'));
+        $this->assertSame('New Base', data_get($opsMovement, 'ops_base'));
+        $this->assertSame('NEW-REF', data_get($opsMovement, 'infotech_ref'));
     }
 
     public function test_ops_movement_export_routes_return_pdf_responses(): void

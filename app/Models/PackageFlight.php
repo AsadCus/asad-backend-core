@@ -17,6 +17,7 @@ class PackageFlight extends Model
         'pnr',
         'departure_datetime',
         'arrival_datetime',
+        'remarks',
         'sort_order',
     ];
 

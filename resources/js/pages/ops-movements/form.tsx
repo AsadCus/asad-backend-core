@@ -4,13 +4,7 @@ import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from '@inertiajs/react';
@@ -494,10 +488,7 @@ export default function OpsMovementForm({
         setFormData('flights', nextRows);
     };
 
-    const updatePifFlightRemarks = (
-        index: number,
-        value: string | null,
-    ) => {
+    const updatePifFlightRemarks = (index: number, value: string | null) => {
         updateFlight(index, 'remarks', value);
     };
 
@@ -513,16 +504,25 @@ export default function OpsMovementForm({
         setFormData('accommodations', nextRows);
     };
 
-    const updatePifRawdahRemarks = (
-        index: number,
-        value: string | null,
-    ) => {
+    const updatePifRawdahRemarks = (index: number, value: string | null) => {
         const nextRows = [...(data.rawdah_tasreehs ?? [])];
         nextRows[index] = {
             ...nextRows[index],
             remarks: value,
         };
         setFormData('rawdah_tasreehs', nextRows);
+    };
+
+    const updatePifTransportationRemarks = (
+        index: number,
+        value: string | null,
+    ) => {
+        const nextRows = [...(data.transportation_plans ?? [])];
+        nextRows[index] = {
+            ...nextRows[index],
+            remarks: value,
+        };
+        setFormData('transportation_plans', nextRows);
     };
 
     const updateDocumentRows = (
@@ -767,6 +767,9 @@ export default function OpsMovementForm({
                         <TabsTrigger value="ops-movement" className="text-lg">
                             Ops Movement
                         </TabsTrigger>
+                        <TabsTrigger value="pif" className="text-lg">
+                            PIF
+                        </TabsTrigger>
                         <TabsTrigger value="itinerary" className="text-lg">
                             Itinerary
                         </TabsTrigger>
@@ -775,9 +778,6 @@ export default function OpsMovementForm({
                         </TabsTrigger>
                         <TabsTrigger value="budget" className="text-lg">
                             Budget
-                        </TabsTrigger>
-                        <TabsTrigger value="pif" className="text-lg">
-                            PIF
                         </TabsTrigger>
                     </TabsList>
                     <ScrollBar orientation="horizontal" />
@@ -1792,6 +1792,52 @@ export default function OpsMovementForm({
                 <TabsContent value="pif" className="space-y-6">
                     <Card>
                         <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Passenger Summary
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <FormField label="Adult Total">
+                                <CopyableText
+                                    value={data.passengers?.adult_total ?? 0}
+                                />
+                            </FormField>
+                            <FormField label="Child Total">
+                                <CopyableText
+                                    value={data.passengers?.child_total ?? 0}
+                                />
+                            </FormField>
+                            <FormField label="Official Total">
+                                <CopyableText
+                                    value={data.passengers?.official_total ?? 0}
+                                />
+                            </FormField>
+                            <FormField label="Child With Bed">
+                                <CopyableText
+                                    value={
+                                        data.passengers
+                                            ?.child_with_bed_total ?? 0
+                                    }
+                                />
+                            </FormField>
+                            <FormField label="Child No Bed">
+                                <CopyableText
+                                    value={
+                                        data.passengers?.child_no_bed_total ??
+                                        0
+                                    }
+                                />
+                            </FormField>
+                            <FormField label="Infant">
+                                <CopyableText
+                                    value={data.passengers?.infant_total ?? 0}
+                                />
+                            </FormField>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="gap-0">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
                                     <CardTitle className="text-xl">
@@ -1806,7 +1852,7 @@ export default function OpsMovementForm({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    disabled={processing}
+                                    disabled={processing || !canEdit}
                                     onClick={addTourLeader}
                                 >
                                     <Plus className="h-4 w-4" />
@@ -1829,7 +1875,7 @@ export default function OpsMovementForm({
                                         >
                                             <ProperInput
                                                 value={tourLeader.type ?? ''}
-                                                disabled={processing}
+                                                disabled={processing || !canEdit}
                                                 onCommit={(value) =>
                                                     updateTourLeader(
                                                         index,
@@ -1848,7 +1894,7 @@ export default function OpsMovementForm({
                                         >
                                             <ProperInput
                                                 value={tourLeader.name ?? ''}
-                                                disabled={processing}
+                                                disabled={processing || !canEdit}
                                                 onCommit={(value) =>
                                                     updateTourLeader(
                                                         index,
@@ -1870,7 +1916,7 @@ export default function OpsMovementForm({
                                                     tourLeader.contact_number ??
                                                     ''
                                                 }
-                                                disabled={processing}
+                                                disabled={processing || !canEdit}
                                                 onCommit={(value) =>
                                                     updateTourLeader(
                                                         index,
@@ -1885,7 +1931,7 @@ export default function OpsMovementForm({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            disabled={processing}
+                                            disabled={processing || !canEdit}
                                             onClick={() =>
                                                 removeTourLeader(index)
                                             }
@@ -1906,10 +1952,10 @@ export default function OpsMovementForm({
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {(data.flights ?? []).map((flight) => (
+                            {(data.flights ?? []).map((flight, index) => (
                                 <div
                                     key={`pif-flight-${flight.id}`}
-                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                 >
                                     <FormField label="Description">
                                         <CopyableText
@@ -1935,17 +1981,25 @@ export default function OpsMovementForm({
                                             value={flight.arrival_datetime}
                                         />
                                     </FormField>
-                                    <FormField
-                                        label="PNR"
-                                        className="md:col-span-2"
-                                    >
+                                    <FormField label="PNR">
                                         <CopyableText value={flight.pnr} />
                                     </FormField>
                                     <FormField
                                         label="Remarks"
-                                        className="md:col-span-4"
+                                        className="md:col-span-3"
+                                        error={getError(
+                                            `flights.${index}.remarks`,
+                                        )}
                                     >
-                                        <CopyableText value={flight.remarks} />
+                                        <ProperInput
+                                            value={flight.remarks ?? ''}
+                                            disabled={processing || !canEdit}
+                                            textarea
+                                            onCommit={(value) =>
+                                                updatePifFlightRemarks(index, value)
+                                            }
+                                            placeholder="Optional remarks"
+                                        />
                                     </FormField>
                                 </div>
                             ))}
@@ -1962,13 +2016,18 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Accommodation
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Child with bed: {data.passengers?.child_with_bed_total ?? 0},
+                                Child no bed: {data.passengers?.child_no_bed_total ?? 0},
+                                Infant: {data.passengers?.infant_total ?? 0}
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.accommodations ?? []).map(
-                                (accommodation) => (
+                                (accommodation, index) => (
                                     <div
                                         key={`pif-accommodation-${accommodation.id}`}
-                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                     >
                                         <FormField label="Location">
                                             <CopyableText
@@ -2038,10 +2097,22 @@ export default function OpsMovementForm({
                                         </FormField>
                                         <FormField
                                             label="Remarks"
-                                            className="md:col-span-2"
+                                            className="md:col-span-3"
+                                            error={getError(
+                                                `accommodations.${index}.remarks`,
+                                            )}
                                         >
-                                            <CopyableText
-                                                value={accommodation.remarks}
+                                            <ProperInput
+                                                value={accommodation.remarks ?? ''}
+                                                disabled={processing || !canEdit}
+                                                textarea
+                                                onCommit={(value) =>
+                                                    updatePifAccommodationRemarks(
+                                                        index,
+                                                        value,
+                                                    )
+                                                }
+                                                placeholder="Optional remarks"
                                             />
                                         </FormField>
                                     </div>
@@ -2062,10 +2133,10 @@ export default function OpsMovementForm({
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {(data.rawdah_tasreehs ?? []).map((row) => (
+                            {(data.rawdah_tasreehs ?? []).map((row, index) => (
                                 <div
                                     key={`pif-rawdah-${row.id}`}
-                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-7"
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                 >
                                     <FormField label="Date">
                                         <CopyableText value={row.date} />
@@ -2094,8 +2165,21 @@ export default function OpsMovementForm({
                                             }
                                         />
                                     </FormField>
-                                    <FormField label="Remarks">
-                                        <CopyableText value={row.remarks} />
+                                    <FormField
+                                        label="Remarks"
+                                        error={getError(
+                                            `rawdah_tasreehs.${index}.remarks`,
+                                        )}
+                                    >
+                                        <ProperInput
+                                            value={row.remarks ?? ''}
+                                            disabled={processing || !canEdit}
+                                            textarea
+                                            onCommit={(value) =>
+                                                updatePifRawdahRemarks(index, value)
+                                            }
+                                            placeholder="Optional remarks"
+                                        />
                                     </FormField>
                                 </div>
                             ))}
@@ -2114,10 +2198,10 @@ export default function OpsMovementForm({
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {(data.transportation_plans ?? []).map((row) => (
+                            {(data.transportation_plans ?? []).map((row, index) => (
                                 <div
                                     key={`pif-transport-${row.id}`}
-                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                 >
                                     <FormField label="From">
                                         <CopyableText value={row.from} />
@@ -2133,9 +2217,23 @@ export default function OpsMovementForm({
                                     </FormField>
                                     <FormField
                                         label="Remarks"
-                                        className="md:col-span-2"
+                                        className="md:col-span-3"
+                                        error={getError(
+                                            `transportation_plans.${index}.remarks`,
+                                        )}
                                     >
-                                        <CopyableText value={row.remarks} />
+                                        <ProperInput
+                                            value={row.remarks ?? ''}
+                                            disabled={processing || !canEdit}
+                                            textarea
+                                            onCommit={(value) =>
+                                                updatePifTransportationRemarks(
+                                                    index,
+                                                    value,
+                                                )
+                                            }
+                                            placeholder="Optional remarks"
+                                        />
                                     </FormField>
                                 </div>
                             ))}

@@ -43,7 +43,7 @@ class OpsMovementService
                     return $m->members->count();
                 });
 
-                $primaryManifest = $package->manifests->sortBy('id')->first();
+                $primaryManifest = $package->manifests->sortByDesc('id')->first();
 
                 return [
                     'id' => $package->id,
@@ -101,7 +101,7 @@ class OpsMovementService
 
         $package = $packageQuery->findOrFail($id);
 
-        $manifest = $package->manifests->sortBy('id')->first();
+        $manifest = $package->manifests->sortByDesc('id')->first();
         $extension = $manifest?->ops_movement_extension ?? [];
         $flightOpsMap = collect($extension['flights'] ?? [])->keyBy('id');
         $officialOpsMap = collect($extension['officials'] ?? [])
@@ -124,6 +124,11 @@ class OpsMovementService
 
         $adultMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) >= 18);
         $childMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) < 18 && $this->resolveAge($member->date_of_birth) >= 2);
+        $sharingPlanCounts = $nonOfficialMembers
+            ->map(function ($member): string {
+                return $this->normalizeSharingPlan($member->sharing_plan ?? null);
+            })
+            ->countBy();
 
         return [
             'id' => $package->id,
@@ -159,6 +164,9 @@ class OpsMovementService
                 'child_total' => $childMembers->count(),
                 'child_boy' => $childMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'male')->count(),
                 'child_girl' => $childMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'female')->count(),
+                'child_with_bed_total' => (int) ($sharingPlanCounts['child_with_bed'] ?? 0),
+                'child_no_bed_total' => (int) ($sharingPlanCounts['child_no_bed'] ?? 0),
+                'infant_total' => (int) ($sharingPlanCounts['infant'] ?? 0),
                 'official_total' => $officialMembers->count(),
                 'wheelchair_non_official_total' => $nonOfficialMembers->filter(fn ($member) => $member->is_using_wheelchair === true)->count(),
                 'grand_total' => $nonOfficialMembers->count() + $officialMembers->count(),
@@ -306,7 +314,7 @@ class OpsMovementService
 
             $package = $packageQuery->findOrFail($packageId);
 
-            $manifest = $package->manifests->sortBy('id')->first();
+            $manifest = $package->manifests->sortByDesc('id')->first();
 
             if (! $manifest) {
                 $manifest = Manifest::create([
@@ -336,6 +344,7 @@ class OpsMovementService
 
                 $accommodation->update([
                     'ic' => $accommodationPayload['ic'] ?? null,
+                    'remarks' => $accommodationPayload['remarks'] ?? null,
                 ]);
             }
 
@@ -402,7 +411,14 @@ class OpsMovementService
             }
             $extension['flights'] = collect($payload['flights'] ?? [])
                 ->filter(fn ($flightPayload) => ! empty($flightPayload['id']))
-                ->map(function ($flightPayload) {
+                ->map(function ($flightPayload) use ($package) {
+                    $flight = $package->flights->firstWhere('id', (int) $flightPayload['id']);
+                    if ($flight) {
+                        $flight->update([
+                            'remarks' => $flightPayload['remarks'] ?? null,
+                        ]);
+                    }
+
                     return [
                         'id' => (int) $flightPayload['id'],
                         'ic' => $flightPayload['ic'] ?? null,
@@ -410,6 +426,40 @@ class OpsMovementService
                 })
                 ->values()
                 ->toArray();
+
+            foreach (($payload['rawdah_tasreehs'] ?? []) as $rawdahPayload) {
+                if (empty($rawdahPayload['id'])) {
+                    continue;
+                }
+
+                $rawdah = $package->rawdahTasreehs
+                    ->firstWhere('id', (int) $rawdahPayload['id']);
+
+                if (! $rawdah) {
+                    continue;
+                }
+
+                $rawdah->update([
+                    'remarks' => $rawdahPayload['remarks'] ?? null,
+                ]);
+            }
+
+            foreach (($payload['transportation_plans'] ?? []) as $transportPayload) {
+                if (empty($transportPayload['id'])) {
+                    continue;
+                }
+
+                $transportationPlan = $package->transportationPlans
+                    ->firstWhere('id', (int) $transportPayload['id']);
+
+                if (! $transportationPlan) {
+                    continue;
+                }
+
+                $transportationPlan->update([
+                    'remarks' => $transportPayload['remarks'] ?? null,
+                ]);
+            }
             $extension['budget'] = $this->normalizeBudgetPayload($payload['budget'] ?? []);
             $extension['pif'] = [
                 'tour_leaders' => $this->normalizePifTourLeaders(
@@ -701,6 +751,18 @@ class OpsMovementService
     private function normalizeLocationKey(mixed $location): string
     {
         return Str::slug((string) ($location ?? '')) ?: 'general';
+    }
+
+    private function normalizeSharingPlan(mixed $sharingPlan): string
+    {
+        $normalized = Str::lower(trim((string) ($sharingPlan ?? '')));
+
+        return match ($normalized) {
+            'child_with_bed' => 'child_with_bed',
+            'child_no_bed' => 'child_no_bed',
+            'infant' => 'infant',
+            default => 'other',
+        };
     }
 
     /**

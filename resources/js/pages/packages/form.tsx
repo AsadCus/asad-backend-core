@@ -52,6 +52,7 @@ const defaultFlights: FlightSchema[] = [
         pnr: '',
         departure_datetime: '',
         arrival_datetime: '',
+        remarks: '',
     },
     {
         from: '',
@@ -61,6 +62,7 @@ const defaultFlights: FlightSchema[] = [
         pnr: '',
         departure_datetime: '',
         arrival_datetime: '',
+        remarks: '',
     },
 ];
 
@@ -614,6 +616,7 @@ export default function PackageForm({
                 location: '',
                 hotel_name: '',
                 ic: '',
+                remarks: '',
                 type_of_meal: '',
                 check_in: defaultDate,
                 check_out: defaultDate,
@@ -655,6 +658,7 @@ export default function PackageForm({
                 pnr: '',
                 departure_datetime: defaultDate,
                 arrival_datetime: defaultDate,
+                remarks: '',
             },
         ]);
     };
@@ -1412,6 +1416,26 @@ export default function PackageForm({
                                                 />
                                             </FormField>
                                         </div>
+                                        <FormField
+                                            label="Remarks"
+                                            error={getError(
+                                                `flights.${index}.remarks`,
+                                            )}
+                                        >
+                                            <ProperInput
+                                                value={flight.remarks ?? ''}
+                                                disabled={isView || processing}
+                                                textarea
+                                                onCommit={(v) =>
+                                                    updateFlight(
+                                                        index,
+                                                        'remarks',
+                                                        v || null,
+                                                    )
+                                                }
+                                                placeholder="Optional remarks"
+                                            />
+                                        </FormField>
                                     </div>
                                 ))}
                             </div>
@@ -2226,6 +2250,32 @@ export default function PackageForm({
                                                     />
                                                 </FormField>
                                             </div>
+
+                                            <FormField
+                                                label="Remarks"
+                                                error={getError(
+                                                    `accommodations.${index}.remarks`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        accommodation.remarks ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    textarea
+                                                    onCommit={(v) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'remarks',
+                                                            v,
+                                                        )
+                                                    }
+                                                    placeholder="Optional remarks"
+                                                />
+                                            </FormField>
                                         </div>
                                     ),
                                 )}

@@ -176,6 +176,7 @@ class PackageService
                         'location' => $accommodation['location'],
                         'hotel_name' => $accommodation['hotel_name'],
                         'ic' => $accommodation['ic'] ?? null,
+                        'remarks' => $accommodation['remarks'] ?? null,
                         'type_of_meal' => $accommodation['type_of_meal'] ?? null,
                         'check_in' => $accommodation['check_in'] ?? null,
                         'check_out' => $accommodation['check_out'] ?? null,
@@ -279,6 +280,7 @@ class PackageService
                     'location' => $a->location,
                     'hotel_name' => $a->hotel_name,
                     'ic' => $a->ic,
+                    'remarks' => $a->remarks,
                     'type_of_meal' => $a->type_of_meal,
                     'check_in' => $a->check_in_formatted,
                     'check_out' => $a->check_out_formatted,
@@ -294,6 +296,7 @@ class PackageService
                     'pnr' => $f->pnr,
                     'departure_datetime' => $f->departure_datetime_formatted,
                     'arrival_datetime' => $f->arrival_datetime_formatted,
+                    'remarks' => $f->remarks,
                 ];
             })->toArray(),
             'train_tickets' => $package->trainTickets->map(function ($ticket) {
@@ -403,6 +406,7 @@ class PackageService
                         'location' => $accommodation['location'],
                         'hotel_name' => $accommodation['hotel_name'],
                         'ic' => $accommodation['ic'] ?? null,
+                        'remarks' => $accommodation['remarks'] ?? null,
                         'type_of_meal' => $accommodation['type_of_meal'] ?? null,
                         'check_in' => $accommodation['check_in'] ?? null,
                         'check_out' => $accommodation['check_out'] ?? null,
@@ -749,6 +753,7 @@ class PackageService
                 'pnr' => $flight['pnr'] ?? null,
                 'departure_datetime' => $flight['departure_datetime'] ?? null,
                 'arrival_datetime' => $flight['arrival_datetime'] ?? null,
+                'remarks' => $flight['remarks'] ?? null,
                 'sort_order' => $index,
             ]);
         }

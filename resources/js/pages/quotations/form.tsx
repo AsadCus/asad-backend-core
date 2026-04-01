@@ -204,7 +204,6 @@ export function QuotationForm({
     quotationItems = [],
     quotationNotes = [],
     extensionMasters = [],
-    defaultExtensions = [],
     prefilledCustomerId,
     prefilledCustomerData,
     onCancel,
@@ -260,24 +259,6 @@ export function QuotationForm({
                 extension.quotation_extension_master_id ?? null,
             name: extension.name || 'Discount',
             sort_order: extension.sort_order ?? 1,
-        }),
-    );
-
-    const normalizedDefaultExtensions = (defaultExtensions ?? []).map(
-        (extension, index) => ({
-            ...extension,
-            _key:
-                extension._key ??
-                (extension.id ? `id-${extension.id}` : nanoid()),
-            id: extension.id,
-            quotation_extension_master_id:
-                extension.quotation_extension_master_id ?? null,
-            name: extension.name || 'Discount',
-            type: extension.type || 'discount',
-            calculation_mode: extension.calculation_mode ?? 'fixed',
-            calculation_value: extension.calculation_value ?? extension.amount,
-            amount: extension.amount ?? 0,
-            sort_order: extension.sort_order ?? index + 1,
         }),
     );
 

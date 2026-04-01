@@ -22,6 +22,7 @@ class OpsMovementRule
             'accommodations' => ['nullable', 'array'],
             'accommodations.*.id' => ['required', 'integer', 'exists:package_accommodations,id'],
             'accommodations.*.ic' => ['nullable', 'string', 'max:255'],
+            'accommodations.*.remarks' => ['nullable', 'string'],
 
             'officials' => ['nullable', 'array'],
             'officials.*.id' => ['required', 'integer', 'exists:package_officials,id'],
@@ -33,6 +34,15 @@ class OpsMovementRule
             'flights' => ['nullable', 'array'],
             'flights.*.id' => ['required', 'integer', 'exists:package_flights,id'],
             'flights.*.ic' => ['nullable', 'string', 'max:255'],
+            'flights.*.remarks' => ['nullable', 'string'],
+
+            'rawdah_tasreehs' => ['nullable', 'array'],
+            'rawdah_tasreehs.*.id' => ['required', 'integer', 'exists:package_rawdah_tasreehs,id'],
+            'rawdah_tasreehs.*.remarks' => ['nullable', 'string'],
+
+            'transportation_plans' => ['nullable', 'array'],
+            'transportation_plans.*.id' => ['required', 'integer', 'exists:package_transportation_plans,id'],
+            'transportation_plans.*.remarks' => ['nullable', 'string'],
 
             'documents' => ['nullable', 'array'],
             'documents.itinerary' => ['nullable', 'array'],
