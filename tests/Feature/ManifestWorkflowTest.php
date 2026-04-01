@@ -2695,7 +2695,7 @@ class ManifestWorkflowTest extends TestCase
             Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             $memberRow['date_of_deposit_payment']
         );
-        $this->assertSame(1000.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(700.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
             Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             $memberRow['date_of_second_payment']
@@ -2706,7 +2706,187 @@ class ManifestWorkflowTest extends TestCase
             $memberRow['date_of_third_payment']
         );
         $this->assertSame(500.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertSame(1700.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertSame(2000.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_applies_member_discount_to_payment_columns_sequentially_with_spillover(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-DISC-PAY-001',
+            'name' => 'Manifest Discount Payment Bucket Package',
+            'status' => 'open',
+            'price_double' => 9000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-DISC-PAY-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $members = collect([
+            ['name' => 'Payment Discount Member One', 'sharing_plan' => 'double'],
+            ['name' => 'Payment Discount Member Two', 'sharing_plan' => 'double'],
+        ])->map(function (array $row) use ($confirmation): CustomerConfirmationMember {
+            $user = User::factory()->create(['name' => $row['name']]);
+            $customer = Customer::create([
+                'user_id' => $user->id,
+                'is_active' => true,
+            ]);
+
+            return CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'is_leader' => false,
+                'status' => 'confirmed',
+                'relationship' => 'member',
+                'sharing_plan' => $row['sharing_plan'],
+            ]);
+        })->values();
+
+        foreach ($members as $index => $member) {
+            ManifestMember::create([
+                'manifest_id' => $manifest->id,
+                'customer_confirmation_member_id' => $member->id,
+                'sharing_plan' => $member->sharing_plan,
+                'sort_order' => $index + 1,
+            ]);
+        }
+
+        $quotation = Quotation::create([
+            'customer_id' => (int) $members[0]->customer_id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => '2026-05-01',
+            'expiry_date' => '2026-05-31',
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        $quotationItems = collect([
+            ['member_id' => $members[0]->id, 'rate' => 9000],
+            ['member_id' => $members[1]->id, 'rate' => 9000],
+        ])->map(function (array $row, int $index) use ($quotation): QuotationItem {
+            return QuotationItem::create([
+                'quotation_id' => $quotation->id,
+                'customer_confirmation_member_id' => $row['member_id'],
+                'description' => 'Discount payment member #'.($index + 1),
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => $row['rate'],
+                'sort_order' => $index + 1,
+            ]);
+        });
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $firstInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Deposit invoice',
+            'extensions' => [
+                [
+                    'name' => 'First Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 1000,
+                    'amount' => -1000,
+                    'sort_order' => 1,
+                ],
+            ],
+            'amount' => 1000,
+            'invoice_date' => '2026-05-01',
+            'due_date' => '2026-05-01',
+            'status' => 'issued',
+        ]);
+        $firstInvoice->quotationItems()->sync($quotationItems->pluck('id')->all());
+
+        Receipt::create([
+            'invoice_id' => $firstInvoice->id,
+            'amount' => 1000,
+            'receipt_date' => '2026-05-01',
+            'payment_method' => 'transfer',
+        ]);
+
+        $secondInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Second invoice',
+            'extensions' => [
+                [
+                    'name' => 'Second Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 6000,
+                    'amount' => -6000,
+                    'sort_order' => 1,
+                ],
+            ],
+            'amount' => 9000,
+            'invoice_date' => '2026-05-10',
+            'due_date' => '2026-05-10',
+            'status' => 'issued',
+        ]);
+        $secondInvoice->quotationItems()->sync($quotationItems->pluck('id')->all());
+
+        Receipt::create([
+            'invoice_id' => $secondInvoice->id,
+            'amount' => 9000,
+            'receipt_date' => '2026-05-10',
+            'payment_method' => 'transfer',
+        ]);
+
+        $thirdInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Final invoice',
+            'extensions' => [
+                [
+                    'name' => 'Third Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 3000,
+                    'amount' => -3000,
+                    'sort_order' => 1,
+                ],
+            ],
+            'amount' => 8000,
+            'invoice_date' => '2026-05-20',
+            'due_date' => '2026-05-20',
+            'status' => 'issued',
+        ]);
+        $thirdInvoice->quotationItems()->sync($quotationItems->pluck('id')->all());
+
+        Receipt::create([
+            'invoice_id' => $thirdInvoice->id,
+            'amount' => 8000,
+            'receipt_date' => '2026-05-20',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+        $memberRows = collect($rehydrated['members'])->keyBy('customer_confirmation_member_id');
+
+        $this->assertSame(9000.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['deposit_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['second_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['third_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['balance_due'] ?? 0));
+
+        $this->assertSame(1000.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['deposit_payment'] ?? 0));
+        $this->assertSame(4000.0, (float) ($memberRows[$members[1]->id]['second_payment'] ?? 0));
+        $this->assertSame(4000.0, (float) ($memberRows[$members[1]->id]['third_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_accumulates_third_payment_from_third_invoice_and_later(): void
@@ -3425,7 +3605,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame(3200.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
-    public function test_get_for_edit_show_allocates_group_discount_by_package_price_ratio(): void
+    public function test_get_for_edit_show_allocates_group_discount_to_payer_before_spillover(): void
     {
         $actingUser = User::factory()->create();
         $this->actingAs($actingUser);
@@ -3533,9 +3713,9 @@ class ManifestWorkflowTest extends TestCase
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
         $memberRows = collect($rehydrated['members'])->keyBy('customer_confirmation_member_id');
 
-        $this->assertSame(200.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
-        $this->assertSame(200.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
-        $this->assertSame(100.0, (float) ($memberRows[$members[2]->id]['discount'] ?? 0));
+        $this->assertSame(500.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[2]->id]['discount'] ?? 0));
     }
 
     public function test_get_for_edit_show_uses_exact_third_payment_remainder_for_fully_paid_shared_installment_members(): void
@@ -3722,9 +3902,9 @@ class ManifestWorkflowTest extends TestCase
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
         $memberRows = collect($rehydrated['members'])->keyBy('customer_confirmation_member_id');
 
-        $this->assertSame(200.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
-        $this->assertSame(200.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
-        $this->assertSame(100.0, (float) ($memberRows[$members[2]->id]['discount'] ?? 0));
+        $this->assertSame(500.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[2]->id]['discount'] ?? 0));
 
         foreach ($members as $member) {
             $row = $memberRows[$member->id] ?? null;
