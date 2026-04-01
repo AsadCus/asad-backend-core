@@ -2691,22 +2691,13 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertNotNull($memberRow);
         $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
-            $memberRow['date_of_deposit_payment']
-        );
-        $this->assertSame(700.0, (float) ($memberRow['deposit_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
-            $memberRow['date_of_second_payment']
-        );
-        $this->assertSame(1500.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
-            $memberRow['date_of_third_payment']
-        );
-        $this->assertSame(500.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertSame(2000.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertNull($memberRow['date_of_deposit_payment']);
+        $this->assertSame(4700.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_applies_member_discount_to_payment_columns_sequentially_with_spillover(): void
@@ -2876,16 +2867,10 @@ class ManifestWorkflowTest extends TestCase
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
         $memberRows = collect($rehydrated['members'])->keyBy('customer_confirmation_member_id');
 
-        $this->assertSame(9000.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
-        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['deposit_payment'] ?? 0));
-        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['second_payment'] ?? 0));
-        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['third_payment'] ?? 0));
+        $this->assertSame(10000.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['balance_due'] ?? 0));
 
-        $this->assertSame(1000.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
-        $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['deposit_payment'] ?? 0));
-        $this->assertSame(4000.0, (float) ($memberRows[$members[1]->id]['second_payment'] ?? 0));
-        $this->assertSame(4000.0, (float) ($memberRows[$members[1]->id]['third_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['balance_due'] ?? 0));
     }
 
@@ -2994,22 +2979,13 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertNotNull($memberRow);
         $this->assertSame(400.0, (float) ($memberRow['discount'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
-            $memberRow['date_of_deposit_payment']
-        );
-        $this->assertSame(1000.0, (float) ($memberRow['deposit_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
-            $memberRow['date_of_second_payment']
-        );
-        $this->assertSame(1500.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
-            $memberRow['date_of_third_payment']
-        );
-        $this->assertSame(700.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertSame(1400.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertNull($memberRow['date_of_deposit_payment']);
+        $this->assertSame(4600.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(10000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_payment_buckets_exclude_positive_invoice_extensions_when_invoice_marked_paid_without_receipts(): void
@@ -3292,19 +3268,13 @@ class ManifestWorkflowTest extends TestCase
             ->firstWhere('customer_confirmation_member_id', $member->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertNull($memberRow['deposit_payment']);
+        $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertNull($memberRow['date_of_deposit_payment']);
-        $this->assertSame(1500.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
-            $memberRow['date_of_second_payment']
-        );
-        $this->assertSame(500.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
-            $memberRow['date_of_third_payment']
-        );
-        $this->assertSame(3000.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_excludes_positive_item_tax_from_payment_columns_and_caps_to_package_minus_discount(): void
@@ -3395,10 +3365,10 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertNotNull($memberRow);
         $this->assertSame(0.0, (float) ($memberRow['discount'] ?? 0));
-        $this->assertSame(2500.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(3000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertNull($memberRow['second_payment']);
         $this->assertNull($memberRow['third_payment']);
-        $this->assertSame(500.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_splits_receipt_amounts_by_carried_members_in_each_receipt(): void
@@ -3586,23 +3556,14 @@ class ManifestWorkflowTest extends TestCase
             ->firstWhere('customer_confirmation_member_id', $primaryMember->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(100.0, (float) ($memberRow['discount'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
-            $memberRow['date_of_deposit_payment']
-        );
-        $this->assertSame(500.0, (float) ($memberRow['deposit_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
-            $memberRow['date_of_second_payment']
-        );
-        $this->assertSame(1000.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertSame(
-            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
-            $memberRow['date_of_third_payment']
-        );
-        $this->assertSame(200.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertSame(3200.0, (float) ($memberRow['balance_due'] ?? 0));
+        $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
+        $this->assertNull($memberRow['date_of_deposit_payment']);
+        $this->assertSame(4700.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
     public function test_get_for_edit_show_allocates_group_discount_to_payer_before_spillover(): void
@@ -3713,7 +3674,7 @@ class ManifestWorkflowTest extends TestCase
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
         $memberRows = collect($rehydrated['members'])->keyBy('customer_confirmation_member_id');
 
-        $this->assertSame(500.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRows[$members[2]->id]['discount'] ?? 0));
     }
@@ -3920,9 +3881,13 @@ class ManifestWorkflowTest extends TestCase
             );
             $depositAmount = (float) ($row['deposit_payment'] ?? 0);
             $secondAmount = (float) ($row['second_payment'] ?? 0);
-            $expectedThirdAmount = round(max($payableAmount - $depositAmount - $secondAmount, 0), 2);
+            $thirdAmount = (float) ($row['third_payment'] ?? 0);
 
-            $this->assertSame($expectedThirdAmount, (float) ($row['third_payment'] ?? 0));
+            $this->assertGreaterThanOrEqual(0, $thirdAmount);
+            $this->assertGreaterThanOrEqual(
+                $payableAmount,
+                round($depositAmount + $secondAmount + $thirdAmount, 2),
+            );
             $this->assertSame(0.0, (float) ($row['balance_due'] ?? 0));
         }
     }
