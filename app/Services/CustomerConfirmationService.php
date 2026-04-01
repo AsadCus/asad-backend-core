@@ -864,6 +864,23 @@ class CustomerConfirmationService
             $existingMembers = $group->members->keyBy('id');
             $updatedMemberIds = [];
 
+            $normalizedEmails = collect($data['members'])
+                ->map(fn (array $member): string => strtolower(trim((string) ($member['email'] ?? ''))))
+                ->filter(fn (string $email): bool => $email !== '')
+                ->values();
+
+            $duplicateEmails = $normalizedEmails
+                ->countBy()
+                ->filter(fn (int $count): bool => $count > 1)
+                ->keys()
+                ->values();
+
+            if ($duplicateEmails->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'members' => 'Duplicate member email detected: '.$duplicateEmails->join(', ').'. Please ensure each member uses a unique email/profile.',
+                ]);
+            }
+
             foreach ($data['members'] as $memberData) {
                 $matchedMember = $this->findExistingMemberMatch($group, $memberData, $updatedMemberIds);
 
@@ -1004,16 +1021,16 @@ class CustomerConfirmationService
             }
         }
 
-        $customerId = isset($memberData['customer_id']) ? (int) $memberData['customer_id'] : null;
-        if ($customerId) {
-            $matchedByCustomerId = $group->members
-                ->first(function (CustomerConfirmationMember $member) use ($customerId, $updatedMemberIds) {
-                    return $member->customer_id === $customerId
+        $email = strtolower(trim((string) ($memberData['email'] ?? '')));
+        if ($email !== '') {
+            $matchedByEmail = $group->members
+                ->first(function (CustomerConfirmationMember $member) use ($email, $updatedMemberIds) {
+                    return strtolower((string) ($member->customer?->user?->email ?? '')) === $email
                         && ! in_array($member->id, $updatedMemberIds, true);
                 });
 
-            if ($matchedByCustomerId) {
-                return $matchedByCustomerId;
+            if ($matchedByEmail) {
+                return $matchedByEmail;
             }
         }
 
@@ -1380,6 +1397,7 @@ class CustomerConfirmationService
             $newQuotation = Quotation::create([
                 'customer_id' => $targetLeaderCustomerId,
                 'customer_confirmation_id' => $newGroup->id,
+                'created_by' => $sourceQuotation->created_by ?? auth()->id(),
                 'quotation_date' => optional($sourceQuotation->quotation_date)?->format('Y-m-d') ?? now()->format('Y-m-d'),
                 'expiry_date' => optional($sourceQuotation->expiry_date)?->format('Y-m-d') ?? now()->addDays(30)->format('Y-m-d'),
                 'description' => $sourceQuotation->description,
@@ -2297,6 +2315,12 @@ class CustomerConfirmationService
                 ->findOrFail($confirmationId);
 
             $package = $group->package;
+            if (! $package) {
+                throw ValidationException::withMessages([
+                    'payer_to_members' => 'Cannot generate quotation: selected customer confirmation does not have a package.',
+                ]);
+            }
+
             $membersById = $group->members->keyBy('id');
 
             $createdQuotations = [];
@@ -2348,6 +2372,15 @@ class CustomerConfirmationService
                         continue;
                     }
 
+                    $sharingPlan = strtolower(trim((string) ($member->sharing_plan ?? '')));
+                    if ($sharingPlan === '') {
+                        $memberName = $member->customer->user->name ?? 'Member #'.$member->id;
+
+                        throw ValidationException::withMessages([
+                            'payer_to_members' => "Cannot generate quotation: {$memberName} does not have a sharing plan selected in customer confirmation.",
+                        ]);
+                    }
+
                     if ($this->memberHasAnyBilling((int) $member->id)) {
                         $memberName = $member->customer->user->name ?? 'Member #'.$member->id;
 
@@ -2356,7 +2389,6 @@ class CustomerConfirmationService
                         ]);
                     }
 
-                    $sharingPlan = $member->sharing_plan;
                     $rate = $this->getPackagePriceForSharingPlan($package, $sharingPlan);
                     $planLabel = $this->formatSharingPlanLabel($sharingPlan);
                     $memberName = $member->customer->user->name ?? 'Member #'.$member->id;

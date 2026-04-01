@@ -491,6 +491,68 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertEquals('2026-07-01', $group->date_of_application->format('Y-m-d'));
     }
 
+    public function test_customer_confirmation_update_rejects_duplicate_member_profile_and_keeps_existing_member_data(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Duplicate Member Guard',
+            'contact_number' => '012',
+            'email' => 'duplicate-member@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Existing Member',
+                    'email' => 'existing-member@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)
+            ->with('members.customer.user')
+            ->firstOrFail();
+
+        $existingMember = $group->members->firstOrFail();
+        $existingCustomer = $existingMember->customer;
+
+        $this->assertNotNull($existingCustomer);
+
+        $response = $this->put(route('customer-confirmations.update', $group->id), [
+            'date_of_application' => '2026-01-10',
+            'members' => [
+                $this->memberPayload([
+                    'member_id' => $existingMember->id,
+                    'customer_id' => $existingMember->customer_id,
+                    'name' => 'Existing Member',
+                    'email' => 'existing-member@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'New Member Name',
+                    'email' => 'existing-member@test.com',
+                    'is_leader' => false,
+                ]),
+            ],
+        ]);
+
+        $response->assertSessionHasErrors('members');
+
+        $group->refresh();
+        $group->load('members.customer.user');
+
+        $this->assertSame(1, $group->members->count());
+        $this->assertSame('Existing Member', (string) $group->members->first()?->customer?->user?->name);
+        $this->assertSame('existing-member@test.com', (string) $group->members->first()?->customer?->user?->email);
+    }
+
     public function test_customer_confirmation_update_accepts_method_spoofed_post_payload(): void
     {
         $this->actingAs($this->adminUser);
@@ -1751,6 +1813,48 @@ class CustomerConfirmationFormTest extends TestCase
         $response
             ->assertStatus(422)
             ->assertJsonValidationErrors('payer_to_members');
+    }
+
+    public function test_generate_quotations_requires_member_sharing_plan_when_package_is_selected(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-GEN-PLAN-001',
+            'name' => 'Generate Quotation Sharing Plan Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $payerUser = User::factory()->create(['email' => 'payer-missing-plan@test.com']);
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-PAYER-PLAN-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $this->adminUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => null,
+        ]);
+
+        $response = $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+            'payer_to_members' => [
+                (string) $payerMember->id => [$payerMember->id],
+            ],
+        ]);
+
+        $response->assertSessionHasErrors('payer_to_members');
+
+        $this->assertDatabaseCount('quotations', 0);
     }
 
     public function test_generate_quotations_with_inertia_request_redirects_to_quotation_index(): void

@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Models\Branch;
+use App\Models\Customer;
+use App\Models\Sales;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class BranchService
@@ -91,16 +94,32 @@ class BranchService
 
     public function delete($id)
     {
-        $branch = Branch::find($id);
-        if (! $branch) {
-            return false;
-        }
+        return DB::transaction(function () use ($id) {
+            $branch = Branch::find($id);
+            if (! $branch) {
+                return false;
+            }
 
-        return activity()
+            User::query()
+                ->where('branch_id', $branch->id)
+                ->update(['branch_id' => null]);
+
+            Customer::query()
+                ->where('branch_id', $branch->id)
+                ->update(['branch_id' => null]);
+
+            Sales::query()
+                ->where('branch_id', $branch->id)
+                ->update(['branch_id' => null]);
+
+            $branch->delete();
+
+            activity()
                 ->performedOn($branch)
                 ->withProperties(['subject_type' => 'Branch', 'subject_id' => $branch->id ?? null])
                 ->log('Branch deleted successfully #'.($branch->id ?? null));
 
-            $branch->delete();
+            return true;
+        });
     }
 }

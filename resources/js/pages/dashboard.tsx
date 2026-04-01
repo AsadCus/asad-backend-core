@@ -175,9 +175,7 @@ export default function Dashboard({ data }: DashboardProps) {
     // State for API fetched data
     const [fiscalYearTotalSalesData, setFiscalYearTotalSalesData] =
         useState<FiscalYearTotalSalesType | null>(null);
-    const [paymentSummaryPeriod, setPaymentSummaryPeriod] = useState<
-        'daily' | 'monthly' | 'yearly'
-    >('daily');
+    const paymentSummaryPeriod = 'daily' as const;
     const [paymentSummaryData, setPaymentSummaryData] =
         useState<PaymentSummaryType | null>(null);
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
@@ -300,12 +298,25 @@ export default function Dashboard({ data }: DashboardProps) {
         );
     }, [buildPaymentSummaryParams, data.selectedYearId, paymentSummaryPeriod]);
 
-    const paymentSectionTitle =
-        paymentSummaryPeriod === 'daily'
-            ? 'Daily Payment'
-            : paymentSummaryPeriod === 'monthly'
-              ? 'Monthly Payment'
-              : 'Yearly Payment';
+    const paymentSectionTitle = 'Daily Payment';
+
+    const paymentSummaryDateLabel = (() => {
+        const rawLabel = String(
+            paymentSummaryData?.date_range_label ?? '',
+        ).trim();
+
+        if (rawLabel.length === 0) {
+            return '-';
+        }
+
+        if (paymentSummaryPeriod !== 'daily') {
+            return rawLabel;
+        }
+
+        const [startLabel] = rawLabel.split(' - ');
+
+        return String(startLabel ?? rawLabel).trim() || rawLabel;
+    })();
 
     // Initial data fetch for admin
     useEffect(() => {
@@ -426,7 +437,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                 Fiscal Year - Total Sales
                             </h2>
                             <div className="mx-auto grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]">
-                                <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                <Card className="gap-3 bg-gradient-to-t from-primary/5 to-card">
                                     <CardHeader className="gap-0">
                                         <CardTitle className="text-md font-semibold">
                                             FYTD (#)
@@ -441,7 +452,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                         </p>
                                     </CardContent>
                                 </Card>
-                                <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                <Card className="gap-3 bg-gradient-to-t from-primary/5 to-card">
                                     <CardHeader className="gap-0">
                                         <CardTitle className="text-md font-semibold">
                                             FYTD ($)
@@ -472,41 +483,11 @@ export default function Dashboard({ data }: DashboardProps) {
                                     </h2>
                                     <p className="text-base text-muted-foreground">
                                         Receipt payment breakdown by item
-                                        category ({' '}
-                                        {paymentSummaryData?.date_range_label ||
-                                            '-'}
-                                        )
+                                        category ({paymentSummaryDateLabel})
                                     </p>
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                    <Select
-                                        value={paymentSummaryPeriod}
-                                        onValueChange={(value) =>
-                                            setPaymentSummaryPeriod(
-                                                value as
-                                                    | 'daily'
-                                                    | 'monthly'
-                                                    | 'yearly',
-                                            )
-                                        }
-                                    >
-                                        <SelectTrigger className="w-fit">
-                                            <SelectValue placeholder="Select period" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="daily">
-                                                Daily
-                                            </SelectItem>
-                                            <SelectItem value="monthly">
-                                                Monthly
-                                            </SelectItem>
-                                            <SelectItem value="yearly">
-                                                Yearly
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -558,10 +539,9 @@ export default function Dashboard({ data }: DashboardProps) {
                                         paymentSummaryData.categories.length ===
                                             0) && (
                                         <Card className="bg-gradient-to-t from-primary/5 to-card">
-                                            <CardContent className="pt-6">
+                                            <CardContent>
                                                 <p className="text-base text-muted-foreground">
-                                                    No payment data found for
-                                                    the selected period.
+                                                    No payment data found.
                                                 </p>
                                             </CardContent>
                                         </Card>

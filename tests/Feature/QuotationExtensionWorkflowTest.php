@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Package;
 use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
 use App\Models\QuotationExtensionMaster;
@@ -12,6 +15,7 @@ use App\Models\Receipt;
 use App\Models\User;
 use App\Services\QuotationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class QuotationExtensionWorkflowTest extends TestCase
@@ -556,6 +560,70 @@ class QuotationExtensionWorkflowTest extends TestCase
 
         $this->assertNotNull($childItem);
         $this->assertSame('Umrah Packages', $childItem?->parent?->description);
+    }
+
+    public function test_store_quotation_with_customer_confirmation_requires_member_sharing_plan_when_package_exists(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-EXT-006',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-EXT-PLAN-001',
+            'name' => 'Quotation Sharing Plan Package',
+            'status' => 'open',
+            'price_single' => 1000,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $user->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->toDateString(),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => null,
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('missing sharing plan');
+
+        app(QuotationService::class)->store([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'draft',
+            'description' => 'Quotation with missing sharing plan',
+            'items' => [
+                [
+                    '_key' => 'item-header',
+                    'description' => 'Umrah Packages',
+                    'is_header' => true,
+                    'quantity' => null,
+                    'rate' => null,
+                    'sort_order' => 1,
+                ],
+                [
+                    '_key' => 'item-member',
+                    'parent_key' => 'item-header',
+                    'customer_confirmation_member_id' => $member->id,
+                    'description' => 'Package cost',
+                    'is_header' => false,
+                    'quantity' => 1,
+                    'rate' => 1000,
+                    'sort_order' => 2,
+                ],
+            ],
+        ]);
     }
 
     public function test_payment_method_options_use_active_master_records_when_available(): void

@@ -281,16 +281,10 @@ export function QuotationForm({
         }),
     );
 
-    const createModeDefaultExtensions = normalizedDefaultExtensions.filter(
-        (extension) => String(extension.type ?? 'discount') !== 'discount',
-    );
-
     const defaultData: QuotationSchema = {
         ...(initialData ?? initialFormState),
         notes: initialNotes,
-        extensions: initialData
-            ? normalizedExtensions
-            : createModeDefaultExtensions,
+        extensions: initialData ? normalizedExtensions : [],
         ...(prefilledCustomerId && prefilledCustomerData
             ? {
                   customer_id: Number.parseInt(prefilledCustomerId, 10),
@@ -503,7 +497,7 @@ export function QuotationForm({
                         return false;
                     }
 
-                    if (isCreate && master.type === 'discount') {
+                    if (isCreate) {
                         return false;
                     }
 
@@ -1195,6 +1189,23 @@ export function QuotationForm({
                 setError(path as unknown as keyof typeof errors, issue.message);
             });
             valid = false;
+        }
+
+        if (data.customer_confirmation_id && data.package_name?.trim()) {
+            const missingSharingPlanMembers = selectedAvailableMembers
+                .filter(
+                    (member) =>
+                        String(member.sharing_plan ?? '').trim().length === 0,
+                )
+                .map((member) => member.name);
+
+            if (missingSharingPlanMembers.length > 0) {
+                setError(
+                    'customer_confirmation_id',
+                    `Customer confirmation member(s) missing sharing plan: ${missingSharingPlanMembers.join(', ')}. Please set sharing plan before creating quotation.`,
+                );
+                valid = false;
+            }
         }
 
         return valid;

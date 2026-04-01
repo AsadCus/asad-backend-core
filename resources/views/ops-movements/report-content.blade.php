@@ -121,7 +121,7 @@
             <th>Adult (M/F)</th>
             <th>Child (B/G)</th>
             <th>Official Total</th>
-            <th>Wheelchair (Non-Official)</th>
+            <th>Wheelchair</th>
             <th>Grand Total</th>
         </tr>
         <tr>

@@ -123,7 +123,7 @@ export default function ManifestMemberInformationCard({
         { label: 'Infant (below 2)', value: counts.infant },
         { label: 'Total Jemaah', value: jemaahMembers.length },
         { label: 'Official', value: officialCount },
-        { label: 'Wheelchair (Non-Official)', value: wheelchairCount },
+        { label: 'Wheelchair', value: wheelchairCount },
         { label: 'Grand Total', value: jemaahMembers.length + officialCount },
     ];
 

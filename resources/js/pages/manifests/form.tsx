@@ -1223,7 +1223,9 @@ function normalizeDocumentEntriesForSubmit(
             const isRemoved = Boolean(entry.removed);
 
             return {
-                id: entry.id,
+                // Document IDs are not required by backend sync; omit them to
+                // prevent stale-id validation failures after tab reordering or copying.
+                id: null,
                 file: entry.file instanceof File ? entry.file : null,
                 file_name: fileName === '' ? null : fileName,
                 file_path: filePath === '' ? null : filePath,

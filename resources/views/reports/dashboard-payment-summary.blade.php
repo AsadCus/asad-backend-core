@@ -597,14 +597,16 @@
     @endphp
 
     {{-- ── Report Header ─────────────────────────────────────── --}}
-    <table class="summary-grid">
-        <tr>
-            <th style="width:12%;">Period</th>
-            <td style="width:38%;">{{ $report['period_label'] ?? ucfirst($mode) }}</td>
-            <th style="width:14%;">Date Range</th>
-            <td>{{ $report['date_range_label'] ?? '-' }}</td>
-        </tr>
-    </table>
+    @if (! $isDailyMode)
+        <table class="summary-grid">
+            <tr>
+                <th style="width:12%;">Period</th>
+                <td style="width:38%;">{{ $report['period_label'] ?? ucfirst($mode) }}</td>
+                <th style="width:14%;">Date Range</th>
+                <td>{{ $report['date_range_label'] ?? '-' }}</td>
+            </tr>
+        </table>
+    @endif
 
     {{-- ── Main Table ─────────────────────────────────────────── --}}
     <table class="section-table">
@@ -612,21 +614,17 @@
         {{-- Column headers --}}
         @if ($isDailyMode)
             <tr>
-                <th colspan="2">Date</th>
-                <th rowspan="2" style="width:12%;">Category</th>
-                <th rowspan="2" style="width:17%;">Package / Item</th>
-                <th rowspan="2" style="width:6%;">Ref No.</th>
-                <th rowspan="2" style="width:7%;" class="text-right">Amount</th>
+                <th style="width:10%;">Date</th>
+                <th style="width:12%;">Category</th>
+                <th style="width:19%;">Package / Item</th>
+                <th style="width:6%;">Ref No.</th>
+                <th style="width:7%;" class="text-right">Amount</th>
                 @foreach ($paymentMethodColumns as $paymentMethodColumn)
-                    <th rowspan="2" style="width:6%;" class="text-right">{{ $methodHeaderLabel($paymentMethodColumn) }}</th>
+                    <th style="width:6%;" class="text-right">{{ $methodHeaderLabel($paymentMethodColumn) }}</th>
                 @endforeach
-                <th rowspan="2" style="width:7%;" class="text-right">Total Sale</th>
-                <th rowspan="2" style="width:5%;">Maker</th>
-                <th rowspan="2" style="width:9%;">Remarks</th>
-            </tr>
-            <tr>
-                <th style="width:6%;" class="th-date-sub">Tanggal</th>
-                <th style="width:6%;" class="th-date-sub">Hari</th>
+                <th style="width:7%;" class="text-right">Total Sale</th>
+                <th style="width:5%;">Maker</th>
+                <th style="width:9%;">Remarks</th>
             </tr>
         @else
             <tr>
@@ -663,9 +661,6 @@
                                 <td class="td-date" rowspan="{{ $grp['rowspan'] }}">
                                     {{ $grp['label'] }}
                                 </td>
-                                <td class="td-date td-date-sub" rowspan="{{ $grp['rowspan'] }}">
-                                    {{ $grp['day_name'] ?? '-' }}
-                                </td>
                                 @php $dateRendered = true; @endphp
                             @endif
                             <td class="td-category" rowspan="{{ $cat['rowspan'] }}">{{ $cat['label'] }}</td>
@@ -684,9 +679,6 @@
                                 @if (!$dateRendered)
                                     <td class="td-date" rowspan="{{ $grp['rowspan'] }}">
                                         {{ $grp['label'] }}
-                                    </td>
-                                    <td class="td-date td-date-sub" rowspan="{{ $grp['rowspan'] }}">
-                                        {{ $grp['day_name'] ?? '-' }}
                                     </td>
                                     @php $dateRendered = true; @endphp
                                 @endif

@@ -30,7 +30,7 @@ class ReceiptService
 
     public function getForDataTable(array $filters = [])
     {
-        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name'])
+        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoice.order.quotation.createdBy:id,name'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('invoice.order.quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);
@@ -46,8 +46,8 @@ class ReceiptService
                     'customer_id' => $r->invoice?->order->quotation->customer->id ?? '-',
                     'customer_number' => $r->invoice?->order->quotation->customer->customer_number ?? '-',
                     'customer_name' => $r->invoice?->order->quotation->customer->user->name ?? '-',
-                    'sales_id' => $r->invoice?->order->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
-                    'sales_name' => $r->invoice?->order->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
+                    'sales_id' => $r->invoice?->order->quotation->createdBy?->id ?? '-',
+                    'sales_name' => $r->invoice?->order->quotation->createdBy?->name ?? '-',
                     'amount' => $this->formatService->cleanDecimal($r->amount),
                     'receipt_date' => $r->receipt_date_formatted,
                     'payment_method' => $r->payment_method,

@@ -83,7 +83,7 @@ export default function QuotationInformationSection({
                 {/* Customer */}
                 <section className="order-1 grid grid-cols-1 items-start gap-4 md:col-span-2 md:grid-cols-1 lg:order-1">
                     <FormField
-                        label="Customer Confirmation"
+                        label="Umrah Customer Confirmation"
                         fieldRequirementsProps={{
                             required: false,
                             hint: 'Optional: select a customer confirmation record for this quotation',

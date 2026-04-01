@@ -205,31 +205,49 @@ class DashboardTest extends TestCase
                 'payment_plan' => 'full',
             ]);
 
-            Invoice::create([
+            $paidInvoiceOne = Invoice::create([
                 'order_id' => $convertedOrder->id,
                 'description' => 'FYTD invoice one',
                 'amount' => 100,
                 'invoice_date' => '2026-01-10',
                 'due_date' => '2026-01-10',
-                'status' => 'issued',
+                'status' => 'paid',
             ]);
 
-            Invoice::create([
+            $paidInvoiceTwo = Invoice::create([
                 'order_id' => $convertedOrder->id,
                 'description' => 'FYTD invoice two',
                 'amount' => 250,
                 'invoice_date' => '2026-03-20',
                 'due_date' => '2026-03-20',
-                'status' => 'issued',
+                'status' => 'paid',
+            ]);
+
+            $paidFutureScheduledInvoice = Invoice::create([
+                'order_id' => $convertedOrder->id,
+                'description' => 'Future scheduled invoice paid within FYTD',
+                'amount' => 500,
+                'invoice_date' => '2026-07-01',
+                'due_date' => '2026-07-01',
+                'status' => 'paid',
             ]);
 
             Invoice::create([
                 'order_id' => $convertedOrder->id,
-                'description' => 'Future invoice should be excluded from FYTD',
-                'amount' => 500,
-                'invoice_date' => '2026-07-01',
-                'due_date' => '2026-07-01',
+                'description' => 'FYTD issued invoice should be excluded from amount',
+                'amount' => 111,
+                'invoice_date' => '2026-03-21',
+                'due_date' => '2026-03-21',
                 'status' => 'issued',
+            ]);
+
+            $paidInvoiceWithLateReceipt = Invoice::create([
+                'order_id' => $convertedOrder->id,
+                'description' => 'Paid invoice with receipt after today should be excluded from FYTD',
+                'amount' => 999,
+                'invoice_date' => '2026-03-21',
+                'due_date' => '2026-03-21',
+                'status' => 'paid',
             ]);
 
             Invoice::create([
@@ -238,7 +256,35 @@ class DashboardTest extends TestCase
                 'amount' => 999,
                 'invoice_date' => '2026-02-15',
                 'due_date' => '2026-02-15',
-                'status' => 'issued',
+                'status' => 'paid',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => $paidInvoiceOne->id,
+                'amount' => 100,
+                'receipt_date' => '2026-01-10',
+                'payment_method' => 'transfer',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => $paidInvoiceTwo->id,
+                'amount' => 250,
+                'receipt_date' => '2026-03-20',
+                'payment_method' => 'transfer',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => $paidFutureScheduledInvoice->id,
+                'amount' => 500,
+                'receipt_date' => '2026-03-31',
+                'payment_method' => 'transfer',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => $paidInvoiceWithLateReceipt->id,
+                'amount' => 999,
+                'receipt_date' => '2026-04-05',
+                'payment_method' => 'transfer',
             ]);
 
             $response = $this->getJson(route('dashboard.fiscal-year-total-sales', [
@@ -246,8 +292,8 @@ class DashboardTest extends TestCase
             ]));
 
             $response->assertOk();
-            $response->assertJsonPath('count', 2);
-            $this->assertSame(350.0, (float) $response->json('amount'));
+            $response->assertJsonPath('count', 3);
+            $this->assertSame(850.0, (float) $response->json('amount'));
         } finally {
             Carbon::setTestNow();
         }
@@ -521,7 +567,7 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('total_amount', 100);
     }
 
-    public function test_dashboard_payment_summary_report_blade_renders_summary_payload_without_groups(): void
+    public function test_dashboard_payment_summary_report_blade_hides_period_and_date_range_in_daily_mode(): void
     {
         $this->actingAs(User::factory()->create());
 
@@ -550,7 +596,9 @@ class DashboardTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('PAYMENT SUMMARY REPORT', $html);
-        $this->assertStringContainsString('Period', $html);
+        $this->assertStringNotContainsString('Period', $html);
+        $this->assertStringNotContainsString('Date Range', $html);
+        $this->assertStringContainsString('<th style="width:10%;">Date</th>', $html);
         $this->assertStringContainsString('Umrah Packages', $html);
         $this->assertStringContainsString('$1,200.00', $html);
         $this->assertStringContainsString('2 receipt rows', $html);

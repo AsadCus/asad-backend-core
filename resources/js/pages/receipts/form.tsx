@@ -21,7 +21,7 @@ import {
 } from '@/routes/receipt';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { InvoiceSchema } from '../invoices/schema';
 import { ReceiptSchema } from './schema';
 
@@ -50,6 +50,7 @@ export default function ReceiptForm({
 
     const [selectedInvoice, setSelectedInvoice] =
         useState<InvoiceSchema | null>(invoiceData ?? null);
+    const hasManualPaymentMethodOverrideRef = useRef(false);
 
     const resolvedDefaultPaymentMethod =
         defaultPaymentMethod ?? String(paymentMethods[0]?.value ?? '');
@@ -79,17 +80,22 @@ export default function ReceiptForm({
 
     // invoice
     const getInvoiceDetail = async (id: number) => {
+        hasManualPaymentMethodOverrideRef.current = false;
+
         try {
             const response = await fetch(getForShow(id).url);
             if (!response) throw new Error('Network error');
             const invoice = await response.json();
             setSelectedInvoice(invoice);
             setData('amount', invoice?.amount);
-            setData(
-                'payment_method',
-                String(invoice?.payment_method ?? '') ||
-                    resolvedDefaultPaymentMethod,
-            );
+
+            if (!hasManualPaymentMethodOverrideRef.current) {
+                setData(
+                    'payment_method',
+                    String(invoice?.payment_method ?? '') ||
+                        resolvedDefaultPaymentMethod,
+                );
+            }
         } catch (err) {
             console.error('Failed to fetch customer details:', err);
         }
@@ -235,9 +241,10 @@ export default function ReceiptForm({
                             value={String(data.payment_method ?? '')}
                             placeholder="Select payment method"
                             searchPlaceholder="Search payment method"
-                            onChange={(nextValue) =>
-                                setData('payment_method', nextValue)
-                            }
+                            onChange={(nextValue) => {
+                                hasManualPaymentMethodOverrideRef.current = true;
+                                setData('payment_method', nextValue);
+                            }}
                         />
                     </FormField>
 

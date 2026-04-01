@@ -30,7 +30,7 @@ class InvoiceService
 
     public function getForDataTable(array $filters = [])
     {
-        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name'])
+        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'order.quotation.createdBy:id,name'])
             ->with('receipt:id,invoice_id')
             ->withCount('receipt')
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
@@ -49,8 +49,8 @@ class InvoiceService
                     'customer_id' => $i->order->quotation->customer->id ?? '-',
                     'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
                     'customer_name' => $i->order->quotation->customer->user->name ?? '-',
-                    'sales_id' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
-                    'sales_name' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
+                    'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
+                    'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
                     'type' => $i->type,
                     'description' => $i->description,
                     'amount' => $this->formatService->cleanDecimal($i->amount),

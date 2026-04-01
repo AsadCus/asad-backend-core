@@ -6,6 +6,7 @@ import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { createSelectColumn } from '@/components/select-column';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +58,7 @@ import {
     sharingPlanOptions,
 } from '../packages/schema';
 import CustomerConfirmationForm from './form';
+import { validateQuotationGenerationPayload } from './validation';
 
 const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-SG', {
@@ -412,6 +414,9 @@ export default function ConfirmedCustomerIndex({
         Record<number, number | null>
     >({});
     const [isGeneratingQuotations, setIsGeneratingQuotations] = useState(false);
+    const [quotationGenerationError, setQuotationGenerationError] = useState<
+        string | null
+    >(null);
 
     const [refundDialogOpen, setRefundDialogOpen] = useState(false);
     const [refundGroup, setRefundGroup] =
@@ -911,31 +916,30 @@ export default function ConfirmedCustomerIndex({
 
         setQuotationGroup(group);
         setPayerMapping(initialMapping);
+        setQuotationGenerationError(null);
         setQuotationDialogOpen(true);
     };
 
     const submitGenerateQuotations = () => {
-        if (!quotationGroup) return;
+        const validation = validateQuotationGenerationPayload(
+            quotationGroup,
+            payerMapping,
+        );
 
-        const payerToMembers: Record<number, number[]> = {};
-        for (const [memberIdStr, payerId] of Object.entries(payerMapping)) {
-            const memberId = Number(memberIdStr);
+        if (!validation.isValid) {
+            const errorMessage =
+                validation.errorMessage ?? 'Failed to generate quotations.';
+            setQuotationGenerationError(errorMessage);
+            toast.error(errorMessage);
 
-            if (payerId === null || payerId === undefined) {
-                continue;
-            }
-
-            if (!payerToMembers[payerId]) {
-                payerToMembers[payerId] = [];
-            }
-            payerToMembers[payerId].push(memberId);
-        }
-
-        if (Object.keys(payerToMembers).length === 0) {
-            toast.error('No payment assignments found.');
             return;
         }
 
+        if (!quotationGroup) {
+            return;
+        }
+
+        setQuotationGenerationError(null);
         setIsGeneratingQuotations(true);
 
         const route = generateQuotations(quotationGroup.id);
@@ -943,17 +947,63 @@ export default function ConfirmedCustomerIndex({
         router.post(
             route.url,
             {
-                payer_to_members: payerToMembers,
+                payer_to_members: validation.payerToMembers,
             },
             {
                 preserveScroll: true,
                 preserveState: false,
-                onSuccess: () => {
+                onSuccess: (page) => {
+                    const pageProps = page.props as Record<string, unknown>;
+                    const flash = (page.props as unknown as SharedData).flash;
+                    const flashError =
+                        typeof flash?.error === 'string'
+                            ? flash.error.trim()
+                            : '';
+
+                    const pageErrors =
+                        (pageProps.errors as Record<string, unknown>) ?? {};
+                    const firstValidationError = Object.values(pageErrors)
+                        .map((value) => {
+                            if (Array.isArray(value)) {
+                                return String(value[0] ?? '').trim();
+                            }
+
+                            return String(value ?? '').trim();
+                        })
+                        .find((message) => message.length > 0);
+
+                    const resolvedError =
+                        flashError.length > 0
+                            ? flashError
+                            : firstValidationError ?? '';
+
+                    if (resolvedError.length > 0) {
+                        setQuotationGenerationError(resolvedError);
+                        toast.error(resolvedError);
+
+                        return;
+                    }
+
                     toast.success('Quotation created successfully.');
+                    setQuotationGenerationError(null);
                     setQuotationDialogOpen(false);
                 },
-                onError: () => {
-                    toast.error('Failed to generate quotations.');
+                onError: (errors) => {
+                    const resolvedError =
+                        errors.payer_to_members ??
+                        errors.customer_confirmation_id ??
+                        Object.values(errors)[0] ??
+                        'Failed to generate quotations.';
+
+                    const errorMessage = Array.isArray(resolvedError)
+                        ? String(
+                              resolvedError[0] ??
+                                  'Failed to generate quotations.',
+                          )
+                        : String(resolvedError);
+
+                    setQuotationGenerationError(errorMessage);
+                    toast.error(errorMessage);
                 },
                 onFinish: () => {
                     setIsGeneratingQuotations(false);
@@ -1972,6 +2022,13 @@ export default function ConfirmedCustomerIndex({
                     <div className="h-full w-full flex-1 overflow-y-auto pb-2">
                         {quotationGroup && (
                             <div className="space-y-4">
+                                {quotationGenerationError && (
+                                    <Alert variant="destructive">
+                                        <AlertDescription>
+                                            {quotationGenerationError}
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
                                 {(() => {
                                     const activeMembers =
                                         quotationGroup.members.filter(

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class CustomerConfirmationController extends Controller
@@ -192,10 +193,23 @@ class CustomerConfirmationController extends Controller
 
         $validated = $request->validated();
 
-        $quotations = $this->customerConfirmationService->generateQuotationsFromConfirmation(
-            (int) $id,
-            $validated['payer_to_members'],
-        );
+        try {
+            $quotations = $this->customerConfirmationService->generateQuotationsFromConfirmation(
+                (int) $id,
+                $validated['payer_to_members'],
+            );
+        } catch (ValidationException $exception) {
+            $errorMessage = collect($exception->errors())
+                ->flatten()
+                ->filter(fn ($message) => is_string($message) && trim($message) !== '')
+                ->map(fn ($message) => trim((string) $message))
+                ->first() ?? 'Failed to generate quotations.';
+
+            return back()
+                ->withErrors($exception->errors())
+                ->withInput()
+                ->with('error', $errorMessage);
+        }
 
         $successMessage = count($quotations).' quotation(s) created successfully.';
 

@@ -1186,19 +1186,29 @@ export default function OrderForm({
             return;
         }
 
+        const isMissingInvoiceNumber = (invoiceNumber?: string | null) => {
+            const normalized = String(invoiceNumber ?? '').trim();
+
+            return normalized.length === 0 || normalized === '-';
+        };
+
         const missingIndexes = data.invoices
             .map((invoice, index) => {
-                const invoiceNumber = String(
-                    invoice.invoice_number ?? '',
-                ).trim();
-
-                return invoiceNumber.length === 0 || invoiceNumber === '-'
+                return isMissingInvoiceNumber(invoice.invoice_number)
                     ? index
                     : null;
             })
             .filter((index): index is number => index !== null);
 
-        if (missingIndexes.length === 0) {
+        const shouldNormalizeInstallmentSequence =
+            !initialData &&
+            data.payment_plan === 'installment' &&
+            data.invoices.length > 1;
+
+        if (
+            missingIndexes.length === 0 &&
+            !shouldNormalizeInstallmentSequence
+        ) {
             return;
         }
 
@@ -1213,6 +1223,231 @@ export default function OrderForm({
                     Awaited<ReturnType<typeof suggestNumber>>
                 >();
                 const nextInvoices = [...data.invoices];
+
+                if (shouldNormalizeInstallmentSequence) {
+                    const firstFilledInvoiceIndex = nextInvoices.findIndex(
+                        (invoice) =>
+                            !isMissingInvoiceNumber(invoice.invoice_number),
+                    );
+
+                    let sequenceFormat:
+                        | Awaited<ReturnType<typeof fetchFormats>>[number]
+                        | undefined;
+                    let sequenceFormatId: number | null = null;
+                    let sequenceTemplateNumber = '';
+                    let baseIncrement = 1;
+
+                    if (firstFilledInvoiceIndex >= 0) {
+                        const firstFilledInvoice =
+                            nextInvoices[firstFilledInvoiceIndex];
+                        const filledInvoiceNumber = String(
+                            firstFilledInvoice?.invoice_number ?? '',
+                        ).trim();
+                        const preferredFormatId =
+                            firstFilledInvoice?.number_format_id ?? null;
+
+                        sequenceFormat =
+                            formats.find(
+                                (format) =>
+                                    format.id ===
+                                    Number(preferredFormatId ?? 0),
+                            ) ??
+                            formats.find((format) => {
+                                return (
+                                    extractIncrementFromInvoiceNumber(
+                                        filledInvoiceNumber,
+                                        format.name,
+                                    ) !== null
+                                );
+                            });
+
+                        const parsedIncrement = sequenceFormat
+                            ? extractIncrementFromInvoiceNumber(
+                                  filledInvoiceNumber,
+                                  sequenceFormat.name,
+                              )
+                            : extractIncrementFromSuggestedNumber(
+                                  filledInvoiceNumber,
+                              );
+
+                        if (parsedIncrement !== null) {
+                            baseIncrement = Math.max(
+                                1,
+                                parsedIncrement - firstFilledInvoiceIndex,
+                            );
+                        }
+
+                        sequenceFormatId =
+                            firstFilledInvoice?.number_format_id ??
+                            sequenceFormat?.id ??
+                            null;
+                        sequenceTemplateNumber = filledInvoiceNumber;
+                    } else {
+                        const firstInvoice = nextInvoices[0];
+
+                        if (firstInvoice) {
+                            const preferredFormatId =
+                                firstInvoice.number_format_id ?? null;
+                            const suggestionScopeKey =
+                                preferredFormatId !== null
+                                    ? `format:${preferredFormatId}`
+                                    : 'model:invoice';
+                            const suggestion =
+                                suggestionCacheByScope.get(
+                                    suggestionScopeKey,
+                                ) ??
+                                (await suggestNumber(
+                                    'invoice',
+                                    preferredFormatId,
+                                ));
+
+                            if (
+                                !suggestionCacheByScope.has(suggestionScopeKey)
+                            ) {
+                                suggestionCacheByScope.set(
+                                    suggestionScopeKey,
+                                    suggestion,
+                                );
+                            }
+
+                            sequenceFormat = formats.find(
+                                (candidate) =>
+                                    candidate.id === suggestion.format_id,
+                            );
+
+                            const parsedSuggestedIncrement =
+                                extractIncrementFromSuggestedNumber(
+                                    suggestion.number,
+                                    sequenceFormat?.name,
+                                );
+
+                            baseIncrement =
+                                typeof suggestion.next_increment === 'number'
+                                    ? suggestion.next_increment
+                                    : (parsedSuggestedIncrement ?? 1);
+                            sequenceFormatId = suggestion.format_id ?? null;
+                            sequenceTemplateNumber = suggestion.number;
+                        }
+                    }
+
+                    let hasMismatch = false;
+
+                    const normalizedSequenceInvoices = nextInvoices.map(
+                        (invoice, index) => {
+                            const expectedIncrement = baseIncrement + index;
+                            const expectedInvoiceNumber = sequenceFormat
+                                ? buildInvoiceNumberFromFormat(
+                                      sequenceFormat.name,
+                                      expectedIncrement,
+                                      sequenceFormat.increment_padding,
+                                  )
+                                : buildInvoiceNumberFromSuggestion(
+                                      sequenceTemplateNumber,
+                                      expectedIncrement,
+                                  );
+
+                            const currentInvoiceNumber = String(
+                                invoice.invoice_number ?? '',
+                            ).trim();
+
+                            if (
+                                currentInvoiceNumber !== expectedInvoiceNumber
+                            ) {
+                                hasMismatch = true;
+                            }
+
+                            return {
+                                ...invoice,
+                                number_format_id:
+                                    invoice.number_format_id ??
+                                    sequenceFormatId,
+                                invoice_number: expectedInvoiceNumber,
+                            };
+                        },
+                    );
+
+                    if (hasMismatch) {
+                        setData('invoices', normalizedSequenceInvoices);
+                        return;
+                    }
+                }
+
+                if (
+                    data.payment_plan === 'installment' &&
+                    !nextInvoices.some(
+                        (invoice) =>
+                            !isMissingInvoiceNumber(invoice.invoice_number),
+                    ) &&
+                    missingIndexes.length > 0
+                ) {
+                    const firstMissingIndex = missingIndexes[0];
+                    const firstMissingInvoice = nextInvoices[firstMissingIndex];
+
+                    if (firstMissingInvoice) {
+                        const preferredFormatId =
+                            firstMissingInvoice.number_format_id ?? null;
+                        const suggestionScopeKey =
+                            preferredFormatId !== null
+                                ? `format:${preferredFormatId}`
+                                : 'model:invoice';
+
+                        const suggestion =
+                            suggestionCacheByScope.get(suggestionScopeKey) ??
+                            (await suggestNumber('invoice', preferredFormatId));
+
+                        if (!suggestionCacheByScope.has(suggestionScopeKey)) {
+                            suggestionCacheByScope.set(
+                                suggestionScopeKey,
+                                suggestion,
+                            );
+                        }
+
+                        const format = formats.find(
+                            (candidate) =>
+                                candidate.id === suggestion.format_id,
+                        );
+                        const parsedSuggestedIncrement =
+                            extractIncrementFromSuggestedNumber(
+                                suggestion.number,
+                                format?.name,
+                            );
+                        const baseIncrement =
+                            typeof suggestion.next_increment === 'number'
+                                ? suggestion.next_increment
+                                : (parsedSuggestedIncrement ?? 1);
+
+                        missingIndexes.forEach((invoiceIndex, offset) => {
+                            const currentInvoice = nextInvoices[invoiceIndex];
+
+                            if (!currentInvoice) {
+                                return;
+                            }
+
+                            const currentIncrement = baseIncrement + offset;
+                            const nextInvoiceNumber = format
+                                ? buildInvoiceNumberFromFormat(
+                                      format.name,
+                                      currentIncrement,
+                                      format.increment_padding,
+                                  )
+                                : buildInvoiceNumberFromSuggestion(
+                                      suggestion.number,
+                                      currentIncrement,
+                                  );
+
+                            nextInvoices[invoiceIndex] = {
+                                ...currentInvoice,
+                                number_format_id:
+                                    currentInvoice.number_format_id ??
+                                    suggestion.format_id,
+                                invoice_number: nextInvoiceNumber,
+                            };
+                        });
+
+                        setData('invoices', nextInvoices);
+                        return;
+                    }
+                }
 
                 nextInvoices.forEach((invoice) => {
                     const invoiceNumber = String(
@@ -1349,7 +1584,14 @@ export default function OrderForm({
                 isInvoiceNumberAutofillRunningRef.current = false;
             }
         })();
-    }, [data.invoices, isView, processing, setData]);
+    }, [
+        data.invoices,
+        data.payment_plan,
+        initialData,
+        isView,
+        processing,
+        setData,
+    ]);
 
     function addInvoice() {
         if (data.payment_plan === 'installment') {

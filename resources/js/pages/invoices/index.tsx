@@ -142,7 +142,11 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
                 Boolean(invoice.id);
 
             if (!canCreateReceipt) {
-                return <span className="text-muted-foreground">-</span>;
+                return (
+                    <span className="text-muted-foreground">
+                        Receipt Created
+                    </span>
+                );
             }
 
             return (

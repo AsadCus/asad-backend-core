@@ -483,6 +483,13 @@ class QuotationService
             ]);
 
             if (! empty($data['items']) && is_array($data['items'])) {
+                $this->validateCustomerConfirmationMemberSharingPlans(
+                    $data['items'],
+                    isset($data['customer_confirmation_id'])
+                        ? (int) $data['customer_confirmation_id']
+                        : null,
+                );
+
                 $this->quotationItemService->storeQuotationItems($quotation->id, $data['items']);
             }
 
@@ -609,6 +616,9 @@ class QuotationService
         return DB::transaction(function () use ($data, $id) {
             $quotation = Quotation::findOrFail($id);
             $requestedStatus = strtolower((string) ($data['status'] ?? $quotation->status?->value ?? ''));
+            $resolvedCustomerConfirmationId = array_key_exists('customer_confirmation_id', $data)
+                ? (int) ($data['customer_confirmation_id'] ?? 0)
+                : (int) ($quotation->customer_confirmation_id ?? 0);
 
             $previousLinkedMemberIds = $quotation->quotationItems()
                 ->whereNotNull('customer_confirmation_member_id')
@@ -645,6 +655,11 @@ class QuotationService
             ]);
 
             if (array_key_exists('items', $data) && is_array($data['items'])) {
+                $this->validateCustomerConfirmationMemberSharingPlans(
+                    $data['items'],
+                    $resolvedCustomerConfirmationId > 0 ? $resolvedCustomerConfirmationId : null,
+                );
+
                 $this->quotationItemService->replaceQuotationItems($quotation->id, $data['items']);
             }
 
@@ -712,6 +727,54 @@ class QuotationService
 
             return $quotation->fresh();
         });
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    private function validateCustomerConfirmationMemberSharingPlans(array $items, ?int $customerConfirmationId): void
+    {
+        if (! $customerConfirmationId || $customerConfirmationId <= 0) {
+            return;
+        }
+
+        $confirmation = CustomerConfirmation::query()
+            ->select('id', 'package_id')
+            ->find($customerConfirmationId);
+
+        if (! $confirmation || ! $confirmation->package_id) {
+            return;
+        }
+
+        $memberIds = collect($items)
+            ->map(fn ($item): int => (int) ($item['customer_confirmation_member_id'] ?? 0))
+            ->filter(fn (int $memberId): bool => $memberId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($memberIds)) {
+            return;
+        }
+
+        $members = CustomerConfirmationMember::query()
+            ->with('customer.user:id,name')
+            ->where('customer_confirmation_id', $confirmation->id)
+            ->whereIn('id', $memberIds)
+            ->get();
+
+        $missingSharingPlanMembers = $members
+            ->filter(fn (CustomerConfirmationMember $member): bool => trim((string) ($member->sharing_plan ?? '')) === '')
+            ->map(fn (CustomerConfirmationMember $member): string => $member->customer?->user?->name ?? 'Member #'.$member->id)
+            ->values();
+
+        if ($missingSharingPlanMembers->isEmpty()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'customer_confirmation_id' => 'Customer confirmation member(s) missing sharing plan: '.$missingSharingPlanMembers->join(', ').'. Please set sharing plan before creating quotation.',
+        ]);
     }
 
     public function syncQuotationItemsToRelevantInvoicesBySortOrder(
