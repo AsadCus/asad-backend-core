@@ -1,3 +1,4 @@
+import { store } from '@/actions/App/Http/Controllers/ManifestController';
 import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { FormProgressHeader } from '@/components/form-progress-header';
@@ -34,8 +35,6 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { store } from '@/routes/manifests';
-import manifestSections from '@/routes/manifests/sections';
 import { useForm } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -47,7 +46,6 @@ import {
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fields';
 import CustomerFormFields from '../customer/form-fields';
 import { type CustomerSchema } from '../customer/schema';
@@ -1225,7 +1223,7 @@ function normalizeDocumentEntriesForSubmit(
             return {
                 // Document IDs are not required by backend sync; omit them to
                 // prevent stale-id validation failures after tab reordering or copying.
-                id: null,
+                id: undefined,
                 file: entry.file instanceof File ? entry.file : null,
                 file_name: fileName === '' ? null : fileName,
                 file_path: filePath === '' ? null : filePath,
@@ -1701,74 +1699,6 @@ function validateRoomCapacityOnSubmit(
     return errors;
 }
 
-type SectionRequestResult = {
-    ok: boolean;
-    errors?: Record<string, string>;
-    isValidationError?: boolean;
-};
-
-type ResolvedCsrfToken = {
-    value: string;
-    source: 'meta' | 'cookie';
-};
-
-function normalizeSectionErrors(
-    errors: Record<string, unknown>,
-): Record<string, string> {
-    if (!errors || typeof errors !== 'object') {
-        return {};
-    }
-
-    return Object.fromEntries(
-        Object.entries(errors).map(([field, message]) => {
-            if (Array.isArray(message)) {
-                return [field, String(message[0] ?? 'Invalid value.')];
-            }
-
-            return [field, String(message ?? 'Invalid value.')];
-        }),
-    );
-}
-
-function resolveCsrfToken(): ResolvedCsrfToken | null {
-    const cookieEntry = document.cookie
-        .split(';')
-        .map((segment) => segment.trim())
-        .find((segment) => segment.startsWith('XSRF-TOKEN='));
-
-    if (cookieEntry) {
-        const encodedValue = cookieEntry.slice('XSRF-TOKEN='.length);
-
-        if (encodedValue) {
-            try {
-                return {
-                    value: decodeURIComponent(encodedValue),
-                    source: 'cookie',
-                };
-            } catch {
-                return {
-                    value: encodedValue,
-                    source: 'cookie',
-                };
-            }
-        }
-    }
-
-    const metaToken = document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute('content')
-        ?.trim();
-
-    if (metaToken && metaToken.length > 0) {
-        return {
-            value: metaToken,
-            source: 'meta',
-        };
-    }
-
-    return null;
-}
-
 function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
     const passportPath = String(member.passport_path ?? '').trim();
     const photoPath = String(member.photo_path ?? '').trim();
@@ -1834,171 +1764,6 @@ function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
                       file_path: photoPath,
                   }
                 : null,
-    };
-}
-
-async function submitSectionPayload(
-    url: string,
-    payload: Record<string, unknown>,
-    options: { forceFormData?: boolean; validateOnly?: boolean } = {},
-): Promise<SectionRequestResult> {
-    const csrfToken = resolveCsrfToken();
-    const csrfTokenValue = csrfToken?.value ?? null;
-    const csrfTokenSource = csrfToken?.source ?? null;
-    const useFormData = options.forceFormData ?? false;
-    const validateOnly = options.validateOnly ?? false;
-
-    const appendFormValue = (
-        formData: FormData,
-        key: string,
-        value: unknown,
-    ): void => {
-        if (value === undefined) {
-            return;
-        }
-
-        if (value === null) {
-            formData.append(key, '');
-
-            return;
-        }
-
-        if (value instanceof File) {
-            formData.append(key, value);
-
-            return;
-        }
-
-        if (value instanceof Blob) {
-            formData.append(key, value);
-
-            return;
-        }
-
-        if (Array.isArray(value)) {
-            value.forEach((item, index) => {
-                appendFormValue(formData, `${key}[${index}]`, item);
-            });
-
-            return;
-        }
-
-        if (typeof value === 'object') {
-            Object.entries(value as Record<string, unknown>).forEach(
-                ([childKey, childValue]) => {
-                    appendFormValue(
-                        formData,
-                        `${key}[${childKey}]`,
-                        childValue,
-                    );
-                },
-            );
-
-            return;
-        }
-
-        if (typeof value === 'boolean') {
-            formData.append(key, value ? '1' : '0');
-
-            return;
-        }
-
-        formData.append(key, String(value));
-    };
-
-    const buildRequestBody = (): BodyInit => {
-        if (!useFormData) {
-            return JSON.stringify({
-                ...payload,
-                ...(validateOnly ? { validate_only: true } : {}),
-                ...(csrfTokenSource === 'meta' && csrfTokenValue
-                    ? { _token: csrfTokenValue }
-                    : {}),
-            });
-        }
-
-        const formData = new FormData();
-        formData.append('_method', 'patch');
-
-        if (csrfTokenSource === 'meta' && csrfTokenValue) {
-            formData.append('_token', csrfTokenValue);
-        }
-
-        if (validateOnly) {
-            formData.append('validate_only', '1');
-        }
-
-        Object.entries(payload).forEach(([key, value]) => {
-            appendFormValue(formData, key, value);
-        });
-
-        return formData;
-    };
-
-    const headers: Record<string, string> = {
-        Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        ...(csrfTokenSource === 'meta' && csrfTokenValue
-            ? { 'X-CSRF-TOKEN': csrfTokenValue }
-            : {}),
-        ...(csrfTokenSource === 'cookie' && csrfTokenValue
-            ? { 'X-XSRF-TOKEN': csrfTokenValue }
-            : {}),
-    };
-
-    if (!useFormData) {
-        headers['Content-Type'] = 'application/json';
-    }
-
-    let response: Response;
-
-    try {
-        response = await fetch(url, {
-            method: useFormData ? 'POST' : 'PATCH',
-            headers,
-            body: buildRequestBody(),
-            credentials: 'same-origin',
-        });
-    } catch {
-        return {
-            ok: false,
-            errors: {
-                section_save:
-                    'Unable to reach server while saving manifest sections.',
-            },
-        };
-    }
-
-    if (response.ok) {
-        return { ok: true };
-    }
-
-    let errorPayload: Record<string, unknown> = {};
-
-    try {
-        errorPayload = (await response.json()) as Record<string, unknown>;
-    } catch {
-        errorPayload = {};
-    }
-
-    if (response.status === 422) {
-        return {
-            ok: false,
-            isValidationError: true,
-            errors: normalizeSectionErrors(
-                (errorPayload.errors as Record<string, unknown>) ?? {},
-            ),
-        };
-    }
-
-    return {
-        ok: false,
-        errors: {
-            section_save:
-                typeof errorPayload.message === 'string'
-                    ? errorPayload.message
-                    : 'Unable to save one or more manifest sections.',
-        },
     };
 }
 
@@ -2092,8 +1857,6 @@ export default function ManifestForm({
     const [openSections, setOpenSections] = useState<string[]>([
         'manifest_information',
     ]);
-    const [isSectionSaving, setIsSectionSaving] = useState(false);
-
     const [roomListsState, setRoomListsState] = useState<
         Record<string, MemberWithUI[]>
     >(() => {
@@ -2872,128 +2635,16 @@ export default function ManifestForm({
             scrollToErrorBanner();
         };
 
-        const submitWithFullPayload = () => {
-            form.transform(() => submitPayload);
+        form.transform(() => submitPayload);
 
-            post(store().url, {
-                preserveScroll: 'errors',
-                forceFormData: true,
-                onError: handleError,
-                onFinish: () => {
-                    form.transform(
-                        (currentData: ManifestFormData) => currentData,
-                    );
-                },
-            });
-        };
-
-        if (isEdit && submitPayload.id) {
-            const sectionRequests = [
-                {
-                    url: manifestSections.core.update.url(submitPayload.id),
-                    payload: {
-                        package_id: submitPayload.package_id ?? null,
-                        in_charge_official_id:
-                            submitPayload.in_charge_official_id ?? null,
-                        notes: submitPayload.notes ?? null,
-                        status: submitPayload.status ?? null,
-                    },
-                    forceFormData: false,
-                },
-                {
-                    url: manifestSections.sharingGroups.update.url(
-                        submitPayload.id,
-                    ),
-                    payload: {
-                        manifest_sharing_groups:
-                            submitPayload.manifest_sharing_groups ?? [],
-                    },
-                    forceFormData: false,
-                },
-                {
-                    url: manifestSections.rooms.update.url(submitPayload.id),
-                    payload: {
-                        manifest_rooms: submitPayload.manifest_rooms ?? [],
-                    },
-                    forceFormData: false,
-                },
-                {
-                    url: manifestSections.documents.update.url(
-                        submitPayload.id,
-                    ),
-                    payload: {
-                        documents:
-                            submitPayload.documents ??
-                            buildEmptyManifestDocuments(),
-                    },
-                    forceFormData: true,
-                },
-                {
-                    url: manifestSections.receiptDocuments.update.url(
-                        submitPayload.id,
-                    ),
-                    payload: {
-                        manifest_member_receipts: manifestMemberReceiptsPayload,
-                    },
-                    forceFormData: true,
-                },
-            ];
-
-            setIsSectionSaving(true);
-
-            try {
-                for (const sectionRequest of sectionRequests) {
-                    const preflightResult = await submitSectionPayload(
-                        sectionRequest.url,
-                        sectionRequest.payload,
-                        {
-                            forceFormData: sectionRequest.forceFormData,
-                            validateOnly: true,
-                        },
-                    );
-
-                    if (!preflightResult.ok) {
-                        handleError(
-                            preflightResult.errors ?? {
-                                section_save:
-                                    'Unable to validate one or more manifest sections.',
-                            },
-                        );
-
-                        return;
-                    }
-                }
-
-                for (const sectionRequest of sectionRequests) {
-                    const result = await submitSectionPayload(
-                        sectionRequest.url,
-                        sectionRequest.payload,
-                        {
-                            forceFormData: sectionRequest.forceFormData,
-                        },
-                    );
-
-                    if (!result.ok) {
-                        handleError(
-                            result.errors ?? {
-                                section_save:
-                                    'Unable to save one or more manifest sections.',
-                            },
-                        );
-
-                        return;
-                    }
-                }
-
-                toast.success('Manifest updated successfully.');
-            } finally {
-                setIsSectionSaving(false);
-            }
-
-            return;
-        }
-
-        submitWithFullPayload();
+        post(store().url, {
+            preserveScroll: 'errors',
+            forceFormData: true,
+            onError: handleError,
+            onFinish: () => {
+                form.transform((currentData: ManifestFormData) => currentData);
+            },
+        });
     };
 
     const renderError = (path: string) => {
@@ -5072,16 +4723,17 @@ export default function ManifestForm({
                                 <RotateCcw className="mr-1 h-4 w-4" />
                                 Reset
                             </Button>
-                            <Button
-                                type="submit"
-                                disabled={processing || isSectionSaving}
-                            >
-                                {(processing || isSectionSaving) && (
+                            <Button type="submit" disabled={processing}>
+                                {processing && (
                                     <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                                 )}
-                                {isSectionSaving
-                                    ? 'Updating Manifest...'
-                                    : 'Update Manifest'}
+                                {processing
+                                    ? isEdit
+                                        ? 'Updating Manifest...'
+                                        : 'Creating Manifest...'
+                                    : isEdit
+                                      ? 'Update Manifest'
+                                      : 'Create Manifest'}
                             </Button>
                         </>
                     )}
