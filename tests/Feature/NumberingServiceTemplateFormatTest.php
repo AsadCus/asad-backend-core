@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\NumberingFormat;
 use App\Models\Package;
+use App\Models\User;
 use App\Services\NumberingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -159,5 +160,80 @@ class NumberingServiceTemplateFormatTest extends TestCase
         $suggestion = $service->suggestNextNumber('package');
 
         $this->assertSame('KTG1-12', $suggestion['number']);
+    }
+
+    public function test_suggest_batch_numbers_in_format_mode_skips_existing_numbers_and_duplicates(): void
+    {
+        $format = NumberingFormat::query()->create([
+            'model_key' => 'invoice',
+            'name' => 'INV-%YYYY%-%I%',
+            'increment_padding' => 4,
+            'increment_start' => 1,
+            'increment_scope' => 'format',
+            'is_default' => true,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $service = app(NumberingService::class);
+        $year = now()->format('Y');
+
+        $batch = $service->suggestBatchNumbers(
+            'invoice',
+            2,
+            $format->id,
+            'format',
+            [
+                "INV-{$year}-0008",
+                "INV-{$year}-0009",
+                "INV-{$year}-0008",
+            ],
+        );
+
+        $this->assertSame('format', $batch['mode']);
+        $this->assertSame($format->id, $batch['format_id']);
+        $this->assertSame(
+            [
+                "INV-{$year}-0010",
+                "INV-{$year}-0011",
+            ],
+            $batch['numbers'],
+        );
+    }
+
+    public function test_suggest_batch_route_returns_sequential_unique_numbers(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $format = NumberingFormat::query()->create([
+            'model_key' => 'invoice',
+            'name' => 'INV-%YYYY%-%I%',
+            'increment_padding' => 4,
+            'increment_start' => 1,
+            'increment_scope' => 'format',
+            'is_default' => true,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $year = now()->format('Y');
+
+        $response = $this->postJson(route('numbering-formats.suggest-batch'), [
+            'model_key' => 'invoice',
+            'count' => 2,
+            'mode' => 'format',
+            'format_id' => $format->id,
+            'existing_numbers' => [
+                "INV-{$year}-0008",
+                "INV-{$year}-0009",
+            ],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('mode', 'format')
+            ->assertJsonPath('format_id', $format->id)
+            ->assertJsonPath('numbers.0', "INV-{$year}-0010")
+            ->assertJsonPath('numbers.1', "INV-{$year}-0011");
     }
 }

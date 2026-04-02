@@ -2809,7 +2809,7 @@ class CustomerConfirmationService
         if ($mode === 'percentage') {
             $percentage = (float) ($refundPayload['percentage'] ?? 0);
 
-            if ($percentage <= 0 || $percentage > 100) {
+            if ($percentage < 0 || $percentage > 100) {
                 throw ValidationException::withMessages([
                     'member_refunds' => 'Refund percentage must be between 0 and 100.',
                 ]);
@@ -2820,9 +2820,9 @@ class CustomerConfirmationService
 
         $amount = (float) ($refundPayload['amount'] ?? 0);
 
-        if ($amount <= 0) {
+        if ($amount < 0) {
             throw ValidationException::withMessages([
-                'member_refunds' => 'Refund amount must be greater than 0.',
+                'member_refunds' => 'Refund amount must be at least 0.',
             ]);
         }
 

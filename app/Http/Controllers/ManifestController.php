@@ -53,6 +53,8 @@ class ManifestController extends Controller
     {
         $requestPayload = array_replace_recursive($request->all(), $request->allFiles());
         $manifestId = isset($requestPayload['id']) ? (int) $requestPayload['id'] : 0;
+        $requestedTab = trim((string) $request->input('tab', ''));
+        $shouldStayOnForm = $request->boolean('stay_on_form');
         $normalizedPayload = $this->normalizeManifestPayload($requestPayload);
         $validated = validator(
             $normalizedPayload,
@@ -64,13 +66,27 @@ class ManifestController extends Controller
         $this->ensureMemberPackageMatchesManifestPackage($validated);
 
         if ($manifestId > 0) {
-            $this->manifestService->update($validated, $manifestId);
+            $updatedManifest = $this->manifestService->update($validated, $manifestId);
+
+            if ($shouldStayOnForm) {
+                return redirect()->route('manifests.edit', [
+                    'manifest' => $updatedManifest->id,
+                    'tab' => $requestedTab !== '' ? $requestedTab : null,
+                ])->with('success', 'Manifest updated successfully.');
+            }
 
             return redirect()->route('manifests.index')
                 ->with('success', 'Manifest updated successfully.');
         }
 
-        $this->manifestService->store($validated);
+        $createdManifest = $this->manifestService->store($validated);
+
+        if ($shouldStayOnForm) {
+            return redirect()->route('manifests.edit', [
+                'manifest' => $createdManifest->id,
+                'tab' => $requestedTab !== '' ? $requestedTab : null,
+            ])->with('success', 'Manifest created successfully.');
+        }
 
         return redirect()->route('manifests.index')
             ->with('success', 'Manifest created successfully.');

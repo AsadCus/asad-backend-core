@@ -3,10 +3,10 @@ import AppLayout from '@/layouts/app-layout';
 import { index as invoiceIndex } from '@/routes/invoice';
 import { index as masterIndex } from '@/routes/master';
 import { type BreadcrumbItem, type OptionType } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useCallback } from 'react';
-import OrderForm from '../orders/form';
-import { paymentPlans, QuotationSchema } from '../quotations/schema';
+import { QuotationSchema } from '../quotations/schema';
+import InvoiceForm from './form';
 
 interface CreateInvoiceProps {
     data: {
@@ -14,6 +14,10 @@ interface CreateInvoiceProps {
         paymentMethods: OptionType[];
         quotationExtensionMasters: TotalsSummaryExtensionMaster[];
         defaultPaymentMethod: string;
+        invoiceNumberSeed?: {
+            format_id?: number | null;
+            numbers?: string[];
+        };
     };
 }
 
@@ -30,7 +34,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function CreateInvoice({ data }: CreateInvoiceProps) {
     const handleCancel = useCallback(() => {
-        window.history.back();
+        router.get(invoiceIndex().url);
     }, []);
 
     return (
@@ -42,13 +46,17 @@ export default function CreateInvoice({ data }: CreateInvoiceProps) {
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
-                    <OrderForm
+                    <InvoiceForm
                         mode="create"
-                        quotation={data.quotation}
-                        paymentPlans={paymentPlans}
                         paymentMethods={data.paymentMethods}
                         extensionMasters={data.quotationExtensionMasters}
                         defaultPaymentMethod={data.defaultPaymentMethod}
+                        initialInvoiceNumberFormatId={
+                            data.invoiceNumberSeed?.format_id ?? null
+                        }
+                        initialInvoiceNumber={
+                            data.invoiceNumberSeed?.numbers?.[0] ?? ''
+                        }
                         onCancel={handleCancel}
                     />
                 </div>

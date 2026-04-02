@@ -292,7 +292,9 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                         ...statusActions.filter(
                                             (action) =>
                                                 action !==
-                                                'quotation-status-ready',
+                                                    'quotation-status-ready' &&
+                                                action !==
+                                                    'quotation-status-expire',
                                         ),
                                     );
                                 }
@@ -377,6 +379,16 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                             },
                                         });
                                     }
+                                }
+                            }}
+                            onRowDoubleClick={(quotation) => {
+                                if (
+                                    hasEditPermission &&
+                                    quotation.id &&
+                                    (!quotation.have_invoices ||
+                                        quotation.status === 'converted')
+                                ) {
+                                    router.get(edit(quotation.id).url);
                                 }
                             }}
                             initialState={{

@@ -421,6 +421,90 @@ class QuotationExtensionWorkflowTest extends TestCase
         }));
     }
 
+    public function test_update_quotation_with_multiple_discounts_persists_fixed_and_percentage_entries(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-EXT-007',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'draft',
+            'description' => 'Quotation for multi-discount update',
+        ]);
+
+        $quotation->quotationItems()->create([
+            'description' => 'Package cost',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        app(QuotationService::class)->update([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(10)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'draft',
+            'description' => 'Quotation for multi-discount update',
+            'items' => [
+                [
+                    'id' => $quotation->quotationItems()->first()->id,
+                    '_key' => 'item-existing',
+                    'description' => 'Package cost',
+                    'is_header' => false,
+                    'quantity' => 1,
+                    'rate' => 1000,
+                    'sort_order' => 1,
+                ],
+            ],
+            'extensions' => [
+                [
+                    'name' => 'Fixed Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 50,
+                    'amount' => -50,
+                    'sort_order' => 1,
+                ],
+                [
+                    'name' => 'Percent Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'percentage',
+                    'calculation_value' => 10,
+                    'amount' => -100,
+                    'sort_order' => 2,
+                ],
+            ],
+        ], $quotation->id);
+
+        $quotation->refresh();
+
+        $this->assertSame(-150.0, (float) $quotation->extension_total_amount);
+        $this->assertSame(850.0, (float) $quotation->total_amount);
+        $this->assertCount(2, collect($quotation->extensions ?? [])->where('type', 'discount'));
+        $this->assertTrue(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Fixed Discount'
+                && ($extension['calculation_mode'] ?? null) === 'fixed'
+                && (float) ($extension['amount'] ?? 0) === -50.0;
+        }));
+        $this->assertTrue(collect($quotation->extensions ?? [])->contains(function ($extension): bool {
+            return is_array($extension)
+                && ($extension['name'] ?? null) === 'Percent Discount'
+                && ($extension['calculation_mode'] ?? null) === 'percentage'
+                && (float) ($extension['amount'] ?? 0) === -100.0;
+        }));
+    }
+
     public function test_update_converted_quotation_item_tax_syncs_invoice_and_receipt_amounts(): void
     {
         $user = User::factory()->create();

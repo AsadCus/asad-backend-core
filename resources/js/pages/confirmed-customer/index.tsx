@@ -975,7 +975,7 @@ export default function ConfirmedCustomerIndex({
                     const resolvedError =
                         flashError.length > 0
                             ? flashError
-                            : firstValidationError ?? '';
+                            : (firstValidationError ?? '');
 
                     if (resolvedError.length > 0) {
                         setQuotationGenerationError(resolvedError);
@@ -1030,7 +1030,7 @@ export default function ConfirmedCustomerIndex({
         if (row.mode === 'percentage') {
             const percentage = normalizeRefundAmount(row.percentage);
 
-            if (percentage === null || percentage <= 0 || percentage > 100) {
+            if (percentage === null || percentage < 0 || percentage > 100) {
                 return null;
             }
 
@@ -1041,7 +1041,7 @@ export default function ConfirmedCustomerIndex({
 
         if (
             fixedAmount === null ||
-            fixedAmount <= 0 ||
+            fixedAmount < 0 ||
             fixedAmount > row.paid_amount
         ) {
             return null;

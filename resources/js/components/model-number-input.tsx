@@ -69,6 +69,7 @@ interface ModelNumberInputProps {
     disabled?: boolean;
     error?: string;
     hint?: string;
+    skipInitialAutofill?: boolean;
 }
 
 const DEFAULT_FORMAT_FORM: NumberingFormatFormState = {
@@ -210,6 +211,7 @@ export default function ModelNumberInput({
     disabled = false,
     error,
     hint,
+    skipInitialAutofill = false,
 }: ModelNumberInputProps) {
     const [formats, setFormats] = useState<NumberingFormatRecord[]>([]);
     const [isSuggesting, setIsSuggesting] = useState(false);
@@ -251,7 +253,9 @@ export default function ModelNumberInput({
             setModelIncrementScope(normalizeScope(nextFormats));
 
             const shouldAutofillNumber =
-                !formatId && (value ?? '').trim().length === 0;
+                !skipInitialAutofill &&
+                !formatId &&
+                (value ?? '').trim().length === 0;
 
             if (shouldAutofillNumber) {
                 const preferredFormat =

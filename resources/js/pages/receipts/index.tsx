@@ -37,6 +37,22 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+const formatReceiptAmount = (receipt: ReceiptSchema): string => {
+    const amount = Number(receipt.amount ?? 0);
+
+    if (
+        Number.isFinite(amount) &&
+        amount === 0 &&
+        ['refund', 'overpayment_refund'].includes(
+            String(receipt.payment_method ?? '').toLowerCase(),
+        )
+    ) {
+        return `-${formatCurrency(0)}`;
+    }
+
+    return formatCurrency(receipt.amount);
+};
+
 const getColumns = (
     paymentMethods: OptionType[],
 ): ColumnDef<ReceiptSchema>[] => [
@@ -98,7 +114,7 @@ const getColumns = (
         accessorKey: 'amount',
         header: 'Amount',
         meta: { exportable: true },
-        cell: ({ row }) => formatCurrency(row.original.amount),
+        cell: ({ row }) => formatReceiptAmount(row.original),
     },
     {
         accessorKey: 'receipt_date',
@@ -194,6 +210,8 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                             columns={columns}
                             data={receiptsForDatatable}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url={receiptIndex().url}
                             exportFilename="receipts"
                             onAction={(action: ActionType, receiptRow) => {
@@ -253,6 +271,11 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                             );
                                         },
                                     });
+                                }
+                            }}
+                            onRowDoubleClick={(receipt) => {
+                                if (userPermissions.includes('receipt view')) {
+                                    handlePreview(receipt);
                                 }
                             }}
                             initialState={{

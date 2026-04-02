@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Rules\InvoiceRule;
 use App\Services\CustomerService;
 use App\Services\InvoiceService;
 use App\Services\OrderService;
@@ -65,6 +66,16 @@ class InvoiceController extends Controller
             $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
             $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
+            $paymentPlan = strtolower((string) ($data['quotation']['payment_plan'] ?? 'direct'));
+            $initialInvoiceCount = $paymentPlan === 'installment' ? 3 : 1;
+            $data['invoiceNumberSeed'] = $this->orderService
+                ->suggestDraftInvoiceNumbers($initialInvoiceCount);
+
+            \Log::info('[InvoiceController::create] Data being sent to frontend', [
+                'invoiceNumberSeed' => $data['invoiceNumberSeed'],
+                'paymentPlan' => $paymentPlan,
+            ]);
+
             return Inertia::render('invoices/create', [
                 'data' => $data,
             ]);
@@ -75,15 +86,9 @@ class InvoiceController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'order_id' => 'required|exists:orders,id',
-            'description' => 'nullable|string',
-            'amount' => 'required|numeric',
-            'invoice_date' => 'required|date',
-            'due_date' => 'required|date|after_or_equal:invoice_date',
-            'status' => 'nullable|in:draft,issued,paid,overdue,cancelled',
-            'items' => 'nullable|array',
-        ]);
+        ], (new InvoiceRule)->singleRules()));
 
         $this->invoiceService->store($validated);
 
@@ -94,8 +99,10 @@ class InvoiceController extends Controller
     public function show($id)
     {
         $data['data'] = $this->invoiceService->getForEditShow($id);
-        $data['order'] = $this->orderService->getForEditShow($data['data']['order_id']);
-        $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
+        $data['order'] = [
+            'id' => $data['data']['order_id'] ?? null,
+            'quotation_id' => $data['data']['quotation_id'] ?? null,
+        ];
         $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
         $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
@@ -113,8 +120,10 @@ class InvoiceController extends Controller
     public function edit($id)
     {
         $data['data'] = $this->invoiceService->getForEditShow($id);
-        $data['order'] = $this->orderService->getForEditShow($data['data']['order_id']);
-        $data['quotation'] = $this->quotationService->getForEditShow($data['order']['quotation_id']);
+        $data['order'] = [
+            'id' => $data['data']['order_id'] ?? null,
+            'quotation_id' => $data['data']['quotation_id'] ?? null,
+        ];
         $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
         $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
@@ -126,15 +135,9 @@ class InvoiceController extends Controller
 
     public function update(Request $request, $id)
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'order_id' => 'required|exists:orders,id',
-            'description' => 'nullable|string',
-            'amount' => 'required|numeric',
-            'invoice_date' => 'required|date',
-            'due_date' => 'required|date|after_or_equal:invoice_date',
-            'status' => 'nullable|in:draft,issued,paid,overdue,cancelled',
-            'items' => 'nullable|array',
-        ]);
+        ], (new InvoiceRule)->singleRules()));
 
         $this->invoiceService->update($validated, $id);
 

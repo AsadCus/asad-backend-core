@@ -14,7 +14,10 @@ import {
     show as showInvoice,
 } from '@/routes/invoice';
 import { destroy, edit, index, show } from '@/routes/order';
-import { getForShow as getReceiptForShow } from '@/routes/receipt';
+import {
+    create as createReceipt,
+    getForShow as getReceiptForShow,
+} from '@/routes/receipt';
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -217,6 +220,8 @@ export default function OrderIndex({ data }: QuotationsProps) {
                             columns={columns}
                             data={ordersForDatatable}
                             actions={[]}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             getRowActions={getRowActions}
                             url={index().url}
                             enableExpand={true}
@@ -245,6 +250,14 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                             },
                                         });
                                     }
+                                }
+                            }}
+                            onRowDoubleClick={(order) => {
+                                if (
+                                    userPermissions.includes('order edit') &&
+                                    order.id
+                                ) {
+                                    router.get(edit(order.id).url);
                                 }
                             }}
                             initialState={{
@@ -315,6 +328,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                             'invoice view',
                                                         )
                                                     ) {
+                                                        rowActions.push('view');
                                                         rowActions.push(
                                                             'preview',
                                                         );
@@ -322,6 +336,14 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                             'download',
                                                         );
                                                     }
+
+                                                    // if (
+                                                    //     userPermissions.includes(
+                                                    //         'invoice edit',
+                                                    //     )
+                                                    // ) {
+                                                    //     rowActions.push('edit');
+                                                    // }
 
                                                     if (
                                                         userPermissions.includes(
@@ -333,6 +355,18 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                     ) {
                                                         rowActions.push(
                                                             'receipt-preview',
+                                                        );
+                                                    }
+
+                                                    if (
+                                                        invoice.status !==
+                                                            'paid' &&
+                                                        invoice.status !==
+                                                            'cancelled' &&
+                                                        !invoice.has_receipt
+                                                    ) {
+                                                        rowActions.push(
+                                                            'create-receipt',
                                                         );
                                                     }
 
@@ -375,6 +409,17 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                     ) {
                                                         handleReceiptPreview(
                                                             invoice,
+                                                        );
+                                                    } else if (
+                                                        action ===
+                                                        'create-receipt'
+                                                    ) {
+                                                        router.get(
+                                                            createReceipt.url(),
+                                                            {
+                                                                invoice_id:
+                                                                    invoice.id,
+                                                            },
                                                         );
                                                     } else if (
                                                         action === 'download'

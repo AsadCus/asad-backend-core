@@ -30,6 +30,14 @@ export interface NumberSuggestion {
     next_increment?: number;
 }
 
+export interface NumberBatchSuggestion {
+    model_key: string;
+    mode?: 'simple' | 'format';
+    format_id?: number | null;
+    numbers: string[];
+    next_increment?: number | null;
+}
+
 export interface NumberingSimpleState {
     model_key: string;
     latest_number: string | null;
@@ -131,6 +139,35 @@ export async function suggestNumber(
     );
 
     return parseResponse<NumberSuggestion>(response);
+}
+
+export async function suggestBatchNumbers(
+    modelKey: string,
+    payload: {
+        count: number;
+        format_id?: number | null;
+        mode?: 'simple' | 'format';
+        existing_numbers?: string[];
+    },
+): Promise<NumberBatchSuggestion> {
+    const response = await fetch('/numbering-formats/suggest-batch', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': getCsrfToken(),
+            Accept: 'application/json',
+        },
+        body: JSON.stringify({
+            model_key: modelKey,
+            count: payload.count,
+            format_id: payload.format_id ?? null,
+            mode: payload.mode,
+            existing_numbers: payload.existing_numbers ?? [],
+        }),
+    });
+
+    return parseResponse<NumberBatchSuggestion>(response);
 }
 
 export async function fetchSimpleState(

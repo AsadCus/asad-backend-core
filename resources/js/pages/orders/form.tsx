@@ -16,16 +16,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { fetchFormats, suggestNumber } from '@/lib/numbering-formats';
 import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Trash } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { InvoiceHeader } from '../invoices/components/invoice-header';
 import {
-    calculateInvoicesTotal,
     calculateTotal,
     collectWithChildren,
     normalizeItems,
@@ -35,10 +34,18 @@ import QuotationItemTableForm from '../quotations/items/form';
 import { QuotationSchema } from '../quotations/schema';
 import { PaymentPlanSection } from './components/payment-plan-section';
 import {
+    applyInvoiceNumberingSequence,
+    applyInvoicePaymentMethodExtensions,
     autoFillInvoiceDates,
     buildInvoices,
     buildInvoicesFromItems,
+    buildSequentialInvoiceNumbersFromSeed,
+    computeInvoiceExtensionAmount,
+    type InvoiceExtensionInput,
+    type InvoicePaymentMethodExtensionMaster,
+    normalizeInvoiceExtensions,
     quotationItemsToInvoiceItems,
+    recalculateInvoice,
 } from './lib/invoice-builders';
 import { OrderSchema } from './schema';
 import { orderValidationSchema } from './validation';
@@ -51,172 +58,13 @@ interface OrderFormProps {
     paymentMethods?: OptionType[];
     extensionMasters?: TotalsSummaryExtensionMaster[];
     defaultPaymentMethod?: string;
+    initialInvoiceNumberFormatId?: number | null;
+    initialInvoiceNumbers?: string[];
     onCancel?: () => void;
 }
 
-type InvoiceExtensionInput = {
-    _key?: string;
-    id?: number;
-    quotation_extension_master_id?: number | null;
-    name?: string | null;
-    type?: string | null;
-    calculation_mode?: string | null;
-    calculation_value?: number | string | null;
-    amount?: number | string | null;
-    sort_order?: number;
-};
-
-type OrderExtensionMasterInput = TotalsSummaryExtensionMaster & {
-    payment_methods?: string[];
-    sort_order?: number;
-};
-
-function normalizePaymentMethodValue(value?: string | null): string {
-    return String(value ?? '')
-        .trim()
-        .toLowerCase();
-}
-
-function isExtensionApplicableToPaymentMethod(
-    master: OrderExtensionMasterInput,
-    paymentMethod?: string | null,
-): boolean {
-    const supportedMethods = (master.payment_methods ?? [])
-        .map((method) => normalizePaymentMethodValue(method))
-        .filter((method) => method !== '');
-
-    if (supportedMethods.length === 0) {
-        return true;
-    }
-
-    const normalizedPaymentMethod = normalizePaymentMethodValue(paymentMethod);
-
-    if (!normalizedPaymentMethod) {
-        return false;
-    }
-
-    return supportedMethods.includes(normalizedPaymentMethod);
-}
-
-function calculateItemTaxTotal(items: InvoiceSchema['items'] = []): number {
-    return items.reduce((sum, item) => {
-        if (item.is_header) {
-            return sum;
-        }
-
-        const lineAmount = Number(item.quantity ?? 0) * Number(item.rate ?? 0);
-        const itemTaxTotal = (item.taxes ?? []).reduce((taxSum, tax) => {
-            const calculationMode = String(tax.calculation_mode ?? '');
-            const calculationValue = Number(tax.calculation_value ?? 0);
-
-            if (
-                !['fixed', 'percentage'].includes(calculationMode) ||
-                calculationValue <= 0
-            ) {
-                return taxSum;
-            }
-
-            const taxAmount =
-                calculationMode === 'percentage'
-                    ? (lineAmount * calculationValue) / 100
-                    : calculationValue;
-
-            return taxSum + taxAmount;
-        }, 0);
-
-        return sum + itemTaxTotal;
-    }, 0);
-}
-
-function normalizeInvoiceExtensions(
-    extensions: InvoiceExtensionInput[] = [],
-): InvoiceExtensionInput[] {
-    return extensions.map((extension, index) => {
-        const calculationMode =
-            String(extension.calculation_mode ?? 'fixed') === 'percentage'
-                ? 'percentage'
-                : 'fixed';
-
-        return {
-            ...extension,
-            id:
-                typeof extension.id === 'number' &&
-                Number.isFinite(extension.id)
-                    ? extension.id
-                    : undefined,
-            _key:
-                extension._key ??
-                (extension.id ? `id-${extension.id}` : nanoid()),
-            name: String(extension.name ?? 'Extension'),
-            type: String(extension.type ?? 'discount'),
-            calculation_mode: calculationMode,
-            calculation_value: Number(extension.calculation_value ?? 0),
-            amount: Number(extension.amount ?? 0),
-            sort_order: Number(extension.sort_order ?? index + 1),
-        };
-    });
-}
-
-function computeInvoiceExtensionAmount(
-    extension: InvoiceExtensionInput,
-    subtotalAmount: number,
-): number {
-    const calculationMode = String(extension.calculation_mode ?? 'fixed');
-    const calculationValue = Number(extension.calculation_value ?? 0);
-    const extensionType = String(extension.type ?? 'discount');
-
-    if (calculationMode === 'percentage') {
-        const rawAmount = (subtotalAmount * calculationValue) / 100;
-
-        return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
-    }
-
-    const fallbackAmount = Number(extension.amount ?? 0);
-    const rawAmount =
-        calculationValue !== 0 || fallbackAmount === 0
-            ? calculationValue
-            : fallbackAmount;
-
-    return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
-}
-
-function allocateFixedAmountProportionally(
-    totalAmount: number,
-    subtotals: number[],
-): number[] {
-    if (subtotals.length === 0) {
-        return [];
-    }
-
-    const absoluteSubtotal = subtotals.reduce(
-        (sum, subtotal) => sum + Math.abs(Number(subtotal ?? 0)),
-        0,
-    );
-
-    const allocations = new Array<number>(subtotals.length).fill(0);
-    let allocated = 0;
-    const lastIndex = subtotals.length - 1;
-
-    for (let index = 0; index < subtotals.length; index += 1) {
-        if (index === lastIndex) {
-            allocations[index] = Number((totalAmount - allocated).toFixed(2));
-            continue;
-        }
-
-        if (absoluteSubtotal <= 0) {
-            allocations[index] = 0;
-            continue;
-        }
-
-        const ratio =
-            Math.abs(Number(subtotals[index] ?? 0)) / absoluteSubtotal;
-        const share = Number((totalAmount * ratio).toFixed(2));
-        allocations[index] = share;
-        allocated += share;
-    }
-
-    return allocations;
-}
+type OrderExtensionMasterInput = TotalsSummaryExtensionMaster &
+    InvoicePaymentMethodExtensionMaster;
 
 function sanitizeInstallmentInvoiceCount(
     value?: number | string | null,
@@ -335,6 +183,35 @@ function formatExtensionLabel(
     return `${name} ${Number(calculationValue ?? 0)}%`;
 }
 
+function isPaidInvoice(invoice: InvoiceSchema): boolean {
+    return String(invoice.status ?? '').toLowerCase() === 'paid';
+}
+
+function isInvoiceLockedForRemoval(invoice: InvoiceSchema): boolean {
+    return (
+        isPaidInvoice(invoice) ||
+        Boolean(invoice.has_receipt) ||
+        Number(invoice.receipt_id ?? 0) > 0
+    );
+}
+
+function resolvePrimaryValidationMessage(
+    errors: Record<string, string | undefined>,
+): string | null {
+    if (errors.payment_plan) {
+        return errors.payment_plan;
+    }
+
+    if (errors.invoices) {
+        return errors.invoices;
+    }
+
+    return (
+        Object.values(errors).find((message) => typeof message === 'string') ??
+        null
+    );
+}
+
 type TaxLineItem = {
     is_header?: boolean | null;
     quantity?: number | string | null;
@@ -407,100 +284,21 @@ function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
     return Array.from(grouped.values());
 }
 
-function recalculateInvoice(invoice: InvoiceSchema): InvoiceSchema {
-    const subtotalAmount = calculateTotal(invoice.items ?? []);
-    const itemTaxTotal = calculateItemTaxTotal(invoice.items ?? []);
-    const normalizedExtensions = normalizeInvoiceExtensions(
-        (invoice.extensions ?? []) as InvoiceExtensionInput[],
-    );
-
-    const extensionsWithAmount = normalizedExtensions.map((extension) => ({
-        ...extension,
-        amount: computeInvoiceExtensionAmount(extension, subtotalAmount),
-    }));
-
-    const extensionTotal = extensionsWithAmount.reduce(
-        (sum, extension) => sum + Number(extension.amount ?? 0),
+function calculateInvoiceGrandTotal(invoice: InvoiceSchema): number {
+    const invoiceSubtotal = calculateTotal(invoice.items);
+    const itemTaxTotal = buildItemTaxSummaries(invoice.items).reduce(
+        (sum, tax) => sum + Number(tax.amount ?? 0),
         0,
     );
-
-    return {
-        ...invoice,
-        extensions: extensionsWithAmount,
-        amount: Number(
-            (subtotalAmount + itemTaxTotal + extensionTotal).toFixed(2),
-        ),
-    };
-}
-
-function applyInvoicePaymentMethodExtensions(
-    invoice: InvoiceSchema,
-    paymentMethod: string,
-    extensionMasters: OrderExtensionMasterInput[],
-): InvoiceSchema {
-    const subtotalAmount = calculateTotal(invoice.items ?? []);
-    const existingExtensions = normalizeInvoiceExtensions(
+    const extensionAmountFromExtensions = normalizeInvoiceExtensions(
         (invoice.extensions ?? []) as InvoiceExtensionInput[],
-    );
-
-    const manualOrUnrelatedExtensions = existingExtensions.filter(
-        (extension) => {
-            const type = String(extension.type ?? 'discount');
-            const isPaymentMethodType = ['credit_card', 'other'].includes(type);
-
-            if (!isPaymentMethodType) {
-                return true;
-            }
-
-            return Number(extension.quotation_extension_master_id ?? 0) <= 0;
-        },
-    );
-
-    const applicableMasters = extensionMasters
-        .filter(
-            (master) =>
-                master.is_active !== false &&
-                ['credit_card', 'other'].includes(String(master.type ?? '')) &&
-                isExtensionApplicableToPaymentMethod(master, paymentMethod),
+    )
+        .map((extension) =>
+            computeInvoiceExtensionAmount(extension, invoiceSubtotal),
         )
-        .sort(
-            (left, right) =>
-                Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0),
-        );
+        .reduce((sum, amount) => sum + Number(amount ?? 0), 0);
 
-    const autoExtensions = applicableMasters.map((master, index) => {
-        const calculationMode =
-            String(master.calculation_mode ?? 'fixed') === 'percentage'
-                ? 'percentage'
-                : 'fixed';
-        const calculationValue = Number(master.calculation_value ?? 0);
-        const amount =
-            calculationMode === 'percentage'
-                ? (subtotalAmount * calculationValue) / 100
-                : calculationValue;
-
-        return {
-            _key: `method-${String(master.id ?? `new-${index}`)}-${nanoid()}`,
-            quotation_extension_master_id:
-                Number(master.id ?? 0) > 0 ? Number(master.id) : null,
-            name: String(master.name ?? 'Additional Charges'),
-            type: String(master.type ?? 'other'),
-            calculation_mode: calculationMode,
-            calculation_value: calculationValue,
-            amount,
-        };
-    });
-
-    return {
-        ...invoice,
-        payment_method: paymentMethod,
-        extensions: [...manualOrUnrelatedExtensions, ...autoExtensions].map(
-            (extension, index) => ({
-                ...extension,
-                sort_order: index + 1,
-            }),
-        ),
-    };
+    return invoiceSubtotal + itemTaxTotal + extensionAmountFromExtensions;
 }
 
 function normalizeInvoices(invoices: InvoiceSchema[] = []): InvoiceSchema[] {
@@ -555,6 +353,100 @@ function createEmptyInvoice(defaultPaymentMethod = ''): InvoiceSchema {
     };
 }
 
+function applySeededInvoiceNumbering(
+    invoices: InvoiceSchema[],
+    seededNumbers: string[] = [],
+    preferredFormatId: number | null = null,
+    fallbackSourceInvoices: InvoiceSchema[] = [],
+): InvoiceSchema[] {
+    const normalizedSeededNumbers = seededNumbers.map((number) =>
+        String(number ?? '').trim(),
+    );
+    const hasSeededNumber = normalizedSeededNumbers.some(
+        (number) => number !== '' && number !== '-',
+    );
+
+    console.log('[applySeededInvoiceNumbering] START', {
+        invoiceCount: invoices.length,
+        seededNumbers: normalizedSeededNumbers,
+        hasSeededNumber,
+    });
+
+    if (hasSeededNumber) {
+        // If we have seeded numbers that match invoice count, use them directly
+        if (normalizedSeededNumbers.length === invoices.length) {
+            const result = invoices.map((invoice, index) => ({
+                ...invoice,
+                invoice_number: normalizedSeededNumbers[index] ?? '',
+                number_format_id:
+                    invoice.number_format_id ?? preferredFormatId ?? null,
+            }));
+
+            console.log(
+                '[applySeededInvoiceNumbering] Using seeded numbers directly',
+                result.map((inv) => inv.invoice_number),
+            );
+
+            return result;
+        }
+
+        // If we have a single seed or partial seeds, build complete sequence
+        const firstSeedNumber = normalizedSeededNumbers.find(
+            (number) => number !== '' && number !== '-',
+        );
+
+        if (firstSeedNumber) {
+            const sequentialSeedNumbers = buildSequentialInvoiceNumbersFromSeed(
+                firstSeedNumber,
+                invoices.length,
+            );
+
+            console.log(
+                '[applySeededInvoiceNumbering] Built sequential from seed',
+                {
+                    firstSeedNumber,
+                    sequentialSeedNumbers,
+                },
+            );
+
+            if (sequentialSeedNumbers.length === invoices.length) {
+                const result = invoices.map((invoice, index) => ({
+                    ...invoice,
+                    invoice_number: sequentialSeedNumbers[index] ?? '',
+                    number_format_id:
+                        invoice.number_format_id ?? preferredFormatId ?? null,
+                }));
+
+                console.log(
+                    '[applySeededInvoiceNumbering] Returning built sequence',
+                    result.map((inv) => inv.invoice_number),
+                );
+
+                return result;
+            }
+        }
+    }
+
+    const baseInvoices = hasSeededNumber
+        ? invoices.map((invoice) => ({
+              ...invoice,
+              invoice_number: '',
+              number_format_id:
+                  invoice.number_format_id ?? preferredFormatId ?? null,
+          }))
+        : invoices;
+
+    console.log(
+        '[applySeededInvoiceNumbering] Falling back to applyInvoiceNumberingSequence',
+    );
+
+    return applyInvoiceNumberingSequence(baseInvoices, {
+        sourceInvoices: hasSeededNumber ? [] : fallbackSourceInvoices,
+        seededNumbers: normalizedSeededNumbers,
+        preferredFormatId,
+    });
+}
+
 const depositTypes = [
     { label: 'Percentage (%)', value: 'percentage' },
     { label: 'Fixed Amount ($)', value: 'fixed' },
@@ -562,232 +454,6 @@ const depositTypes = [
 
 const EMPTY_OPTION_TYPES: OptionType[] = [];
 const EMPTY_EXTENSION_MASTERS: TotalsSummaryExtensionMaster[] = [];
-
-function buildInvoiceNumberFromFormat(
-    formatName: string,
-    increment: number,
-    incrementPadding: number,
-): string {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const yearFull = String(now.getFullYear());
-    const yearShort = yearFull.slice(-2);
-    const sequence = String(Math.max(1, increment)).padStart(
-        Math.max(1, incrementPadding),
-        '0',
-    );
-
-    return (formatName.trim() || '%I%')
-        .replace(/%DD%/g, day)
-        .replace(/%MM%/g, month)
-        .replace(/%YYYY%/g, yearFull)
-        .replace(/%YY%/g, yearShort)
-        .replace(/%I%/g, sequence);
-}
-
-function escapeRegexSegment(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function extractIncrementFromInvoiceNumber(
-    number: string,
-    formatName: string,
-): number | null {
-    const tokens = formatName.split(/(%DD%|%MM%|%YYYY%|%YY%|%I%)/g);
-
-    if (!tokens.includes('%I%')) {
-        return null;
-    }
-
-    let regexPattern = '^';
-
-    tokens.forEach((token) => {
-        if (token === '%DD%' || token === '%MM%' || token === '%YY%') {
-            regexPattern += '(?:\\d{2})';
-            return;
-        }
-
-        if (token === '%YYYY%') {
-            regexPattern += '(?:\\d{4})';
-            return;
-        }
-
-        if (token === '%I%') {
-            regexPattern += '(\\d+)';
-            return;
-        }
-
-        regexPattern += escapeRegexSegment(token);
-    });
-
-    regexPattern += '$';
-
-    const match = number.match(new RegExp(regexPattern));
-
-    if (!match || !match[1]) {
-        return null;
-    }
-
-    const parsed = Number(match[1]);
-
-    return Number.isFinite(parsed) ? parsed : null;
-}
-
-function buildInvoiceNumberFromSuggestion(
-    suggestedNumber: string,
-    increment: number,
-): string {
-    const normalizedSuggestion = String(suggestedNumber ?? '').trim();
-
-    if (normalizedSuggestion.length === 0) {
-        return String(Math.max(1, increment));
-    }
-
-    const trailingIncrementMatch = normalizedSuggestion.match(/^(.*?)(\d+)$/);
-
-    if (!trailingIncrementMatch) {
-        return `${normalizedSuggestion}-${Math.max(1, increment)}`;
-    }
-
-    const prefix = trailingIncrementMatch[1] ?? '';
-    const padding = String(trailingIncrementMatch[2] ?? '').length;
-    const nextSequence = String(Math.max(1, increment)).padStart(
-        Math.max(1, padding),
-        '0',
-    );
-
-    return `${prefix}${nextSequence}`;
-}
-
-function extractIncrementFromSuggestedNumber(
-    suggestedNumber: string,
-    formatName?: string,
-): number | null {
-    const normalizedSuggestion = String(suggestedNumber ?? '').trim();
-
-    if (normalizedSuggestion.length === 0) {
-        return null;
-    }
-
-    if (formatName) {
-        const parsedFromFormat = extractIncrementFromInvoiceNumber(
-            normalizedSuggestion,
-            formatName,
-        );
-
-        if (parsedFromFormat !== null) {
-            return parsedFromFormat;
-        }
-    }
-
-    const trailingIncrementMatch = normalizedSuggestion.match(/(\d+)$/);
-
-    if (!trailingIncrementMatch?.[1]) {
-        return null;
-    }
-
-    const parsed = Number(trailingIncrementMatch[1]);
-
-    return Number.isFinite(parsed) ? parsed : null;
-}
-
-function continueInstallmentInvoiceNumberSequence(
-    rebuiltInvoices: InvoiceSchema[],
-    sourceInvoices: InvoiceSchema[],
-): InvoiceSchema[] {
-    if (rebuiltInvoices.length === 0) {
-        return rebuiltInvoices;
-    }
-
-    const sourceInvoiceWithNumber = sourceInvoices.find((invoice) => {
-        const invoiceNumber = String(invoice.invoice_number ?? '').trim();
-
-        return invoiceNumber.length > 0 && invoiceNumber !== '-';
-    });
-
-    if (!sourceInvoiceWithNumber) {
-        return rebuiltInvoices;
-    }
-
-    const sourceInvoiceNumber = String(
-        sourceInvoiceWithNumber.invoice_number ?? '',
-    ).trim();
-
-    if (sourceInvoiceNumber.length === 0 || sourceInvoiceNumber === '-') {
-        return rebuiltInvoices;
-    }
-
-    let nextIncrement =
-        extractIncrementFromSuggestedNumber(sourceInvoiceNumber);
-
-    if (nextIncrement === null) {
-        return rebuiltInvoices;
-    }
-
-    const nextInvoices = [...rebuiltInvoices];
-    const sourceFormatId = sourceInvoiceWithNumber.number_format_id ?? null;
-    const firstInvoice = nextInvoices[0];
-
-    if (firstInvoice) {
-        const firstInvoiceNumber = String(
-            firstInvoice.invoice_number ?? '',
-        ).trim();
-
-        if (firstInvoiceNumber.length === 0 || firstInvoiceNumber === '-') {
-            nextInvoices[0] = {
-                ...firstInvoice,
-                number_format_id:
-                    firstInvoice.number_format_id ?? sourceFormatId,
-                invoice_number: sourceInvoiceNumber,
-            };
-        }
-
-        const seededIncrement = extractIncrementFromSuggestedNumber(
-            String(nextInvoices[0].invoice_number ?? '').trim(),
-        );
-
-        if (seededIncrement !== null) {
-            nextIncrement = seededIncrement;
-        }
-    }
-
-    for (let index = 1; index < nextInvoices.length; index += 1) {
-        const currentInvoice = nextInvoices[index];
-
-        if (!currentInvoice) {
-            continue;
-        }
-
-        const currentInvoiceNumber = String(
-            currentInvoice.invoice_number ?? '',
-        ).trim();
-
-        if (currentInvoiceNumber.length > 0 && currentInvoiceNumber !== '-') {
-            const currentIncrement =
-                extractIncrementFromSuggestedNumber(currentInvoiceNumber);
-
-            if (currentIncrement !== null) {
-                nextIncrement = Math.max(nextIncrement, currentIncrement);
-            }
-
-            continue;
-        }
-
-        nextIncrement += 1;
-
-        nextInvoices[index] = {
-            ...currentInvoice,
-            number_format_id: currentInvoice.number_format_id ?? sourceFormatId,
-            invoice_number: buildInvoiceNumberFromSuggestion(
-                sourceInvoiceNumber,
-                nextIncrement,
-            ),
-        };
-    }
-
-    return nextInvoices;
-}
 
 export default function OrderForm({
     mode,
@@ -797,6 +463,8 @@ export default function OrderForm({
     paymentMethods = EMPTY_OPTION_TYPES,
     extensionMasters = EMPTY_EXTENSION_MASTERS,
     defaultPaymentMethod = '',
+    initialInvoiceNumberFormatId = null,
+    initialInvoiceNumbers = [],
     onCancel,
 }: OrderFormProps) {
     const isView = mode === 'view';
@@ -808,14 +476,188 @@ export default function OrderForm({
         _key: item.id ? `id-${item.id}` : nanoid(),
     }));
 
+    const normalizedOrderExtensionMasters = useMemo(
+        () =>
+            extensionMasters.map((master) => ({
+                ...master,
+                payment_methods: Array.isArray(
+                    (master as OrderExtensionMasterInput).payment_methods,
+                )
+                    ? ((master as OrderExtensionMasterInput).payment_methods ??
+                      [])
+                    : [],
+            })) as OrderExtensionMasterInput[],
+        [extensionMasters],
+    );
+
+    const normalizedInitialInvoiceNumbers = useMemo(() => {
+        const normalized = initialInvoiceNumbers.map((number) =>
+            String(number ?? '').trim(),
+        );
+
+        console.log('[OrderForm.normalizedInitialInvoiceNumbers] Normalized:', {
+            input: initialInvoiceNumbers,
+            output: normalized,
+            length: normalized.length,
+            hasAny: normalized.some((n) => n !== '' && n !== '-'),
+        });
+
+        return normalized;
+    }, [initialInvoiceNumbers]);
+
+    const createInitialInvoices = useMemo((): InvoiceSchema[] => {
+        if (!isCreate || !quotation) {
+            return [];
+        }
+
+        const paymentPlan = quotation.payment_plan ?? 'direct';
+        const installmentInvoiceCount =
+            paymentPlan === 'installment'
+                ? sanitizeInstallmentInvoiceCount(
+                      normalizedInitialInvoiceNumbers.length > 0
+                          ? normalizedInitialInvoiceNumbers.length
+                          : 3,
+                  )
+                : sanitizeInstallmentInvoiceCount(3);
+
+        const baseInvoices = normalizeInvoices(
+            autoFillInvoiceDates(
+                buildInvoicesFromItems(
+                    paymentPlan,
+                    quotationItemsToInvoiceItems(quotation),
+                    Number(quotation.total_amount ?? 0),
+                    'fixed',
+                    500,
+                    quotation.extensions ?? [],
+                    installmentInvoiceCount,
+                ),
+                {
+                    defaultDate: quotation.quotation_date ?? '',
+                    paymentPlan,
+                    hasCustomerConfirmationMemberItem: (
+                        quotation.items ?? []
+                    ).some(
+                        (item) =>
+                            Number(item.customer_confirmation_member_id ?? 0) >
+                            0,
+                    ),
+                    packageDepartureDate:
+                        quotation.package_departure_date ?? null,
+                },
+            ),
+        );
+
+        // Convert quotation extensions to invoice extensions
+        const sourceExtensions = aggregateSourceExtensionsForSplit(
+            [],
+            (quotation.extensions ?? []) as InvoiceExtensionInput[],
+        );
+
+        const withExtensions = normalizeInvoices(
+            baseInvoices.map((invoice, index) => {
+                const inheritedExtensions = normalizeInvoiceExtensions(
+                    sourceExtensions
+                        .filter((extension) => {
+                            const calculationMode =
+                                String(
+                                    extension.calculation_mode ?? 'fixed',
+                                ) === 'percentage'
+                                    ? 'percentage'
+                                    : 'fixed';
+
+                            return (
+                                calculationMode === 'percentage' || index === 0
+                            );
+                        })
+                        .map((extension, extensionIndex) => {
+                            const calculationMode =
+                                String(
+                                    extension.calculation_mode ?? 'fixed',
+                                ) === 'percentage'
+                                    ? 'percentage'
+                                    : 'fixed';
+
+                            const sourceAmount = Number(
+                                extension.amount ??
+                                    extension.calculation_value ??
+                                    0,
+                            );
+                            const calculationValue = Number(
+                                extension.calculation_value ??
+                                    (calculationMode === 'fixed'
+                                        ? sourceAmount
+                                        : 0),
+                            );
+
+                            return {
+                                _key:
+                                    extension._key ??
+                                    `ext-${index + 1}-${extensionIndex + 1}`,
+                                id: undefined,
+                                quotation_extension_master_id:
+                                    extension.quotation_extension_master_id ??
+                                    null,
+                                name: extension.name ?? 'Extension',
+                                type: extension.type ?? 'discount',
+                                calculation_mode: calculationMode,
+                                calculation_value: calculationValue,
+                                amount:
+                                    calculationMode === 'fixed'
+                                        ? sourceAmount
+                                        : 0,
+                                sort_order:
+                                    extension.sort_order ?? extensionIndex + 1,
+                            };
+                        }),
+                );
+
+                const mergedInvoice = {
+                    ...invoice,
+                    extensions: inheritedExtensions,
+                } as InvoiceSchema;
+
+                const resolvedPaymentMethod = String(
+                    invoice.payment_method ?? defaultPaymentMethod ?? '',
+                );
+
+                return recalculateInvoice({
+                    ...mergedInvoice,
+                    payment_method: resolvedPaymentMethod,
+                });
+            }),
+        );
+
+        return applySeededInvoiceNumbering(
+            withExtensions,
+            normalizedInitialInvoiceNumbers,
+            initialInvoiceNumberFormatId,
+            [],
+        );
+    }, [
+        defaultPaymentMethod,
+        initialInvoiceNumberFormatId,
+        isCreate,
+        normalizedInitialInvoiceNumbers,
+        quotation,
+    ]);
+
+    const createInstallmentInvoiceCount =
+        isCreate && quotation?.payment_plan === 'installment'
+            ? sanitizeInstallmentInvoiceCount(
+                  createInitialInvoices.length > 0
+                      ? createInitialInvoices.length
+                      : 3,
+              )
+            : 3;
+
     const initialFormState: OrderSchema = {
         order_number: '',
         number_format_id: null,
         payment_plan: quotation?.payment_plan ?? 'direct',
-        installment_invoice_count: 3,
+        installment_invoice_count: createInstallmentInvoiceCount,
         deposit_type: 'fixed',
         deposit_value: 500,
-        invoices: [],
+        invoices: createInitialInvoices,
         items: initialItems ?? [],
 
         quotation_id: quotation?.id,
@@ -865,18 +707,37 @@ export default function OrderForm({
         clearErrors,
     } = useForm<OrderSchema>(defaultData);
 
-    const normalizedOrderExtensionMasters = useMemo(
+    const invoicesGrandTotal = useMemo(
         () =>
-            extensionMasters.map((master) => ({
-                ...master,
-                payment_methods: Array.isArray(
-                    (master as OrderExtensionMasterInput).payment_methods,
-                )
-                    ? ((master as OrderExtensionMasterInput).payment_methods ??
-                      [])
-                    : [],
-            })) as OrderExtensionMasterInput[],
-        [extensionMasters],
+            (data.invoices ?? []).reduce(
+                (sum, invoice) => sum + calculateInvoiceGrandTotal(invoice),
+                0,
+            ),
+        [data.invoices],
+    );
+
+    const updateInvoiceAtIndex = useCallback(
+        (
+            invoiceIndex: number,
+            updater: (invoice: InvoiceSchema) => InvoiceSchema,
+        ) => {
+            setData((currentData) => {
+                const currentInvoices = [...(currentData.invoices ?? [])];
+                const currentInvoice = currentInvoices[invoiceIndex];
+
+                if (!currentInvoice) {
+                    return currentData;
+                }
+
+                currentInvoices[invoiceIndex] = updater(currentInvoice);
+
+                return {
+                    ...currentData,
+                    invoices: currentInvoices,
+                };
+            });
+        },
+        [setData],
     );
 
     const rebuildInvoicesFromSource = useCallback(
@@ -926,46 +787,27 @@ export default function OrderForm({
                     (quotation.extensions ?? []) as InvoiceExtensionInput[],
                 );
 
-                const invoiceSubtotals = rebuiltInvoices.map((invoice) =>
-                    calculateTotal(invoice.items ?? []),
-                );
-
-                const fixedAllocationsByExtensionIndex = new Map<
-                    number,
-                    number[]
-                >();
-
-                sourceExtensions.forEach((extension, extensionIndex) => {
-                    const calculationMode =
-                        String(extension.calculation_mode ?? 'fixed') ===
-                        'percentage'
-                            ? 'percentage'
-                            : 'fixed';
-
-                    if (calculationMode !== 'fixed') {
-                        return;
-                    }
-
-                    const sourceAmount = Number(
-                        extension.amount ?? extension.calculation_value ?? 0,
-                    );
-
-                    fixedAllocationsByExtensionIndex.set(
-                        extensionIndex,
-                        allocateFixedAmountProportionally(
-                            sourceAmount,
-                            invoiceSubtotals,
-                        ),
-                    );
-                });
-
                 const normalizedRebuiltInvoices = normalizeInvoices(
                     rebuiltInvoices.map((invoice, index) => {
                         const existingInvoice = currentInvoices[index];
 
                         const inheritedExtensions = normalizeInvoiceExtensions(
-                            sourceExtensions.map(
-                                (extension, extensionIndex) => {
+                            sourceExtensions
+                                .filter((extension) => {
+                                    const calculationMode =
+                                        String(
+                                            extension.calculation_mode ??
+                                                'fixed',
+                                        ) === 'percentage'
+                                            ? 'percentage'
+                                            : 'fixed';
+
+                                    return (
+                                        calculationMode === 'percentage' ||
+                                        index === 0
+                                    );
+                                })
+                                .map((extension, extensionIndex) => {
                                     const calculationMode =
                                         String(
                                             extension.calculation_mode ??
@@ -975,7 +817,9 @@ export default function OrderForm({
                                             : 'fixed';
 
                                     const sourceAmount = Number(
-                                        extension.amount ?? 0,
+                                        extension.amount ??
+                                            extension.calculation_value ??
+                                            0,
                                     );
                                     const calculationValue = Number(
                                         extension.calculation_value ??
@@ -995,24 +839,16 @@ export default function OrderForm({
                                         name: extension.name ?? 'Extension',
                                         type: extension.type ?? 'discount',
                                         calculation_mode: calculationMode,
-                                        calculation_value:
-                                            calculationMode === 'percentage'
-                                                ? calculationValue
-                                                : Number(
-                                                      (
-                                                          fixedAllocationsByExtensionIndex.get(
-                                                              extensionIndex,
-                                                          )?.[index] ??
-                                                          sourceAmount
-                                                      ).toFixed(2),
-                                                  ),
-                                        amount: 0,
+                                        calculation_value: calculationValue,
+                                        amount:
+                                            calculationMode === 'fixed'
+                                                ? sourceAmount
+                                                : 0,
                                         sort_order:
                                             extension.sort_order ??
                                             extensionIndex + 1,
                                     };
-                                },
-                            ),
+                                }),
                         );
 
                         const mergedInvoice = {
@@ -1027,22 +863,16 @@ export default function OrderForm({
                                 '',
                         );
 
-                        const mergedWithPaymentMethod =
-                            applyInvoicePaymentMethodExtensions(
-                                {
-                                    ...mergedInvoice,
-                                    payment_method: resolvedPaymentMethod,
-                                },
-                                resolvedPaymentMethod,
-                                normalizedOrderExtensionMasters,
-                            );
-
                         if (!existingInvoice) {
-                            return recalculateInvoice(mergedWithPaymentMethod);
+                            return recalculateInvoice({
+                                ...mergedInvoice,
+                                payment_method: resolvedPaymentMethod,
+                            });
                         }
 
                         return recalculateInvoice({
-                            ...mergedWithPaymentMethod,
+                            ...mergedInvoice,
+                            payment_method: resolvedPaymentMethod,
                             id: existingInvoice.id ?? invoice.id,
                             invoice_number:
                                 existingInvoice.invoice_number ??
@@ -1064,14 +894,21 @@ export default function OrderForm({
                     }),
                 );
 
-                if (paymentPlan === 'installment') {
-                    return continueInstallmentInvoiceNumberSequence(
+                if (isCreate) {
+                    return applySeededInvoiceNumbering(
                         normalizedRebuiltInvoices,
+                        normalizedInitialInvoiceNumbers,
+                        initialInvoiceNumberFormatId,
                         currentInvoices,
                     );
                 }
 
-                return normalizedRebuiltInvoices;
+                return applyInvoiceNumberingSequence(
+                    normalizedRebuiltInvoices,
+                    {
+                        sourceInvoices: currentInvoices,
+                    },
+                );
             }
 
             const normalizedRebuiltInvoices = normalizeInvoices(
@@ -1099,499 +936,28 @@ export default function OrderForm({
                 }),
             );
 
-            if (paymentPlan === 'installment') {
-                return continueInstallmentInvoiceNumberSequence(
+            if (isCreate) {
+                return applySeededInvoiceNumbering(
                     normalizedRebuiltInvoices,
+                    normalizedInitialInvoiceNumbers,
+                    initialInvoiceNumberFormatId,
                     currentInvoices,
                 );
             }
 
-            return normalizedRebuiltInvoices;
+            return applyInvoiceNumberingSequence(normalizedRebuiltInvoices, {
+                sourceInvoices: currentInvoices,
+            });
         },
-        [defaultPaymentMethod, normalizedOrderExtensionMasters, quotation],
+        [
+            defaultPaymentMethod,
+            initialInvoiceNumberFormatId,
+            isCreate,
+            normalizedInitialInvoiceNumbers,
+            normalizedOrderExtensionMasters,
+            quotation,
+        ],
     );
-
-    const serializeInvoicesForComparison = useCallback(
-        (invoices: InvoiceSchema[]): string => {
-            return JSON.stringify(
-                invoices.map((invoice) => ({
-                    invoice_date: invoice.invoice_date ?? '',
-                    due_date: invoice.due_date ?? '',
-                    description: invoice.description ?? '',
-                    amount: Number(invoice.amount ?? 0),
-                    items: (invoice.items ?? []).map((item) => ({
-                        id: item.id ?? null,
-                        parent_id: item.parent_id ?? null,
-                        customer_confirmation_member_id:
-                            item.customer_confirmation_member_id ?? null,
-                        description: item.description ?? '',
-                        is_header: Boolean(item.is_header),
-                        quantity: Number(item.quantity ?? 0),
-                        rate: Number(item.rate ?? 0),
-                        sort_order: Number(item.sort_order ?? 0),
-                    })),
-                })),
-            );
-        },
-        [],
-    );
-
-    const didInitializeQuotationInvoicesRef = useRef(false);
-    const isInvoiceNumberAutofillRunningRef = useRef(false);
-
-    useEffect(() => {
-        if (didInitializeQuotationInvoicesRef.current) {
-            return;
-        }
-
-        if (initialData || !quotation) {
-            didInitializeQuotationInvoicesRef.current = true;
-            return;
-        }
-
-        const paymentPlan =
-            data.payment_plan ?? quotation.payment_plan ?? 'full';
-
-        const nextInvoices = rebuildInvoicesFromSource(
-            paymentPlan,
-            data.deposit_type,
-            data.deposit_value,
-            data.invoices,
-            data.installment_invoice_count,
-        );
-
-        const currentHash = serializeInvoicesForComparison(data.invoices);
-        const nextHash = serializeInvoicesForComparison(nextInvoices);
-
-        if (currentHash !== nextHash) {
-            setData('invoices', nextInvoices);
-        }
-
-        didInitializeQuotationInvoicesRef.current = true;
-    }, [
-        initialData,
-        quotation,
-        data.payment_plan,
-        data.installment_invoice_count,
-        data.deposit_type,
-        data.deposit_value,
-        data.invoices,
-        setData,
-        rebuildInvoicesFromSource,
-        serializeInvoicesForComparison,
-    ]);
-
-    useEffect(() => {
-        if (isView || processing || isInvoiceNumberAutofillRunningRef.current) {
-            return;
-        }
-
-        const isMissingInvoiceNumber = (invoiceNumber?: string | null) => {
-            const normalized = String(invoiceNumber ?? '').trim();
-
-            return normalized.length === 0 || normalized === '-';
-        };
-
-        const missingIndexes = data.invoices
-            .map((invoice, index) => {
-                return isMissingInvoiceNumber(invoice.invoice_number)
-                    ? index
-                    : null;
-            })
-            .filter((index): index is number => index !== null);
-
-        const shouldNormalizeInstallmentSequence =
-            !initialData &&
-            data.payment_plan === 'installment' &&
-            data.invoices.length > 1;
-
-        if (
-            missingIndexes.length === 0 &&
-            !shouldNormalizeInstallmentSequence
-        ) {
-            return;
-        }
-
-        isInvoiceNumberAutofillRunningRef.current = true;
-
-        void (async () => {
-            try {
-                const formats = await fetchFormats('invoice');
-                const counterByScopeKey = new Map<string, number>();
-                const suggestionCacheByScope = new Map<
-                    string,
-                    Awaited<ReturnType<typeof suggestNumber>>
-                >();
-                const nextInvoices = [...data.invoices];
-
-                if (shouldNormalizeInstallmentSequence) {
-                    const firstFilledInvoiceIndex = nextInvoices.findIndex(
-                        (invoice) =>
-                            !isMissingInvoiceNumber(invoice.invoice_number),
-                    );
-
-                    let sequenceFormat:
-                        | Awaited<ReturnType<typeof fetchFormats>>[number]
-                        | undefined;
-                    let sequenceFormatId: number | null = null;
-                    let sequenceTemplateNumber = '';
-                    let baseIncrement = 1;
-
-                    if (firstFilledInvoiceIndex >= 0) {
-                        const firstFilledInvoice =
-                            nextInvoices[firstFilledInvoiceIndex];
-                        const filledInvoiceNumber = String(
-                            firstFilledInvoice?.invoice_number ?? '',
-                        ).trim();
-                        const preferredFormatId =
-                            firstFilledInvoice?.number_format_id ?? null;
-
-                        sequenceFormat =
-                            formats.find(
-                                (format) =>
-                                    format.id ===
-                                    Number(preferredFormatId ?? 0),
-                            ) ??
-                            formats.find((format) => {
-                                return (
-                                    extractIncrementFromInvoiceNumber(
-                                        filledInvoiceNumber,
-                                        format.name,
-                                    ) !== null
-                                );
-                            });
-
-                        const parsedIncrement = sequenceFormat
-                            ? extractIncrementFromInvoiceNumber(
-                                  filledInvoiceNumber,
-                                  sequenceFormat.name,
-                              )
-                            : extractIncrementFromSuggestedNumber(
-                                  filledInvoiceNumber,
-                              );
-
-                        if (parsedIncrement !== null) {
-                            baseIncrement = Math.max(
-                                1,
-                                parsedIncrement - firstFilledInvoiceIndex,
-                            );
-                        }
-
-                        sequenceFormatId =
-                            firstFilledInvoice?.number_format_id ??
-                            sequenceFormat?.id ??
-                            null;
-                        sequenceTemplateNumber = filledInvoiceNumber;
-                    } else {
-                        const firstInvoice = nextInvoices[0];
-
-                        if (firstInvoice) {
-                            const preferredFormatId =
-                                firstInvoice.number_format_id ?? null;
-                            const suggestionScopeKey =
-                                preferredFormatId !== null
-                                    ? `format:${preferredFormatId}`
-                                    : 'model:invoice';
-                            const suggestion =
-                                suggestionCacheByScope.get(
-                                    suggestionScopeKey,
-                                ) ??
-                                (await suggestNumber(
-                                    'invoice',
-                                    preferredFormatId,
-                                ));
-
-                            if (
-                                !suggestionCacheByScope.has(suggestionScopeKey)
-                            ) {
-                                suggestionCacheByScope.set(
-                                    suggestionScopeKey,
-                                    suggestion,
-                                );
-                            }
-
-                            sequenceFormat = formats.find(
-                                (candidate) =>
-                                    candidate.id === suggestion.format_id,
-                            );
-
-                            const parsedSuggestedIncrement =
-                                extractIncrementFromSuggestedNumber(
-                                    suggestion.number,
-                                    sequenceFormat?.name,
-                                );
-
-                            baseIncrement =
-                                typeof suggestion.next_increment === 'number'
-                                    ? suggestion.next_increment
-                                    : (parsedSuggestedIncrement ?? 1);
-                            sequenceFormatId = suggestion.format_id ?? null;
-                            sequenceTemplateNumber = suggestion.number;
-                        }
-                    }
-
-                    let hasMismatch = false;
-
-                    const normalizedSequenceInvoices = nextInvoices.map(
-                        (invoice, index) => {
-                            const expectedIncrement = baseIncrement + index;
-                            const expectedInvoiceNumber = sequenceFormat
-                                ? buildInvoiceNumberFromFormat(
-                                      sequenceFormat.name,
-                                      expectedIncrement,
-                                      sequenceFormat.increment_padding,
-                                  )
-                                : buildInvoiceNumberFromSuggestion(
-                                      sequenceTemplateNumber,
-                                      expectedIncrement,
-                                  );
-
-                            const currentInvoiceNumber = String(
-                                invoice.invoice_number ?? '',
-                            ).trim();
-
-                            if (
-                                currentInvoiceNumber !== expectedInvoiceNumber
-                            ) {
-                                hasMismatch = true;
-                            }
-
-                            return {
-                                ...invoice,
-                                number_format_id:
-                                    invoice.number_format_id ??
-                                    sequenceFormatId,
-                                invoice_number: expectedInvoiceNumber,
-                            };
-                        },
-                    );
-
-                    if (hasMismatch) {
-                        setData('invoices', normalizedSequenceInvoices);
-                        return;
-                    }
-                }
-
-                if (
-                    data.payment_plan === 'installment' &&
-                    !nextInvoices.some(
-                        (invoice) =>
-                            !isMissingInvoiceNumber(invoice.invoice_number),
-                    ) &&
-                    missingIndexes.length > 0
-                ) {
-                    const firstMissingIndex = missingIndexes[0];
-                    const firstMissingInvoice = nextInvoices[firstMissingIndex];
-
-                    if (firstMissingInvoice) {
-                        const preferredFormatId =
-                            firstMissingInvoice.number_format_id ?? null;
-                        const suggestionScopeKey =
-                            preferredFormatId !== null
-                                ? `format:${preferredFormatId}`
-                                : 'model:invoice';
-
-                        const suggestion =
-                            suggestionCacheByScope.get(suggestionScopeKey) ??
-                            (await suggestNumber('invoice', preferredFormatId));
-
-                        if (!suggestionCacheByScope.has(suggestionScopeKey)) {
-                            suggestionCacheByScope.set(
-                                suggestionScopeKey,
-                                suggestion,
-                            );
-                        }
-
-                        const format = formats.find(
-                            (candidate) =>
-                                candidate.id === suggestion.format_id,
-                        );
-                        const parsedSuggestedIncrement =
-                            extractIncrementFromSuggestedNumber(
-                                suggestion.number,
-                                format?.name,
-                            );
-                        const baseIncrement =
-                            typeof suggestion.next_increment === 'number'
-                                ? suggestion.next_increment
-                                : (parsedSuggestedIncrement ?? 1);
-
-                        missingIndexes.forEach((invoiceIndex, offset) => {
-                            const currentInvoice = nextInvoices[invoiceIndex];
-
-                            if (!currentInvoice) {
-                                return;
-                            }
-
-                            const currentIncrement = baseIncrement + offset;
-                            const nextInvoiceNumber = format
-                                ? buildInvoiceNumberFromFormat(
-                                      format.name,
-                                      currentIncrement,
-                                      format.increment_padding,
-                                  )
-                                : buildInvoiceNumberFromSuggestion(
-                                      suggestion.number,
-                                      currentIncrement,
-                                  );
-
-                            nextInvoices[invoiceIndex] = {
-                                ...currentInvoice,
-                                number_format_id:
-                                    currentInvoice.number_format_id ??
-                                    suggestion.format_id,
-                                invoice_number: nextInvoiceNumber,
-                            };
-                        });
-
-                        setData('invoices', nextInvoices);
-                        return;
-                    }
-                }
-
-                nextInvoices.forEach((invoice) => {
-                    const invoiceNumber = String(
-                        invoice.invoice_number ?? '',
-                    ).trim();
-
-                    if (invoiceNumber.length === 0 || invoiceNumber === '-') {
-                        return;
-                    }
-
-                    const matchedFormat =
-                        formats.find(
-                            (format) =>
-                                format.id ===
-                                Number(invoice.number_format_id ?? 0),
-                        ) ??
-                        formats.find((format) => {
-                            return (
-                                extractIncrementFromInvoiceNumber(
-                                    invoiceNumber,
-                                    format.name,
-                                ) !== null
-                            );
-                        });
-
-                    if (!matchedFormat) {
-                        return;
-                    }
-
-                    const parsedIncrement = extractIncrementFromInvoiceNumber(
-                        invoiceNumber,
-                        matchedFormat.name,
-                    );
-
-                    const fallbackParsedIncrement =
-                        parsedIncrement ??
-                        extractIncrementFromSuggestedNumber(
-                            invoiceNumber,
-                            matchedFormat.name,
-                        );
-
-                    if (fallbackParsedIncrement === null) {
-                        return;
-                    }
-
-                    const scopeKey =
-                        matchedFormat.increment_scope === 'model'
-                            ? 'model:invoice'
-                            : `format:${matchedFormat.id}`;
-                    const nextAvailableIncrement = fallbackParsedIncrement + 1;
-                    const currentCounter = counterByScopeKey.get(scopeKey) ?? 1;
-
-                    counterByScopeKey.set(
-                        scopeKey,
-                        Math.max(currentCounter, nextAvailableIncrement),
-                    );
-                });
-
-                for (const invoiceIndex of missingIndexes) {
-                    const currentInvoice = nextInvoices[invoiceIndex];
-
-                    if (!currentInvoice) {
-                        continue;
-                    }
-
-                    const preferredFormatId =
-                        currentInvoice.number_format_id ?? null;
-                    const suggestionScopeKey =
-                        preferredFormatId !== null
-                            ? `format:${preferredFormatId}`
-                            : 'model:invoice';
-
-                    const suggestion =
-                        suggestionCacheByScope.get(suggestionScopeKey) ??
-                        (await suggestNumber('invoice', preferredFormatId));
-
-                    if (!suggestionCacheByScope.has(suggestionScopeKey)) {
-                        suggestionCacheByScope.set(
-                            suggestionScopeKey,
-                            suggestion,
-                        );
-                    }
-
-                    const format = formats.find(
-                        (candidate) => candidate.id === suggestion.format_id,
-                    );
-
-                    const scopeKey =
-                        format?.increment_scope === 'model'
-                            ? 'model:invoice'
-                            : `format:${suggestion.format_id}`;
-
-                    const currentCounter = counterByScopeKey.get(scopeKey) ?? 1;
-                    const parsedSuggestedIncrement =
-                        extractIncrementFromSuggestedNumber(
-                            suggestion.number,
-                            format?.name,
-                        );
-                    const suggestedIncrement =
-                        typeof suggestion.next_increment === 'number'
-                            ? suggestion.next_increment
-                            : (parsedSuggestedIncrement ?? currentCounter);
-                    const resolvedIncrement = Math.max(
-                        suggestedIncrement,
-                        currentCounter,
-                    );
-
-                    const nextInvoiceNumber = format
-                        ? buildInvoiceNumberFromFormat(
-                              format.name,
-                              resolvedIncrement,
-                              format.increment_padding,
-                          )
-                        : buildInvoiceNumberFromSuggestion(
-                              suggestion.number,
-                              resolvedIncrement,
-                          );
-
-                    counterByScopeKey.set(scopeKey, resolvedIncrement + 1);
-
-                    nextInvoices[invoiceIndex] = {
-                        ...currentInvoice,
-                        number_format_id:
-                            currentInvoice.number_format_id ??
-                            suggestion.format_id,
-                        invoice_number: nextInvoiceNumber,
-                    };
-                }
-
-                setData('invoices', nextInvoices);
-            } catch {
-                // Keep invoice numbers editable manually if auto-fill cannot be loaded.
-            } finally {
-                isInvoiceNumberAutofillRunningRef.current = false;
-            }
-        })();
-    }, [
-        data.invoices,
-        data.payment_plan,
-        initialData,
-        isView,
-        processing,
-        setData,
-    ]);
 
     function addInvoice() {
         if (data.payment_plan === 'installment') {
@@ -1614,10 +980,15 @@ export default function OrderForm({
             return;
         }
 
-        const newInvoices = [
-            ...data.invoices,
-            createEmptyInvoice(String(defaultPaymentMethod ?? '')),
-        ];
+        const newInvoices = applyInvoiceNumberingSequence(
+            [
+                ...data.invoices,
+                createEmptyInvoice(String(defaultPaymentMethod ?? '')),
+            ],
+            {
+                sourceInvoices: data.invoices,
+            },
+        );
         setData('invoices', newInvoices);
     }
 
@@ -1659,76 +1030,79 @@ export default function OrderForm({
     ) {
         if (fromIndex === toIndex) return;
 
-        const invoices = [...data.invoices];
+        setData((currentData) => {
+            const invoices = [...(currentData.invoices ?? [])];
+            const fromInvoice = invoices[fromIndex];
+            const toInvoice = invoices[toIndex];
 
-        const fromItems = invoices[fromIndex].items;
-        const toItems = invoices[toIndex].items;
-
-        const isRootHeader = (key: string): boolean => {
-            const candidate = fromItems.find((item) => item._key === key);
-
-            if (!candidate) {
-                return false;
+            if (!fromInvoice || !toInvoice) {
+                return currentData;
             }
 
-            return (
-                candidate.is_header === true &&
-                candidate.parent_id == null &&
-                candidate.parent_key == null
-            );
-        };
+            const fromItems = fromInvoice.items ?? [];
+            const toItems = toInvoice.items ?? [];
 
-        if (!itemKeys.length || !itemKeys.every((key) => isRootHeader(key))) {
-            return;
-        }
+            const isRootHeader = (key: string): boolean => {
+                const candidate = fromItems.find((item) => item._key === key);
 
-        const movingItems = collectWithChildren(fromItems, itemKeys);
-        const movingKeys = new Set(movingItems.map((i) => i._key));
+                if (!candidate) {
+                    return false;
+                }
 
-        invoices[fromIndex] = {
-            ...invoices[fromIndex],
-            items: normalizeItems(
-                fromItems.filter((i) => !movingKeys.has(i._key)),
-            ),
-            amount: 0,
-        };
+                return (
+                    candidate.is_header === true &&
+                    candidate.parent_id == null &&
+                    candidate.parent_key == null
+                );
+            };
 
-        invoices[toIndex] = {
-            ...invoices[toIndex],
-            items: normalizeItems([...toItems, ...movingItems]),
-            amount: 0,
-        };
+            if (
+                !itemKeys.length ||
+                !itemKeys.every((key) => isRootHeader(key))
+            ) {
+                return currentData;
+            }
 
-        invoices[fromIndex] = recalculateInvoice(invoices[fromIndex]);
-        invoices[toIndex] = recalculateInvoice(invoices[toIndex]);
+            const movingItems = collectWithChildren(fromItems, itemKeys);
+            const movingKeys = new Set(movingItems.map((i) => i._key));
 
-        setData('invoices', invoices);
+            invoices[fromIndex] = recalculateInvoice({
+                ...fromInvoice,
+                items: normalizeItems(
+                    fromItems.filter((i) => !movingKeys.has(i._key)),
+                ),
+                amount: 0,
+            });
+
+            invoices[toIndex] = recalculateInvoice({
+                ...toInvoice,
+                items: normalizeItems([...toItems, ...movingItems]),
+                amount: 0,
+            });
+
+            return {
+                ...currentData,
+                invoices,
+            };
+        });
     }
 
     function handleInvoicePaymentMethodChange(
         invoiceIndex: number,
         paymentMethod: string,
     ) {
-        const nextInvoices = [...data.invoices];
-        const currentInvoice = nextInvoices[invoiceIndex];
-
-        if (!currentInvoice) {
-            return;
-        }
-
-        const nextInvoice = recalculateInvoice(
-            applyInvoicePaymentMethodExtensions(
-                {
-                    ...currentInvoice,
-                    payment_method: paymentMethod,
-                },
-                paymentMethod,
-                normalizedOrderExtensionMasters,
+        updateInvoiceAtIndex(invoiceIndex, (currentInvoice) =>
+            recalculateInvoice(
+                applyInvoicePaymentMethodExtensions(
+                    {
+                        ...currentInvoice,
+                        payment_method: paymentMethod,
+                    },
+                    paymentMethod,
+                    normalizedOrderExtensionMasters,
+                ),
             ),
         );
-
-        nextInvoices[invoiceIndex] = nextInvoice;
-        setData('invoices', nextInvoices);
     }
 
     // validation
@@ -1763,6 +1137,13 @@ export default function OrderForm({
                 preserveScroll: true,
                 onError: (errors) => {
                     setError(errors);
+                    const errorMessage =
+                        resolvePrimaryValidationMessage(errors);
+
+                    if (errorMessage) {
+                        toast.error(errorMessage);
+                    }
+
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 },
             });
@@ -1772,6 +1153,13 @@ export default function OrderForm({
                 preserveScroll: true,
                 onError: (errors) => {
                     setError(errors);
+                    const errorMessage =
+                        resolvePrimaryValidationMessage(errors);
+
+                    if (errorMessage) {
+                        toast.error(errorMessage);
+                    }
+
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 },
             });
@@ -2117,9 +1505,6 @@ export default function OrderForm({
             quotationSubtotalAmount + quotationExtensionTotalAmount,
     );
 
-    const hasQuotationCustomerConfirmation =
-        Number(quotation?.customer_confirmation_id ?? 0) > 0;
-
     const taxExtensionMasters = useMemo(() => {
         const grouped = new Map<
             string,
@@ -2206,6 +1591,10 @@ export default function OrderForm({
     // const [previewInvoice, setPreviewInvoice] = useState<InvoiceSchema | null>(
     //     null,
     // );
+
+    // dont remove the console, its for me to check the data.
+    console.log(data);
+    console.log(data.invoices.map((i) => i.invoice_number));
 
     return (
         <>
@@ -2295,6 +1684,38 @@ export default function OrderForm({
                                         disabled={isView}
                                         renderError={renderError}
                                         onChange={(v) => {
+                                            const currentPlan = String(
+                                                data.payment_plan ?? '',
+                                            ).toLowerCase();
+                                            const nextPlan = String(
+                                                v ?? '',
+                                            ).toLowerCase();
+                                            const paidInvoiceCount =
+                                                data.invoices.filter(
+                                                    (invoice) =>
+                                                        isPaidInvoice(invoice),
+                                                ).length;
+
+                                            if (
+                                                isEdit &&
+                                                currentPlan === 'installment' &&
+                                                ['full', 'direct'].includes(
+                                                    nextPlan,
+                                                ) &&
+                                                paidInvoiceCount > 1
+                                            ) {
+                                                const message =
+                                                    'Cannot change payment plan from installment when more than one installment invoice is already paid.';
+
+                                                setError(
+                                                    'payment_plan',
+                                                    message,
+                                                );
+                                                toast.error(message);
+
+                                                return;
+                                            }
+
                                             const nextDepositType =
                                                 v === 'installment'
                                                     ? (data.deposit_type ??
@@ -2386,106 +1807,96 @@ export default function OrderForm({
                                         </FormField>
                                     )}
 
-                                    {data.payment_plan === 'installment' &&
-                                        hasQuotationCustomerConfirmation && (
-                                            <>
-                                                <FormField label="Deposit Type">
-                                                    <Select
-                                                        value={String(
-                                                            data.deposit_type ??
-                                                                '',
-                                                        )}
-                                                        onValueChange={(v) => {
-                                                            setData({
-                                                                ...data,
-                                                                deposit_type: v,
-                                                                invoices:
-                                                                    rebuildInvoicesFromSource(
-                                                                        data.payment_plan ??
-                                                                            'installment',
-                                                                        v,
-                                                                        data.deposit_value,
-                                                                        data.invoices,
-                                                                        data.installment_invoice_count,
-                                                                    ),
-                                                            });
-                                                        }}
-                                                        disabled={isView}
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {depositTypes.map(
-                                                                (dt) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            dt.value
-                                                                        }
-                                                                        value={
-                                                                            dt.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            dt.label
-                                                                        }
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {renderError(
-                                                        'deposit_type',
+                                    {data.payment_plan === 'installment' && (
+                                        <>
+                                            <FormField label="Deposit Type">
+                                                <Select
+                                                    value={String(
+                                                        data.deposit_type ?? '',
                                                     )}
-                                                </FormField>
-
-                                                <FormField label="Deposit Value">
-                                                    <ProperInput
-                                                        value={
-                                                            data.deposit_value ??
-                                                            ''
-                                                        }
-                                                        type="number"
-                                                        inputProps={{
-                                                            step: 'any',
-                                                            min: '0',
-                                                            ...(data.deposit_type ===
-                                                            'percentage'
-                                                                ? {
-                                                                      max: '100',
-                                                                  }
-                                                                : {}),
-                                                        }}
-                                                        placeholder={
-                                                            data.deposit_type ===
-                                                            'percentage'
-                                                                ? 'Enter %'
-                                                                : 'Enter amount'
-                                                        }
-                                                        disabled={isView}
-                                                        onCommit={(v) => {
-                                                            setData({
-                                                                ...data,
-                                                                deposit_value:
+                                                    onValueChange={(v) => {
+                                                        setData({
+                                                            ...data,
+                                                            deposit_type: v,
+                                                            invoices:
+                                                                rebuildInvoicesFromSource(
+                                                                    data.payment_plan ??
+                                                                        'installment',
                                                                     v,
-                                                                invoices:
-                                                                    rebuildInvoicesFromSource(
-                                                                        data.payment_plan ??
-                                                                            'installment',
-                                                                        data.deposit_type,
-                                                                        v,
-                                                                        data.invoices,
-                                                                        data.installment_invoice_count,
-                                                                    ),
-                                                            });
-                                                        }}
-                                                    />
-                                                    {renderError(
-                                                        'deposit_value',
-                                                    )}
-                                                </FormField>
-                                            </>
-                                        )}
+                                                                    data.deposit_value,
+                                                                    data.invoices,
+                                                                    data.installment_invoice_count,
+                                                                ),
+                                                        });
+                                                    }}
+                                                    disabled={isView}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {depositTypes.map(
+                                                            (dt) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        dt.value
+                                                                    }
+                                                                    value={
+                                                                        dt.value
+                                                                    }
+                                                                >
+                                                                    {dt.label}
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                {renderError('deposit_type')}
+                                            </FormField>
+
+                                            <FormField label="Deposit Value">
+                                                <ProperInput
+                                                    value={
+                                                        data.deposit_value ?? ''
+                                                    }
+                                                    type="number"
+                                                    inputProps={{
+                                                        step: 'any',
+                                                        min: '0',
+                                                        ...(data.deposit_type ===
+                                                        'percentage'
+                                                            ? {
+                                                                  max: '100',
+                                                              }
+                                                            : {}),
+                                                    }}
+                                                    placeholder={
+                                                        data.deposit_type ===
+                                                        'percentage'
+                                                            ? 'Enter %'
+                                                            : 'Enter amount'
+                                                    }
+                                                    disabled={isView}
+                                                    onCommit={(v) => {
+                                                        setData({
+                                                            ...data,
+                                                            deposit_value: v,
+                                                            invoices:
+                                                                rebuildInvoicesFromSource(
+                                                                    data.payment_plan ??
+                                                                        'installment',
+                                                                    data.deposit_type,
+                                                                    v,
+                                                                    data.invoices,
+                                                                    data.installment_invoice_count,
+                                                                ),
+                                                        });
+                                                    }}
+                                                />
+                                                {renderError('deposit_value')}
+                                            </FormField>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -2498,10 +1909,7 @@ export default function OrderForm({
                                     <div className="rounded-md bg-primary/10 px-3 py-1 text-base font-semibold text-primary">
                                         Total&nbsp;
                                         <span className="tabular-nums">
-                                            $
-                                            {calculateInvoicesTotal(
-                                                data.invoices,
-                                            )}
+                                            ${invoicesGrandTotal}
                                         </span>
                                     </div>
                                 </div>
@@ -2667,9 +2075,9 @@ export default function OrderForm({
                                                             <Badge className="rounded-md bg-emerald-50 px-3 py-1 text-base font-semibold text-emerald-700">
                                                                 <span className="tabular-nums">
                                                                     $
-                                                                    {calculateTotal(
-                                                                        invoice.items,
-                                                                    )}
+                                                                    {
+                                                                        invoiceGrandTotal
+                                                                    }
                                                                 </span>
                                                             </Badge>
 
@@ -2711,28 +2119,31 @@ export default function OrderForm({
                                                                 : 'Collapse'}
                                                         </Button>
 
-                                                        {!isView && (
-                                                            <div className="flex justify-end">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="destructive"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        removeInvoice(
-                                                                            idx,
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        data
-                                                                            .invoices
-                                                                            .length <=
-                                                                        1
-                                                                    }
-                                                                >
-                                                                    <Trash />
-                                                                </Button>
-                                                            </div>
-                                                        )}
+                                                        {!isView &&
+                                                            !isInvoiceLockedForRemoval(
+                                                                invoice,
+                                                            ) && (
+                                                                <div className="flex justify-end">
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="destructive"
+                                                                        size="sm"
+                                                                        onClick={() =>
+                                                                            removeInvoice(
+                                                                                idx,
+                                                                            )
+                                                                        }
+                                                                        disabled={
+                                                                            data
+                                                                                .invoices
+                                                                                .length <=
+                                                                            1
+                                                                        }
+                                                                    >
+                                                                        <Trash />
+                                                                    </Button>
+                                                                </div>
+                                                            )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -2767,41 +2178,29 @@ export default function OrderForm({
                                                                 onValueChange={(
                                                                     nextValue,
                                                                 ) => {
-                                                                    const next =
-                                                                        [
-                                                                            ...data.invoices,
-                                                                        ];
-                                                                    next[idx] =
-                                                                        {
-                                                                            ...next[
-                                                                                idx
-                                                                            ],
+                                                                    updateInvoiceAtIndex(
+                                                                        idx,
+                                                                        (
+                                                                            currentInvoice,
+                                                                        ) => ({
+                                                                            ...currentInvoice,
                                                                             invoice_number:
                                                                                 nextValue,
-                                                                        };
-                                                                    setData(
-                                                                        'invoices',
-                                                                        next,
+                                                                        }),
                                                                     );
                                                                 }}
                                                                 onFormatIdChange={(
                                                                     nextFormatId,
                                                                 ) => {
-                                                                    const next =
-                                                                        [
-                                                                            ...data.invoices,
-                                                                        ];
-                                                                    next[idx] =
-                                                                        {
-                                                                            ...next[
-                                                                                idx
-                                                                            ],
+                                                                    updateInvoiceAtIndex(
+                                                                        idx,
+                                                                        (
+                                                                            currentInvoice,
+                                                                        ) => ({
+                                                                            ...currentInvoice,
                                                                             number_format_id:
                                                                                 nextFormatId,
-                                                                        };
-                                                                    setData(
-                                                                        'invoices',
-                                                                        next,
+                                                                        }),
                                                                     );
                                                                 }}
                                                                 disabled={
@@ -2812,6 +2211,7 @@ export default function OrderForm({
                                                                     invoiceNumberError
                                                                 }
                                                                 hint="Select format to auto-generate invoice number for this invoice."
+                                                                skipInitialAutofill
                                                             />
                                                         }
                                                         paymentMethodField={
@@ -2844,16 +2244,14 @@ export default function OrderForm({
                                                             />
                                                         }
                                                         onChange={(patch) => {
-                                                            const next = [
-                                                                ...data.invoices,
-                                                            ];
-                                                            next[idx] = {
-                                                                ...next[idx],
-                                                                ...patch,
-                                                            };
-                                                            setData(
-                                                                'invoices',
-                                                                next,
+                                                            updateInvoiceAtIndex(
+                                                                idx,
+                                                                (
+                                                                    currentInvoice,
+                                                                ) => ({
+                                                                    ...currentInvoice,
+                                                                    ...patch,
+                                                                }),
                                                             );
                                                         }}
                                                     />
@@ -2867,21 +2265,19 @@ export default function OrderForm({
                                                             )
                                                         }
                                                         onChange={(items) => {
-                                                            const next = [
-                                                                ...data.invoices,
-                                                            ];
-                                                            next[idx] =
-                                                                recalculateInvoice(
-                                                                    {
-                                                                        ...invoice,
-                                                                        items: normalizeItems(
-                                                                            items,
-                                                                        ),
-                                                                    },
-                                                                );
-                                                            setData(
-                                                                'invoices',
-                                                                next,
+                                                            updateInvoiceAtIndex(
+                                                                idx,
+                                                                (
+                                                                    currentInvoice,
+                                                                ) =>
+                                                                    recalculateInvoice(
+                                                                        {
+                                                                            ...currentInvoice,
+                                                                            items: normalizeItems(
+                                                                                items,
+                                                                            ),
+                                                                        },
+                                                                    ),
                                                             );
                                                         }}
                                                         invoices={data.invoices}
@@ -2924,19 +2320,17 @@ export default function OrderForm({
                                                         onExtensionsChange={(
                                                             extensions,
                                                         ) => {
-                                                            const next = [
-                                                                ...data.invoices,
-                                                            ];
-                                                            next[idx] =
-                                                                recalculateInvoice(
-                                                                    {
-                                                                        ...invoice,
-                                                                        extensions,
-                                                                    },
-                                                                );
-                                                            setData(
-                                                                'invoices',
-                                                                next,
+                                                            updateInvoiceAtIndex(
+                                                                idx,
+                                                                (
+                                                                    currentInvoice,
+                                                                ) =>
+                                                                    recalculateInvoice(
+                                                                        {
+                                                                            ...currentInvoice,
+                                                                            extensions,
+                                                                        },
+                                                                    ),
                                                             );
                                                         }}
                                                         readOnly={isView}

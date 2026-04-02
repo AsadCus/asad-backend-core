@@ -4,6 +4,30 @@ namespace App\Rules;
 
 class InvoiceRule
 {
+    public function singleRules(): array
+    {
+        return array_merge([
+            '_key' => ['nullable', 'string'],
+            'invoice_number' => ['nullable', 'string', 'max:100'],
+            'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
+            'description' => ['required', 'string'],
+            'payment_method' => ['required', 'string', 'max:100'],
+            'amount' => ['required', 'numeric'],
+            'invoice_date' => ['required', 'date'],
+            'due_date' => ['required', 'date', 'after_or_equal:invoice_date'],
+            'status' => ['nullable', 'in:draft,issued,paid,overdue,cancelled'],
+            'extensions' => ['nullable', 'array'],
+            'extensions.*.id' => ['nullable'],
+            'extensions.*.quotation_extension_master_id' => ['nullable', 'integer', 'exists:quotation_extension_masters,id'],
+            'extensions.*.name' => ['required_with:extensions', 'string', 'max:255'],
+            'extensions.*.type' => ['required_with:extensions', 'string', 'max:100'],
+            'extensions.*.calculation_mode' => ['nullable', 'string', 'in:fixed,percentage'],
+            'extensions.*.calculation_value' => ['nullable', 'numeric'],
+            'extensions.*.amount' => ['nullable', 'numeric'],
+            'extensions.*.sort_order' => ['nullable', 'integer'],
+        ], (new QuotationItemRule)->rules('items'));
+    }
+
     public function rules(string $prefix = 'invoices')
     {
         return array_merge(

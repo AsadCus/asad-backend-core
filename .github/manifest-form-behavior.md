@@ -109,6 +109,29 @@ The UI remains split into three rows:
 
 - Main member list with shared identity/profile fields.
 
+### Main Tab Financial Display Rules (Critical)
+
+These fields are visualization helpers for users in Main tab and are not accounting-truth settlement fields:
+
+- `discount`
+- `deposit_payment`
+- `second_payment`
+- `third_payment`
+- `balance_due`
+
+Required behavior:
+
+1. Use simple projection logic from quotation item amounts grouped by member and invoice order.
+2. Discount allocation must be payer-first within the same quotation.
+3. If payer allocation is exhausted and discount remains, spill the remaining discount to the next member(s) in the same quotation.
+4. Payment bucket projection must apply member discount sequentially: deposit first, then second, then third.
+5. Date columns for payment buckets must be sourced from receipt dates by invoice order for the same member scope:
+    - first invoice receipt date -> `date_of_deposit_payment`
+    - second invoice receipt date -> `date_of_second_payment`
+    - third and later invoices receipt dates -> `date_of_third_payment` (first available date in third-plus order)
+6. Do not switch these Main tab display columns to receipt-paid settlement logic during refactors.
+7. Keep this behavior stable unless explicitly requested by product/business owner and accompanied by regression-test updates.
+
 ### Row 2: Room and Airline Views
 
 - Airline list

@@ -19,7 +19,6 @@ use App\Models\QuotationItemTax;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\ManifestService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
@@ -136,6 +135,110 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotEmpty($rehydrated['documents']['flight_tickets'] ?? []);
         $this->assertSame('يوسف ادم', $rehydrated['members'][0]['arabic_name'] ?? null);
         $this->assertEmpty($rehydrated['members'][0]['receipt_documents'] ?? []);
+    }
+
+    public function test_store_update_with_stay_on_form_persists_manifest_member_receipts_and_redirects_to_requested_tab(): void
+    {
+        Storage::fake('public');
+
+        $actingUser = User::factory()->create();
+        $customerUser = User::factory()->create([
+            'name' => 'Yusuf Adam',
+            'contact' => '0191111111',
+        ]);
+
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-DOC-002',
+            'name' => 'Umrah Documents Update',
+            'status' => 'open',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'is_active' => true,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'package_room_type' => 'double',
+            'package_category' => 'classic_umrah',
+            'created_by' => $actingUser->id,
+        ]);
+
+        $confirmationMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'draft',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-DOC-002',
+            'status' => 'draft',
+        ]);
+
+        $manifestMember = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $confirmationMember->id,
+            'name' => 'Yusuf Adam',
+            'sort_order' => 1,
+        ]);
+
+        $payload = [
+            'id' => $manifest->id,
+            'package_id' => $package->id,
+            'status' => 'draft',
+            'members' => [
+                [
+                    'id' => $manifestMember->id,
+                    'customer_confirmation_member_id' => $confirmationMember->id,
+                    'name_as_per_passport' => 'Yusuf Adam',
+                    'arabic_name' => 'يوسف ادم',
+                ],
+            ],
+            'manifest_member_receipts' => [
+                [
+                    'manifest_member_id' => $manifestMember->id,
+                    'customer_confirmation_member_id' => $confirmationMember->id,
+                    'receipt_documents' => [
+                        [
+                            'file' => UploadedFile::fake()->create('receipt-proof.pdf', 100, 'application/pdf'),
+                            'file_name' => 'Member Receipt Proof.pdf',
+                        ],
+                    ],
+                ],
+            ],
+            'documents' => [
+                'train_tickets' => [],
+                'flight_tickets' => [],
+                'visa' => [],
+                'hotel' => [],
+                'passport' => [],
+                'photo' => [],
+            ],
+        ];
+
+        $this->post(route('manifests.store', ['stay_on_form' => 1, 'tab' => 'receipt']), $payload)
+            ->assertRedirect(route('manifests.edit', ['manifest' => $manifest->id, 'tab' => 'receipt']));
+
+        $manifestMember->refresh();
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $manifestMember->id,
+            'field' => 'receipt',
+            'file_name' => 'Member Receipt Proof.pdf',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('id', $manifestMember->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertNotEmpty($memberRow['receipt_documents'] ?? []);
     }
 
     public function test_store_accepts_grouped_manifest_payload_and_normalizes_values(): void
@@ -2691,11 +2794,20 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertNotNull($memberRow);
         $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
-        $this->assertNull($memberRow['date_of_deposit_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_deposit_payment'] ?? ''),
+        );
         $this->assertSame(4700.0, (float) ($memberRow['deposit_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_second_payment'] ?? ''),
+        );
         $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_third_payment'] ?? ''),
+        );
         $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
@@ -2867,10 +2979,10 @@ class ManifestWorkflowTest extends TestCase
         $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
         $memberRows = collect($rehydrated['members'])->keyBy('customer_confirmation_member_id');
 
-        $this->assertSame(10000.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
+        $this->assertSame(9000.0, (float) ($memberRows[$members[0]->id]['discount'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRows[$members[0]->id]['balance_due'] ?? 0));
 
-        $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
+        $this->assertSame(1000.0, (float) ($memberRows[$members[1]->id]['discount'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['balance_due'] ?? 0));
     }
 
@@ -2979,11 +3091,20 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertNotNull($memberRow);
         $this->assertSame(400.0, (float) ($memberRow['discount'] ?? 0));
-        $this->assertNull($memberRow['date_of_deposit_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_deposit_payment'] ?? ''),
+        );
         $this->assertSame(4600.0, (float) ($memberRow['deposit_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_second_payment'] ?? ''),
+        );
         $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_third_payment'] ?? ''),
+        );
         $this->assertSame(10000.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
@@ -3271,9 +3392,15 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertNull($memberRow['date_of_deposit_payment']);
         $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_second_payment'] ?? ''),
+        );
         $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_third_payment'] ?? ''),
+        );
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
@@ -3557,11 +3684,20 @@ class ManifestWorkflowTest extends TestCase
 
         $this->assertNotNull($memberRow);
         $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
-        $this->assertNull($memberRow['date_of_deposit_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_deposit_payment'] ?? ''),
+        );
         $this->assertSame(4700.0, (float) ($memberRow['deposit_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_second_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_second_payment'] ?? ''),
+        );
         $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_third_payment'] ?? ''),
+        );
         $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }

@@ -10,7 +10,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ValidationAlertDialog } from '@/components/validation-alert-dialog';
-import { create } from '@/routes/invoice';
+import { create } from '@/routes/order';
 import {
     accept,
     cancel,
@@ -193,7 +193,7 @@ export function QuotationStatusAction({
             case 'accept':
                 return 'Accept this quotation and proceed to the next step.';
             case 'convert':
-                return 'Convert this quotation and proceed to invoice form.';
+                return 'Convert this quotation and proceed to order form.';
             case 'reject':
                 return 'Reject this quotation and provide a reason.';
             case 'expire':

@@ -147,6 +147,48 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertEquals('partially_paid', $data['member']->status);
     }
 
+    public function test_discounted_invoice_payable_marks_member_as_fully_paid_when_required_amount_is_met(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $data['quotation']->update([
+            'extensions' => [
+                [
+                    'name' => 'Quotation Promo',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 500,
+                    'amount' => -500,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        $data['depositInvoice']->update([
+            'amount' => 4500,
+            'extensions' => [
+                [
+                    'name' => 'Invoice Promo',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 500,
+                    'amount' => -500,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 4500,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['member']->refresh();
+        $this->assertEquals('fully_paid', $data['member']->status);
+    }
+
     public function test_installment_receipts_set_member_to_fully_paid_when_all_linked_invoices_paid(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();

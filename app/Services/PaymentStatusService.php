@@ -104,11 +104,13 @@ class PaymentStatusService
                 continue;
             }
 
-            $requiredAmount = $this->resolveMemberRequiredAmount($member);
+            $requiredAmount = $this->resolveMemberRequiredAmount($member, $memberInvoices);
             $paidAmount = $this->resolveMemberPaidAmount($memberInvoices, (int) $memberId);
 
             if ($requiredAmount !== null) {
-                if ($paidAmount <= 0) {
+                if ($requiredAmount <= 0) {
+                    $newStatus = $paidAmount > 0 ? 'overpaid' : 'fully_paid';
+                } elseif ($paidAmount <= 0) {
                     $newStatus = 'pending_payment';
                 } elseif ($paidAmount > $requiredAmount) {
                     $newStatus = 'overpaid';
@@ -209,8 +211,55 @@ class PaymentStatusService
         return $statuses;
     }
 
-    private function resolveMemberRequiredAmount(CustomerConfirmationMember $member): ?float
+    /**
+     * @param  \Illuminate\Support\Collection<int, Invoice>  $memberInvoices
+     */
+    private function resolveMemberRequiredAmount(CustomerConfirmationMember $member, $memberInvoices): ?float
     {
+        $requiredAmount = 0.0;
+        $hasRelevantInvoice = false;
+
+        foreach ($memberInvoices as $invoice) {
+            $invoiceItems = $invoice->quotationItems
+                ->filter(fn ($item): bool => ! (bool) ($item->is_header ?? false))
+                ->values();
+
+            if ($invoiceItems->isEmpty()) {
+                continue;
+            }
+
+            $invoiceSubtotal = (float) $invoiceItems->sum(function ($item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            });
+
+            if ($invoiceSubtotal <= 0) {
+                continue;
+            }
+
+            $memberSubtotal = (float) $invoiceItems
+                ->where('customer_confirmation_member_id', $member->id)
+                ->sum(function ($item): float {
+                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                });
+
+            if ($memberSubtotal <= 0) {
+                continue;
+            }
+
+            $hasRelevantInvoice = true;
+            $invoiceAmount = max((float) ($invoice->amount ?? 0), 0.0);
+
+            if ($invoiceAmount <= 0) {
+                continue;
+            }
+
+            $requiredAmount += $invoiceAmount * ($memberSubtotal / $invoiceSubtotal);
+        }
+
+        if ($hasRelevantInvoice) {
+            return round(max($requiredAmount, 0), 2);
+        }
+
         $package = $member->confirmation?->package;
 
         if (! $package) {

@@ -399,38 +399,30 @@ export function QuotationForm({
             0,
         );
 
-        const discountExtension = [...sourceExtensions]
+        const discountAmount = sourceExtensions
             .filter(
                 (extension) =>
                     String(extension.type ?? 'discount') === 'discount',
             )
-            .sort(
-                (left, right) =>
-                    Number(left.sort_order ?? 0) -
-                    Number(right.sort_order ?? 0),
-            )[0];
+            .reduce((sum, discountExtension) => {
+                const calculationMode = String(
+                    discountExtension.calculation_mode ?? 'fixed',
+                );
+                const calculationValue = Math.abs(
+                    Number(
+                        discountExtension.calculation_value ??
+                            discountExtension.amount ??
+                            0,
+                    ),
+                );
 
-        const discountAmount = discountExtension
-            ? (() => {
-                  const calculationMode = String(
-                      discountExtension.calculation_mode ?? 'fixed',
-                  );
-                  const calculationValue = Math.abs(
-                      Number(
-                          discountExtension.calculation_value ??
-                              discountExtension.amount ??
-                              0,
-                      ),
-                  );
+                const computed =
+                    calculationMode === 'percentage'
+                        ? (subtotalAmount * calculationValue) / 100
+                        : calculationValue;
 
-                  const computed =
-                      calculationMode === 'percentage'
-                          ? (subtotalAmount * calculationValue) / 100
-                          : calculationValue;
-
-                  return -Math.abs(computed);
-              })()
-            : 0;
+                return sum - Math.abs(computed);
+            }, 0);
 
         return (
             subtotalAmount +
@@ -486,85 +478,40 @@ export function QuotationForm({
                 },
             );
 
-            let discountMasterIncluded = false;
+            const autoExtensions = applicableMasters.map((master, index) => {
+                const masterId = Number(master.id ?? 0);
+                const existing = existingAutoByMasterId.get(masterId);
+                const calculationMode =
+                    existing?.calculation_mode ??
+                    master.calculation_mode ??
+                    'fixed';
+                const calculationValue =
+                    existing?.calculation_value ??
+                    master.calculation_value ??
+                    0;
+                const fixedAmount =
+                    calculationMode === 'fixed'
+                        ? Number(calculationValue ?? 0)
+                        : Number(existing?.amount ?? 0);
 
-            const autoExtensions = applicableMasters
-                .filter((master) => {
-                    if (master.type !== 'discount') {
-                        return true;
-                    }
-
-                    if (discountMasterIncluded) {
-                        return false;
-                    }
-
-                    discountMasterIncluded = true;
-
-                    return true;
-                })
-                .map((master, index) => {
-                    const masterId = Number(master.id ?? 0);
-                    const existing = existingAutoByMasterId.get(masterId);
-                    const calculationMode =
-                        existing?.calculation_mode ??
-                        master.calculation_mode ??
-                        'fixed';
-                    const calculationValue =
-                        existing?.calculation_value ??
-                        master.calculation_value ??
-                        0;
-                    const fixedAmount =
-                        calculationMode === 'fixed'
-                            ? Number(calculationValue ?? 0)
-                            : Number(existing?.amount ?? 0);
-
-                    return {
-                        _key:
-                            existing?._key ??
-                            (existing?.id ? `id-${existing.id}` : nanoid()),
-                        id: existing?.id,
-                        quotation_extension_master_id: masterId || null,
-                        name: existing?.name ?? master.name,
-                        type: existing?.type ?? master.type,
-                        calculation_mode: calculationMode,
-                        calculation_value: calculationValue,
-                        amount: fixedAmount,
-                        sort_order: index + 1,
-                    };
-                });
-
-            const existingDiscount = existingExtensions.find(
-                (extension) =>
-                    String(extension.type ?? 'discount') === 'discount',
-            );
-
-            const manualDiscount = manualExtensions.find(
-                (extension) =>
-                    String(extension.type ?? 'discount') === 'discount',
-            );
-
-            const nonDiscountExtensions = [
-                ...autoExtensions.filter(
-                    (extension) =>
-                        String(extension.type ?? 'discount') !== 'discount',
-                ),
-                ...manualExtensions.filter(
-                    (extension) =>
-                        String(extension.type ?? 'discount') !== 'discount',
-                ),
-            ];
-
-            const discountExtension =
-                existingDiscount ??
-                manualDiscount ??
-                autoExtensions.find(
-                    (extension) =>
-                        String(extension.type ?? 'discount') === 'discount',
-                );
+                return {
+                    _key:
+                        existing?._key ??
+                        (existing?.id ? `id-${existing.id}` : nanoid()),
+                    id: existing?.id,
+                    quotation_extension_master_id: masterId || null,
+                    name: existing?.name ?? master.name,
+                    type: existing?.type ?? master.type,
+                    calculation_mode: calculationMode,
+                    calculation_value: calculationValue,
+                    amount: fixedAmount,
+                    sort_order: index + 1,
+                };
+            });
 
             const mergedExtensions = [
-                ...nonDiscountExtensions,
-                ...(discountExtension ? [discountExtension] : []),
+                ...autoExtensions,
+                ...manualExtensions,
             ].map((extension, index) => ({
                 ...extension,
                 sort_order: index + 1,

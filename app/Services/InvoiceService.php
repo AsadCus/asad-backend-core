@@ -105,7 +105,7 @@ class InvoiceService
                 $quotationItemIds = $this->quotationItemService->replaceQuotationItems(
                     $invoice->order->quotation->id,
                     $data['items'],
-                    $data['delete_missing_quotation_items'] ?? true,
+                    $data['delete_missing_quotation_items'] ?? false,
                     false,
                 );
                 $invoice->quotationItems()->sync($quotationItemIds);
@@ -185,6 +185,7 @@ class InvoiceService
             'customer_address' => $i->order->quotation->customer->address,
             'order_id' => $i->order_id,
             'order_number' => $i->order->order_number,
+            'quotation_id' => $i->order->quotation->id ?? null,
             'type' => $i->type,
             'description' => $i->description,
             'amount' => $this->formatService->cleanDecimal($i->amount),
@@ -376,7 +377,7 @@ class InvoiceService
                 $quotationItemIds = $this->quotationItemService->replaceQuotationItems(
                     $invoice->order->quotation->id,
                     $data['items'],
-                    $data['delete_missing_quotation_items'] ?? true,
+                    $data['delete_missing_quotation_items'] ?? false,
                     false,
                 );
                 $invoice->quotationItems()->sync($quotationItemIds);

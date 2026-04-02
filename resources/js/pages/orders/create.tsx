@@ -14,6 +14,10 @@ interface CreateOrderProps {
         paymentMethods: OptionType[];
         quotationExtensionMasters: TotalsSummaryExtensionMaster[];
         defaultPaymentMethod: string;
+        invoiceNumberSeed?: {
+            format_id?: number | null;
+            numbers?: string[];
+        };
     };
 }
 
@@ -33,6 +37,13 @@ export default function CreateOrder({ data }: CreateOrderProps) {
         window.history.back();
     }, []);
 
+    console.log('[CreateOrder] Received data:', {
+        invoiceNumberSeedExists: !!data.invoiceNumberSeed,
+        invoiceNumberSeed: data.invoiceNumberSeed,
+        numbersArray: data.invoiceNumberSeed?.numbers,
+        formatId: data.invoiceNumberSeed?.format_id,
+    });
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Order" />
@@ -49,6 +60,12 @@ export default function CreateOrder({ data }: CreateOrderProps) {
                         paymentMethods={data.paymentMethods}
                         extensionMasters={data.quotationExtensionMasters}
                         defaultPaymentMethod={data.defaultPaymentMethod}
+                        initialInvoiceNumberFormatId={
+                            data.invoiceNumberSeed?.format_id ?? null
+                        }
+                        initialInvoiceNumbers={
+                            data.invoiceNumberSeed?.numbers ?? []
+                        }
                         onCancel={handleCancel}
                     />
                 </div>

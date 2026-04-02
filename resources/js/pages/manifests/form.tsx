@@ -1853,6 +1853,7 @@ export default function ManifestForm({
     );
     const errorAlertRef = useRef<HTMLDivElement | null>(null);
     const previousNameByIdentityRef = useRef<Record<string, string>>({});
+    const hasInitializedTabStateRef = useRef(false);
     const [activeTab, setActiveTab] = useState('main');
     const [openSections, setOpenSections] = useState<string[]>([
         'manifest_information',
@@ -2008,6 +2009,86 @@ export default function ManifestForm({
             sourceRoomKey: tab.key,
         }));
     }, [roomTabs]);
+
+    const availableTabValues = useMemo(() => {
+        const values = new Set<string>([
+            'main',
+            'airline',
+            'course-collection',
+            'arabic-names',
+            'receipt',
+        ]);
+
+        roomTabs.forEach((tab) => {
+            values.add(`room-${tab.key}`);
+        });
+
+        officialCheckTabs.forEach((tab) => {
+            values.add(`room-check-${tab.sourceRoomKey}`);
+        });
+
+        MANIFEST_DOCUMENT_TABS.forEach((tab) => {
+            values.add(`document-${tab.key.replace(/_/g, '-')}`);
+        });
+
+        return values;
+    }, [officialCheckTabs, roomTabs]);
+
+    useEffect(() => {
+        if (
+            !isEdit ||
+            typeof window === 'undefined' ||
+            hasInitializedTabStateRef.current
+        ) {
+            return;
+        }
+
+        const tabFromQuery = String(
+            new URLSearchParams(window.location.search).get('tab') ?? '',
+        ).trim();
+
+        if (tabFromQuery !== '' && availableTabValues.has(tabFromQuery)) {
+            setActiveTab(tabFromQuery);
+        }
+
+        hasInitializedTabStateRef.current = true;
+    }, [availableTabValues, isEdit]);
+
+    useEffect(() => {
+        if (
+            !isEdit ||
+            typeof window === 'undefined' ||
+            !hasInitializedTabStateRef.current
+        ) {
+            return;
+        }
+
+        if (!availableTabValues.has(activeTab)) {
+            if (activeTab !== 'main') {
+                setActiveTab('main');
+            }
+
+            return;
+        }
+
+        const query = new URLSearchParams(window.location.search);
+
+        if (activeTab === 'main') {
+            query.delete('tab');
+        } else {
+            query.set('tab', activeTab);
+        }
+
+        const queryString = query.toString();
+        const nextUrl = `${window.location.pathname}${
+            queryString.length > 0 ? `?${queryString}` : ''
+        }${window.location.hash}`;
+        const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+        if (nextUrl !== currentUrl) {
+            window.history.replaceState(window.history.state, '', nextUrl);
+        }
+    }, [activeTab, availableTabValues, isEdit]);
 
     const roomErrorRanges = useMemo(() => {
         let runningIndex = 0;
@@ -2637,7 +2718,11 @@ export default function ManifestForm({
 
         form.transform(() => submitPayload);
 
-        post(store().url, {
+        const submitUrl = `${store().url}${
+            store().url.includes('?') ? '&' : '?'
+        }stay_on_form=1&tab=${encodeURIComponent(activeTab)}`;
+
+        post(submitUrl, {
             preserveScroll: 'errors',
             forceFormData: true,
             onError: handleError,

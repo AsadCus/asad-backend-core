@@ -206,7 +206,7 @@ class QuotationController extends Controller
             ->withProperties(['subject_type' => 'Quotation', 'subject_id' => $quotation->id, 'quotation_number' => $quotation->quotation_number])
             ->log('Quotation accepted successfully #'.$quotation->quotation_number);
 
-        return redirect()->route('invoice.create', ['quotation_id' => $request['quotation_id']])->with('success', 'Quotation accepted successfully.');
+        return redirect()->route('order.create', ['quotation_id' => $request['quotation_id']])->with('success', 'Quotation accepted successfully.');
     }
 
     public function rejectQuotation(Request $request, $id)

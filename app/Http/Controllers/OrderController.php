@@ -59,6 +59,16 @@ class OrderController extends Controller
             $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
             $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
+            $paymentPlan = strtolower((string) ($data['quotation']['payment_plan'] ?? 'direct'));
+            $initialInvoiceCount = $paymentPlan === 'installment' ? 3 : 1;
+            $data['invoiceNumberSeed'] = $this->orderService
+                ->suggestDraftInvoiceNumbers($initialInvoiceCount);
+
+            \Log::info('[OrderController::create] Data being sent to frontend', [
+                'invoiceNumberSeed' => $data['invoiceNumberSeed'],
+                'paymentPlan' => $paymentPlan,
+            ]);
+
             return Inertia::render('orders/create', [
                 'data' => $data,
             ]);

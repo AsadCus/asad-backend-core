@@ -9,6 +9,234 @@ type QuotationExtensionInput = {
     amount?: number | string | null;
 };
 
+export type InvoiceExtensionInput = {
+    _key?: string;
+    id?: number;
+    quotation_extension_master_id?: number | null;
+    name?: string | null;
+    type?: string | null;
+    calculation_mode?: string | null;
+    calculation_value?: number | string | null;
+    amount?: number | string | null;
+    sort_order?: number;
+};
+
+export type InvoicePaymentMethodExtensionMaster = {
+    id?: number | null;
+    name?: string | null;
+    type?: string | null;
+    calculation_mode?: string | null;
+    calculation_value?: number | string | null;
+    is_active?: boolean | null;
+    payment_methods?: string[];
+    sort_order?: number;
+};
+
+function normalizePaymentMethodValue(value?: string | null): string {
+    return String(value ?? '')
+        .trim()
+        .toLowerCase();
+}
+
+function isExtensionApplicableToPaymentMethod(
+    master: InvoicePaymentMethodExtensionMaster,
+    paymentMethod?: string | null,
+): boolean {
+    const supportedMethods = (master.payment_methods ?? [])
+        .map((method) => normalizePaymentMethodValue(method))
+        .filter((method) => method !== '');
+
+    if (supportedMethods.length === 0) {
+        return true;
+    }
+
+    const normalizedPaymentMethod = normalizePaymentMethodValue(paymentMethod);
+
+    if (!normalizedPaymentMethod) {
+        return false;
+    }
+
+    return supportedMethods.includes(normalizedPaymentMethod);
+}
+
+function calculateItemTaxTotal(items: InvoiceSchema['items'] = []): number {
+    return items.reduce((sum, item) => {
+        if (item.is_header) {
+            return sum;
+        }
+
+        const lineAmount = Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+        const itemTaxTotal = (item.taxes ?? []).reduce((taxSum, tax) => {
+            const calculationMode = String(tax.calculation_mode ?? '');
+            const calculationValue = Number(tax.calculation_value ?? 0);
+
+            if (
+                !['fixed', 'percentage'].includes(calculationMode) ||
+                calculationValue <= 0
+            ) {
+                return taxSum;
+            }
+
+            const taxAmount =
+                calculationMode === 'percentage'
+                    ? (lineAmount * calculationValue) / 100
+                    : calculationValue;
+
+            return taxSum + taxAmount;
+        }, 0);
+
+        return sum + itemTaxTotal;
+    }, 0);
+}
+
+export function normalizeInvoiceExtensions(
+    extensions: InvoiceExtensionInput[] = [],
+): InvoiceExtensionInput[] {
+    return extensions.map((extension, index) => {
+        const calculationMode =
+            String(extension.calculation_mode ?? 'fixed') === 'percentage'
+                ? 'percentage'
+                : 'fixed';
+
+        return {
+            ...extension,
+            id:
+                typeof extension.id === 'number' &&
+                Number.isFinite(extension.id)
+                    ? extension.id
+                    : undefined,
+            _key:
+                extension._key ??
+                (extension.id ? `id-${extension.id}` : nanoid()),
+            name: String(extension.name ?? 'Extension'),
+            type: String(extension.type ?? 'discount'),
+            calculation_mode: calculationMode,
+            calculation_value: Number(extension.calculation_value ?? 0),
+            amount: Number(extension.amount ?? 0),
+            sort_order: Number(extension.sort_order ?? index + 1),
+        };
+    });
+}
+
+export function computeInvoiceExtensionAmount(
+    extension: InvoiceExtensionInput,
+    subtotalAmount: number,
+): number {
+    const calculationMode = String(extension.calculation_mode ?? 'fixed');
+    const calculationValue = Number(extension.calculation_value ?? 0);
+    const extensionType = String(extension.type ?? 'discount');
+
+    if (calculationMode === 'percentage') {
+        const rawAmount = (subtotalAmount * calculationValue) / 100;
+
+        return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
+    }
+
+    const fallbackAmount = Number(extension.amount ?? 0);
+    const rawAmount =
+        calculationValue !== 0 || fallbackAmount === 0
+            ? calculationValue
+            : fallbackAmount;
+
+    return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
+}
+
+export function recalculateInvoice(invoice: InvoiceSchema): InvoiceSchema {
+    const subtotalAmount = calculateTotal(invoice.items ?? []);
+    const itemTaxTotal = calculateItemTaxTotal(invoice.items ?? []);
+    const normalizedExtensions = normalizeInvoiceExtensions(
+        (invoice.extensions ?? []) as InvoiceExtensionInput[],
+    );
+
+    const extensionsWithAmount = normalizedExtensions.map((extension) => ({
+        ...extension,
+        amount: computeInvoiceExtensionAmount(extension, subtotalAmount),
+    }));
+
+    const extensionTotal = extensionsWithAmount.reduce(
+        (sum, extension) => sum + Number(extension.amount ?? 0),
+        0,
+    );
+
+    return {
+        ...invoice,
+        extensions: extensionsWithAmount,
+        amount: Number(
+            (subtotalAmount + itemTaxTotal + extensionTotal).toFixed(2),
+        ),
+    };
+}
+
+export function applyInvoicePaymentMethodExtensions(
+    invoice: InvoiceSchema,
+    paymentMethod: string,
+    extensionMasters: InvoicePaymentMethodExtensionMaster[],
+): InvoiceSchema {
+    const subtotalAmount = calculateTotal(invoice.items ?? []);
+    const existingExtensions = normalizeInvoiceExtensions(
+        (invoice.extensions ?? []) as InvoiceExtensionInput[],
+    );
+
+    const manualOrUnrelatedExtensions = existingExtensions.filter(
+        (extension) => {
+            const type = String(extension.type ?? 'discount');
+            const isPaymentMethodType = ['credit_card', 'other'].includes(type);
+
+            if (!isPaymentMethodType) {
+                return true;
+            }
+
+            return Number(extension.quotation_extension_master_id ?? 0) <= 0;
+        },
+    );
+
+    const applicableMasters = extensionMasters
+        .filter(
+            (master) =>
+                master.is_active !== false &&
+                ['credit_card', 'other'].includes(String(master.type ?? '')) &&
+                isExtensionApplicableToPaymentMethod(master, paymentMethod),
+        )
+        .sort(
+            (left, right) =>
+                Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0),
+        );
+
+    const autoExtensions = applicableMasters.map((master, index) => {
+        const calculationMode =
+            String(master.calculation_mode ?? 'fixed') === 'percentage'
+                ? 'percentage'
+                : 'fixed';
+        const calculationValue = Number(master.calculation_value ?? 0);
+        const amount =
+            calculationMode === 'percentage'
+                ? (subtotalAmount * calculationValue) / 100
+                : calculationValue;
+
+        return {
+            _key: `method-${String(master.id ?? `new-${index}`)}-${nanoid()}`,
+            quotation_extension_master_id:
+                Number(master.id ?? 0) > 0 ? Number(master.id) : null,
+            name: String(master.name ?? 'Additional Charges'),
+            type: String(master.type ?? 'other'),
+            calculation_mode: calculationMode,
+            calculation_value: calculationValue,
+            amount,
+        };
+    });
+
+    return {
+        ...invoice,
+        payment_method: paymentMethod,
+        extensions: [...manualOrUnrelatedExtensions, ...autoExtensions].map(
+            (extension, index) => ({
+                ...extension,
+                sort_order: index + 1,
+            }),
+        ),
+    };
+}
+
 function isTaxExtension(extension: QuotationExtensionInput): boolean {
     return (
         String(extension.type ?? '')
@@ -521,15 +749,64 @@ function buildInstallmentItems(
     const fiftyPercentSectionLines: InvoiceItemSchema[] = [];
     const balanceSectionLines: InvoiceItemSchema[] = [];
 
-    lineItemsWithAmounts.forEach((item) => {
+    const totalLineAmount = roundToCents(
+        lineItemsWithAmounts.reduce(
+            (sum, item) => sum + Number(item.amount ?? 0),
+            0,
+        ),
+    );
+
+    const fixedDepositTarget =
+        depositType === 'fixed' && numericDepositValue > 0
+            ? roundToCents(Math.min(numericDepositValue, totalLineAmount))
+            : 0;
+
+    const fixedDepositAllocations =
+        fixedDepositTarget > 0
+            ? (() => {
+                  let remaining = fixedDepositTarget;
+
+                  return lineItemsWithAmounts.map((item, index) => {
+                      const amount = roundToCents(Number(item.amount ?? 0));
+
+                      if (amount <= 0 || remaining <= 0) {
+                          return 0;
+                      }
+
+                      if (index === lineItemsWithAmounts.length - 1) {
+                          const allocation = roundToCents(
+                              Math.min(amount, remaining),
+                          );
+                          remaining = roundToCents(remaining - allocation);
+
+                          return allocation;
+                      }
+
+                      const proportionalShare = roundToCents(
+                          (amount / totalLineAmount) * fixedDepositTarget,
+                      );
+                      const allocation = roundToCents(
+                          Math.min(amount, proportionalShare, remaining),
+                      );
+                      remaining = roundToCents(remaining - allocation);
+
+                      return allocation;
+                  });
+              })()
+            : [];
+
+    lineItemsWithAmounts.forEach((item, index) => {
         const quantity = Number(item.quantity ?? 0) || 1;
         const amount = roundToCents(Number(item.amount ?? 0));
         const perItemDepositAmount =
             depositType === 'percentage' && numericDepositValue > 0
                 ? roundToCents(amount * (numericDepositValue / 100))
-                : depositType === 'fixed' && numericDepositValue > 0
+                : depositType === 'fixed' && fixedDepositTarget > 0
                   ? roundToCents(
-                        Math.min(numericDepositValue, Number(item.amount ?? 0)),
+                        Math.min(
+                            Number(fixedDepositAllocations[index] ?? 0),
+                            amount,
+                        ),
                     )
                   : 0;
 
@@ -732,6 +1009,303 @@ export function buildInvoicesFromItems(
     }
 
     return invoices;
+}
+
+export type ApplyInvoiceNumberingOptions = {
+    sourceInvoices?: InvoiceSchema[];
+    seededNumbers?: string[];
+    preferredFormatId?: number | null;
+};
+
+function isMissingInvoiceNumber(invoiceNumber?: string | null): boolean {
+    const normalizedNumber = String(invoiceNumber ?? '').trim();
+
+    return normalizedNumber.length === 0 || normalizedNumber === '-';
+}
+
+function escapeRegexSegment(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractIncrementFromInvoiceNumber(
+    number: string,
+    formatName: string,
+): number | null {
+    const tokens = formatName.split(/(%DD%|%MM%|%YYYY%|%YY%|%I%)/g);
+
+    if (!tokens.includes('%I%')) {
+        return null;
+    }
+
+    let regexPattern = '^';
+
+    tokens.forEach((token) => {
+        if (token === '%DD%' || token === '%MM%' || token === '%YY%') {
+            regexPattern += '(?:\\d{2})';
+            return;
+        }
+
+        if (token === '%YYYY%') {
+            regexPattern += '(?:\\d{4})';
+            return;
+        }
+
+        if (token === '%I%') {
+            regexPattern += '(\\d+)';
+            return;
+        }
+
+        regexPattern += escapeRegexSegment(token);
+    });
+
+    regexPattern += '$';
+
+    const match = number.match(new RegExp(regexPattern));
+
+    if (!match || !match[1]) {
+        return null;
+    }
+
+    const parsed = Number(match[1]);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractIncrementFromSuggestedNumber(
+    suggestedNumber: string,
+    formatName?: string,
+): number | null {
+    const normalizedSuggestion = String(suggestedNumber ?? '').trim();
+
+    if (normalizedSuggestion.length === 0) {
+        return null;
+    }
+
+    if (formatName) {
+        const parsedFromFormat = extractIncrementFromInvoiceNumber(
+            normalizedSuggestion,
+            formatName,
+        );
+
+        if (parsedFromFormat !== null) {
+            return parsedFromFormat;
+        }
+    }
+
+    const trailingIncrementMatch = normalizedSuggestion.match(/(\d+)$/);
+
+    if (!trailingIncrementMatch?.[1]) {
+        return null;
+    }
+
+    const parsed = Number(trailingIncrementMatch[1]);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildInvoiceNumberFromSuggestion(
+    suggestedNumber: string,
+    increment: number,
+): string {
+    const normalizedSuggestion = String(suggestedNumber ?? '').trim();
+
+    if (normalizedSuggestion.length === 0) {
+        return String(Math.max(1, increment));
+    }
+
+    const trailingIncrementMatch = normalizedSuggestion.match(/^(.*?)(\d+)$/);
+
+    if (!trailingIncrementMatch) {
+        return `${normalizedSuggestion}-${Math.max(1, increment)}`;
+    }
+
+    const prefix = trailingIncrementMatch[1] ?? '';
+    const padding = String(trailingIncrementMatch[2] ?? '').length;
+    const nextSequence = String(Math.max(1, increment)).padStart(
+        Math.max(1, padding),
+        '0',
+    );
+
+    return `${prefix}${nextSequence}`;
+}
+
+export function buildSequentialInvoiceNumbersFromSeed(
+    seedNumber: string,
+    count: number,
+): string[] {
+    const normalizedSeedNumber = String(seedNumber ?? '').trim();
+    const resolvedCount = Math.max(0, Math.floor(Number(count ?? 0)));
+
+    if (
+        resolvedCount === 0 ||
+        normalizedSeedNumber.length === 0 ||
+        normalizedSeedNumber === '-'
+    ) {
+        return [];
+    }
+
+    const baseIncrement =
+        extractIncrementFromSuggestedNumber(normalizedSeedNumber);
+
+    if (baseIncrement === null) {
+        return Array.from({ length: resolvedCount }, (_, index) => {
+            if (index === 0) {
+                return normalizedSeedNumber;
+            }
+
+            return `${normalizedSeedNumber}-${index + 1}`;
+        });
+    }
+
+    return Array.from({ length: resolvedCount }, (_, index) =>
+        buildInvoiceNumberFromSuggestion(
+            normalizedSeedNumber,
+            baseIncrement + index,
+        ),
+    );
+}
+
+function findFirstInvoiceWithNumber(
+    invoices: InvoiceSchema[] = [],
+): InvoiceSchema | null {
+    return (
+        invoices.find(
+            (invoice) => !isMissingInvoiceNumber(invoice.invoice_number),
+        ) ?? null
+    );
+}
+
+function findFirstInvoiceWithParsableIncrement(
+    invoices: InvoiceSchema[] = [],
+): InvoiceSchema | null {
+    return (
+        invoices.find((invoice) => {
+            const invoiceNumber = String(invoice.invoice_number ?? '').trim();
+
+            if (isMissingInvoiceNumber(invoiceNumber)) {
+                return false;
+            }
+
+            return extractIncrementFromSuggestedNumber(invoiceNumber) !== null;
+        }) ?? null
+    );
+}
+
+export function applyInvoiceNumberingSequence(
+    invoices: InvoiceSchema[],
+    options: ApplyInvoiceNumberingOptions = {},
+): InvoiceSchema[] {
+    if (invoices.length === 0) {
+        return invoices;
+    }
+
+    const {
+        sourceInvoices = [],
+        seededNumbers = [],
+        preferredFormatId = null,
+    } = options;
+
+    const normalizedSeededNumbers = seededNumbers.map((number) =>
+        String(number ?? '').trim(),
+    );
+
+    const seededInvoices = invoices.map((invoice, index) => {
+        const currentInvoiceNumber = String(
+            invoice.invoice_number ?? '',
+        ).trim();
+        const seededInvoiceNumber = String(
+            normalizedSeededNumbers[index] ?? '',
+        ).trim();
+
+        const resolvedNumber = !isMissingInvoiceNumber(currentInvoiceNumber)
+            ? currentInvoiceNumber
+            : seededInvoiceNumber;
+        const resolvedFormatId =
+            typeof invoice.number_format_id === 'number' &&
+            Number.isFinite(invoice.number_format_id)
+                ? invoice.number_format_id
+                : preferredFormatId;
+
+        return {
+            ...invoice,
+            number_format_id: resolvedFormatId,
+            invoice_number: resolvedNumber,
+        };
+    });
+
+    const anchorInvoice =
+        findFirstInvoiceWithParsableIncrement(sourceInvoices) ??
+        findFirstInvoiceWithParsableIncrement(seededInvoices) ??
+        findFirstInvoiceWithNumber(sourceInvoices) ??
+        findFirstInvoiceWithNumber(seededInvoices);
+
+    if (!anchorInvoice) {
+        return seededInvoices;
+    }
+
+    const anchorInvoiceNumber = String(
+        anchorInvoice.invoice_number ?? '',
+    ).trim();
+    const anchorFormatId =
+        anchorInvoice.number_format_id ?? preferredFormatId ?? null;
+    const initialIncrement =
+        extractIncrementFromSuggestedNumber(anchorInvoiceNumber);
+
+    if (initialIncrement === null) {
+        return seededInvoices;
+    }
+
+    let nextIncrement = initialIncrement;
+
+    const seenNumbers = new Set<string>();
+
+    return seededInvoices.map((invoice, index) => {
+        const currentInvoiceNumber = String(
+            invoice.invoice_number ?? '',
+        ).trim();
+        const isDuplicate =
+            !isMissingInvoiceNumber(currentInvoiceNumber) &&
+            seenNumbers.has(currentInvoiceNumber);
+        const shouldGenerateNumber =
+            isMissingInvoiceNumber(currentInvoiceNumber) || isDuplicate;
+
+        if (!shouldGenerateNumber) {
+            seenNumbers.add(currentInvoiceNumber);
+
+            const currentIncrement =
+                extractIncrementFromSuggestedNumber(currentInvoiceNumber);
+
+            if (currentIncrement !== null) {
+                nextIncrement = Math.max(nextIncrement, currentIncrement);
+            }
+
+            return invoice;
+        }
+
+        if (index === 0 && isMissingInvoiceNumber(currentInvoiceNumber)) {
+            seenNumbers.add(anchorInvoiceNumber);
+
+            return {
+                ...invoice,
+                number_format_id: invoice.number_format_id ?? anchorFormatId,
+                invoice_number: anchorInvoiceNumber,
+            };
+        }
+
+        nextIncrement += 1;
+
+        const generatedNumber = buildInvoiceNumberFromSuggestion(
+            anchorInvoiceNumber,
+            nextIncrement,
+        );
+        seenNumbers.add(generatedNumber);
+
+        return {
+            ...invoice,
+            number_format_id: invoice.number_format_id ?? anchorFormatId,
+            invoice_number: generatedNumber,
+        };
+    });
 }
 
 export function quotationItemsToInvoiceItems(

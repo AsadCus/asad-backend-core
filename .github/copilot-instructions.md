@@ -53,6 +53,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 
 - You must only create documentation files if explicitly requested by the user.
 - Manifest behavior specification is defined in `.github/manifest-form-behavior.md` and must be followed for manifest form changes.
+- Order form and invoice builder behavior specification is defined in `.github/order-form-invoice-builder-behavior.md` and must be followed for order form/invoice builder changes.
 - Date formatting standard is defined in `.github/date-formatting-standard.md` and must be followed for service/model date responses.
 
 ## Project-Specific Enforcement
@@ -430,13 +431,13 @@ defaults
 
 - When listing items, use gap utilities for spacing, don't use margins.
 
-        <code-snippet name="Valid Flex Gap Spacing Example" lang="html">
-            <div class="flex gap-8">
-                <div>Superior</div>
-                <div>Michigan</div>
-                <div>Erie</div>
-            </div>
-        </code-snippet>
+          <code-snippet name="Valid Flex Gap Spacing Example" lang="html">
+              <div class="flex gap-8">
+                  <div>Superior</div>
+                  <div>Michigan</div>
+                  <div>Erie</div>
+              </div>
+          </code-snippet>
 
 ### Dark Mode
 

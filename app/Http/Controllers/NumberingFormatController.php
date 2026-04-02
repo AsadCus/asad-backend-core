@@ -49,6 +49,30 @@ class NumberingFormatController extends Controller
         );
     }
 
+    public function suggestBatch(Request $request)
+    {
+        $validated = $request->validate([
+            'model_key' => ['required', 'string'],
+            'count' => ['required', 'integer', 'min:1', 'max:200'],
+            'format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
+            'mode' => ['nullable', 'string', Rule::in(['simple', 'format'])],
+            'existing_numbers' => ['nullable', 'array'],
+            'existing_numbers.*' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        return response()->json(
+            $this->numberingService->suggestBatchNumbers(
+                (string) $validated['model_key'],
+                (int) $validated['count'],
+                isset($validated['format_id']) ? (int) $validated['format_id'] : null,
+                isset($validated['mode']) ? (string) $validated['mode'] : null,
+                isset($validated['existing_numbers']) && is_array($validated['existing_numbers'])
+                    ? $validated['existing_numbers']
+                    : [],
+            )
+        );
+    }
+
     public function simpleState(Request $request)
     {
         $validated = $request->validate([

@@ -254,6 +254,109 @@ class NumberingService
         return $this->suggestNextNumberSimple($modelKey);
     }
 
+    /**
+     * @param  array<int, string>  $existingNumbers
+     * @return array{model_key:string, mode:string, format_id:int|null, numbers:array<int, string>, next_increment:int|null}
+     */
+    public function suggestBatchNumbers(
+        string $modelKey,
+        int $count,
+        ?int $formatId = null,
+        ?string $mode = null,
+        array $existingNumbers = [],
+    ): array {
+        $this->assertModelKey($modelKey);
+
+        $resolvedCount = max(1, $count);
+        $resolvedMode = $this->resolveMode($mode, $formatId);
+        $normalizedExistingNumbers = collect($existingNumbers)
+            ->filter(fn ($number): bool => is_string($number) && trim((string) $number) !== '')
+            ->map(fn ($number): string => trim((string) $number))
+            ->unique()
+            ->values();
+
+        if ($resolvedMode === 'format') {
+            $format = $this->resolveFormat($modelKey, $formatId);
+            $suggestion = $this->suggestNextNumberByFormat($modelKey, (int) $format->id);
+            $suggestedIncrement = (int) ($suggestion['next_increment'] ?? (int) $format->increment_start);
+
+            $maxExistingIncrement = $normalizedExistingNumbers
+                ->map(function (string $number) use ($format): ?int {
+                    $parsed = $this->parseNumber($format, $number);
+
+                    if (! is_array($parsed)) {
+                        return null;
+                    }
+
+                    $increment = (int) ($parsed['increment'] ?? 0);
+
+                    return $increment > 0 ? $increment : null;
+                })
+                ->filter()
+                ->max();
+
+            $nextIncrement = max(
+                (int) $format->increment_start,
+                $suggestedIncrement,
+                ((int) ($maxExistingIncrement ?? 0)) + 1,
+            );
+
+            $takenNumbers = $normalizedExistingNumbers->flip();
+            $numbers = [];
+
+            while (count($numbers) < $resolvedCount) {
+                $candidate = $this->composeNumber($format, $nextIncrement);
+
+                if (! $takenNumbers->has($candidate) && ! $this->numberExistsForModel($modelKey, $candidate)) {
+                    $numbers[] = $candidate;
+                    $takenNumbers->put($candidate, true);
+                }
+
+                $nextIncrement++;
+            }
+
+            return [
+                'model_key' => $modelKey,
+                'mode' => 'format',
+                'format_id' => (int) $format->id,
+                'numbers' => $numbers,
+                'next_increment' => $nextIncrement,
+            ];
+        }
+
+        $suggestion = $this->suggestNextNumberSimple($modelKey);
+        $candidate = (string) ($suggestion['number'] ?? '');
+        $takenNumbers = $normalizedExistingNumbers->flip();
+        $numbers = [];
+        $safetyCounter = 0;
+
+        while (count($numbers) < $resolvedCount && $safetyCounter < 10000) {
+            $trimmedCandidate = trim($candidate);
+
+            if ($trimmedCandidate !== '' && ! $takenNumbers->has($trimmedCandidate) && ! $this->numberExistsForModel($modelKey, $trimmedCandidate)) {
+                $numbers[] = $trimmedCandidate;
+                $takenNumbers->put($trimmedCandidate, true);
+            }
+
+            $candidate = $this->incrementSimpleNumber($trimmedCandidate, $modelKey);
+            $safetyCounter++;
+        }
+
+        if (count($numbers) < $resolvedCount) {
+            throw ValidationException::withMessages([
+                self::MODEL_DEFINITIONS[$modelKey]['field'] => 'Unable to suggest enough numbers for this model.',
+            ]);
+        }
+
+        return [
+            'model_key' => $modelKey,
+            'mode' => 'simple',
+            'format_id' => null,
+            'numbers' => $numbers,
+            'next_increment' => null,
+        ];
+    }
+
     public function getSimpleState(string $modelKey): array
     {
         $this->assertModelKey($modelKey);

@@ -278,9 +278,14 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
         const rowActions: ActionType[] = [];
 
         if (userPermissions.includes('invoice view')) {
+            rowActions.push('view');
             rowActions.push('preview');
             rowActions.push('download');
         }
+
+        // if (userPermissions.includes('invoice edit')) {
+        //     rowActions.push('edit');
+        // }
 
         if (
             userPermissions.includes('receipt view') &&
@@ -393,6 +398,11 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                             );
                                         },
                                     });
+                                }
+                            }}
+                            onRowDoubleClick={(invoice) => {
+                                if (userPermissions.includes('invoice view')) {
+                                    handlePreview(invoice);
                                 }
                             }}
                             initialState={{

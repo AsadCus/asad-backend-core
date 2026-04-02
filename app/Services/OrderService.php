@@ -38,7 +38,7 @@ class OrderService
 
     public function getForDataTable(array $filters = [])
     {
-        return Order::with(['quotation.customer.user', 'quotation.customer.handledBy', 'quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoices.receipt'])
+        return Order::with(['quotation.customer.user', 'quotation.createdBy:id,name', 'invoices.receipt'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);
@@ -56,8 +56,8 @@ class OrderService
                     'customer_id' => $o->quotation->customer->id ?? '-',
                     'customer_number' => $o->quotation->customer->customer_number ?? '-',
                     'customer_name' => $o->quotation->customer->user->name ?? '-',
-                    'sales_id' => $o->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
-                    'sales_name' => $o->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
+                    'sales_id' => $o->quotation->createdBy?->id ?? '-',
+                    'sales_name' => $o->quotation->createdBy?->name ?? '-',
                     'payment_plan' => $o->payment_plan,
                     'created_at' => $o->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $o->updated_at?->translatedFormat('d F Y'),
@@ -73,8 +73,8 @@ class OrderService
                             'customer_id' => $i->order->quotation->customer->id ?? '-',
                             'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
                             'customer_name' => $i->order->quotation->customer->user->name ?? '-',
-                            'sales_id' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->id ?? '-',
-                            'sales_name' => $i->order->quotation->customerConfirmation?->enquiry?->handledBy?->name ?? '-',
+                            'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
+                            'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
                             'type' => $i->type,
                             'description' => $i->description,
                             'amount' => $this->formatService->cleanDecimal($i->amount),
@@ -99,6 +99,20 @@ class OrderService
         ]);
     }
 
+    /**
+     * @return array{model_key:string, mode:string, format_id:int|null, numbers:array<int, string>, next_increment:int|null}
+     */
+    public function suggestDraftInvoiceNumbers(int $count): array
+    {
+        return $this->numberingService->suggestBatchNumbers(
+            'invoice',
+            max(1, $count),
+            null,
+            'format',
+            [],
+        );
+    }
+
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -116,6 +130,9 @@ class OrderService
             ]);
 
             $this->quotationService->converted($order->quotation->id);
+
+            // Clear quotation extensions since they have been moved to invoices
+            $order->quotation->update(['extensions' => []]);
 
             foreach ($incomingInvoices as $invoice) {
                 $this->invoiceService->store([
@@ -174,6 +191,7 @@ class OrderService
     {
         $query = Order::with([
             'quotation',
+            'invoices.receipt',
             'invoices.quotationItems.confirmationMember',
             'invoices.quotationItems.taxes',
         ]);
@@ -215,6 +233,8 @@ class OrderService
                 'invoice_date' => $invoice->invoice_date_formatted,
                 'due_date' => $invoice->due_date_formatted,
                 'status' => $invoice->status,
+                'has_receipt' => $invoice->receipt->isNotEmpty(),
+                'receipt_id' => $invoice->receipt->first()?->id,
                 'items' => $invoice->quotationItems->map(fn ($item) => [
                     'id' => $item->id,
                     'quotation_id' => $item->quotation_id,
@@ -254,6 +274,23 @@ class OrderService
 
             $order = $orderQuery->findOrFail($id);
             $order->quotation()->where('is_locked', false)->update(['is_locked' => true]);
+
+            $currentPaymentPlan = strtolower((string) ($order->payment_plan ?? ''));
+            $incomingPaymentPlan = strtolower((string) ($data['payment_plan'] ?? $order->payment_plan ?? ''));
+
+            $paidInvoiceCount = $order->invoices
+                ->filter(fn ($invoice) => strtolower((string) ($invoice->status ?? '')) === 'paid')
+                ->count();
+
+            if (
+                $currentPaymentPlan === 'installment'
+                && in_array($incomingPaymentPlan, ['full', 'direct'], true)
+                && $paidInvoiceCount > 1
+            ) {
+                throw ValidationException::withMessages([
+                    'payment_plan' => 'Cannot change payment plan from installment when more than one installment invoice is already paid.',
+                ]);
+            }
 
             $resolvedOrderNumber = array_key_exists('order_number', $data)
                 ? $this->numberingService->ensureNumber(
@@ -352,6 +389,23 @@ class OrderService
             $removableInvoices = $order->invoices()
                 ->whereNotIn('id', $incomingInvoiceIds)
                 ->get();
+
+            $paidRemovableInvoices = $removableInvoices
+                ->filter(fn ($invoice) => strtolower((string) ($invoice->status ?? '')) === 'paid')
+                ->values();
+
+            if ($paidRemovableInvoices->isNotEmpty()) {
+                $invoiceNumbers = $paidRemovableInvoices
+                    ->pluck('invoice_number')
+                    ->filter()
+                    ->implode(', ');
+
+                throw ValidationException::withMessages([
+                    'invoices' => $invoiceNumbers
+                        ? "Cannot remove paid invoice(s): {$invoiceNumbers}."
+                        : 'Cannot remove paid invoice(s).',
+                ]);
+            }
 
             $invoicesWithReceipts = $removableInvoices
                 ->filter(fn ($invoice) => $invoice->receipt()->exists())

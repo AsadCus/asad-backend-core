@@ -1571,26 +1571,23 @@ class QuotationService
 
         $discountBaseAmount = $itemSubtotal;
 
-        $discountExtension = $incomingExtensions
+        $discountExtensions = $incomingExtensions
             ->filter(fn (array $extension) => (string) ($extension['type'] ?? 'discount') === 'discount')
             ->sortBy('sort_order')
             ->values()
-            ->first();
+            ->map(function (array $discountExtension) use ($discountBaseAmount) {
+                $normalizedValue = abs((float) ($discountExtension['calculation_value'] ?? 0));
+                $computedAmount = $discountExtension['calculation_mode'] === 'percentage'
+                    ? ($discountBaseAmount * $normalizedValue / 100)
+                    : $normalizedValue;
 
-        $discountExtensions = collect();
-
-        if (is_array($discountExtension)) {
-            $normalizedValue = abs((float) ($discountExtension['calculation_value'] ?? 0));
-            $computedAmount = $discountExtension['calculation_mode'] === 'percentage'
-                ? ($discountBaseAmount * $normalizedValue / 100)
-                : $normalizedValue;
-
-            $discountExtensions = collect([[
-                ...$discountExtension,
-                'calculation_value' => $this->formatService->cleanDecimal($normalizedValue) ?? $normalizedValue,
-                'amount' => $this->formatService->cleanDecimal(-abs($computedAmount)) ?? -abs($computedAmount),
-            ]]);
-        }
+                return [
+                    ...$discountExtension,
+                    'calculation_value' => $this->formatService->cleanDecimal($normalizedValue) ?? $normalizedValue,
+                    'amount' => $this->formatService->cleanDecimal(-abs($computedAmount)) ?? -abs($computedAmount),
+                ];
+            })
+            ->values();
 
         $sanitizedExtensions = $nonDiscountExtensions
             ->concat($discountExtensions)

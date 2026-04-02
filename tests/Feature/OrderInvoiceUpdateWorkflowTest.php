@@ -322,6 +322,375 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $this->assertDatabaseHas('receipts', ['id' => $receipt->id]);
     }
 
+    public function test_order_update_rejects_removing_invoice_when_invoice_is_paid(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $itemOne = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Line 1',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 100,
+            'sort_order' => 1,
+        ]);
+
+        $itemTwo = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Line 2',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 200,
+            'sort_order' => 2,
+        ]);
+
+        $invoiceOne = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 1',
+            'amount' => 100,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceOne->quotationItems()->sync([$itemOne->id]);
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 2',
+            'amount' => 200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoiceTwo->quotationItems()->sync([$itemTwo->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        try {
+            $orderService->update([
+                'payment_plan' => 'full',
+                'invoices' => [
+                    [
+                        'id' => $invoiceOne->id,
+                        '_key' => 'inv-one',
+                        'description' => 'Invoice 1 Updated',
+                        'amount' => 300,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(5)->format('Y-m-d'),
+                        'status' => 'issued',
+                        'items' => [
+                            [
+                                'id' => $itemOne->id,
+                                '_key' => 'item-one',
+                                'description' => 'Line 1 Updated',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 300,
+                                'sort_order' => 1,
+                            ],
+                        ],
+                    ],
+                ],
+            ], $order->id);
+
+            $this->fail('Expected validation exception for removing paid invoice.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('invoices', $exception->errors());
+            $this->assertStringContainsString('Cannot remove paid invoice', (string) $exception->errors()['invoices'][0]);
+        }
+
+        $this->assertDatabaseHas('invoices', ['id' => $invoiceTwo->id]);
+    }
+
+    public function test_order_update_rejects_switching_installment_to_full_when_more_than_one_invoice_is_paid(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $itemOne = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Installment 1',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 100,
+            'sort_order' => 1,
+        ]);
+
+        $itemTwo = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Installment 2',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 200,
+            'sort_order' => 2,
+        ]);
+
+        $itemThree = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Installment 3',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 300,
+            'sort_order' => 3,
+        ]);
+
+        $invoiceOne = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 1',
+            'amount' => 100,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoiceOne->quotationItems()->sync([$itemOne->id]);
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 2',
+            'amount' => 200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoiceTwo->quotationItems()->sync([$itemTwo->id]);
+
+        $invoiceThree = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 3',
+            'amount' => 300,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceThree->quotationItems()->sync([$itemThree->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        try {
+            $orderService->update([
+                'payment_plan' => 'full',
+                'invoices' => [
+                    [
+                        'id' => $invoiceOne->id,
+                        '_key' => 'inv-one',
+                        'description' => 'Invoice 1',
+                        'amount' => 100,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(3)->format('Y-m-d'),
+                        'status' => 'paid',
+                        'items' => [
+                            [
+                                'id' => $itemOne->id,
+                                '_key' => 'item-one',
+                                'description' => 'Installment 1',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 100,
+                                'sort_order' => 1,
+                            ],
+                        ],
+                    ],
+                    [
+                        'id' => $invoiceTwo->id,
+                        '_key' => 'inv-two',
+                        'description' => 'Invoice 2',
+                        'amount' => 200,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(3)->format('Y-m-d'),
+                        'status' => 'paid',
+                        'items' => [
+                            [
+                                'id' => $itemTwo->id,
+                                '_key' => 'item-two',
+                                'description' => 'Installment 2',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 200,
+                                'sort_order' => 2,
+                            ],
+                        ],
+                    ],
+                    [
+                        'id' => $invoiceThree->id,
+                        '_key' => 'inv-three',
+                        'description' => 'Invoice 3',
+                        'amount' => 300,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(3)->format('Y-m-d'),
+                        'status' => 'issued',
+                        'items' => [
+                            [
+                                'id' => $itemThree->id,
+                                '_key' => 'item-three',
+                                'description' => 'Installment 3',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 300,
+                                'sort_order' => 3,
+                            ],
+                        ],
+                    ],
+                ],
+            ], $order->id);
+
+            $this->fail('Expected validation exception for switching installment to full with multiple paid invoices.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('payment_plan', $exception->errors());
+            $this->assertStringContainsString('Cannot change payment plan from installment', (string) $exception->errors()['payment_plan'][0]);
+        }
+
+        $order->refresh();
+        $this->assertSame('installment', $order->payment_plan);
+    }
+
+    public function test_order_update_rejects_switching_installment_to_direct_when_more_than_one_invoice_is_paid(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $itemOne = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Installment 1',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 100,
+            'sort_order' => 1,
+        ]);
+
+        $itemTwo = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Installment 2',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 200,
+            'sort_order' => 2,
+        ]);
+
+        $itemThree = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Installment 3',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 300,
+            'sort_order' => 3,
+        ]);
+
+        $invoiceOne = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 1',
+            'amount' => 100,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoiceOne->quotationItems()->sync([$itemOne->id]);
+
+        $invoiceTwo = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 2',
+            'amount' => 200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoiceTwo->quotationItems()->sync([$itemTwo->id]);
+
+        $invoiceThree = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 3',
+            'amount' => 300,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(3)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceThree->quotationItems()->sync([$itemThree->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        try {
+            $orderService->update([
+                'payment_plan' => 'direct',
+                'invoices' => [
+                    [
+                        'id' => $invoiceOne->id,
+                        '_key' => 'inv-one',
+                        'description' => 'Invoice 1',
+                        'amount' => 100,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(3)->format('Y-m-d'),
+                        'status' => 'paid',
+                        'items' => [
+                            [
+                                'id' => $itemOne->id,
+                                '_key' => 'item-one',
+                                'description' => 'Installment 1',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 100,
+                                'sort_order' => 1,
+                            ],
+                        ],
+                    ],
+                    [
+                        'id' => $invoiceTwo->id,
+                        '_key' => 'inv-two',
+                        'description' => 'Invoice 2',
+                        'amount' => 200,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(3)->format('Y-m-d'),
+                        'status' => 'paid',
+                        'items' => [
+                            [
+                                'id' => $itemTwo->id,
+                                '_key' => 'item-two',
+                                'description' => 'Installment 2',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 200,
+                                'sort_order' => 2,
+                            ],
+                        ],
+                    ],
+                    [
+                        'id' => $invoiceThree->id,
+                        '_key' => 'inv-three',
+                        'description' => 'Invoice 3',
+                        'amount' => 300,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(3)->format('Y-m-d'),
+                        'status' => 'issued',
+                        'items' => [
+                            [
+                                'id' => $itemThree->id,
+                                '_key' => 'item-three',
+                                'description' => 'Installment 3',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 300,
+                                'sort_order' => 3,
+                            ],
+                        ],
+                    ],
+                ],
+            ], $order->id);
+
+            $this->fail('Expected validation exception for switching installment to direct with multiple paid invoices.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('payment_plan', $exception->errors());
+            $this->assertStringContainsString('Cannot change payment plan from installment', (string) $exception->errors()['payment_plan'][0]);
+        }
+
+        $order->refresh();
+        $this->assertSame('installment', $order->payment_plan);
+    }
+
     public function test_quotation_update_assigns_new_items_to_invoice_by_sort_order_anchor(): void
     {
         $graph = $this->createBaseGraph();
