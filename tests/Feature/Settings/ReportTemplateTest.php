@@ -171,6 +171,7 @@ class ReportTemplateTest extends TestCase
         $this->assertStringContainsString('class="totals-table"', $quotationTemplate);
         $this->assertStringContainsString('class="totals-table"', $invoiceTemplate);
         $this->assertStringContainsString('class="totals-table"', $receiptTemplate);
+        $this->assertStringContainsString('!empty($branding[\'footer_text\'])', $quotationTemplate);
         $this->assertStringContainsString('!empty($data[\'notes\'])', $quotationTemplate);
         $this->assertStringContainsString('!empty($data[\'notes\'])', $invoiceTemplate);
         $this->assertStringContainsString('!empty($data[\'notes\'])', $receiptTemplate);

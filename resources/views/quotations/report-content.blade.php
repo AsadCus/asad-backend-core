@@ -101,14 +101,15 @@
 
         /* ── Totals ── */
         .totals-wrapper {
-            display: flex;
-            justify-content: flex-end;
+            width: 100%;
+            text-align: right;
             padding: 4px 0 2px;
             margin-top: 6px;
         }
 
         .totals-table {
             width: 320px;
+            display: inline-table;
             border-collapse: collapse;
             table-layout: fixed;
         }
@@ -344,12 +345,12 @@
 
     {{-- ── FOOTER ── --}}
     <div class="footer-section">
-        @if (!empty($data['notes']) && count($data['notes']) > 0)
+        @if (!empty($branding['footer_text']))
+            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+        @elseif (!empty($data['notes']) && count($data['notes']) > 0)
             @foreach ($data['notes'] as $note)
                 <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
             @endforeach
-        @elseif (!empty($branding['footer_text']))
-            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @else
             <div class="footer-note">Thank you for your business!</div>
         @endif

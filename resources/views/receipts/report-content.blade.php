@@ -102,14 +102,15 @@
 
         /* ── Totals ── */
         .totals-wrapper {
-            display: flex;
-            justify-content: flex-end;
+            width: 100%;
+            text-align: right;
             padding: 4px 0 2px;
             margin-top: 6px;
         }
 
         .totals-table {
             width: 320px;
+            display: inline-table;
             border-collapse: collapse;
             table-layout: fixed;
         }
