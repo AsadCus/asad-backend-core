@@ -71,7 +71,6 @@
 @section('report-content')
     @php
         $opsMovement = is_array($opsMovement ?? null) ? $opsMovement : [];
-
         $tourLeaders = collect(data_get($opsMovement, 'pif.tour_leaders', []));
         $flights = collect($opsMovement['flights'] ?? []);
         $accommodations = collect($opsMovement['accommodations'] ?? []);
@@ -82,41 +81,34 @@
     {{-- Summary Header --}}
     <table class="summary-grid">
         <tr>
-            <th style="width: 20%;">Package Number</th>
+            <th style="width: 20%;">Package No.</th>
             <td style="width: 30%;">{{ $opsMovement['package_number'] ?? '-' }}</td>
-            <th style="width: 20%;">Manifest Number</th>
+            <th style="width: 20%;">Manifest No.</th>
             <td style="width: 30%;">{{ $opsMovement['manifest_number'] ?? '-' }}</td>
         </tr>
         <tr>
-            <th>Date Range</th>
-            <td>{{ $opsMovement['departure_return_range'] ?? '-' }}</td>
-            <th>Visa Type</th>
-            <td>{{ $opsMovement['visa_type'] ?? '-' }}</td>
-        </tr>
-        <tr>
-            <th>Child With Bed</th>
-            <td>{{ (int) data_get($opsMovement, 'passengers.child_with_bed_total', 0) }}</td>
-            <th>Child No Bed / Infant</th>
-            <td>
-                {{ (int) data_get($opsMovement, 'passengers.child_no_bed_total', 0) }} /
-                {{ (int) data_get($opsMovement, 'passengers.infant_total', 0) }}
+            <th>Pax Summary</th>
+            <td colspan="3">
+                Adults: {{ (int) data_get($opsMovement, 'passengers.adult_total', 0) }} |
+                Children: {{ (int) data_get($opsMovement, 'passengers.child_total', 0) }} |
+                Officials: {{ (int) data_get($opsMovement, 'passengers.official_total', 0) }}
             </td>
         </tr>
     </table>
 
-    {{-- Passenger Details - Tour Leaders --}}
-    <div class="section-title">Passenger Details - Tour Leaders</div>
+    {{-- Tour Leaders Section --}}
+    <div class="section-title">Tour Leaders</div>
     <table class="section-table">
         <tr>
-            <th style="width: 28%;">Office Type</th>
-            <th style="width: 36%;">Official Name</th>
-            <th style="width: 36%;">Contact Number</th>
+            <th style="width: 25%;">Office Type</th>
+            <th style="width: 45%;">Official Name</th>
+            <th style="width: 30%;">Contact Number</th>
         </tr>
-        @forelse ($tourLeaders as $tourLeader)
+        @forelse ($tourLeaders as $leader)
             <tr>
-                <td>{{ $tourLeader['type'] ?? '-' }}</td>
-                <td>{{ $tourLeader['name'] ?? '-' }}</td>
-                <td>{{ $tourLeader['contact_number'] ?? '-' }}</td>
+                <td>{{ $leader['type'] ?? '-' }}</td>
+                <td>{{ $leader['name'] ?? '-' }}</td>
+                <td>{{ $leader['contact_number'] ?? '-' }}</td>
             </tr>
         @empty
             <tr>
@@ -125,73 +117,56 @@
         @endforelse
     </table>
 
-
     {{-- Flight Schedule --}}
     <div class="section-title">Flight Schedule</div>
     <table class="section-table">
         <tr>
-            <th>Carrier</th>
-            <th>From</th>
-            <th>To</th>
-            <th>ETD</th>
-            <th>ETA</th>
+            <th style="width: 12%;">Carrier</th>
+            <th style="width: 12%;">From</th>
+            <th style="width: 12%;">To</th>
+            <th style="width: 18%;">ETD</th>
+            <th style="width: 18%;">ETA</th>
             <th>Remarks</th>
         </tr>
-        @forelse ($flights as $flight)
+        @foreach ($flights as $flight)
             <tr>
                 <td>{{ $flight['airline'] ?? '-' }}</td>
                 <td>{{ $flight['from'] ?? '-' }}</td>
                 <td>{{ $flight['to'] ?? '-' }}</td>
                 <td>{{ $flight['departure_datetime'] ?? '-' }}</td>
                 <td>{{ $flight['arrival_datetime'] ?? '-' }}</td>
-                <td>{{ $flight['remarks'] ?? '-' }}</td>
+                <td style="font-style: italic; color: #555;">{{ $flight['remarks'] ?? '-' }}</td>
             </tr>
-        @empty
-            <tr>
-                <td colspan="6" class="text-center">No flight schedule data.</td>
-            </tr>
-        @endforelse
+        @endforeach
     </table>
 
-    {{-- Accommodation --}}
-    <div class="section-title">Accommodation</div>
+    {{-- Accommodation with Room Counts --}}
+    <div class="section-title">Accommodation & Room Allocation</div>
     <table class="section-table">
         <tr>
-            <th>City</th>
-            <th>Hotel Name</th>
-            <th>Check In</th>
-            <th>Check Out</th>
-            <th class="text-right">Nights</th>
-            <th class="text-right">Single</th>
-            <th class="text-right">DBL</th>
-            <th class="text-right">TRP</th>
-            <th class="text-right">Quad</th>
+            <th style="width: 12%;">City</th>
+            <th style="width: 18%;">Hotel</th>
+            <th style="width: 15%;">Check In/Out</th>
+            <th style="width: 5%;" class="text-center">Nights</th>
+            <th style="width: 5%;" class="text-center">SGL</th>
+            <th style="width: 5%;" class="text-center">DBL</th>
+            <th style="width: 5%;" class="text-center">TRP</th>
+            <th style="width: 5%;" class="text-center">QUAD</th>
             <th>Remarks</th>
         </tr>
-        <tr>
-            <th colspan="5">Passenger Category Count</th>
-            <td class="text-right" colspan="2">Child With Bed: {{ (int) data_get($opsMovement, 'passengers.child_with_bed_total', 0) }}</td>
-            <td class="text-right" colspan="2">Child No Bed: {{ (int) data_get($opsMovement, 'passengers.child_no_bed_total', 0) }}</td>
-            <td>Infant: {{ (int) data_get($opsMovement, 'passengers.infant_total', 0) }}</td>
-        </tr>
-        @forelse ($accommodations as $accommodation)
+        @foreach ($accommodations as $acc)
             <tr>
-                <td>{{ $accommodation['location'] ?? '-' }}</td>
-                <td>{{ $accommodation['hotel_name'] ?? '-' }}</td>
-                <td>{{ $accommodation['check_in'] ?? '-' }}</td>
-                <td>{{ $accommodation['check_out'] ?? '-' }}</td>
-                <td class="text-right">{{ (int) ($accommodation['nights'] ?? 0) }}</td>
-                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.single', 0) }}</td>
-                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.double', 0) }}</td>
-                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.triple', 0) }}</td>
-                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.quad', 0) }}</td>
-                <td>{{ $accommodation['remarks'] ?? '-' }}</td>
+                <td>{{ $acc['location'] ?? '-' }}</td>
+                <td>{{ $acc['hotel_name'] ?? '-' }}</td>
+                <td>{{ $acc['check_in'] }} - {{ $acc['check_out'] }}</td>
+                <td class="text-center">{{ $acc['nights'] }}</td>
+                <td class="text-center">{{ (int) data_get($acc, 'room_counts.single', 0) }}</td>
+                <td class="text-center">{{ (int) data_get($acc, 'room_counts.double', 0) }}</td>
+                <td class="text-center">{{ (int) data_get($acc, 'room_counts.triple', 0) }}</td>
+                <td class="text-center">{{ (int) data_get($acc, 'room_counts.quad', 0) }}</td>
+                <td style="font-size: 8px;">{{ $acc['remarks'] ?? '-' }}</td>
             </tr>
-        @empty
-            <tr>
-                <td colspan="10" class="text-center">No accommodation data.</td>
-            </tr>
-        @endforelse
+        @endforeach
     </table>
 
     {{-- Rawdah Tasreeh --}}

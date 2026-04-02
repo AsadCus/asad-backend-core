@@ -36,19 +36,19 @@ const OPS_DOCUMENT_TABS: Array<{
     hint: string;
     accept: string;
 }> = [
-    {
-        key: 'itinerary',
-        label: 'Itinerary',
-        hint: 'Upload itinerary files for this ops movement.',
-        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
-    },
-    {
-        key: 'booklet',
-        label: 'Booklet',
-        hint: 'Upload booklet files for this ops movement.',
-        accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
-    },
-];
+        {
+            key: 'itinerary',
+            label: 'Itinerary',
+            hint: 'Upload itinerary files for this ops movement.',
+            accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+        },
+        {
+            key: 'booklet',
+            label: 'Booklet',
+            hint: 'Upload booklet files for this ops movement.',
+            accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+        },
+    ];
 
 function CopyableText({
     value,
@@ -135,12 +135,12 @@ function normalizeDocumentEntriesForSubmit(
             file: entry.file ?? null,
             file_name:
                 typeof entry.file_name === 'string' &&
-                entry.file_name.trim().length > 0
+                    entry.file_name.trim().length > 0
                     ? entry.file_name.trim()
                     : null,
             file_path:
                 typeof entry.file_path === 'string' &&
-                entry.file_path.trim().length > 0
+                    entry.file_path.trim().length > 0
                     ? entry.file_path.trim()
                     : null,
             removed: Boolean(entry.removed),
@@ -229,12 +229,12 @@ export default function OpsMovementForm({
         documents: {
             itinerary:
                 initialData.documents?.itinerary?.length &&
-                Array.isArray(initialData.documents.itinerary)
+                    Array.isArray(initialData.documents.itinerary)
                     ? initialData.documents.itinerary
                     : [createEmptyDocumentEntry()],
             booklet:
                 initialData.documents?.booklet?.length &&
-                Array.isArray(initialData.documents.booklet)
+                    Array.isArray(initialData.documents.booklet)
                     ? initialData.documents.booklet
                     : [createEmptyDocumentEntry()],
         },
@@ -245,7 +245,7 @@ export default function OpsMovementForm({
         pif: {
             tour_leaders:
                 Array.isArray(initialData.pif?.tour_leaders) &&
-                initialData.pif.tour_leaders.length > 0
+                    initialData.pif.tour_leaders.length > 0
                     ? initialData.pif.tour_leaders
                     : createDefaultTourLeaders(),
         },
@@ -303,7 +303,7 @@ export default function OpsMovementForm({
                         location: String(hotelRow.location ?? '').trim(),
                         hotel:
                             typeof hotelRow.hotel === 'string' &&
-                            hotelRow.hotel.trim().length > 0
+                                hotelRow.hotel.trim().length > 0
                                 ? hotelRow.hotel.trim()
                                 : null,
                     }),
@@ -454,7 +454,7 @@ export default function OpsMovementForm({
                 location: row.location,
                 hotel:
                     row.location.toLowerCase() ===
-                    normalizedLocation.toLowerCase()
+                        normalizedLocation.toLowerCase()
                         ? String(value ?? '').trim()
                         : String(row.hotel ?? '').trim(),
             }),
@@ -1096,8 +1096,8 @@ export default function OpsMovementForm({
                                             (index === 0
                                                 ? 'Departure'
                                                 : index === 1
-                                                  ? 'Return'
-                                                  : `Flight ${index + 1}`)}
+                                                    ? 'Return'
+                                                    : `Flight ${index + 1}`)}
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
                                         <FormField label="Flight No">
@@ -1336,19 +1336,19 @@ export default function OpsMovementForm({
                     const rowsToRender =
                         visibleRowIndexes.length > 0
                             ? visibleRowIndexes.map(
-                                  (actualIndex, visibleIndex) => ({
-                                      row: allRows[actualIndex],
-                                      actualIndex,
-                                      visibleIndex,
-                                  }),
-                              )
+                                (actualIndex, visibleIndex) => ({
+                                    row: allRows[actualIndex],
+                                    actualIndex,
+                                    visibleIndex,
+                                }),
+                            )
                             : [
-                                  {
-                                      row: createEmptyDocumentEntry(),
-                                      actualIndex: -1,
-                                      visibleIndex: 0,
-                                  },
-                              ];
+                                {
+                                    row: createEmptyDocumentEntry(),
+                                    actualIndex: -1,
+                                    visibleIndex: 0,
+                                },
+                            ];
 
                     return (
                         <TabsContent
@@ -1445,31 +1445,31 @@ export default function OpsMovementForm({
                                                             allRows.length > 0
                                                                 ? [...allRows]
                                                                 : [
-                                                                      createEmptyDocumentEntry(),
-                                                                  ];
+                                                                    createEmptyDocumentEntry(),
+                                                                ];
                                                         const targetIndex =
                                                             actualIndex >= 0
                                                                 ? actualIndex
                                                                 : 0;
                                                         nextRows[targetIndex] =
-                                                            {
-                                                                ...nextRows[
+                                                        {
+                                                            ...nextRows[
+                                                            targetIndex
+                                                            ],
+                                                            file,
+                                                            removed: false,
+                                                            file_name:
+                                                                nextRows[
                                                                     targetIndex
-                                                                ],
-                                                                file,
-                                                                removed: false,
-                                                                file_name:
-                                                                    nextRows[
-                                                                        targetIndex
-                                                                    ]
-                                                                        ?.file_name ??
-                                                                    buildOpsDocumentFileName(
-                                                                        tab.label,
-                                                                        visibleIndex +
-                                                                            1,
-                                                                        data.package_number,
-                                                                    ),
-                                                            };
+                                                                ]
+                                                                    ?.file_name ??
+                                                                buildOpsDocumentFileName(
+                                                                    tab.label,
+                                                                    visibleIndex +
+                                                                    1,
+                                                                    data.package_number,
+                                                                ),
+                                                        };
                                                         updateDocumentRows(
                                                             tab.key,
                                                             nextRows,
@@ -1482,20 +1482,20 @@ export default function OpsMovementForm({
                                                             allRows.length > 0
                                                                 ? [...allRows]
                                                                 : [
-                                                                      createEmptyDocumentEntry(),
-                                                                  ];
+                                                                    createEmptyDocumentEntry(),
+                                                                ];
                                                         const targetIndex =
                                                             actualIndex >= 0
                                                                 ? actualIndex
                                                                 : 0;
                                                         nextRows[targetIndex] =
-                                                            {
-                                                                ...nextRows[
-                                                                    targetIndex
-                                                                ],
-                                                                file_name:
-                                                                    fileName,
-                                                            };
+                                                        {
+                                                            ...nextRows[
+                                                            targetIndex
+                                                            ],
+                                                            file_name:
+                                                                fileName,
+                                                        };
                                                         updateDocumentRows(
                                                             tab.key,
                                                             nextRows,
@@ -1629,12 +1629,12 @@ export default function OpsMovementForm({
                                                             value={
                                                                 item.unit_price ===
                                                                     null ||
-                                                                item.unit_price ===
+                                                                    item.unit_price ===
                                                                     undefined
                                                                     ? ''
                                                                     : String(
-                                                                          item.unit_price,
-                                                                      )
+                                                                        item.unit_price,
+                                                                    )
                                                             }
                                                             type="number"
                                                             inputProps={{
@@ -1650,11 +1650,11 @@ export default function OpsMovementForm({
                                                                     {
                                                                         unit_price:
                                                                             value ===
-                                                                            ''
+                                                                                ''
                                                                                 ? null
                                                                                 : toDecimal(
-                                                                                      value,
-                                                                                  ),
+                                                                                    value,
+                                                                                ),
                                                                     },
                                                                 )
                                                             }
@@ -1670,7 +1670,7 @@ export default function OpsMovementForm({
                                                         <ProperInput
                                                             value={String(
                                                                 item.quantity ??
-                                                                    0,
+                                                                0,
                                                             )}
                                                             type="number"
                                                             inputProps={{
@@ -1793,26 +1793,49 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">
-                                Passenger Summary
+                                Passenger Details
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Passenger count breakdown for this ops movement, sourced from the linked manifest.
+                            </p>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Adult Total">
+                            <FormField
+                                label="Adult Total"
+                                fieldRequirementsProps={{
+                                    hint: 'Total number of adult passengers in this manifest.',
+                                }}
+                            >
                                 <CopyableText
                                     value={data.passengers?.adult_total ?? 0}
                                 />
                             </FormField>
-                            <FormField label="Child Total">
+                            <FormField
+                                label="Child Total"
+                                fieldRequirementsProps={{
+                                    hint: 'Total number of child passengers (with and without bed).',
+                                }}
+                            >
                                 <CopyableText
                                     value={data.passengers?.child_total ?? 0}
                                 />
                             </FormField>
-                            <FormField label="Official Total">
+                            <FormField
+                                label="Official Total"
+                                fieldRequirementsProps={{
+                                    hint: 'Number of Mutawif and officials included in this movement.',
+                                }}
+                            >
                                 <CopyableText
                                     value={data.passengers?.official_total ?? 0}
                                 />
                             </FormField>
-                            <FormField label="Child With Bed">
+                            <FormField
+                                label="Child With Bed"
+                                fieldRequirementsProps={{
+                                    hint: 'Children occupying a bed in room allocation.',
+                                }}
+                            >
                                 <CopyableText
                                     value={
                                         data.passengers
@@ -1820,7 +1843,12 @@ export default function OpsMovementForm({
                                     }
                                 />
                             </FormField>
-                            <FormField label="Child No Bed">
+                            <FormField
+                                label="Child No Bed"
+                                fieldRequirementsProps={{
+                                    hint: 'Children not occupying a bed (sharing with parents).',
+                                }}
+                            >
                                 <CopyableText
                                     value={
                                         data.passengers?.child_no_bed_total ??
@@ -1828,7 +1856,12 @@ export default function OpsMovementForm({
                                     }
                                 />
                             </FormField>
-                            <FormField label="Infant">
+                            <FormField
+                                label="Infant"
+                                fieldRequirementsProps={{
+                                    hint: 'Number of infant passengers in this manifest.',
+                                }}
+                            >
                                 <CopyableText
                                     value={data.passengers?.infant_total ?? 0}
                                 />
@@ -1841,12 +1874,10 @@ export default function OpsMovementForm({
                             <div className="flex items-center justify-between gap-3">
                                 <div>
                                     <CardTitle className="text-xl">
-                                        Passenger Details - Tour Leader
+                                        Tour Leader
                                     </CardTitle>
                                     <p className="text-sm text-muted-foreground">
-                                        Tour leader rows are editable for PIF.
-                                        Other PIF sections are read-only and
-                                        sourced from package and manifest.
+                                        Saudi and Singapore officials assigned to lead this movement. Enter their names and contact numbers for the PIF.
                                     </p>
                                 </div>
                                 <Button
@@ -1869,6 +1900,10 @@ export default function OpsMovementForm({
                                     >
                                         <FormField
                                             label="Office Type"
+                                            fieldRequirementsProps={{
+                                                hint: 'Type of official, e.g. Saudi or Singapore.',
+                                                example: 'Saudi / Singapore',
+                                            }}
                                             error={getError(
                                                 `pif.tour_leaders.${index}.type`,
                                             )}
@@ -1888,6 +1923,9 @@ export default function OpsMovementForm({
                                         </FormField>
                                         <FormField
                                             label="Official Name"
+                                            fieldRequirementsProps={{
+                                                hint: 'Full name of the tour leader or official.',
+                                            }}
                                             error={getError(
                                                 `pif.tour_leaders.${index}.name`,
                                             )}
@@ -1907,6 +1945,10 @@ export default function OpsMovementForm({
                                         </FormField>
                                         <FormField
                                             label="Contact Number"
+                                            fieldRequirementsProps={{
+                                                hint: 'Phone number of the official, including country code.',
+                                                example: '+65 9123 4567',
+                                            }}
                                             error={getError(
                                                 `pif.tour_leaders.${index}.contact_number`,
                                             )}
@@ -1950,6 +1992,9 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Flight Schedule
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Departure and return flights for this movement, pulled from the package flight details. Add remarks for each flight as needed.
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.flights ?? []).map((flight, index) => (
@@ -1957,36 +2002,65 @@ export default function OpsMovementForm({
                                     key={`pif-flight-${flight.id}`}
                                     className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                 >
-                                    <FormField label="Description">
-                                        <CopyableText
-                                            value={flight.description}
-                                        />
-                                    </FormField>
-                                    <FormField label="From">
-                                        <CopyableText value={flight.from} />
-                                    </FormField>
-                                    <FormField label="To">
-                                        <CopyableText value={flight.to} />
-                                    </FormField>
-                                    <FormField label="Airline">
+                                    <FormField
+                                        label="Airline / Carrier"
+                                        fieldRequirementsProps={{
+                                            hint: 'Airline carrier code or name for this flight.',
+                                        }}
+                                    >
                                         <CopyableText value={flight.airline} />
                                     </FormField>
-                                    <FormField label="Departure Datetime">
+                                    <FormField
+                                        label="From"
+                                        fieldRequirementsProps={{
+                                            hint: 'Departure airport or city.',
+                                        }}
+                                    >
+                                        <CopyableText value={flight.from} />
+                                    </FormField>
+                                    <FormField
+                                        label="To"
+                                        fieldRequirementsProps={{
+                                            hint: 'Arrival airport or city.',
+                                        }}
+                                    >
+                                        <CopyableText value={flight.to} />
+                                    </FormField>
+                                    <FormField
+                                        label="ETD (Departure Datetime)"
+                                        fieldRequirementsProps={{
+                                            hint: 'Estimated time of departure.',
+                                        }}
+                                    >
                                         <CopyableText
                                             value={flight.departure_datetime}
                                         />
                                     </FormField>
-                                    <FormField label="Arrival Datetime">
+                                    <FormField
+                                        label="ETA (Arrival Datetime)"
+                                        fieldRequirementsProps={{
+                                            hint: 'Estimated time of arrival.',
+                                        }}
+                                    >
                                         <CopyableText
                                             value={flight.arrival_datetime}
                                         />
                                     </FormField>
-                                    <FormField label="PNR">
+                                    <FormField
+                                        label="PNR"
+                                        fieldRequirementsProps={{
+                                            hint: 'Flight booking reference / PNR.',
+                                        }}
+                                    >
                                         <CopyableText value={flight.pnr} />
                                     </FormField>
                                     <FormField
                                         label="Remarks"
                                         className="md:col-span-3"
+                                        fieldRequirementsProps={{
+                                            hint: 'Any additional notes for this flight, e.g. meal arrangements or special instructions.',
+                                            example: 'Dinner at Hotel (International Buffet Dinner Hours: 7.30 till 10.30 pm)',
+                                        }}
                                         error={getError(
                                             `flights.${index}.remarks`,
                                         )}
@@ -2017,9 +2091,7 @@ export default function OpsMovementForm({
                                 Accommodation
                             </CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Child with bed: {data.passengers?.child_with_bed_total ?? 0},
-                                Child no bed: {data.passengers?.child_no_bed_total ?? 0},
-                                Infant: {data.passengers?.infant_total ?? 0}
+                                Hotel stays per city for this movement. Room counts are derived from manifest room allocations. Add remarks per accommodation as needed.
                             </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -2029,41 +2101,64 @@ export default function OpsMovementForm({
                                         key={`pif-accommodation-${accommodation.id}`}
                                         className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                     >
-                                        <FormField label="Location">
+                                        <FormField
+                                            label="City"
+                                            fieldRequirementsProps={{
+                                                hint: 'City or destination of this accommodation.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={accommodation.location}
                                             />
                                         </FormField>
-                                        <FormField label="Hotel Name">
+                                        <FormField
+                                            label="Hotel Name"
+                                            fieldRequirementsProps={{
+                                                hint: 'Name of the hotel for this stay.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={accommodation.hotel_name}
                                             />
                                         </FormField>
-                                        <FormField label="Check In">
+                                        <FormField
+                                            label="Check In"
+                                            fieldRequirementsProps={{
+                                                hint: 'Check-in date.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={accommodation.check_in}
                                             />
                                         </FormField>
-                                        <FormField label="Check Out">
+                                        <FormField
+                                            label="Check Out"
+                                            fieldRequirementsProps={{
+                                                hint: 'Check-out date.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={accommodation.check_out}
                                             />
                                         </FormField>
-                                        <FormField label="Nights">
+                                        <FormField
+                                            label="Nights"
+                                            fieldRequirementsProps={{
+                                                hint: 'Total number of nights at this hotel.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={
                                                     accommodation.nights ?? 0
                                                 }
                                             />
                                         </FormField>
-                                        <FormField label="Meal">
-                                            <CopyableText
-                                                value={
-                                                    accommodation.type_of_meal
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField label="Single">
+                                        <FormField
+                                            label="Single"
+                                            fieldRequirementsProps={{
+                                                hint: 'Number of single rooms, sourced from manifest room counts.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={
                                                     accommodation.room_counts
@@ -2071,7 +2166,12 @@ export default function OpsMovementForm({
                                                 }
                                             />
                                         </FormField>
-                                        <FormField label="Double">
+                                        <FormField
+                                            label="Double (DBL)"
+                                            fieldRequirementsProps={{
+                                                hint: 'Number of double rooms.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={
                                                     accommodation.room_counts
@@ -2079,7 +2179,12 @@ export default function OpsMovementForm({
                                                 }
                                             />
                                         </FormField>
-                                        <FormField label="Triple">
+                                        <FormField
+                                            label="Triple (TRP)"
+                                            fieldRequirementsProps={{
+                                                hint: 'Number of triple rooms.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={
                                                     accommodation.room_counts
@@ -2087,7 +2192,12 @@ export default function OpsMovementForm({
                                                 }
                                             />
                                         </FormField>
-                                        <FormField label="Quad">
+                                        <FormField
+                                            label="Quad"
+                                            fieldRequirementsProps={{
+                                                hint: 'Number of quad rooms.',
+                                            }}
+                                        >
                                             <CopyableText
                                                 value={
                                                     accommodation.room_counts
@@ -2098,6 +2208,10 @@ export default function OpsMovementForm({
                                         <FormField
                                             label="Remarks"
                                             className="md:col-span-3"
+                                            fieldRequirementsProps={{
+                                                hint: 'Additional notes for this accommodation, e.g. meal type or special arrangements.',
+                                                example: 'Breakfast included',
+                                            }}
                                             error={getError(
                                                 `accommodations.${index}.remarks`,
                                             )}
@@ -2131,6 +2245,9 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Rawdah Tasreeh
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Rawdah visit permit details for women and men passengers. Dates and pax counts are sourced from the package. Add remarks for any scheduling notes.
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.rawdah_tasreehs ?? []).map((row, index) => (
@@ -2138,26 +2255,56 @@ export default function OpsMovementForm({
                                     key={`pif-rawdah-${row.id}`}
                                     className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                 >
-                                    <FormField label="Date">
+                                    <FormField
+                                        label="Date"
+                                        fieldRequirementsProps={{
+                                            hint: 'Scheduled date for the Rawdah visit.',
+                                        }}
+                                    >
                                         <CopyableText value={row.date} />
                                     </FormField>
-                                    <FormField label="Women Pax">
+                                    <FormField
+                                        label="Women Pax"
+                                        fieldRequirementsProps={{
+                                            hint: 'Number of female passengers for this Rawdah slot.',
+                                        }}
+                                    >
                                         <CopyableText
                                             value={row.women_passengers ?? 0}
                                         />
                                     </FormField>
-                                    <FormField label="Women Time">
+                                    <FormField
+                                        label="Women Time"
+                                        fieldRequirementsProps={{
+                                            hint: 'Scheduled entry time for female passengers.',
+                                        }}
+                                    >
                                         <CopyableText value={row.women_time} />
                                     </FormField>
-                                    <FormField label="Men Pax">
+                                    <FormField
+                                        label="Men Pax"
+                                        fieldRequirementsProps={{
+                                            hint: 'Number of male passengers for this Rawdah slot.',
+                                        }}
+                                    >
                                         <CopyableText
                                             value={row.men_passengers ?? 0}
                                         />
                                     </FormField>
-                                    <FormField label="Men Time">
+                                    <FormField
+                                        label="Men Time"
+                                        fieldRequirementsProps={{
+                                            hint: 'Scheduled entry time for male passengers.',
+                                        }}
+                                    >
                                         <CopyableText value={row.men_time} />
                                     </FormField>
-                                    <FormField label="Total Pax">
+                                    <FormField
+                                        label="Total Pax"
+                                        fieldRequirementsProps={{
+                                            hint: 'Total passengers (women + men) for this slot.',
+                                        }}
+                                    >
                                         <CopyableText
                                             value={
                                                 (row.women_passengers ?? 0) +
@@ -2167,6 +2314,11 @@ export default function OpsMovementForm({
                                     </FormField>
                                     <FormField
                                         label="Remarks"
+                                        className="md:col-span-3"
+                                        fieldRequirementsProps={{
+                                            hint: 'Any scheduling notes, blocked dates, or departure info.',
+                                            example: 'Mazarat 10 Jan, DEP 7.30 AM',
+                                        }}
                                         error={getError(
                                             `rawdah_tasreehs.${index}.remarks`,
                                         )}
@@ -2196,6 +2348,9 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Transportation Plan
                             </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Ground transport itinerary for the movement, covering airport transfers, city tours, and inter-city travel. Add remarks for special instructions per leg.
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.transportation_plans ?? []).map((row, index) => (
@@ -2203,21 +2358,48 @@ export default function OpsMovementForm({
                                     key={`pif-transport-${row.id}`}
                                     className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
                                 >
-                                    <FormField label="From">
+                                    <FormField
+                                        label="From"
+                                        fieldRequirementsProps={{
+                                            hint: 'Departure point for this transport leg.',
+                                            example: 'Jeddah Airport',
+                                        }}
+                                    >
                                         <CopyableText value={row.from} />
                                     </FormField>
-                                    <FormField label="To">
+                                    <FormField
+                                        label="To"
+                                        fieldRequirementsProps={{
+                                            hint: 'Destination for this transport leg.',
+                                            example: 'Sofitel Hotel',
+                                        }}
+                                    >
                                         <CopyableText value={row.to} />
                                     </FormField>
-                                    <FormField label="Date">
+                                    <FormField
+                                        label="Date"
+                                        fieldRequirementsProps={{
+                                            hint: 'Date of travel for this transport leg.',
+                                        }}
+                                    >
                                         <CopyableText value={row.travel_date} />
                                     </FormField>
-                                    <FormField label="Time">
+                                    <FormField
+                                        label="Time"
+                                        fieldRequirementsProps={{
+                                            hint: 'Scheduled departure or pickup time.',
+                                            example: '07:30 AM',
+                                        }}
+                                    >
                                         <CopyableText value={row.travel_time} />
                                     </FormField>
                                     <FormField
                                         label="Remarks"
-                                        className="md:col-span-3"
+                                        className="md:col-span-2"
+                                        fieldRequirementsProps={{
+                                            hint: 'Any notes for this leg, e.g. pending confirmation, special stops, or vehicle type.',
+                                            example: 'REHAL / MAKKAH HOTEL',
+                                        }}
                                         error={getError(
                                             `transportation_plans.${index}.remarks`,
                                         )}
