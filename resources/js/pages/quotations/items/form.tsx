@@ -1079,8 +1079,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                 const displayRate =
                     item.rate == null ||
                     String(item.rate).trim() === '' ||
-                    !Number.isFinite(parsedRate) ||
-                    parsedRate <= 0
+                    !Number.isFinite(parsedRate)
                         ? ''
                         : item.rate;
 
@@ -1208,7 +1207,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                     idx !==
                                                     currentInvoiceIndex ? (
                                                         <DropdownMenuItem
-                                                            key={inv._key}
+                                                            key={`${inv._key ?? 'invoice'}-${idx}`}
                                                             onClick={() =>
                                                                 onMoveItem(
                                                                     currentInvoiceIndex,

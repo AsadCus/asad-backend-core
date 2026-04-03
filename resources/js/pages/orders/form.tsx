@@ -187,12 +187,43 @@ function isPaidInvoice(invoice: InvoiceSchema): boolean {
     return String(invoice.status ?? '').toLowerCase() === 'paid';
 }
 
+function isRefundInvoice(invoice: InvoiceSchema): boolean {
+    return (
+        Boolean(invoice.is_refund) ||
+        String(invoice.status ?? '').toLowerCase() === 'refund'
+    );
+}
+
 function isInvoiceLockedForRemoval(invoice: InvoiceSchema): boolean {
     return (
+        isRefundInvoice(invoice) ||
         isPaidInvoice(invoice) ||
         Boolean(invoice.has_receipt) ||
         Number(invoice.receipt_id ?? 0) > 0
     );
+}
+
+function splitInvoicesByRefundStatus(invoices: InvoiceSchema[]): {
+    editableInvoices: InvoiceSchema[];
+    refundInvoices: InvoiceSchema[];
+} {
+    const editableInvoices: InvoiceSchema[] = [];
+    const refundInvoices: InvoiceSchema[] = [];
+
+    invoices.forEach((invoice) => {
+        if (isRefundInvoice(invoice)) {
+            refundInvoices.push(invoice);
+
+            return;
+        }
+
+        editableInvoices.push(invoice);
+    });
+
+    return {
+        editableInvoices,
+        refundInvoices,
+    };
 }
 
 function resolvePrimaryValidationMessage(
@@ -748,6 +779,8 @@ export default function OrderForm({
             currentInvoices: InvoiceSchema[] = [],
             installmentInvoiceCount?: number | string | null,
         ): InvoiceSchema[] => {
+            const { editableInvoices, refundInvoices } =
+                splitInvoicesByRefundStatus(currentInvoices);
             const normalizedInstallmentCount = sanitizeInstallmentInvoiceCount(
                 installmentInvoiceCount,
             );
@@ -783,13 +816,13 @@ export default function OrderForm({
                 );
 
                 const sourceExtensions = aggregateSourceExtensionsForSplit(
-                    currentInvoices,
+                    editableInvoices,
                     (quotation.extensions ?? []) as InvoiceExtensionInput[],
                 );
 
                 const normalizedRebuiltInvoices = normalizeInvoices(
                     rebuiltInvoices.map((invoice, index) => {
-                        const existingInvoice = currentInvoices[index];
+                        const existingEditableInvoice = editableInvoices[index];
 
                         const inheritedExtensions = normalizeInvoiceExtensions(
                             sourceExtensions
@@ -857,13 +890,13 @@ export default function OrderForm({
                         } as InvoiceSchema;
 
                         const resolvedPaymentMethod = String(
-                            existingInvoice?.payment_method ??
+                            existingEditableInvoice?.payment_method ??
                                 invoice.payment_method ??
                                 defaultPaymentMethod ??
                                 '',
                         );
 
-                        if (!existingInvoice) {
+                        if (!existingEditableInvoice) {
                             return recalculateInvoice({
                                 ...mergedInvoice,
                                 payment_method: resolvedPaymentMethod,
@@ -873,48 +906,53 @@ export default function OrderForm({
                         return recalculateInvoice({
                             ...mergedInvoice,
                             payment_method: resolvedPaymentMethod,
-                            id: existingInvoice.id ?? invoice.id,
+                            id: existingEditableInvoice.id ?? invoice.id,
                             invoice_number:
-                                existingInvoice.invoice_number ??
+                                existingEditableInvoice.invoice_number ??
                                 invoice.invoice_number,
                             number_format_id:
-                                existingInvoice.number_format_id ??
+                                existingEditableInvoice.number_format_id ??
                                 invoice.number_format_id ??
                                 null,
                             status:
-                                existingInvoice.status ??
+                                existingEditableInvoice.status ??
                                 invoice.status ??
                                 'issued',
                             invoice_date:
-                                existingInvoice.invoice_date ??
+                                existingEditableInvoice.invoice_date ??
                                 invoice.invoice_date,
                             due_date:
-                                existingInvoice.due_date ?? invoice.due_date,
+                                existingEditableInvoice.due_date ??
+                                invoice.due_date,
                         });
                     }),
                 );
 
                 if (isCreate) {
-                    return applySeededInvoiceNumbering(
+                    const numberedInvoices = applySeededInvoiceNumbering(
                         normalizedRebuiltInvoices,
                         normalizedInitialInvoiceNumbers,
                         initialInvoiceNumberFormatId,
-                        currentInvoices,
+                        editableInvoices,
                     );
+
+                    return [...numberedInvoices, ...refundInvoices];
                 }
 
-                return applyInvoiceNumberingSequence(
+                const numberedInvoices = applyInvoiceNumberingSequence(
                     normalizedRebuiltInvoices,
                     {
-                        sourceInvoices: currentInvoices,
+                        sourceInvoices: editableInvoices,
                     },
                 );
+
+                return [...numberedInvoices, ...refundInvoices];
             }
 
             const normalizedRebuiltInvoices = normalizeInvoices(
                 buildInvoices(
                     paymentPlan,
-                    currentInvoices,
+                    editableInvoices,
                     depositType,
                     depositValue,
                     normalizedInstallmentCount,
@@ -941,13 +979,18 @@ export default function OrderForm({
                     normalizedRebuiltInvoices,
                     normalizedInitialInvoiceNumbers,
                     initialInvoiceNumberFormatId,
-                    currentInvoices,
+                    editableInvoices,
                 );
             }
 
-            return applyInvoiceNumberingSequence(normalizedRebuiltInvoices, {
-                sourceInvoices: currentInvoices,
-            });
+            const numberedInvoices = applyInvoiceNumberingSequence(
+                normalizedRebuiltInvoices,
+                {
+                    sourceInvoices: editableInvoices,
+                },
+            );
+
+            return [...numberedInvoices, ...refundInvoices];
         },
         [
             defaultPaymentMethod,
@@ -960,9 +1003,12 @@ export default function OrderForm({
     );
 
     function addInvoice() {
+        const { editableInvoices, refundInvoices } =
+            splitInvoicesByRefundStatus(data.invoices);
+
         if (data.payment_plan === 'installment') {
             const nextInstallmentCount = sanitizeInstallmentInvoiceCount(
-                Number(data.invoices.length ?? 0) + 1,
+                Number(editableInvoices.length ?? 0) + 1,
             );
 
             setData({
@@ -972,7 +1018,7 @@ export default function OrderForm({
                     data.payment_plan,
                     data.deposit_type,
                     data.deposit_value,
-                    data.invoices,
+                    [...editableInvoices, ...refundInvoices],
                     nextInstallmentCount,
                 ),
             });
@@ -982,25 +1028,33 @@ export default function OrderForm({
 
         const newInvoices = applyInvoiceNumberingSequence(
             [
-                ...data.invoices,
+                ...editableInvoices,
                 createEmptyInvoice(String(defaultPaymentMethod ?? '')),
             ],
             {
-                sourceInvoices: data.invoices,
+                sourceInvoices: editableInvoices,
             },
         );
-        setData('invoices', newInvoices);
+        setData('invoices', [...newInvoices, ...refundInvoices]);
     }
 
     function removeInvoice(index: number) {
         if (data.invoices.length <= 1) return;
 
+        const targetInvoice = data.invoices[index];
+
+        if (!targetInvoice || isRefundInvoice(targetInvoice)) {
+            return;
+        }
+
         if (data.payment_plan === 'installment') {
             const nextCurrentInvoices = data.invoices.filter(
                 (_, invoiceIndex) => invoiceIndex !== index,
             );
+            const { editableInvoices } =
+                splitInvoicesByRefundStatus(nextCurrentInvoices);
             const nextInstallmentCount = sanitizeInstallmentInvoiceCount(
-                Number(nextCurrentInvoices.length ?? 0),
+                Number(editableInvoices.length ?? 0),
             );
 
             setData({
@@ -1169,6 +1223,14 @@ export default function OrderForm({
     // error
     function formatError(path: string, message: string) {
         const parts = path.split('.');
+
+        if (path === 'order_number' || path === 'number_format_id') {
+            return `Order number ${cleanMessage(message)}`;
+        }
+
+        if (path === 'invoice_number') {
+            return `Invoice number ${cleanMessage(message)}`;
+        }
 
         if (parts[0] === 'invoices' && parts.length === 3) {
             const invoiceIndex = Number(parts[1]) + 1;
@@ -1945,6 +2007,7 @@ export default function OrderForm({
                             </div>
 
                             {data.invoices.map((invoice, idx) => {
+                                const isRefundRow = isRefundInvoice(invoice);
                                 const invoiceHasErrors = hasInvoiceErrors(idx);
                                 const invoiceErrors = getInvoiceErrors(idx);
                                 const invoiceErrorMap = errors as Record<
@@ -1957,7 +2020,8 @@ export default function OrderForm({
                                     ] ??
                                     invoiceErrorMap[
                                         `invoices.${idx}.number_format_id`
-                                    ];
+                                    ] ??
+                                    invoiceErrorMap.invoice_number;
                                 const invoiceSubtotal = calculateTotal(
                                     invoice.items,
                                 );
@@ -2001,11 +2065,13 @@ export default function OrderForm({
                                     extensionAmountFromExtensions;
                                 const invoiceGrandTotal =
                                     invoiceSubtotal + invoiceExtensionTotal;
+                                const invoiceRowKey =
+                                    invoice._key ?? `invoice-${idx}`;
 
                                 return (
                                     <Card
                                         id={`order-invoice-card-${idx}`}
-                                        key={invoice._key}
+                                        key={invoiceRowKey}
                                         className={`overflow-hidden border-l-4 py-0 shadow-sm transition-shadow hover:shadow-md ${
                                             invoiceHasErrors
                                                 ? 'border-red-200 border-l-red-500 bg-red-50/20'
@@ -2108,12 +2174,12 @@ export default function OrderForm({
                                                             size="sm"
                                                             onClick={() =>
                                                                 toggleInvoice(
-                                                                    invoice._key,
+                                                                    invoiceRowKey,
                                                                 )
                                                             }
                                                         >
                                                             {collapsedInvoices[
-                                                                invoice._key
+                                                                invoiceRowKey
                                                             ]
                                                                 ? 'Expand'
                                                                 : 'Collapse'}
@@ -2149,13 +2215,15 @@ export default function OrderForm({
                                             </div>
 
                                             {!collapsedInvoices[
-                                                invoice._key
+                                                invoiceRowKey
                                             ] && (
                                                 <div className="space-y-4 px-4 pb-4">
                                                     <InvoiceHeader
                                                         invoice={invoice}
                                                         disabled={
-                                                            processing || isView
+                                                            processing ||
+                                                            isView ||
+                                                            isRefundRow
                                                         }
                                                         renderError={(path) =>
                                                             renderError(
@@ -2258,7 +2326,10 @@ export default function OrderForm({
 
                                                     <QuotationItemTableForm
                                                         items={invoice.items}
-                                                        disabled={isView}
+                                                        disabled={
+                                                            isView ||
+                                                            isRefundRow
+                                                        }
                                                         renderError={(path) =>
                                                             renderError(
                                                                 `invoices.${idx}.${path}`,
@@ -2333,7 +2404,10 @@ export default function OrderForm({
                                                                     ),
                                                             );
                                                         }}
-                                                        readOnly={isView}
+                                                        readOnly={
+                                                            isView ||
+                                                            isRefundRow
+                                                        }
                                                         extensionTotalAmount={
                                                             invoiceExtensionTotal
                                                         }

@@ -23,6 +23,92 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_member_without_package_reports_paid_amount_as_overpaid_amount(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'No Package Overpaid Member',
+            'email' => 'no-package-overpaid@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-NOPKG-001',
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => null,
+            'date_of_application' => now()->format('Y-m-d'),
+            'is_holding' => true,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'No package paid item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 500,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'No package invoice',
+            'amount' => 500,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+
+        $invoice->quotationItems()->sync([$item->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 500,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $holdingRows = app(CustomerConfirmationService::class)->getForHoldingIndex();
+        $groupRow = collect($holdingRows)->firstWhere('id', $group->id);
+
+        $this->assertNotNull($groupRow);
+        $this->assertSame(500.0, (float) ($groupRow['paid_amount'] ?? 0));
+        $this->assertSame(0.0, (float) ($groupRow['total_amount'] ?? 0));
+        $this->assertSame(500.0, (float) ($groupRow['overpaid_amount'] ?? 0));
+
+        $memberRow = collect($groupRow['members'] ?? [])->firstWhere('id', $member->id);
+        $this->assertNotNull($memberRow);
+        $this->assertSame(500.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(500.0, (float) ($memberRow['overpaid_amount'] ?? 0));
+    }
+
     public function test_customer_confirmation_update_syncs_open_manifest_member_only(): void
     {
         $authUser = User::factory()->create();
@@ -367,6 +453,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         ]);
 
         $response = $this->post(route('customer-confirmations.refunds.store', $group->id), [
+            'refund_type' => 'cancel',
             'member_refunds' => [
                 [
                     'member_id' => $member->id,
@@ -378,23 +465,51 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $response->assertRedirect(route('receipt.index'));
 
+        $refundInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('status', 'refund')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($refundInvoice);
+        $this->assertNotSame((int) $invoice->id, (int) $refundInvoice->id);
+        $this->assertSame(-500.0, (float) ($refundInvoice->amount ?? 0));
+
+        $refundItems = $refundInvoice->quotationItems()
+            ->orderBy('sort_order')
+            ->get();
+
+        $this->assertCount(2, $refundItems);
+
+        $refundHeader = $refundItems->firstWhere('is_header', true);
+        $refundDetail = $refundItems->firstWhere('is_header', false);
+
+        $this->assertNotNull($refundHeader);
+        $this->assertNotNull($refundDetail);
+        $this->assertSame('Refund', (string) ($refundHeader?->description ?? ''));
+        $this->assertSame('Refund - Refund Member', (string) ($refundDetail?->description ?? ''));
+        $this->assertSame((int) ($refundHeader?->id ?? 0), (int) ($refundDetail?->parent_id ?? 0));
+        $this->assertSame(-500.0, (float) ($refundDetail?->rate ?? 0));
+
         $refundReceipt = Receipt::query()
-            ->where('invoice_id', $invoice->id)
+            ->where('invoice_id', $refundInvoice->id)
             ->where('amount', '-500.00')
             ->latest('id')
             ->first();
 
         $this->assertNotNull($refundReceipt);
+        $this->assertSame('transfer', (string) ($refundReceipt->payment_method ?? ''));
+        $this->assertSame('Receipt For Refund', (string) ($refundReceipt->description ?? ''));
 
         $member->refresh();
 
-        $this->assertNotSame('cancelled', $member->status);
+        $this->assertSame('cancelled', $member->status);
 
         $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex();
         $groupRow = collect($grouped)->firstWhere('id', $group->id);
 
         $this->assertNotNull($groupRow);
-        $this->assertSame(500.0, (float) ($groupRow['paid_amount'] ?? 0));
+        $this->assertSame(0.0, (float) ($groupRow['paid_amount'] ?? 0));
     }
 
     public function test_customer_confirmation_member_refund_allows_zero_amount_and_creates_refund_receipt(): void
@@ -475,6 +590,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         ]);
 
         $response = $this->post(route('customer-confirmations.refunds.store', $group->id), [
+            'refund_type' => 'cancel',
             'member_refunds' => [
                 [
                     'member_id' => $member->id,
@@ -486,14 +602,247 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $response->assertRedirect(route('receipt.index'));
 
+        $refundInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('status', 'refund')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($refundInvoice);
+
         $refundReceipt = Receipt::query()
-            ->where('invoice_id', $invoice->id)
-            ->where('payment_method', 'refund')
+            ->where('invoice_id', $refundInvoice->id)
+            ->where('payment_method', 'transfer')
             ->latest('id')
             ->first();
 
         $this->assertNotNull($refundReceipt);
         $this->assertSame(0.0, (float) ($refundReceipt->amount ?? 0));
+        $this->assertSame('Receipt For Refund', (string) ($refundReceipt->description ?? ''));
+    }
+
+    public function test_customer_confirmation_member_refund_uses_custom_payment_method_and_description(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Refund Custom Member',
+            'email' => 'refund-custom-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-REFUND-003',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-REFUND-003',
+            'name' => 'Refund Custom Package',
+            'status' => 'open',
+            'price_single' => 1000,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $baseItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Custom Base Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Custom Base Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+            'payment_method' => 'transfer',
+        ]);
+
+        $invoice->quotationItems()->sync([$baseItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response = $this->post(route('customer-confirmations.refunds.store', $group->id), [
+            'refund_type' => 'cancel',
+            'member_refunds' => [
+                [
+                    'member_id' => $member->id,
+                    'mode' => 'fixed',
+                    'amount' => 100,
+                    'payment_method' => 'cash',
+                    'description' => 'Receipt For Refund',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('receipt.index'));
+
+        $refundInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('status', 'refund')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($refundInvoice);
+
+        $refundReceipt = Receipt::query()
+            ->where('invoice_id', $refundInvoice->id)
+            ->where('amount', '-100.00')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($refundReceipt);
+        $this->assertSame('cash', (string) ($refundReceipt->payment_method ?? ''));
+        $this->assertSame('Receipt For Refund', (string) ($refundReceipt->description ?? ''));
+    }
+
+    public function test_customer_confirmation_overpaid_refund_keeps_member_status_active(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Overpaid Member',
+            'email' => 'overpaid-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-OVERPAID-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-OVERPAID-001',
+            'name' => 'Overpaid Package',
+            'status' => 'open',
+            'price_single' => 4000,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'fully_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $baseItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Overpaid Base Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Overpaid Base Invoice',
+            'amount' => 5000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+            'payment_method' => 'transfer',
+        ]);
+
+        $invoice->quotationItems()->sync([$baseItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response = $this->post(route('customer-confirmations.refunds.store', $group->id), [
+            'refund_type' => 'overpaid',
+            'member_refunds' => [
+                [
+                    'member_id' => $member->id,
+                    'mode' => 'fixed',
+                    'amount' => 1000,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('receipt.index'));
+
+        $refundInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('status', 'refund')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($refundInvoice);
+        $this->assertSame(-1000.0, (float) ($refundInvoice->amount ?? 0));
+
+        $refundReceipt = Receipt::query()
+            ->where('invoice_id', $refundInvoice->id)
+            ->where('amount', '-1000.00')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($refundReceipt);
+
+        $member->refresh();
+        $this->assertNotSame('cancelled', $member->status);
     }
 
     public function test_generate_quotation_blocks_active_member_link_but_allows_after_cancellation(): void

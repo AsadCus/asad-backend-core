@@ -19,6 +19,7 @@ use App\Models\QuotationNotes;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Support\DataScope;
+use App\Support\InvoiceStatus;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -352,6 +353,7 @@ class CustomerConfirmationService
                     'total_amount' => round($groupTotalAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
+                    'can_delete' => $activeMembers->count() === 0,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
                     'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
                         $summary = $this->resolveMemberFinancialSnapshot($member, $group->package);
@@ -375,6 +377,7 @@ class CustomerConfirmationService
                             'nric_number' => $member->customer?->nric_number ?? '-',
                             'nationality' => $member->customer?->nationality ?? '-',
                             'passport_number' => $member->customer?->passport_number ?? '-',
+                            'latest_invoice_payment_method' => $this->resolveMemberLatestInvoicePaymentMethod($member),
                         ];
                     })->all(),
                 ];
@@ -453,6 +456,7 @@ class CustomerConfirmationService
                     'total_amount' => round($groupTotalAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
+                    'can_delete' => $activeMembers->count() === 0,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
                     'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
                         $summary = $this->resolveMemberFinancialSnapshot($member, $group->package);
@@ -476,6 +480,7 @@ class CustomerConfirmationService
                             'nric_number' => $member->customer?->nric_number ?? '-',
                             'nationality' => $member->customer?->nationality ?? '-',
                             'passport_number' => $member->customer?->passport_number ?? '-',
+                            'latest_invoice_payment_method' => $this->resolveMemberLatestInvoicePaymentMethod($member),
                         ];
                     })->all(),
                 ];
@@ -554,6 +559,7 @@ class CustomerConfirmationService
                     'total_amount' => round($groupTotalAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
+                    'can_delete' => $activeMembers->count() === 0,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
                     'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
                         $summary = $this->resolveMemberFinancialSnapshot($member, $group->package);
@@ -577,6 +583,7 @@ class CustomerConfirmationService
                             'nric_number' => $member->customer?->nric_number ?? '-',
                             'nationality' => $member->customer?->nationality ?? '-',
                             'passport_number' => $member->customer?->passport_number ?? '-',
+                            'latest_invoice_payment_method' => $this->resolveMemberLatestInvoicePaymentMethod($member),
                         ];
                     })->all(),
                 ];
@@ -614,7 +621,9 @@ class CustomerConfirmationService
                 return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
             });
 
-            if ($invoiceSubtotal <= 0) {
+            $invoiceSubtotalAbsolute = abs($invoiceSubtotal);
+
+            if ($invoiceSubtotalAbsolute <= 0) {
                 continue;
             }
 
@@ -624,13 +633,25 @@ class CustomerConfirmationService
                     return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
                 });
 
-            if ($memberSubtotal <= 0) {
+            $memberSubtotalAbsolute = abs($memberSubtotal);
+
+            if ($memberSubtotalAbsolute <= 0) {
                 continue;
             }
 
             $receiptTotal = (float) $invoice->receipt->sum(function ($receipt): float {
                 return (float) ($receipt->amount ?? 0);
             });
+
+            if (InvoiceStatus::isRefund($invoice->status) || (float) ($invoice->amount ?? 0) < 0) {
+                if ($receiptTotal === 0.0) {
+                    continue;
+                }
+
+                $paidAmount += $receiptTotal * ($memberSubtotalAbsolute / $invoiceSubtotalAbsolute);
+
+                continue;
+            }
 
             $positiveExtensionTotal = (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
                 ->sum(function ($extension): float {
@@ -659,7 +680,7 @@ class CustomerConfirmationService
                 continue;
             }
 
-            $paidAmount += $invoicePaidAmount * ($memberSubtotal / $invoiceSubtotal);
+            $paidAmount += $invoicePaidAmount * ($memberSubtotalAbsolute / $invoiceSubtotalAbsolute);
         }
 
         return round($paidAmount, 2);
@@ -745,7 +766,7 @@ class CustomerConfirmationService
         $paidAmount = $this->resolveMemberPaidAmount($member);
         $billedAmount = $this->resolveMemberBilledAmount($member);
         $totalAmount = $package ? $this->resolveMemberTotalAmount($member, $package) : 0.0;
-        $overpaidAmount = $package ? max(0.0, round($paidAmount - $totalAmount, 2)) : 0.0;
+        $overpaidAmount = max(0.0, round($paidAmount - $totalAmount, 2));
 
         return [
             'status' => $this->resolveComputedMemberStatus($normalizedStatus, $package, $paidAmount, $totalAmount),
@@ -1283,6 +1304,17 @@ class CustomerConfirmationService
     {
         DB::transaction(function () use ($id) {
             $group = CustomerConfirmation::with(['members', 'enquiry'])->findOrFail($id);
+
+            $activeMembersCount = $group->members
+                ->filter(fn (CustomerConfirmationMember $member) => $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled')
+                ->count();
+
+            if ($activeMembersCount > 0) {
+                throw ValidationException::withMessages([
+                    'group' => 'Customer confirmation can only be deleted when all members are cancelled.',
+                ]);
+            }
+
             $oldSnapshot = $this->sanitizeSnapshot(
                 $this->buildGroupSnapshot($group),
             );
@@ -1446,7 +1478,7 @@ class CustomerConfirmationService
                 'enquiry_id' => $sourceGroup->enquiry_id,
                 'created_by' => auth()->id(),
                 'package_id' => $targetPackageId,
-                'is_holding' => true,
+                'is_holding' => $targetPackageId ? false : true,
                 'package_room_type' => $sourceGroup->package_room_type,
                 'package_category' => $sourceGroup->package_category,
                 'date_of_application' => now(),
@@ -1712,7 +1744,6 @@ class CustomerConfirmationService
 
                     $newInvoice = Invoice::create([
                         'order_id' => $newOrder->id,
-                        'type' => $sourceInvoice->type,
                         'description' => $sourceInvoice->description,
                         'payment_method' => $sourceInvoice->payment_method,
                         'extensions' => $sourceInvoice->extensions,
@@ -2053,14 +2084,13 @@ class CustomerConfirmationService
 
             $topUpInvoice = Invoice::create([
                 'order_id' => $targetOrder->id,
-                'type' => null,
                 'description' => 'Package top-up after holding package update',
                 'payment_method' => null,
                 'extensions' => [],
                 'amount' => $shortfallAmount,
                 'invoice_date' => now()->format('Y-m-d'),
                 'due_date' => now()->format('Y-m-d'),
-                'status' => 'issued',
+                'status' => InvoiceStatus::Issued,
             ]);
 
             $topUpInvoice->quotationItems()->sync([(int) $topUpItem->id]);
@@ -2641,19 +2671,24 @@ class CustomerConfirmationService
 
     /**
      * @param  array<int, array<string, mixed>>  $memberRefunds
-     * @return array{count:int, receipt_ids:array<int, int>}
+     * @return array{count:int, receipt_ids:array<int, int>, invoice_ids:array<int, int>}
      */
-    public function createRefundReceipts(int $confirmationId, array $memberRefunds): array
+    public function createRefundReceipts(int $confirmationId, array $memberRefunds, string $refundType = 'cancel'): array
     {
-        return DB::transaction(function () use ($confirmationId, $memberRefunds) {
+        return DB::transaction(function () use ($confirmationId, $memberRefunds, $refundType) {
             $group = CustomerConfirmation::with([
                 'members.customer.user',
                 'members.quotationItems',
                 'members.quotationItems.invoices.receipt',
+                'package',
             ])->findOrFail($confirmationId);
 
             $membersById = $group->members->keyBy('id');
             $createdReceiptIds = [];
+            $createdInvoiceIds = [];
+            $normalizedRefundType = in_array($refundType, ['cancel', 'overpaid'], true)
+                ? $refundType
+                : 'cancel';
 
             foreach ($memberRefunds as $refundPayload) {
                 $memberId = (int) ($refundPayload['member_id'] ?? 0);
@@ -2673,29 +2708,107 @@ class CustomerConfirmationService
                     ]);
                 }
 
-                $refundAmount = $this->resolveRequestedRefundAmount($paidAmount, $refundPayload);
+                $snapshot = $this->resolveMemberFinancialSnapshot($member, $group->package);
+                $overpaidAmount = round((float) ($snapshot['overpaid_amount'] ?? 0), 2);
 
-                $memberName = $member->customer?->user?->name ?? 'Member #'.$member->id;
-                $refundDescription = 'Refund - '.$memberName;
+                if ($normalizedRefundType === 'overpaid' && $overpaidAmount <= 0) {
+                    throw ValidationException::withMessages([
+                        'member_refunds' => 'Overpaid refund is only available for members with overpaid amount.',
+                    ]);
+                }
 
-                $linkedInvoice = $member->quotationItems
-                    ->flatMap(fn ($item) => $item->invoices)
-                    ->sortByDesc('id')
-                    ->first();
+                $maxRefundAmount = $normalizedRefundType === 'overpaid'
+                    ? $overpaidAmount
+                    : $paidAmount;
+
+                $refundAmount = $this->resolveRequestedRefundAmount($maxRefundAmount, $refundPayload);
+
+                $linkedInvoice = $this->resolveMemberLatestInvoice($member);
+
+                if (! $linkedInvoice || ! $linkedInvoice->order || ! $linkedInvoice->order->quotation) {
+                    throw ValidationException::withMessages([
+                        'member_refunds' => 'Unable to resolve source invoice for refund generation.',
+                    ]);
+                }
+
+                $sourceQuotation = $linkedInvoice->order->quotation;
+                $memberName = $member->customer?->user?->name ?? ('Member #'.$member->id);
+
+                $paymentMethod = trim((string) ($refundPayload['payment_method'] ?? ''));
+                if ($paymentMethod === '') {
+                    $paymentMethod = trim((string) ($this->resolveMemberLatestInvoicePaymentMethod($member) ?? ''));
+                }
+
+                if ($paymentMethod === '') {
+                    $paymentMethod = 'refund';
+                }
+
+                $refundDescription = trim((string) ($refundPayload['description'] ?? ''));
+
+                if ($refundDescription === '') {
+                    $refundDescription = 'Receipt For Refund';
+                }
+
+                $refundSortOrder = ((int) QuotationItem::query()
+                    ->where('quotation_id', (int) $sourceQuotation->id)
+                    ->max('sort_order')) + 1;
+
+                $refundHeaderItem = QuotationItem::create([
+                    'quotation_id' => (int) $sourceQuotation->id,
+                    'customer_confirmation_member_id' => null,
+                    'parent_id' => null,
+                    'description' => 'Refund',
+                    'is_header' => true,
+                    'sort_order' => $refundSortOrder,
+                ]);
+
+                $refundDetailItem = QuotationItem::create([
+                    'quotation_id' => (int) $sourceQuotation->id,
+                    'customer_confirmation_member_id' => (int) $member->id,
+                    'parent_id' => (int) $refundHeaderItem->id,
+                    'description' => 'Refund - '.$memberName,
+                    'is_header' => false,
+                    'quantity' => 1,
+                    'rate' => -$refundAmount,
+                    'sort_order' => $refundSortOrder + 1,
+                ]);
+
+                $refundInvoice = Invoice::create([
+                    'order_id' => (int) $linkedInvoice->order_id,
+                    'description' => 'Refund Invoice - '.$memberName,
+                    'payment_method' => $paymentMethod,
+                    'extensions' => [],
+                    'amount' => -$refundAmount,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->format('Y-m-d'),
+                    'status' => InvoiceStatus::Refund,
+                ]);
+
+                $refundInvoice->quotationItems()->sync([
+                    (int) $refundHeaderItem->id,
+                    (int) $refundDetailItem->id,
+                ]);
 
                 $refundReceipt = Receipt::create([
-                    'invoice_id' => $linkedInvoice?->id,
+                    'invoice_id' => $refundInvoice->id,
                     'receipt_number' => $this->numberingService->ensureNumber('receipt', null),
                     'amount' => -$refundAmount,
                     'receipt_date' => now()->format('Y-m-d'),
-                    'payment_method' => 'refund',
+                    'payment_method' => $paymentMethod,
                     'reference' => null,
                     'description' => $refundDescription,
                 ]);
 
+                if ($normalizedRefundType === 'cancel') {
+                    $member->update([
+                        'status' => 'cancelled',
+                    ]);
+                }
+
                 $this->syncOpenManifestMemberSnapshot($member->fresh());
 
                 $createdReceiptIds[] = (int) $refundReceipt->id;
+                $createdInvoiceIds[] = (int) $refundInvoice->id;
             }
 
             app(PackageSeatService::class)->recalculateForPackageId(
@@ -2707,40 +2820,40 @@ class CustomerConfirmationService
             return [
                 'count' => count($createdReceiptIds),
                 'receipt_ids' => $createdReceiptIds,
+                'invoice_ids' => $createdInvoiceIds,
             ];
         });
     }
 
     /**
      * @param  array<int, int>  $memberIds
-     * @return array{count:int, receipt_ids:array<int, int>}
+     * @return array{count:int, receipt_ids:array<int, int>, invoice_ids:array<int, int>}
      */
     public function createOverpaymentRefundReceipts(int $confirmationId, array $memberIds): array
     {
-        return DB::transaction(function () use ($confirmationId, $memberIds) {
-            $group = CustomerConfirmation::with([
-                'members.customer.user',
-                'members.quotationItems',
-                'members.quotationItems.invoices.receipt',
-                'package',
-            ])->findOrFail($confirmationId);
+        $group = CustomerConfirmation::with([
+            'members.customer.user',
+            'members.quotationItems',
+            'members.quotationItems.invoices.receipt',
+            'package',
+        ])->findOrFail($confirmationId);
 
-            $requestedMemberIds = collect($memberIds)
-                ->map(fn ($memberId) => (int) $memberId)
-                ->filter(fn (int $memberId) => $memberId > 0)
-                ->unique()
-                ->values();
+        $requestedMemberIds = collect($memberIds)
+            ->map(fn ($memberId) => (int) $memberId)
+            ->filter(fn (int $memberId) => $memberId > 0)
+            ->unique()
+            ->values();
 
-            if ($requestedMemberIds->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'member_ids' => 'At least one member is required for overpayment refund.',
-                ]);
-            }
+        if ($requestedMemberIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'member_ids' => 'At least one member is required for overpayment refund.',
+            ]);
+        }
 
-            $membersById = $group->members->keyBy('id');
-            $createdReceiptIds = [];
+        $membersById = $group->members->keyBy('id');
 
-            foreach ($requestedMemberIds as $memberId) {
+        $memberRefundPayloads = $requestedMemberIds
+            ->map(function (int $memberId) use ($membersById, $group): array {
                 $member = $membersById->get($memberId);
 
                 if (! $member) {
@@ -2758,45 +2871,24 @@ class CustomerConfirmationService
                     ]);
                 }
 
-                $linkedInvoice = $member->quotationItems
-                    ->flatMap(fn ($item) => $item->invoices)
-                    ->sortByDesc('id')
-                    ->first();
+                $memberName = $member->customer?->user?->name ?? ('Member #'.$member->id);
 
-                if (! $linkedInvoice) {
-                    throw ValidationException::withMessages([
-                        'member_ids' => 'Unable to find invoice link for selected overpaid member.',
-                    ]);
-                }
-
-                $memberName = $member->customer?->user?->name ?? 'Member #'.$member->id;
-
-                $refundReceipt = Receipt::create([
-                    'invoice_id' => $linkedInvoice->id,
-                    'receipt_number' => $this->numberingService->ensureNumber('receipt', null),
-                    'amount' => -$overpaidAmount,
-                    'receipt_date' => now()->format('Y-m-d'),
+                return [
+                    'member_id' => $memberId,
+                    'mode' => 'fixed',
+                    'amount' => round($overpaidAmount, 2),
                     'payment_method' => 'overpayment_refund',
-                    'reference' => null,
                     'description' => 'Overpayment Refund - '.$memberName,
-                ]);
+                ];
+            })
+            ->values()
+            ->all();
 
-                $this->syncOpenManifestMemberSnapshot($member->fresh());
-
-                $createdReceiptIds[] = (int) $refundReceipt->id;
-            }
-
-            $this->syncMemberStatusesForConfirmation((int) $group->id);
-
-            app(PackageSeatService::class)->recalculateForPackageId(
-                (int) ($group->package_id ?? 0),
-            );
-
-            return [
-                'count' => count($createdReceiptIds),
-                'receipt_ids' => $createdReceiptIds,
-            ];
-        });
+        return $this->createRefundReceipts(
+            $confirmationId,
+            $memberRefundPayloads,
+            'overpaid',
+        );
     }
 
     /**
@@ -2833,6 +2925,35 @@ class CustomerConfirmationService
         }
 
         return round($amount, 2);
+    }
+
+    private function resolveMemberLatestInvoice(CustomerConfirmationMember $member): ?Invoice
+    {
+        return $member->quotationItems
+            ->flatMap(fn ($item) => $item->invoices)
+            ->reject(fn (Invoice $invoice) => InvoiceStatus::isRefund($invoice->status))
+            ->sortByDesc('id')
+            ->first();
+    }
+
+    private function resolveMemberLatestInvoicePaymentMethod(CustomerConfirmationMember $member): ?string
+    {
+        $latestInvoice = $this->resolveMemberLatestInvoice($member);
+
+        if (! $latestInvoice) {
+            return null;
+        }
+
+        $invoicePaymentMethod = trim((string) ($latestInvoice->payment_method ?? ''));
+        if ($invoicePaymentMethod !== '') {
+            return $invoicePaymentMethod;
+        }
+
+        $latestReceiptPaymentMethod = trim((string) ($latestInvoice->receipt
+            ->sortByDesc('id')
+            ->first()?->payment_method ?? ''));
+
+        return $latestReceiptPaymentMethod !== '' ? $latestReceiptPaymentMethod : null;
     }
 
     /**

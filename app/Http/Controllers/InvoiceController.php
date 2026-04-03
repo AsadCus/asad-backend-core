@@ -119,6 +119,11 @@ class InvoiceController extends Controller
 
     public function edit($id)
     {
+        if ($this->invoiceService->isRefundInvoice((int) $id)) {
+            return redirect()->route('invoice.index')
+                ->with('error', 'Refund invoice cannot be edited.');
+        }
+
         $data['data'] = $this->invoiceService->getForEditShow($id);
         $data['order'] = [
             'id' => $data['data']['order_id'] ?? null,
@@ -135,6 +140,11 @@ class InvoiceController extends Controller
 
     public function update(Request $request, $id)
     {
+        if ($this->invoiceService->isRefundInvoice((int) $id)) {
+            return redirect()->route('invoice.index')
+                ->with('error', 'Refund invoice cannot be edited.');
+        }
+
         $validated = $request->validate(array_merge([
             'order_id' => 'required|exists:orders,id',
         ], (new InvoiceRule)->singleRules()));
@@ -150,12 +160,26 @@ class InvoiceController extends Controller
         $ids = $request->input('ids');
 
         if ($ids && is_array($ids)) {
+            $hasRefundInvoice = collect($ids)
+                ->map(fn ($invoiceId) => (int) $invoiceId)
+                ->contains(fn (int $invoiceId) => $this->invoiceService->isRefundInvoice($invoiceId));
+
+            if ($hasRefundInvoice) {
+                return redirect()->route('invoice.index')
+                    ->with('error', 'Refund invoice cannot be deleted.');
+            }
+
             foreach ($ids as $deleteId) {
                 $this->invoiceService->delete($deleteId);
             }
 
             return redirect()->route('invoice.index')
                 ->with('success', 'Selected invoices deleted successfully.');
+        }
+
+        if ($this->invoiceService->isRefundInvoice((int) $id)) {
+            return redirect()->route('invoice.index')
+                ->with('error', 'Refund invoice cannot be deleted.');
         }
 
         $this->invoiceService->delete($id);

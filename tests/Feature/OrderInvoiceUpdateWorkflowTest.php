@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\OrderService;
 use App\Services\QuotationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -52,6 +53,413 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         ]);
 
         return compact('order', 'quotation');
+    }
+
+    public function test_order_datatable_and_edit_payload_include_refund_invoices(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+
+        Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Regular Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Refund Invoice',
+            'amount' => -200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'refund',
+        ]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        $datatableRow = collect($orderService->getForDataTable())
+            ->firstWhere('id', $order->id);
+
+        $this->assertNotNull($datatableRow);
+        $this->assertCount(2, $datatableRow['invoices']);
+        $this->assertTrue(collect($datatableRow['invoices'])->contains(fn ($invoice) => ($invoice['status'] ?? null) === 'refund'));
+
+        $editPayload = $orderService->getForEditShow((int) $order->id);
+
+        $this->assertCount(2, $editPayload['invoices']);
+        $this->assertTrue(collect($editPayload['invoices'])->contains(fn ($invoice) => ($invoice['status'] ?? null) === 'refund'));
+    }
+
+    public function test_order_update_cannot_remove_refund_invoice_when_missing_from_payload(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $editableItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Editable Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $refundHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Refund',
+            'is_header' => true,
+            'sort_order' => 2,
+        ]);
+
+        $refundDetail = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => $refundHeader->id,
+            'description' => 'Refund - Detail',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => -200,
+            'sort_order' => 3,
+        ]);
+
+        $editableInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Editable Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $editableInvoice->quotationItems()->sync([$editableItem->id]);
+
+        $refundInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Refund Invoice',
+            'amount' => -200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'refund',
+        ]);
+        $refundInvoice->quotationItems()->sync([$refundHeader->id, $refundDetail->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $orderService->update([
+            'payment_plan' => 'full',
+            'invoices' => [
+                [
+                    'id' => $editableInvoice->id,
+                    '_key' => 'editable-invoice',
+                    'description' => 'Editable Invoice Updated',
+                    'amount' => 1000,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(7)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            'id' => $editableItem->id,
+                            '_key' => 'editable-item',
+                            'description' => 'Editable Item Updated',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1000,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ], $order->id);
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $refundInvoice->id,
+            'order_id' => $order->id,
+            'status' => 'refund',
+            'amount' => '-200.00',
+        ]);
+    }
+
+    public function test_order_rule_allows_refund_status_for_nested_invoice_rows(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $lineItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Refund Line',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => -200,
+            'sort_order' => 1,
+        ]);
+
+        $payload = [
+            'order_number' => 'ORD-REF-001',
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+            'invoices' => [
+                [
+                    '_key' => 'invoice-refund-1',
+                    'description' => 'Refund Invoice',
+                    'payment_method' => 'refund',
+                    'amount' => -200,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->format('Y-m-d'),
+                    'status' => 'refund',
+                    'items' => [
+                        [
+                            'id' => $lineItem->id,
+                            '_key' => 'item-refund-1',
+                            'description' => 'Refund Line',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => -200,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $validator = Validator::make($payload, (new \App\Rules\OrderRule)->rules($order->id));
+
+        $this->assertTrue($validator->passes(), json_encode($validator->errors()->toArray()));
+    }
+
+    public function test_order_update_maps_duplicate_invoice_number_error_to_row_field(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $existingItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Existing Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $existingInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-OWN-001',
+            'description' => 'Existing Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $existingInvoice->quotationItems()->sync([$existingItem->id]);
+
+        $otherCustomerUser = User::factory()->create();
+        $otherCustomer = Customer::create([
+            'user_id' => $otherCustomerUser->id,
+            'customer_number' => 'CUST-ORD-UPD-OTHER-001',
+        ]);
+
+        $otherQuotation = Quotation::create([
+            'customer_id' => $otherCustomer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'converted',
+        ]);
+
+        $otherOrder = Order::create([
+            'quotation_id' => $otherQuotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        Invoice::create([
+            'order_id' => $otherOrder->id,
+            'invoice_number' => 'INV-DUP-001',
+            'description' => 'External Invoice',
+            'amount' => 700,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        $newItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'New Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 500,
+            'sort_order' => 2,
+        ]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        try {
+            $orderService->update([
+                'payment_plan' => 'full',
+                'invoices' => [
+                    [
+                        'id' => $existingInvoice->id,
+                        '_key' => 'new-invoice',
+                        'invoice_number' => 'INV-DUP-001',
+                        'description' => 'New Invoice',
+                        'payment_method' => 'transfer',
+                        'amount' => 500,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(7)->format('Y-m-d'),
+                        'status' => 'issued',
+                        'items' => [
+                            [
+                                'id' => $newItem->id,
+                                '_key' => 'new-item',
+                                'description' => 'New Item',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 500,
+                                'sort_order' => 1,
+                            ],
+                        ],
+                    ],
+                ],
+            ], $order->id);
+
+            $this->fail('Expected duplicate invoice number validation error was not thrown.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('invoices.0.invoice_number', $exception->errors());
+            $this->assertSame(
+                'The number has already been used.',
+                (string) ($exception->errors()['invoices.0.invoice_number'][0] ?? ''),
+            );
+        }
+    }
+
+    public function test_order_update_accepts_refund_row_without_id_when_invoice_number_matches_existing_refund(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        $editableItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Editable Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $refundHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Refund',
+            'is_header' => true,
+            'sort_order' => 2,
+        ]);
+
+        $refundDetail = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => $refundHeader->id,
+            'description' => 'Refund - Detail',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => -200,
+            'sort_order' => 3,
+        ]);
+
+        $editableInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-EDIT-001',
+            'description' => 'Editable Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $editableInvoice->quotationItems()->sync([$editableItem->id]);
+
+        $refundInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-REFUND-001',
+            'description' => 'Refund Invoice',
+            'amount' => -200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'refund',
+        ]);
+        $refundInvoice->quotationItems()->sync([$refundHeader->id, $refundDetail->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        $updatedOrder = $orderService->update([
+            'payment_plan' => 'full',
+            'invoices' => [
+                [
+                    'id' => $editableInvoice->id,
+                    '_key' => 'editable-row',
+                    'invoice_number' => 'INV-EDIT-001',
+                    'description' => 'Editable Invoice Updated',
+                    'payment_method' => 'transfer',
+                    'amount' => 1000,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(7)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'items' => [
+                        [
+                            'id' => $editableItem->id,
+                            '_key' => 'editable-item',
+                            'description' => 'Editable Item Updated',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1000,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+                [
+                    '_key' => 'refund-row-no-id',
+                    'invoice_number' => 'INV-REFUND-001',
+                    'description' => 'Refund Invoice',
+                    'payment_method' => 'refund',
+                    'amount' => -200,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->format('Y-m-d'),
+                    'status' => 'refund',
+                    'is_refund' => true,
+                    'items' => [
+                        [
+                            'id' => $refundHeader->id,
+                            '_key' => 'refund-header',
+                            'description' => 'Refund',
+                            'is_header' => true,
+                            'quantity' => null,
+                            'rate' => null,
+                            'sort_order' => 2,
+                        ],
+                        [
+                            'id' => $refundDetail->id,
+                            '_key' => 'refund-detail',
+                            'description' => 'Refund - Detail',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => -200,
+                            'sort_order' => 3,
+                        ],
+                    ],
+                ],
+            ],
+        ], $order->id);
+
+        $this->assertNotNull($updatedOrder);
+        $this->assertDatabaseHas('invoices', [
+            'id' => $refundInvoice->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-REFUND-001',
+            'status' => 'refund',
+        ]);
     }
 
     public function test_order_update_keeps_invoice_identity_and_syncs_receipt_amount_for_paid_invoice(): void

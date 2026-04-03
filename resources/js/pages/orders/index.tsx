@@ -359,6 +359,9 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                     }
 
                                                     if (
+                                                        !invoice.is_refund &&
+                                                        invoice.status !==
+                                                            'refund' &&
                                                         invoice.status !==
                                                             'paid' &&
                                                         invoice.status !==

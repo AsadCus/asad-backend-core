@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Helpers\NumberGenerator;
+use App\Support\InvoiceStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +15,6 @@ class Invoice extends Model
     protected $fillable = [
         'order_id',
         'invoice_number',
-        'type',
         'description',
         'payment_method',
         'extensions',
@@ -86,5 +86,10 @@ class Invoice extends Model
                 $invoice->invoice_number = NumberGenerator::generate('invoice');
             }
         });
+    }
+
+    public function isRefund(): bool
+    {
+        return InvoiceStatus::isRefund($this->status);
     }
 }

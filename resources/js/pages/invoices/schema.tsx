@@ -66,6 +66,7 @@ export const invoiceSchema = z.object({
     invoice_date: z.string().nullable().optional(),
     due_date: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
+    is_refund: z.boolean().optional(),
     has_receipt: z.boolean().optional(),
     receipt_id: z.number().nullable().optional(),
     description: z.string().nullable().optional(),
@@ -75,18 +76,13 @@ export const invoiceSchema = z.object({
 
 export type InvoiceSchema = z.infer<typeof invoiceSchema>;
 
-export const type = [
-    { label: 'Deposit', value: 'deposit' },
-    { label: 'Handover', value: 'handover' },
-    { label: 'Installment', value: 'installment' },
-];
-
 export const statuses = [
     { label: 'Draft', value: 'draft' },
     { label: 'Outstanding', value: 'issued' },
     { label: 'Paid', value: 'paid' },
     { label: 'Overdue', value: 'overdue' },
     { label: 'Void', value: 'cancelled' },
+    { label: 'Refund', value: 'refund' },
 ];
 
 export const statusColors = {
@@ -95,6 +91,7 @@ export const statusColors = {
     paid: 'bg-green-100 text-green-800',
     overdue: 'bg-yellow-100 text-yellow-800',
     cancelled: 'bg-red-100 text-red-800',
+    refund: 'bg-rose-100 text-rose-800',
     expired: 'bg-purple-100 text-purple-800',
 };
 
@@ -104,4 +101,5 @@ export const statusVariantMap: Record<string, string> = {
     paid: 'paid',
     overdue: 'overdue',
     cancelled: 'cancelled',
+    refund: 'refund',
 };

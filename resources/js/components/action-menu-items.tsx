@@ -269,12 +269,6 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
-            {actions.includes('cancel-member') && (
-                <Item onClick={() => onAction?.('cancel-member', row)}>
-                    Cancel
-                </Item>
-            )}
-
             {actions.includes('refund') && (
                 <Item onClick={() => onAction?.('refund', row)}>Refund</Item>
             )}
@@ -282,6 +276,12 @@ export function ActionMenuItems<TData>({
             {actions.includes('refund-overpaid') && (
                 <Item onClick={() => onAction?.('refund-overpaid', row)}>
                     Refund Overpaid
+                </Item>
+            )}
+
+            {actions.includes('cancel-member') && (
+                <Item onClick={() => onAction?.('cancel-member', row)}>
+                    Cancel
                 </Item>
             )}
 

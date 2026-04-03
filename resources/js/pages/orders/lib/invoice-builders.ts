@@ -748,6 +748,11 @@ function buildInstallmentItems(
     const depositSectionLines: InvoiceItemSchema[] = [];
     const fiftyPercentSectionLines: InvoiceItemSchema[] = [];
     const balanceSectionLines: InvoiceItemSchema[] = [];
+    const clampToItemAmount = (value: number, sourceAmount: number): number => {
+        return sourceAmount >= 0
+            ? Math.min(value, sourceAmount)
+            : Math.max(value, sourceAmount);
+    };
 
     const totalLineAmount = roundToCents(
         lineItemsWithAmounts.reduce(
@@ -803,17 +808,17 @@ function buildInstallmentItems(
                 ? roundToCents(amount * (numericDepositValue / 100))
                 : depositType === 'fixed' && fixedDepositTarget > 0
                   ? roundToCents(
-                        Math.min(
+                        clampToItemAmount(
                             Number(fixedDepositAllocations[index] ?? 0),
                             amount,
                         ),
                     )
                   : 0;
 
-        const depositAmount = Math.min(perItemDepositAmount, amount);
+        const depositAmount = clampToItemAmount(perItemDepositAmount, amount);
         const fiftyPercentTarget = roundToCents(amount * 0.5);
         const remainingAfterDeposit = roundToCents(amount - depositAmount);
-        const fiftyPercentAmount = Math.min(
+        const fiftyPercentAmount = clampToItemAmount(
             fiftyPercentTarget,
             remainingAfterDeposit,
         );
@@ -821,7 +826,7 @@ function buildInstallmentItems(
             amount - depositAmount - fiftyPercentAmount,
         );
 
-        if (depositAmount > 0) {
+        if (depositAmount !== 0) {
             depositSectionLines.push({
                 ...item,
                 _key: nanoid(),
@@ -835,7 +840,7 @@ function buildInstallmentItems(
             });
         }
 
-        if (fiftyPercentAmount > 0) {
+        if (fiftyPercentAmount !== 0) {
             fiftyPercentSectionLines.push({
                 ...item,
                 _key: nanoid(),
@@ -849,7 +854,7 @@ function buildInstallmentItems(
             });
         }
 
-        if (balanceAmount > 0) {
+        if (balanceAmount !== 0) {
             balanceSectionLines.push({
                 ...item,
                 _key: nanoid(),

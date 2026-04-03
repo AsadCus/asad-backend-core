@@ -143,7 +143,7 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         );
 
         $this->assertSame($targetPackage->id, (int) $newGroup->package_id);
-        $this->assertTrue((bool) $newGroup->is_holding);
+        $this->assertFalse((bool) $newGroup->is_holding);
 
         $newMember = CustomerConfirmationMember::query()
             ->where('customer_confirmation_id', $newGroup->id)
@@ -179,8 +179,8 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $holdingRows = app(CustomerConfirmationService::class)->getForHoldingIndex();
         $confirmedRows = app(CustomerConfirmationService::class)->getForConfirmedIndex();
 
-        $this->assertNotNull(collect($holdingRows)->firstWhere('id', $newGroup->id));
-        $this->assertNull(collect($confirmedRows)->firstWhere('id', $newGroup->id));
+        $this->assertNull(collect($holdingRows)->firstWhere('id', $newGroup->id));
+        $this->assertNotNull(collect($confirmedRows)->firstWhere('id', $newGroup->id));
 
         app(CustomerConfirmationService::class)->updateGroup($newGroup->id, [
             'package_id' => $targetPackage->id,
@@ -232,7 +232,7 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $this->assertNotNull(collect($confirmedRowsAfterPackageSelect)->firstWhere('id', $newGroup->id));
     }
 
-    public function test_refund_creation_does_not_cancel_member(): void
+    public function test_refund_creation_marks_member_as_cancelled(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -310,11 +310,11 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
                 'mode' => 'fixed',
                 'amount' => 1000,
             ],
-        ]);
+        ], 'cancel');
 
         $member->refresh();
 
-        $this->assertNotSame('cancelled', $member->status);
+        $this->assertSame('cancelled', $member->status);
     }
 
     public function test_moving_member_reuses_dedicated_paid_quotation_and_switches_customer_to_moved_leader(): void
@@ -503,8 +503,16 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
 
         $this->assertSame(1, (int) ($result['count'] ?? 0));
 
+        $refundInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('status', 'refund')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($refundInvoice);
+
         $refundReceipt = Receipt::query()
-            ->where('invoice_id', $invoice->id)
+            ->where('invoice_id', $refundInvoice->id)
             ->where('payment_method', 'overpayment_refund')
             ->latest('id')
             ->first();

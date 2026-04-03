@@ -7,6 +7,7 @@ use App\Models\CustomerConfirmation;
 use App\Rules\CustomerConfirmationRule;
 use App\Services\CustomerConfirmationService;
 use App\Services\PackageService;
+use App\Services\ReceiptService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -22,6 +23,7 @@ class CustomerConfirmationController extends Controller
         protected CustomerConfirmationService $customerConfirmationService,
         protected CustomerConfirmationRule $customerConfirmationRule,
         protected PackageService $packageService,
+        protected ReceiptService $receiptService,
     ) {}
 
     /**
@@ -35,6 +37,7 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'pageTitle' => 'Confirmed Customers',
             'indexUrl' => route('confirmed-customer.index'),
         ]);
@@ -51,6 +54,7 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'pageTitle' => 'Customer Holding',
             'indexUrl' => route('customer-holding.index'),
         ]);
@@ -92,14 +96,30 @@ class CustomerConfirmationController extends Controller
         $redirectTarget = $this->resolveIndexRedirectTarget();
 
         if ($ids && is_array($ids)) {
-            foreach ($ids as $groupId) {
-                $this->customerConfirmationService->deleteGroup((int) $groupId);
+            try {
+                foreach ($ids as $groupId) {
+                    $this->customerConfirmationService->deleteGroup((int) $groupId);
+                }
+            } catch (ValidationException $exception) {
+                $errorMessage = collect($exception->errors())
+                    ->flatten()
+                    ->first() ?? 'Unable to delete selected customer confirmations.';
+
+                return back(fallback: $redirectTarget)->with('error', (string) $errorMessage);
             }
 
             return back(fallback: $redirectTarget)->with('success', 'Selected customer confirmations deleted successfully.');
         }
 
-        $this->customerConfirmationService->deleteGroup((int) $id);
+        try {
+            $this->customerConfirmationService->deleteGroup((int) $id);
+        } catch (ValidationException $exception) {
+            $errorMessage = collect($exception->errors())
+                ->flatten()
+                ->first() ?? 'Unable to delete customer confirmation.';
+
+            return back(fallback: $redirectTarget)->with('error', (string) $errorMessage);
+        }
 
         return back(fallback: $redirectTarget)->with('success', 'Customer confirmation deleted successfully.');
     }
@@ -224,21 +244,25 @@ class CustomerConfirmationController extends Controller
         CustomerConfirmation::query()->findOrFail((int) $id);
 
         $validated = $request->validate([
+            'refund_type' => ['required', 'string', 'in:cancel,overpaid'],
             'member_refunds' => ['required', 'array', 'min:1'],
             'member_refunds.*.member_id' => ['required', 'integer', 'exists:customer_confirmation_members,id'],
             'member_refunds.*.mode' => ['required', 'string', 'in:percentage,fixed'],
             'member_refunds.*.percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'member_refunds.*.amount' => ['nullable', 'numeric', 'min:0'],
+            'member_refunds.*.payment_method' => ['nullable', 'string', 'max:255'],
+            'member_refunds.*.description' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $result = $this->customerConfirmationService->createRefundReceipts(
             (int) $id,
             $validated['member_refunds'],
+            (string) $validated['refund_type'],
         );
 
         return redirect()
             ->route('receipt.index')
-            ->with('success', $result['count'].' refund receipt(s) created successfully.');
+            ->with('success', $result['count'].' refund invoice/receipt document(s) created successfully.');
     }
 
     /**
@@ -260,7 +284,7 @@ class CustomerConfirmationController extends Controller
 
         return redirect()
             ->route('receipt.index')
-            ->with('success', $result['count'].' overpayment refund receipt(s) created successfully.');
+            ->with('success', $result['count'].' overpayment refund invoice/receipt document(s) created successfully.');
     }
 
     /**

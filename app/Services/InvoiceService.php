@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Helpers\FormatService;
 use App\Models\Invoice;
 use App\Support\DataScope;
+use App\Support\InvoiceStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class InvoiceService
 {
@@ -51,12 +53,12 @@ class InvoiceService
                     'customer_name' => $i->order->quotation->customer->user->name ?? '-',
                     'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
                     'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
-                    'type' => $i->type,
                     'description' => $i->description,
                     'amount' => $this->formatService->cleanDecimal($i->amount),
                     'invoice_date' => $i->invoice_date_formatted,
                     'due_date' => $i->due_date_formatted,
                     'status' => $i->status,
+                    'is_refund' => InvoiceStatus::isRefund($i->status),
                     'has_receipt' => (int) ($i->receipt_count ?? 0) > 0,
                     'receipt_id' => $i->receipt->first()?->id,
                     'created_at' => $i->created_at?->translatedFormat('d F Y'),
@@ -91,14 +93,13 @@ class InvoiceService
                     null,
                     isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
                 ),
-                'type' => $data['type'] ?? null,
                 'description' => $data['description'],
                 'payment_method' => $data['payment_method'] ?? null,
                 'extensions' => $this->normalizeInvoiceExtensions($data['extensions'] ?? []),
                 'amount' => $data['amount'],
                 'invoice_date' => $data['invoice_date'],
                 'due_date' => $data['due_date'] ?? null,
-                'status' => $data['status'] ?? 'issued',
+                'status' => $data['status'] ?? InvoiceStatus::Issued,
             ]);
 
             if (! empty($data['items'])) {
@@ -186,7 +187,6 @@ class InvoiceService
             'order_id' => $i->order_id,
             'order_number' => $i->order->order_number,
             'quotation_id' => $i->order->quotation->id ?? null,
-            'type' => $i->type,
             'description' => $i->description,
             'amount' => $this->formatService->cleanDecimal($i->amount),
             'payment_plan' => $i->order->quotation->payment_plan,
@@ -196,6 +196,7 @@ class InvoiceService
             'due_date' => $i->due_date_formatted,
             'sales_registration_number' => $i->order->quotation->sales_registration_number,
             'status' => $i->status,
+            'is_refund' => InvoiceStatus::isRefund($i->status),
             'subtotal_amount' => $this->formatService->cleanDecimal($subtotalAmount),
             'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
             'total_amount' => $this->formatService->cleanDecimal($totalAmount),
@@ -352,6 +353,12 @@ class InvoiceService
 
             $invoice = $query->findOrFail($id);
 
+            if (InvoiceStatus::isRefund($invoice->status)) {
+                throw ValidationException::withMessages([
+                    'invoice' => 'Refund invoice cannot be edited.',
+                ]);
+            }
+
             $resolvedInvoiceNumber = array_key_exists('invoice_number', $data)
                 ? $this->numberingService->ensureNumber(
                     'invoice',
@@ -363,7 +370,6 @@ class InvoiceService
 
             $invoice->update([
                 'invoice_number' => $resolvedInvoiceNumber,
-                'type' => $data['type'] ?? null,
                 'description' => $data['description'],
                 'payment_method' => $data['payment_method'] ?? $invoice->payment_method,
                 'extensions' => $this->normalizeInvoiceExtensions($data['extensions'] ?? []),
@@ -400,7 +406,26 @@ class InvoiceService
 
     public function delete($id)
     {
-        return Invoice::find($id)?->delete() ?? false;
+        $invoice = Invoice::query()->find($id);
+
+        if (! $invoice) {
+            return false;
+        }
+
+        if (InvoiceStatus::isRefund($invoice->status)) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Refund invoice cannot be deleted.',
+            ]);
+        }
+
+        return $invoice->delete();
+    }
+
+    public function isRefundInvoice(int $invoiceId): bool
+    {
+        $invoice = Invoice::query()->find($invoiceId);
+
+        return $invoice ? InvoiceStatus::isRefund($invoice->status) : false;
     }
 
     /**

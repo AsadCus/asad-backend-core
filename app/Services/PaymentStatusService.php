@@ -9,6 +9,7 @@ use App\Models\ManifestMember;
 use App\Models\ManifestRoom;
 use App\Models\ManifestSharingGroup;
 use App\Models\Quotation;
+use App\Support\InvoiceStatus;
 
 class PaymentStatusService
 {
@@ -47,6 +48,10 @@ class PaymentStatusService
 
     private function syncInvoiceStatus(Invoice $invoice): void
     {
+        if (InvoiceStatus::isRefund($invoice->status)) {
+            return;
+        }
+
         $outstandingAmount = $this->calculateInvoiceOutstandingAmount($invoice);
 
         if ($outstandingAmount <= 0) {
@@ -300,7 +305,9 @@ class PaymentStatusService
                 return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
             });
 
-            if ($invoiceSubtotal <= 0) {
+            $invoiceSubtotalAbsolute = abs($invoiceSubtotal);
+
+            if ($invoiceSubtotalAbsolute <= 0) {
                 continue;
             }
 
@@ -310,7 +317,9 @@ class PaymentStatusService
                     return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
                 });
 
-            if ($memberSubtotal <= 0) {
+            $memberSubtotalAbsolute = abs($memberSubtotal);
+
+            if ($memberSubtotalAbsolute <= 0) {
                 continue;
             }
 
@@ -322,7 +331,7 @@ class PaymentStatusService
                 continue;
             }
 
-            $paidAmount += $receiptTotal * ($memberSubtotal / $invoiceSubtotal);
+            $paidAmount += $receiptTotal * ($memberSubtotalAbsolute / $invoiceSubtotalAbsolute);
         }
 
         return round($paidAmount, 2);

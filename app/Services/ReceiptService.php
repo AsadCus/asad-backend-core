@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\PaymentMethodMaster;
 use App\Models\Receipt;
 use App\Support\DataScope;
+use App\Support\InvoiceStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -120,6 +121,12 @@ class ReceiptService
             }
 
             $invoice = $invoiceQuery->findOrFail((int) $data['invoice_id']);
+
+            if (InvoiceStatus::isRefund($invoice->status)) {
+                throw ValidationException::withMessages([
+                    'invoice_id' => 'Cannot create receipt for refund invoice.',
+                ]);
+            }
 
             $alreadyHasReceipt = Receipt::query()
                 ->where('invoice_id', $invoice->id)

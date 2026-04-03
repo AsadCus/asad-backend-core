@@ -1320,6 +1320,7 @@ class CustomerConfirmationFormTest extends TestCase
         ]);
 
         $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $group->members()->update(['status' => 'cancelled']);
         $memberCustomerIds = $group->members()->pluck('customer_id')->all();
         $memberUserIds = Customer::whereIn('id', $memberCustomerIds)->pluck('user_id')->all();
 
@@ -1328,7 +1329,7 @@ class CustomerConfirmationFormTest extends TestCase
         $response = $this->delete(route('customer-confirmations.destroy', $group->id));
         $response->assertRedirect();
 
-        $this->assertDatabaseMissing('customer_confirmations', ['id' => $group->id]);
+        $this->assertSoftDeleted('customer_confirmations', ['id' => $group->id]);
         $this->assertDatabaseMissing('customer_confirmation_members', ['customer_confirmation_id' => $group->id]);
 
         foreach ($memberCustomerIds as $customerId) {
@@ -1341,6 +1342,46 @@ class CustomerConfirmationFormTest extends TestCase
 
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Contacted, $enquiry->status);
+    }
+
+    public function test_customer_confirmation_destroy_fails_when_active_members_exist(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Delete Guard Test',
+            'contact_number' => '07777',
+            'email' => 'delete-guard@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-09-10',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Active Delete Guard Member',
+                    'email' => 'active-delete-guard@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ]);
+
+        $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
+
+        $response = $this->from(route('confirmed-customer.index'))
+            ->delete(route('customer-confirmations.destroy', $group->id));
+
+        $response
+            ->assertRedirect(route('confirmed-customer.index'))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('customer_confirmations', [
+            'id' => $group->id,
+            'deleted_at' => null,
+        ]);
     }
 
     public function test_confirmed_customer_bulk_destroy_deletes_selected_groups(): void
@@ -1388,13 +1429,16 @@ class CustomerConfirmationFormTest extends TestCase
         $firstGroup = CustomerConfirmation::where('enquiry_id', $firstEnquiry->id)->firstOrFail();
         $secondGroup = CustomerConfirmation::where('enquiry_id', $secondEnquiry->id)->firstOrFail();
 
+        $firstGroup->members()->update(['status' => 'cancelled']);
+        $secondGroup->members()->update(['status' => 'cancelled']);
+
         $response = $this->delete(route('confirmed-customer.destroy', 0), [
             'ids' => [$firstGroup->id, $secondGroup->id],
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('customer_confirmations', ['id' => $firstGroup->id]);
-        $this->assertDatabaseMissing('customer_confirmations', ['id' => $secondGroup->id]);
+        $this->assertSoftDeleted('customer_confirmations', ['id' => $firstGroup->id]);
+        $this->assertSoftDeleted('customer_confirmations', ['id' => $secondGroup->id]);
 
         $firstEnquiry->refresh();
         $secondEnquiry->refresh();
@@ -1427,12 +1471,13 @@ class CustomerConfirmationFormTest extends TestCase
         ]);
 
         $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->firstOrFail();
+        $group->members()->update(['status' => 'cancelled']);
 
         $response = $this->from(route('customer-holding.index'))
             ->delete(route('confirmed-customer.destroy', $group->id));
 
         $response->assertRedirect(route('customer-holding.index'));
-        $this->assertDatabaseMissing('customer_confirmations', ['id' => $group->id]);
+        $this->assertSoftDeleted('customer_confirmations', ['id' => $group->id]);
     }
 
     public function test_public_form_requires_valid_signature(): void
@@ -1735,6 +1780,8 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertIsString($maskedUpdateContact);
         $this->assertNotSame('0190000000', $maskedUpdateContact);
         $this->assertTrue(str_contains((string) $maskedUpdateContact, '*'));
+
+        $group->members()->update(['status' => 'cancelled']);
 
         $this->delete(route('customer-confirmations.destroy', $group->id))->assertRedirect();
 

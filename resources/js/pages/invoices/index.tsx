@@ -136,6 +136,8 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         cell: ({ row }) => {
             const invoice = row.original;
             const canCreateReceipt =
+                !invoice.is_refund &&
+                invoice.status !== 'refund' &&
                 invoice.status !== 'paid' &&
                 invoice.status !== 'cancelled' &&
                 !invoice.has_receipt &&
@@ -144,7 +146,9 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
             if (!canCreateReceipt) {
                 return (
                     <span className="text-muted-foreground">
-                        Receipt Created
+                        {invoice.is_refund || invoice.status === 'refund'
+                            ? 'Locked (Refund)'
+                            : 'Receipt Created'}
                     </span>
                 );
             }
@@ -296,6 +300,8 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
         }
 
         if (
+            !invoice.is_refund &&
+            invoice.status !== 'refund' &&
             invoice.status !== 'paid' &&
             invoice.status !== 'cancelled' &&
             !invoice.has_receipt

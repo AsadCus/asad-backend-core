@@ -164,6 +164,7 @@ export interface CustomerConfirmationMemberDatatableSchema {
     nric_number: string;
     nationality: string;
     passport_number: string;
+    latest_invoice_payment_method?: string | null;
 }
 
 export interface CustomerConfirmationDatatableSchema {
@@ -186,6 +187,7 @@ export interface CustomerConfirmationDatatableSchema {
     total_amount: number;
     overpaid_amount?: number;
     can_create_quotation: boolean;
+    can_delete?: boolean;
     created_at: string;
     members: CustomerConfirmationMemberDatatableSchema[];
 }

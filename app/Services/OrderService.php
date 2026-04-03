@@ -6,6 +6,7 @@ use App\Helpers\FormatService;
 use App\Helpers\NumberGenerator;
 use App\Models\Order;
 use App\Support\DataScope;
+use App\Support\InvoiceStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -62,31 +63,32 @@ class OrderService
                     'created_at' => $o->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $o->updated_at?->translatedFormat('d F Y'),
                     'has_receipts' => $hasReceipts,
-                    'invoices' => $o->invoices->map(function ($i) {
-                        return [
-                            'id' => $i->id,
-                            'invoice_number' => $i->invoice_number ?? '-',
-                            'quotation_id' => $i->order->quotation->id ?? '-',
-                            'quotation_number' => $i->order->quotation->quotation_number ?? '-',
-                            'order_id' => $i->order_id ?? '-',
-                            'order_number' => $i->order->order_number ?? '-',
-                            'customer_id' => $i->order->quotation->customer->id ?? '-',
-                            'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
-                            'customer_name' => $i->order->quotation->customer->user->name ?? '-',
-                            'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
-                            'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
-                            'type' => $i->type,
-                            'description' => $i->description,
-                            'amount' => $this->formatService->cleanDecimal($i->amount),
-                            'invoice_date' => $i->invoice_date_formatted,
-                            'due_date' => $i->due_date_formatted,
-                            'status' => $i->status,
-                            'has_receipt' => $i->receipt->isNotEmpty(),
-                            'receipt_id' => $i->receipt->first()?->id,
-                            'created_at' => $i->created_at?->translatedFormat('d F Y'),
-                            'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
-                        ];
-                    }),
+                    'invoices' => $o->invoices
+                        ->values()
+                        ->map(function ($i) {
+                            return [
+                                'id' => $i->id,
+                                'invoice_number' => $i->invoice_number ?? '-',
+                                'quotation_id' => $i->order->quotation->id ?? '-',
+                                'quotation_number' => $i->order->quotation->quotation_number ?? '-',
+                                'order_id' => $i->order_id ?? '-',
+                                'order_number' => $i->order->order_number ?? '-',
+                                'customer_id' => $i->order->quotation->customer->id ?? '-',
+                                'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
+                                'customer_name' => $i->order->quotation->customer->user->name ?? '-',
+                                'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
+                                'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
+                                'description' => $i->description,
+                                'amount' => $this->formatService->cleanDecimal($i->amount),
+                                'invoice_date' => $i->invoice_date_formatted,
+                                'due_date' => $i->due_date_formatted,
+                                'status' => $i->status,
+                                'has_receipt' => $i->receipt->isNotEmpty(),
+                                'receipt_id' => $i->receipt->first()?->id,
+                                'created_at' => $i->created_at?->translatedFormat('d F Y'),
+                                'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
+                            ];
+                        }),
                 ];
             });
     }
@@ -210,54 +212,56 @@ class OrderService
             'quotation_id' => $o->quotation_id ?? '-',
             'quotation_number' => $o->quotation->quotation_number ?? '-',
             'payment_plan' => $o->payment_plan,
-            'invoices' => $o->invoices->map(fn ($invoice) => [
-                'id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'order_id' => $invoice->order_id,
-                'type' => $invoice->type,
-                'description' => $invoice->description,
-                'payment_method' => $invoice->payment_method,
-                'extensions' => collect($invoice->extensions ?? [])->map(function ($extension) {
-                    return [
-                        'id' => $extension['id'] ?? null,
-                        'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
-                        'name' => $extension['name'] ?? '',
-                        'type' => $extension['type'] ?? 'discount',
-                        'calculation_mode' => $extension['calculation_mode'] ?? 'fixed',
-                        'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
-                        'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? null),
-                        'sort_order' => $extension['sort_order'] ?? null,
-                    ];
-                })->values(),
-                'amount' => $this->formatService->cleanDecimal($invoice->amount),
-                'invoice_date' => $invoice->invoice_date_formatted,
-                'due_date' => $invoice->due_date_formatted,
-                'status' => $invoice->status,
-                'has_receipt' => $invoice->receipt->isNotEmpty(),
-                'receipt_id' => $invoice->receipt->first()?->id,
-                'items' => $invoice->quotationItems->map(fn ($item) => [
-                    'id' => $item->id,
-                    'quotation_id' => $item->quotation_id,
-                    'parent_id' => $item->parent_id,
-                    'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
-                    'sharing_plan' => $item->confirmationMember?->sharing_plan,
-                    'type' => $item->type,
-                    'description' => $item->description,
-                    'is_header' => $item->is_header,
-                    'quantity' => $this->formatService->cleanDecimal($item->quantity),
-                    'rate' => $this->formatService->cleanDecimal($item->rate),
-                    'taxes' => $item->taxes->map(fn ($tax) => [
-                        'id' => $tax->id,
-                        'quotation_item_id' => $tax->quotation_item_id,
-                        'quotation_extension_master_id' => $tax->quotation_extension_master_id,
-                        'name' => $tax->name,
-                        'calculation_mode' => $tax->calculation_mode,
-                        'calculation_value' => $this->formatService->cleanDecimal($tax->calculation_value),
-                        'sort_order' => $tax->sort_order,
-                    ])->values(),
-                    'sort_order' => $item->sort_order,
+            'invoices' => $o->invoices
+                ->values()
+                ->map(fn ($invoice) => [
+                    'id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'order_id' => $invoice->order_id,
+                    'description' => $invoice->description,
+                    'payment_method' => $invoice->payment_method,
+                    'extensions' => collect($invoice->extensions ?? [])->map(function ($extension) {
+                        return [
+                            'id' => $extension['id'] ?? null,
+                            'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                            'name' => $extension['name'] ?? '',
+                            'type' => $extension['type'] ?? 'discount',
+                            'calculation_mode' => $extension['calculation_mode'] ?? 'fixed',
+                            'calculation_value' => $this->formatService->cleanDecimal($extension['calculation_value'] ?? null),
+                            'amount' => $this->formatService->cleanDecimal($extension['amount'] ?? null),
+                            'sort_order' => $extension['sort_order'] ?? null,
+                        ];
+                    })->values(),
+                    'amount' => $this->formatService->cleanDecimal($invoice->amount),
+                    'invoice_date' => $invoice->invoice_date_formatted,
+                    'due_date' => $invoice->due_date_formatted,
+                    'status' => $invoice->status,
+                    'is_refund' => InvoiceStatus::isRefund($invoice->status),
+                    'has_receipt' => $invoice->receipt->isNotEmpty(),
+                    'receipt_id' => $invoice->receipt->first()?->id,
+                    'items' => $invoice->quotationItems->map(fn ($item) => [
+                        'id' => $item->id,
+                        'quotation_id' => $item->quotation_id,
+                        'parent_id' => $item->parent_id,
+                        'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
+                        'sharing_plan' => $item->confirmationMember?->sharing_plan,
+                        'type' => $item->type,
+                        'description' => $item->description,
+                        'is_header' => $item->is_header,
+                        'quantity' => $this->formatService->cleanDecimal($item->quantity),
+                        'rate' => $this->formatService->cleanDecimal($item->rate),
+                        'taxes' => $item->taxes->map(fn ($tax) => [
+                            'id' => $tax->id,
+                            'quotation_item_id' => $tax->quotation_item_id,
+                            'quotation_extension_master_id' => $tax->quotation_extension_master_id,
+                            'name' => $tax->name,
+                            'calculation_mode' => $tax->calculation_mode,
+                            'calculation_value' => $this->formatService->cleanDecimal($tax->calculation_value),
+                            'sort_order' => $tax->sort_order,
+                        ])->values(),
+                        'sort_order' => $item->sort_order,
+                    ]),
                 ]),
-            ]),
         ];
     }
 
@@ -274,6 +278,13 @@ class OrderService
 
             $order = $orderQuery->findOrFail($id);
             $order->quotation()->where('is_locked', false)->update(['is_locked' => true]);
+
+            $editableExistingInvoices = $order->invoices
+                ->reject(fn ($invoice) => InvoiceStatus::isRefund($invoice->status))
+                ->values();
+            $refundExistingInvoices = $order->invoices
+                ->filter(fn ($invoice) => InvoiceStatus::isRefund($invoice->status))
+                ->values();
 
             $currentPaymentPlan = strtolower((string) ($order->payment_plan ?? ''));
             $incomingPaymentPlan = strtolower((string) ($data['payment_plan'] ?? $order->payment_plan ?? ''));
@@ -309,15 +320,75 @@ class OrderService
             $incomingInvoiceIds = [];
             $seenInvoiceIds = [];
             $incomingInvoices = $this->normalizeIncomingInvoices(array_values($data['invoices'] ?? []));
-            $existingInvoicesByNumber = $order->invoices
+            $existingInvoicesByNumber = $editableExistingInvoices
                 ->filter(fn ($invoice) => ! empty($invoice->invoice_number))
                 ->keyBy('invoice_number');
-            $existingInvoicesByIndex = $order->invoices
+            $refundExistingInvoicesByNumber = $refundExistingInvoices
+                ->filter(fn ($invoice) => ! empty($invoice->invoice_number))
+                ->keyBy('invoice_number');
+            $existingInvoicesByIndex = $editableExistingInvoices
                 ->sortBy('id')
                 ->values();
 
             foreach ($incomingInvoices as $index => $invoiceData) {
                 $existingInvoiceId = $invoiceData['id'] ?? null;
+                $incomingInvoiceNumber = trim((string) ($invoiceData['invoice_number'] ?? ''));
+                $isIncomingRefundRow = InvoiceStatus::isRefund($invoiceData['status'] ?? null)
+                    || (bool) ($invoiceData['is_refund'] ?? false);
+
+                if ($isIncomingRefundRow) {
+                    $matchedRefundInvoiceId = null;
+
+                    if (! empty($existingInvoiceId)) {
+                        $candidateInvoiceId = (int) $existingInvoiceId;
+
+                        if ($refundExistingInvoices->contains('id', $candidateInvoiceId)) {
+                            $matchedRefundInvoiceId = $candidateInvoiceId;
+                        }
+                    }
+
+                    if ($matchedRefundInvoiceId === null && $incomingInvoiceNumber !== '') {
+                        $matchedRefundInvoiceId = (int) ($refundExistingInvoicesByNumber
+                            ->get($incomingInvoiceNumber)
+                            ?->id ?? 0);
+
+                        if ($matchedRefundInvoiceId <= 0) {
+                            $matchedRefundInvoiceId = null;
+                        }
+                    }
+
+                    if ($matchedRefundInvoiceId === null) {
+                        throw ValidationException::withMessages([
+                            "invoices.{$index}.invoice_number" => 'Refund invoice row is invalid. Please refresh and try again.',
+                        ]);
+                    }
+
+                    if (in_array($matchedRefundInvoiceId, $seenInvoiceIds, true)) {
+                        throw ValidationException::withMessages([
+                            'invoices' => 'Duplicate invoice rows detected. Please refresh and try again.',
+                        ]);
+                    }
+
+                    $seenInvoiceIds[] = $matchedRefundInvoiceId;
+
+                    continue;
+                }
+
+                if (! empty($existingInvoiceId)) {
+                    $existingInvoiceId = (int) $existingInvoiceId;
+
+                    if ($refundExistingInvoices->contains('id', $existingInvoiceId)) {
+                        if (in_array($existingInvoiceId, $seenInvoiceIds, true)) {
+                            throw ValidationException::withMessages([
+                                'invoices' => 'Duplicate invoice rows detected. Please refresh and try again.',
+                            ]);
+                        }
+
+                        $seenInvoiceIds[] = $existingInvoiceId;
+
+                        continue;
+                    }
+                }
 
                 if (
                     empty($existingInvoiceId) &&
@@ -352,35 +423,43 @@ class OrderService
                         ]);
                     }
 
-                    if (! $order->invoices->contains('id', $existingInvoiceId)) {
+                    if (! $editableExistingInvoices->contains('id', $existingInvoiceId)) {
                         throw ValidationException::withMessages([
                             'invoices' => 'One or more invoices do not belong to this order.',
                         ]);
                     }
 
-                    $invoice = $this->invoiceService->update(
-                        [
+                    try {
+                        $invoice = $this->invoiceService->update(
+                            [
+                                ...$invoiceData,
+                                'invoice_number' => $invoiceData['invoice_number'] ?? null,
+                                'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
+                                'payment_method' => $invoiceData['payment_method'] ?? null,
+                                'extensions' => $invoiceData['extensions'] ?? [],
+                                'delete_missing_quotation_items' => false,
+                            ],
+                            $existingInvoiceId
+                        );
+                    } catch (ValidationException $exception) {
+                        $this->rethrowInvoiceValidationExceptionForRow($exception, $index);
+                    }
+
+                    $seenInvoiceIds[] = $existingInvoiceId;
+                } else {
+                    try {
+                        $invoice = $this->invoiceService->store([
                             ...$invoiceData,
                             'invoice_number' => $invoiceData['invoice_number'] ?? null,
                             'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
                             'payment_method' => $invoiceData['payment_method'] ?? null,
                             'extensions' => $invoiceData['extensions'] ?? [],
+                            'order_id' => $order->id,
                             'delete_missing_quotation_items' => false,
-                        ],
-                        $existingInvoiceId
-                    );
-
-                    $seenInvoiceIds[] = $existingInvoiceId;
-                } else {
-                    $invoice = $this->invoiceService->store([
-                        ...$invoiceData,
-                        'invoice_number' => $invoiceData['invoice_number'] ?? null,
-                        'number_format_id' => isset($invoiceData['number_format_id']) ? (int) $invoiceData['number_format_id'] : null,
-                        'payment_method' => $invoiceData['payment_method'] ?? null,
-                        'extensions' => $invoiceData['extensions'] ?? [],
-                        'order_id' => $order->id,
-                        'delete_missing_quotation_items' => false,
-                    ]);
+                        ]);
+                    } catch (ValidationException $exception) {
+                        $this->rethrowInvoiceValidationExceptionForRow($exception, $index);
+                    }
                 }
 
                 $incomingInvoiceIds[] = $invoice->id;
@@ -388,6 +467,7 @@ class OrderService
 
             $removableInvoices = $order->invoices()
                 ->whereNotIn('id', $incomingInvoiceIds)
+                ->where('status', '!=', InvoiceStatus::Refund)
                 ->get();
 
             $paidRemovableInvoices = $removableInvoices
@@ -436,7 +516,10 @@ class OrderService
             $order->load('invoices.quotationItems', 'quotation');
             $this->quotationService->syncQuotationItemsToRelevantInvoicesBySortOrder(
                 $order->quotation,
-                $incomingInvoiceIds,
+                array_values(array_filter(
+                    $incomingInvoiceIds,
+                    fn ($invoiceId) => ! $refundExistingInvoices->contains('id', (int) $invoiceId),
+                )),
             );
 
             $order->load('invoices.quotationItems');
@@ -532,6 +615,21 @@ class OrderService
 
             return $invoice;
         }, $incomingInvoices);
+    }
+
+    private function rethrowInvoiceValidationExceptionForRow(ValidationException $exception, int $rowIndex): void
+    {
+        $mappedErrors = [];
+
+        foreach ($exception->errors() as $key => $messages) {
+            $targetKey = in_array($key, ['invoice_number', 'number_format_id'], true)
+                ? "invoices.{$rowIndex}.{$key}"
+                : $key;
+
+            $mappedErrors[$targetKey] = $messages;
+        }
+
+        throw ValidationException::withMessages($mappedErrors);
     }
 
     /**
