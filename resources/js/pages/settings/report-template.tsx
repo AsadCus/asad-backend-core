@@ -1,5 +1,10 @@
 import HeadingSmall from '@/components/heading-small';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { update as updateReportTemplate } from '@/routes/report-template';
@@ -186,6 +191,9 @@ export default function ReportTemplate({
         allModules[0]?.key ?? 'quotation',
     );
 
+    // Preview modal state — null means closed
+    const [previewModule, setPreviewModule] = useState<string | null>(null);
+
     const buildInitialModuleTemplates = (): Record<string, ModuleTemplate> => {
         const defaults: Record<string, ModuleTemplate> = {};
         allModules.forEach(({ key }) => {
@@ -234,7 +242,7 @@ export default function ReportTemplate({
     const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<
         string | null
     >(extractFileName(settings.signature_path));
-    
+
 
     const makeFileHandler =
         (
@@ -347,50 +355,55 @@ export default function ReportTemplate({
     const isBuiltin = BUILTIN_MODULES.some((m) => m.key === selectedModule);
     const registeredModulesCount = settings.registered_modules?.length ?? 0;
 
+    // Module definition for the preview modal
+    const previewModuleDefinition = previewModule
+        ? allModules.find((m) => m.key === previewModule)
+        : null;
+
     return (
         <AppLayout>
             <Head title="Report Template Settings" />
-            <SettingsLayout wide>
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-                    <div className="w-full min-w-0 space-y-6 lg:flex-1">
-                        <HeadingSmall
-                            title="Report Template Settings"
-                            description="Manage branding and per-module PDF document settings"
-                        />
+            <SettingsLayout>
+                <div className="space-y-6">
+                    <HeadingSmall
+                        title="Report Template Settings"
+                        description="Manage branding and per-module PDF document settings"
+                    />
 
-                        <form onSubmit={submit} className="space-y-6">
-                            <GlobalBrandingSection
-                                data={data}
-                                errors={errors}
-                                onDataChange={(field, value) =>
-                                    setData(
-                                        field as keyof ReportTemplateFormData,
-                                        value,
-                                    )
-                                }
-                                makeFileHandler={makeFileHandler as Parameters<typeof GlobalBrandingSection>[0]['makeFileHandler']}
-                                makeClearHandler={makeClearHandler as Parameters<typeof GlobalBrandingSection>[0]['makeClearHandler']}  
-                                logoPreviewFileName={logoPreviewFileName}
-                                stampPreviewFileName={stampPreviewFileName}
-                                signaturePreviewFileName={signaturePreviewFileName}
-                                initialLogoDatabasePath={settings.logo_path}
-                                initialStampDatabasePath={settings.stamp_path}
-                                initialSignatureDatabasePath={settings.signature_path}
-                                setLogoPreviewFileName={setLogoPreviewFileName}
-                                setStampPreviewFileName={setStampPreviewFileName}
-                                setSignaturePreviewFileName={setSignaturePreviewFileName}
-                                customSignatureStampLayout={data.custom_signature_stamp_layout}
-                                onCustomSignatureStampLayoutChange={(layout) =>
-                                    setData('custom_signature_stamp_layout', layout)
-                                }
-                                onCustomSignatureDataChange={(value) =>
-                                    setData('custom_signature_data', value)
-                                }
-                            />
+                    <form onSubmit={submit} className="space-y-6">
+                        <GlobalBrandingSection
+                            data={data}
+                            errors={errors}
+                            onDataChange={(field, value) =>
+                                setData(
+                                    field as keyof ReportTemplateFormData,
+                                    value,
+                                )
+                            }
+                            makeFileHandler={makeFileHandler as Parameters<typeof GlobalBrandingSection>[0]['makeFileHandler']}
+                            makeClearHandler={makeClearHandler as Parameters<typeof GlobalBrandingSection>[0]['makeClearHandler']}
+                            logoPreviewFileName={logoPreviewFileName}
+                            stampPreviewFileName={stampPreviewFileName}
+                            signaturePreviewFileName={signaturePreviewFileName}
+                            initialLogoDatabasePath={settings.logo_path}
+                            initialStampDatabasePath={settings.stamp_path}
+                            initialSignatureDatabasePath={settings.signature_path}
+                            setLogoPreviewFileName={setLogoPreviewFileName}
+                            setStampPreviewFileName={setStampPreviewFileName}
+                            setSignaturePreviewFileName={setSignaturePreviewFileName}
+                            customSignatureStampLayout={data.custom_signature_stamp_layout}
+                            onCustomSignatureStampLayoutChange={(layout) =>
+                                setData('custom_signature_stamp_layout', layout)
+                            }
+                            onCustomSignatureDataChange={(value) =>
+                                setData('custom_signature_data', value)
+                            }
+                        />
 
                         <ModuleTemplateSection
                             selectedModule={selectedModule}
                             setSelectedModule={setSelectedModule}
+                            onPreview={(key) => setPreviewModule(key)}
                             activeModule={activeModule}
                             activeDefinition={activeDefinition}
                             isBuiltin={isBuiltin}
@@ -424,29 +437,58 @@ export default function ReportTemplate({
                                 </p>
                             </Transition>
                         </div>
-                        </form>
+                    </form>
+                </div>
+            </SettingsLayout>
+
+            {/* PDF Preview Modal — opened by eye icon buttons */}
+            <Dialog
+                open={previewModule !== null}
+                onOpenChange={(open) => {
+                    if (!open) setPreviewModule(null);
+                }}
+            >
+                <DialogContent className="w-[92vw] max-w-5xl p-0 gap-0 overflow-hidden">
+                    {/* Custom header */}
+                    <div className="flex items-center gap-3 border-b px-5 py-4">
+                        <div className="flex-1">
+                            <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-semibold">
+                                PDF Preview
+                                {previewModuleDefinition && (
+                                    <>
+                                        <span className="text-muted-foreground font-normal">—</span>
+                                        <span>{previewModuleDefinition.label}</span>
+                                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                                            {previewModuleDefinition.document_type}
+                                        </span>
+                                    </>
+                                )}
+                            </DialogTitle>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                Reflects your current unsaved settings
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Right Column (Live Preview) */}
-                    <div className="w-full space-y-6 lg:sticky lg:top-6 lg:w-[45%] xl:w-[40%]">
-                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm p-5">
-                            <h3 className="text-base font-semibold mb-1">Live Preview</h3>
-                            <p className="text-sm text-muted-foreground mb-4">Updates as you change settings</p>
+                    {/* Preview body — no extra padding so the iframe fills edge-to-edge */}
+                    <div className="p-4">
+                        {previewModule !== null && (
                             <PdfPreview
-                                selectedModule={selectedModule}
+                                key={previewModule}
+                                selectedModule={previewModule}
                                 brand_color={data.brand_color || '#c05427'}
                                 company_name={data.company_name}
                                 company_address={data.company_address}
                                 company_phone={data.company_phone}
                                 company_email={data.company_email}
-                                signature_stamp_layout={'custom'}
+                                signature_stamp_layout="custom"
                                 custom_signature_stamp_layout={data.custom_signature_stamp_layout}
                                 module_templates={data.module_templates}
                             />
-                        </div>
+                        )}
                     </div>
-                </div>
-            </SettingsLayout>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

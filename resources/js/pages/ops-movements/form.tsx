@@ -1799,73 +1799,75 @@ export default function OpsMovementForm({
                                 Passenger count breakdown for this ops movement, sourced from the linked manifest.
                             </p>
                         </CardHeader>
-                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField
-                                label="Adult Total"
-                                fieldRequirementsProps={{
-                                    hint: 'Total number of adult passengers in this manifest.',
-                                }}
-                            >
-                                <CopyableText
-                                    value={data.passengers?.adult_total ?? 0}
-                                />
-                            </FormField>
-                            <FormField
-                                label="Child Total"
-                                fieldRequirementsProps={{
-                                    hint: 'Total number of child passengers (with and without bed).',
-                                }}
-                            >
-                                <CopyableText
-                                    value={data.passengers?.child_total ?? 0}
-                                />
-                            </FormField>
-                            <FormField
-                                label="Official Total"
-                                fieldRequirementsProps={{
-                                    hint: 'Number of Mutawif and officials included in this movement.',
-                                }}
-                            >
-                                <CopyableText
-                                    value={data.passengers?.official_total ?? 0}
-                                />
-                            </FormField>
-                            <FormField
-                                label="Child With Bed"
-                                fieldRequirementsProps={{
-                                    hint: 'Children occupying a bed in room allocation.',
-                                }}
-                            >
-                                <CopyableText
-                                    value={
-                                        data.passengers
-                                            ?.child_with_bed_total ?? 0
-                                    }
-                                />
-                            </FormField>
-                            <FormField
-                                label="Child No Bed"
-                                fieldRequirementsProps={{
-                                    hint: 'Children not occupying a bed (sharing with parents).',
-                                }}
-                            >
-                                <CopyableText
-                                    value={
-                                        data.passengers?.child_no_bed_total ??
-                                        0
-                                    }
-                                />
-                            </FormField>
-                            <FormField
-                                label="Infant"
-                                fieldRequirementsProps={{
-                                    hint: 'Number of infant passengers in this manifest.',
-                                }}
-                            >
-                                <CopyableText
-                                    value={data.passengers?.infant_total ?? 0}
-                                />
-                            </FormField>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                <FormField
+                                    label="Adult"
+                                    fieldRequirementsProps={{
+                                        hint: 'Total adult passengers in this manifest.',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={data.passengers?.adult_total ?? 0}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Child"
+                                    fieldRequirementsProps={{
+                                        hint: 'Total child passengers (with and without bed).',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={data.passengers?.child_total ?? 0}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Infant"
+                                    fieldRequirementsProps={{
+                                        hint: 'Number of infant passengers in this manifest.',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={data.passengers?.infant_total ?? 0}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Official / Mutawif"
+                                    fieldRequirementsProps={{
+                                        hint: 'Number of Mutawif and officials included in this movement.',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={data.passengers?.official_total ?? 0}
+                                    />
+                                </FormField>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                <FormField
+                                    label="Child With Bed"
+                                    fieldRequirementsProps={{
+                                        hint: 'Children who occupy a bed in room allocation.',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={
+                                            data.passengers?.child_with_bed_total ?? 0
+                                        }
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Child No Bed"
+                                    fieldRequirementsProps={{
+                                        hint: 'Children who share a bed (no extra bed allocated).',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={
+                                            data.passengers?.child_no_bed_total ?? 0
+                                        }
+                                    />
+                                </FormField>
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -2091,7 +2093,7 @@ export default function OpsMovementForm({
                                 Accommodation
                             </CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Hotel stays per city for this movement. Room counts are derived from manifest room allocations. Add remarks per accommodation as needed.
+                                Hotel stays per city for this movement. Room counts and member category counts are derived from manifest room allocations. Add remarks per accommodation as needed.
                             </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -2099,115 +2101,164 @@ export default function OpsMovementForm({
                                 (accommodation, index) => (
                                     <div
                                         key={`pif-accommodation-${accommodation.id}`}
-                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
+                                        className="space-y-3 rounded-lg border p-4"
                                     >
-                                        <FormField
-                                            label="City"
-                                            fieldRequirementsProps={{
-                                                hint: 'City or destination of this accommodation.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={accommodation.location}
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Hotel Name"
-                                            fieldRequirementsProps={{
-                                                hint: 'Name of the hotel for this stay.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={accommodation.hotel_name}
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Check In"
-                                            fieldRequirementsProps={{
-                                                hint: 'Check-in date.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={accommodation.check_in}
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Check Out"
-                                            fieldRequirementsProps={{
-                                                hint: 'Check-out date.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={accommodation.check_out}
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Nights"
-                                            fieldRequirementsProps={{
-                                                hint: 'Total number of nights at this hotel.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={
-                                                    accommodation.nights ?? 0
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Single"
-                                            fieldRequirementsProps={{
-                                                hint: 'Number of single rooms, sourced from manifest room counts.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={
-                                                    accommodation.room_counts
-                                                        ?.single ?? 0
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Double (DBL)"
-                                            fieldRequirementsProps={{
-                                                hint: 'Number of double rooms.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={
-                                                    accommodation.room_counts
-                                                        ?.double ?? 0
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Triple (TRP)"
-                                            fieldRequirementsProps={{
-                                                hint: 'Number of triple rooms.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={
-                                                    accommodation.room_counts
-                                                        ?.triple ?? 0
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Quad"
-                                            fieldRequirementsProps={{
-                                                hint: 'Number of quad rooms.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={
-                                                    accommodation.room_counts
-                                                        ?.quad ?? 0
-                                                }
-                                            />
-                                        </FormField>
+                                        {/* Hotel info row */}
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <FormField
+                                                label="City"
+                                                fieldRequirementsProps={{
+                                                    hint: 'City or destination of this accommodation.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={accommodation.location}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Hotel Name"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Name of the hotel for this stay.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={accommodation.hotel_name}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Nights"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Total number of nights at this hotel.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={accommodation.nights ?? 0}
+                                                />
+                                            </FormField>
+                                        </div>
+                                        {/* Dates row */}
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <FormField
+                                                label="Check In"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Check-in date.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={accommodation.check_in}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Check Out"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Check-out date.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={accommodation.check_out}
+                                                />
+                                            </FormField>
+                                        </div>
+                                        {/* Room counts row */}
+                                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                            <FormField
+                                                label="Single"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of single rooms allocated from manifest.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.room_counts
+                                                            ?.single ?? 0
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Double (DBL)"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of double rooms (2 pax per room).',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.room_counts
+                                                            ?.double ?? 0
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Triple (TRP)"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of triple rooms (3 pax per room).',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.room_counts
+                                                            ?.triple ?? 0
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Quad"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of quad rooms (4 pax per room).',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.room_counts
+                                                            ?.quad ?? 0
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
+                                        {/* Member category counts row */}
+                                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                            <FormField
+                                                label="Child With Bed"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of children in this accommodation who occupy a bed (counted in room pricing plan).',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.room_counts
+                                                            ?.child_with_bed ?? 0
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Child No Bed"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of children who share a bed with parents — not counted in room pricing plan.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.room_counts
+                                                            ?.child_no_bed ?? 0
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Infant"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of infants in this accommodation — not counted in room pricing plan.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.room_counts
+                                                            ?.infant ?? 0
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
+                                        {/* Remarks */}
                                         <FormField
                                             label="Remarks"
-                                            className="md:col-span-3"
                                             fieldRequirementsProps={{
                                                 hint: 'Additional notes for this accommodation, e.g. meal type or special arrangements.',
                                                 example: 'Breakfast included',
@@ -2253,68 +2304,73 @@ export default function OpsMovementForm({
                             {(data.rawdah_tasreehs ?? []).map((row, index) => (
                                 <div
                                     key={`pif-rawdah-${row.id}`}
-                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
+                                    className="space-y-3 rounded-lg border p-4"
                                 >
-                                    <FormField
-                                        label="Date"
-                                        fieldRequirementsProps={{
-                                            hint: 'Scheduled date for the Rawdah visit.',
-                                        }}
-                                    >
-                                        <CopyableText value={row.date} />
-                                    </FormField>
-                                    <FormField
-                                        label="Women Pax"
-                                        fieldRequirementsProps={{
-                                            hint: 'Number of female passengers for this Rawdah slot.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={row.women_passengers ?? 0}
-                                        />
-                                    </FormField>
-                                    <FormField
-                                        label="Women Time"
-                                        fieldRequirementsProps={{
-                                            hint: 'Scheduled entry time for female passengers.',
-                                        }}
-                                    >
-                                        <CopyableText value={row.women_time} />
-                                    </FormField>
-                                    <FormField
-                                        label="Men Pax"
-                                        fieldRequirementsProps={{
-                                            hint: 'Number of male passengers for this Rawdah slot.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={row.men_passengers ?? 0}
-                                        />
-                                    </FormField>
-                                    <FormField
-                                        label="Men Time"
-                                        fieldRequirementsProps={{
-                                            hint: 'Scheduled entry time for male passengers.',
-                                        }}
-                                    >
-                                        <CopyableText value={row.men_time} />
-                                    </FormField>
-                                    <FormField
-                                        label="Total Pax"
-                                        fieldRequirementsProps={{
-                                            hint: 'Total passengers (women + men) for this slot.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={
-                                                (row.women_passengers ?? 0) +
-                                                (row.men_passengers ?? 0)
-                                            }
-                                        />
-                                    </FormField>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                        <FormField
+                                            label="Date"
+                                            fieldRequirementsProps={{
+                                                hint: 'Scheduled date for the Rawdah visit.',
+                                            }}
+                                        >
+                                            <CopyableText value={row.date} />
+                                        </FormField>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                        <FormField
+                                            label="Women Pax"
+                                            fieldRequirementsProps={{
+                                                hint: 'Number of female passengers for this Rawdah slot.',
+                                            }}
+                                        >
+                                            <CopyableText
+                                                value={row.women_passengers ?? 0}
+                                            />
+                                        </FormField>
+                                        <FormField
+                                            label="Women Time"
+                                            fieldRequirementsProps={{
+                                                hint: 'Scheduled entry time for female passengers.',
+                                            }}
+                                        >
+                                            <CopyableText value={row.women_time} />
+                                        </FormField>
+                                        <FormField
+                                            label="Men Pax"
+                                            fieldRequirementsProps={{
+                                                hint: 'Number of male passengers for this Rawdah slot.',
+                                            }}
+                                        >
+                                            <CopyableText
+                                                value={row.men_passengers ?? 0}
+                                            />
+                                        </FormField>
+                                        <FormField
+                                            label="Men Time"
+                                            fieldRequirementsProps={{
+                                                hint: 'Scheduled entry time for male passengers.',
+                                            }}
+                                        >
+                                            <CopyableText value={row.men_time} />
+                                        </FormField>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                        <FormField
+                                            label="Total Pax"
+                                            fieldRequirementsProps={{
+                                                hint: 'Total passengers (women + men) for this slot.',
+                                            }}
+                                        >
+                                            <CopyableText
+                                                value={
+                                                    (row.women_passengers ?? 0) +
+                                                    (row.men_passengers ?? 0)
+                                                }
+                                            />
+                                        </FormField>
+                                    </div>
                                     <FormField
                                         label="Remarks"
-                                        className="md:col-span-3"
                                         fieldRequirementsProps={{
                                             hint: 'Any scheduling notes, blocked dates, or departure info.',
                                             example: 'Mazarat 10 Jan, DEP 7.30 AM',

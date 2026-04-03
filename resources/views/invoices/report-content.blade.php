@@ -359,19 +359,28 @@
 
     {{-- ── FOOTER ── --}}
     <div class="footer-section">
-        @if (!empty($data['notes']) && count($data['notes']) > 0)
-            @foreach ($data['notes'] as $note)
-                <div class="footer-note">{!! $note['description'] ?? '' !!}</div>
-            @endforeach
-        @elseif (!empty($branding['footer_text']))
-            <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
-        @else
-            <div class="footer-note">Thank you for your business!</div>
+        {{-- Compute active notes so variable is in scope for both the partial and footer condition --}}
+        @php
+            $activeNotes = collect($data['notes'] ?? [])
+                ->filter(fn($n) => !empty(trim(strip_tags($n['description'] ?? ''))))
+                ->sortBy('sort_order')
+                ->values();
+        @endphp
+
+        {{-- Notes: rendered above footer if any description is filled; Tiptap HTML preserves alignment/formatting --}}
+        @include('partials.report-notes')
+
+        {{-- Module footer text from Report Template Settings --}}
+        {{-- When no notes: always show footer_text (centered) or fallback message (centered) --}}
+        @if (!empty($branding['footer_text']))
+            <div class="footer-note" style="text-align:{{ $activeNotes->isEmpty() ? 'center' : 'right' }}">{!! nl2br(e($branding['footer_text'])) !!}</div>
+        @elseif ($activeNotes->isEmpty())
+            <div class="footer-note" style="text-align:center">Thank you for your business!</div>
         @endif
 
         @include('partials.report-signature-stamp')
-
     </div>
+
 
     </div>
 
