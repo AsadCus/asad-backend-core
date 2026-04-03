@@ -50,6 +50,7 @@ const modelNumberSettingsNavItem: NavItem = {
 
 interface SettingsLayoutProps extends PropsWithChildren {
     wide?: boolean;
+    fullWidth?: boolean;
 }
 
 const toHrefString = (href: NavItem['href']): string | undefined => {
@@ -63,6 +64,7 @@ const toHrefString = (href: NavItem['href']): string | undefined => {
 export default function SettingsLayout({
     children,
     wide = false,
+    fullWidth = false,
 }: SettingsLayoutProps) {
     const { auth } = usePage<SharedData>().props;
     const isAdmin = auth.roles.includes('admin');
@@ -128,14 +130,16 @@ export default function SettingsLayout({
 
                 <div
                     className={cn('min-w-0 flex-1', {
-                        'md:max-w-2xl': !wide,
-                        'md:max-w-6xl': wide,
+                        'md:max-w-2xl': !wide && !fullWidth,
+                        'md:max-w-6xl': wide && !fullWidth,
+                        'md:max-w-none': fullWidth,
                     })}
                 >
                     <section
                         className={cn('space-y-12', {
-                            'max-w-xl': !wide,
-                            'max-w-6xl': wide,
+                            'max-w-xl': !wide && !fullWidth,
+                            'max-w-6xl': wide && !fullWidth,
+                            'max-w-none': fullWidth,
                         })}
                     >
                         {children}

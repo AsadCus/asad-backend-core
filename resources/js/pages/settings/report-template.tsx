@@ -11,6 +11,7 @@ import { update as updateReportTemplate } from '@/routes/report-template';
 import { destroy as destroyModuleRoute } from '@/routes/report-template/modules';
 import { Transition } from '@headlessui/react';
 import { Head, router, useForm } from '@inertiajs/react';
+import { Eye, X } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 import { AddModuleDialog } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
@@ -129,10 +130,10 @@ export default function ReportTemplate({
                 };
                 stamp?: SignatureStampLayoutConfig['stamp'] & { name?: string };
                 signature?:
-                    SignatureStampLayoutConfig['signature'] & {
-                        name?: string;
-                        date?: string;
-                    };
+                SignatureStampLayoutConfig['signature'] & {
+                    name?: string;
+                    date?: string;
+                };
             })
             | null;
         if (!incoming) {
@@ -143,9 +144,9 @@ export default function ReportTemplate({
             unit: incoming.unit === 'px' ? 'px' : 'percent',
             placement:
                 incoming.placement === 'right_side' ||
-                incoming.placement === 'stack_each_other' ||
-                incoming.placement === 'up_side' ||
-                incoming.placement === 'down_side'
+                    incoming.placement === 'stack_each_other' ||
+                    incoming.placement === 'up_side' ||
+                    incoming.placement === 'down_side'
                     ? incoming.placement
                     : 'left_side',
             labels: {
@@ -352,7 +353,6 @@ export default function ReportTemplate({
         show_signature_stamp_date: false,
     };
     const activeDefinition = allModules.find((m) => m.key === selectedModule);
-    const isBuiltin = BUILTIN_MODULES.some((m) => m.key === selectedModule);
     const registeredModulesCount = settings.registered_modules?.length ?? 0;
 
     // Module definition for the preview modal
@@ -363,68 +363,14 @@ export default function ReportTemplate({
     return (
         <AppLayout>
             <Head title="Report Template Settings" />
-            <SettingsLayout>
+            <SettingsLayout wide fullWidth>
                 <div className="space-y-6">
-                    <HeadingSmall
-                        title="Report Template Settings"
-                        description="Manage branding and per-module PDF document settings"
-                    />
-
-                    <form onSubmit={submit} className="space-y-6">
-                        <GlobalBrandingSection
-                            data={data}
-                            errors={errors}
-                            onDataChange={(field, value) =>
-                                setData(
-                                    field as keyof ReportTemplateFormData,
-                                    value,
-                                )
-                            }
-                            makeFileHandler={makeFileHandler as Parameters<typeof GlobalBrandingSection>[0]['makeFileHandler']}
-                            makeClearHandler={makeClearHandler as Parameters<typeof GlobalBrandingSection>[0]['makeClearHandler']}
-                            logoPreviewFileName={logoPreviewFileName}
-                            stampPreviewFileName={stampPreviewFileName}
-                            signaturePreviewFileName={signaturePreviewFileName}
-                            initialLogoDatabasePath={settings.logo_path}
-                            initialStampDatabasePath={settings.stamp_path}
-                            initialSignatureDatabasePath={settings.signature_path}
-                            setLogoPreviewFileName={setLogoPreviewFileName}
-                            setStampPreviewFileName={setStampPreviewFileName}
-                            setSignaturePreviewFileName={setSignaturePreviewFileName}
-                            customSignatureStampLayout={data.custom_signature_stamp_layout}
-                            onCustomSignatureStampLayoutChange={(layout) =>
-                                setData('custom_signature_stamp_layout', layout)
-                            }
-                            onCustomSignatureDataChange={(value) =>
-                                setData('custom_signature_data', value)
-                            }
+                    <div className="flex items-center justify-between">
+                        <HeadingSmall
+                            title="Report Template"
+                            description="Configure your document branding and module-specific layouts."
                         />
-
-                        <ModuleTemplateSection
-                            selectedModule={selectedModule}
-                            setSelectedModule={setSelectedModule}
-                            onPreview={(key) => setPreviewModule(key)}
-                            activeModule={activeModule}
-                            activeDefinition={activeDefinition}
-                            isBuiltin={isBuiltin}
-                            builtinModules={BUILTIN_MODULES}
-                            registeredModules={
-                                settings.registered_modules ?? []
-                            }
-                            updateModule={updateModule}
-                            updateModuleSignatureStampNameDateVisibility={
-                                updateModuleSignatureStampNameDateVisibility
-                            }
-                            handleDeleteModule={handleDeleteModule}
-                            AddModuleDialog={
-                                <AddModuleDialog key={registeredModulesCount} />
-                            }
-                        />
-
-                        <div className="flex items-center gap-4 pt-2">
-                            <Button type="submit" disabled={processing}>
-                                Save Changes
-                            </Button>
+                        <div className="flex items-center gap-3">
                             <Transition
                                 show={recentlySuccessful}
                                 enter="transition ease-in-out"
@@ -432,63 +378,183 @@ export default function ReportTemplate({
                                 leave="transition ease-in-out"
                                 leaveTo="opacity-0"
                             >
-                                <p className="text-base text-green-600">
-                                    Saved successfully.
+                                <p className="text-sm text-green-600">
+                                    Changes saved.
                                 </p>
                             </Transition>
+                            <Button
+                                type="submit"
+                                form="report-template-form"
+                                disabled={processing}
+                                className="shadow-sm"
+                            >
+                                {processing ? 'Saving...' : 'Save All Changes'}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <form id="report-template-form" onSubmit={submit}>
+                        {/* GRID: Wider container with better proportions */}
+                        <div className="mx-auto w-full max-w-[2200px]">
+                            <div className="grid grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] 2xl:items-start">
+
+                                {/* LEFT COLUMN: Global Branding */}
+                                <aside className="w-full min-w-0">
+                                    <GlobalBrandingSection
+                                    data={data}
+                                    errors={errors}
+                                    onDataChange={(field, value) =>
+                                        setData(
+                                            field as keyof ReportTemplateFormData,
+                                            value,
+                                        )
+                                    }
+                                    makeFileHandler={
+                                        makeFileHandler as Parameters<
+                                            typeof GlobalBrandingSection
+                                        >[0]['makeFileHandler']
+                                    }
+                                    makeClearHandler={
+                                        makeClearHandler as Parameters<
+                                            typeof GlobalBrandingSection
+                                        >[0]['makeClearHandler']
+                                    }
+                                    logoPreviewFileName={logoPreviewFileName}
+                                    stampPreviewFileName={stampPreviewFileName}
+                                    signaturePreviewFileName={
+                                        signaturePreviewFileName
+                                    }
+                                    initialLogoDatabasePath={settings.logo_path}
+                                    initialStampDatabasePath={
+                                        settings.stamp_path
+                                    }
+                                    initialSignatureDatabasePath={
+                                        settings.signature_path
+                                    }
+                                    setLogoPreviewFileName={
+                                        setLogoPreviewFileName
+                                    }
+                                    setStampPreviewFileName={
+                                        setStampPreviewFileName
+                                    }
+                                    setSignaturePreviewFileName={
+                                        setSignaturePreviewFileName
+                                    }
+                                    customSignatureStampLayout={
+                                        data.custom_signature_stamp_layout
+                                    }
+                                    onCustomSignatureStampLayoutChange={(layout) =>
+                                        setData(
+                                            'custom_signature_stamp_layout',
+                                            layout,
+                                        )
+                                    }
+                                    onCustomSignatureDataChange={(value) =>
+                                        setData('custom_signature_data', value)
+                                    }
+                                />
+                                </aside>
+
+                                {/* RIGHT COLUMN: Module Templates */}
+                                <main className="w-full min-w-0">
+                                    <ModuleTemplateSection
+                                    selectedModule={selectedModule}
+                                    setSelectedModule={setSelectedModule}
+                                    onPreview={(key) => setPreviewModule(key)}
+                                    activeModule={activeModule}
+                                    activeDefinition={activeDefinition}
+                                    builtinModules={BUILTIN_MODULES}
+                                    registeredModules={
+                                        settings.registered_modules ?? []
+                                    }
+                                    updateModule={updateModule}
+                                    updateModuleSignatureStampNameDateVisibility={
+                                        updateModuleSignatureStampNameDateVisibility
+                                    }
+                                    handleDeleteModule={handleDeleteModule}
+                                    AddModuleDialog={
+                                        <AddModuleDialog
+                                            key={registeredModulesCount}
+                                        />
+                                    }
+                                    />
+                                </main>
+                            </div>
                         </div>
                     </form>
                 </div>
             </SettingsLayout>
 
-            {/* PDF Preview Modal — opened by eye icon buttons */}
+            {/* ── PREVIEW MODAL ── */}
             <Dialog
                 open={previewModule !== null}
                 onOpenChange={(open) => {
                     if (!open) setPreviewModule(null);
                 }}
             >
-                <DialogContent className="w-[92vw] max-w-5xl p-0 gap-0 overflow-hidden">
-                    {/* Custom header */}
-                    <div className="flex items-center gap-3 border-b px-5 py-4">
-                        <div className="flex-1">
-                            <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-semibold">
-                                PDF Preview
-                                {previewModuleDefinition && (
-                                    <>
-                                        <span className="text-muted-foreground font-normal">—</span>
-                                        <span>{previewModuleDefinition.label}</span>
-                                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                                            {previewModuleDefinition.document_type}
-                                        </span>
-                                    </>
-                                )}
-                            </DialogTitle>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                                Reflects your current unsaved settings
-                            </p>
+                <DialogContent
+                    showCloseButton={false}
+                    className="flex h-[98vh] w-[98vw] max-w-none flex-col gap-0 overflow-hidden rounded-3xl border-none p-0 shadow-2xl"
+                >
+
+                    {/* ── Top toolbar ── */}
+                    <div className="flex items-center justify-between border-b bg-background px-6 py-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Eye className="h-4.5 w-4.5" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base font-semibold leading-tight">
+                                    {previewModuleDefinition?.label} — PDF Preview
+                                </DialogTitle>
+                                <p className="text-xs text-muted-foreground">
+                                    Live preview reflects current unsaved settings
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="hidden rounded-full bg-amber-100 px-3 py-1.5 text-[10px] font-bold text-amber-700 sm:inline">
+                                UNSAVED DRAFT
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => setPreviewModule(null)}
+                                aria-label="Close preview"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
 
-                    {/* Preview body — no extra padding so the iframe fills edge-to-edge */}
-                    <div className="p-4">
-                        {previewModule !== null && (
-                            <PdfPreview
-                                key={previewModule}
-                                selectedModule={previewModule}
-                                brand_color={data.brand_color || '#c05427'}
-                                company_name={data.company_name}
-                                company_address={data.company_address}
-                                company_phone={data.company_phone}
-                                company_email={data.company_email}
-                                signature_stamp_layout="custom"
-                                custom_signature_stamp_layout={data.custom_signature_stamp_layout}
-                                module_templates={data.module_templates}
-                            />
-                        )}
+                    {/* ── Body: PDF iframe area ── */}
+                    <div className="flex flex-1 overflow-hidden bg-neutral-100/80">
+                        <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+                            <div className="mx-auto w-full max-w-[80rem]">
+                                {previewModule !== null && (
+                                    <PdfPreview
+                                        key={previewModule}
+                                        selectedModule={previewModule}
+                                        brand_color={data.brand_color || '#c05427'}
+                                        company_name={data.company_name}
+                                        company_address={data.company_address}
+                                        company_phone={data.company_phone}
+                                        company_email={data.company_email}
+                                        signature_stamp_layout="custom"
+                                        custom_signature_stamp_layout={
+                                            data.custom_signature_stamp_layout
+                                        }
+                                        module_templates={data.module_templates}
+                                    />
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
         </AppLayout>
     );
 }
+

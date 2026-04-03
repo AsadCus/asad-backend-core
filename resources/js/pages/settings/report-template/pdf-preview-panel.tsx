@@ -114,50 +114,24 @@ export function PdfPreview({
         };
     }, [fetchPreview]);
 
-    const isLandscape =
-        selectedModule === 'manifest_namelist_course_items' ||
-        selectedModule === 'manifest_room_check' ||
-        selectedModule === 'ops_movement' ||
-        selectedModule === 'ops_movement_budget' ||
-        selectedModule === 'payment_summary';
-
     return (
-        <div className="flex w-full flex-col overflow-hidden rounded-xl border bg-white shadow-md">
-            {/* Header bar */}
-            <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-                    <span className="text-sm font-medium text-muted-foreground">Live Preview</span>
-                </div>
-                <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
-                        loading
-                            ? 'bg-amber-100 text-amber-700'
-                            : isLandscape
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-slate-100 text-slate-600'
-                    }`}
-                >
-                    {loading ? 'Updating…' : isLandscape ? 'Landscape' : 'Portrait'}
-                </span>
-            </div>
-
+        <div className="relative w-full overflow-hidden rounded-2xl border bg-white shadow-[0_20px_80px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
             {/* Fixed-height preview area — iframe scrolls internally, no giant whitespace */}
-            <div className="relative h-[72vh] w-full bg-muted/10">
+            <div className="relative h-[78vh] w-full bg-neutral-100/60">
                 {loading && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90">
-                        <div className="flex flex-col items-center gap-3">
-                            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-primary border-t-transparent" />
-                            <span className="text-sm text-muted-foreground">Generating preview…</span>
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/85 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-3 rounded-2xl border bg-white px-6 py-5 shadow-lg">
+                            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                            <span className="text-sm font-medium text-muted-foreground">Generating preview…</span>
                         </div>
                     </div>
                 )}
 
                 {error && !loading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted/10 p-6">
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
-                            <p className="text-sm font-medium text-red-600">Preview Unavailable</p>
-                            <p className="mt-1 text-xs text-red-400">{error}</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/10 p-6">
+                        <div className="rounded-xl border-2 border-red-200 bg-red-50 p-6 text-center shadow-sm">
+                            <p className="text-sm font-semibold text-red-600">Preview Unavailable</p>
+                            <p className="mt-2 text-xs text-red-500">{error}</p>
                         </div>
                     </div>
                 )}
@@ -168,7 +142,6 @@ export function PdfPreview({
                         className="h-full w-full border-0"
                         title="PDF Preview"
                         sandbox="allow-same-origin"
-                        style={{ background: 'white' }}
                     />
                 )}
             </div>
