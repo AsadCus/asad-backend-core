@@ -1,22 +1,16 @@
 import HeadingSmall from '@/components/heading-small';
+import { ReportTemplatePreviewModal } from '@/pages/settings/report-template/preview-modal';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { update as updateReportTemplate } from '@/routes/report-template';
 import { destroy as destroyModuleRoute } from '@/routes/report-template/modules';
 import { Transition } from '@headlessui/react';
 import { Head, router, useForm } from '@inertiajs/react';
-import { Eye, X } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 import { AddModuleDialog } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
 import { ModuleTemplateSection } from './report-template/module-template-section';
-import { PdfPreview } from './report-template/pdf-preview-panel';
 import type {
     ModuleTemplate,
     RegisteredModule,
@@ -485,75 +479,28 @@ export default function ReportTemplate({
                 </div>
             </SettingsLayout>
 
-            {/* ── PREVIEW MODAL ── */}
-            <Dialog
-                open={previewModule !== null}
-                onOpenChange={(open) => {
-                    if (!open) setPreviewModule(null);
-                }}
-            >
-                <DialogContent
-                    showCloseButton={false}
-                    className="flex h-[98vh] w-[98vw] max-w-none flex-col gap-0 overflow-hidden rounded-3xl border-none p-0 shadow-2xl"
-                >
-
-                    {/* ── Top toolbar ── */}
-                    <div className="flex items-center justify-between border-b bg-background px-6 py-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <Eye className="h-4.5 w-4.5" />
-                            </div>
-                            <div>
-                                <DialogTitle className="text-base font-semibold leading-tight">
-                                    {previewModuleDefinition?.label} — PDF Preview
-                                </DialogTitle>
-                                <p className="text-xs text-muted-foreground">
-                                    Live preview reflects current unsaved settings
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <span className="hidden rounded-full bg-amber-100 px-3 py-1.5 text-[10px] font-bold text-amber-700 sm:inline">
-                                UNSAVED DRAFT
-                            </span>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9"
-                                onClick={() => setPreviewModule(null)}
-                                aria-label="Close preview"
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* ── Body: PDF iframe area ── */}
-                    <div className="flex flex-1 overflow-hidden bg-neutral-100/80">
-                        <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-                            <div className="mx-auto w-full max-w-[80rem]">
-                                {previewModule !== null && (
-                                    <PdfPreview
-                                        key={previewModule}
-                                        selectedModule={previewModule}
-                                        brand_color={data.brand_color || '#c05427'}
-                                        company_name={data.company_name}
-                                        company_address={data.company_address}
-                                        company_phone={data.company_phone}
-                                        company_email={data.company_email}
-                                        signature_stamp_layout="custom"
-                                        custom_signature_stamp_layout={
-                                            data.custom_signature_stamp_layout
-                                        }
-                                        module_templates={data.module_templates}
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            {/* Preview Modal */}
+            {previewModule !== null && previewModuleDefinition && (
+                <ReportTemplatePreviewModal
+                    open={previewModule !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setPreviewModule(null);
+                        }
+                    }}
+                    moduleLabel={previewModuleDefinition.label}
+                    selectedModule={previewModule}
+                    brand_color={data.brand_color || '#c05427'}
+                    company_name={data.company_name}
+                    company_address={data.company_address}
+                    company_phone={data.company_phone}
+                    company_email={data.company_email}
+                    custom_signature_stamp_layout={
+                        data.custom_signature_stamp_layout
+                    }
+                    module_templates={data.module_templates}
+                />
+            )}
         </AppLayout>
     );
 }

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import type { ModuleTemplate, SignatureStampLayoutConfig } from './types';
 
 interface LivePreviewProps {
+    scaleMode: 'fit-width' | 'actual-size';
     selectedModule: string;
     brand_color: string;
     company_name: string;
@@ -20,6 +22,7 @@ function getCookie(name: string): string {
 }
 
 export function PdfPreview({
+    scaleMode,
     selectedModule,
     brand_color,
     company_name,
@@ -34,6 +37,7 @@ export function PdfPreview({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const frameRef = useRef<HTMLIFrameElement | null>(null);
 
     // Stable JSON strings for dependency tracking — avoids stale closure on object refs
     const customLayoutJson = useMemo(
@@ -114,10 +118,90 @@ export function PdfPreview({
         };
     }, [fetchPreview]);
 
+    const isLandscape =
+        selectedModule === 'manifest_namelist_course_items' ||
+        selectedModule === 'manifest_room_check' ||
+        selectedModule === 'ops_movement' ||
+        selectedModule === 'ops_movement_budget' ||
+        selectedModule === 'payment_summary';
+
+    const previewFrameClass = isLandscape
+        ? 'h-[860px] max-w-[1120px]'
+        : 'h-[1120px] max-w-[820px]';
+
+    const applyScale = useCallback(() => {
+        const iframe = frameRef.current;
+        const doc = iframe?.contentDocument;
+        if (!iframe || !doc) {
+            return;
+        }
+
+        const body = doc.body;
+        const root = doc.documentElement;
+        if (!body || !root) {
+            return;
+        }
+
+        const contentWidth = Math.max(body.scrollWidth, root.scrollWidth);
+        const contentHeight = Math.max(body.scrollHeight, root.scrollHeight);
+
+        if (!contentWidth || !contentHeight) {
+            return;
+        }
+
+        root.style.background = '#f3f4f6';
+        root.style.padding = '16px';
+        root.style.boxSizing = 'border-box';
+        root.style.display = 'flex';
+        root.style.justifyContent = 'center';
+        root.style.overflow = 'hidden';
+
+        body.style.transformOrigin = 'top left';
+        body.style.margin = '0';
+        body.style.overflow = 'hidden';
+
+        if (scaleMode === 'fit-width') {
+            const availableWidth = Math.max(320, iframe.clientWidth - 32);
+            const scale = Math.max(0.55, Math.min(2, availableWidth / contentWidth));
+            body.style.transform = `scale(${scale})`;
+            body.style.width = `${contentWidth}px`;
+            iframe.style.height = `${Math.ceil(contentHeight * scale) + 24}px`;
+            return;
+        }
+
+        body.style.transform = 'none';
+        body.style.width = `${contentWidth}px`;
+        iframe.style.height = `${Math.ceil(contentHeight) + 24}px`;
+    }, [scaleMode]);
+
+    useEffect(() => {
+        if (!html) {
+            return;
+        }
+
+        const handleResize = () => {
+            applyScale();
+        };
+
+        window.addEventListener('resize', handleResize);
+        const timer = setTimeout(applyScale, 0);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(timer);
+        };
+    }, [html, applyScale]);
+
     return (
-        <div className="relative w-full overflow-hidden rounded-2xl border bg-white shadow-[0_20px_80px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
-            {/* Fixed-height preview area — iframe scrolls internally, no giant whitespace */}
-            <div className="relative h-[78vh] w-full bg-neutral-100/60">
+        <div className="mx-auto w-full">
+            <div
+                className={cn(
+                    'relative mx-auto w-full overflow-hidden rounded-lg border bg-white shadow-md',
+                    scaleMode === 'fit-width'
+                        ? 'h-auto max-w-none'
+                        : previewFrameClass,
+                )}
+            >
                 {loading && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/85 backdrop-blur-sm">
                         <div className="flex flex-col items-center gap-3 rounded-2xl border bg-white px-6 py-5 shadow-lg">
@@ -138,8 +222,13 @@ export function PdfPreview({
 
                 {html !== null && (
                     <iframe
+                        ref={frameRef}
                         srcDoc={html}
-                        className="h-full w-full border-0"
+                        onLoad={applyScale}
+                        className={cn(
+                            'w-full border-0',
+                            scaleMode === 'fit-width' ? 'min-h-[70vh]' : 'h-full',
+                        )}
                         title="PDF Preview"
                         sandbox="allow-same-origin"
                     />
