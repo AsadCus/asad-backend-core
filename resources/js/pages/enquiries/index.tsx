@@ -389,9 +389,27 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                 }
                             }}
                             onRowDoubleClick={(row) => {
-                                if (row.id) {
-                                    handleOpenViewDialog(row.id);
+                                if (!row.id) {
+                                    return;
                                 }
+
+                                if (row.type === 'General' && row.child_id) {
+                                    router.get(
+                                        generalEnquiryEdit(row.child_id).url,
+                                    );
+
+                                    return;
+                                }
+
+                                if (row.type === 'Private' && row.child_id) {
+                                    router.get(
+                                        privateEnquiryEdit(row.child_id).url,
+                                    );
+
+                                    return;
+                                }
+
+                                handleOpenViewDialog(row.id);
                             }}
                             initialState={{
                                 pagination: {

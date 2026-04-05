@@ -42,6 +42,7 @@ class ReceiptService
                     'id' => $r->id,
                     'invoice_id' => $r->invoice_id ?? '-',
                     'invoice_number' => $r->invoice?->invoice_number ?? '-',
+                    'invoice_status' => $r->invoice?->status,
                     'invoice_description' => $r->invoice?->description ?? '-',
                     'receipt_number' => $r->receipt_number ?? '-',
                     'customer_id' => $r->invoice?->order->quotation->customer->id ?? '-',

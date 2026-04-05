@@ -1207,4 +1207,247 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertSame(1000.0, (float) ($paidMemberRow['paid_amount'] ?? 0));
         $this->assertTrue((bool) ($paidMemberRow['has_quotation'] ?? false));
     }
+
+    public function test_underpaid_member_can_create_balance_invoice_after_sharing_plan_change(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Balance Invoice Member',
+            'email' => 'balance-invoice-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-BALANCE-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-BALANCE-001',
+            'name' => 'Balance Invoice Package',
+            'status' => 'open',
+            'price_single' => 1000,
+            'price_double' => 1400,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'fully_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $packageItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Initial Package Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $initialInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Initial Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+            'payment_method' => 'transfer',
+        ]);
+
+        $initialInvoice->quotationItems()->sync([$packageItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $initialInvoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        app(CustomerConfirmationService::class)->updateMemberDetails((int) $member->id, [
+            'status' => 'fully_paid',
+            'sharing_plan' => 'double',
+            'relationship' => 'Self',
+        ]);
+
+        $member->refresh();
+        $this->assertSame('partially_paid', (string) $member->status);
+
+        $response = $this->post(route('customer-confirmations.members.balance-invoice.store', [
+            'id' => $group->id,
+            'memberId' => $member->id,
+        ]));
+
+        $response->assertRedirect(route('invoice.index'));
+
+        $balanceInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('description', 'Invoice For Balance')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($balanceInvoice);
+        $this->assertSame('issued', (string) ($balanceInvoice->status ?? ''));
+        $this->assertSame(400.0, (float) ($balanceInvoice->amount ?? 0));
+
+        $balanceItems = $balanceInvoice->quotationItems()
+            ->orderBy('sort_order')
+            ->get();
+
+        $this->assertCount(2, $balanceItems);
+
+        $balanceHeader = $balanceItems->firstWhere('is_header', true);
+        $balanceDetail = $balanceItems->firstWhere('is_header', false);
+
+        $this->assertNotNull($balanceHeader);
+        $this->assertNotNull($balanceDetail);
+        $this->assertSame('Umrah Packages', (string) ($balanceHeader?->description ?? ''));
+        $this->assertSame((int) $member->id, (int) ($balanceDetail?->customer_confirmation_member_id ?? 0));
+        $this->assertSame((int) ($balanceHeader?->id ?? 0), (int) ($balanceDetail?->parent_id ?? 0));
+        $this->assertSame(400.0, (float) ($balanceDetail?->rate ?? 0));
+        $this->assertDatabaseMissing('receipts', [
+            'invoice_id' => $balanceInvoice->id,
+        ]);
+    }
+
+    public function test_sharing_plan_downgrade_voids_only_unpaid_obsolete_amount(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Void Unpaid Member',
+            'email' => 'void-unpaid-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-VOID-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-VOID-001',
+            'name' => 'Void Adjustment Package',
+            'status' => 'open',
+            'price_single' => 7000,
+            'price_double' => 4000,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $packageItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Original package item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 7000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Original package invoice',
+            'amount' => 7000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+            'payment_method' => 'transfer',
+        ]);
+
+        $invoice->quotationItems()->sync([$packageItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        app(CustomerConfirmationService::class)->updateMemberDetails((int) $member->id, [
+            'status' => 'partially_paid',
+            'sharing_plan' => 'double',
+            'relationship' => 'Self',
+        ]);
+
+        $voidInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('description', 'Voided Unpaid Previous Package Billing')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($voidInvoice);
+        $this->assertSame('cancelled', (string) ($voidInvoice->status ?? ''));
+        $this->assertSame(-2000.0, (float) ($voidInvoice->amount ?? 0));
+
+        $this->assertDatabaseMissing('receipts', [
+            'invoice_id' => $voidInvoice->id,
+        ]);
+
+        $voidItems = $voidInvoice->quotationItems()
+            ->orderBy('sort_order')
+            ->get();
+
+        $this->assertCount(2, $voidItems);
+
+        $voidHeader = $voidItems->firstWhere('is_header', true);
+        $voidDetail = $voidItems->firstWhere('is_header', false);
+
+        $this->assertNotNull($voidHeader);
+        $this->assertNotNull($voidDetail);
+        $this->assertSame((int) ($voidHeader?->id ?? 0), (int) ($voidDetail?->parent_id ?? 0));
+        $this->assertSame((int) $member->id, (int) ($voidDetail?->customer_confirmation_member_id ?? 0));
+        $this->assertSame(-2000.0, (float) ($voidDetail?->rate ?? 0));
+
+        $member->refresh();
+        $this->assertSame('overpaid', (string) ($member->status ?? ''));
+    }
 }

@@ -157,6 +157,8 @@ export interface CustomerConfirmationMemberDatatableSchema {
     paid_amount: number;
     total_amount: number;
     overpaid_amount?: number;
+    billed_amount?: number;
+    balance_invoice_amount?: number;
     name: string;
     email: string;
     contact: string;

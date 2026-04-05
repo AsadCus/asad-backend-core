@@ -4,6 +4,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -16,7 +17,12 @@ import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
-import { InvoiceItemSchema } from '../invoices/schema';
+import {
+    indexStatusValues as invoiceIndexStatusValues,
+    InvoiceItemSchema,
+    statusColors as invoiceStatusColors,
+    statuses as invoiceStatuses,
+} from '../invoices/schema';
 import ReceiptPreviewModal from './components/receipt-preview-modal';
 import { ReceiptSchema } from './schema';
 
@@ -36,6 +42,8 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: receiptIndex().url,
     },
 ];
+
+const defaultReceiptIndexInvoiceStatusFilters = [...invoiceIndexStatusValues];
 
 const formatReceiptAmount = (receipt: ReceiptSchema): string => {
     const amount = Number(receipt.amount ?? 0);
@@ -109,6 +117,30 @@ const getColumns = (
         accessorKey: 'invoice_number',
         header: 'Invoice No.',
         meta: { exportable: true },
+    },
+    {
+        accessorKey: 'invoice_status',
+        header: 'Invoice Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const status = String(row.original.invoice_status ?? 'draft');
+            const label =
+                invoiceStatuses.find((option) => option.value === status)
+                    ?.label ?? status;
+            const color =
+                invoiceStatusColors[
+                    status as keyof typeof invoiceStatusColors
+                ] ?? 'bg-gray-100 text-gray-800';
+
+            return (
+                <Badge
+                    className={`${color} rounded-full px-3 py-1 text-base font-medium`}
+                >
+                    {label}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'amount',
@@ -274,11 +306,26 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                 }
                             }}
                             onRowDoubleClick={(receipt) => {
+                                if (
+                                    userPermissions.includes('receipt edit') &&
+                                    receipt.id
+                                ) {
+                                    router.get(editReceipt(receipt.id).url);
+
+                                    return;
+                                }
+
                                 if (userPermissions.includes('receipt view')) {
                                     handlePreview(receipt);
                                 }
                             }}
                             initialState={{
+                                columnFilters: [
+                                    {
+                                        id: 'invoice_status',
+                                        value: defaultReceiptIndexInvoiceStatusFilters,
+                                    },
+                                ],
                                 pagination: {
                                     pageSize: 50,
                                     pageIndex: 0,
@@ -293,6 +340,12 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="invoice_status"
+                                        title="Status"
+                                        options={invoiceStatuses}
+                                    />
                                     <ColumnFilter
                                         table={table}
                                         columnId="invoice_id"

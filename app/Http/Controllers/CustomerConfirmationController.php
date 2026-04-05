@@ -288,6 +288,23 @@ class CustomerConfirmationController extends Controller
     }
 
     /**
+     * Create one balance invoice for an underpaid member after pricing-plan change.
+     */
+    public function createBalanceInvoice(Request $request, string $id, string $memberId): RedirectResponse
+    {
+        CustomerConfirmation::query()->findOrFail((int) $id);
+
+        $invoice = $this->customerConfirmationService->createBalanceInvoiceForUnderpaidMember(
+            (int) $id,
+            (int) $memberId,
+        );
+
+        return redirect()
+            ->route('invoice.index')
+            ->with('success', 'Balance invoice created successfully #'.($invoice->invoice_number ?? $invoice->id).'.');
+    }
+
+    /**
      * Generate a signed URL for the public customer form.
      */
     public function generatePublicLink(Request $request, string $enquiryId)

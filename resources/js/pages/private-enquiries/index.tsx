@@ -482,7 +482,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    handleOpenViewDialog(row.id);
+                                    router.get(edit(row.id).url);
                                 }
                             }}
                             initialState={{

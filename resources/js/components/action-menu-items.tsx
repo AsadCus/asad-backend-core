@@ -269,6 +269,12 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('create-balance-invoice') && (
+                <Item onClick={() => onAction?.('create-balance-invoice', row)}>
+                    Create Balance Invoice
+                </Item>
+            )}
+
             {actions.includes('refund') && (
                 <Item onClick={() => onAction?.('refund', row)}>Refund</Item>
             )}

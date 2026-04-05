@@ -48,6 +48,14 @@ class PaymentStatusService
 
     private function syncInvoiceStatus(Invoice $invoice): void
     {
+        if ((float) ($invoice->amount ?? 0) < 0) {
+            if (! InvoiceStatus::isRefund($invoice->status)) {
+                $invoice->update(['status' => InvoiceStatus::Refund]);
+            }
+
+            return;
+        }
+
         if (InvoiceStatus::isRefund($invoice->status)) {
             return;
         }

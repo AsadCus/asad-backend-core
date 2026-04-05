@@ -304,7 +304,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    handleOpenViewDialog(row.id);
+                                    router.get(edit(row.id).url);
                                 }
                             }}
                             initialState={{

@@ -429,6 +429,8 @@ export default function ConfirmedCustomerIndex({
     const [refundRows, setRefundRows] = useState<RefundDraftRow[]>([]);
     const [refundType, setRefundType] = useState<RefundType>('cancel');
     const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
+    const [isCreatingBalanceInvoice, setIsCreatingBalanceInvoice] =
+        useState(false);
 
     const isMemberView = memberDialogMode === 'view';
 
@@ -1301,6 +1303,60 @@ export default function ConfirmedCustomerIndex({
         );
     };
 
+    const resolveBalanceInvoiceAmount = (
+        member: CustomerConfirmationMemberDatatableSchema,
+    ): number => {
+        const providedAmount = Number(member.balance_invoice_amount ?? 0);
+
+        if (Number.isFinite(providedAmount) && providedAmount > 0) {
+            return Number(providedAmount.toFixed(2));
+        }
+
+        const totalAmount = Number(member.total_amount ?? 0);
+        const billedAmount = Number(member.billed_amount ?? totalAmount);
+
+        return Number(Math.max(0, totalAmount - billedAmount).toFixed(2));
+    };
+
+    const submitCreateBalanceInvoice = (
+        groupId: number,
+        member: CustomerConfirmationMemberDatatableSchema,
+    ) => {
+        if (isCreatingBalanceInvoice) {
+            return;
+        }
+
+        const balanceAmount = resolveBalanceInvoiceAmount(member);
+
+        if (balanceAmount <= 0) {
+            toast.error(
+                'No unbilled balance amount available for this member.',
+            );
+
+            return;
+        }
+
+        setIsCreatingBalanceInvoice(true);
+
+        router.post(
+            `/customer-confirmations/${groupId}/members/${member.id}/balance-invoice`,
+            {},
+            {
+                preserveScroll: true,
+                preserveState: false,
+                onSuccess: () => {
+                    toast.success('Balance invoice created successfully.');
+                },
+                onError: () => {
+                    toast.error('Failed to create balance invoice.');
+                },
+                onFinish: () => {
+                    setIsCreatingBalanceInvoice(false);
+                },
+            },
+        );
+    };
+
     const renderGroupSubComponent = (
         row: Row<CustomerConfirmationDatatableSchema>,
     ) => {
@@ -1334,6 +1390,14 @@ export default function ConfirmedCustomerIndex({
                         resolveOverpaidAmount(member) > 0
                     ) {
                         rowActions.push('refund-overpaid');
+                    }
+
+                    if (
+                        member.status === 'partially_paid' &&
+                        (member.has_quotation ?? false) &&
+                        resolveBalanceInvoiceAmount(member) > 0
+                    ) {
+                        rowActions.push('create-balance-invoice');
                     }
 
                     return rowActions;
@@ -1373,6 +1437,11 @@ export default function ConfirmedCustomerIndex({
                         return;
                     }
 
+                    if (action === 'create-balance-invoice') {
+                        submitCreateBalanceInvoice(row.original.id, member);
+                        return;
+                    }
+
                     if (action === 'cancel-member') {
                         confirm({
                             title: 'Cancel Member',
@@ -1382,6 +1451,15 @@ export default function ConfirmedCustomerIndex({
                             onConfirm: () => cancelMember(member.id),
                         });
                     }
+                }}
+                onRowDoubleClick={(member) => {
+                    if (member.status !== 'cancelled') {
+                        openMemberDialog(member.group_id, member.id, 'edit');
+
+                        return;
+                    }
+
+                    openMemberDialog(member.group_id, member.id, 'view');
                 }}
                 initialState={{
                     columnVisibility: {
@@ -1532,9 +1610,24 @@ export default function ConfirmedCustomerIndex({
                                 }
                             }}
                             onRowDoubleClick={(row) => {
-                                if (row.id) {
-                                    handleOpenGroupDialog(row.id, 'view');
+                                if (!row.id) {
+                                    return;
                                 }
+
+                                const hasActiveMembers = row.members.some(
+                                    (member) => member.status !== 'cancelled',
+                                );
+
+                                if (
+                                    userPermissions.includes('customer edit') &&
+                                    hasActiveMembers
+                                ) {
+                                    handleOpenGroupDialog(row.id, 'edit');
+
+                                    return;
+                                }
+
+                                handleOpenGroupDialog(row.id, 'view');
                             }}
                             initialState={{
                                 columnVisibility: {

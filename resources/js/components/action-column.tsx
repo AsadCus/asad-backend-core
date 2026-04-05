@@ -36,7 +36,8 @@ export type ActionType =
     | 'move-members'
     | 'cancel-member'
     | 'refund'
-    | 'refund-overpaid';
+    | 'refund-overpaid'
+    | 'create-balance-invoice';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

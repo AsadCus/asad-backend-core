@@ -139,7 +139,7 @@ export default function Sales({
                                 }
                             }}
                             onRowDoubleClick={(row) => {
-                                openDialog('view', row as UserSchema);
+                                openDialog('edit', row as UserSchema);
                             }}
                             initialState={{
                                 columnVisibility: { id: false },

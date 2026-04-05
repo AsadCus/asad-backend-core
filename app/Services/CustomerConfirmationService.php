@@ -370,6 +370,8 @@ class CustomerConfirmationService
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'billed_amount' => round((float) $summary['billed_amount'], 2),
+                            'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
                             'name' => $member->customer?->user?->name ?? '-',
                             'email' => $member->customer?->user?->email ?? '-',
                             'contact' => $member->customer?->user?->contact ?? '-',
@@ -473,6 +475,8 @@ class CustomerConfirmationService
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'billed_amount' => round((float) $summary['billed_amount'], 2),
+                            'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
                             'name' => $member->customer?->user?->name ?? '-',
                             'email' => $member->customer?->user?->email ?? '-',
                             'contact' => $member->customer?->user?->contact ?? '-',
@@ -576,6 +580,8 @@ class CustomerConfirmationService
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'billed_amount' => round((float) $summary['billed_amount'], 2),
+                            'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
                             'name' => $member->customer?->user?->name ?? '-',
                             'email' => $member->customer?->user?->email ?? '-',
                             'contact' => $member->customer?->user?->contact ?? '-',
@@ -1365,6 +1371,7 @@ class CustomerConfirmationService
     {
         return DB::transaction(function () use ($memberId, $data) {
             $member = CustomerConfirmationMember::with(['customer.user', 'customer.files'])->findOrFail($memberId);
+            $previousSharingPlan = strtolower(trim((string) ($member->sharing_plan ?? '')));
 
             $customer = $member->customer;
             if (! $customer) {
@@ -1384,9 +1391,36 @@ class CustomerConfirmationService
             $member->load('customer.user');
             $this->syncOpenManifestMemberSnapshot($member);
 
-            app(PackageSeatService::class)->recalculateForPackageId(
-                (int) ($member->confirmation?->package_id ?? 0),
-            );
+            if ($member->customer_confirmation_id) {
+                $confirmationId = (int) $member->customer_confirmation_id;
+
+                $this->syncMemberStatusesForConfirmation($confirmationId);
+
+                $incomingSharingPlan = strtolower(trim((string) ($data['sharing_plan'] ?? $member->sharing_plan ?? '')));
+                $sharingPlanChanged = array_key_exists('sharing_plan', $data)
+                    && $incomingSharingPlan !== $previousSharingPlan;
+
+                if ($sharingPlanChanged) {
+                    $confirmation = CustomerConfirmation::with('package')->find($confirmationId);
+
+                    if ($confirmation?->package) {
+                        $memberForReconciliation = CustomerConfirmationMember::with([
+                            'quotationItems.invoices.receipt',
+                            'quotationItems.quotation.order.invoices.quotationItems',
+                            'quotationItems.quotation.order.invoices.receipt',
+                        ])->find((int) $member->id);
+
+                        if ($memberForReconciliation) {
+                            $this->voidObsoleteUnpaidMemberBilling(
+                                $memberForReconciliation,
+                                $confirmation->package,
+                            );
+
+                            $this->syncMemberStatusesForConfirmation($confirmationId);
+                        }
+                    }
+                }
+            }
 
             $member->refresh();
             $member->load('customer.user', 'customer.files');
@@ -2045,6 +2079,8 @@ class CustomerConfirmationService
                 continue;
             }
 
+            $this->voidObsoleteUnpaidMemberBilling($member, $package, $requiredAmount);
+
             $billedAmount = $this->resolveMemberBilledAmount($member);
             $shortfallAmount = round($requiredAmount - $billedAmount, 2);
 
@@ -2095,6 +2131,90 @@ class CustomerConfirmationService
 
             $topUpInvoice->quotationItems()->sync([(int) $topUpItem->id]);
         }
+    }
+
+    private function voidObsoleteUnpaidMemberBilling(
+        CustomerConfirmationMember $member,
+        ?Package $package,
+        ?float $requiredAmount = null,
+    ): void {
+        if (! $package) {
+            return;
+        }
+
+        $memberStatus = $this->normalizePaymentStatus($member->status ?? null);
+
+        if ($memberStatus === 'cancelled') {
+            return;
+        }
+
+        $resolvedRequiredAmount = $requiredAmount ?? $this->resolveMemberTotalAmount($member, $package);
+
+        if ($resolvedRequiredAmount <= 0) {
+            return;
+        }
+
+        $paidAmount = $this->resolveMemberPaidAmount($member);
+        $billedAmount = $this->resolveMemberBilledAmount($member);
+
+        $excessBilledAmount = round(max(0.0, $billedAmount - $resolvedRequiredAmount), 2);
+        $unpaidAmount = round(max(0.0, $billedAmount - $paidAmount), 2);
+        $voidAmount = round(min($excessBilledAmount, $unpaidAmount), 2);
+
+        if ($voidAmount <= 0) {
+            return;
+        }
+
+        $linkedInvoice = $this->resolveMemberLatestInvoice($member);
+
+        if (! $linkedInvoice || ! $linkedInvoice->order || ! $linkedInvoice->order->quotation) {
+            return;
+        }
+
+        $sourceQuotation = $linkedInvoice->order->quotation;
+        $memberName = $member->customer?->user?->name ?? ('Member #'.$member->id);
+        $packageName = trim((string) ($package->name ?? 'Package'));
+        $sharingPlanLabel = $this->formatSharingPlanLabel($member->sharing_plan);
+
+        $nextSortOrder = ((int) QuotationItem::query()
+            ->where('quotation_id', (int) $sourceQuotation->id)
+            ->max('sort_order')) + 1;
+
+        $voidHeaderItem = QuotationItem::create([
+            'quotation_id' => (int) $sourceQuotation->id,
+            'customer_confirmation_member_id' => null,
+            'parent_id' => null,
+            'description' => 'Voided Previous Package Billing',
+            'is_header' => true,
+            'sort_order' => $nextSortOrder,
+        ]);
+
+        $voidDetailItem = QuotationItem::create([
+            'quotation_id' => (int) $sourceQuotation->id,
+            'customer_confirmation_member_id' => (int) $member->id,
+            'parent_id' => (int) $voidHeaderItem->id,
+            'description' => 'Voided unpaid billing - '.$packageName.' - '.$memberName.' - '.$sharingPlanLabel.' sharing',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => -$voidAmount,
+            'sort_order' => $nextSortOrder + 1,
+        ]);
+
+        $voidInvoice = Invoice::create([
+            'order_id' => (int) $linkedInvoice->order_id,
+            'description' => 'Voided Unpaid Previous Package Billing',
+            'payment_method' => $linkedInvoice->payment_method,
+            'extensions' => [],
+            'amount' => -$voidAmount,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => InvoiceStatus::Cancelled,
+        ]);
+
+        $voidInvoice->quotationItems()->sync([
+            (int) $voidHeaderItem->id,
+            (int) $voidDetailItem->id,
+        ]);
     }
 
     private function resolveLatestActiveQuotationForMember(CustomerConfirmationMember $member): ?Quotation
@@ -2889,6 +3009,120 @@ class CustomerConfirmationService
             $memberRefundPayloads,
             'overpaid',
         );
+    }
+
+    public function createBalanceInvoiceForUnderpaidMember(int $confirmationId, int $memberId): Invoice
+    {
+        return DB::transaction(function () use ($confirmationId, $memberId) {
+            $group = CustomerConfirmation::with([
+                'members.customer.user',
+                'members.quotationItems',
+                'members.quotationItems.invoices.receipt',
+                'members.quotationItems.quotation.order.invoices.quotationItems',
+                'members.quotationItems.quotation.order.invoices.receipt',
+                'package',
+            ])->findOrFail($confirmationId);
+
+            $member = $group->members->firstWhere('id', $memberId);
+
+            if (! $member) {
+                throw ValidationException::withMessages([
+                    'member' => 'Selected member is invalid for this customer confirmation.',
+                ]);
+            }
+
+            $normalizedStatus = $this->normalizePaymentStatus($member->status ?? null);
+
+            if ($normalizedStatus === 'cancelled') {
+                throw ValidationException::withMessages([
+                    'member' => 'Cancelled member cannot create balance invoice.',
+                ]);
+            }
+
+            $snapshot = $this->resolveMemberFinancialSnapshot($member, $group->package);
+            $paidAmount = round((float) ($snapshot['paid_amount'] ?? 0), 2);
+            $totalAmount = round((float) ($snapshot['total_amount'] ?? 0), 2);
+            $billedAmount = round((float) ($snapshot['billed_amount'] ?? 0), 2);
+
+            $underpaidAmount = round(max(0.0, $totalAmount - $paidAmount), 2);
+            $unbilledAmount = round(max(0.0, $totalAmount - $billedAmount), 2);
+
+            if ($underpaidAmount <= 0) {
+                throw ValidationException::withMessages([
+                    'member' => 'Selected member is not underpaid.',
+                ]);
+            }
+
+            if ($unbilledAmount <= 0) {
+                throw ValidationException::withMessages([
+                    'member' => 'Outstanding amount already covered by existing invoices.',
+                ]);
+            }
+
+            $linkedInvoice = $this->resolveMemberLatestInvoice($member);
+
+            if (! $linkedInvoice || ! $linkedInvoice->order || ! $linkedInvoice->order->quotation) {
+                throw ValidationException::withMessages([
+                    'member' => 'Unable to resolve source order for balance invoice.',
+                ]);
+            }
+
+            $sourceQuotation = $linkedInvoice->order->quotation;
+            $memberName = $member->customer?->user?->name ?? ('Member #'.$member->id);
+            $packageName = trim((string) ($group->package?->name ?? 'Package'));
+            $sharingPlanLabel = $this->formatSharingPlanLabel($member->sharing_plan);
+
+            $nextSortOrder = ((int) QuotationItem::query()
+                ->where('quotation_id', (int) $sourceQuotation->id)
+                ->max('sort_order')) + 1;
+
+            $headerItem = QuotationItem::create([
+                'quotation_id' => (int) $sourceQuotation->id,
+                'customer_confirmation_member_id' => null,
+                'parent_id' => null,
+                'description' => 'Umrah Packages',
+                'is_header' => true,
+                'sort_order' => $nextSortOrder,
+            ]);
+
+            $detailItem = QuotationItem::create([
+                'quotation_id' => (int) $sourceQuotation->id,
+                'customer_confirmation_member_id' => (int) $member->id,
+                'parent_id' => (int) $headerItem->id,
+                'description' => $packageName.' - '.$memberName.' - '.$sharingPlanLabel.' sharing',
+                'is_header' => false,
+                'quantity' => 1,
+                'rate' => $unbilledAmount,
+                'sort_order' => $nextSortOrder + 1,
+            ]);
+
+            $balanceInvoice = Invoice::create([
+                'order_id' => (int) $linkedInvoice->order_id,
+                'description' => 'Invoice For Balance',
+                'payment_method' => $linkedInvoice->payment_method,
+                'extensions' => [],
+                'amount' => $unbilledAmount,
+                'invoice_date' => now()->format('Y-m-d'),
+                'due_date' => now()->format('Y-m-d'),
+                'status' => InvoiceStatus::Issued,
+            ]);
+
+            $balanceInvoice->quotationItems()->sync([
+                (int) $headerItem->id,
+                (int) $detailItem->id,
+            ]);
+
+            $member->update([
+                'status' => 'partially_paid',
+            ]);
+
+            $member->refresh();
+            $member->load('customer.user');
+            $this->syncOpenManifestMemberSnapshot($member);
+            $this->syncMemberStatusesForConfirmation((int) $group->id);
+
+            return $balanceInvoice;
+        });
     }
 
     /**

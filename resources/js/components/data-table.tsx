@@ -75,6 +75,40 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     settingsKey?: string;
 }
 
+const ROW_CLICK_IGNORE_SELECTOR = [
+    'a',
+    'button',
+    'input',
+    'textarea',
+    'select',
+    'option',
+    'label',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="menuitem"]',
+    '[data-prevent-row-open="true"]',
+].join(',');
+
+function shouldIgnoreRowOpen(
+    event: React.MouseEvent<HTMLTableRowElement>,
+): boolean {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+        return false;
+    }
+
+    if (target.closest(ROW_CLICK_IGNORE_SELECTOR)) {
+        return true;
+    }
+
+    if (window.getSelection()?.toString()) {
+        return true;
+    }
+
+    return false;
+}
+
 interface DataTablePersistedState {
     version: 1;
     sorting: SortingState;
@@ -523,11 +557,23 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                                                     onRowDoubleClick &&
                                                         'cursor-pointer',
                                                 )}
-                                                onDoubleClick={() =>
-                                                    onRowDoubleClick?.(
+                                                onClick={(event) => {
+                                                    if (!onRowDoubleClick) {
+                                                        return;
+                                                    }
+
+                                                    if (
+                                                        shouldIgnoreRowOpen(
+                                                            event,
+                                                        )
+                                                    ) {
+                                                        return;
+                                                    }
+
+                                                    onRowDoubleClick(
                                                         row.original,
-                                                    )
-                                                }
+                                                    );
+                                                }}
                                             >
                                                 {row
                                                     .getVisibleCells()

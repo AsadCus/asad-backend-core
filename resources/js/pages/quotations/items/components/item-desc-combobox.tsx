@@ -28,6 +28,7 @@ import { quotationItemsList } from '@/routes';
 import { quickCreate as quickCreateQuotationItem } from '@/routes/quotation-items';
 import { router } from '@inertiajs/react';
 import { Check, FileText, Folder, Plus } from 'lucide-react';
+import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ProperInput } from '../../../../components/proper-input';
@@ -44,12 +45,20 @@ export type ItemSelectionPayload =
           children: QuotationItemSchema[];
       };
 
+export type ItemDescriptionComboboxGroupOption = {
+    key: string;
+    label: string;
+    parent: Partial<QuotationItemSchema>;
+    children: Array<Partial<QuotationItemSchema>>;
+};
+
 interface ItemDescriptionComboboxProps {
     value: string;
     disabled?: boolean;
     isHeader?: boolean;
     isChild?: boolean;
     existingItemKeys: string[];
+    groupOptions?: ItemDescriptionComboboxGroupOption[];
     onSelect: (payload: ItemSelectionPayload) => void;
     onChange: (value: string) => void;
     className?: string;
@@ -61,6 +70,7 @@ export default function ItemDescriptionCombobox({
     isHeader = false,
     isChild = false,
     existingItemKeys,
+    groupOptions = [],
     onSelect,
     onChange,
     className,
@@ -217,6 +227,44 @@ export default function ItemDescriptionCombobox({
         >,
     );
 
+    const toSelectableItem = useCallback(
+        (
+            item: Partial<QuotationItemSchema>,
+            fallbackDescription: string,
+            isHeaderItem: boolean,
+        ): QuotationItemSchema => ({
+            _key: String(item._key ?? `dynamic-${nanoid()}`),
+            id:
+                typeof item.id === 'number' && Number.isFinite(item.id)
+                    ? item.id
+                    : undefined,
+            parent_id:
+                typeof item.parent_id === 'number' &&
+                Number.isFinite(item.parent_id)
+                    ? item.parent_id
+                    : null,
+            parent_key:
+                typeof item.parent_key === 'string' && item.parent_key !== ''
+                    ? item.parent_key
+                    : null,
+            description: String(item.description ?? fallbackDescription),
+            is_header: item.is_header ?? isHeaderItem,
+            is_optional: item.is_optional ?? false,
+            quantity: item.quantity ?? 1,
+            rate: item.rate ?? null,
+            customer_confirmation_member_id:
+                typeof item.customer_confirmation_member_id === 'number' &&
+                Number.isFinite(item.customer_confirmation_member_id)
+                    ? item.customer_confirmation_member_id
+                    : null,
+            sharing_plan: item.sharing_plan ?? null,
+            taxes: Array.isArray(item.taxes) ? item.taxes : [],
+            amount: item.amount ?? null,
+            sort_order: Number(item.sort_order ?? 0),
+        }),
+        [],
+    );
+
     const filteredGroups = Object.entries(groupedItems).filter(([, group]) => {
         if (!searchValue) return true;
 
@@ -230,6 +278,29 @@ export default function ItemDescriptionCombobox({
         );
 
         return parentMatches || childMatches;
+    });
+
+    const filteredDynamicGroups = groupOptions.filter((groupOption) => {
+        if (!searchValue) {
+            return true;
+        }
+
+        const search = searchValue.toLowerCase();
+        const parentDescription = String(
+            groupOption.parent.description ?? groupOption.label,
+        ).toLowerCase();
+        const label = String(groupOption.label ?? '').toLowerCase();
+        const childMatches = (groupOption.children ?? []).some((child) =>
+            String(child.description ?? '')
+                .toLowerCase()
+                .includes(search),
+        );
+
+        return (
+            parentDescription.includes(search) ||
+            label.includes(search) ||
+            childMatches
+        );
     });
 
     if (disabled) {
@@ -301,6 +372,90 @@ export default function ItemDescriptionCombobox({
                                     </div>
                                 )}
                             </CommandEmpty>
+
+                            {!isChild && filteredDynamicGroups.length > 0 && (
+                                <CommandGroup heading="Customer Confirmation Items">
+                                    {filteredDynamicGroups.map(
+                                        (groupOption) => (
+                                            <CommandItem
+                                                key={groupOption.key}
+                                                value={`dynamic-group-${groupOption.key}-${groupOption.label}`}
+                                                onSelect={() => {
+                                                    handleSelect({
+                                                        type: 'group',
+                                                        parent: toSelectableItem(
+                                                            {
+                                                                ...groupOption.parent,
+                                                                is_header: true,
+                                                            },
+                                                            groupOption.label,
+                                                            true,
+                                                        ),
+                                                        children: (
+                                                            groupOption.children ??
+                                                            []
+                                                        ).map(
+                                                            (
+                                                                child,
+                                                                childIndex,
+                                                            ) =>
+                                                                toSelectableItem(
+                                                                    {
+                                                                        ...child,
+                                                                        is_header: false,
+                                                                        sort_order:
+                                                                            child.sort_order ??
+                                                                            childIndex +
+                                                                                1,
+                                                                    },
+                                                                    String(
+                                                                        child.description ??
+                                                                            `Member ${childIndex + 1}`,
+                                                                    ),
+                                                                    false,
+                                                                ),
+                                                        ),
+                                                    });
+                                                }}
+                                                className="cursor-pointer"
+                                            >
+                                                <div className="flex w-full items-center gap-2">
+                                                    <Folder className="h-4 w-4 shrink-0 text-primary" />
+                                                    <div className="flex flex-1 flex-col">
+                                                        <span className="font-medium">
+                                                            {groupOption.label}
+                                                        </span>
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {
+                                                                groupOption
+                                                                    .children
+                                                                    .length
+                                                            }{' '}
+                                                            member item
+                                                            {groupOption
+                                                                .children
+                                                                .length === 1
+                                                                ? ''
+                                                                : 's'}
+                                                        </span>
+                                                    </div>
+                                                    <Check
+                                                        className={cn(
+                                                            'h-4 w-4 shrink-0',
+                                                            value ===
+                                                                groupOption
+                                                                    .parent
+                                                                    .description
+                                                                ? 'opacity-100'
+                                                                : 'opacity-0',
+                                                        )}
+                                                    />
+                                                </div>
+                                            </CommandItem>
+                                        ),
+                                    )}
+                                </CommandGroup>
+                            )}
 
                             {filteredGroups.length > 0 && (
                                 <CommandGroup heading="Available Items">

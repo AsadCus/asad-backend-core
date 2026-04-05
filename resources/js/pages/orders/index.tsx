@@ -4,6 +4,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import {
     create as createInvoice,
@@ -24,8 +25,18 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { invoiceColumns } from '../invoices';
 import InvoicePreviewModal from '../invoices/components/invoice-preview-modal';
-import { InvoiceItemSchema, InvoiceSchema, statuses } from '../invoices/schema';
-import { paymentPlans } from '../quotations/schema';
+import {
+    indexStatusValues as invoiceIndexStatusValues,
+    InvoiceItemSchema,
+    InvoiceSchema,
+    statuses as invoiceStatuses,
+} from '../invoices/schema';
+import {
+    paymentPlans,
+    indexStatusValues as quotationIndexStatusValues,
+    statusColors as quotationStatusColors,
+    statuses as quotationStatuses,
+} from '../quotations/schema';
 import ReceiptPreviewModal from '../receipts/components/receipt-preview-modal';
 import { ReceiptSchema } from '../receipts/schema';
 import OrderCreateDialog from './components/order-create-dialog';
@@ -46,6 +57,9 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: index().url,
     },
 ];
+
+const defaultOrderIndexQuotationStatusFilters = [...quotationIndexStatusValues];
+const defaultOrderExpandedInvoiceStatusFilters = [...invoiceIndexStatusValues];
 
 const columns: ColumnDef<OrderSchema>[] = [
     createSelectColumn<OrderSchema>(),
@@ -95,6 +109,30 @@ const columns: ColumnDef<OrderSchema>[] = [
         accessorKey: 'quotation_number',
         header: 'Quotation No.',
         meta: { exportable: true },
+    },
+    {
+        accessorKey: 'quotation_status',
+        header: 'Quotation Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const status = row.original.quotation_status ?? 'draft';
+            const label =
+                quotationStatuses.find((option) => option.value === status)
+                    ?.label ?? status;
+            const color =
+                quotationStatusColors[
+                    status as keyof typeof quotationStatusColors
+                ] ?? 'bg-gray-100 text-gray-800';
+
+            return (
+                <Badge
+                    className={`${color} rounded-full px-3 py-1 text-base font-medium`}
+                >
+                    {label}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'payment_plan',
@@ -261,6 +299,12 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                 }
                             }}
                             initialState={{
+                                columnFilters: [
+                                    {
+                                        id: 'quotation_status',
+                                        value: defaultOrderIndexQuotationStatusFilters,
+                                    },
+                                ],
                                 pagination: {
                                     pageSize: 50,
                                     pageIndex: 0,
@@ -277,6 +321,12 @@ export default function OrderIndex({ data }: QuotationsProps) {
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="quotation_status"
+                                        title="Status"
+                                        options={quotationStatuses}
+                                    />
                                     <ColumnFilter
                                         table={table}
                                         columnId="customer_id"
@@ -502,6 +552,12 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                     }
                                                 }}
                                                 initialState={{
+                                                    columnFilters: [
+                                                        {
+                                                            id: 'status',
+                                                            value: defaultOrderExpandedInvoiceStatusFilters,
+                                                        },
+                                                    ],
                                                     pagination: {
                                                         pageSize: 50,
                                                         pageIndex: 0,
@@ -524,7 +580,9 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                                             table={table}
                                                             columnId="status"
                                                             title="Status"
-                                                            options={statuses}
+                                                            options={
+                                                                invoiceStatuses
+                                                            }
                                                         />
                                                         <DateRangeFilter
                                                             table={table}

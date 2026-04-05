@@ -686,34 +686,6 @@ function buildInstallmentItems(
         }
     });
 
-    const packageItems = lineItems.filter((item) => {
-        if (Number(item.customer_confirmation_member_id ?? 0) > 0) {
-            return true;
-        }
-
-        if (String(item.sharing_plan ?? '').trim() !== '') {
-            return true;
-        }
-
-        const parentHeader =
-            (Number(item.parent_id ?? 0) > 0
-                ? headersById.get(Number(item.parent_id ?? 0))
-                : undefined) ??
-            (item.parent_key
-                ? headersByKey.get(String(item.parent_key))
-                : undefined);
-
-        if (!parentHeader) {
-            return false;
-        }
-
-        return (
-            String(parentHeader.description ?? '')
-                .trim()
-                .toLowerCase() === 'umrah packages'
-        );
-    });
-
     if (!lineItems.length) {
         return {
             depositItems: normalizedSourceItems,
@@ -883,29 +855,9 @@ function buildInstallmentItems(
         balanceSectionLines,
     );
 
-    const extraInstallmentTemplateItems = packageItems.length
-        ? ensureHeadersForItems(
-              normalizedSourceItems,
-              packageItems.map((item) => ({
-                  ...item,
-                  _key: nanoid(),
-                  id: undefined,
-                  parent_id: item.parent_id ?? null,
-                  parent_key: item.parent_key ?? null,
-                  description:
-                      stripInstallmentSuffix(item.description) ||
-                      item.description ||
-                      'Package',
-                  quantity: Number(item.quantity ?? 0) || 1,
-                  rate: null,
-                  amount: null,
-              })),
-          )
-        : [];
-
     const additionalInstallmentInvoiceItems = Array.from(
         { length: additionalInvoiceCount },
-        () => cloneItemsWithFreshKeys(extraInstallmentTemplateItems),
+        () => cloneItemsWithFreshKeys([]),
     );
 
     return {

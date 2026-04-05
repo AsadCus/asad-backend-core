@@ -25,6 +25,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import {
+    indexStatusValues,
     InvoiceItemSchema,
     InvoiceSchema,
     statusColors,
@@ -49,6 +50,20 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: invoiceIndex().url,
     },
 ];
+
+const defaultInvoiceIndexStatusFilters = [...indexStatusValues];
+
+const shouldProceedWithNegativeReceipt = (invoice: InvoiceSchema): boolean => {
+    const invoiceAmount = Number(invoice.amount ?? 0);
+
+    if (!Number.isFinite(invoiceAmount) || invoiceAmount >= 0) {
+        return true;
+    }
+
+    return window.confirm(
+        'This invoice has a negative amount. Creating this receipt will update the invoice status to Refund. Continue?',
+    );
+};
 
 export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
     createSelectColumn<InvoiceSchema>(),
@@ -162,6 +177,10 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
                         event.stopPropagation();
 
                         if (!invoice.id) {
+                            return;
+                        }
+
+                        if (!shouldProceedWithNegativeReceipt(invoice)) {
                             return;
                         }
 
@@ -351,6 +370,14 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                 } else if (action === 'preview') {
                                     handlePreview(invoice);
                                 } else if (action === 'create-receipt') {
+                                    if (
+                                        !shouldProceedWithNegativeReceipt(
+                                            invoice,
+                                        )
+                                    ) {
+                                        return;
+                                    }
+
                                     router.get(createReceipt.url(), {
                                         invoice_id: invoice.id,
                                     });
@@ -412,6 +439,12 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                 }
                             }}
                             initialState={{
+                                columnFilters: [
+                                    {
+                                        id: 'status',
+                                        value: defaultInvoiceIndexStatusFilters,
+                                    },
+                                ],
                                 pagination: {
                                     pageSize: 50,
                                     pageIndex: 0,

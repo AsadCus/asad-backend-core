@@ -26,6 +26,7 @@ import {
 } from './components/quotation-status-action';
 import { QuotationItemSchema } from './items/schema';
 import {
+    indexStatusValues,
     paymentPlans,
     QuotationSchema,
     statusColors,
@@ -46,6 +47,8 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: index().url,
     },
 ];
+
+const defaultQuotationIndexStatusFilters = [...indexStatusValues];
 
 const getColumns = (): ColumnDef<QuotationSchema>[] => [
     createSelectColumn<QuotationSchema>(),
@@ -392,6 +395,12 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                 }
                             }}
                             initialState={{
+                                columnFilters: [
+                                    {
+                                        id: 'status',
+                                        value: defaultQuotationIndexStatusFilters,
+                                    },
+                                ],
                                 pagination: {
                                     pageSize: 50,
                                     pageIndex: 0,

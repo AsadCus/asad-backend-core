@@ -369,6 +369,51 @@ function cleanMessage(message: string) {
         .replace(/\.$/, '');
 }
 
+function formatSharingPlanLabel(sharingPlan?: string | null): string {
+    const normalizedSharingPlan = String(sharingPlan ?? '')
+        .trim()
+        .toLowerCase();
+
+    return (
+        {
+            single: 'Single',
+            double: 'Double',
+            triple: 'Triple',
+            quad: 'Quad',
+            child_with_bed: 'Child with Bed',
+            child_no_bed: 'Child No Bed',
+            infant: 'Infant',
+        }[normalizedSharingPlan] ?? 'Standard'
+    );
+}
+
+function resolveQuotationPackageRateBySharingPlan(
+    quotation?: QuotationSchema,
+    sharingPlan?: string | null,
+): number {
+    if (!quotation) {
+        return 0;
+    }
+
+    const normalizedSharingPlan = String(sharingPlan ?? '')
+        .trim()
+        .toLowerCase();
+
+    const valueBySharingPlan = {
+        single: quotation.package_price_single,
+        double: quotation.package_price_double,
+        triple: quotation.package_price_triple,
+        quad: quotation.package_price_quad,
+        child_with_bed: quotation.package_price_child_with_bed,
+        child_no_bed: quotation.package_price_child_no_bed,
+        infant: quotation.package_price_infant,
+    }[normalizedSharingPlan];
+
+    const normalizedValue = Number(valueBySharingPlan ?? 0);
+
+    return Number.isFinite(normalizedValue) ? normalizedValue : 0;
+}
+
 function createEmptyInvoice(defaultPaymentMethod = ''): InvoiceSchema {
     return {
         _key: nanoid(),
@@ -747,6 +792,13 @@ export default function OrderForm({
         [data.invoices],
     );
 
+    const editableInvoiceCount = useMemo(
+        () =>
+            splitInvoicesByRefundStatus(data.invoices ?? []).editableInvoices
+                .length,
+        [data.invoices],
+    );
+
     const updateInvoiceAtIndex = useCallback(
         (
             invoiceIndex: number,
@@ -1002,25 +1054,90 @@ export default function OrderForm({
         ],
     );
 
+    const resizeInstallmentInvoices = useCallback(
+        (
+            targetCount: number | string | null | undefined,
+            currentInvoices: InvoiceSchema[] = [],
+        ): { installmentCount: number; invoices: InvoiceSchema[] } => {
+            const normalizedTargetCount =
+                sanitizeInstallmentInvoiceCount(targetCount);
+            const { editableInvoices, refundInvoices } =
+                splitInvoicesByRefundStatus(currentInvoices);
+            const nextEditableInvoices = [...editableInvoices];
+
+            if (normalizedTargetCount > nextEditableInvoices.length) {
+                const missingCount =
+                    normalizedTargetCount - nextEditableInvoices.length;
+
+                for (let index = 0; index < missingCount; index += 1) {
+                    nextEditableInvoices.push(
+                        createEmptyInvoice(String(defaultPaymentMethod ?? '')),
+                    );
+                }
+            } else if (normalizedTargetCount < nextEditableInvoices.length) {
+                let removableCount =
+                    nextEditableInvoices.length - normalizedTargetCount;
+
+                for (
+                    let index = nextEditableInvoices.length - 1;
+                    index >= 0 && removableCount > 0;
+                    index -= 1
+                ) {
+                    if (
+                        isInvoiceLockedForRemoval(nextEditableInvoices[index])
+                    ) {
+                        continue;
+                    }
+
+                    nextEditableInvoices.splice(index, 1);
+                    removableCount -= 1;
+                }
+
+                if (removableCount > 0) {
+                    toast.error(
+                        'Some invoices are locked by receipt/refund/paid status and cannot be removed.',
+                    );
+                }
+            }
+
+            while (nextEditableInvoices.length < 3) {
+                nextEditableInvoices.push(
+                    createEmptyInvoice(String(defaultPaymentMethod ?? '')),
+                );
+            }
+
+            const numberedInvoices = applyInvoiceNumberingSequence(
+                nextEditableInvoices,
+                {
+                    sourceInvoices: editableInvoices,
+                },
+            );
+
+            return {
+                installmentCount: sanitizeInstallmentInvoiceCount(
+                    numberedInvoices.length,
+                ),
+                invoices: [...numberedInvoices, ...refundInvoices],
+            };
+        },
+        [defaultPaymentMethod],
+    );
+
     function addInvoice() {
         const { editableInvoices, refundInvoices } =
             splitInvoicesByRefundStatus(data.invoices);
 
         if (data.payment_plan === 'installment') {
-            const nextInstallmentCount = sanitizeInstallmentInvoiceCount(
+            const nextInstallmentSnapshot = resizeInstallmentInvoices(
                 Number(editableInvoices.length ?? 0) + 1,
+                data.invoices,
             );
 
             setData({
                 ...data,
-                installment_invoice_count: nextInstallmentCount,
-                invoices: rebuildInvoicesFromSource(
-                    data.payment_plan,
-                    data.deposit_type,
-                    data.deposit_value,
-                    [...editableInvoices, ...refundInvoices],
-                    nextInstallmentCount,
-                ),
+                installment_invoice_count:
+                    nextInstallmentSnapshot.installmentCount,
+                invoices: nextInstallmentSnapshot.invoices,
             });
 
             return;
@@ -1048,25 +1165,29 @@ export default function OrderForm({
         }
 
         if (data.payment_plan === 'installment') {
+            const { editableInvoices } = splitInvoicesByRefundStatus(
+                data.invoices,
+            );
+
+            if (editableInvoices.length <= 3) {
+                return;
+            }
+
             const nextCurrentInvoices = data.invoices.filter(
                 (_, invoiceIndex) => invoiceIndex !== index,
             );
-            const { editableInvoices } =
+            const { editableInvoices: nextEditableInvoices } =
                 splitInvoicesByRefundStatus(nextCurrentInvoices);
-            const nextInstallmentCount = sanitizeInstallmentInvoiceCount(
-                Number(editableInvoices.length ?? 0),
+            const nextInstallmentSnapshot = resizeInstallmentInvoices(
+                Number(nextEditableInvoices.length ?? 0),
+                nextCurrentInvoices,
             );
 
             setData({
                 ...data,
-                installment_invoice_count: nextInstallmentCount,
-                invoices: rebuildInvoicesFromSource(
-                    data.payment_plan,
-                    data.deposit_type,
-                    data.deposit_value,
-                    nextCurrentInvoices,
-                    nextInstallmentCount,
-                ),
+                installment_invoice_count:
+                    nextInstallmentSnapshot.installmentCount,
+                invoices: nextInstallmentSnapshot.invoices,
             });
 
             return;
@@ -1445,6 +1566,65 @@ export default function OrderForm({
             isUnmounted = true;
         };
     }, [quotation]);
+
+    const memberPackageItemGroups = useMemo(() => {
+        if (!quotation || memberOptions.length === 0) {
+            return [];
+        }
+
+        const packageName = String(quotation.package_name ?? '').trim();
+
+        if (packageName === '') {
+            return [];
+        }
+
+        const memberChildren = memberOptions
+            .map((memberOption, index) => {
+                const memberId = Number(memberOption.value ?? 0);
+
+                if (!Number.isFinite(memberId) || memberId <= 0) {
+                    return null;
+                }
+
+                const sharingPlan = memberSharingPlanById[memberId] ?? null;
+                const sharingPlanLabel = formatSharingPlanLabel(sharingPlan);
+                const sharingRate = resolveQuotationPackageRateBySharingPlan(
+                    quotation,
+                    sharingPlan,
+                );
+
+                return {
+                    description: `${packageName} - ${memberOption.label} - ${sharingPlanLabel} sharing`,
+                    quantity: 1,
+                    rate: sharingRate,
+                    is_header: false,
+                    is_optional: false,
+                    customer_confirmation_member_id: memberId,
+                    sharing_plan: sharingPlan,
+                    sort_order: index + 1,
+                };
+            })
+            .filter((memberChild) => memberChild !== null);
+
+        if (memberChildren.length === 0) {
+            return [];
+        }
+
+        return [
+            {
+                key: 'member-umrah-packages-group',
+                label: `Umrah Packages (${memberChildren.length} Members)`,
+                parent: {
+                    description: 'Umrah Packages',
+                    is_header: true,
+                    is_optional: false,
+                    quantity: 1,
+                    rate: null,
+                },
+                children: memberChildren,
+            },
+        ];
+    }, [memberOptions, memberSharingPlanById, quotation]);
 
     useEffect(() => {
         if (!data.invoices.length) return;
@@ -1842,24 +2022,18 @@ export default function OrderForm({
                                                 placeholder="Minimum 3"
                                                 disabled={isView}
                                                 onCommit={(value) => {
-                                                    const normalizedCount =
-                                                        sanitizeInstallmentInvoiceCount(
+                                                    const nextInstallmentSnapshot =
+                                                        resizeInstallmentInvoices(
                                                             value,
+                                                            data.invoices,
                                                         );
 
                                                     setData({
                                                         ...data,
                                                         installment_invoice_count:
-                                                            normalizedCount,
+                                                            nextInstallmentSnapshot.installmentCount,
                                                         invoices:
-                                                            rebuildInvoicesFromSource(
-                                                                data.payment_plan ??
-                                                                    'installment',
-                                                                data.deposit_type,
-                                                                data.deposit_value,
-                                                                data.invoices,
-                                                                normalizedCount,
-                                                            ),
+                                                            nextInstallmentSnapshot.invoices,
                                                     });
                                                 }}
                                             />
@@ -2200,10 +2374,14 @@ export default function OrderForm({
                                                                             )
                                                                         }
                                                                         disabled={
-                                                                            data
-                                                                                .invoices
-                                                                                .length <=
-                                                                            1
+                                                                            data.payment_plan ===
+                                                                            'installment'
+                                                                                ? editableInvoiceCount <=
+                                                                                  3
+                                                                                : data
+                                                                                      .invoices
+                                                                                      .length <=
+                                                                                  1
                                                                         }
                                                                     >
                                                                         <Trash />
@@ -2365,6 +2543,9 @@ export default function OrderForm({
                                                         showTaxColumn
                                                         memberOptions={
                                                             memberOptions
+                                                        }
+                                                        itemDescriptionGroupOptions={
+                                                            memberPackageItemGroups
                                                         }
                                                         taxExtensionMasters={
                                                             taxExtensionMasters

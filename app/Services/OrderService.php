@@ -54,6 +54,7 @@ class OrderService
                     'order_number' => $o->order_number ?? '-',
                     'quotation_id' => $o->quotation_id ?? '-',
                     'quotation_number' => $o->quotation->quotation_number ?? '-',
+                    'quotation_status' => $o->quotation?->status?->value ?? ($o->quotation?->status ?? null),
                     'customer_id' => $o->quotation->customer->id ?? '-',
                     'customer_number' => $o->quotation->customer->customer_number ?? '-',
                     'customer_name' => $o->quotation->customer->user->name ?? '-',

@@ -85,6 +85,12 @@ export const statuses = [
     { label: 'Refund', value: 'refund' },
 ];
 
+export const indexStatuses = statuses.filter(
+    (status) => status.value !== 'cancelled',
+);
+
+export const indexStatusValues = indexStatuses.map((status) => status.value);
+
 export const statusColors = {
     draft: 'bg-gray-100 text-gray-800',
     issued: 'bg-cyan-100 text-cyan-800',
@@ -93,13 +99,4 @@ export const statusColors = {
     cancelled: 'bg-red-100 text-red-800',
     refund: 'bg-rose-100 text-rose-800',
     expired: 'bg-purple-100 text-purple-800',
-};
-
-export const statusVariantMap: Record<string, string> = {
-    draft: 'draft',
-    issued: 'issued',
-    paid: 'paid',
-    overdue: 'overdue',
-    cancelled: 'cancelled',
-    refund: 'refund',
 };

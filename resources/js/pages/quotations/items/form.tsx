@@ -63,7 +63,9 @@ import ExtensionMasterCombobox, {
     type ExtensionMasterComboboxOption,
 } from '../components/extension-master-combobox';
 import { QuotationSchema } from '../schema';
-import ItemDescriptionCombobox from './components/item-desc-combobox';
+import ItemDescriptionCombobox, {
+    type ItemDescriptionComboboxGroupOption,
+} from './components/item-desc-combobox';
 import { QuotationItemSchema } from './schema';
 
 type VisibleItem<T> = {
@@ -119,6 +121,7 @@ interface QuotationItemTableFormProps<T extends QuotationItemSchema> {
     memberOptions?: OptionType[];
     taxExtensionMasters?: TaxExtensionMasterOption[];
     memberSharingPlanById?: Record<number, string | null | undefined>;
+    itemDescriptionGroupOptions?: ItemDescriptionComboboxGroupOption[];
 }
 
 export default function QuotationItemTableForm<T extends QuotationItemSchema>({
@@ -138,6 +141,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     memberOptions = [],
     taxExtensionMasters = EMPTY_TAX_EXTENSION_MASTERS,
     memberSharingPlanById = {},
+    itemDescriptionGroupOptions = [],
 }: QuotationItemTableFormProps<T>) {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [availableTaxExtensionMasters, setAvailableTaxExtensionMasters] =
@@ -258,6 +262,23 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         const rate = Number(item.rate ?? 0);
 
         return quantity * rate;
+    };
+
+    const isLockedLinkedMemberItem = (item: T): boolean => {
+        if (!isLinkedMemberItem(item)) {
+            return false;
+        }
+
+        return computeItemAmount(item) !== 0;
+    };
+
+    const hasLockedLinkedMemberChildren = (target: T): boolean => {
+        return items.some(
+            (item) =>
+                isLockedLinkedMemberItem(item) &&
+                (item.parent_key === target._key ||
+                    (target.id && item.parent_id === target.id)),
+        );
     };
 
     const computeTaxRowAmount = (item: T, tax: QuotationItemTaxInput) => {
@@ -419,18 +440,11 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
     const removeItem = (index: number) => {
         const target = items[index];
 
-        if (isLinkedMemberItem(target)) {
+        if (isLockedLinkedMemberItem(target)) {
             return;
         }
 
-        const hasLinkedMemberChild = items.some(
-            (item) =>
-                isLinkedMemberItem(item) &&
-                (item.parent_key === target._key ||
-                    (target.id && item.parent_id === target.id)),
-        );
-
-        if (hasLinkedMemberChild) {
+        if (hasLockedLinkedMemberChildren(target)) {
             return;
         }
 
@@ -815,6 +829,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                 isHeader={item.is_header ?? false}
                                 isChild={false}
                                 existingItemKeys={existingItemKeys}
+                                groupOptions={itemDescriptionGroupOptions}
                                 onSelect={(payload) => {
                                     if (payload.type === 'single') {
                                         updateItemByKey(item._key, {
@@ -1139,13 +1154,9 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
                 const index = getSourceIndex(row.original.item._key);
                 const item = row.original.item;
-                const isLockedMemberItem = isLinkedMemberItem(item);
-                const hasLockedMemberChildren = items.some(
-                    (child) =>
-                        isLinkedMemberItem(child) &&
-                        (child.parent_key === item._key ||
-                            (item.id && child.parent_id === item.id)),
-                );
+                const isLockedMemberItem = isLockedLinkedMemberItem(item);
+                const hasLockedMemberChildren =
+                    hasLockedLinkedMemberChildren(item);
                 const disableRemove =
                     isLockedMemberItem || hasLockedMemberChildren;
                 const canMoveToAnotherInvoice =

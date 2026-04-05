@@ -110,6 +110,12 @@ export const statuses = [
     { label: 'Void', value: 'cancelled' },
 ];
 
+export const indexStatuses = statuses.filter(
+    (status) => !['rejected', 'expired', 'cancelled'].includes(status.value),
+);
+
+export const indexStatusValues = indexStatuses.map((status) => status.value);
+
 export const statusColors = {
     draft: 'bg-gray-100 text-gray-800',
     ready: 'bg-cyan-100 text-cyan-800',
