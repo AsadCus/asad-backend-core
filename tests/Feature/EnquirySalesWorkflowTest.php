@@ -62,6 +62,8 @@ class EnquirySalesWorkflowTest extends TestCase
 
     public function test_sales_only_sees_confirmed_customer_groups_handled_by_them(): void
     {
+        config()->set('data_scope.enabled', true);
+
         $salesA = User::factory()->create();
         $salesA->assignRole('sales');
 
@@ -81,10 +83,41 @@ class EnquirySalesWorkflowTest extends TestCase
 
         $groups = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
 
+        $this->assertCount(1, $groups);
+        $this->assertSame($groupA->id, (int) $groups[0]['id']);
+    }
+
+    public function test_sales_sees_all_confirmed_customer_groups_when_data_scope_disabled(): void
+    {
+        config()->set('data_scope.enabled', false);
+
+        $salesA = User::factory()->create();
+        $salesA->assignRole('sales');
+
+        $salesB = User::factory()->create();
+        $salesB->assignRole('sales');
+
+        $package = Package::create([
+            'package_number' => 'PKG-SCOPE-002',
+            'name' => 'Scope Package Disabled',
+            'status' => 'open',
+        ]);
+
+        $groupA = $this->createConfirmationGroupHandledBy($salesA->id, $package->id, 'scope-disabled-a');
+        $groupB = $this->createConfirmationGroupHandledBy($salesB->id, $package->id, 'scope-disabled-b');
+
+        $this->actingAs($salesA);
+
+        $groups = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+
         $this->assertCount(2, $groups);
-        $this->assertTrue(
-            collect($groups)->contains(fn (array $group): bool => (int) ($group['id'] ?? 0) === $groupA->id)
-        );
+        $groupIds = collect($groups)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $this->assertContains($groupA->id, $groupIds);
+        $this->assertContains($groupB->id, $groupIds);
     }
 
     public function test_sales_only_sees_pipeline_records_for_their_handled_enquiries(): void

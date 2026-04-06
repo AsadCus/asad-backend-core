@@ -16,6 +16,7 @@ use App\Models\PackageTrainTicket;
 use App\Models\PackageTransportationPlan;
 use App\Models\User;
 use App\Services\OpsMovementService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +30,8 @@ class OpsMovementWorkflowTest extends TestCase
 
     public function test_operations_user_only_sees_ops_movement_from_own_country(): void
     {
+        config()->set('data_scope.enabled', true);
+
         $countryA = Country::create([
             'name' => 'Malaysia',
             'adjective' => 'Malaysian',
@@ -79,13 +82,77 @@ class OpsMovementWorkflowTest extends TestCase
 
         $datatableRows = app(OpsMovementService::class)->getForDataTable();
 
+        $this->assertCount(1, $datatableRows);
+        $this->assertSame($visiblePackage->id, (int) $datatableRows->first()['id']);
+
+        $this->expectException(ModelNotFoundException::class);
+
+        app(OpsMovementService::class)->getForShow($hiddenPackage->id);
+    }
+
+    public function test_operations_user_sees_all_ops_movement_when_data_scope_disabled(): void
+    {
+        config()->set('data_scope.enabled', false);
+
+        $countryA = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $countryB = Country::create([
+            'name' => 'Indonesia',
+            'adjective' => 'Indonesian',
+        ]);
+
+        $branchA = Branch::create([
+            'name' => 'KL Branch',
+            'country_id' => $countryA->id,
+        ]);
+
+        $operationsUser = User::factory()->create([
+            'branch_id' => $branchA->id,
+        ]);
+
+        Role::findOrCreate('operations', 'web');
+        $operationsUser->assignRole('operations');
+
+        $visiblePackage = Package::create([
+            'package_number' => 'PKG-OPS-COUNTRY-3',
+            'name' => 'Visible Package Scope Disabled',
+            'status' => 'open',
+            'country_id' => $countryA->id,
+        ]);
+
+        $hiddenPackage = Package::create([
+            'package_number' => 'PKG-OPS-COUNTRY-4',
+            'name' => 'Hidden Package Scope Disabled',
+            'status' => 'open',
+            'country_id' => $countryB->id,
+        ]);
+
+        Manifest::create([
+            'package_id' => $visiblePackage->id,
+            'manifest_number' => 'MNF-VISIBLE-SCOPE-DISABLED',
+        ]);
+
+        Manifest::create([
+            'package_id' => $hiddenPackage->id,
+            'manifest_number' => 'MNF-HIDDEN-SCOPE-DISABLED',
+        ]);
+
+        $this->actingAs($operationsUser);
+
+        $datatableRows = app(OpsMovementService::class)->getForDataTable();
+
         $this->assertCount(2, $datatableRows);
-        $this->assertTrue(
-            $datatableRows->contains(fn (array $row): bool => (int) ($row['id'] ?? 0) === $visiblePackage->id)
-        );
-        $this->assertTrue(
-            $datatableRows->contains(fn (array $row): bool => (int) ($row['id'] ?? 0) === $hiddenPackage->id)
-        );
+
+        $rowIds = $datatableRows
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $this->assertContains($visiblePackage->id, $rowIds);
+        $this->assertContains($hiddenPackage->id, $rowIds);
 
         $hiddenPackageDetails = app(OpsMovementService::class)->getForShow($hiddenPackage->id);
         $this->assertSame($hiddenPackage->id, (int) ($hiddenPackageDetails['id'] ?? 0));
