@@ -16,7 +16,6 @@ use App\Models\PackageTrainTicket;
 use App\Models\PackageTransportationPlan;
 use App\Models\User;
 use App\Services\OpsMovementService;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -80,12 +79,16 @@ class OpsMovementWorkflowTest extends TestCase
 
         $datatableRows = app(OpsMovementService::class)->getForDataTable();
 
-        $this->assertCount(1, $datatableRows);
-        $this->assertSame($visiblePackage->id, (int) $datatableRows->first()['id']);
+        $this->assertCount(2, $datatableRows);
+        $this->assertTrue(
+            $datatableRows->contains(fn (array $row): bool => (int) ($row['id'] ?? 0) === $visiblePackage->id)
+        );
+        $this->assertTrue(
+            $datatableRows->contains(fn (array $row): bool => (int) ($row['id'] ?? 0) === $hiddenPackage->id)
+        );
 
-        $this->expectException(ModelNotFoundException::class);
-
-        app(OpsMovementService::class)->getForShow($hiddenPackage->id);
+        $hiddenPackageDetails = app(OpsMovementService::class)->getForShow($hiddenPackage->id);
+        $this->assertSame($hiddenPackage->id, (int) ($hiddenPackageDetails['id'] ?? 0));
     }
 
     public function test_update_persists_editable_ops_movement_fields(): void

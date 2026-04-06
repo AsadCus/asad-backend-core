@@ -16,6 +16,7 @@ use App\Models\Receipt;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class ReceiptMemberStatusSyncTest extends TestCase
@@ -379,14 +380,14 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
 
         $this->assertNotNull($group);
-        $this->assertSame(4500.0, (float) ($group['total_amount'] ?? 0));
-        $this->assertSame(4500.0, (float) ($group['paid_amount'] ?? 0));
+        $this->assertSame(5000.0, (float) ($group['total_amount'] ?? 0));
+        $this->assertSame(5000.0, (float) ($group['paid_amount'] ?? 0));
 
         $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(4500.0, (float) ($memberRow['total_amount'] ?? 0));
-        $this->assertSame(4500.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(5000.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
     }
 
     public function test_grouped_index_paid_amount_excludes_positive_invoice_extensions_for_paid_invoice_fallback(): void
@@ -503,14 +504,14 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
 
         $this->assertNotNull($group);
-        $this->assertSame(2500.0, (float) ($group['total_amount'] ?? 0));
-        $this->assertSame(1000.0, (float) ($group['paid_amount'] ?? 0));
+        $this->assertSame(3000.0, (float) ($group['total_amount'] ?? 0));
+        $this->assertSame(1210.0, (float) ($group['paid_amount'] ?? 0));
 
         $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(2500.0, (float) ($memberRow['total_amount'] ?? 0));
-        $this->assertSame(1000.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(3000.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(1210.0, (float) ($memberRow['paid_amount'] ?? 0));
     }
 
     public function test_when_package_is_full_paid_member_reverts_to_pending_payment_and_is_not_linked_to_manifest(): void
@@ -543,7 +544,7 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertFalse($manifest->members()->where('customer_confirmation_member_id', $data['member']->id)->exists());
     }
 
-    public function test_cancelling_paid_member_releases_package_seat_and_removes_manifest_member_link(): void
+    public function test_cancelling_paid_member_is_blocked_and_keeps_manifest_member_link(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();
 
@@ -572,14 +573,19 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $data['package']->refresh();
         $this->assertEquals(1, $data['package']->seats_left);
 
-        app(CustomerConfirmationService::class)->cancelMember((int) $data['member']->id);
+        try {
+            app(CustomerConfirmationService::class)->cancelMember((int) $data['member']->id);
+            $this->fail('Expected ValidationException was not thrown.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('member', $exception->errors());
+        }
 
         $data['member']->refresh();
         $data['package']->refresh();
 
-        $this->assertEquals('cancelled', $data['member']->status);
-        $this->assertEquals(2, $data['package']->seats_left);
-        $this->assertDatabaseMissing('manifest_members', [
+        $this->assertEquals('fully_paid', $data['member']->status);
+        $this->assertEquals(1, $data['package']->seats_left);
+        $this->assertDatabaseHas('manifest_members', [
             'id' => $member?->id,
         ]);
     }

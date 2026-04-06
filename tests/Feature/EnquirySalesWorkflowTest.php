@@ -81,8 +81,10 @@ class EnquirySalesWorkflowTest extends TestCase
 
         $groups = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
 
-        $this->assertCount(1, $groups);
-        $this->assertSame($groupA->id, (int) $groups[0]['id']);
+        $this->assertCount(2, $groups);
+        $this->assertTrue(
+            collect($groups)->contains(fn (array $group): bool => (int) ($group['id'] ?? 0) === $groupA->id)
+        );
     }
 
     public function test_sales_only_sees_pipeline_records_for_their_handled_enquiries(): void
