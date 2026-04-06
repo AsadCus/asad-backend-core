@@ -95,6 +95,65 @@
             color: #333;
         }
 
+        /* ── Notes Section (Rich-text notes above footer) ── */
+        .report-notes {
+            border-top: 1px solid #d0d0d0;
+            padding-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .report-notes-heading {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #666;
+            margin: 0 0 5px;
+        }
+
+        .note-item {
+            font-size: 11px;
+            line-height: 1.55;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .note-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* ── Tiptap HTML rendering inside note-item ── */
+        .note-item p {
+            margin: 0 0 3px;
+        }
+
+        .note-item p:last-child {
+            margin-bottom: 0;
+        }
+
+        .note-item strong { font-weight: bold; }
+        .note-item em { font-style: italic; }
+        .note-item u { text-decoration: underline; }
+        .note-item s { text-decoration: line-through; }
+
+        .note-item ul,
+        .note-item ol {
+            margin: 2px 0;
+            padding-left: 18px;
+        }
+
+        .note-item li {
+            margin-bottom: 1px;
+        }
+
+        .note-item blockquote {
+            border-left: 3px solid #ccc;
+            margin: 4px 0;
+            padding-left: 8px;
+            color: #555;
+        }
+
+
         @@media screen {
             html {
                 background: #cacaca;

@@ -1,4 +1,5 @@
 import HeadingSmall from '@/components/heading-small';
+import { ReportTemplatePreviewModal } from '@/pages/settings/report-template/preview-modal';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
@@ -10,7 +11,6 @@ import { FormEventHandler, useState } from 'react';
 import { AddModuleDialog } from './report-template/components';
 import { GlobalBrandingSection } from './report-template/global-branding-section';
 import { ModuleTemplateSection } from './report-template/module-template-section';
-import { PdfPreview } from './report-template/pdf-preview-panel';
 import type {
     ModuleTemplate,
     RegisteredModule,
@@ -124,10 +124,10 @@ export default function ReportTemplate({
                 };
                 stamp?: SignatureStampLayoutConfig['stamp'] & { name?: string };
                 signature?:
-                    SignatureStampLayoutConfig['signature'] & {
-                        name?: string;
-                        date?: string;
-                    };
+                SignatureStampLayoutConfig['signature'] & {
+                    name?: string;
+                    date?: string;
+                };
             })
             | null;
         if (!incoming) {
@@ -138,9 +138,9 @@ export default function ReportTemplate({
             unit: incoming.unit === 'px' ? 'px' : 'percent',
             placement:
                 incoming.placement === 'right_side' ||
-                incoming.placement === 'stack_each_other' ||
-                incoming.placement === 'up_side' ||
-                incoming.placement === 'down_side'
+                    incoming.placement === 'stack_each_other' ||
+                    incoming.placement === 'up_side' ||
+                    incoming.placement === 'down_side'
                     ? incoming.placement
                     : 'left_side',
             labels: {
@@ -185,6 +185,9 @@ export default function ReportTemplate({
     const [selectedModule, setSelectedModule] = useState<string>(
         allModules[0]?.key ?? 'quotation',
     );
+
+    // Preview modal state — null means closed
+    const [previewModule, setPreviewModule] = useState<string | null>(null);
 
     const buildInitialModuleTemplates = (): Record<string, ModuleTemplate> => {
         const defaults: Record<string, ModuleTemplate> = {};
@@ -234,7 +237,7 @@ export default function ReportTemplate({
     const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<
         string | null
     >(extractFileName(settings.signature_path));
-    
+
 
     const makeFileHandler =
         (
@@ -344,74 +347,24 @@ export default function ReportTemplate({
         show_signature_stamp_date: false,
     };
     const activeDefinition = allModules.find((m) => m.key === selectedModule);
-    const isBuiltin = BUILTIN_MODULES.some((m) => m.key === selectedModule);
     const registeredModulesCount = settings.registered_modules?.length ?? 0;
+
+    // Module definition for the preview modal
+    const previewModuleDefinition = previewModule
+        ? allModules.find((m) => m.key === previewModule)
+        : null;
 
     return (
         <AppLayout>
             <Head title="Report Template Settings" />
-            <SettingsLayout wide>
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-                    <div className="w-full min-w-0 space-y-6 lg:flex-1">
+            <SettingsLayout wide fullWidth>
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
                         <HeadingSmall
-                            title="Report Template Settings"
-                            description="Manage branding and per-module PDF document settings"
+                            title="Report Template"
+                            description="Configure your document branding and module-specific layouts."
                         />
-
-                        <form onSubmit={submit} className="space-y-6">
-                            <GlobalBrandingSection
-                                data={data}
-                                errors={errors}
-                                onDataChange={(field, value) =>
-                                    setData(
-                                        field as keyof ReportTemplateFormData,
-                                        value,
-                                    )
-                                }
-                                makeFileHandler={makeFileHandler as Parameters<typeof GlobalBrandingSection>[0]['makeFileHandler']}
-                                makeClearHandler={makeClearHandler as Parameters<typeof GlobalBrandingSection>[0]['makeClearHandler']}  
-                                logoPreviewFileName={logoPreviewFileName}
-                                stampPreviewFileName={stampPreviewFileName}
-                                signaturePreviewFileName={signaturePreviewFileName}
-                                initialLogoDatabasePath={settings.logo_path}
-                                initialStampDatabasePath={settings.stamp_path}
-                                initialSignatureDatabasePath={settings.signature_path}
-                                setLogoPreviewFileName={setLogoPreviewFileName}
-                                setStampPreviewFileName={setStampPreviewFileName}
-                                setSignaturePreviewFileName={setSignaturePreviewFileName}
-                                customSignatureStampLayout={data.custom_signature_stamp_layout}
-                                onCustomSignatureStampLayoutChange={(layout) =>
-                                    setData('custom_signature_stamp_layout', layout)
-                                }
-                                onCustomSignatureDataChange={(value) =>
-                                    setData('custom_signature_data', value)
-                                }
-                            />
-
-                        <ModuleTemplateSection
-                            selectedModule={selectedModule}
-                            setSelectedModule={setSelectedModule}
-                            activeModule={activeModule}
-                            activeDefinition={activeDefinition}
-                            isBuiltin={isBuiltin}
-                            builtinModules={BUILTIN_MODULES}
-                            registeredModules={
-                                settings.registered_modules ?? []
-                            }
-                            updateModule={updateModule}
-                            updateModuleSignatureStampNameDateVisibility={
-                                updateModuleSignatureStampNameDateVisibility
-                            }
-                            handleDeleteModule={handleDeleteModule}
-                            AddModuleDialog={
-                                <AddModuleDialog key={registeredModulesCount} />
-                            }
-                        />
-
-                        <div className="flex items-center gap-4 pt-2">
-                            <Button type="submit" disabled={processing}>
-                                Save Changes
-                            </Button>
+                        <div className="flex items-center gap-3">
                             <Transition
                                 show={recentlySuccessful}
                                 enter="transition ease-in-out"
@@ -419,34 +372,136 @@ export default function ReportTemplate({
                                 leave="transition ease-in-out"
                                 leaveTo="opacity-0"
                             >
-                                <p className="text-base text-green-600">
-                                    Saved successfully.
+                                <p className="text-sm text-green-600">
+                                    Changes saved.
                                 </p>
                             </Transition>
+                            <Button
+                                type="submit"
+                                form="report-template-form"
+                                disabled={processing}
+                                className="shadow-sm"
+                            >
+                                {processing ? 'Saving...' : 'Save All Changes'}
+                            </Button>
                         </div>
-                        </form>
                     </div>
 
-                    {/* Right Column (Live Preview) */}
-                    <div className="w-full space-y-6 lg:sticky lg:top-6 lg:w-[45%] xl:w-[40%]">
-                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm p-5">
-                            <h3 className="text-base font-semibold mb-1">Live Preview</h3>
-                            <p className="text-sm text-muted-foreground mb-4">Updates as you change settings</p>
-                            <PdfPreview
-                                selectedModule={selectedModule}
-                                brand_color={data.brand_color || '#c05427'}
-                                company_name={data.company_name}
-                                company_address={data.company_address}
-                                company_phone={data.company_phone}
-                                company_email={data.company_email}
-                                signature_stamp_layout={'custom'}
-                                custom_signature_stamp_layout={data.custom_signature_stamp_layout}
-                                module_templates={data.module_templates}
-                            />
+                    <form id="report-template-form" onSubmit={submit}>
+                        {/* GRID: Wider container with better proportions */}
+                        <div className="mx-auto w-full max-w-[2200px]">
+                            <div className="grid grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] 2xl:items-start">
+
+                                {/* LEFT COLUMN: Global Branding */}
+                                <aside className="w-full min-w-0">
+                                    <GlobalBrandingSection
+                                    data={data}
+                                    errors={errors}
+                                    onDataChange={(field, value) =>
+                                        setData(
+                                            field as keyof ReportTemplateFormData,
+                                            value,
+                                        )
+                                    }
+                                    makeFileHandler={
+                                        makeFileHandler as Parameters<
+                                            typeof GlobalBrandingSection
+                                        >[0]['makeFileHandler']
+                                    }
+                                    makeClearHandler={
+                                        makeClearHandler as Parameters<
+                                            typeof GlobalBrandingSection
+                                        >[0]['makeClearHandler']
+                                    }
+                                    logoPreviewFileName={logoPreviewFileName}
+                                    stampPreviewFileName={stampPreviewFileName}
+                                    signaturePreviewFileName={
+                                        signaturePreviewFileName
+                                    }
+                                    initialLogoDatabasePath={settings.logo_path}
+                                    initialStampDatabasePath={
+                                        settings.stamp_path
+                                    }
+                                    initialSignatureDatabasePath={
+                                        settings.signature_path
+                                    }
+                                    setLogoPreviewFileName={
+                                        setLogoPreviewFileName
+                                    }
+                                    setStampPreviewFileName={
+                                        setStampPreviewFileName
+                                    }
+                                    setSignaturePreviewFileName={
+                                        setSignaturePreviewFileName
+                                    }
+                                    customSignatureStampLayout={
+                                        data.custom_signature_stamp_layout
+                                    }
+                                    onCustomSignatureStampLayoutChange={(layout) =>
+                                        setData(
+                                            'custom_signature_stamp_layout',
+                                            layout,
+                                        )
+                                    }
+                                    onCustomSignatureDataChange={(value) =>
+                                        setData('custom_signature_data', value)
+                                    }
+                                />
+                                </aside>
+
+                                {/* RIGHT COLUMN: Module Templates */}
+                                <main className="w-full min-w-0">
+                                    <ModuleTemplateSection
+                                    selectedModule={selectedModule}
+                                    setSelectedModule={setSelectedModule}
+                                    onPreview={(key) => setPreviewModule(key)}
+                                    activeModule={activeModule}
+                                    activeDefinition={activeDefinition}
+                                    builtinModules={BUILTIN_MODULES}
+                                    registeredModules={
+                                        settings.registered_modules ?? []
+                                    }
+                                    updateModule={updateModule}
+                                    updateModuleSignatureStampNameDateVisibility={
+                                        updateModuleSignatureStampNameDateVisibility
+                                    }
+                                    handleDeleteModule={handleDeleteModule}
+                                    AddModuleDialog={
+                                        <AddModuleDialog
+                                            key={registeredModulesCount}
+                                        />
+                                    }
+                                    />
+                                </main>
+                            </div>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </SettingsLayout>
+
+            {/* Preview Modal */}
+            {previewModule !== null && previewModuleDefinition && (
+                <ReportTemplatePreviewModal
+                    open={previewModule !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setPreviewModule(null);
+                        }
+                    }}
+                    moduleLabel={previewModuleDefinition.label}
+                    selectedModule={previewModule}
+                    brand_color={data.brand_color || '#c05427'}
+                    company_name={data.company_name}
+                    company_address={data.company_address}
+                    company_phone={data.company_phone}
+                    company_email={data.company_email}
+                    custom_signature_stamp_layout={
+                        data.custom_signature_stamp_layout
+                    }
+                    module_templates={data.module_templates}
+                />
+            )}
         </AppLayout>
     );
 }
+
