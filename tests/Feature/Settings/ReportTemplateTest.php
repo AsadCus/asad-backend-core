@@ -172,9 +172,12 @@ class ReportTemplateTest extends TestCase
         $this->assertStringContainsString('class="totals-table"', $invoiceTemplate);
         $this->assertStringContainsString('class="totals-table"', $receiptTemplate);
         $this->assertStringContainsString('!empty($branding[\'footer_text\'])', $quotationTemplate);
-        $this->assertStringContainsString('!empty($data[\'notes\'])', $quotationTemplate);
-        $this->assertStringContainsString('!empty($data[\'notes\'])', $invoiceTemplate);
-        $this->assertStringContainsString('!empty($data[\'notes\'])', $receiptTemplate);
+        $this->assertStringContainsString('$activeNotes = collect($data[\'notes\'] ?? [])', $quotationTemplate);
+        $this->assertStringContainsString('$activeNotes = collect($data[\'notes\'] ?? [])', $invoiceTemplate);
+        $this->assertStringContainsString('$activeNotes = collect($data[\'notes\'] ?? [])', $receiptTemplate);
+        $this->assertStringContainsString("@include('partials.report-notes')", $quotationTemplate);
+        $this->assertStringContainsString("@include('partials.report-notes')", $invoiceTemplate);
+        $this->assertStringContainsString("@include('partials.report-notes')", $receiptTemplate);
         $this->assertStringContainsString('text-align: right;', $quotationTemplate);
         $this->assertStringContainsString('text-align: right;', $invoiceTemplate);
         $this->assertStringContainsString('text-align: right;', $receiptTemplate);
