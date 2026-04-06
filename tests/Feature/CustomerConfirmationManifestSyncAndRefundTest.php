@@ -1295,8 +1295,8 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $quotationItem->refresh();
 
         $this->assertSame($paidMember->id, $quotationItem->customer_confirmation_member_id);
-        $this->assertSame('single', (string) $paidMember->sharing_plan);
-        $this->assertSame('fully_paid', (string) $paidMember->status);
+        $this->assertSame('double', (string) $paidMember->sharing_plan);
+        $this->assertSame('overpaid', (string) $paidMember->status);
 
         $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex();
         $groupRow = collect($grouped)->firstWhere('id', $group->id);
@@ -1755,5 +1755,296 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $member->refresh();
         $this->assertSame('overpaid', (string) ($member->status ?? ''));
+    }
+
+    public function test_cancel_member_unpaid_removes_only_target_member_item_from_shared_active_quotation(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $firstCustomerUser = User::factory()->create([
+            'name' => 'Cancel Shared Member A',
+            'email' => 'cancel-shared-member-a@example.com',
+        ]);
+
+        $secondCustomerUser = User::factory()->create([
+            'name' => 'Cancel Shared Member B',
+            'email' => 'cancel-shared-member-b@example.com',
+        ]);
+
+        $firstCustomer = Customer::create([
+            'user_id' => $firstCustomerUser->id,
+            'customer_number' => 'CUST-CANCEL-SHARED-001',
+        ]);
+
+        $secondCustomer = Customer::create([
+            'user_id' => $secondCustomerUser->id,
+            'customer_number' => 'CUST-CANCEL-SHARED-002',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-CANCEL-SHARED-001',
+            'name' => 'Cancel Shared Package',
+            'status' => 'open',
+            'price_single' => 2000,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $firstMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $firstCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $secondMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $secondCustomer->id,
+            'is_leader' => false,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $firstCustomer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'draft',
+        ]);
+
+        $header = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $firstMember->id,
+            'parent_id' => $header->id,
+            'description' => 'Shared Member A Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 2000,
+            'sort_order' => 2,
+        ]);
+
+        QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $secondMember->id,
+            'parent_id' => $header->id,
+            'description' => 'Shared Member B Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 2000,
+            'sort_order' => 3,
+        ]);
+
+        $response = $this->from(route('confirmed-customer.index'))
+            ->post(route('customer-confirmations.members.cancel', [
+                'memberId' => $firstMember->id,
+            ]));
+
+        $response->assertRedirect(route('confirmed-customer.index'));
+
+        $firstMember->refresh();
+        $quotation->refresh();
+
+        $this->assertSame('cancelled', (string) ($firstMember->status ?? ''));
+        $this->assertSame('draft', (string) ($quotation->status?->value ?? $quotation->status ?? ''));
+
+        $this->assertDatabaseMissing('quotation_items', [
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $firstMember->id,
+            'description' => 'Shared Member A Item',
+        ]);
+
+        $this->assertDatabaseHas('quotation_items', [
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $secondMember->id,
+            'description' => 'Shared Member B Item',
+        ]);
+    }
+
+    public function test_cancel_member_unpaid_cancels_quotation_when_member_is_last_billable_item(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Cancel Solo Member',
+            'email' => 'cancel-solo-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-CANCEL-SOLO-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-CANCEL-SOLO-001',
+            'name' => 'Cancel Solo Package',
+            'status' => 'open',
+            'price_single' => 1500,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'draft',
+        ]);
+
+        $header = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'parent_id' => $header->id,
+            'description' => 'Solo Member Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1500,
+            'sort_order' => 2,
+        ]);
+
+        $response = $this->from(route('confirmed-customer.index'))
+            ->post(route('customer-confirmations.members.cancel', [
+                'memberId' => $member->id,
+            ]));
+
+        $response->assertRedirect(route('confirmed-customer.index'));
+
+        $member->refresh();
+        $quotation->refresh();
+
+        $this->assertSame('cancelled', (string) ($member->status ?? ''));
+        $this->assertSame('cancelled', (string) ($quotation->status?->value ?? $quotation->status ?? ''));
+
+        $this->assertSame(
+            0,
+            QuotationItem::query()
+                ->where('quotation_id', $quotation->id)
+                ->where('is_header', false)
+                ->count(),
+        );
+    }
+
+    public function test_cancel_member_with_paid_amount_is_rejected_and_must_use_refund_flow(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Cancel Paid Member',
+            'email' => 'cancel-paid-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-CANCEL-PAID-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-CANCEL-PAID-001',
+            'name' => 'Cancel Paid Package',
+            'status' => 'open',
+            'price_single' => 1800,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Paid Member Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1800,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Paid Member Invoice',
+            'amount' => 1800,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+            'payment_method' => 'transfer',
+        ]);
+
+        $invoice->quotationItems()->sync([$item->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 1800,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response = $this->from(route('confirmed-customer.index'))
+            ->post(route('customer-confirmations.members.cancel', [
+                'memberId' => $member->id,
+            ]));
+
+        $response->assertRedirect(route('confirmed-customer.index'));
+        $response->assertSessionHasErrors('member');
+
+        $member->refresh();
+        $this->assertNotSame('cancelled', (string) ($member->status ?? ''));
     }
 }

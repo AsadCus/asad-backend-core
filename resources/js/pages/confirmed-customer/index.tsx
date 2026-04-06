@@ -1375,13 +1375,21 @@ export default function ConfirmedCustomerIndex({
                 actions={['view']}
                 getRowActions={(member) => {
                     const rowActions: ActionType[] = [];
+                    const memberPaidAmount = Number(member.paid_amount ?? 0);
 
                     if (member.status !== 'cancelled') {
                         rowActions.push('edit');
                     }
 
                     if (member.status !== 'cancelled') {
-                        rowActions.push('move-members', 'cancel-member');
+                        rowActions.push('move-members');
+                    }
+
+                    if (
+                        member.status !== 'cancelled' &&
+                        memberPaidAmount <= 0
+                    ) {
+                        rowActions.push('cancel-member');
                     }
 
                     if (

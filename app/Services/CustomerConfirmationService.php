@@ -1458,7 +1458,23 @@ class CustomerConfirmationService
     public function cancelMember(int $memberId): void
     {
         DB::transaction(function () use ($memberId) {
-            $member = CustomerConfirmationMember::findOrFail($memberId);
+            $member = CustomerConfirmationMember::with([
+                'customer.user',
+                'quotationItems.quotation.order.invoices.quotationItems',
+                'quotationItems.quotation.order.invoices.receipt',
+                'quotationItems.invoices.quotationItems',
+                'quotationItems.invoices.receipt',
+            ])->findOrFail($memberId);
+
+            $paidAmount = $this->resolveMemberPaidAmount($member);
+
+            if (abs($paidAmount) > 0.0) {
+                throw ValidationException::withMessages([
+                    'member' => 'Member with paid amount cannot be cancelled directly. Please use refund action.',
+                ]);
+            }
+
+            $this->detachMemberFromActiveQuotationsForCancellation($member);
 
             $member->update([
                 'status' => 'cancelled',
@@ -1467,10 +1483,198 @@ class CustomerConfirmationService
             $member->load('customer.user');
             $this->syncOpenManifestMemberSnapshot($member);
 
-            app(PackageSeatService::class)->recalculateForPackageId(
-                (int) ($member->confirmation?->package_id ?? 0),
-            );
+            $confirmationId = (int) ($member->customer_confirmation_id ?? 0);
+
+            if ($confirmationId > 0) {
+                $this->syncMemberStatusesForConfirmation($confirmationId);
+            } else {
+                app(PackageSeatService::class)->recalculateForPackageId(
+                    (int) ($member->confirmation?->package_id ?? 0),
+                );
+            }
         });
+    }
+
+    private function clearOutstandingUnpaidInvoiceLinksForMember(CustomerConfirmationMember $member): void
+    {
+        $member->loadMissing([
+            'quotationItems.invoices.quotationItems',
+            'quotationItems.invoices.receipt',
+        ]);
+
+        $memberItemIds = $member->quotationItems
+            ->filter(fn (QuotationItem $item): bool => ! (bool) ($item->is_header ?? false))
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
+
+        if ($memberItemIds === []) {
+            return;
+        }
+
+        $linkedInvoices = $member->quotationItems
+            ->flatMap(fn (QuotationItem $item) => $item->invoices)
+            ->unique('id')
+            ->values();
+
+        foreach ($linkedInvoices as $invoice) {
+            if (InvoiceStatus::isRefund($invoice->status)) {
+                continue;
+            }
+
+            if (strtolower((string) ($invoice->status ?? '')) === InvoiceStatus::Cancelled) {
+                continue;
+            }
+
+            $receiptTotal = (float) $invoice->receipt->sum(function (Receipt $receipt): float {
+                return (float) ($receipt->amount ?? 0);
+            });
+
+            if (abs($receiptTotal) > 0.0) {
+                continue;
+            }
+
+            $invoiceItems = $invoice->quotationItems
+                ->filter(fn (QuotationItem $item): bool => ! (bool) ($item->is_header ?? false))
+                ->values();
+
+            if ($invoiceItems->isEmpty()) {
+                continue;
+            }
+
+            $memberInvoiceItems = $invoiceItems
+                ->filter(fn (QuotationItem $item): bool => in_array((int) $item->id, $memberItemIds, true))
+                ->values();
+
+            if ($memberInvoiceItems->isEmpty()) {
+                continue;
+            }
+
+            $memberInvoiceAmount = (float) $memberInvoiceItems->sum(function (QuotationItem $item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            });
+
+            $remainingInvoiceItemIds = $invoice->quotationItems
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->reject(fn (int $id): bool => in_array($id, $memberItemIds, true))
+                ->values()
+                ->all();
+
+            if ($remainingInvoiceItemIds === []) {
+                $invoice->quotationItems()->sync([]);
+                $invoice->update([
+                    'amount' => 0,
+                    'status' => InvoiceStatus::Cancelled,
+                ]);
+
+                continue;
+            }
+
+            $invoice->quotationItems()->sync($remainingInvoiceItemIds);
+
+            $nextAmount = round(max(
+                0.0,
+                (float) ($invoice->amount ?? 0) - $memberInvoiceAmount,
+            ), 2);
+
+            $updatePayload = [
+                'amount' => $nextAmount,
+            ];
+
+            if ($nextAmount <= 0.0) {
+                $updatePayload['status'] = InvoiceStatus::Cancelled;
+            }
+
+            $invoice->update($updatePayload);
+        }
+    }
+
+    private function detachMemberFromActiveQuotationsForCancellation(CustomerConfirmationMember $member): void
+    {
+        $member->loadMissing([
+            'quotationItems.quotation.order.invoices.quotationItems',
+            'quotationItems.quotation.order.invoices.receipt',
+            'quotationItems.invoices.quotationItems',
+            'quotationItems.invoices.receipt',
+        ]);
+
+        $this->clearOutstandingUnpaidInvoiceLinksForMember($member);
+
+        $memberItems = $this->activeMemberQuotationItemsQuery((int) $member->id)
+            ->where('is_header', false)
+            ->with('quotation.order.invoices.receipt')
+            ->get()
+            ->groupBy('quotation_id');
+
+        foreach ($memberItems as $quotationId => $items) {
+            $quotation = $items->first()?->quotation;
+
+            if (! $quotation) {
+                continue;
+            }
+
+            foreach ($items as $item) {
+                $item->invoices()->detach();
+                $item->delete();
+            }
+
+            $headerItems = QuotationItem::query()
+                ->where('quotation_id', (int) $quotationId)
+                ->where('is_header', true)
+                ->get();
+
+            foreach ($headerItems as $headerItem) {
+                $hasChildren = QuotationItem::query()
+                    ->where('quotation_id', (int) $quotationId)
+                    ->where('parent_id', (int) $headerItem->id)
+                    ->where('is_header', false)
+                    ->exists();
+
+                if (! $hasChildren) {
+                    $headerItem->delete();
+                }
+            }
+
+            $hasBillableItems = QuotationItem::query()
+                ->where('quotation_id', (int) $quotationId)
+                ->where('is_header', false)
+                ->exists();
+
+            if ($hasBillableItems) {
+                continue;
+            }
+
+            $quotation->loadMissing('order.invoices.receipt');
+
+            if ($quotation->order) {
+                foreach ($quotation->order->invoices as $invoice) {
+                    if (InvoiceStatus::isRefund($invoice->status)) {
+                        continue;
+                    }
+
+                    $receiptTotal = (float) $invoice->receipt->sum(function (Receipt $receipt): float {
+                        return (float) ($receipt->amount ?? 0);
+                    });
+
+                    if (abs($receiptTotal) > 0.0) {
+                        continue;
+                    }
+
+                    $invoice->quotationItems()->sync([]);
+                    $invoice->update([
+                        'amount' => 0,
+                        'status' => InvoiceStatus::Cancelled,
+                    ]);
+                }
+            }
+
+            $quotation->update([
+                'status' => QuotationStatus::Cancelled->value,
+            ]);
+        }
     }
 
     public function syncBillingForConfirmation(int $confirmationId): void
@@ -3062,6 +3266,8 @@ class CustomerConfirmationService
                 ]);
 
                 if ($normalizedRefundType === 'cancel') {
+                    $this->clearOutstandingUnpaidInvoiceLinksForMember($member);
+
                     $member->update([
                         'status' => 'cancelled',
                     ]);
