@@ -91,6 +91,8 @@ export default function ConfirmedCustomerFormFields({
                     }}
                 >
                     <ProperInputSelect
+                        id={fieldPath('sharing_plan')}
+                        mode="classic"
                         options={
                             sharingPlanSelectOptions &&
                             sharingPlanSelectOptions.length > 0
@@ -106,7 +108,6 @@ export default function ConfirmedCustomerFormFields({
                         }
                         placeholder="Select pricing plan"
                         disabled={disabled}
-                        searchable={false}
                     />
                 </FormField>
 

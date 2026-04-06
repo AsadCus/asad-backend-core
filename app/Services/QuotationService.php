@@ -533,7 +533,7 @@ class QuotationService
         $quotation = $quotationQuery->findOrFail($id);
 
         $invoiceExtensions = $this->buildInvoiceExtensionsForQuotationDisplay($quotation);
-        $hasOrderInvoices = $quotation->order?->invoices->isNotEmpty() ?? false;
+        $isConverted = (string) ($quotation->status?->value ?? '') === QuotationStatus::Converted->value;
 
         return [
             'id' => $quotation->id,
@@ -568,7 +568,7 @@ class QuotationService
             'sales_registration_number' => $quotation->sales_registration_number,
             'model' => 'quotation',
             'notes' => $quotation->quotationNotes->sortBy('sort_order')->values()->toArray(),
-            'extensions' => $hasOrderInvoices
+            'extensions' => $isConverted
                 ? []
                 : collect(is_array($quotation->extensions) ? $quotation->extensions : [])->sortBy('sort_order')->values()->map(function (array $extension) {
                     return [
@@ -582,7 +582,7 @@ class QuotationService
                         'sort_order' => $extension['sort_order'] ?? null,
                     ];
                 })->values()->toArray(),
-            'invoice_extensions' => $invoiceExtensions,
+            'invoice_extensions' => $isConverted ? $invoiceExtensions : [],
             'items' => $quotation->quotationItems->sortBy('sort_order')->map(function (QuotationItem $it) {
                 return [
                     'id' => $it->id,
@@ -615,6 +615,7 @@ class QuotationService
     {
         return DB::transaction(function () use ($data, $id) {
             $quotation = Quotation::findOrFail($id);
+            $isConverted = (string) ($quotation->status?->value ?? '') === QuotationStatus::Converted->value;
             $requestedStatus = strtolower((string) ($data['status'] ?? $quotation->status?->value ?? ''));
             $resolvedCustomerConfirmationId = array_key_exists('customer_confirmation_id', $data)
                 ? (int) ($data['customer_confirmation_id'] ?? 0)
@@ -663,17 +664,13 @@ class QuotationService
                 $this->quotationItemService->replaceQuotationItems($quotation->id, $data['items']);
             }
 
-            $hasOrderInvoices = $quotation->order()
-                ->whereHas('invoices')
-                ->exists();
-
             if (
-                ! $hasOrderInvoices
+                ! $isConverted
                 && array_key_exists('extensions', $data)
                 && is_array($data['extensions'])
             ) {
                 $this->syncQuotationExtensions($quotation, $data['extensions']);
-            } elseif ($hasOrderInvoices && ! empty($quotation->extensions)) {
+            } elseif ($isConverted && ! empty($quotation->extensions)) {
                 $quotation->update(['extensions' => []]);
             }
 
@@ -1518,6 +1515,135 @@ class QuotationService
             $quotation->update(['extensions' => []]);
         }
         $this->syncConvertedOrderInvoiceAndReceiptAmounts($quotation);
+    }
+
+    public function ensureInvoiceExtensionsHaveMasters(array $invoices): array
+    {
+        if (empty($invoices)) {
+            return $invoices;
+        }
+
+        $maxSortOrder = (int) (QuotationExtensionMaster::query()->max('sort_order') ?? 0);
+        $masterIdBySignature = [];
+
+        QuotationExtensionMaster::query()
+            ->get()
+            ->each(function (QuotationExtensionMaster $master) use (&$masterIdBySignature): void {
+                $signature = $this->buildExtensionMasterSignature(
+                    (string) ($master->name ?? ''),
+                    (string) ($master->type ?? 'discount'),
+                    (string) ($master->calculation_mode ?? 'fixed'),
+                    (float) ($master->calculation_value ?? 0),
+                    (array) ($master->payment_methods ?? []),
+                );
+
+                $masterIdBySignature[$signature] = (int) $master->id;
+            });
+
+        return collect($invoices)
+            ->map(function ($invoice) use (&$maxSortOrder, &$masterIdBySignature) {
+                if (! is_array($invoice)) {
+                    return $invoice;
+                }
+
+                $paymentMethod = strtolower(trim((string) ($invoice['payment_method'] ?? '')));
+
+                $normalizedExtensions = collect($invoice['extensions'] ?? [])
+                    ->map(function ($extension) use ($paymentMethod, &$maxSortOrder, &$masterIdBySignature) {
+                        if (! is_array($extension)) {
+                            return $extension;
+                        }
+
+                        $masterId = (int) ($extension['quotation_extension_master_id'] ?? 0);
+                        if ($masterId > 0) {
+                            return $extension;
+                        }
+
+                        $type = strtolower(trim((string) ($extension['type'] ?? 'discount')));
+                        $name = trim((string) ($extension['name'] ?? ''));
+                        if ($name === '') {
+                            $name = Str::headline(str_replace('_', ' ', $type));
+                        }
+
+                        $calculationMode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                        if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                            $calculationMode = 'fixed';
+                        }
+
+                        $calculationValue = (float) ($this->formatService->cleanDecimal(
+                            $extension['calculation_value'] ?? $extension['amount'] ?? 0
+                        ) ?? 0);
+
+                        $paymentMethods = in_array($type, ['other', 'credit_card'], true)
+                            ? collect([$paymentMethod])
+                                ->filter(fn ($method) => (string) $method !== '')
+                                ->values()
+                                ->all()
+                            : [];
+
+                        $signature = $this->buildExtensionMasterSignature(
+                            $name,
+                            $type,
+                            $calculationMode,
+                            $calculationValue,
+                            $paymentMethods,
+                        );
+
+                        if (! isset($masterIdBySignature[$signature])) {
+                            $maxSortOrder += 1;
+
+                            $master = QuotationExtensionMaster::query()->create([
+                                'name' => $name,
+                                'type' => $type,
+                                'calculation_mode' => $calculationMode,
+                                'calculation_value' => $this->formatService->cleanDecimal($calculationValue) ?? 0,
+                                'payment_methods' => $paymentMethods,
+                                'is_active' => true,
+                                'sort_order' => $maxSortOrder,
+                            ]);
+
+                            $masterIdBySignature[$signature] = (int) $master->id;
+                        }
+
+                        return [
+                            ...$extension,
+                            'quotation_extension_master_id' => $masterIdBySignature[$signature],
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                return [
+                    ...$invoice,
+                    'extensions' => $normalizedExtensions,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function buildExtensionMasterSignature(
+        string $name,
+        string $type,
+        string $calculationMode,
+        float $calculationValue,
+        array $paymentMethods = []
+    ): string {
+        $normalizedPaymentMethods = collect($paymentMethods)
+            ->map(fn ($method) => strtolower(trim((string) $method)))
+            ->filter(fn ($method) => $method !== '')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        return implode('|', [
+            strtolower(trim($name)),
+            strtolower(trim($type)),
+            strtolower(trim($calculationMode)),
+            (string) ($this->formatService->cleanDecimal($calculationValue) ?? $calculationValue),
+            implode(',', $normalizedPaymentMethods),
+        ]);
     }
 
     private function syncQuotationExtensions(Quotation $quotation, array $extensions): void

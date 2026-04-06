@@ -1100,7 +1100,7 @@ class CustomerConfirmationFormTest extends TestCase
         ]);
     }
 
-    public function test_customer_confirmation_update_resets_member_billing_links_when_sharing_plan_changes(): void
+    public function test_customer_confirmation_update_allows_sharing_plan_change_when_member_has_paid_billing(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -1203,10 +1203,9 @@ class CustomerConfirmationFormTest extends TestCase
 
         $response->assertRedirect();
 
-        // Paid billing locks sharing plan changes to protect settled financial links.
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
-            'sharing_plan' => 'single',
+            'sharing_plan' => 'double',
         ]);
 
         $this->assertDatabaseHas('quotation_items', [

@@ -12,6 +12,10 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
+import {
+    focusFirstDialogFormField,
+    handleDialogTabKey,
+} from '@/lib/dialog-focus';
 import { getForShow, index, packagePrefill } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
 import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
@@ -547,7 +551,8 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
                 <DialogContent
                     className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col"
-                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    onOpenAutoFocus={focusFirstDialogFormField}
+                    onKeyDown={handleDialogTabKey}
                 >
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation</DialogTitle>
@@ -585,7 +590,8 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
             <Dialog open={privateFlowOpen} onOpenChange={cancelPrivateFlow}>
                 <DialogContent
                     className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col"
-                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    onOpenAutoFocus={focusFirstDialogFormField}
+                    onKeyDown={handleDialogTabKey}
                 >
                     <DialogHeader>
                         <DialogTitle>

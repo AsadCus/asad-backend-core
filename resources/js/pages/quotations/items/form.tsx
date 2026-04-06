@@ -281,6 +281,24 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         );
     };
 
+    const isUmrahPackagesHeader = (item: T): boolean => {
+        if (!item.is_header) {
+            return false;
+        }
+
+        return String(item.description ?? '').trim().toLowerCase() === 'umrah packages';
+    };
+
+    const hasNonZeroChildAmount = (target: T): boolean => {
+        return items.some(
+            (item) =>
+                !item.is_header &&
+                (item.parent_key === target._key ||
+                    (target.id && item.parent_id === target.id)) &&
+                computeItemAmount(item) !== 0,
+        );
+    };
+
     const computeTaxRowAmount = (item: T, tax: QuotationItemTaxInput) => {
         const calculationMode = String(tax.calculation_mode ?? '');
         const calculationValue = Number(tax.calculation_value ?? 0);
@@ -439,12 +457,18 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
     const removeItem = (index: number) => {
         const target = items[index];
+        const lockedByUmrahChildAmount =
+            isUmrahPackagesHeader(target) && hasNonZeroChildAmount(target);
 
         if (isLockedLinkedMemberItem(target)) {
             return;
         }
 
         if (hasLockedLinkedMemberChildren(target)) {
+            return;
+        }
+
+        if (lockedByUmrahChildAmount) {
             return;
         }
 
@@ -911,26 +935,49 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                   ];
 
                                         const children = childrenSource.map(
-                                            (child) => ({
+                                            (child) => {
+                                                const normalizedChild =
+                                                    child as Partial<QuotationItemSchema>;
+
+                                                return {
                                                 _key: nanoid(),
-                                                id: child.id,
+                                                id: normalizedChild.id,
                                                 parent_id:
                                                     payload.parent.id ?? null,
                                                 parent_key: parentKey,
                                                 description:
-                                                    child.description ?? '',
-                                                quantity: child.quantity ?? 1,
-                                                rate: child.rate ?? null,
+                                                    normalizedChild.description ??
+                                                    '',
+                                                quantity:
+                                                    normalizedChild.quantity ??
+                                                    1,
+                                                rate:
+                                                    normalizedChild.rate ??
+                                                    null,
                                                 taxes: getDisplayTaxes(
-                                                    child as T,
+                                                    normalizedChild as T,
                                                 ),
+                                                customer_confirmation_member_id:
+                                                    Number(
+                                                        normalizedChild.customer_confirmation_member_id ??
+                                                            0,
+                                                    ) > 0
+                                                        ? Number(
+                                                              normalizedChild.customer_confirmation_member_id,
+                                                          )
+                                                        : null,
+                                                sharing_plan:
+                                                    normalizedChild.sharing_plan ??
+                                                    null,
                                                 is_header:
-                                                    child.is_header ?? false,
+                                                    normalizedChild.is_header ??
+                                                    false,
                                                 is_optional:
-                                                    child.is_optional ??
+                                                    normalizedChild.is_optional ??
                                                     payload.parent.is_optional,
                                                 sort_order: 0,
-                                            }),
+                                            };
+                                            },
                                         ) as T[];
 
                                         updated.splice(
@@ -1157,8 +1204,13 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                 const isLockedMemberItem = isLockedLinkedMemberItem(item);
                 const hasLockedMemberChildren =
                     hasLockedLinkedMemberChildren(item);
+                const lockedByUmrahChildAmount =
+                    isUmrahPackagesHeader(item) &&
+                    hasNonZeroChildAmount(item);
                 const disableRemove =
-                    isLockedMemberItem || hasLockedMemberChildren;
+                    isLockedMemberItem ||
+                    hasLockedMemberChildren ||
+                    lockedByUmrahChildAmount;
                 const canMoveToAnotherInvoice =
                     item.is_header === true &&
                     item.parent_id == null &&

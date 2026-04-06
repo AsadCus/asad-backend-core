@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\EnquiryStatus;
+use App\Enums\QuotationStatus;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -33,6 +34,11 @@ class CustomerConfirmationService
         private NoteService $noteService,
         private NumberingService $numberingService,
     ) {}
+
+    public function isAutoBillingSyncEnabled(): bool
+    {
+        return (bool) config('customer_confirmation.auto_sync_billing_mutations', true);
+    }
 
     /** Create a customer confirmation from request data. */
     public function createGroup(array $data): CustomerConfirmation
@@ -659,27 +665,12 @@ class CustomerConfirmationService
                 continue;
             }
 
-            $positiveExtensionTotal = (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
-                ->sum(function ($extension): float {
-                    if (! is_array($extension)) {
-                        return 0;
-                    }
-
-                    $amount = (float) ($extension['amount'] ?? 0);
-
-                    return $amount > 0 ? $amount : 0;
-                });
-
-            $positiveItemTaxTotal = $this->resolvePositiveItemTaxTotalFromInvoiceItems($invoiceItems);
-
-            $packageOnlyInvoiceAmount = max((float) ($invoice->amount ?? 0) - $positiveExtensionTotal - $positiveItemTaxTotal, 0.0);
-
             $fallbackPaidAmount = strtolower((string) ($invoice->status ?? '')) === 'paid'
-                ? $packageOnlyInvoiceAmount
+                ? $invoiceSubtotalAbsolute
                 : 0.0;
 
             $invoicePaidAmount = $receiptTotal !== 0.0
-                ? min($receiptTotal, $packageOnlyInvoiceAmount)
+                ? min($receiptTotal, $invoiceSubtotalAbsolute)
                 : $fallbackPaidAmount;
 
             if ($invoicePaidAmount === 0.0) {
@@ -726,13 +717,8 @@ class CustomerConfirmationService
     private function resolveMemberTotalAmount(CustomerConfirmationMember $member, ?Package $package): float
     {
         $packagePayable = (float) $this->getPackagePriceForSharingPlan($package, $member->sharing_plan);
-        $memberItems = $member->quotationItems
-            ->filter(fn ($item): bool => ! (bool) $item->is_header)
-            ->values();
-        $discountAmount = $this->resolveNegativeExtensionDiscountShareFromMemberItems($memberItems);
-        $total = $packagePayable - $discountAmount;
 
-        return max(0.0, round($total, 2));
+        return max(0.0, round($packagePayable, 2));
     }
 
     private function resolveMemberBilledAmount(CustomerConfirmationMember $member): float
@@ -1126,11 +1112,6 @@ class CustomerConfirmationService
 
                     $resolvedSharingPlan = $incomingSharingPlan;
 
-                    if ($sharingPlanChanged && $hasPaidBilling) {
-                        // Preserve paid member billing integrity by keeping the persisted sharing plan.
-                        $resolvedSharingPlan = $matchedMember->sharing_plan;
-                    }
-
                     if ($sharingPlanChanged && $hasAnyBilling && ! $hasPaidBilling) {
                         $this->resetMemberBillingLinksForRecreate($matchedMember->id);
                     }
@@ -1183,7 +1164,15 @@ class CustomerConfirmationService
             }
 
             if ((int) ($group->package_id ?? 0) > 0) {
-                $this->reconcileGroupBillingAgainstPackage($group->fresh(['members.customer.user', 'package']));
+                $groupForSync = $group->fresh(['members.customer.user', 'package']);
+
+                if ($groupForSync?->package) {
+                    $this->syncNonConvertedQuotationItemsForConfirmation($groupForSync);
+
+                    if ($this->isAutoBillingSyncEnabled()) {
+                        $this->reconcileGroupBillingAgainstPackage($groupForSync);
+                    }
+                }
             }
 
             $this->syncMemberStatusesForConfirmation((int) $group->id);
@@ -1411,10 +1400,14 @@ class CustomerConfirmationService
                         ])->find((int) $member->id);
 
                         if ($memberForReconciliation) {
-                            $this->voidObsoleteUnpaidMemberBilling(
-                                $memberForReconciliation,
-                                $confirmation->package,
-                            );
+                            $this->syncNonConvertedQuotationItemsForMember($memberForReconciliation, $confirmation->package);
+
+                            if ($this->isAutoBillingSyncEnabled()) {
+                                $this->reconcileMemberBillingAgainstPackage(
+                                    $memberForReconciliation,
+                                    $confirmation->package,
+                                );
+                            }
 
                             $this->syncMemberStatusesForConfirmation($confirmationId);
                         }
@@ -1477,6 +1470,21 @@ class CustomerConfirmationService
             app(PackageSeatService::class)->recalculateForPackageId(
                 (int) ($member->confirmation?->package_id ?? 0),
             );
+        });
+    }
+
+    public function syncBillingForConfirmation(int $confirmationId): void
+    {
+        DB::transaction(function () use ($confirmationId) {
+            $group = CustomerConfirmation::with(['members.customer.user', 'package'])
+                ->findOrFail($confirmationId);
+
+            if ($group->package) {
+                $this->syncNonConvertedQuotationItemsForConfirmation($group);
+                $this->reconcileGroupBillingAgainstPackage($group);
+            }
+
+            $this->syncMemberStatusesForConfirmation((int) $group->id);
         });
     }
 
@@ -2053,10 +2061,76 @@ class CustomerConfirmationService
         );
     }
 
+    private function syncNonConvertedQuotationItemsForConfirmation(CustomerConfirmation $group): void
+    {
+        $group->loadMissing(['members.customer.user', 'package']);
+
+        $package = $group->package;
+
+        if (! $package) {
+            return;
+        }
+
+        foreach ($group->members as $member) {
+            $memberStatus = $this->normalizePaymentStatus($member->status ?? null);
+
+            if ($memberStatus === 'cancelled') {
+                continue;
+            }
+
+            $this->syncNonConvertedQuotationItemsForMember($member, $package);
+        }
+    }
+
+    private function syncNonConvertedQuotationItemsForMember(
+        CustomerConfirmationMember $member,
+        Package $package,
+    ): void {
+        $memberName = $member->customer?->user?->name ?? ('Member #'.$member->id);
+        $packageName = trim((string) ($package->name ?? 'Package'));
+        $sharingPlanLabel = $this->formatSharingPlanLabel($member->sharing_plan);
+        $resolvedRate = round(max(0.0, (float) $this->getPackagePriceForSharingPlan($package, $member->sharing_plan)), 2);
+
+        $quotationItems = QuotationItem::query()
+            ->with('parent')
+            ->where('customer_confirmation_member_id', (int) $member->id)
+            ->where('is_header', false)
+            ->whereHas('quotation', function ($query): void {
+                $query->whereNull('deleted_at')
+                    ->whereNotIn('status', [
+                        QuotationStatus::Converted->value,
+                        QuotationStatus::Cancelled->value,
+                        QuotationStatus::Expired->value,
+                        QuotationStatus::Rejected->value,
+                    ]);
+            })
+            ->get();
+
+        foreach ($quotationItems as $quotationItem) {
+            $parent = $quotationItem->parent;
+
+            if (! $parent || ! (bool) $parent->is_header) {
+                continue;
+            }
+
+            if (strtolower(trim((string) ($parent->description ?? ''))) !== 'umrah packages') {
+                continue;
+            }
+
+            $quotationItem->update([
+                'description' => $packageName.' - '.$memberName.' - '.$sharingPlanLabel.' sharing',
+                'quantity' => 1,
+                'rate' => $resolvedRate,
+            ]);
+        }
+    }
+
     private function reconcileGroupBillingAgainstPackage(CustomerConfirmation $group): void
     {
         $group->loadMissing([
             'members.quotationItems.quotation.order.invoices.quotationItems',
+            'members.quotationItems.quotation.order.invoices.receipt',
+            'members.quotationItems.invoices.receipt',
             'package',
         ]);
 
@@ -2073,67 +2147,81 @@ class CustomerConfirmationService
                 continue;
             }
 
-            $requiredAmount = $this->resolveMemberTotalAmount($member, $package);
-
-            if ($requiredAmount <= 0) {
-                continue;
-            }
-
-            $this->voidObsoleteUnpaidMemberBilling($member, $package, $requiredAmount);
-
-            $billedAmount = $this->resolveMemberBilledAmount($member);
-            $shortfallAmount = round($requiredAmount - $billedAmount, 2);
-
-            if ($shortfallAmount <= 0) {
-                continue;
-            }
-
-            $targetQuotation = $this->resolveLatestActiveQuotationForMember($member);
-
-            if (! $targetQuotation) {
-                continue;
-            }
-
-            $targetOrder = $targetQuotation->order;
-
-            if (! $targetOrder) {
-                $targetOrder = Order::create([
-                    'quotation_id' => $targetQuotation->id,
-                    'payment_plan' => $targetQuotation->payment_plan ?? 'full',
-                ]);
-            }
-
-            $sortOrder = ((int) QuotationItem::query()
-                ->where('quotation_id', $targetQuotation->id)
-                ->max('sort_order')) + 1;
-
-            $topUpItem = QuotationItem::create([
-                'quotation_id' => $targetQuotation->id,
-                'customer_confirmation_member_id' => $member->id,
-                'parent_id' => null,
-                'description' => 'Package top-up after holding package update',
-                'is_header' => false,
-                'quantity' => 1,
-                'rate' => $shortfallAmount,
-                'sort_order' => $sortOrder,
-            ]);
-
-            $topUpInvoice = Invoice::create([
-                'order_id' => $targetOrder->id,
-                'description' => 'Package top-up after holding package update',
-                'payment_method' => null,
-                'extensions' => [],
-                'amount' => $shortfallAmount,
-                'invoice_date' => now()->format('Y-m-d'),
-                'due_date' => now()->format('Y-m-d'),
-                'status' => InvoiceStatus::Issued,
-            ]);
-
-            $topUpInvoice->quotationItems()->sync([(int) $topUpItem->id]);
+            $this->reconcileMemberBillingAgainstPackage($member, $package);
         }
     }
 
-    private function voidObsoleteUnpaidMemberBilling(
+    private function reconcileMemberBillingAgainstPackage(
+        CustomerConfirmationMember $member,
+        Package $package,
+    ): void {
+        $requiredAmount = $this->resolveMemberTotalAmount($member, $package);
+
+        if ($requiredAmount <= 0) {
+            return;
+        }
+
+        $this->applyObsoleteUnpaidBillingAdjustment($member, $package, $requiredAmount);
+
+        $billedAmount = $this->resolveMemberBilledAmount($member);
+        $shortfallAmount = round($requiredAmount - $billedAmount, 2);
+
+        if ($shortfallAmount <= 0) {
+            return;
+        }
+
+        $targetQuotation = $this->resolveLatestActiveQuotationForMember($member);
+
+        if (! $targetQuotation) {
+            return;
+        }
+
+        $targetOrder = $targetQuotation->order;
+
+        if (! $targetOrder) {
+            $targetOrder = Order::create([
+                'quotation_id' => $targetQuotation->id,
+                'payment_plan' => $targetQuotation->payment_plan ?? 'full',
+            ]);
+        }
+
+        $memberName = $member->customer?->user?->name ?? ('Member #'.$member->id);
+        $packageName = trim((string) ($package->name ?? 'Package'));
+        $sharingPlanLabel = $this->formatSharingPlanLabel($member->sharing_plan);
+        $headerItem = $this->resolveOrCreateUmrahPackagesHeaderItem($targetQuotation);
+        $nextSortOrder = ((int) QuotationItem::query()
+            ->where('quotation_id', (int) $targetQuotation->id)
+            ->max('sort_order')) + 1;
+
+        $detailItem = QuotationItem::create([
+            'quotation_id' => (int) $targetQuotation->id,
+            'customer_confirmation_member_id' => (int) $member->id,
+            'parent_id' => (int) $headerItem->id,
+            'description' => $packageName.' - '.$memberName.' - '.$sharingPlanLabel.' sharing',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => $shortfallAmount,
+            'sort_order' => $nextSortOrder + 1,
+        ]);
+
+        $balanceInvoice = Invoice::create([
+            'order_id' => (int) $targetOrder->id,
+            'description' => 'Invoice For Balance',
+            'payment_method' => null,
+            'extensions' => [],
+            'amount' => $shortfallAmount,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => InvoiceStatus::Issued,
+        ]);
+
+        $balanceInvoice->quotationItems()->sync([
+            (int) $headerItem->id,
+            (int) $detailItem->id,
+        ]);
+    }
+
+    private function applyObsoleteUnpaidBillingAdjustment(
         CustomerConfirmationMember $member,
         ?Package $package,
         ?float $requiredAmount = null,
@@ -2165,7 +2253,7 @@ class CustomerConfirmationService
             return;
         }
 
-        $linkedInvoice = $this->resolveMemberLatestInvoice($member);
+        $linkedInvoice = $this->resolveMemberOutstandingInvoice($member);
 
         if (! $linkedInvoice || ! $linkedInvoice->order || ! $linkedInvoice->order->quotation) {
             return;
@@ -2175,46 +2263,100 @@ class CustomerConfirmationService
         $memberName = $member->customer?->user?->name ?? ('Member #'.$member->id);
         $packageName = trim((string) ($package->name ?? 'Package'));
         $sharingPlanLabel = $this->formatSharingPlanLabel($member->sharing_plan);
+        $voidHeaderItem = $this->resolveOrCreateUmrahPackagesHeaderItem($sourceQuotation);
 
         $nextSortOrder = ((int) QuotationItem::query()
             ->where('quotation_id', (int) $sourceQuotation->id)
             ->max('sort_order')) + 1;
 
-        $voidHeaderItem = QuotationItem::create([
-            'quotation_id' => (int) $sourceQuotation->id,
-            'customer_confirmation_member_id' => null,
-            'parent_id' => null,
-            'description' => 'Voided Previous Package Billing',
-            'is_header' => true,
-            'sort_order' => $nextSortOrder,
-        ]);
-
         $voidDetailItem = QuotationItem::create([
             'quotation_id' => (int) $sourceQuotation->id,
             'customer_confirmation_member_id' => (int) $member->id,
             'parent_id' => (int) $voidHeaderItem->id,
-            'description' => 'Voided unpaid billing - '.$packageName.' - '.$memberName.' - '.$sharingPlanLabel.' sharing',
+            'description' => 'Package pricing adjustment - '.$packageName.' - '.$memberName.' - '.$sharingPlanLabel.' sharing',
             'is_header' => false,
             'quantity' => 1,
             'rate' => -$voidAmount,
             'sort_order' => $nextSortOrder + 1,
         ]);
 
-        $voidInvoice = Invoice::create([
-            'order_id' => (int) $linkedInvoice->order_id,
-            'description' => 'Voided Unpaid Previous Package Billing',
-            'payment_method' => $linkedInvoice->payment_method,
-            'extensions' => [],
-            'amount' => -$voidAmount,
-            'invoice_date' => now()->format('Y-m-d'),
-            'due_date' => now()->format('Y-m-d'),
-            'status' => InvoiceStatus::Cancelled,
-        ]);
+        $existingInvoiceItemIds = $linkedInvoice->quotationItems()
+            ->pluck('quotation_items.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
 
-        $voidInvoice->quotationItems()->sync([
+        $linkedInvoice->quotationItems()->sync(array_values(array_unique([
+            ...$existingInvoiceItemIds,
             (int) $voidHeaderItem->id,
             (int) $voidDetailItem->id,
+        ])));
+
+        $updatedAmount = round(max(
+            0.0,
+            (float) ($linkedInvoice->amount ?? 0) - $voidAmount,
+        ), 2);
+
+        $linkedInvoice->update([
+            'amount' => $updatedAmount,
         ]);
+    }
+
+    private function resolveOrCreateUmrahPackagesHeaderItem(Quotation $quotation): QuotationItem
+    {
+        $existingHeader = QuotationItem::query()
+            ->where('quotation_id', (int) $quotation->id)
+            ->where('is_header', true)
+            ->whereNull('parent_id')
+            ->whereRaw('LOWER(TRIM(description)) = ?', ['umrah packages'])
+            ->orderBy('id')
+            ->first();
+
+        if ($existingHeader) {
+            return $existingHeader;
+        }
+
+        $nextSortOrder = ((int) QuotationItem::query()
+            ->where('quotation_id', (int) $quotation->id)
+            ->max('sort_order')) + 1;
+
+        return QuotationItem::create([
+            'quotation_id' => (int) $quotation->id,
+            'customer_confirmation_member_id' => null,
+            'parent_id' => null,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => $nextSortOrder,
+        ]);
+    }
+
+    private function resolveMemberOutstandingInvoice(CustomerConfirmationMember $member): ?Invoice
+    {
+        return $member->quotationItems
+            ->flatMap(fn (QuotationItem $item) => $item->invoices)
+            ->unique('id')
+            ->filter(function (Invoice $invoice): bool {
+                if (InvoiceStatus::isRefund($invoice->status)) {
+                    return false;
+                }
+
+                if (strtolower((string) ($invoice->status ?? '')) === InvoiceStatus::Cancelled) {
+                    return false;
+                }
+
+                $invoiceAmount = round((float) ($invoice->amount ?? 0), 2);
+
+                if ($invoiceAmount <= 0) {
+                    return false;
+                }
+
+                $receiptAmount = round((float) $invoice->receipt->sum(function ($receipt): float {
+                    return (float) ($receipt->amount ?? 0);
+                }), 2);
+
+                return round($invoiceAmount - $receiptAmount, 2) > 0;
+            })
+            ->sortByDesc('id')
+            ->first();
     }
 
     private function resolveLatestActiveQuotationForMember(CustomerConfirmationMember $member): ?Quotation

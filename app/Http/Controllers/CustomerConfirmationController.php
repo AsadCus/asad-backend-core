@@ -38,6 +38,7 @@ class CustomerConfirmationController extends Controller
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
+            'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
             'pageTitle' => 'Confirmed Customers',
             'indexUrl' => route('confirmed-customer.index'),
         ]);
@@ -55,6 +56,7 @@ class CustomerConfirmationController extends Controller
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
+            'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
             'pageTitle' => 'Customer Holding',
             'indexUrl' => route('customer-holding.index'),
         ]);
@@ -302,6 +304,15 @@ class CustomerConfirmationController extends Controller
         return redirect()
             ->route('invoice.index')
             ->with('success', 'Balance invoice created successfully #'.($invoice->invoice_number ?? $invoice->id).'.');
+    }
+
+    public function syncBilling(Request $request, string $id): RedirectResponse
+    {
+        CustomerConfirmation::query()->findOrFail((int) $id);
+
+        $this->customerConfirmationService->syncBillingForConfirmation((int) $id);
+
+        return back()->with('success', 'Billing sync completed successfully.');
     }
 
     /**

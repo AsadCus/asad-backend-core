@@ -250,6 +250,15 @@ class DashboardTest extends TestCase
                 'status' => 'paid',
             ]);
 
+            $refundInvoice = Invoice::create([
+                'order_id' => $convertedOrder->id,
+                'description' => 'Refund invoice should be included in FYTD',
+                'amount' => -50,
+                'invoice_date' => '2026-03-22',
+                'due_date' => '2026-03-22',
+                'status' => 'refund',
+            ]);
+
             Invoice::create([
                 'order_id' => $draftOrder->id,
                 'description' => 'Non-converted quotation invoice should be excluded',
@@ -287,13 +296,20 @@ class DashboardTest extends TestCase
                 'payment_method' => 'transfer',
             ]);
 
+            Receipt::create([
+                'invoice_id' => $refundInvoice->id,
+                'amount' => -50,
+                'receipt_date' => '2026-03-25',
+                'payment_method' => 'transfer',
+            ]);
+
             $response = $this->getJson(route('dashboard.fiscal-year-total-sales', [
                 'financial_year_id' => $fiscalYear->id,
             ]));
 
             $response->assertOk();
-            $response->assertJsonPath('count', 3);
-            $this->assertSame(850.0, (float) $response->json('amount'));
+            $response->assertJsonPath('count', 4);
+            $this->assertSame(800.0, (float) $response->json('amount'));
         } finally {
             Carbon::setTestNow();
         }

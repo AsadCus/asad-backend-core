@@ -269,6 +269,12 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('sync-billing') && (
+                <Item onClick={() => onAction?.('sync-billing', row)}>
+                    Sync Billing
+                </Item>
+            )}
+
             {actions.includes('create-balance-invoice') && (
                 <Item onClick={() => onAction?.('create-balance-invoice', row)}>
                     Create Balance Invoice

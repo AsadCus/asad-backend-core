@@ -14,6 +14,10 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import {
+    focusFirstDialogFormField,
+    handleDialogTabKey,
+} from '@/lib/dialog-focus';
+import {
     create,
     destroy,
     edit,
@@ -408,7 +412,8 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
             <Dialog open={confirmFormOpen} onOpenChange={setConfirmFormOpen}>
                 <DialogContent
                     className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col"
-                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    onOpenAutoFocus={focusFirstDialogFormField}
+                    onKeyDown={handleDialogTabKey}
                 >
                     <DialogHeader>
                         <DialogTitle>Customer Confirmation Form</DialogTitle>

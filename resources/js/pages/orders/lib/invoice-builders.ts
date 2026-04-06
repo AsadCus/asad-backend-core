@@ -726,65 +726,14 @@ function buildInstallmentItems(
             : Math.max(value, sourceAmount);
     };
 
-    const totalLineAmount = roundToCents(
-        lineItemsWithAmounts.reduce(
-            (sum, item) => sum + Number(item.amount ?? 0),
-            0,
-        ),
-    );
-
-    const fixedDepositTarget =
-        depositType === 'fixed' && numericDepositValue > 0
-            ? roundToCents(Math.min(numericDepositValue, totalLineAmount))
-            : 0;
-
-    const fixedDepositAllocations =
-        fixedDepositTarget > 0
-            ? (() => {
-                  let remaining = fixedDepositTarget;
-
-                  return lineItemsWithAmounts.map((item, index) => {
-                      const amount = roundToCents(Number(item.amount ?? 0));
-
-                      if (amount <= 0 || remaining <= 0) {
-                          return 0;
-                      }
-
-                      if (index === lineItemsWithAmounts.length - 1) {
-                          const allocation = roundToCents(
-                              Math.min(amount, remaining),
-                          );
-                          remaining = roundToCents(remaining - allocation);
-
-                          return allocation;
-                      }
-
-                      const proportionalShare = roundToCents(
-                          (amount / totalLineAmount) * fixedDepositTarget,
-                      );
-                      const allocation = roundToCents(
-                          Math.min(amount, proportionalShare, remaining),
-                      );
-                      remaining = roundToCents(remaining - allocation);
-
-                      return allocation;
-                  });
-              })()
-            : [];
-
-    lineItemsWithAmounts.forEach((item, index) => {
+    lineItemsWithAmounts.forEach((item) => {
         const quantity = Number(item.quantity ?? 0) || 1;
         const amount = roundToCents(Number(item.amount ?? 0));
         const perItemDepositAmount =
             depositType === 'percentage' && numericDepositValue > 0
                 ? roundToCents(amount * (numericDepositValue / 100))
-                : depositType === 'fixed' && fixedDepositTarget > 0
-                  ? roundToCents(
-                        clampToItemAmount(
-                            Number(fixedDepositAllocations[index] ?? 0),
-                            amount,
-                        ),
-                    )
+                : depositType === 'fixed' && numericDepositValue > 0
+                  ? roundToCents(clampToItemAmount(numericDepositValue, amount))
                   : 0;
 
         const depositAmount = clampToItemAmount(perItemDepositAmount, amount);

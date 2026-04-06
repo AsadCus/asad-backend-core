@@ -34,6 +34,7 @@ export type ActionType =
     | 'add-remark'
     | 'copy-customer-confirmation-public-edit-link'
     | 'move-members'
+    | 'sync-billing'
     | 'cancel-member'
     | 'refund'
     | 'refund-overpaid'

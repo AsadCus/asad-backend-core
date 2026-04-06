@@ -13,6 +13,7 @@ use App\Models\ModelFile;
 use App\Models\Package;
 use App\Models\PackageOfficial;
 use App\Support\DataScope;
+use App\Support\InvoiceStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -2039,16 +2040,18 @@ class ManifestService
             ];
         }
 
-        $memberInvoiceAmounts = $this->resolveMemberQuotationItemAmountsByInvoice($member);
-        $memberInvoiceReceiptDates = $this->resolveMemberReceiptDatesByInvoice($member);
+        $memberPaymentBuckets = $this->resolveMemberPaymentBucketsByReceiptDate($member);
 
-        $firstInvoiceAmount = $memberInvoiceAmounts->get(0);
-        $secondInvoiceAmount = $memberInvoiceAmounts->get(1);
-        $thirdAndLaterInvoiceAmounts = $memberInvoiceAmounts->slice(2);
-        $firstInvoiceReceiptDate = $memberInvoiceReceiptDates->get(0);
-        $secondInvoiceReceiptDate = $memberInvoiceReceiptDates->get(1);
-        $thirdInvoiceReceiptDate = $memberInvoiceReceiptDates
+        $firstInvoiceAmount = (float) ($memberPaymentBuckets->get(0)['amount'] ?? 0);
+        $secondInvoiceAmount = (float) ($memberPaymentBuckets->get(1)['amount'] ?? 0);
+        $thirdAndLaterInvoiceAmounts = $memberPaymentBuckets
             ->slice(2)
+            ->pluck('amount');
+        $firstInvoiceReceiptDate = $memberPaymentBuckets->get(0)['receipt_date'] ?? null;
+        $secondInvoiceReceiptDate = $memberPaymentBuckets->get(1)['receipt_date'] ?? null;
+        $thirdInvoiceReceiptDate = $memberPaymentBuckets
+            ->slice(2)
+            ->pluck('receipt_date')
             ->filter(fn ($date): bool => ! empty($date))
             ->first();
 
@@ -2064,9 +2067,9 @@ class ManifestService
             $discount,
         );
 
-        $depositPayment = $depositPaymentAmountRaw > 0 ? $depositPaymentAmount : null;
-        $secondPayment = $secondPaymentAmountRaw > 0 ? $secondPaymentAmount : null;
-        $thirdPayment = $thirdPaymentAmountRaw > 0 ? $thirdPaymentAmount : null;
+        $depositPayment = $depositPaymentAmountRaw !== 0.0 ? $depositPaymentAmount : null;
+        $secondPayment = $secondPaymentAmountRaw !== 0.0 ? $secondPaymentAmount : null;
+        $thirdPayment = $thirdPaymentAmountRaw !== 0.0 ? $thirdPaymentAmount : null;
 
         $adjustedPaidAmount = round(
             (float) ($depositPayment ?? 0)
@@ -2102,7 +2105,7 @@ class ManifestService
         $adjustedBuckets = [];
 
         foreach ($paymentBuckets as $amount) {
-            $bucketAmount = max((float) $amount, 0);
+            $bucketAmount = round((float) $amount, 2);
 
             if ($remainingDiscount > 0 && $bucketAmount > 0) {
                 $discountOffset = min($remainingDiscount, $bucketAmount);
@@ -2186,53 +2189,9 @@ class ManifestService
      */
     private function resolveMemberQuotationItemAmountsByInvoice(CustomerConfirmationMember $member): Collection
     {
-        $memberItems = $member->quotationItems
-            ->filter(fn ($item): bool => ! (bool) $item->is_header)
-            ->values();
-
-        if ($memberItems->isEmpty()) {
-            return collect();
-        }
-
-        return $memberItems
-            ->flatMap(fn ($item) => $item->invoices)
-            ->unique('id')
-            ->sortBy(function ($invoice): string {
-                $invoiceDate = $invoice->invoice_date?->format('Y-m-d') ?? '';
-
-                return $invoiceDate.'#'.str_pad((string) $invoice->id, 10, '0', STR_PAD_LEFT);
-            })
-            ->values()
-            ->map(function ($invoice) use ($member): ?float {
-                $invoiceItems = $invoice->quotationItems
-                    ->filter(fn ($item): bool => ! (bool) $item->is_header)
-                    ->values();
-
-                if ($invoiceItems->isEmpty()) {
-                    return null;
-                }
-
-                $memberSubtotal = (float) $invoiceItems
-                    ->where('customer_confirmation_member_id', $member->id)
-                    ->sum(function ($item): float {
-                        return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
-                    });
-
-                if ($memberSubtotal <= 0) {
-                    return null;
-                }
-
-                $invoiceSubtotal = (float) $invoiceItems->sum(function ($item): float {
-                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
-                });
-
-                if ($invoiceSubtotal <= 0) {
-                    return null;
-                }
-
-                return $memberSubtotal > 0 ? $memberSubtotal : null;
-            })
-            ->filter()
+        return $this->resolveMemberPaymentBucketsByReceiptDate($member)
+            ->pluck('amount')
+            ->map(fn ($amount): float => (float) $amount)
             ->values();
     }
 
@@ -2240,6 +2199,16 @@ class ManifestService
      * @return Collection<int, string|null>
      */
     private function resolveMemberReceiptDatesByInvoice(CustomerConfirmationMember $member): Collection
+    {
+        return $this->resolveMemberPaymentBucketsByReceiptDate($member)
+            ->pluck('receipt_date')
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array{amount: float, receipt_date: string|null}>
+     */
+    private function resolveMemberPaymentBucketsByReceiptDate(CustomerConfirmationMember $member): Collection
     {
         $memberItems = $member->quotationItems
             ->filter(fn ($item): bool => ! (bool) $item->is_header)
@@ -2252,13 +2221,8 @@ class ManifestService
         return $memberItems
             ->flatMap(fn ($item) => $item->invoices)
             ->unique('id')
-            ->sortBy(function ($invoice): string {
-                $invoiceDate = $invoice->invoice_date?->format('Y-m-d') ?? '';
-
-                return $invoiceDate.'#'.str_pad((string) $invoice->id, 10, '0', STR_PAD_LEFT);
-            })
             ->values()
-            ->map(function ($invoice) use ($member): ?string {
+            ->map(function ($invoice) use ($member): ?array {
                 $invoiceItems = $invoice->quotationItems
                     ->filter(fn ($item): bool => ! (bool) $item->is_header)
                     ->values();
@@ -2273,7 +2237,7 @@ class ManifestService
                         return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
                     });
 
-                if ($memberSubtotal <= 0) {
+                if ($memberSubtotal === 0.0) {
                     return null;
                 }
 
@@ -2284,8 +2248,22 @@ class ManifestService
                     ->sort()
                     ->first();
 
-                return $receiptDate !== null ? (string) $receiptDate : null;
+                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+                $isPaid = $normalizedStatus === InvoiceStatus::Paid;
+                $isRefund = $normalizedStatus === InvoiceStatus::Refund;
+
+                if (! $isPaid && ! $isRefund && $receiptDate === null) {
+                    return null;
+                }
+
+                return [
+                    'amount' => round($memberSubtotal, 2),
+                    'receipt_date' => $receiptDate !== null ? (string) $receiptDate : null,
+                    'invoice_id' => (int) ($invoice->id ?? 0),
+                ];
             })
+            ->filter(fn ($row): bool => is_array($row))
+            ->sortBy(fn (array $row): int => (int) ($row['invoice_id'] ?? 0))
             ->values();
     }
 

@@ -26,6 +26,10 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import {
+    focusFirstDialogFormField,
+    handleDialogTabKey,
+} from '@/lib/dialog-focus';
+import {
     index as confirmedCustomerIndex,
     destroy as destroyConfirmedCustomer,
 } from '@/routes/confirmed-customer';
@@ -334,6 +338,7 @@ interface ConfirmedCustomerProps {
     dataGroups: CustomerConfirmationDatatableSchema[];
     packageOptions?: OptionType[];
     paymentMethods?: OptionType[];
+    autoBillingSyncEnabled?: boolean;
     pageTitle?: string;
     indexUrl?: string;
 }
@@ -359,6 +364,7 @@ export default function ConfirmedCustomerIndex({
     dataGroups,
     packageOptions = [],
     paymentMethods = [],
+    autoBillingSyncEnabled = true,
     pageTitle = 'Confirmed Customers',
     indexUrl = confirmedCustomerIndex().url,
 }: ConfirmedCustomerProps) {
@@ -1511,6 +1517,10 @@ export default function ConfirmedCustomerIndex({
                                         'move-members',
                                     );
 
+                                    if (!autoBillingSyncEnabled) {
+                                        rowActions.push('sync-billing');
+                                    }
+
                                     if (
                                         userPermissions.includes(
                                             'customer edit',
@@ -1592,6 +1602,33 @@ export default function ConfirmedCustomerIndex({
                                         row
                                     ) {
                                         openOverpaidRefundDialog(row.original);
+                                    } else if (action === 'sync-billing') {
+                                        confirm({
+                                            title: 'Sync Billing',
+                                            message: `Sync billing data for confirmation #${groupId}?`,
+                                            confirmText: 'Sync',
+                                            cancelText: 'Cancel',
+                                            onConfirm: () => {
+                                                router.post(
+                                                    `/customer-confirmations/${groupId}/sync-billing`,
+                                                    {},
+                                                    {
+                                                        preserveScroll: true,
+                                                        preserveState: false,
+                                                        onSuccess: () => {
+                                                            toast.success(
+                                                                'Billing sync completed successfully.',
+                                                            );
+                                                        },
+                                                        onError: () => {
+                                                            toast.error(
+                                                                'Failed to sync billing data.',
+                                                            );
+                                                        },
+                                                    },
+                                                );
+                                            },
+                                        });
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Customer Confirmation',
@@ -1666,7 +1703,8 @@ export default function ConfirmedCustomerIndex({
             <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
                 <DialogContent
                     className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col"
-                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    onOpenAutoFocus={focusFirstDialogFormField}
+                    onKeyDown={handleDialogTabKey}
                 >
                     <DialogHeader className="gap-0">
                         <DialogTitle className="text-xl">
@@ -1763,7 +1801,10 @@ export default function ConfirmedCustomerIndex({
             </Dialog>
 
             <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] flex-col">
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] flex-col"
+                    onKeyDown={handleDialogTabKey}
+                >
                     <DialogHeader>
                         <DialogTitle>Move Members to Holding</DialogTitle>
                         <DialogDescription>
@@ -1876,7 +1917,10 @@ export default function ConfirmedCustomerIndex({
             </Dialog>
 
             <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col">
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] min-w-[95%] flex-col"
+                    onKeyDown={handleDialogTabKey}
+                >
                     <DialogHeader className="gap-0">
                         <DialogTitle className="text-xl">
                             {memberDialogMode === 'view'
@@ -1971,7 +2015,10 @@ export default function ConfirmedCustomerIndex({
             </Dialog>
 
             <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
-                <DialogContent className="flex max-h-[95%] max-w-[95%] flex-col md:min-w-3xl">
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] flex-col md:min-w-3xl"
+                    onKeyDown={handleDialogTabKey}
+                >
                     <DialogHeader className="gap-0">
                         <DialogTitle className="text-xl">
                             Create Refund Invoice & Receipt
@@ -2406,7 +2453,10 @@ export default function ConfirmedCustomerIndex({
                 open={quotationDialogOpen}
                 onOpenChange={setQuotationDialogOpen}
             >
-                <DialogContent className="flex max-h-[95%] max-w-[95%] flex-col md:min-w-3xl">
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] flex-col md:min-w-3xl"
+                    onKeyDown={handleDialogTabKey}
+                >
                     <DialogHeader className="items-start gap-0 text-left">
                         <DialogTitle className="text-xl">
                             Create Quotation

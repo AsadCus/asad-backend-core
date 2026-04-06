@@ -120,6 +120,7 @@ class OrderService
     {
         return DB::transaction(function () use ($data) {
             $incomingInvoices = $this->normalizeIncomingInvoices(array_values($data['invoices'] ?? []));
+            $incomingInvoices = $this->quotationService->ensureInvoiceExtensionsHaveMasters($incomingInvoices);
 
             $order = Order::create([
                 'order_number' => $this->numberingService->ensureNumber(
@@ -321,6 +322,7 @@ class OrderService
             $incomingInvoiceIds = [];
             $seenInvoiceIds = [];
             $incomingInvoices = $this->normalizeIncomingInvoices(array_values($data['invoices'] ?? []));
+            $incomingInvoices = $this->quotationService->ensureInvoiceExtensionsHaveMasters($incomingInvoices);
             $existingInvoicesByNumber = $editableExistingInvoices
                 ->filter(fn ($invoice) => ! empty($invoice->invoice_number))
                 ->keyBy('invoice_number');

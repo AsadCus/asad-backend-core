@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Quotation;
 use App\Models\User;
+use App\Support\InvoiceStatus;
 use Carbon\Carbon;
 
 class SalesService
@@ -170,8 +171,8 @@ class SalesService
             ];
         }
 
-        $paidConvertedInvoices = Invoice::query()
-            ->where('status', 'paid')
+        $paidAndRefundConvertedInvoices = Invoice::query()
+            ->whereIn('status', [InvoiceStatus::Paid, InvoiceStatus::Refund])
             ->whereHas('order.quotation', function ($query) {
                 $query->where('status', 'converted');
             })
@@ -179,8 +180,8 @@ class SalesService
                 $query->whereBetween('receipt_date', [$fiscalYearStart, $fiscalYearToDateEnd]);
             });
 
-        $count = (clone $paidConvertedInvoices)->count();
-        $amount = (clone $paidConvertedInvoices)->sum('amount');
+        $count = (clone $paidAndRefundConvertedInvoices)->count();
+        $amount = (clone $paidAndRefundConvertedInvoices)->sum('amount');
 
         return [
             'count' => $count,

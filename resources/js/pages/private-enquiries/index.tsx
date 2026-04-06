@@ -13,6 +13,10 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
+import {
+    focusFirstDialogFormField,
+    handleDialogTabKey,
+} from '@/lib/dialog-focus';
 import { packagePrefill } from '@/routes/enquiries';
 import {
     create,
@@ -587,7 +591,8 @@ export default function Index({ data }: PrivateEnquiriesProps) {
             <Dialog open={privateFlowOpen} onOpenChange={cancelPrivateFlow}>
                 <DialogContent
                     className="flex max-h-[95%] min-h-[95%] max-w-[95%] min-w-[95%] flex-col"
-                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    onOpenAutoFocus={focusFirstDialogFormField}
+                    onKeyDown={handleDialogTabKey}
                 >
                     <DialogHeader>
                         <DialogTitle>

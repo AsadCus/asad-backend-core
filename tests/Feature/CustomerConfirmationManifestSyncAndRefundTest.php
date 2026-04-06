@@ -109,6 +109,108 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertSame(500.0, (float) ($memberRow['overpaid_amount'] ?? 0));
     }
 
+    public function test_confirmed_index_total_amount_uses_package_sharing_plan_price_without_discount_extension_adjustment(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Package Price Member',
+            'email' => 'package-price-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-PKG-PRICE-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-PRICE-001',
+            'name' => 'Package Price Rule',
+            'status' => 'open',
+            'price_single' => 1000,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+            'is_holding' => false,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+            'extensions' => [
+                [
+                    'name' => 'Manual Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => -300,
+                    'sort_order' => 1,
+                ],
+            ],
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package-only item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Discounted invoice',
+            'amount' => 700,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+
+        $invoice->quotationItems()->sync([$item->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 700,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $confirmedRows = app(CustomerConfirmationService::class)->getForConfirmedIndex();
+        $groupRow = collect($confirmedRows)->firstWhere('id', $group->id);
+
+        $this->assertNotNull($groupRow);
+        $this->assertSame(700.0, (float) ($groupRow['paid_amount'] ?? 0));
+        $this->assertSame(1000.0, (float) ($groupRow['total_amount'] ?? 0));
+
+        $memberRow = collect($groupRow['members'] ?? [])->firstWhere('id', $member->id);
+        $this->assertNotNull($memberRow);
+        $this->assertSame(700.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(1000.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['overpaid_amount'] ?? 0));
+    }
+
     public function test_customer_confirmation_update_syncs_open_manifest_member_only(): void
     {
         $authUser = User::factory()->create();
@@ -1208,7 +1310,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertTrue((bool) ($paidMemberRow['has_quotation'] ?? false));
     }
 
-    public function test_underpaid_member_can_create_balance_invoice_after_sharing_plan_change(): void
+    public function test_sharing_plan_upgrade_creates_balance_invoice_automatically(): void
     {
         $authUser = User::factory()->create();
         $this->actingAs($authUser);
@@ -1296,13 +1398,6 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $member->refresh();
         $this->assertSame('partially_paid', (string) $member->status);
 
-        $response = $this->post(route('customer-confirmations.members.balance-invoice.store', [
-            'id' => $group->id,
-            'memberId' => $member->id,
-        ]));
-
-        $response->assertRedirect(route('invoice.index'));
-
         $balanceInvoice = Invoice::query()
             ->where('order_id', $order->id)
             ->where('description', 'Invoice For Balance')
@@ -1333,7 +1428,198 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         ]);
     }
 
-    public function test_sharing_plan_downgrade_voids_only_unpaid_obsolete_amount(): void
+    public function test_sharing_plan_change_with_auto_sync_disabled_updates_non_converted_umrah_item_without_creating_invoice(): void
+    {
+        config(['customer_confirmation.auto_sync_billing_mutations' => false]);
+
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Draft Member',
+            'email' => 'draft-member-sync@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-DRAFT-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-DRAFT-001',
+            'name' => 'Draft Sync Package',
+            'status' => 'open',
+            'price_single' => 1000,
+            'price_double' => 1400,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'draft',
+        ]);
+
+        $header = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => null,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        $memberItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'parent_id' => $header->id,
+            'description' => 'Draft Sync Package - Draft Member - Single sharing',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 2,
+        ]);
+
+        app(CustomerConfirmationService::class)->updateMemberDetails((int) $member->id, [
+            'status' => 'pending_payment',
+            'sharing_plan' => 'double',
+            'relationship' => 'Self',
+        ]);
+
+        $memberItem->refresh();
+
+        $this->assertSame(1400.0, (float) ($memberItem->rate ?? 0));
+        $this->assertSame(
+            'Draft Sync Package - Draft Member - Double sharing',
+            (string) ($memberItem->description ?? ''),
+        );
+
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
+    public function test_manual_sync_billing_applies_reconciliation_when_auto_sync_is_disabled(): void
+    {
+        config(['customer_confirmation.auto_sync_billing_mutations' => false]);
+
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Manual Sync Member',
+            'email' => 'manual-sync-member@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-MANUAL-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MANUAL-001',
+            'name' => 'Manual Sync Package',
+            'status' => 'open',
+            'price_single' => 1000,
+            'price_double' => 1400,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'fully_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $packageItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Initial Package Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $initialInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Initial Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+            'payment_method' => 'transfer',
+        ]);
+
+        $initialInvoice->quotationItems()->sync([$packageItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $initialInvoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        app(CustomerConfirmationService::class)->updateMemberDetails((int) $member->id, [
+            'status' => 'fully_paid',
+            'sharing_plan' => 'double',
+            'relationship' => 'Self',
+        ]);
+
+        $this->assertDatabaseMissing('invoices', [
+            'order_id' => $order->id,
+            'description' => 'Invoice For Balance',
+        ]);
+
+        $response = $this->post(route('customer-confirmations.sync-billing', [
+            'id' => $group->id,
+        ]));
+
+        $response->assertRedirect();
+
+        $balanceInvoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('description', 'Invoice For Balance')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($balanceInvoice);
+        $this->assertSame(400.0, (float) ($balanceInvoice->amount ?? 0));
+    }
+
+    public function test_sharing_plan_downgrade_adjusts_existing_outstanding_invoice_without_void_invoice(): void
     {
         $authUser = User::factory()->create();
         $this->actingAs($authUser);
@@ -1378,14 +1664,25 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'status' => 'converted',
         ]);
 
+        $umrahHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => null,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'quantity' => 1,
+            'rate' => null,
+            'sort_order' => 1,
+        ]);
+
         $packageItem = QuotationItem::create([
             'quotation_id' => $quotation->id,
             'customer_confirmation_member_id' => $member->id,
+            'parent_id' => $umrahHeader->id,
             'description' => 'Original package item',
             'is_header' => false,
             'quantity' => 1,
             'rate' => 7000,
-            'sort_order' => 1,
+            'sort_order' => 2,
         ]);
 
         $order = Order::create([
@@ -1403,7 +1700,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'payment_method' => 'transfer',
         ]);
 
-        $invoice->quotationItems()->sync([$packageItem->id]);
+        $invoice->quotationItems()->sync([$umrahHeader->id, $packageItem->id]);
 
         Receipt::create([
             'invoice_id' => $invoice->id,
@@ -1418,34 +1715,43 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'relationship' => 'Self',
         ]);
 
-        $voidInvoice = Invoice::query()
-            ->where('order_id', $order->id)
-            ->where('description', 'Voided Unpaid Previous Package Billing')
-            ->latest('id')
-            ->first();
-
-        $this->assertNotNull($voidInvoice);
-        $this->assertSame('cancelled', (string) ($voidInvoice->status ?? ''));
-        $this->assertSame(-2000.0, (float) ($voidInvoice->amount ?? 0));
-
-        $this->assertDatabaseMissing('receipts', [
-            'invoice_id' => $voidInvoice->id,
+        $this->assertDatabaseMissing('invoices', [
+            'order_id' => $order->id,
+            'description' => 'Voided Unpaid Previous Package Billing',
         ]);
 
-        $voidItems = $voidInvoice->quotationItems()
+        $invoice->refresh();
+        $this->assertSame(5000.0, (float) ($invoice->amount ?? 0));
+
+        $adjustmentItems = $invoice->quotationItems()
             ->orderBy('sort_order')
             ->get();
 
-        $this->assertCount(2, $voidItems);
+        $this->assertCount(3, $adjustmentItems);
 
-        $voidHeader = $voidItems->firstWhere('is_header', true);
-        $voidDetail = $voidItems->firstWhere('is_header', false);
+        $adjustmentHeader = $adjustmentItems->first(function ($item) {
+            return (bool) $item->is_header && (string) ($item->description ?? '') === 'Umrah Packages';
+        });
 
-        $this->assertNotNull($voidHeader);
-        $this->assertNotNull($voidDetail);
-        $this->assertSame((int) ($voidHeader?->id ?? 0), (int) ($voidDetail?->parent_id ?? 0));
-        $this->assertSame((int) $member->id, (int) ($voidDetail?->customer_confirmation_member_id ?? 0));
-        $this->assertSame(-2000.0, (float) ($voidDetail?->rate ?? 0));
+        $adjustmentDetail = $adjustmentItems->first(function ($item) use ($member) {
+            return ! (bool) $item->is_header
+                && (int) ($item->customer_confirmation_member_id ?? 0) === (int) $member->id
+                && (float) ($item->rate ?? 0) === -2000.0;
+        });
+
+        $this->assertNotNull($adjustmentHeader);
+        $this->assertNotNull($adjustmentDetail);
+        $this->assertSame(
+            1,
+            QuotationItem::query()
+                ->where('quotation_id', $quotation->id)
+                ->where('is_header', true)
+                ->whereRaw('LOWER(TRIM(description)) = ?', ['umrah packages'])
+                ->count(),
+        );
+        $this->assertSame((int) ($adjustmentHeader?->id ?? 0), (int) ($adjustmentDetail?->parent_id ?? 0));
+        $this->assertSame((int) $member->id, (int) ($adjustmentDetail?->customer_confirmation_member_id ?? 0));
+        $this->assertSame(-2000.0, (float) ($adjustmentDetail?->rate ?? 0));
 
         $member->refresh();
         $this->assertSame('overpaid', (string) ($member->status ?? ''));

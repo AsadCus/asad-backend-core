@@ -387,33 +387,6 @@ function formatSharingPlanLabel(sharingPlan?: string | null): string {
     );
 }
 
-function resolveQuotationPackageRateBySharingPlan(
-    quotation?: QuotationSchema,
-    sharingPlan?: string | null,
-): number {
-    if (!quotation) {
-        return 0;
-    }
-
-    const normalizedSharingPlan = String(sharingPlan ?? '')
-        .trim()
-        .toLowerCase();
-
-    const valueBySharingPlan = {
-        single: quotation.package_price_single,
-        double: quotation.package_price_double,
-        triple: quotation.package_price_triple,
-        quad: quotation.package_price_quad,
-        child_with_bed: quotation.package_price_child_with_bed,
-        child_no_bed: quotation.package_price_child_no_bed,
-        infant: quotation.package_price_infant,
-    }[normalizedSharingPlan];
-
-    const normalizedValue = Number(valueBySharingPlan ?? 0);
-
-    return Number.isFinite(normalizedValue) ? normalizedValue : 0;
-}
-
 function createEmptyInvoice(defaultPaymentMethod = ''): InvoiceSchema {
     return {
         _key: nanoid(),
@@ -1484,12 +1457,12 @@ export default function OrderForm({
     const [collapsedInvoices, setCollapsedInvoices] = useState<
         Record<string, boolean>
     >({});
-    const [memberOptions, setMemberOptions] = useState<OptionType[]>([]);
+    const [customerConfirmationMembers, setCustomerConfirmationMembers] =
+        useState<
+            Array<{ id: number; name: string; sharing_plan: string | null }>
+        >([]);
     const [invoicePaymentMethodOptions, setInvoicePaymentMethodOptions] =
         useState<OptionType[]>(paymentMethods);
-    const [memberSharingPlanById, setMemberSharingPlanById] = useState<
-        Record<number, string | null>
-    >({});
 
     useEffect(() => {
         setInvoicePaymentMethodOptions(paymentMethods);
@@ -1499,8 +1472,7 @@ export default function OrderForm({
         const confirmationId = Number(quotation?.customer_confirmation_id ?? 0);
 
         if (!quotation || confirmationId <= 0) {
-            setMemberOptions([]);
-            setMemberSharingPlanById({});
+            setCustomerConfirmationMembers([]);
             return;
         }
 
@@ -1536,27 +1508,13 @@ export default function OrderForm({
                     return;
                 }
 
-                setMemberOptions(
-                    normalizedMembers.map((member) => ({
-                        value: String(member.id),
-                        label: member.name,
-                    })),
-                );
-                setMemberSharingPlanById(
-                    Object.fromEntries(
-                        normalizedMembers.map((member) => [
-                            member.id,
-                            member.sharing_plan,
-                        ]),
-                    ),
-                );
+                setCustomerConfirmationMembers(normalizedMembers);
             } catch {
                 if (isUnmounted) {
                     return;
                 }
 
-                setMemberOptions([]);
-                setMemberSharingPlanById({});
+                setCustomerConfirmationMembers([]);
             }
         };
 
@@ -1566,6 +1524,55 @@ export default function OrderForm({
             isUnmounted = true;
         };
     }, [quotation]);
+
+    const quotationOrderMemberIds = useMemo(() => {
+        const memberIds = new Set<number>();
+
+        (quotation?.items ?? []).forEach((item) => {
+            const memberId = Number(item.customer_confirmation_member_id ?? 0);
+
+            if (Number.isFinite(memberId) && memberId > 0) {
+                memberIds.add(memberId);
+            }
+        });
+
+        (data.invoices ?? []).forEach((invoice) => {
+            (invoice.items ?? []).forEach((item) => {
+                const memberId = Number(item.customer_confirmation_member_id ?? 0);
+
+                if (Number.isFinite(memberId) && memberId > 0) {
+                    memberIds.add(memberId);
+                }
+            });
+        });
+
+        return memberIds;
+    }, [data.invoices, quotation?.items]);
+
+    const memberOptions = useMemo(() => {
+        const members =
+            quotationOrderMemberIds.size > 0
+                ? customerConfirmationMembers.filter((member) =>
+                      quotationOrderMemberIds.has(member.id),
+                  )
+                : customerConfirmationMembers;
+
+        return members.map((member) => ({
+            value: String(member.id),
+            label: member.name,
+        }));
+    }, [customerConfirmationMembers, quotationOrderMemberIds]);
+
+    const memberSharingPlanById = useMemo(
+        () =>
+            Object.fromEntries(
+                customerConfirmationMembers.map((member) => [
+                    member.id,
+                    member.sharing_plan,
+                ]),
+            ),
+        [customerConfirmationMembers],
+    );
 
     const memberPackageItemGroups = useMemo(() => {
         if (!quotation || memberOptions.length === 0) {
@@ -1588,15 +1595,10 @@ export default function OrderForm({
 
                 const sharingPlan = memberSharingPlanById[memberId] ?? null;
                 const sharingPlanLabel = formatSharingPlanLabel(sharingPlan);
-                const sharingRate = resolveQuotationPackageRateBySharingPlan(
-                    quotation,
-                    sharingPlan,
-                );
-
                 return {
                     description: `${packageName} - ${memberOption.label} - ${sharingPlanLabel} sharing`,
                     quantity: 1,
-                    rate: sharingRate,
+                    rate: null,
                     is_header: false,
                     is_optional: false,
                     customer_confirmation_member_id: memberId,
