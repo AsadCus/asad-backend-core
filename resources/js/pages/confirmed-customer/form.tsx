@@ -56,7 +56,6 @@ import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fie
 import CustomerFormFields from '../customer/form-fields';
 import {
     emptyMember,
-    packageCategoryOptions,
     type CustomerConfirmationFormData,
     type CustomerMemberFormData,
     type CustomerOption,
@@ -225,8 +224,7 @@ export default function CustomerConfirmationForm({
         enquiry_id: enquiryId ?? null,
         package_id: prefillPackageId ?? null,
         package_room_type: '',
-        package_category: '',
-        date_of_application: '',
+        date_of_application: formatDateForDisplay(new Date()),
         members: [
             {
                 ...emptyMember(true),
@@ -693,6 +691,37 @@ export default function CustomerConfirmationForm({
         setData('members', next);
         const newIdx = Math.min(index, next.length - 1);
         setActiveTab(`customer-${Math.max(0, newIdx)}`);
+    };
+
+    const applyMainMemberAddressToMember = (index: number) => {
+        const members = data.members ?? [];
+
+        if (members.length === 0) {
+            return;
+        }
+
+        const mainMember = members.find((member) => member.is_leader);
+        const mainAddress = String(
+            mainMember?.address ?? members[0]?.address ?? '',
+        );
+
+        setData((currentData) => {
+            const nextMembers = [...(currentData.members ?? [])];
+
+            if (!nextMembers[index]) {
+                return currentData;
+            }
+
+            nextMembers[index] = {
+                ...nextMembers[index],
+                address: mainAddress,
+            };
+
+            return {
+                ...currentData,
+                members: nextMembers,
+            };
+        });
     };
 
     const applyCustomerUpdate = (
@@ -1190,37 +1219,6 @@ export default function CustomerConfirmationForm({
                             </FormField>
 
                             <FormField
-                                label="Category"
-                                fieldRequirementsProps={{
-                                    hint: 'Select the package category based on services',
-                                    example: 'Economy, Standard, Premium, VIP',
-                                }}
-                                htmlFor="package_category"
-                                error={getError('package_category')}
-                            >
-                                <ProperInputSelect
-                                    id="package_category"
-                                    mode="classic"
-                                    options={packageCategoryOptions}
-                                    value={data.package_category ?? ''}
-                                    onValueChange={(nextValue) => {
-                                        if (Array.isArray(nextValue)) {
-                                            return;
-                                        }
-
-                                        setData(
-                                            'package_category',
-                                            nextValue
-                                                ? String(nextValue)
-                                                : null,
-                                        );
-                                    }}
-                                    placeholder="Select category..."
-                                    disabled={isView || processing}
-                                />
-                            </FormField>
-
-                            <FormField
                                 label="Date of Application"
                                 fieldRequirementsProps={{
                                     required: true,
@@ -1283,8 +1281,7 @@ export default function CustomerConfirmationForm({
                                 )}
                                 <Button
                                     type="button"
-                                    variant="outline"
-                                    size="sm"
+                                    variant="default"
                                     onClick={addCustomer}
                                 >
                                     <Plus className="mr-1 h-4 w-4" />
@@ -1446,6 +1443,14 @@ export default function CustomerConfirmationForm({
                                                         useGeneratedDocumentName
                                                         isView={isView}
                                                         processing={processing}
+                                                        showUseMainAddressButton={
+                                                            !customer.is_leader
+                                                        }
+                                                        onUseMainAddress={() =>
+                                                            applyMainMemberAddressToMember(
+                                                                idx,
+                                                            )
+                                                        }
                                                         getError={getError}
                                                         onUpdateCustomer={(
                                                             field,

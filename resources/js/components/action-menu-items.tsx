@@ -265,7 +265,7 @@ export function ActionMenuItems<TData>({
 
             {actions.includes('move-members') && (
                 <Item onClick={() => onAction?.('move-members', row)}>
-                    Move
+                    Move to Holding Area
                 </Item>
             )}
 

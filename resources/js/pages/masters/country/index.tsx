@@ -61,6 +61,8 @@ export default function CountryIndex({ dataCountry }: CountryIndexProps) {
                             columns={columns}
                             data={dataCountry}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url="/master/country"
                             onAction={(action, row) => {
                                 if (action === 'add') {

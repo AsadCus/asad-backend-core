@@ -111,6 +111,36 @@ const columns: ColumnDef<OrderSchema>[] = [
         meta: { exportable: true },
     },
     {
+        id: 'invoices_search_blob',
+        accessorFn: (row) => {
+            const orderContent = [
+                row.order_number,
+                row.quotation_number,
+                row.quotation_status,
+                row.payment_plan,
+            ]
+                .filter(Boolean)
+                .join(' ');
+
+            const invoiceContent = (row.invoices ?? [])
+                .flatMap((invoice) => [
+                    invoice.invoice_number,
+                    invoice.status,
+                    invoice.customer_name,
+                    invoice.order_number,
+                    invoice.description,
+                    String(invoice.amount ?? ''),
+                ])
+                .filter(Boolean)
+                .join(' ');
+
+            return `${orderContent} ${invoiceContent}`.trim();
+        },
+        header: 'Invoice Search',
+        meta: { exportable: false },
+        enableSorting: false,
+    },
+    {
         accessorKey: 'quotation_status',
         header: 'Quotation Status',
         meta: { exportable: true },
@@ -317,6 +347,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                     quotation_id: false,
                                     created_at: false,
                                     updated_at: false,
+                                    invoices_search_blob: false,
                                 },
                             }}
                             renderFilter={(table) => (

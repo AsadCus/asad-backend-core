@@ -150,6 +150,8 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             columns={columns}
                             data={packagesForDatatable}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             addButtonText="Create New Package"
                             url={index().url}
                             onAction={(action, row) => {

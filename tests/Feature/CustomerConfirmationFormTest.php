@@ -162,7 +162,6 @@ class CustomerConfirmationFormTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'date_of_application' => '2026-01-15',
             'package_room_type' => 'double',
-            'package_category' => 'classic_umrah',
             'members' => [
                 $this->memberPayload([
                     'name' => 'Group Leader',
@@ -187,7 +186,7 @@ class CustomerConfirmationFormTest extends TestCase
         $group = CustomerConfirmation::where('enquiry_id', $enquiry->id)->first();
         $this->assertNotNull($group);
         $this->assertEquals('double', $group->package_room_type);
-        $this->assertEquals('classic_umrah', $group->package_category);
+        $this->assertNull($group->package_category);
         $this->assertEquals('2026-01-15', $group->date_of_application->format('Y-m-d'));
 
         // Check members
@@ -278,7 +277,6 @@ class CustomerConfirmationFormTest extends TestCase
             'enquiry_id',
             'package_id',
             'package_room_type',
-            'package_category',
             'date_of_application',
             'members',
         ]);
@@ -314,7 +312,6 @@ class CustomerConfirmationFormTest extends TestCase
         $response = $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-06-15',
             'package_room_type' => 'triple',
-            'package_category' => 'deluxe_umrah',
             'members' => [
                 $this->memberPayload([
                     'name' => 'Updated Name',
@@ -329,7 +326,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $group->refresh();
         $this->assertEquals('triple', $group->package_room_type);
-        $this->assertEquals('deluxe_umrah', $group->package_category);
+        $this->assertNull($group->package_category);
         $this->assertEquals('2026-06-15', $group->date_of_application->format('Y-m-d'));
     }
 
@@ -460,7 +457,6 @@ class CustomerConfirmationFormTest extends TestCase
         $response = $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-07-01',
             'package_room_type' => 'quad',
-            'package_category' => 'deluxe_umrah',
             'members' => [
                 $this->memberPayload([
                     'name' => 'Leader',
@@ -487,7 +483,7 @@ class CustomerConfirmationFormTest extends TestCase
         $group->refresh();
         $this->assertEquals(3, $group->members()->count());
         $this->assertEquals('quad', $group->package_room_type);
-        $this->assertEquals('deluxe_umrah', $group->package_category);
+        $this->assertNull($group->package_category);
         $this->assertEquals('2026-07-01', $group->date_of_application->format('Y-m-d'));
     }
 
@@ -590,7 +586,6 @@ class CustomerConfirmationFormTest extends TestCase
             '_method' => 'put',
             'date_of_application' => '2026-08-12',
             'package_room_type' => 'double',
-            'package_category' => 'classic_umrah',
             'members' => [
                 $this->memberPayload([
                     'name' => 'Leader',
@@ -610,7 +605,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $group->refresh();
         $this->assertEquals('double', $group->package_room_type);
-        $this->assertEquals('classic_umrah', $group->package_category);
+        $this->assertNull($group->package_category);
         $this->assertEquals('2026-08-12', $group->date_of_application->format('Y-m-d'));
         $this->assertEquals(2, $group->members()->count());
     }
@@ -657,7 +652,6 @@ class CustomerConfirmationFormTest extends TestCase
         $response = $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-01-15',
             'package_room_type' => 'double',
-            'package_category' => 'classic_umrah',
             'members' => [
                 $this->memberPayload([
                     'member_id' => $leader->id,
@@ -980,6 +974,79 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertIsArray($updatedMember);
         $this->assertSame('Photo Group Upload Member.png', Arr::get($updatedMember, 'photo_document.file_name'));
         $this->assertNotEmpty(Arr::get($updatedMember, 'photo_document.file_path'));
+    }
+
+    public function test_cancelled_member_is_hidden_in_show_payload_and_preserved_on_group_update(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Confirmed->value,
+            'name' => 'Hidden Cancelled Member',
+            'contact_number' => '0127000000',
+            'email' => 'hidden-cancelled@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-03',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Active Leader',
+                    'email' => 'active-leader@test.com',
+                    'is_leader' => true,
+                ]),
+                $this->memberPayload([
+                    'name' => 'Cancelled Member',
+                    'email' => 'cancelled-member@test.com',
+                    'is_leader' => false,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $group = CustomerConfirmation::with('members.customer.user')
+            ->where('enquiry_id', $enquiry->id)
+            ->firstOrFail();
+
+        $leader = $group->members->firstWhere('is_leader', true);
+        $cancelledMember = $group->members->firstWhere('is_leader', false);
+
+        $this->assertNotNull($leader);
+        $this->assertNotNull($cancelledMember);
+
+        $cancelledMember->update(['status' => 'cancelled']);
+
+        $this->put(route('customer-confirmations.update', $group->id), [
+            'date_of_application' => '2026-01-20',
+            'members' => [
+                $this->memberPayload([
+                    'member_id' => $leader->id,
+                    'customer_id' => $leader->customer_id,
+                    'name' => 'Active Leader Updated',
+                    'email' => 'active-leader@test.com',
+                    'is_leader' => true,
+                ]),
+            ],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $cancelledMember->id,
+            'customer_confirmation_id' => $group->id,
+            'status' => 'cancelled',
+        ]);
+
+        $showResponse = $this->getJson(route('customer-confirmations.show', $group->id));
+        $showResponse->assertOk();
+
+        $shownMemberIds = collect($showResponse->json('members'))
+            ->pluck('member_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $this->assertContains((int) $leader->id, $shownMemberIds);
+        $this->assertNotContains((int) $cancelledMember->id, $shownMemberIds);
     }
 
     public function test_customer_confirmation_update_blocks_removing_member_with_paid_billing(): void
@@ -1707,7 +1774,6 @@ class CustomerConfirmationFormTest extends TestCase
             'enquiry_id' => $enquiry->id,
             'date_of_application' => '2026-09-01',
             'package_room_type' => 'double',
-            'package_category' => 'classic_umrah',
             'members' => [
                 $this->memberPayload([
                     'name' => 'Detailed Leader',
@@ -1745,7 +1811,6 @@ class CustomerConfirmationFormTest extends TestCase
         $this->put(route('customer-confirmations.update', $group->id), [
             'date_of_application' => '2026-09-02',
             'package_room_type' => 'triple',
-            'package_category' => 'deluxe_umrah',
             'members' => [
                 $this->memberPayload([
                     'name' => 'Detailed Leader Updated',
@@ -1772,8 +1837,8 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertSame('update', data_get($updateProperties, 'context.operation'));
         $this->assertSame('double', data_get($updateProperties, 'old.group.package_room_type'));
         $this->assertSame('triple', data_get($updateProperties, 'attributes.group.package_room_type'));
-        $this->assertSame('classic_umrah', data_get($updateProperties, 'old.group.package_category'));
-        $this->assertSame('deluxe_umrah', data_get($updateProperties, 'attributes.group.package_category'));
+        $this->assertNull(data_get($updateProperties, 'old.group.package_category'));
+        $this->assertNull(data_get($updateProperties, 'attributes.group.package_category'));
 
         $maskedUpdateContact = data_get($updateProperties, 'attributes.members.0.contact_number');
         $this->assertIsString($maskedUpdateContact);

@@ -70,6 +70,8 @@ export default function Branch({ dataBranch, dataCountry }: BranchProps) {
                             columns={columns}
                             data={dataBranch}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url={index().url}
                             onAction={(action, row) => {
                                 if (action === 'add') {

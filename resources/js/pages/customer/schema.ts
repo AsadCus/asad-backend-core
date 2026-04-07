@@ -70,7 +70,6 @@ export const customerConfirmationFormSchema = z.object({
     enquiry_id: z.number().nullable().optional(),
     package_id: z.number().nullable().optional(),
     package_room_type: z.string().nullable().optional(),
-    package_category: z.string().nullable().optional(),
     date_of_application: z.string(),
     members: z.array(customerSchema),
     terms_accepted: z.boolean().optional(),
@@ -125,11 +124,6 @@ export const packageRoomTypeOptions = [
     { label: 'Double Sharing', value: 'double' },
     { label: 'Triple Sharing', value: 'triple' },
     { label: 'Quad Sharing', value: 'quad' },
-];
-
-export const packageCategoryOptions = [
-    { label: 'Classic Umrah', value: 'classic_umrah' },
-    { label: 'Deluxe Umrah', value: 'deluxe_umrah' },
 ];
 
 export const genderOptions = [

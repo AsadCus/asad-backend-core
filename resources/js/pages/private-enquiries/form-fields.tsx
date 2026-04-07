@@ -27,6 +27,15 @@ export interface PrivateEnquiryFieldOptions {
     wheelchair: OptionType[];
 }
 
+const nightCountOptions: OptionType[] = Array.from({ length: 10 }, (_, i) => {
+    const value = String(i + 1);
+
+    return {
+        value,
+        label: value,
+    };
+});
+
 interface PrivateEnquiryFormFieldsProps {
     data: PrivateEnquirySchema;
     setData: <K extends keyof PrivateEnquirySchema>(
@@ -103,15 +112,8 @@ export const internalFieldOptions: PrivateEnquiryFieldOptions = {
         { value: 'Half Board', label: 'Half Board (Breakfast & Dinner)' },
         { value: 'Full Board', label: 'Full Board (3 Meals)' },
     ],
-    nightsMakkah: [
-        { value: '4', label: '4' },
-        { value: '5', label: '5' },
-    ],
-    nightsMadinah: [
-        { value: '3', label: '3' },
-        { value: '4', label: '4' },
-        { value: '5', label: '5' },
-    ],
+    nightsMakkah: [...nightCountOptions],
+    nightsMadinah: [...nightCountOptions],
     landTransfer: [
         { value: 'Sedan (2 Pax)', label: 'Sedan (2 Pax)' },
         { value: 'Starex (4 Pax)', label: 'Starex (4 Pax)' },

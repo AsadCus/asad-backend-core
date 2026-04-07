@@ -61,7 +61,6 @@ import { toast } from 'sonner';
 import {
     confirmationMemberStatusColors,
     confirmationMemberStatusLabels,
-    packageCategoryOptions,
 } from '../../customer/schema';
 import { type MemberWithUI } from '../types';
 
@@ -155,10 +154,6 @@ function ensureExtraBedRemarks(
 
 const MANIFEST_DATATABLE_EXPANDED_STORAGE_PREFIX =
     'manifest-datatable-expanded';
-
-const PACKAGE_CATEGORY_LABELS = Object.fromEntries(
-    packageCategoryOptions.map((option) => [option.value, option.label]),
-) as Record<string, string>;
 
 interface GroupMember {
     member: MemberWithUI;
@@ -1255,7 +1250,7 @@ export default function ManifestDatatable({
         const drag = allowReorder ? 1 : 0;
 
         if (mode === 'members') {
-            return drag + 27;
+            return drag + 26;
         }
 
         if (mode === 'room') {
@@ -1303,9 +1298,6 @@ export default function ManifestDatatable({
             )}
             {mode === 'members' && (
                 <TableHead className="min-w-40">Group</TableHead>
-            )}
-            {mode === 'members' && (
-                <TableHead className="min-w-40">Package Category</TableHead>
             )}
             {mode === 'members' && (
                 <TableHead className="min-w-55">Date of Sign Up</TableHead>
@@ -2234,23 +2226,6 @@ export default function ManifestDatatable({
                 {mode === 'members' && (
                     <TableCell>
                         <span className="text-muted-foreground">-</span>
-                    </TableCell>
-                )}
-
-                {mode === 'members' && (
-                    <TableCell>
-                        <ProperInput
-                            value={
-                                PACKAGE_CATEGORY_LABELS[
-                                    member.package_category ?? ''
-                                ] ??
-                                member.package_category ??
-                                ''
-                            }
-                            disabled={true}
-                            onCommit={() => {}}
-                            size="default"
-                        />
                     </TableCell>
                 )}
 

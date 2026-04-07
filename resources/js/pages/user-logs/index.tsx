@@ -312,6 +312,8 @@ export default function UserLogs({ activities }: UserLogsProps) {
                             columns={columns}
                             data={activities}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             onAction={(action, row) => {
                                 if (action === 'view' && row?.original) {
                                     openDetailDialog(row.original);

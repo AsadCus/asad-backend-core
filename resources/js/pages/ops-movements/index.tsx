@@ -151,6 +151,8 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                         columns={columns}
                         data={opsMovementsForDatatable}
                         actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                         url={index().url}
                         onAction={(action, row) => {
                             const movementId = row?.original.id;

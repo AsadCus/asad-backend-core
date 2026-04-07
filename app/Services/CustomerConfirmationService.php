@@ -61,7 +61,6 @@ class CustomerConfirmationService
                 'created_by' => auth()->id(),
                 'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
                 'package_room_type' => $data['package_room_type'] ?? null,
-                'package_category' => $data['package_category'] ?? null,
                 'date_of_application' => $data['date_of_application'] ?? null,
             ]);
 
@@ -420,11 +419,12 @@ class CustomerConfirmationService
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function (CustomerConfirmation $group) {
-                $leader = $group->members->firstWhere('is_leader', true);
-
                 $activeMembers = $group->members->filter(
                     fn (CustomerConfirmationMember $member) => $member->status !== 'cancelled'
-                );
+                )->values();
+
+                $leader = $activeMembers->firstWhere('is_leader', true)
+                    ?? $activeMembers->first();
 
                 $memberSummaries = $activeMembers
                     ->mapWithKeys(function (CustomerConfirmationMember $member) use ($group) {
@@ -457,7 +457,7 @@ class CustomerConfirmationService
                     'customer_number' => $leader?->customer?->customer_number ?? '-',
                     'enquiry_email' => $group->enquiry?->email ?? ($leader?->customer?->user?->email ?? '-'),
                     'enquiry_contact' => $group->enquiry?->contact_number ?? ($leader?->customer?->user?->contact ?? '-'),
-                    'member_count' => $group->members->count(),
+                    'member_count' => $activeMembers->count(),
                     'active_member_count' => $activeMembers->count(),
                     'quoted_member_count' => $quotedMemberCount,
                     'paid_amount' => round($groupPaidAmount, 2),
@@ -466,7 +466,7 @@ class CustomerConfirmationService
                     'can_create_quotation' => $canCreateQuotation,
                     'can_delete' => $activeMembers->count() === 0,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
-                    'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
+                    'members' => $activeMembers->map(function (CustomerConfirmationMember $member) use ($group) {
                         $summary = $this->resolveMemberFinancialSnapshot($member, $group->package);
 
                         return [
@@ -495,6 +495,8 @@ class CustomerConfirmationService
                     })->all(),
                 ];
             })
+            ->filter(fn (array $group) => (int) ($group['active_member_count'] ?? 0) > 0)
+            ->values()
             ->all();
     }
 
@@ -981,6 +983,10 @@ class CustomerConfirmationService
         $group = CustomerConfirmation::with(['members.customer.user', 'members.customer.files', 'members.quotationItems.quotation', 'enquiry.package', 'package'])
             ->findOrFail($id);
 
+        $visibleMembers = $group->members
+            ->filter(fn (CustomerConfirmationMember $member) => $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled')
+            ->values();
+
         return [
             'id' => $group->id,
             'enquiry_id' => $group->enquiry_id,
@@ -994,9 +1000,8 @@ class CustomerConfirmationService
             'child_no_bed_price' => $group->package?->child_no_bed_price,
             'infant_price' => $group->package?->infant_price,
             'package_room_type' => $group->package_room_type,
-            'package_category' => $group->package_category,
             'date_of_application' => $group->date_of_application_formatted,
-            'members' => $group->members->map(function (CustomerConfirmationMember $member) {
+            'members' => $visibleMembers->map(function (CustomerConfirmationMember $member) {
                 $customer = $member->customer;
                 $user = $customer?->user;
                 $documents = $customer ? $this->getCustomerDocumentsByField($customer) : collect();
@@ -1074,7 +1079,6 @@ class CustomerConfirmationService
                 'package_id' => $data['package_id'] ?? null,
                 'is_holding' => ($group->is_holding && ! empty($data['package_id'])) ? false : $group->is_holding,
                 'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
-                'package_category' => $data['package_category'] ?? $group->package_category,
                 'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
             ]);
 
@@ -1152,6 +1156,10 @@ class CustomerConfirmationService
                 ->filter(fn (CustomerConfirmationMember $member) => ! in_array($member->id, $updatedMemberIds, true));
 
             foreach ($removedMembers as $removedMember) {
+                if ($this->normalizePaymentStatus($removedMember->status ?? null) === 'cancelled') {
+                    continue;
+                }
+
                 if ($this->memberHasPaidBilling($removedMember->id)) {
                     $memberName = $removedMember->customer?->user?->name ?? "#{$removedMember->id}";
 
@@ -1726,7 +1734,6 @@ class CustomerConfirmationService
                 'package_id' => $targetPackageId,
                 'is_holding' => $targetPackageId ? false : true,
                 'package_room_type' => $sourceGroup->package_room_type,
-                'package_category' => $sourceGroup->package_category,
                 'date_of_application' => now(),
             ]);
 
@@ -2596,7 +2603,6 @@ class CustomerConfirmationService
                 'enquiry_id' => $group->enquiry_id,
                 'package_id' => $group->package_id,
                 'package_room_type' => $group->package_room_type,
-                'package_category' => $group->package_category,
                 'date_of_application' => optional($group->date_of_application)?->format('Y-m-d'),
                 'member_count' => $group->members->count(),
             ],

@@ -229,6 +229,8 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                             columns={columns}
                             data={enquiriesForDatatable}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             addButtonText="Create New General Enquiry"
                             getRowActions={(row) => {
                                 const rowActions: ActionType[] = [];

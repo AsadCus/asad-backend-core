@@ -110,7 +110,6 @@ export default function PublicCustomerForm({
                                             enquiry_id: enquiryId,
                                             package_id: packageId,
                                             package_room_type: '',
-                                            package_category: '',
                                             date_of_application: '',
                                             members: [
                                                 {

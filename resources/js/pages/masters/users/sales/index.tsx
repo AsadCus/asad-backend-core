@@ -109,6 +109,8 @@ export default function Sales({
                             columns={columns}
                             data={dataUser}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url={index().url}
                             onAction={(action, row) => {
                                 if (action === 'add') {

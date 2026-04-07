@@ -313,6 +313,8 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                             columns={columns}
                             data={enquiriesForDatatable}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url={index().url}
                             getRowActions={(row) => {
                                 const rowActions: ActionType[] = [];

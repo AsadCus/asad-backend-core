@@ -55,4 +55,12 @@ class CustomerConfirmationRuleTest extends TestCase
         $this->assertStringContainsString('child_no_bed', $sharingPlanRule);
         $this->assertStringContainsString('infant', $sharingPlanRule);
     }
+
+    public function test_package_category_is_not_part_of_active_validation_rules(): void
+    {
+        $rule = new CustomerConfirmationRule;
+        $rules = $rule->rules();
+
+        $this->assertArrayNotHasKey('package_category', $rules);
+    }
 }

@@ -62,6 +62,11 @@ import {
     sharingPlanOptions,
 } from '../packages/schema';
 import CustomerConfirmationForm from './form';
+import {
+    confirmedCustomerPublicEditLinkConfig,
+    customerConfirmationPublicEditLinkLabels,
+    type CustomerConfirmationPublicEditLinkType,
+} from './schema';
 import { validateQuotationGenerationPayload } from './validation';
 
 const formatCurrency = (value: number): string => {
@@ -120,6 +125,43 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         accessorKey: 'package_name',
         header: 'Package',
         meta: { exportable: true },
+    },
+    {
+        id: 'members_search_blob',
+        accessorFn: (row) => {
+            const groupContent = [
+                row.main_customer_name,
+                row.main_customer_number,
+                row.enquiry_email,
+                row.enquiry_contact,
+                row.package_name,
+                row.enquiry_type,
+                row.enquiry_status,
+            ]
+                .filter(Boolean)
+                .join(' ');
+
+            const memberContent = (row.members ?? [])
+                .flatMap((member) => [
+                    member.name,
+                    member.email,
+                    member.contact,
+                    member.customer_number,
+                    member.nric_number,
+                    member.nationality,
+                    member.passport_number,
+                    member.status,
+                    member.sharing_plan,
+                    member.relationship,
+                ])
+                .filter(Boolean)
+                .join(' ');
+
+            return `${groupContent} ${memberContent}`.trim();
+        },
+        header: 'Member Search',
+        meta: { exportable: false },
+        enableSorting: false,
     },
     {
         accessorKey: 'date_of_application',
@@ -391,6 +433,12 @@ export default function ConfirmedCustomerIndex({
     const [selectedPublicLinkGroupId, setSelectedPublicLinkGroupId] = useState<
         number | null
     >(null);
+    const enabledPublicEditLinkTypes =
+        confirmedCustomerPublicEditLinkConfig.enabledLinkTypes;
+    const fallbackPublicEditLinkType =
+        confirmedCustomerPublicEditLinkConfig.defaultLinkType;
+    const shouldShowPublicEditLinkDialog =
+        enabledPublicEditLinkTypes.length > 1;
 
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [selectedMoveGroup, setSelectedMoveGroup] =
@@ -592,15 +640,18 @@ export default function ConfirmedCustomerIndex({
     };
 
     const handleCopyPublicEditLink = async (
-        linkType: 'one_time' | 'continuous',
+        linkType: CustomerConfirmationPublicEditLinkType,
+        groupId?: number,
     ) => {
-        if (!selectedPublicLinkGroupId) {
+        const targetGroupId = groupId ?? selectedPublicLinkGroupId;
+
+        if (!targetGroupId) {
             return;
         }
 
         try {
             const response = await fetch(
-                generateEditLink(selectedPublicLinkGroupId, {
+                generateEditLink(targetGroupId, {
                     query: { link_type: linkType },
                 }).url,
             );
@@ -618,8 +669,11 @@ export default function ConfirmedCustomerIndex({
                         ? 'One-time public edit link copied to clipboard.'
                         : 'Continuous public edit link copied to clipboard.',
             });
-            setPublicLinkDialogOpen(false);
-            setSelectedPublicLinkGroupId(null);
+
+            if (shouldShowPublicEditLinkDialog) {
+                setPublicLinkDialogOpen(false);
+                setSelectedPublicLinkGroupId(null);
+            }
         } catch {
             toast.error('Failed to generate public link.');
         }
@@ -1507,6 +1561,8 @@ export default function ConfirmedCustomerIndex({
                             columns={groupColumns}
                             data={dataGroups}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             addButtonText={
                                 canCreateCustomerConfirmation
                                     ? 'Create Customer Confirmation'
@@ -1591,8 +1647,21 @@ export default function ConfirmedCustomerIndex({
                                         action ===
                                         'copy-customer-confirmation-public-edit-link'
                                     ) {
-                                        setSelectedPublicLinkGroupId(groupId);
-                                        setPublicLinkDialogOpen(true);
+                                        const preferredLinkType =
+                                            enabledPublicEditLinkTypes[0] ??
+                                            fallbackPublicEditLinkType;
+
+                                        if (shouldShowPublicEditLinkDialog) {
+                                            setSelectedPublicLinkGroupId(
+                                                groupId,
+                                            );
+                                            setPublicLinkDialogOpen(true);
+                                        } else {
+                                            void handleCopyPublicEditLink(
+                                                preferredLinkType,
+                                                groupId,
+                                            );
+                                        }
                                     } else if (
                                         action === 'move-members' &&
                                         row
@@ -1684,6 +1753,7 @@ export default function ConfirmedCustomerIndex({
                                     created_at: false,
                                     quoted_member_count: false,
                                     can_create_quotation: false,
+                                    members_search_blob: false,
                                 },
                             }}
                             renderFilter={(table) => (
@@ -1788,22 +1858,27 @@ export default function ConfirmedCustomerIndex({
                     </DialogHeader>
 
                     <div className="grid gap-3">
-                        <Button
-                            type="button"
-                            variant="default"
-                            onClick={() =>
-                                handleCopyPublicEditLink('continuous')
-                            }
-                        >
-                            Copy Continuous Link
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleCopyPublicEditLink('one_time')}
-                        >
-                            Copy One-Time Link
-                        </Button>
+                        {enabledPublicEditLinkTypes.map((linkType) => (
+                            <Button
+                                key={linkType}
+                                type="button"
+                                variant={
+                                    linkType === fallbackPublicEditLinkType
+                                        ? 'default'
+                                        : 'outline'
+                                }
+                                onClick={() =>
+                                    handleCopyPublicEditLink(linkType)
+                                }
+                            >
+                                Copy{' '}
+                                {
+                                    customerConfirmationPublicEditLinkLabels[
+                                        linkType
+                                    ]
+                                }
+                            </Button>
+                        ))}
                     </div>
                 </DialogContent>
             </Dialog>
