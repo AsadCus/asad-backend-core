@@ -26,34 +26,39 @@ class CustomerUserService
 
     public function getForDataTable()
     {
-        return User::role('customer')->with('roles', 'customer')->get()->map(function ($user) {
-            $user->role = 'customer';
-            $user->contact = $user->contact ?? '';
+        return User::query()
+            ->whereDoesntHave('ghostUser')
+            ->role('customer')
+            ->with('roles', 'customer')
+            ->get()
+            ->map(function ($user) {
+                $user->role = 'customer';
+                $user->contact = $user->contact ?? '';
 
-            if ($user->customer) {
-                $user->branch_id = (string) ($user->customer->branch_id ?? '');
-                $user->handled_by = (string) ($user->customer->handled_by ?? '');
-                $user->nric_number = $user->customer->nric_number ?? '';
-                $user->address = $user->customer->address ?? '';
-                $user->nationality = $user->customer->nationality ?? '';
-                $user->passport_number = $user->customer->passport_number ?? '';
-                $user->passport_issue_date = $user->customer->passport_issue_date_formatted ?? '';
-                $user->passport_expiry_date = $user->customer->passport_expiry_date_formatted ?? '';
-                $user->passport_place_of_issue = $user->customer->passport_place_of_issue ?? '';
-                $user->gender = $user->customer->gender ?? '';
-                $user->marital_status = $user->customer->marital_status ?? '';
-                $user->date_of_birth = $user->customer->date_of_birth_formatted ?? '';
-                $user->place_of_birth = $user->customer->place_of_birth ?? '';
-                $user->first_time_umrah = $user->customer->first_time_umrah ?? false;
-                $user->has_chronic_disease = $user->customer->has_chronic_disease ?? false;
-                $user->is_using_wheelchair = $user->customer->is_using_wheelchair ?? false;
-                $user->chronic_disease_details = $user->customer->chronic_disease_details ?? '';
-                $user->passport_path = $user->customer->passport_path;
-                $user->photo_path = $user->customer->photo_path;
-            }
+                if ($user->customer) {
+                    $user->branch_id = (string) ($user->customer->branch_id ?? '');
+                    $user->handled_by = (string) ($user->customer->handled_by ?? '');
+                    $user->nric_number = $user->customer->nric_number ?? '';
+                    $user->address = $user->customer->address ?? '';
+                    $user->nationality = $user->customer->nationality ?? '';
+                    $user->passport_number = $user->customer->passport_number ?? '';
+                    $user->passport_issue_date = $user->customer->passport_issue_date_formatted ?? '';
+                    $user->passport_expiry_date = $user->customer->passport_expiry_date_formatted ?? '';
+                    $user->passport_place_of_issue = $user->customer->passport_place_of_issue ?? '';
+                    $user->gender = $user->customer->gender ?? '';
+                    $user->marital_status = $user->customer->marital_status ?? '';
+                    $user->date_of_birth = $user->customer->date_of_birth_formatted ?? '';
+                    $user->place_of_birth = $user->customer->place_of_birth ?? '';
+                    $user->first_time_umrah = $user->customer->first_time_umrah ?? false;
+                    $user->has_chronic_disease = $user->customer->has_chronic_disease ?? false;
+                    $user->is_using_wheelchair = $user->customer->is_using_wheelchair ?? false;
+                    $user->chronic_disease_details = $user->customer->chronic_disease_details ?? '';
+                    $user->passport_path = $user->customer->passport_path;
+                    $user->photo_path = $user->customer->photo_path;
+                }
 
-            return $user;
-        });
+                return $user;
+            });
     }
 
     public function store(array $data)

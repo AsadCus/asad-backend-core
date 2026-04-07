@@ -11,15 +11,20 @@ class OperationsUserService
 {
     public function getForDataTable()
     {
-        return User::role('operations')->with('roles', 'branch.country')->get()->map(function ($user) {
-            $user->role = 'operations';
-            $user->contact = $user->contact ?? '';
-            $user->branch_id = (string) ($user->branch_id ?? '');
-            $user->branch_name = $user->branch?->name ?? '-';
-            $user->country_name = $user->branch?->country?->name ?? '-';
+        return User::query()
+            ->whereDoesntHave('ghostUser')
+            ->role('operations')
+            ->with('roles', 'branch.country')
+            ->get()
+            ->map(function ($user) {
+                $user->role = 'operations';
+                $user->contact = $user->contact ?? '';
+                $user->branch_id = (string) ($user->branch_id ?? '');
+                $user->branch_name = $user->branch?->name ?? '-';
+                $user->country_name = $user->branch?->country?->name ?? '-';
 
-            return $user;
-        });
+                return $user;
+            });
     }
 
     public function store(array $data)

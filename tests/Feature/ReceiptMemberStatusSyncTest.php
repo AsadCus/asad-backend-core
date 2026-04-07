@@ -590,6 +590,34 @@ class ReceiptMemberStatusSyncTest extends TestCase
         ]);
     }
 
+    public function test_cancelling_unpaid_member_deletes_unpaid_quotation_and_invoice_records(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $quotationId = (int) $data['quotation']->id;
+        $invoiceId = (int) $data['depositInvoice']->id;
+        $orderId = (int) $data['order']->id;
+        $quotationItemId = (int) $data['item']->id;
+
+        app(CustomerConfirmationService::class)->cancelMember((int) $data['member']->id);
+
+        $data['member']->refresh();
+
+        $this->assertSame('cancelled', (string) $data['member']->status);
+        $this->assertDatabaseMissing('quotations', [
+            'id' => $quotationId,
+        ]);
+        $this->assertDatabaseMissing('orders', [
+            'id' => $orderId,
+        ]);
+        $this->assertDatabaseMissing('invoices', [
+            'id' => $invoiceId,
+        ]);
+        $this->assertDatabaseMissing('quotation_items', [
+            'id' => $quotationItemId,
+        ]);
+    }
+
     public function test_split_quotation_payments_create_separate_manifest_groups_and_rooms_for_same_confirmation(): void
     {
         $authUser = User::factory()->create();

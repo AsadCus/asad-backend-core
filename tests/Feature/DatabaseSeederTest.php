@@ -6,6 +6,7 @@ use App\Models\Country;
 use App\Models\CustomerConfirmation;
 use App\Models\Enquiry;
 use App\Models\FinancialYear;
+use App\Models\GhostUser;
 use App\Models\Invoice;
 use App\Models\Manifest;
 use App\Models\Order;
@@ -32,6 +33,10 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame(2, User::role('admin')->count());
         $this->assertSame(2, User::role('sales')->count());
         $this->assertSame(2, Sales::count());
+        $this->assertSame(1, GhostUser::count());
+        $this->assertDatabaseHas('ghost_users', [
+            'user_id' => (int) User::query()->where('email', 'asad@example.com')->value('id'),
+        ]);
 
         $this->assertSame(0, Quotation::count());
         $this->assertSame(0, Order::count());

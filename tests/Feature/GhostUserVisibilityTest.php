@@ -1,0 +1,83 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\GhostUser;
+use App\Models\User;
+use App\Services\UserRoles\AdminUserService;
+use App\Services\UserService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
+
+class GhostUserVisibilityTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_ghost_admin_is_hidden_from_admin_datatable_and_admin_role_count(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $visibleAdmin = User::factory()->create();
+        $visibleAdmin->assignRole('admin');
+
+        $ghostAdmin = User::factory()->create();
+        $ghostAdmin->assignRole('admin');
+
+        GhostUser::create([
+            'user_id' => (int) $ghostAdmin->id,
+        ]);
+
+        $rows = app(AdminUserService::class)->getForDataTable();
+
+        $this->assertTrue($rows->contains(fn ($row): bool => (int) $row->id === (int) $visibleAdmin->id));
+        $this->assertFalse($rows->contains(fn ($row): bool => (int) $row->id === (int) $ghostAdmin->id));
+        $this->assertSame(1, app(UserService::class)->countByRole('admin'));
+    }
+
+    public function test_change_summary_visibility_flag_is_true_only_for_ghost_user(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $ghostAdmin = User::factory()->create();
+        $ghostAdmin->assignRole('admin');
+
+        GhostUser::create([
+            'user_id' => (int) $ghostAdmin->id,
+        ]);
+
+        $normalAdmin = User::factory()->create();
+        $normalAdmin->assignRole('admin');
+
+        Activity::query()->create([
+            'log_name' => 'default',
+            'description' => 'Ghost visibility test log',
+            'subject_type' => User::class,
+            'subject_id' => (int) $ghostAdmin->id,
+            'causer_type' => User::class,
+            'causer_id' => (int) $ghostAdmin->id,
+            'properties' => [
+                'old' => ['foo' => 'bar'],
+                'attributes' => ['foo' => 'baz'],
+            ],
+            'event' => 'updated',
+            'batch_uuid' => null,
+        ]);
+
+        $this->actingAs($ghostAdmin)
+            ->get(route('user-logs.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('user-logs/index')
+                ->where('canViewChangeSummary', true)
+            );
+
+        $this->actingAs($normalAdmin)
+            ->get(route('user-logs.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('user-logs/index')
+                ->where('canViewChangeSummary', false)
+            );
+    }
+}

@@ -1336,9 +1336,6 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-40">Birth Place</TableHead>
             )}
             {mode === 'members' && (
-                <TableHead className="min-w-35">Package Price</TableHead>
-            )}
-            {mode === 'members' && (
                 <TableHead className="min-w-35">Discount</TableHead>
             )}
             {mode === 'members' && (
@@ -1367,6 +1364,9 @@ export default function ManifestDatatable({
             )}
             {mode === 'members' && (
                 <TableHead className="min-w-35">Balance Due</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-35">Package Price</TableHead>
             )}
             {mode === 'members' && (
                 <TableHead className="min-w-40">Receipt 1</TableHead>
@@ -2270,7 +2270,7 @@ export default function ManifestDatatable({
                                     value,
                                 )
                             }
-                            disabled={disabled}
+                            disabled
                             options={SHARING_PLAN_OPTIONS}
                         />
                         {renderCellError(flatIndex, 'sharing_plan')}
@@ -2458,23 +2458,6 @@ export default function ManifestDatatable({
                         <ProperInput
                             value={
                                 !isOfficialMemberRow &&
-                                member.package_price !== null &&
-                                member.package_price !== undefined
-                                    ? formatCurrency(member.package_price, '$')
-                                    : ''
-                            }
-                            disabled={true}
-                            onCommit={() => {}}
-                            size="default"
-                        />
-                    </TableCell>
-                )}
-
-                {mode === 'members' && (
-                    <TableCell>
-                        <ProperInput
-                            value={
-                                !isOfficialMemberRow &&
                                 member.discount !== null &&
                                 member.discount !== undefined
                                     ? formatCurrency(member.discount, '$')
@@ -2603,6 +2586,23 @@ export default function ManifestDatatable({
                                           Number(member.balance_due ?? 0),
                                           '$',
                                       )
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialMemberRow &&
+                                member.package_price !== null &&
+                                member.package_price !== undefined
+                                    ? formatCurrency(member.package_price, '$')
                                     : ''
                             }
                             disabled={true}

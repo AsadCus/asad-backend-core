@@ -72,6 +72,20 @@ class User extends Authenticatable
         return $this->hasOne(Customer::class, 'user_id');
     }
 
+    public function ghostUser(): HasOne
+    {
+        return $this->hasOne(GhostUser::class, 'user_id');
+    }
+
+    public function isGhostUser(): bool
+    {
+        if ($this->relationLoaded('ghostUser')) {
+            return $this->ghostUser !== null;
+        }
+
+        return $this->ghostUser()->exists();
+    }
+
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class, 'handled_by');

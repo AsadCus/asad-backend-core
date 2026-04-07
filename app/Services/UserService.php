@@ -72,7 +72,10 @@ class UserService
 
     public function countByRole(string $role)
     {
-        return User::role($role)->count();
+        return User::query()
+            ->whereDoesntHave('ghostUser')
+            ->role($role)
+            ->count();
     }
 
     public function getCountryStatsByRole(string $role): array
@@ -80,7 +83,11 @@ class UserService
         $countryCounts = [];
 
         if ($role === 'admin') {
-            $admins = User::role('admin')->with('branch.country')->get();
+            $admins = User::query()
+                ->whereDoesntHave('ghostUser')
+                ->role('admin')
+                ->with('branch.country')
+                ->get();
 
             foreach ($admins as $admin) {
                 $countryName = $admin->branch?->country?->name ?? 'Unassigned';
@@ -89,7 +96,11 @@ class UserService
         }
 
         if ($role === 'sales') {
-            $salesUsers = User::role('sales')->with('sales.branch.country')->get();
+            $salesUsers = User::query()
+                ->whereDoesntHave('ghostUser')
+                ->role('sales')
+                ->with('sales.branch.country')
+                ->get();
 
             foreach ($salesUsers as $salesUser) {
                 $countryName = $salesUser->sales?->branch?->country?->name ?? 'Unassigned';
@@ -98,7 +109,11 @@ class UserService
         }
 
         if ($role === 'operations') {
-            $operationsUsers = User::role('operations')->with('branch.country')->get();
+            $operationsUsers = User::query()
+                ->whereDoesntHave('ghostUser')
+                ->role('operations')
+                ->with('branch.country')
+                ->get();
 
             foreach ($operationsUsers as $operationsUser) {
                 $countryName = $operationsUser->branch?->country?->name ?? 'Unassigned';

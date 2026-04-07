@@ -1572,11 +1572,7 @@ class CustomerConfirmationService
                 ->all();
 
             if ($remainingInvoiceItemIds === []) {
-                $invoice->quotationItems()->sync([]);
-                $invoice->update([
-                    'amount' => 0,
-                    'status' => InvoiceStatus::Cancelled,
-                ]);
+                $this->deleteUnpaidInvoiceForCancellation($invoice);
 
                 continue;
             }
@@ -1656,10 +1652,13 @@ class CustomerConfirmationService
             }
 
             $quotation->loadMissing('order.invoices.receipt');
+            $hasBlockingInvoiceHistory = false;
 
             if ($quotation->order) {
                 foreach ($quotation->order->invoices as $invoice) {
                     if (InvoiceStatus::isRefund($invoice->status)) {
+                        $hasBlockingInvoiceHistory = true;
+
                         continue;
                     }
 
@@ -1668,20 +1667,47 @@ class CustomerConfirmationService
                     });
 
                     if (abs($receiptTotal) > 0.0) {
+                        $hasBlockingInvoiceHistory = true;
+
                         continue;
                     }
 
-                    $invoice->quotationItems()->sync([]);
-                    $invoice->update([
-                        'amount' => 0,
-                        'status' => InvoiceStatus::Cancelled,
-                    ]);
+                    $this->deleteUnpaidInvoiceForCancellation($invoice);
                 }
             }
 
-            $quotation->update([
-                'status' => QuotationStatus::Cancelled->value,
-            ]);
+            if ($hasBlockingInvoiceHistory) {
+                $quotation->update([
+                    'status' => QuotationStatus::Cancelled->value,
+                ]);
+
+                continue;
+            }
+
+            $this->deleteQuotationForCancellation($quotation);
+        }
+    }
+
+    private function deleteUnpaidInvoiceForCancellation(Invoice $invoice): void
+    {
+        $invoiceNumber = trim((string) ($invoice->invoice_number ?? ''));
+
+        $invoice->quotationItems()->sync([]);
+        $invoice->delete();
+
+        if ($invoiceNumber !== '') {
+            $this->numberingService->rollbackByNumbers('invoice', [$invoiceNumber]);
+        }
+    }
+
+    private function deleteQuotationForCancellation(Quotation $quotation): void
+    {
+        $quotationNumber = trim((string) ($quotation->quotation_number ?? ''));
+
+        $quotation->forceDelete();
+
+        if ($quotationNumber !== '') {
+            $this->numberingService->rollbackByNumbers('quotation', [$quotationNumber]);
         }
     }
 
