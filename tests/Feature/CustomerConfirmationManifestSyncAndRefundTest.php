@@ -1943,19 +1943,15 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $response->assertRedirect(route('confirmed-customer.index'));
 
+        $quotationId = (int) $quotation->id;
+
         $member->refresh();
-        $quotation->refresh();
 
         $this->assertSame('cancelled', (string) ($member->status ?? ''));
-        $this->assertSame('cancelled', (string) ($quotation->status?->value ?? $quotation->status ?? ''));
-
-        $this->assertSame(
-            0,
-            QuotationItem::query()
-                ->where('quotation_id', $quotation->id)
-                ->where('is_header', false)
-                ->count(),
-        );
+        $this->assertDatabaseMissing('quotations', [
+            'id' => $quotationId,
+        ]);
+        $this->assertSame(0, QuotationItem::query()->where('quotation_id', $quotationId)->count());
     }
 
     public function test_cancel_member_with_paid_amount_is_rejected_and_must_use_refund_flow(): void
