@@ -150,6 +150,7 @@ export interface CustomerConfirmationMemberDatatableSchema {
     has_quotation?: boolean;
     paid_amount: number;
     total_amount: number;
+    discount?: number;
     overpaid_amount?: number;
     billed_amount?: number;
     balance_invoice_amount?: number;
@@ -201,7 +202,7 @@ export const confirmationMemberStatusLabels: Record<string, string> = {
     partially_paid: 'Partially Paid',
     fully_paid: 'Fully Paid',
     overpaid: 'Overpaid',
-    cancelled: 'Cancelled',
+    cancelled: 'Trip Cancelled',
 };
 
 // ── Default empty member ──

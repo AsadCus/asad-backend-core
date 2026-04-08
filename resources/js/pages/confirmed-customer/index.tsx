@@ -364,6 +364,16 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
         filterFn: 'includesValue',
     },
     {
+        accessorKey: 'discount',
+        header: 'Discount',
+        meta: { exportable: true },
+        cell: ({ row }) => (
+            <Badge variant="outline" className="text-sm">
+                {formatCurrency(row.original.discount ?? 0)}
+            </Badge>
+        ),
+    },
+    {
         accessorKey: 'paid_amount',
         header: 'Payment',
         meta: { exportable: true },
@@ -387,6 +397,16 @@ interface ConfirmedCustomerProps {
 
 type RefundMode = 'percentage' | 'fixed';
 type RefundType = 'cancel' | 'overpaid';
+
+const REFUND_PURPOSE_LABELS: Record<RefundType, string> = {
+    cancel: 'Trip Cancelled-Refund',
+    overpaid: 'Overpaid Refund',
+};
+
+const REFUND_DESCRIPTION_BY_TYPE: Record<RefundType, string> = {
+    cancel: 'Receipt For Trip Cancelled-Refund',
+    overpaid: 'Receipt For Overpaid Refund',
+};
 
 interface RefundDraftRow {
     member_id: number;
@@ -1199,9 +1219,9 @@ export default function ConfirmedCustomerIndex({
                     payment_method:
                         targetMember.latest_invoice_payment_method ??
                         defaultRefundPaymentMethod,
-                    description: 'Receipt For Refund',
+                    description: REFUND_DESCRIPTION_BY_TYPE.cancel,
                     selected: true,
-                    mode: 'percentage',
+                    mode: 'fixed',
                     percentage: '',
                     amount: '',
                 },
@@ -1217,9 +1237,9 @@ export default function ConfirmedCustomerIndex({
                     payment_method:
                         member.latest_invoice_payment_method ??
                         defaultRefundPaymentMethod,
-                    description: 'Receipt For Refund',
+                    description: REFUND_DESCRIPTION_BY_TYPE.cancel,
                     selected: true,
-                    mode: 'percentage',
+                    mode: 'fixed',
                     percentage: '',
                     amount: '',
                 })),
@@ -1229,31 +1249,6 @@ export default function ConfirmedCustomerIndex({
         setRefundType('cancel');
         setRefundGroup(group);
         setRefundDialogOpen(true);
-    };
-
-    const openOverpaidRefundDialog = (
-        group: CustomerConfirmationDatatableSchema,
-        singleMemberId?: number,
-    ) => {
-        openRefundDialog(group, singleMemberId);
-        setRefundType('overpaid');
-
-        setRefundRows((prevRows) =>
-            prevRows.map((row) => {
-                const overpaidAmount = resolveOverpaidAmount(row);
-
-                return {
-                    ...row,
-                    overpaid_amount: overpaidAmount,
-                    selected: overpaidAmount > 0,
-                    description: 'Receipt For Overpaid Refund',
-                    payment_method:
-                        row.payment_method.trim().length > 0
-                            ? row.payment_method
-                            : defaultRefundPaymentMethod,
-                };
-            }),
-        );
     };
 
     const updateRefundRow = (
@@ -1270,19 +1265,21 @@ export default function ConfirmedCustomerIndex({
     const updateRefundType = (nextType: RefundType) => {
         setRefundType(nextType);
 
-        if (nextType !== 'overpaid') {
-            return;
-        }
-
         setRefundRows((prevRows) =>
             prevRows.map((row) => {
-                if (resolveOverpaidAmount(row) > 0) {
-                    return row;
+                const isOverpaidEligible = resolveOverpaidAmount(row) > 0;
+
+                if (nextType === 'overpaid' && !isOverpaidEligible) {
+                    return {
+                        ...row,
+                        selected: false,
+                        description: REFUND_DESCRIPTION_BY_TYPE[nextType],
+                    };
                 }
 
                 return {
                     ...row,
-                    selected: false,
+                    description: REFUND_DESCRIPTION_BY_TYPE[nextType],
                 };
             }),
         );
@@ -1454,13 +1451,6 @@ export default function ConfirmedCustomerIndex({
                     }
 
                     if (
-                        member.status !== 'cancelled' &&
-                        resolveOverpaidAmount(member) > 0
-                    ) {
-                        rowActions.push('refund-overpaid');
-                    }
-
-                    if (
                         member.status === 'partially_paid' &&
                         (member.has_quotation ?? false) &&
                         resolveBalanceInvoiceAmount(member) > 0
@@ -1500,11 +1490,6 @@ export default function ConfirmedCustomerIndex({
                         return;
                     }
 
-                    if (action === 'refund-overpaid') {
-                        openOverpaidRefundDialog(row.original, member.id);
-                        return;
-                    }
-
                     if (action === 'create-balance-invoice') {
                         submitCreateBalanceInvoice(row.original.id, member);
                         return;
@@ -1512,9 +1497,9 @@ export default function ConfirmedCustomerIndex({
 
                     if (action === 'cancel-member') {
                         confirm({
-                            title: 'Cancel Member',
-                            message: `Cancel ${member.name}?`,
-                            confirmText: 'Cancel Member',
+                            title: 'Customer Cancel Trip',
+                            message: `Cancel trip for ${member.name}?`,
+                            confirmText: 'Customer Cancel Trip',
                             cancelText: 'Back',
                             onConfirm: () => cancelMember(member.id),
                         });
@@ -1600,18 +1585,8 @@ export default function ConfirmedCustomerIndex({
                                         (member.paid_amount ?? 0) > 0,
                                 );
 
-                                const hasOverpaidMembers = group.members.some(
-                                    (member) =>
-                                        member.status !== 'cancelled' &&
-                                        resolveOverpaidAmount(member) > 0,
-                                );
-
                                 if (hasRefundableMembers) {
                                     rowActions.push('refund');
-                                }
-
-                                if (hasOverpaidMembers) {
-                                    rowActions.push('refund-overpaid');
                                 }
 
                                 if (group.can_create_quotation) {
@@ -1674,11 +1649,6 @@ export default function ConfirmedCustomerIndex({
                                         openQuotationDialog(row.original);
                                     } else if (action === 'refund' && row) {
                                         openRefundDialog(row.original);
-                                    } else if (
-                                        action === 'refund-overpaid' &&
-                                        row
-                                    ) {
-                                        openOverpaidRefundDialog(row.original);
                                     } else if (action === 'sync-billing') {
                                         confirm({
                                             title: 'Sync Billing',
@@ -2139,7 +2109,8 @@ export default function ConfirmedCustomerIndex({
                                                 <p>
                                                     Cancel refund will set
                                                     selected member status to
-                                                    Cancelled after receipt is
+                                                    Trip Cancelled after
+                                                    receipt is
                                                     created.
                                                 </p>
                                                 <p>
@@ -2157,13 +2128,13 @@ export default function ConfirmedCustomerIndex({
                                                     <ProperInputSelect
                                                         options={[
                                                             {
-                                                                label: 'Cancel Refund',
+                                                                label: REFUND_PURPOSE_LABELS.cancel,
                                                                 value: 'cancel',
                                                             },
                                                             ...(canShowOverpaidType
                                                                 ? [
                                                                       {
-                                                                          label: 'Overpaid Refund',
+                                                                          label: REFUND_PURPOSE_LABELS.overpaid,
                                                                           value: 'overpaid',
                                                                       },
                                                                   ]
@@ -2316,7 +2287,7 @@ export default function ConfirmedCustomerIndex({
                                                                     ) => {
                                                                         const nextMode =
                                                                             (value as RefundMode) ||
-                                                                            'percentage';
+                                                                            'fixed';
 
                                                                         updateRefundRow(
                                                                             row.member_id,

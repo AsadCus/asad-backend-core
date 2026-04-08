@@ -2003,7 +2003,7 @@ class CustomerConfirmationFormTest extends TestCase
         $this->assertDatabaseCount('quotations', 0);
     }
 
-    public function test_generate_quotations_with_inertia_request_redirects_to_quotation_index(): void
+    public function test_generate_quotations_with_inertia_request_redirects_to_created_quotation_edit_when_single_created(): void
     {
         $this->actingAs($this->adminUser);
 
@@ -2045,16 +2045,15 @@ class CustomerConfirmationFormTest extends TestCase
                 ],
             ]);
 
-        $response
-            ->assertRedirect(route('quotation.index'))
-            ->assertSessionHas('success', '1 quotation(s) created successfully.');
-
         $quotation = Quotation::query()
             ->where('customer_confirmation_id', $confirmation->id)
             ->latest('id')
             ->first();
 
         $this->assertNotNull($quotation);
+        $response
+            ->assertRedirect(route('quotation.edit', ['quotation' => (int) $quotation->id]))
+            ->assertSessionHas('success', '1 quotation(s) created successfully.');
         $this->assertSame((int) $this->adminUser->id, (int) $quotation->created_by);
     }
 
@@ -2089,11 +2088,11 @@ class CustomerConfirmationFormTest extends TestCase
             'sharing_plan' => 'single',
         ]);
 
-        $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+        $response = $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
             'payer_to_members' => [
                 (string) $payerMember->id => [$payerMember->id],
             ],
-        ])->assertRedirect(route('quotation.index'));
+        ]);
 
         $quotation = Quotation::query()
             ->where('customer_confirmation_id', $confirmation->id)
@@ -2101,6 +2100,7 @@ class CustomerConfirmationFormTest extends TestCase
             ->first();
 
         $this->assertNotNull($quotation);
+        $response->assertRedirect(route('quotation.edit', ['quotation' => (int) $quotation->id]));
 
         $header = QuotationItem::query()
             ->where('quotation_id', $quotation->id)
@@ -2150,11 +2150,11 @@ class CustomerConfirmationFormTest extends TestCase
             'sharing_plan' => 'child_with_bed',
         ]);
 
-        $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+        $response = $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
             'payer_to_members' => [
                 (string) $payerMember->id => [$payerMember->id],
             ],
-        ])->assertRedirect(route('quotation.index'));
+        ]);
 
         $quotation = Quotation::query()
             ->where('customer_confirmation_id', $confirmation->id)
@@ -2162,6 +2162,7 @@ class CustomerConfirmationFormTest extends TestCase
             ->first();
 
         $this->assertNotNull($quotation);
+        $response->assertRedirect(route('quotation.edit', ['quotation' => (int) $quotation->id]));
 
         $memberItem = QuotationItem::query()
             ->where('quotation_id', $quotation->id)
@@ -2216,15 +2217,16 @@ class CustomerConfirmationFormTest extends TestCase
             'sharing_plan' => 'single',
         ]);
 
-        $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
+        $response = $this->post(route('customer-confirmations.generate-quotations', $confirmation->id), [
             'payer_to_members' => [
                 (string) $payerMember->id => [$payerMember->id],
             ],
-        ])->assertRedirect(route('quotation.index'));
+        ]);
 
         $quotation = Quotation::query()->where('customer_confirmation_id', $confirmation->id)->first();
 
         $this->assertNotNull($quotation);
+        $response->assertRedirect(route('quotation.edit', ['quotation' => (int) $quotation->id]));
         $this->assertDatabaseHas('quotation_notes', [
             'quotation_id' => $quotation->id,
             'description' => 'Please complete payment before departure date.',

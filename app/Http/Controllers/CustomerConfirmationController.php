@@ -248,6 +248,16 @@ class CustomerConfirmationController extends Controller
 
         $successMessage = count($quotations).' quotation(s) created successfully.';
 
+        if (count($quotations) === 1) {
+            $quotation = $quotations[0] ?? null;
+
+            if ($quotation) {
+                return redirect()
+                    ->route('quotation.edit', ['quotation' => (int) $quotation->id])
+                    ->with('success', $successMessage);
+            }
+        }
+
         return redirect()->route('quotation.index')->with('success', $successMessage);
     }
 
@@ -290,39 +300,6 @@ class CustomerConfirmationController extends Controller
         return redirect()
             ->route('receipt.index')
             ->with('success', $result['count'].' refund invoice/receipt document(s) created successfully.');
-    }
-
-    /**
-     * Create overpayment-only refund receipt(s) for one or more members.
-     */
-    public function createOverpaymentRefunds(Request $request, string $id): RedirectResponse
-    {
-        $confirmation = CustomerConfirmation::query()->findOrFail((int) $id);
-
-        $validated = $request->validate([
-            'member_ids' => ['required', 'array', 'min:1'],
-            'member_ids.*' => ['required', 'integer', 'exists:customer_confirmation_members,id'],
-        ]);
-
-        $result = $this->customerConfirmationService->createOverpaymentRefundReceipts(
-            (int) $id,
-            $validated['member_ids'],
-        );
-
-        activity()
-            ->causedBy($request->user())
-            ->performedOn($confirmation)
-            ->withProperties([
-                'subject_type' => 'CustomerConfirmation',
-                'subject_id' => (int) $confirmation->id,
-                'member_ids' => $validated['member_ids'],
-                'created_count' => (int) ($result['count'] ?? 0),
-            ])
-            ->log('Customer confirmation overpayment refund documents created');
-
-        return redirect()
-            ->route('receipt.index')
-            ->with('success', $result['count'].' overpayment refund invoice/receipt document(s) created successfully.');
     }
 
     /**

@@ -37,7 +37,6 @@ export type ActionType =
     | 'sync-billing'
     | 'cancel-member'
     | 'refund'
-    | 'refund-overpaid'
     | 'create-balance-invoice';
 
 interface ActionColumnProps<TData> {

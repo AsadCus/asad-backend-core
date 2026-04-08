@@ -1989,6 +1989,7 @@ export default function ManifestDatatable({
 
         const renderReceiptDocument = (
             document?: {
+                file?: File | null;
                 file_path?: string | null;
                 file_name?: string | null;
             },
@@ -2004,9 +2005,14 @@ export default function ManifestDatatable({
             );
 
             if (href.length === 0) {
+                const pendingLabel =
+                    String(document?.file_name ?? '').trim() ||
+                    String(document?.file?.name ?? '').trim() ||
+                    String(fallbackValue ?? '').trim();
+
                 return (
                     <div className="text-sm text-muted-foreground">
-                        {String(fallbackValue ?? '').trim() || '-'}
+                        {pendingLabel || '-'}
                     </div>
                 );
             }
