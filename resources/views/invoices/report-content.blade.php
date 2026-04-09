@@ -376,23 +376,24 @@
                         <td class="total-label">Total Amount:</td>
                         <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
                     </tr>
-                    @foreach (($data['invoice_payment_progress'] ?? []) as $paymentProgress)
+                    @if (empty($data['invoice_payment_progress']) || count($data['invoice_payment_progress']) === 0)
                         <tr>
-                            <td class="total-label">{{ $paymentProgress['label'] ?? 'Payment' }}:</td>
-                            <td class="total-amount">
-                                {{ formatCurrency($paymentProgress['amount_paid'] ?? 0) }} /
-                                {{ formatCurrency($paymentProgress['total_amount'] ?? ($data['total_amount'] ?? $subtotal)) }}
+                            <td class="total-label" style="color: #c0392b;">Pending Payment:</td>
+                            <td class="total-amount" style="color: #c0392b;">
+                                {{ formatCurrency(0) }} / {{ formatCurrency($data['total_amount'] ?? $subtotal) }}
                             </td>
                         </tr>
-                        @if (($paymentProgress['pending_amount'] ?? 0) > 0)
+                    @else
+                        @foreach (($data['invoice_payment_progress'] ?? []) as $paymentProgress)
                             <tr>
-                                <td class="total-label" style="color: #c0392b;">Pending Payment:</td>
-                                <td class="total-amount" style="color: #c0392b;">
-                                    {{ formatCurrency($paymentProgress['pending_amount'] ?? 0) }}
+                                <td class="total-label">{{ $paymentProgress['label'] ?? 'Payment' }}:</td>
+                                <td class="total-amount">
+                                    {{ formatCurrency($paymentProgress['amount_paid'] ?? 0) }} /
+                                    {{ formatCurrency($paymentProgress['total_amount'] ?? ($data['total_amount'] ?? $subtotal)) }}
                                 </td>
                             </tr>
-                        @endif
-                    @endforeach
+                        @endforeach
+                    @endif
                 </tbody>
             </table>
         </div>
