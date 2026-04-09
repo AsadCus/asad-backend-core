@@ -172,6 +172,26 @@ function createEmptyBudgetTitle(index: number): OpsBudgetTitleSchema {
     };
 }
 
+function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
+    return [
+        {
+            title: 'Main Powerexpense',
+            sort_order: 1,
+            items: [createEmptyBudgetItem()],
+        },
+        {
+            title: 'Petty Cash',
+            sort_order: 2,
+            items: [createEmptyBudgetItem()],
+        },
+        {
+            title: 'Contigency',
+            sort_order: 3,
+            items: [createEmptyBudgetItem()],
+        },
+    ];
+}
+
 function createEmptyTourLeader(): OpsTourLeaderSchema {
     return {
         type: '',
@@ -206,15 +226,22 @@ function toDecimal(value: unknown): number {
 }
 
 function formatSar(value: number): string {
-    return `SAR${new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-    }).format(value)}`;
+    }).format(value);
 }
 
 const YES_NO_OPTIONS = [
     { label: 'Yes', value: 'yes' },
     { label: 'No', value: 'no' },
+];
+
+const BUDGET_CURRENCY_OPTIONS = [
+    { label: 'Saudi Riyal (SAR)', value: 'SAR' },
+    { label: 'Singapore Dollar (SGD)', value: 'SGD' },
+    { label: 'US Dollar (USD)', value: 'USD' },
+    { label: 'Malaysian Ringgit (MYR)', value: 'MYR' },
 ];
 
 export default function OpsMovementForm({
@@ -241,7 +268,12 @@ export default function OpsMovementForm({
         budget:
             Array.isArray(initialData.budget) && initialData.budget.length > 0
                 ? initialData.budget
-                : [createEmptyBudgetTitle(0)],
+                : createDefaultBudgetTemplate(),
+        budget_currency:
+            typeof initialData.budget_currency === 'string' &&
+                initialData.budget_currency.trim().length > 0
+                ? initialData.budget_currency.trim()
+                : 'SAR',
         pif: {
             tour_leaders:
                 Array.isArray(initialData.pif?.tour_leaders) &&
@@ -336,6 +368,7 @@ export default function OpsMovementForm({
                     sort_order: itemIndex + 1,
                 })),
             })),
+            budget_currency: data.budget_currency ?? 'SAR',
             rawdah_tasreehs: (data.rawdah_tasreehs ?? []).map((row) => ({
                 id: row.id,
                 remarks: row.remarks ?? null,
@@ -600,7 +633,7 @@ export default function OpsMovementForm({
 
         setFormData(
             'budget',
-            current.length > 0 ? current : [createEmptyBudgetTitle(0)],
+            current.length > 0 ? current : createDefaultBudgetTemplate(),
         );
     };
 
@@ -887,19 +920,48 @@ export default function OpsMovementForm({
                             </p>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Adult">{`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} male / ${data.passengers?.adult_female ?? 0} female)`}</FormField>
-                            <FormField label="Child">{`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} boy / ${data.passengers?.child_girl ?? 0} girl)`}</FormField>
+                            <FormField label="Adult">
+                                <ProperInput
+                                    value={`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} male / ${data.passengers?.adult_female ?? 0} female)`}
+                                    disabled={true}
+                                    onCommit={() => undefined}
+                                />
+                            </FormField>
+                            <FormField label="Child">
+                                <ProperInput
+                                    value={`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} boy / ${data.passengers?.child_girl ?? 0} girl)`}
+                                    disabled={true}
+                                    onCommit={() => undefined}
+                                />
+                            </FormField>
                             <FormField label="Official Total">
-                                {String(data.passengers?.official_total ?? 0)}
+                                <ProperInput
+                                    value={String(
+                                        data.passengers?.official_total ?? 0,
+                                    )}
+                                    disabled={true}
+                                    onCommit={() => undefined}
+                                />
                             </FormField>
                             <FormField label="Wheelchair">
-                                {String(
-                                    data.passengers
-                                        ?.wheelchair_non_official_total ?? 0,
-                                )}
+                                <ProperInput
+                                    value={String(
+                                        data.passengers
+                                            ?.wheelchair_non_official_total ??
+                                            0,
+                                    )}
+                                    disabled={true}
+                                    onCommit={() => undefined}
+                                />
                             </FormField>
                             <FormField label="Grand Total">
-                                {String(data.passengers?.grand_total ?? 0)}
+                                <ProperInput
+                                    value={String(
+                                        data.passengers?.grand_total ?? 0,
+                                    )}
+                                    disabled={true}
+                                    onCommit={() => undefined}
+                                />
                             </FormField>
                         </CardContent>
                     </Card>
@@ -1280,7 +1342,7 @@ export default function OpsMovementForm({
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <FormField
-                                label="Submitted to Z Umrah"
+                                label="PP Submitted for Visa Application"
                                 error={errors.visa_submitted_to_z_umrah}
                             >
                                 <ProperInputSelect
@@ -1521,7 +1583,25 @@ export default function OpsMovementForm({
                 })}
 
                 <TabsContent value="budget" className="space-y-3">
-                    <div className="flex justify-end">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end">
+                        <FormField
+                            label="Budget Currency"
+                            fieldRequirementsProps={{
+                                hint: 'Currency used for budget section totals and grand total label.',
+                            }}
+                        >
+                            <ProperInputSelect
+                                mode="classic"
+                                options={BUDGET_CURRENCY_OPTIONS}
+                                value={data.budget_currency ?? 'SAR'}
+                                disabled={processing}
+                                searchable={false}
+                                onValueChange={(value) =>
+                                    setFormData('budget_currency', value)
+                                }
+                            />
+                        </FormField>
+                        <div className="flex justify-end">
                         <Button
                             type="button"
                             variant="outline"
@@ -1531,6 +1611,7 @@ export default function OpsMovementForm({
                             <Plus className="h-4 w-4" />
                             Add Title
                         </Button>
+                        </div>
                     </div>
 
                     {budgetTotals.sections.map((sectionRow, titleIndex) => {
@@ -1764,7 +1845,7 @@ export default function OpsMovementForm({
                                             Add Item
                                         </Button>
                                         <p className="text-lg font-semibold">
-                                            {`${section.title} (Saudi Riyal):`}{' '}
+                                            {`${section.title ?? 'Section'} (${data.budget_currency ?? 'SAR'}):`}{' '}
                                             <span className="text-primary">
                                                 {formatSar(sectionRow.total)}
                                             </span>
@@ -1779,7 +1860,7 @@ export default function OpsMovementForm({
                         <CardContent>
                             <div className="flex items-center justify-end">
                                 <p className="text-lg font-semibold">
-                                    {`Grand Total (Saudi Riyal):`}{' '}
+                                    {`Grand Total (${data.budget_currency ?? 'SAR'}):`}{' '}
                                     <span className="text-primary">
                                         {formatSar(budgetTotals.grandTotal)}
                                     </span>
@@ -1792,12 +1873,25 @@ export default function OpsMovementForm({
                 <TabsContent value="pif" className="space-y-6">
                     <Card>
                         <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Passenger Details
-                            </CardTitle>
-                            <p className="text-sm text-muted-foreground">
-                                Passenger count breakdown for this ops movement, sourced from the linked manifest.
-                            </p>
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <CardTitle className="text-xl">
+                                        Passenger Details & Tour Leader
+                                    </CardTitle>
+                                    <p className="text-sm text-muted-foreground">
+                                        Passenger breakdown and assigned tour leader details for the linked manifest.
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={processing || !canEdit}
+                                    onClick={addTourLeader}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add Tour Leader
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -1842,58 +1936,7 @@ export default function OpsMovementForm({
                                     />
                                 </FormField>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                <FormField
-                                    label="Child With Bed"
-                                    fieldRequirementsProps={{
-                                        hint: 'Children who occupy a bed in room allocation.',
-                                    }}
-                                >
-                                    <CopyableText
-                                        value={
-                                            data.passengers?.child_with_bed_total ?? 0
-                                        }
-                                    />
-                                </FormField>
-                                <FormField
-                                    label="Child No Bed"
-                                    fieldRequirementsProps={{
-                                        hint: 'Children who share a bed (no extra bed allocated).',
-                                    }}
-                                >
-                                    <CopyableText
-                                        value={
-                                            data.passengers?.child_no_bed_total ?? 0
-                                        }
-                                    />
-                                </FormField>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <CardTitle className="text-xl">
-                                        Tour Leader
-                                    </CardTitle>
-                                    <p className="text-sm text-muted-foreground">
-                                        Saudi and Singapore officials assigned to lead this movement. Enter their names and contact numbers for the PIF.
-                                    </p>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={processing || !canEdit}
-                                    onClick={addTourLeader}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Add Tour Leader
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
+                            <div className="border-t" />
                             {(data.pif?.tour_leaders ?? []).map(
                                 (tourLeader, index) => (
                                     <div
@@ -1985,6 +2028,11 @@ export default function OpsMovementForm({
                                         </Button>
                                     </div>
                                 ),
+                            )}
+                            {(data.pif?.tour_leaders ?? []).length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    No tour leader rows available.
+                                </p>
                             )}
                         </CardContent>
                     </Card>
@@ -2175,7 +2223,7 @@ export default function OpsMovementForm({
                                                 />
                                             </FormField>
                                             <FormField
-                                                label="Double (DBL)"
+                                                label="Double"
                                                 fieldRequirementsProps={{
                                                     hint: 'Number of double rooms (2 pax per room).',
                                                 }}
@@ -2188,7 +2236,7 @@ export default function OpsMovementForm({
                                                 />
                                             </FormField>
                                             <FormField
-                                                label="Triple (TRP)"
+                                                label="Triple"
                                                 fieldRequirementsProps={{
                                                     hint: 'Number of triple rooms (3 pax per room).',
                                                 }}
@@ -2210,48 +2258,6 @@ export default function OpsMovementForm({
                                                     value={
                                                         accommodation.room_counts
                                                             ?.quad ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                        {/* Member category counts row */}
-                                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                            <FormField
-                                                label="Child With Bed"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of children in this accommodation who occupy a bed (counted in room pricing plan).',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.room_counts
-                                                            ?.child_with_bed ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Child No Bed"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of children who share a bed with parents — not counted in room pricing plan.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.room_counts
-                                                            ?.child_no_bed ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Infant"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of infants in this accommodation — not counted in room pricing plan.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.room_counts
-                                                            ?.infant ?? 0
                                                     }
                                                 />
                                             </FormField>
@@ -2306,68 +2312,68 @@ export default function OpsMovementForm({
                                     key={`pif-rawdah-${row.id}`}
                                     className="space-y-3 rounded-lg border p-4"
                                 >
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                        <FormField
-                                            label="Date"
-                                            fieldRequirementsProps={{
-                                                hint: 'Scheduled date for the Rawdah visit.',
-                                            }}
-                                        >
-                                            <CopyableText value={row.date} />
-                                        </FormField>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                        <FormField
-                                            label="Women Pax"
-                                            fieldRequirementsProps={{
-                                                hint: 'Number of female passengers for this Rawdah slot.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={row.women_passengers ?? 0}
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Women Time"
-                                            fieldRequirementsProps={{
-                                                hint: 'Scheduled entry time for female passengers.',
-                                            }}
-                                        >
-                                            <CopyableText value={row.women_time} />
-                                        </FormField>
-                                        <FormField
-                                            label="Men Pax"
-                                            fieldRequirementsProps={{
-                                                hint: 'Number of male passengers for this Rawdah slot.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={row.men_passengers ?? 0}
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Men Time"
-                                            fieldRequirementsProps={{
-                                                hint: 'Scheduled entry time for male passengers.',
-                                            }}
-                                        >
-                                            <CopyableText value={row.men_time} />
-                                        </FormField>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                        <FormField
-                                            label="Total Pax"
-                                            fieldRequirementsProps={{
-                                                hint: 'Total passengers (women + men) for this slot.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={
-                                                    (row.women_passengers ?? 0) +
-                                                    (row.men_passengers ?? 0)
-                                                }
-                                            />
-                                        </FormField>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div className="space-y-4">
+                                            <FormField
+                                                label="Date"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Scheduled date for the Rawdah visit.',
+                                                }}
+                                            >
+                                                <CopyableText value={row.date} />
+                                            </FormField>
+                                            <FormField
+                                                label="Women Time"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Scheduled entry time for female passengers.',
+                                                }}
+                                            >
+                                                <CopyableText value={row.women_time} />
+                                            </FormField>
+                                            <FormField
+                                                label="Men Time"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Scheduled entry time for male passengers.',
+                                                }}
+                                            >
+                                                <CopyableText value={row.men_time} />
+                                            </FormField>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <FormField
+                                                label="Women Passengers"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of female passengers for this Rawdah slot.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={row.women_passengers ?? 0}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Men Passengers"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of male passengers for this Rawdah slot.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={row.men_passengers ?? 0}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Total Passengers"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Total passengers (women + men) for this slot.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        (row.women_passengers ?? 0) +
+                                                        (row.men_passengers ?? 0)
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
                                     </div>
                                     <FormField
                                         label="Remarks"

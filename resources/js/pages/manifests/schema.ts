@@ -158,6 +158,8 @@ export const manifestSharingGroupSchema = z.object({
 export const manifestSchema = z.object({
     id: z.number().optional(),
     members_count: z.coerce.number().nullable().optional(),
+    total_seats: z.coerce.number().nullable().optional(),
+    seats_left: z.coerce.number().nullable().optional(),
     package_id: z.number().nullable().optional(),
     in_charge_official_id: z.number().nullable().optional(),
     manifest_number: z.string().optional(),

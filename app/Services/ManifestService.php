@@ -69,6 +69,8 @@ class ManifestService
                     'manifest_number' => $q->manifest_number,
                     'departure_date' => $q->package?->departure_date_formatted,
                     'return_date' => $q->package?->return_date_formatted,
+                    'total_seats' => $q->package?->total_seats,
+                    'seats_left' => $q->package?->seats_left,
                     'status' => $q->package?->status,
                     'members_count' => $q->members_count,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),

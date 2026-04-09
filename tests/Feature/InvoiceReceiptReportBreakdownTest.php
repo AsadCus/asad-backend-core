@@ -10,6 +10,7 @@ use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\InvoiceService;
+use App\Services\QuotationService;
 use App\Services\ReceiptService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +20,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * @return array{invoice: Invoice, receipt: Receipt}
+     * @return array{quotation: Quotation, invoice: Invoice, receipt: Receipt}
      */
     private function createGraph(): array
     {
@@ -91,9 +92,21 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         ]);
 
         return [
+            'quotation' => $quotation,
             'invoice' => $invoice,
             'receipt' => $receipt,
         ];
+    }
+
+    public function test_quotation_report_payload_includes_invoice_payment_progress_rows(): void
+    {
+        $graph = $this->createGraph();
+
+        $payload = app(QuotationService::class)->getForEditShow((int) $graph['quotation']->id);
+
+        $this->assertSame('1st Payment', (string) data_get($payload, 'invoice_payment_progress.0.label'));
+        $this->assertSame(8400.0, (float) data_get($payload, 'invoice_payment_progress.0.amount_paid'));
+        $this->assertSame(8400.0, (float) data_get($payload, 'invoice_payment_progress.0.total_amount'));
     }
 
     public function test_invoice_report_payload_includes_subtotal_extensions_and_total_consistent_with_invoice_amount(): void
@@ -107,6 +120,8 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(8400.0, (float) ($payload['total_amount'] ?? 0));
         $this->assertCount(1, $payload['extensions'] ?? []);
         $this->assertSame(-600.0, (float) (($payload['extensions'][0]['amount'] ?? 0)));
+        $this->assertSame('1st Payment', (string) data_get($payload, 'invoice_payment_progress.0.label'));
+        $this->assertSame(8400.0, (float) data_get($payload, 'invoice_payment_progress.0.amount_paid'));
     }
 
     public function test_receipt_report_payload_includes_subtotal_extensions_and_total_consistent_with_receipt_amount(): void
@@ -120,5 +135,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(8400.0, (float) ($payload['total_amount'] ?? 0));
         $this->assertCount(1, $payload['extensions'] ?? []);
         $this->assertSame(-600.0, (float) (($payload['extensions'][0]['amount'] ?? 0)));
+        $this->assertSame('1st Payment', (string) data_get($payload, 'invoice_payment_progress.0.label'));
+        $this->assertSame(8400.0, (float) data_get($payload, 'invoice_payment_progress.0.amount_paid'));
     }
 }
