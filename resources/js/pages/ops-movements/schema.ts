@@ -15,6 +15,9 @@ export const opsAccommodationSchema = z.object({
             double: z.number().optional(),
             triple: z.number().optional(),
             quad: z.number().optional(),
+            child_with_bed: z.number().optional(),
+            child_no_bed: z.number().optional(),
+            infant: z.number().optional(),
         })
         .optional(),
     remarks: z.string().nullable().optional(),
@@ -159,6 +162,7 @@ export const opsMovementSchema = z.object({
         })
         .optional(),
     budget: z.array(opsBudgetTitleSchema).optional(),
+    budget_currency: z.string().nullable().optional(),
     pif: opsPifSchema.optional(),
 });
 

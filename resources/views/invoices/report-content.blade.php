@@ -77,7 +77,7 @@
         .items-table td {
             padding: 3px 0;
             vertical-align: top;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .col-desc {
@@ -99,6 +99,19 @@
         /* Sub-item indent */
         .sub-item .col-desc {
             padding-left: 20px;
+        }
+
+        /* Header rows (section headers within items) */
+        .header-row td {
+            font-weight: bold;
+            padding: 4px 0 2px;
+            border-bottom: 1px solid #ccc;
+            font-size: 11px;
+        }
+
+        /* Make root items bold */
+        .item-row.root .col-desc {
+            font-weight: bold;
         }
 
         /* ── Totals ── */
@@ -261,14 +274,18 @@
             function renderItem($item, $allItems, $level = 0, &$counter, &$subtotal, $subCounter = 0)
             {
                 $itemNumber = '';
+                $isRoot = false;
+                
                 if ($level === 0) {
                     $counter++;
                     $itemNumber = $counter . '.';
+                    $isRoot = true;
                 } elseif ($level === 1) {
                     $itemNumber = toAlphabet($subCounter) . '.';
                 }
 
                 $indentClass = $level > 0 ? 'sub-item' : '';
+                $rootClass = $isRoot ? 'root' : '';
 
                 $rate = floatval($item['rate'] ?? 0);
                 $qty = floatval($item['quantity'] ?? 1);
@@ -294,11 +311,18 @@
                 $rateDisplay = !$item['is_header'] && $rate ? formatCurrency($rate) : '';
                 $totalDisplay = !$item['is_header'] && $itemTotal ? formatCurrency($itemTotal) : '';
 
-                echo '<tr class="item-row ' . $indentClass . '">';
-                echo '<td class="col-desc">' . $itemNumber . ' ' . $descriptionText . '</td>';
-                echo '<td class="col-rate">' . $rateDisplay . '</td>';
-                echo '<td class="col-total">' . $totalDisplay . '</td>';
-                echo '</tr>';
+                // Render header row or regular item row
+                if (!empty($item['is_header'])) {
+                    echo '<tr class="header-row">';
+                    echo '<td colspan="3">' . $itemNumber . ' ' . $descriptionText . '</td>';
+                    echo '</tr>';
+                } else {
+                    echo '<tr class="item-row ' . $rootClass . ' ' . $indentClass . '">';
+                    echo '<td class="col-desc">' . $itemNumber . ' ' . $descriptionText . '</td>';
+                    echo '<td class="col-rate">' . $rateDisplay . '</td>';
+                    echo '<td class="col-total">' . $totalDisplay . '</td>';
+                    echo '</tr>';
+                }
 
                 $childSubCounter = 0;
                 foreach ($children as $child) {
@@ -352,6 +376,23 @@
                         <td class="total-label">Total Amount:</td>
                         <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
                     </tr>
+                    @foreach (($data['invoice_payment_progress'] ?? []) as $paymentProgress)
+                        <tr>
+                            <td class="total-label">{{ $paymentProgress['label'] ?? 'Payment' }}:</td>
+                            <td class="total-amount">
+                                {{ formatCurrency($paymentProgress['amount_paid'] ?? 0) }} /
+                                {{ formatCurrency($paymentProgress['total_amount'] ?? ($data['total_amount'] ?? $subtotal)) }}
+                            </td>
+                        </tr>
+                        @if (($paymentProgress['pending_amount'] ?? 0) > 0)
+                            <tr>
+                                <td class="total-label" style="color: #c0392b;">Pending Payment:</td>
+                                <td class="total-amount" style="color: #c0392b;">
+                                    {{ formatCurrency($paymentProgress['pending_amount'] ?? 0) }}
+                                </td>
+                            </tr>
+                        @endif
+                    @endforeach
                 </tbody>
             </table>
         </div>

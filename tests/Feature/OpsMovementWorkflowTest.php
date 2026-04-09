@@ -7,6 +7,8 @@ use App\Models\Country;
 use App\Models\Customer;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
+use App\Models\ManifestRoom;
+use App\Models\ManifestRoomMember;
 use App\Models\Package;
 use App\Models\PackageAccommodation;
 use App\Models\PackageFlight;
@@ -509,6 +511,109 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('MAN-NEW', data_get($opsMovement, 'manifest_number'));
         $this->assertSame('New Base', data_get($opsMovement, 'ops_base'));
         $this->assertSame('NEW-REF', data_get($opsMovement, 'infotech_ref'));
+    }
+
+    public function test_ops_movement_uses_departure_date_age_logic_and_fallbacks_tour_leaders_from_officials(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-OPS-AGE-001',
+            'name' => 'Ops Age Logic Package',
+            'status' => 'open',
+            'departure_date' => '2026-01-15',
+            'return_date' => '2026-01-25',
+        ]);
+
+        PackageAccommodation::create([
+            'package_id' => $package->id,
+            'location' => 'Makkah',
+            'hotel_name' => 'Hotel Makkah',
+            'check_in' => '2026-01-15',
+            'check_out' => '2026-01-20',
+        ]);
+
+        $official = PackageOfficial::create([
+            'package_id' => $package->id,
+            'type' => 'mutawif',
+            'name' => 'Mutawif Fallback',
+            'contact_number' => '0192222222',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-OPS-AGE-001',
+            'ops_movement_extension' => [
+                'pif' => [
+                    'tour_leaders' => [],
+                ],
+            ],
+        ]);
+
+        $adultNoDob = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'package_official_id' => null,
+            'name' => 'No DOB Adult',
+            'gender' => 'male',
+            'date_of_birth' => null,
+            'sharing_plan' => 'single',
+        ]);
+
+        $childMember = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'package_official_id' => null,
+            'name' => 'Child Member',
+            'gender' => 'female',
+            'date_of_birth' => '2017-03-01',
+            'sharing_plan' => 'child_with_bed',
+        ]);
+
+        $infantMember = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'package_official_id' => null,
+            'name' => 'Infant Member',
+            'gender' => 'female',
+            'date_of_birth' => '2025-06-01',
+            'sharing_plan' => 'infant',
+        ]);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'package_official_id' => $official->id,
+            'name' => 'Official Member',
+            'gender' => 'male',
+            'date_of_birth' => '1980-01-01',
+            'sharing_plan' => 'single',
+        ]);
+
+        $room = ManifestRoom::create([
+            'manifest_id' => $manifest->id,
+            'location' => 'Makkah',
+            'room_type' => 'single',
+            'capacity' => 1,
+        ]);
+
+        ManifestRoomMember::create([
+            'manifest_room_id' => $room->id,
+            'manifest_member_id' => $childMember->id,
+        ]);
+
+        ManifestRoomMember::create([
+            'manifest_room_id' => $room->id,
+            'manifest_member_id' => $infantMember->id,
+        ]);
+
+        ManifestRoomMember::create([
+            'manifest_room_id' => $room->id,
+            'manifest_member_id' => $adultNoDob->id,
+        ]);
+
+        $opsMovement = app(OpsMovementService::class)->getForShow($package->id);
+
+        $this->assertSame(1, data_get($opsMovement, 'passengers.adult_total'));
+        $this->assertSame(1, data_get($opsMovement, 'passengers.child_total'));
+        $this->assertSame(1, data_get($opsMovement, 'passengers.infant_total'));
+        $this->assertSame('Mutawif Fallback', data_get($opsMovement, 'pif.tour_leaders.0.name'));
+        $this->assertSame('mutawif', data_get($opsMovement, 'pif.tour_leaders.0.type'));
+        $this->assertSame(3, data_get($opsMovement, 'accommodations.0.room_counts.single'));
     }
 
     public function test_ops_movement_export_routes_return_pdf_responses(): void

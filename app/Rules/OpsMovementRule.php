@@ -59,6 +59,7 @@ class OpsMovementRule
             'documents.booklet.*.removed' => ['nullable', 'boolean'],
 
             'budget' => ['nullable', 'array'],
+            'budget_currency' => ['nullable', 'string', 'max:10'],
             'budget.*.title' => ['nullable', 'string', 'max:255'],
             'budget.*.sort_order' => ['nullable', 'integer', 'min:1'],
             'budget.*.items' => ['nullable', 'array'],

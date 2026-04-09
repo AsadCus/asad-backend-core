@@ -993,7 +993,6 @@ export default function PackageForm({
                             >
                                 <DatePickerField
                                     id="departure_date"
-                                    key={`departure_date-${data.departure_date || ''}`}
                                     value={data.departure_date || ''}
                                     fromYear={new Date().getFullYear()}
                                     toYear={new Date().getFullYear() + 5}
@@ -1012,7 +1011,6 @@ export default function PackageForm({
                             >
                                 <DatePickerField
                                     id="return_date"
-                                    key={`return_date-${data.return_date || ''}`}
                                     value={data.return_date || ''}
                                     fromYear={new Date().getFullYear()}
                                     toYear={new Date().getFullYear() + 5}
@@ -2356,149 +2354,147 @@ export default function PackageForm({
                                                     )}
                                                 </div>
 
-                                                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                                    <FormField
-                                                        label="Date"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Tasreeh date',
-                                                        }}
-                                                        error={getError(
-                                                            `rawdah_tasreehs.${index}.date`,
-                                                        )}
-                                                    >
-                                                        <DatePickerField
-                                                            id={`rawdah_date_${index}`}
-                                                            key={`rawdah_date_${index}-${tasreeh.date || ''}`}
-                                                            value={
-                                                                tasreeh.date ||
-                                                                ''
-                                                            }
-                                                            fromYear={new Date().getFullYear()}
-                                                            toYear={
-                                                                new Date().getFullYear() +
-                                                                5
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onChange={(v) =>
-                                                                updateRawdahTasreeh(
-                                                                    index,
-                                                                    'date',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Total Passengers"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Auto-calculated total',
-                                                        }}
-                                                    >
-                                                        <Input
-                                                            value={totalCount}
-                                                            disabled={true}
-                                                            className="bg-muted"
-                                                        />
-                                                    </FormField>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                                    <FormField
-                                                        label="Women Passengers"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Auto-filled from non-official manifest members',
-                                                        }}
-                                                        error={getError(
-                                                            `rawdah_tasreehs.${index}.women_passengers`,
-                                                        )}
-                                                    >
-                                                        <Input
-                                                            type="number"
-                                                            value={womenCount}
-                                                            disabled={true}
-                                                            className="bg-muted"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Women Time"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Women time slot',
-                                                        }}
-                                                        error={getError(
-                                                            `rawdah_tasreehs.${index}.women_time`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            type="time"
-                                                            timeFormat={24}
-                                                            value={
-                                                                tasreeh.women_time ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateRawdahTasreeh(
-                                                                    index,
-                                                                    'women_time',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                        />
-                                                    </FormField>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                                    <FormField
-                                                        label="Men Passengers"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Auto-filled from non-official manifest members',
-                                                        }}
-                                                        error={getError(
-                                                            `rawdah_tasreehs.${index}.men_passengers`,
-                                                        )}
-                                                    >
-                                                        <Input
-                                                            type="number"
-                                                            value={menCount}
-                                                            disabled={true}
-                                                            className="bg-muted"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Men Time"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Men time slot',
-                                                        }}
-                                                        error={getError(
-                                                            `rawdah_tasreehs.${index}.men_time`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            type="time"
-                                                            timeFormat={24}
-                                                            value={
-                                                                tasreeh.men_time ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                isView ||
-                                                                processing
-                                                            }
-                                                            onCommit={(v) =>
-                                                                updateRawdahTasreeh(
-                                                                    index,
-                                                                    'men_time',
-                                                                    v || null,
-                                                                )
-                                                            }
-                                                        />
-                                                    </FormField>
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                    <div className="space-y-4">
+                                                        <FormField
+                                                            label="Date"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Tasreeh date',
+                                                            }}
+                                                            error={getError(
+                                                                `rawdah_tasreehs.${index}.date`,
+                                                            )}
+                                                        >
+                                                            <DatePickerField
+                                                                id={`rawdah_date_${index}`}
+                                                                key={`rawdah_date_${index}-${tasreeh.date || ''}`}
+                                                                value={
+                                                                    tasreeh.date ||
+                                                                    ''
+                                                                }
+                                                                fromYear={new Date().getFullYear()}
+                                                                toYear={
+                                                                    new Date().getFullYear() +
+                                                                    5
+                                                                }
+                                                                disabled={
+                                                                    isView ||
+                                                                    processing
+                                                                }
+                                                                onChange={(v) =>
+                                                                    updateRawdahTasreeh(
+                                                                        index,
+                                                                        'date',
+                                                                        v || null,
+                                                                    )
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Women Time"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Women time slot',
+                                                            }}
+                                                            error={getError(
+                                                                `rawdah_tasreehs.${index}.women_time`,
+                                                            )}
+                                                        >
+                                                            <ProperInput
+                                                                type="time"
+                                                                timeFormat={24}
+                                                                value={
+                                                                    tasreeh.women_time ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    isView ||
+                                                                    processing
+                                                                }
+                                                                onCommit={(v) =>
+                                                                    updateRawdahTasreeh(
+                                                                        index,
+                                                                        'women_time',
+                                                                        v || null,
+                                                                    )
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Men Time"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Men time slot',
+                                                            }}
+                                                            error={getError(
+                                                                `rawdah_tasreehs.${index}.men_time`,
+                                                            )}
+                                                        >
+                                                            <ProperInput
+                                                                type="time"
+                                                                timeFormat={24}
+                                                                value={
+                                                                    tasreeh.men_time ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    isView ||
+                                                                    processing
+                                                                }
+                                                                onCommit={(v) =>
+                                                                    updateRawdahTasreeh(
+                                                                        index,
+                                                                        'men_time',
+                                                                        v || null,
+                                                                    )
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                    </div>
+                                                    <div className="space-y-4">
+                                                        <FormField
+                                                            label="Women Passengers"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Auto-filled from non-official manifest members',
+                                                            }}
+                                                            error={getError(
+                                                                `rawdah_tasreehs.${index}.women_passengers`,
+                                                            )}
+                                                        >
+                                                            <Input
+                                                                type="number"
+                                                                value={womenCount}
+                                                                disabled={true}
+                                                                className="bg-muted"
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Men Passengers"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Auto-filled from non-official manifest members',
+                                                            }}
+                                                            error={getError(
+                                                                `rawdah_tasreehs.${index}.men_passengers`,
+                                                            )}
+                                                        >
+                                                            <Input
+                                                                type="number"
+                                                                value={menCount}
+                                                                disabled={true}
+                                                                className="bg-muted"
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Total Passengers"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Auto-calculated total',
+                                                            }}
+                                                        >
+                                                            <Input
+                                                                value={totalCount}
+                                                                disabled={true}
+                                                                className="bg-muted"
+                                                            />
+                                                        </FormField>
+                                                    </div>
                                                 </div>
 
                                                 <FormField

@@ -338,6 +338,15 @@
                         <td class="total-label">Total Amount:</td>
                         <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
                     </tr>
+                    @foreach (($data['invoice_payment_progress'] ?? []) as $paymentProgress)
+                        <tr>
+                            <td class="total-label">{{ $paymentProgress['label'] ?? 'Payment' }}:</td>
+                            <td class="total-amount">
+                                {{ formatCurrency($paymentProgress['amount_paid'] ?? 0) }} /
+                                {{ formatCurrency($paymentProgress['total_amount'] ?? ($data['total_amount'] ?? $subtotal)) }}
+                            </td>
+                        </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>

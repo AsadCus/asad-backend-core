@@ -93,7 +93,7 @@ class OpsMovementService
             'rawdahTasreehs',
             'transportationPlans',
             'manifests.members',
-            'manifests.rooms',
+            'manifests.rooms.roomMembers.member',
             'manifests.files',
         ]);
 
@@ -114,6 +114,7 @@ class OpsMovementService
             ->values();
         $documents = $this->buildOpsMovementDocumentPayload($manifest);
         $budget = $this->normalizeBudgetPayload($extension['budget'] ?? []);
+        $budgetCurrency = $this->normalizeNullableString($extension['budget_currency'] ?? null) ?? 'SAR';
         $nonOfficialMembers = collect($manifest?->members ?? [])
             ->filter(fn ($member) => $member->package_official_id === null && $member->status !== 'cancelled')
             ->values();
@@ -121,14 +122,34 @@ class OpsMovementService
             ->filter(fn ($member) => $member->package_official_id !== null && $member->status !== 'cancelled')
             ->values();
         $roomCountsByLocation = $this->buildRoomCountsByLocationFromManifest($manifest);
+        $departureReferenceDate = $package->departure_date
+            ? Carbon::parse($package->departure_date)->startOfDay()
+            : null;
 
-        $adultMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) >= 18);
-        $childMembers = $nonOfficialMembers->filter(fn ($member) => $this->resolveAge($member->date_of_birth) < 18 && $this->resolveAge($member->date_of_birth) >= 2);
+        $adultMembers = $nonOfficialMembers->filter(function ($member) use ($departureReferenceDate): bool {
+            $age = $this->resolveAge($member->date_of_birth, $departureReferenceDate);
+
+            return $age === null || $age >= 12;
+        })->values();
+        $childMembers = $nonOfficialMembers->filter(function ($member) use ($departureReferenceDate): bool {
+            $age = $this->resolveAge($member->date_of_birth, $departureReferenceDate);
+
+            return $age !== null && $age >= 2 && $age < 12;
+        })->values();
+        $infantMembers = $nonOfficialMembers->filter(function ($member) use ($departureReferenceDate): bool {
+            $age = $this->resolveAge($member->date_of_birth, $departureReferenceDate);
+
+            return $age !== null && $age < 2;
+        })->values();
         $sharingPlanCounts = $nonOfficialMembers
             ->map(function ($member): string {
                 return $this->normalizeSharingPlan($member->sharing_plan ?? null);
             })
             ->countBy();
+        $tourLeaders = $this->resolvePifTourLeaders(
+            $extension['pif']['tour_leaders'] ?? [],
+            $package->officials,
+        );
 
         return [
             'id' => $package->id,
@@ -150,6 +171,7 @@ class OpsMovementService
             'doa_datetime' => $extension['doa_datetime'] ?? data_get($extension, 'flights.0.doa_datetime'),
             'documents' => $documents,
             'budget' => $budget,
+            'budget_currency' => $budgetCurrency,
             'vehicle_type' => $package->vehicle_type,
             'vehicle_driver_name' => $package->vehicle_driver_name,
             'vehicle_driver_contact_number' => $package->vehicle_driver_contact_number,
@@ -166,12 +188,46 @@ class OpsMovementService
                 'child_girl' => $childMembers->filter(fn ($member) => strtolower((string) $member->gender) === 'female')->count(),
                 'child_with_bed_total' => (int) ($sharingPlanCounts['child_with_bed'] ?? 0),
                 'child_no_bed_total' => (int) ($sharingPlanCounts['child_no_bed'] ?? 0),
-                'infant_total' => (int) ($sharingPlanCounts['infant'] ?? 0),
+                'infant_total' => $infantMembers->count(),
                 'official_total' => $officialMembers->count(),
                 'wheelchair_non_official_total' => $nonOfficialMembers->filter(fn ($member) => $member->is_using_wheelchair === true)->count(),
                 'grand_total' => $nonOfficialMembers->count() + $officialMembers->count(),
             ],
-            'accommodations' => $package->accommodations->map(function ($accommodation) {
+            'accommodations' => $package->accommodations->map(function ($accommodation) use ($roomCountsByLocation, $manifest) {
+                $locationKey = $this->normalizeLocationKey($accommodation->location);
+                $locationRooms = collect($manifest?->rooms ?? [])
+                    ->filter(function ($room) use ($locationKey): bool {
+                        return $this->normalizeLocationKey($room->location) === $locationKey;
+                    });
+                $locationMembers = $locationRooms
+                    ->flatMap(fn ($room) => collect($room->roomMembers ?? []))
+                    ->map(fn ($roomMember) => $roomMember->member)
+                    ->filter();
+
+                if ($locationMembers->isEmpty()) {
+                    $locationMembers = collect($manifest?->members ?? [])
+                        ->filter(fn ($member) => $member->package_official_id === null && $member->status !== 'cancelled');
+                }
+
+                $childWithBedCount = $locationMembers->filter(function ($member): bool {
+                    return $this->normalizeSharingPlan($member->sharing_plan ?? null) === 'child_with_bed';
+                })->count();
+                $childNoBedCount = $locationMembers->filter(function ($member): bool {
+                    return $this->normalizeSharingPlan($member->sharing_plan ?? null) === 'child_no_bed';
+                })->count();
+                $infantCount = $locationMembers->filter(function ($member): bool {
+                    return $this->normalizeSharingPlan($member->sharing_plan ?? null) === 'infant';
+                })->count();
+
+                $singleCount = (int) ($roomCountsByLocation[$locationKey]['single'] ?? 0);
+                if ($singleCount <= 0 && $locationRooms->isNotEmpty()) {
+                    $singleCount = $locationRooms
+                        ->filter(function ($room): bool {
+                            return $this->normalizeRoomTypeLabel($room->room_type) === 'single';
+                        })
+                        ->count();
+                }
+
                 return [
                     'id' => $accommodation->id,
                     'location' => $accommodation->location,
@@ -184,10 +240,15 @@ class OpsMovementService
                         ? $accommodation->check_in->diffInDays($accommodation->check_out)
                         : 0,
                     'room_counts' => [
-                        'single' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['single'] ?? 0,
-                        'double' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['double'] ?? 0,
-                        'triple' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['triple'] ?? 0,
-                        'quad' => $roomCountsByLocation[$this->normalizeLocationKey($accommodation->location)]['quad'] ?? 0,
+                        'single' => $singleCount > 0
+                            ? $singleCount
+                            : ($locationRooms->isNotEmpty() ? $locationRooms->count() + $childWithBedCount + $childNoBedCount + $infantCount : 0),
+                        'double' => $roomCountsByLocation[$locationKey]['double'] ?? 0,
+                        'triple' => $roomCountsByLocation[$locationKey]['triple'] ?? 0,
+                        'quad' => $roomCountsByLocation[$locationKey]['quad'] ?? 0,
+                        'child_with_bed' => $childWithBedCount,
+                        'child_no_bed' => $childNoBedCount,
+                        'infant' => $infantCount,
                     ],
                     'remarks' => $accommodation->remarks ?? null,
                 ];
@@ -291,7 +352,7 @@ class OpsMovementService
                 ];
             })->values()->toArray(),
             'pif' => [
-                'tour_leaders' => $this->normalizePifTourLeaders($extension['pif']['tour_leaders'] ?? []),
+                'tour_leaders' => $tourLeaders,
             ],
         ];
     }
@@ -406,6 +467,7 @@ class OpsMovementService
             $extension['doa_datetime'] = $payload['doa_datetime'] ?? null;
             $extension['visa_submitted_to_z_umrah'] = (bool) ($payload['visa_submitted_to_z_umrah'] ?? false);
             $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
+            $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null) ?? 'SAR';
             if (array_key_exists('officials', $payload) && is_array($payload['officials'])) {
                 $extension['officials'] = $officialExtensionRows;
             }
@@ -496,13 +558,15 @@ class OpsMovementService
         $query->where('country_id', $countryId);
     }
 
-    private function resolveAge(mixed $dateOfBirth): int
+    private function resolveAge(mixed $dateOfBirth, ?Carbon $referenceDate = null): ?int
     {
         if (! $dateOfBirth) {
-            return -1;
+            return null;
         }
 
-        return Carbon::parse($dateOfBirth)->age;
+        $resolvedReferenceDate = $referenceDate?->copy() ?? now();
+
+        return Carbon::parse($dateOfBirth)->diffInYears($resolvedReferenceDate);
     }
 
     private function buildDateRangeLabel(?Carbon $departureDate, ?Carbon $returnDate): ?string
@@ -699,7 +763,7 @@ class OpsMovementService
     }
 
     /**
-     * @return array<string, array{single:int,double:int,triple:int,quad:int}>
+     * @return array<string, array{single:int,double:int,triple:int,quad:int,child_with_bed:int,child_no_bed:int,infant:int}>
      */
     private function buildRoomCountsByLocationFromManifest(?Manifest $manifest): array
     {
@@ -708,6 +772,7 @@ class OpsMovementService
         }
 
         $countsByLocation = [];
+        $countedMemberIdsByLocation = [];
 
         foreach ($manifest->rooms ?? [] as $room) {
             $locationKey = $this->normalizeLocationKey($room->location);
@@ -718,6 +783,9 @@ class OpsMovementService
                     'double' => 0,
                     'triple' => 0,
                     'quad' => 0,
+                    'child_with_bed' => 0,
+                    'child_no_bed' => 0,
+                    'infant' => 0,
                 ];
             }
 
@@ -726,6 +794,38 @@ class OpsMovementService
             if ($normalizedRoomType !== null) {
                 $countsByLocation[$locationKey][$normalizedRoomType]++;
             }
+
+            foreach ($room->roomMembers ?? [] as $roomMember) {
+                $member = $roomMember->member;
+                if (! $member) {
+                    continue;
+                }
+
+                $memberId = (int) ($member->id ?? 0);
+                if ($memberId <= 0) {
+                    continue;
+                }
+
+                if (isset($countedMemberIdsByLocation[$locationKey][$memberId])) {
+                    continue;
+                }
+
+                $countedMemberIdsByLocation[$locationKey][$memberId] = true;
+
+                $normalizedSharingPlan = $this->normalizeSharingPlan($member->sharing_plan ?? null);
+
+                if (in_array($normalizedSharingPlan, ['child_with_bed', 'child_no_bed', 'infant'], true)) {
+                    $countsByLocation[$locationKey][$normalizedSharingPlan]++;
+                }
+            }
+
+        }
+
+        foreach ($countsByLocation as $locationKey => $roomCounts) {
+            $countsByLocation[$locationKey]['single'] +=
+                (int) ($roomCounts['child_with_bed'] ?? 0)
+                + (int) ($roomCounts['child_no_bed'] ?? 0)
+                + (int) ($roomCounts['infant'] ?? 0);
         }
 
         return $countsByLocation;
@@ -779,15 +879,47 @@ class OpsMovementService
                     'contact_number' => $this->normalizeNullableString($row['contact_number'] ?? null),
                 ];
             })
+            ->filter(fn (array $row): bool => $row['type'] !== null || $row['name'] !== null || $row['contact_number'] !== null)
             ->values();
 
-        if ($rows->isEmpty()) {
-            return [
-                ['type' => 'Saudi', 'name' => null, 'contact_number' => null],
-                ['type' => 'Singapore', 'name' => null, 'contact_number' => null],
-            ];
+        return $rows->all();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, \App\Models\PackageOfficial>  $officials
+     * @return array<int, array{type:?string,name:?string,contact_number:?string}>
+     */
+    private function resolvePifTourLeaders(mixed $rawTourLeaders, $officials): array
+    {
+        $normalizedTourLeaders = $this->normalizePifTourLeaders($rawTourLeaders);
+
+        if (! empty($normalizedTourLeaders)) {
+            return $normalizedTourLeaders;
         }
 
-        return $rows->all();
+        $officialFallback = collect($officials ?? [])
+            ->filter(function ($official): bool {
+                $type = Str::lower(trim((string) ($official->type ?? '')));
+
+                return in_array($type, ['mutawif', 'mutawifah', 'official'], true);
+            })
+            ->map(function ($official): array {
+                return [
+                    'type' => $this->normalizeNullableString($official->type ?? null),
+                    'name' => $this->normalizeNullableString($official->name ?? null),
+                    'contact_number' => $this->normalizeNullableString($official->contact_number ?? null),
+                ];
+            })
+            ->values()
+            ->all();
+
+        if (! empty($officialFallback)) {
+            return $officialFallback;
+        }
+
+        return [
+            ['type' => 'Saudi', 'name' => null, 'contact_number' => null],
+            ['type' => 'Singapore', 'name' => null, 'contact_number' => null],
+        ];
     }
 }

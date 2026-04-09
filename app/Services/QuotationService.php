@@ -473,7 +473,7 @@ class QuotationService
                 ),
                 'customer_id' => $data['customer_id'] ?? null,
                 'customer_confirmation_id' => $data['customer_confirmation_id'] ?? null,
-                'created_by' => auth()->id(),
+                'created_by' => auth()->user()?->id,
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
@@ -523,11 +523,11 @@ class QuotationService
             'quotationItems.confirmationMember',
             'quotationItems.taxes',
             'customerConfirmation.package',
-            'order.invoices',
+            'order.invoices.receipt',
         ]);
 
         if (DataScope::shouldScopeSalesOwnership()) {
-            $quotationQuery->where('created_by', auth()->id());
+            $quotationQuery->where('created_by', auth()->user()?->id);
         }
 
         $quotation = $quotationQuery->findOrFail($id);
@@ -583,6 +583,10 @@ class QuotationService
                     ];
                 })->values()->toArray(),
             'invoice_extensions' => $isConverted ? $invoiceExtensions : [],
+            'invoice_payment_progress' => $this->buildInvoicePaymentProgressRows(
+                collect($quotation->order?->invoices ?? []),
+                (float) ($quotation->total_amount ?? 0),
+            ),
             'items' => $quotation->quotationItems->sortBy('sort_order')->map(function (QuotationItem $it) {
                 return [
                     'id' => $it->id,
@@ -609,6 +613,58 @@ class QuotationService
                 ];
             })->values()->toArray(),
         ];
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $invoices
+     * @return array<int, array{label:string,amount_paid:float,total_amount:float}>
+     */
+    private function buildInvoicePaymentProgressRows(Collection $invoices, float $totalAmount): array
+    {
+        $normalizedTotalAmount = $this->formatService->cleanDecimal($totalAmount);
+        $orderedInvoices = $invoices
+            ->sortBy(function ($invoice): int {
+                return (int) ($invoice->invoice_date?->timestamp ?? $invoice->id ?? 0);
+            })
+            ->values();
+
+        if ($orderedInvoices->isEmpty()) {
+            return [
+                [
+                    'label' => 'Pending Payment',
+                    'amount_paid' => 0.0,
+                    'total_amount' => $normalizedTotalAmount,
+                ],
+            ];
+        }
+
+        $cumulativePaid = 0.0;
+
+        return $orderedInvoices->map(function ($invoice, int $index) use (&$cumulativePaid, $normalizedTotalAmount): array {
+            $cumulativePaid += max(0.0, (float) ($invoice->amount ?? 0));
+
+            return [
+                'label' => $this->toOrdinal($index + 1).' Payment',
+                'amount_paid' => $this->formatService->cleanDecimal($cumulativePaid),
+                'total_amount' => $normalizedTotalAmount,
+            ];
+        })->values()->all();
+    }
+
+    private function toOrdinal(int $number): string
+    {
+        $mod100 = $number % 100;
+
+        if ($mod100 >= 11 && $mod100 <= 13) {
+            return $number.'th';
+        }
+
+        return match ($number % 10) {
+            1 => $number.'st',
+            2 => $number.'nd',
+            3 => $number.'rd',
+            default => $number.'th',
+        };
     }
 
     public function update(array $data, int $id): Quotation

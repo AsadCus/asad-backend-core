@@ -126,12 +126,13 @@ class InvoiceService
         $query = Invoice::with([
             'quotationItems.taxes',
             'order.quotation.customer.user',
+            'order.invoices',
             'invoiceNotes',
         ]);
 
         if (DataScope::shouldScopeSalesOwnership()) {
             $query->whereHas('order.quotation', function ($quotationQuery) {
-                $quotationQuery->where('created_by', auth()->id());
+                $quotationQuery->where('created_by', auth()->user()?->id);
             });
         }
 
@@ -174,6 +175,7 @@ class InvoiceService
             );
 
         $extensions = array_values(array_merge($itemTaxExtensions, $quotationExtensions));
+        $overallTotalAmount = (float) ($i->order?->quotation?->total_amount ?? $totalAmount);
 
         return [
             'id' => $i->id,
@@ -200,6 +202,10 @@ class InvoiceService
             'subtotal_amount' => $this->formatService->cleanDecimal($subtotalAmount),
             'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
             'total_amount' => $this->formatService->cleanDecimal($totalAmount),
+            'invoice_payment_progress' => $this->buildInvoicePaymentProgressRows(
+                collect($i->order?->invoices ?? []),
+                $overallTotalAmount,
+            ),
             'extensions' => $extensions,
             'notes' => $i->invoiceNotes->sortBy('sort_order')->values()->toArray(),
             'items' => $i->quotationItems->map(fn ($item) => [
@@ -223,6 +229,64 @@ class InvoiceService
                 'sort_order' => $item->sort_order,
             ]),
         ];
+    }
+
+    /**
+     * Build invoice payment progress rows showing cumulative payments and pending balance.
+     * Each invoice shows all previous payments plus its own, and the remaining pending amount.
+     *
+     * @param  Collection<int, mixed>  $invoices
+     * @return array<int, array{label:string,amount_paid:float,total_amount:float,pending_amount:float}>
+     */
+    private function buildInvoicePaymentProgressRows(Collection $invoices, float $totalAmount): array
+    {
+        $normalizedTotalAmount = $this->formatService->cleanDecimal($totalAmount);
+        $orderedInvoices = $invoices
+            ->sortBy(function ($invoice): int {
+                return (int) ($invoice->invoice_date?->timestamp ?? $invoice->id ?? 0);
+            })
+            ->values();
+
+        if ($orderedInvoices->isEmpty()) {
+            return [
+                [
+                    'label' => 'Pending Payment',
+                    'amount_paid' => 0.0,
+                    'total_amount' => $normalizedTotalAmount,
+                    'pending_amount' => $normalizedTotalAmount,
+                ],
+            ];
+        }
+
+        $cumulativePaid = 0.0;
+
+        return $orderedInvoices->map(function ($invoice, int $index) use (&$cumulativePaid, $normalizedTotalAmount): array {
+            $cumulativePaid += max(0.0, (float) ($invoice->amount ?? 0));
+            $pendingAmount = max(0.0, $normalizedTotalAmount - $cumulativePaid);
+
+            return [
+                'label' => $this->toOrdinal($index + 1).' Payment',
+                'amount_paid' => $this->formatService->cleanDecimal($cumulativePaid),
+                'total_amount' => $normalizedTotalAmount,
+                'pending_amount' => $this->formatService->cleanDecimal($pendingAmount),
+            ];
+        })->values()->all();
+    }
+
+    private function toOrdinal(int $number): string
+    {
+        $mod100 = $number % 100;
+
+        if ($mod100 >= 11 && $mod100 <= 13) {
+            return $number.'th';
+        }
+
+        return match ($number % 10) {
+            1 => $number.'st',
+            2 => $number.'nd',
+            3 => $number.'rd',
+            default => $number.'th',
+        };
     }
 
     /**
@@ -342,7 +406,7 @@ class InvoiceService
 
             if (DataScope::shouldScopeSalesOwnership()) {
                 $query->whereHas('order.quotation', function ($quotationQuery) {
-                    $quotationQuery->where('created_by', auth()->id());
+                    $quotationQuery->where('created_by', auth()->user()?->id);
                 });
             }
 

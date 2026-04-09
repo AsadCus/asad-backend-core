@@ -206,7 +206,7 @@ export default function ModelNumberInput({
     value,
     formatId,
     onValueChange,
-    onFormatIdChange = () => {},
+    onFormatIdChange = () => { },
     onSimpleLatestPersist,
     disabled = false,
     error,
@@ -342,14 +342,13 @@ export default function ModelNumberInput({
                 setIsSuggesting(false);
             }
         })();
-    }, [
-        disabled,
-        isSimpleMode,
-        modelKey,
-        onValueChange,
-        simpleValueMode,
-        value,
-    ]);
+
+        // fungsi yang tidak kena infinite loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [disabled, isSimpleMode, modelKey, simpleValueMode]);
+
+    // Fungsi yang terkena infinite Loop
+    // }, [disabled, isSimpleMode, modelKey, onValueChange, simpleValueMode, value]);
 
     const handleSuggest = async (
         nextFormatId?: number | null,
@@ -614,7 +613,7 @@ export default function ModelNumberInput({
                                 className={cn(
                                     'pr-11',
                                     isComponentBusy &&
-                                        'bg-muted/40 text-muted-foreground',
+                                    'bg-muted/40 text-muted-foreground',
                                 )}
                             />
                             {!disabled && (
@@ -798,9 +797,9 @@ export default function ModelNumberInput({
                                         className={cn(
                                             'cursor-pointer rounded-md border p-3 transition-colors hover:bg-muted/40',
                                             editingFormat.id === format.id &&
-                                                'border-primary bg-primary/5',
+                                            'border-primary bg-primary/5',
                                             isDialogBusy &&
-                                                'pointer-events-none opacity-70',
+                                            'pointer-events-none opacity-70',
                                         )}
                                         onClick={() => {
                                             if (isDialogBusy) {
@@ -846,7 +845,7 @@ export default function ModelNumberInput({
                                                     }}
                                                 >
                                                     {deletingFormatId ===
-                                                    format.id ? (
+                                                        format.id ? (
                                                         <Loader2 className="h-4 w-4 animate-spin" />
                                                     ) : (
                                                         <Trash2 className="h-4 w-4 text-destructive" />

@@ -63,6 +63,21 @@ const columns: ColumnDef<ManifestSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'total_seats',
+        header: 'Seats',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const total = row.original.total_seats;
+            const left = row.original.seats_left;
+
+            if (total === null || total === undefined) {
+                return '-';
+            }
+
+            return `${left ?? 0} / ${total}`;
+        },
+    },
+    {
         accessorKey: 'status',
         header: 'Status',
         meta: { exportable: true },
