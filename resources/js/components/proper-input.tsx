@@ -206,7 +206,7 @@ export function ProperInput({
                 placeholder={placeholder}
                 readOnly={isReadOnlyMode}
                 className={cn(
-                    isReadOnlyMode ? 'bg-muted/40 text-muted-foreground' : '',
+                    isReadOnlyMode ? 'bg-muted/40' : '',
                     size === 'compact'
                         ? 'min-h-[36px] px-2 py-1 text-base sm:min-h-[48px]'
                         : '',
@@ -242,9 +242,7 @@ export function ProperInput({
                     placeholder={timeFormat === 24 ? 'HH:mm' : 'hh:mm AM/PM'}
                     readOnly={isReadOnlyMode}
                     className={cn(
-                        isReadOnlyMode
-                            ? 'bg-muted/40 text-muted-foreground'
-                            : '',
+                        isReadOnlyMode ? 'bg-muted/40' : '',
                         'pr-10',
                         size === 'compact'
                             ? 'h-6 px-2 py-1 text-base sm:h-7'
@@ -448,7 +446,7 @@ export function ProperInput({
             placeholder={placeholder}
             readOnly={isReadOnlyMode}
             className={cn(
-                isReadOnlyMode ? 'bg-muted/40 text-muted-foreground' : '',
+                isReadOnlyMode ? 'bg-muted/40' : '',
                 size === 'compact' ? 'h-6 px-2 py-1 text-base sm:h-7' : '',
                 className,
             )}

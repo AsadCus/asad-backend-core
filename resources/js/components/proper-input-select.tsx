@@ -207,10 +207,7 @@ export function ProperInputSelect({
                     value={copyValue}
                     placeholder={placeholder}
                     readOnly
-                    className={cn(
-                        'bg-muted/40 text-muted-foreground',
-                        className,
-                    )}
+                    className={cn('bg-muted/40', className)}
                     onFocus={(event) => event.currentTarget.select()}
                 />
                 {name && (

@@ -113,7 +113,7 @@ export function DatePickerField({
                         ? `${formatDateForDisplay(new Date())} 00:00`
                         : formatDateForDisplay(new Date())
                 }
-                className={`pr-10 ${disabled ? 'bg-muted/40 text-muted-foreground' : ''}`}
+                className={`pr-10 ${disabled ? 'bg-muted/40' : ''}`}
                 readOnly={disabled}
                 onChange={(e) => {
                     onChange(e.target.value);
