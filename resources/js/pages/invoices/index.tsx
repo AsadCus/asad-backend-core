@@ -73,6 +73,16 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'package_number',
+        header: 'Package Number',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'package_name',
+        header: 'Package Name',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'customer_id',
         header: 'Customer Id',
         meta: { exportable: true },
@@ -89,25 +99,67 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'package_number',
-        header: 'Package Number',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'package_name',
-        header: 'Package Name',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'sales_id',
-        header: 'Sales Id',
+        accessorKey: 'quotation_id',
+        header: 'Quotation Id',
         meta: { exportable: true },
         filterFn: 'includesValue',
     },
     {
-        accessorKey: 'sales_name',
-        header: 'Salesperson',
+        accessorKey: 'quotation_number',
+        header: 'Quotation No.',
         meta: { exportable: true },
+    },
+    {
+        accessorKey: 'order_id',
+        header: 'Order Id',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'order_number',
+        header: 'Order No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'invoice_number',
+        header: 'Invoice No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'invoice_date',
+        header: 'Invoice Date',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+    {
+        accessorKey: 'due_date',
+        header: 'Due Date',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+    {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const status = row.original.status ?? 'draft';
+            const label =
+                statuses.find((s) => s.value === status)?.label || status;
+            const color = statusColors[status as keyof typeof statusColors];
+
+            return (
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
+                    {label}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'amount',
+        header: 'Amount',
+        meta: { exportable: true },
+        cell: ({ row }) => formatCurrency(row.original.amount),
     },
     {
         id: 'create_receipt',
@@ -160,72 +212,20 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         },
     },
     {
-        accessorKey: 'invoice_number',
-        header: 'Invoice No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'order_id',
-        header: 'Order Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'order_number',
-        header: 'Order No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'quotation_id',
-        header: 'Quotation Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'quotation_number',
-        header: 'Quotation No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'status',
-        header: 'Status',
-        meta: { exportable: true },
-        cell: ({ row }) => {
-            const status = row.original.status ?? 'draft';
-            const label =
-                statuses.find((s) => s.value === status)?.label || status;
-            const color = statusColors[status as keyof typeof statusColors];
-
-            return (
-                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
-                    {label}
-                </Badge>
-            );
-        },
-        filterFn: 'includesValue',
-    },
-    {
         accessorKey: 'description',
         header: 'Description',
         meta: { exportable: true },
     },
     {
-        accessorKey: 'amount',
-        header: 'Amount',
+        accessorKey: 'sales_id',
+        header: 'Sales Id',
         meta: { exportable: true },
-        cell: ({ row }) => formatCurrency(row.original.amount),
+        filterFn: 'includesValue',
     },
     {
-        accessorKey: 'invoice_date',
-        header: 'Invoice Date',
+        accessorKey: 'sales_name',
+        header: 'Salesperson',
         meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-    },
-    {
-        accessorKey: 'due_date',
-        header: 'Due Date',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'created_at',
@@ -462,14 +462,25 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
-                                    order_id: false,
-                                    order_number: false,
-                                    quotation_id: false,
+                                    package_number: true,
+                                    package_name: false,
                                     customer_id: false,
                                     customer_number: false,
-                                    package_number: false,
-                                    package_name: false,
+                                    customer_name: true,
+                                    quotation_id: false,
+                                    quotation_number: false,
+                                    order_id: false,
+                                    order_number: false,
+                                    invoice_id: false,
+                                    invoice_number: true,
+                                    invoice_date: true,
+                                    due_date: false,
+                                    status: true,
+                                    amount: true,
+                                    create_receipt: true,
+                                    description: true,
                                     sales_id: false,
+                                    sales_name: true,
                                     created_at: false,
                                     updated_at: false,
                                 },

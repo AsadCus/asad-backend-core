@@ -71,6 +71,16 @@ const getColumns = (
         meta: { exportable: true },
     },
     {
+        accessorKey: 'package_number',
+        header: 'Package Number',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'package_name',
+        header: 'Package Name',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'customer_id',
         header: 'Customer ID',
         meta: { exportable: true },
@@ -87,37 +97,6 @@ const getColumns = (
         meta: { exportable: true },
     },
     {
-        accessorKey: 'package_number',
-        header: 'Package Number',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'package_name',
-        header: 'Package Name',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'sales_id',
-        header: 'Sales ID',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'sales_name',
-        header: 'Salesperson',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'invoice_description',
-        header: 'Invoice Description',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'receipt_number',
-        header: 'Receipt No.',
-        meta: { exportable: true },
-    },
-    {
         accessorKey: 'invoice_id',
         header: 'Invoice Id',
         meta: { exportable: true },
@@ -126,6 +105,11 @@ const getColumns = (
     {
         accessorKey: 'invoice_number',
         header: 'Invoice No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'invoice_description',
+        header: 'Invoice Description',
         meta: { exportable: true },
     },
     {
@@ -153,16 +137,21 @@ const getColumns = (
         filterFn: 'includesValue',
     },
     {
-        accessorKey: 'amount',
-        header: 'Amount',
+        accessorKey: 'receipt_number',
+        header: 'Receipt No.',
         meta: { exportable: true },
-        cell: ({ row }) => formatReceiptAmount(row.original),
     },
     {
         accessorKey: 'receipt_date',
         header: 'Receipt Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
+    },
+    {
+        accessorKey: 'amount',
+        header: 'Amount',
+        meta: { exportable: true },
+        cell: ({ row }) => formatReceiptAmount(row.original),
     },
     {
         accessorKey: 'payment_method',
@@ -176,6 +165,17 @@ const getColumns = (
 
             return label;
         },
+    },
+    {
+        accessorKey: 'sales_id',
+        header: 'Sales ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'sales_name',
+        header: 'Salesperson',
+        meta: { exportable: true },
     },
     {
         accessorKey: 'reference',
@@ -343,12 +343,24 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                 },
                                 columnVisibility: {
                                     id: false,
+                                    package_number: true,
+                                    package_name: false,
                                     customer_id: false,
                                     customer_number: false,
-                                    package_number: false,
-                                    package_name: false,
-                                    sales_id: false,
+                                    customer_name: true,
                                     invoice_id: false,
+                                    invoice_number: true,
+                                    invoice_description: true,
+                                    invoice_status: true,
+                                    receipt_number: false,
+                                    receipt_date: true,
+                                    amount: true,
+                                    payment_method: true,
+                                    sales_id: false,
+                                    sales_name: true,
+                                    reference: false,
+                                    created_at: false,
+                                    updated_at: false,
                                 },
                             }}
                             renderFilter={(table) => (
