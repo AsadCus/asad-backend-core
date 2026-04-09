@@ -60,6 +60,10 @@ class PaymentStatusService
             return;
         }
 
+        if (strtolower(trim((string) $invoice->status)) === InvoiceStatus::Cancelled) {
+            return;
+        }
+
         $outstandingAmount = $this->calculateInvoiceOutstandingAmount($invoice);
 
         if ($outstandingAmount <= 0) {

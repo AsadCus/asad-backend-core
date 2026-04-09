@@ -42,11 +42,18 @@ function isExtensionApplicableToPaymentMethod(
     master: InvoicePaymentMethodExtensionMaster,
     paymentMethod?: string | null,
 ): boolean {
+    const normalizedType = String(master.type ?? '')
+        .trim()
+        .toLowerCase();
     const supportedMethods = (master.payment_methods ?? [])
         .map((method) => normalizePaymentMethodValue(method))
         .filter((method) => method !== '');
 
     if (supportedMethods.length === 0) {
+        if (['credit_card', 'other'].includes(normalizedType)) {
+            return false;
+        }
+
         return true;
     }
 

@@ -89,6 +89,16 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'package_number',
+        header: 'Package Number',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'package_name',
+        header: 'Package Name',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'sales_id',
         header: 'Sales Id',
         meta: { exportable: true },
@@ -98,51 +108,6 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         accessorKey: 'sales_name',
         header: 'Salesperson',
         meta: { exportable: true },
-    },
-    {
-        accessorKey: 'invoice_number',
-        header: 'Invoice No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'order_id',
-        header: 'Order Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'order_number',
-        header: 'Order No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'quotation_id',
-        header: 'Quotation Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'quotation_number',
-        header: 'Quotation No.',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'status',
-        header: 'Status',
-        meta: { exportable: true },
-        cell: ({ row }) => {
-            const status = row.original.status ?? 'draft';
-            const label =
-                statuses.find((s) => s.value === status)?.label || status;
-            const color = statusColors[status as keyof typeof statusColors];
-
-            return (
-                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
-                    {label}
-                </Badge>
-            );
-        },
-        filterFn: 'includesValue',
     },
     {
         id: 'create_receipt',
@@ -193,6 +158,51 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
                 </Button>
             );
         },
+    },
+    {
+        accessorKey: 'invoice_number',
+        header: 'Invoice No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'order_id',
+        header: 'Order Id',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'order_number',
+        header: 'Order No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'quotation_id',
+        header: 'Quotation Id',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'quotation_number',
+        header: 'Quotation No.',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const status = row.original.status ?? 'draft';
+            const label =
+                statuses.find((s) => s.value === status)?.label || status;
+            const color = statusColors[status as keyof typeof statusColors];
+
+            return (
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
+                    {label}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'description',
@@ -351,6 +361,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                             getRowActions={getRowActions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            // groupByRowColorKey="package_number"
                             url={invoiceIndex().url}
                             exportFilename="invoice"
                             onAction={(action: ActionType, invoiceRow) => {
@@ -456,6 +467,8 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                     quotation_id: false,
                                     customer_id: false,
                                     customer_number: false,
+                                    package_number: false,
+                                    package_name: false,
                                     sales_id: false,
                                     created_at: false,
                                     updated_at: false,

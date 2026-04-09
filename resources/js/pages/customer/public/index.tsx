@@ -6,9 +6,17 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import type { OptionType } from '@/types';
 import { Head } from '@inertiajs/react';
 import { CheckCircle } from 'lucide-react';
+import { useState } from 'react';
 import CustomerConfirmationForm from '../../confirmed-customer/form';
 import { CustomerConfirmationFormSchema } from '../schema';
 
@@ -54,6 +62,7 @@ export default function PublicCustomerForm({
     const description = isEdit
         ? 'Update your group details and member information below.'
         : 'Please fill in the group details and member information below. All required fields must be completed before submission.';
+    const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
@@ -83,6 +92,27 @@ export default function PublicCustomerForm({
                 </CardHeader>
 
                 <CardContent>
+                    <Dialog
+                        open={showSuccessDialog}
+                        onOpenChange={(open) => setShowSuccessDialog(open)}
+                    >
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-green-700">
+                                    <CheckCircle className="h-5 w-5" />
+                                    {isEdit
+                                        ? 'Update Successful'
+                                        : 'Submission Successful'}
+                                </DialogTitle>
+                                <DialogDescription className="text-base text-green-700">
+                                    {isEdit
+                                        ? 'Your customer confirmation has been updated successfully.'
+                                        : 'Your customer confirmation has been submitted successfully.'}
+                                </DialogDescription>
+                            </DialogHeader>
+                        </DialogContent>
+                    </Dialog>
+
                     {linkType === 'one_time' && oneTimeCompleted ? (
                         <Card className="border-green-600 bg-green-50 shadow-sm">
                             <CardHeader>
@@ -140,7 +170,7 @@ export default function PublicCustomerForm({
                                       : undefined
                             }
                             onSuccess={() => {
-                                // Show success state - handled by Laravel flash message
+                                setShowSuccessDialog(true);
                             }}
                         />
                     )}

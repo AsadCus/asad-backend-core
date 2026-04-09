@@ -87,6 +87,16 @@ const getColumns = (
         meta: { exportable: true },
     },
     {
+        accessorKey: 'package_number',
+        header: 'Package Number',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'package_name',
+        header: 'Package Name',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'sales_id',
         header: 'Sales ID',
         meta: { exportable: true },
@@ -244,6 +254,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            // groupByRowColorKey="package_number"
                             url={receiptIndex().url}
                             exportFilename="receipts"
                             onAction={(action: ActionType, receiptRow) => {
@@ -334,6 +345,8 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                     id: false,
                                     customer_id: false,
                                     customer_number: false,
+                                    package_number: false,
+                                    package_name: false,
                                     sales_id: false,
                                     invoice_id: false,
                                 },

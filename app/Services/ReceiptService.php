@@ -31,7 +31,7 @@ class ReceiptService
 
     public function getForDataTable(array $filters = [])
     {
-        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoice.order.quotation.createdBy:id,name'])
+        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoice.order.quotation.customerConfirmation.package:id,package_number,name', 'invoice.order.quotation.createdBy:id,name'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('invoice.order.quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);
@@ -48,6 +48,8 @@ class ReceiptService
                     'customer_id' => $r->invoice?->order->quotation->customer->id ?? '-',
                     'customer_number' => $r->invoice?->order->quotation->customer->customer_number ?? '-',
                     'customer_name' => $r->invoice?->order->quotation->customer->user->name ?? '-',
+                    'package_name' => $r->invoice?->order->quotation->customerConfirmation?->package?->name ?? '',
+                    'package_number' => $r->invoice?->order->quotation->customerConfirmation?->package?->package_number ?? '',
                     'sales_id' => $r->invoice?->order->quotation->createdBy?->id ?? '-',
                     'sales_name' => $r->invoice?->order->quotation->createdBy?->name ?? '-',
                     'amount' => $this->formatService->cleanDecimal($r->amount),
@@ -139,6 +141,8 @@ class ReceiptService
                 ]);
             }
 
+            $normalizedAmount = $this->resolveNormalizedReceiptAmount($invoice);
+
             $receipt = Receipt::create([
                 'invoice_id' => $invoice->id,
                 'receipt_number' => $this->numberingService->ensureNumber(
@@ -147,7 +151,7 @@ class ReceiptService
                     null,
                     isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
                 ),
-                'amount' => $this->formatService->cleanDecimal($data['amount']),
+                'amount' => $normalizedAmount,
                 'receipt_date' => $data['receipt_date'],
                 'payment_method' => $data['payment_method'],
                 'reference' => $data['reference'] ?? null,
@@ -391,6 +395,22 @@ class ReceiptService
                 ? (int) $data['invoice_id']
                 : (int) $receipt->invoice_id;
 
+            $invoiceQuery = Invoice::query();
+
+            if (DataScope::shouldScopeSalesOwnership()) {
+                $invoiceQuery->whereHas('order.quotation', function ($quotationQuery) {
+                    $quotationQuery->where('created_by', auth()->id());
+                });
+            }
+
+            $targetInvoice = $invoiceQuery->findOrFail($targetInvoiceId);
+
+            if (InvoiceStatus::isRefund($targetInvoice->status)) {
+                throw ValidationException::withMessages([
+                    'invoice_id' => 'Cannot assign receipt to refund invoice.',
+                ]);
+            }
+
             if ($targetInvoiceId !== (int) $receipt->invoice_id) {
                 $alreadyHasReceipt = Receipt::query()
                     ->where('invoice_id', $targetInvoiceId)
@@ -404,10 +424,7 @@ class ReceiptService
                 }
             }
 
-            $amount = $receipt->amount;
-            if (array_key_exists('amount', $data) && $data['amount'] !== null) {
-                $amount = $this->formatService->cleanDecimal($data['amount']);
-            }
+            $amount = $this->resolveNormalizedReceiptAmount($targetInvoice);
 
             $resolvedReceiptNumber = array_key_exists('receipt_number', $data)
                 ? $this->numberingService->ensureNumber(
@@ -440,5 +457,10 @@ class ReceiptService
     public function delete($id)
     {
         return Receipt::find($id)?->delete() ?? false;
+    }
+
+    private function resolveNormalizedReceiptAmount(Invoice $invoice): float
+    {
+        return (float) ($this->formatService->cleanDecimal($invoice->amount ?? 0) ?? 0);
     }
 }

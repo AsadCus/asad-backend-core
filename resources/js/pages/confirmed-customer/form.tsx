@@ -937,11 +937,12 @@ export default function CustomerConfirmationForm({
                     </div>
 
                     <div className="space-y-2">
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-center gap-3">
                             <Checkbox
                                 id="terms_dialog_accept"
                                 checked={data.terms_accepted}
                                 disabled={processing || !hasReachedTermsBottom}
+                                className="h-5 w-5 border-2 border-primary"
                                 onCheckedChange={(checked) => {
                                     const accepted = checked === true;
                                     setData('terms_accepted', accepted);
@@ -1477,17 +1478,26 @@ export default function CustomerConfirmationForm({
                 {isPublic && (
                     <Card className="py-3 md:py-6">
                         <CardContent className="px-3 md:px-6">
-                            <div className="flex flex-col items-start gap-3">
+                            <div className="flex flex-col items-start gap-3 rounded-md border border-primary/25 bg-primary/5 p-3">
                                 <div className="flex items-center gap-3">
                                     <Checkbox
                                         id="terms_accepted"
                                         checked={data.terms_accepted}
-                                        disabled
-                                        className="h-4.5 w-4.5"
+                                        onCheckedChange={(checked) => {
+                                            if (checked === true) {
+                                                setTermsDialogOpen(true);
+                                            } else {
+                                                setData(
+                                                    'terms_accepted',
+                                                    false,
+                                                );
+                                            }
+                                        }}
+                                        className="h-5 w-5 border-2 border-primary"
                                     />
                                     <Label
                                         htmlFor="terms_accepted"
-                                        className="text-base"
+                                        className="cursor-pointer text-base"
                                     >
                                         <span>
                                             I agree to the Terms and Conditions{' '}
@@ -1502,14 +1512,16 @@ export default function CustomerConfirmationForm({
                                     the information provided is accurate and you
                                     agree to our terms of service.
                                 </p>
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    className="h-auto px-0"
-                                    onClick={() => setTermsDialogOpen(true)}
-                                >
-                                    Read and Accept Terms & Conditions
-                                </Button>
+                                {!data.terms_accepted && (
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        className="h-auto p-0"
+                                        onClick={() => setTermsDialogOpen(true)}
+                                    >
+                                        Read and Accept Terms & Conditions
+                                    </Button>
+                                )}
                             </div>
                             {getError('terms_accepted') && (
                                 <p className="mt-1 text-base font-medium text-red-600">

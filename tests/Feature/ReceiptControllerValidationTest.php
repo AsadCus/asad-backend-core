@@ -99,7 +99,7 @@ class ReceiptControllerValidationTest extends TestCase
         );
     }
 
-    public function test_receipt_update_preserves_invoice_and_amount_when_not_provided(): void
+    public function test_receipt_update_normalizes_amount_to_invoice_total(): void
     {
         $graph = $this->createReceiptGraph();
 
@@ -114,10 +114,61 @@ class ReceiptControllerValidationTest extends TestCase
         $this->assertDatabaseHas('receipts', [
             'id' => $graph['receipt']->id,
             'invoice_id' => $graph['receipt']->invoice_id,
-            'amount' => '400.00',
+            'amount' => '800.00',
             'payment_method' => 'transfer',
             'reference' => 'UPDATED-REF',
         ]);
+    }
+
+    public function test_receipt_store_normalizes_amount_and_marks_invoice_paid(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RCP-NORM-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For Receipt Normalization',
+            'amount' => 1600,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(5)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        $response = $this->post(route('receipt.store'), [
+            'invoice_id' => $invoice->id,
+            'amount' => 100,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'cash',
+        ]);
+
+        $response->assertRedirect(route('invoice.index'));
+
+        $this->assertDatabaseHas('receipts', [
+            'invoice_id' => $invoice->id,
+            'amount' => '1600.00',
+        ]);
+
+        $invoice->refresh();
+        $this->assertSame('paid', (string) $invoice->status);
     }
 
     public function test_receipt_store_rejects_duplicate_invoice_receipt(): void

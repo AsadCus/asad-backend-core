@@ -1548,6 +1548,7 @@ export default function ConfirmedCustomerIndex({
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            inheritExpandedRowBackground
                             addButtonText={
                                 canCreateCustomerConfirmation
                                     ? 'Create Customer Confirmation'
@@ -2109,9 +2110,8 @@ export default function ConfirmedCustomerIndex({
                                                 <p>
                                                     Cancel refund will set
                                                     selected member status to
-                                                    Trip Cancelled after
-                                                    receipt is
-                                                    created.
+                                                    Trip Cancelled after receipt
+                                                    is created.
                                                 </p>
                                                 <p>
                                                     Overpaid refund keeps member

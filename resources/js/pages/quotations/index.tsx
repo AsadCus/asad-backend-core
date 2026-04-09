@@ -97,6 +97,16 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'package_number',
+        header: 'Package Number',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'package_name',
+        header: 'Package Name',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'sales_id',
         header: 'Sales ID',
         meta: { exportable: true },
@@ -409,6 +419,8 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     id: false,
                                     customer_id: false,
                                     customer_number: false,
+                                    package_number: false,
+                                    package_name: false,
                                     sales_id: false,
                                     description: false,
                                     expiry_date: false,

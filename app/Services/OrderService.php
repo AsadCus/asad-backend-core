@@ -39,7 +39,7 @@ class OrderService
 
     public function getForDataTable(array $filters = [])
     {
-        return Order::with(['quotation.customer.user', 'quotation.createdBy:id,name', 'invoices.receipt'])
+        return Order::with(['quotation.customer.user', 'quotation.customerConfirmation.package:id,package_number,name', 'quotation.createdBy:id,name', 'invoices.receipt'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);
@@ -58,6 +58,8 @@ class OrderService
                     'customer_id' => $o->quotation->customer->id ?? '-',
                     'customer_number' => $o->quotation->customer->customer_number ?? '-',
                     'customer_name' => $o->quotation->customer->user->name ?? '-',
+                    'package_number' => $o->quotation->customerConfirmation?->package?->package_number ?? '',
+                    'package_name' => $o->quotation->customerConfirmation?->package?->name ?? '',
                     'sales_id' => $o->quotation->createdBy?->id ?? '-',
                     'sales_name' => $o->quotation->createdBy?->name ?? '-',
                     'payment_plan' => $o->payment_plan,
@@ -77,6 +79,8 @@ class OrderService
                                 'customer_id' => $i->order->quotation->customer->id ?? '-',
                                 'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
                                 'customer_name' => $i->order->quotation->customer->user->name ?? '-',
+                                'package_name' => $i->order->quotation->customerConfirmation?->package?->name ?? '',
+                                'package_number' => $i->order->quotation->customerConfirmation?->package?->package_number ?? '',
                                 'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
                                 'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
                                 'description' => $i->description,

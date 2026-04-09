@@ -1,4 +1,11 @@
+import { clearAllDataTableSettings } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Popover,
     PopoverContent,
@@ -13,19 +20,37 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { Appearance, useAppearance } from '@/hooks/use-appearance';
 import { NotificationItem, typeStyles } from '@/pages/notifications';
 import { index, read } from '@/routes/notifications';
 import { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/react';
-import { Bell } from 'lucide-react';
+import { Bell, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 export function NavActions() {
     const [isOpen, setIsOpen] = useState(false);
     const { auth } = usePage<SharedData>().props;
     const notifications = auth.notifications;
+    const { appearance, updateAppearance } = useAppearance();
 
     const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+    const themes: Array<{ value: Appearance; label: string }> = [
+        { value: 'light', label: 'Light' },
+        { value: 'dark', label: 'Dark' },
+        { value: 'system', label: 'System' },
+    ];
+
+    const appearanceIcon =
+        appearance === 'light' ? (
+            <Sun className="h-4 w-4" />
+        ) : appearance === 'dark' ? (
+            <Moon className="h-4 w-4" />
+        ) : (
+            <Monitor className="h-4 w-4" />
+        );
 
     const handleNotificationClick = async (notif: NotificationItem) => {
         router.put(
@@ -40,6 +65,11 @@ export function NavActions() {
         );
     };
 
+    const handleDataTableReset = () => {
+        clearAllDataTableSettings();
+        toast.success('Data table settings reset to default.');
+    };
+
     return (
         <div className="flex items-center gap-2 text-base">
             <div className="hidden font-medium text-muted-foreground md:inline-block">
@@ -49,6 +79,47 @@ export function NavActions() {
                     year: 'numeric',
                 })}
             </div>
+
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        aria-label="Change theme"
+                    >
+                        {appearanceIcon}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                    {themes.map((theme) => (
+                        <DropdownMenuItem
+                            key={theme.value}
+                            onClick={() => updateAppearance(theme.value)}
+                            className="justify-between"
+                        >
+                            <span>{theme.label}</span>
+                            {appearance === theme.value && (
+                                <span className="text-xs text-muted-foreground">
+                                    Active
+                                </span>
+                            )}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label="Reset data table settings"
+                onClick={handleDataTableReset}
+            >
+                <RotateCcw className="h-4 w-4" />
+            </Button>
 
             <Popover open={isOpen} onOpenChange={setIsOpen}>
                 <PopoverTrigger asChild>

@@ -85,6 +85,16 @@ const columns: ColumnDef<OrderSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'package_number',
+        header: 'Package Number',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'package_name',
+        header: 'Package Name',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'sales_id',
         header: 'Sales ID',
         meta: { exportable: true },
@@ -290,6 +300,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
                             actions={[]}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            inheritExpandedRowBackground
                             getRowActions={getRowActions}
                             url={index().url}
                             enableExpand={true}
@@ -343,6 +354,8 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                     id: false,
                                     customer_id: false,
                                     customer_number: false,
+                                    package_number: false,
+                                    package_name: false,
                                     sales_id: false,
                                     quotation_id: false,
                                     created_at: false,
@@ -387,257 +400,217 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                     ).invoices ?? [];
 
                                 return (
-                                    <div className="space-y-2 pr-2">
-                                        <div className="relative flex-1 space-y-2 overflow-hidden rounded-xl border border-sidebar-border/70 bg-white px-3 py-3 md:min-h-min dark:border-sidebar-border">
-                                            <h4 className="font-semibold">
-                                                Invoices From{' '}
-                                                {orderRow.original.order_number}
-                                            </h4>
-                                            <DataTable
-                                                enableExpand={false}
-                                                columns={invoiceColumns}
-                                                data={invoices}
-                                                actions={[]}
-                                                getRowActions={(
-                                                    invoice: InvoiceSchema,
-                                                ) => {
-                                                    const rowActions: ActionType[] =
-                                                        [];
+                                    <DataTable
+                                        enableExpand={false}
+                                        columns={invoiceColumns}
+                                        data={invoices}
+                                        actions={[]}
+                                        getRowActions={(
+                                            invoice: InvoiceSchema,
+                                        ) => {
+                                            const rowActions: ActionType[] = [];
 
-                                                    if (
-                                                        userPermissions.includes(
-                                                            'invoice view',
-                                                        )
-                                                    ) {
-                                                        rowActions.push('view');
-                                                        rowActions.push(
-                                                            'preview',
+                                            if (
+                                                userPermissions.includes(
+                                                    'invoice view',
+                                                )
+                                            ) {
+                                                rowActions.push('view');
+                                                rowActions.push('preview');
+                                                rowActions.push('download');
+                                            }
+
+                                            // if (
+                                            //     userPermissions.includes(
+                                            //         'invoice edit',
+                                            //     )
+                                            // ) {
+                                            //     rowActions.push('edit');
+                                            // }
+
+                                            if (
+                                                userPermissions.includes(
+                                                    'receipt view',
+                                                ) &&
+                                                invoice.status === 'paid' &&
+                                                invoice.has_receipt
+                                            ) {
+                                                rowActions.push(
+                                                    'receipt-preview',
+                                                );
+                                            }
+
+                                            if (
+                                                !invoice.is_refund &&
+                                                invoice.status !== 'refund' &&
+                                                invoice.status !== 'paid' &&
+                                                invoice.status !==
+                                                    'cancelled' &&
+                                                !invoice.has_receipt
+                                            ) {
+                                                rowActions.push(
+                                                    'create-receipt',
+                                                );
+                                            }
+
+                                            return rowActions;
+                                        }}
+                                        url={invoiceIndex().url}
+                                        exportFilename="order"
+                                        onAction={(
+                                            action: ActionType,
+                                            invoiceRow,
+                                        ) => {
+                                            if (action === 'add') {
+                                                router.get(createInvoice().url);
+                                                return;
+                                            }
+
+                                            const invoice =
+                                                invoiceRow?.original;
+                                            if (!invoice) return;
+
+                                            const invoiceId = invoice.id;
+                                            if (!invoiceId) return;
+
+                                            if (action === 'view') {
+                                                router.get(
+                                                    showInvoice(invoiceId).url,
+                                                );
+                                            } else if (action === 'preview') {
+                                                handlePreview(invoice);
+                                            } else if (
+                                                action === 'receipt-preview'
+                                            ) {
+                                                handleReceiptPreview(invoice);
+                                            } else if (
+                                                action === 'create-receipt'
+                                            ) {
+                                                router.get(
+                                                    createReceipt.url(),
+                                                    {
+                                                        invoice_id: invoice.id,
+                                                    },
+                                                );
+                                            } else if (action === 'download') {
+                                                (async () => {
+                                                    try {
+                                                        const response =
+                                                            await fetch(
+                                                                `/invoice/${invoiceId}/generate-pdf`,
+                                                            );
+                                                        if (!response.ok) {
+                                                            throw new Error(
+                                                                'Failed to generate PDF',
+                                                            );
+                                                        }
+
+                                                        const blob =
+                                                            await response.blob();
+                                                        const url =
+                                                            window.URL.createObjectURL(
+                                                                blob,
+                                                            );
+
+                                                        window.open(
+                                                            url,
+                                                            '_blank',
                                                         );
-                                                        rowActions.push(
-                                                            'download',
+
+                                                        const link =
+                                                            document.createElement(
+                                                                'a',
+                                                            );
+                                                        link.href = url;
+                                                        link.download = `invoice-${invoice.invoice_number}.pdf`;
+                                                        document.body.appendChild(
+                                                            link,
+                                                        );
+                                                        link.click();
+                                                        document.body.removeChild(
+                                                            link,
+                                                        );
+                                                    } catch (error) {
+                                                        console.error(
+                                                            'Error opening PDF:',
+                                                            error,
                                                         );
                                                     }
-
-                                                    // if (
-                                                    //     userPermissions.includes(
-                                                    //         'invoice edit',
-                                                    //     )
-                                                    // ) {
-                                                    //     rowActions.push('edit');
-                                                    // }
-
-                                                    if (
-                                                        userPermissions.includes(
-                                                            'receipt view',
-                                                        ) &&
-                                                        invoice.status ===
-                                                            'paid' &&
-                                                        invoice.has_receipt
-                                                    ) {
-                                                        rowActions.push(
-                                                            'receipt-preview',
-                                                        );
-                                                    }
-
-                                                    if (
-                                                        !invoice.is_refund &&
-                                                        invoice.status !==
-                                                            'refund' &&
-                                                        invoice.status !==
-                                                            'paid' &&
-                                                        invoice.status !==
-                                                            'cancelled' &&
-                                                        !invoice.has_receipt
-                                                    ) {
-                                                        rowActions.push(
-                                                            'create-receipt',
-                                                        );
-                                                    }
-
-                                                    return rowActions;
-                                                }}
-                                                url={invoiceIndex().url}
-                                                exportFilename="order"
-                                                onAction={(
-                                                    action: ActionType,
-                                                    invoiceRow,
-                                                ) => {
-                                                    if (action === 'add') {
-                                                        router.get(
-                                                            createInvoice().url,
-                                                        );
-                                                        return;
-                                                    }
-
-                                                    const invoice =
-                                                        invoiceRow?.original;
-                                                    if (!invoice) return;
-
-                                                    const invoiceId =
-                                                        invoice.id;
-                                                    if (!invoiceId) return;
-
-                                                    if (action === 'view') {
-                                                        router.get(
-                                                            showInvoice(
+                                                })();
+                                            } else if (action === 'edit') {
+                                                router.get(
+                                                    editInvoice(invoiceId).url,
+                                                );
+                                            } else if (action === 'delete') {
+                                                confirm({
+                                                    title: 'Delete Invoice',
+                                                    message: `Are you sure you want to delete "${invoice.invoice_number}"?`,
+                                                    confirmText: 'Delete',
+                                                    cancelText: 'Cancel',
+                                                    onConfirm: () => {
+                                                        router.delete(
+                                                            destroyInvoice(
                                                                 invoiceId,
                                                             ).url,
                                                         );
-                                                    } else if (
-                                                        action === 'preview'
-                                                    ) {
-                                                        handlePreview(invoice);
-                                                    } else if (
-                                                        action ===
-                                                        'receipt-preview'
-                                                    ) {
-                                                        handleReceiptPreview(
-                                                            invoice,
-                                                        );
-                                                    } else if (
-                                                        action ===
-                                                        'create-receipt'
-                                                    ) {
-                                                        router.get(
-                                                            createReceipt.url(),
-                                                            {
-                                                                invoice_id:
-                                                                    invoice.id,
-                                                            },
-                                                        );
-                                                    } else if (
-                                                        action === 'download'
-                                                    ) {
-                                                        (async () => {
-                                                            try {
-                                                                const response =
-                                                                    await fetch(
-                                                                        `/invoice/${invoiceId}/generate-pdf`,
-                                                                    );
-                                                                if (
-                                                                    !response.ok
-                                                                ) {
-                                                                    throw new Error(
-                                                                        'Failed to generate PDF',
-                                                                    );
-                                                                }
-
-                                                                const blob =
-                                                                    await response.blob();
-                                                                const url =
-                                                                    window.URL.createObjectURL(
-                                                                        blob,
-                                                                    );
-
-                                                                window.open(
-                                                                    url,
-                                                                    '_blank',
-                                                                );
-
-                                                                const link =
-                                                                    document.createElement(
-                                                                        'a',
-                                                                    );
-                                                                link.href = url;
-                                                                link.download = `invoice-${invoice.invoice_number}.pdf`;
-                                                                document.body.appendChild(
-                                                                    link,
-                                                                );
-                                                                link.click();
-                                                                document.body.removeChild(
-                                                                    link,
-                                                                );
-                                                            } catch (error) {
-                                                                console.error(
-                                                                    'Error opening PDF:',
-                                                                    error,
-                                                                );
-                                                            }
-                                                        })();
-                                                    } else if (
-                                                        action === 'edit'
-                                                    ) {
-                                                        router.get(
-                                                            editInvoice(
-                                                                invoiceId,
-                                                            ).url,
-                                                        );
-                                                    } else if (
-                                                        action === 'delete'
-                                                    ) {
-                                                        confirm({
-                                                            title: 'Delete Invoice',
-                                                            message: `Are you sure you want to delete "${invoice.invoice_number}"?`,
-                                                            confirmText:
-                                                                'Delete',
-                                                            cancelText:
-                                                                'Cancel',
-                                                            onConfirm: () => {
-                                                                router.delete(
-                                                                    destroyInvoice(
-                                                                        invoiceId,
-                                                                    ).url,
-                                                                );
-                                                            },
-                                                        });
-                                                    }
-                                                }}
-                                                initialState={{
-                                                    columnFilters: [
-                                                        {
-                                                            id: 'status',
-                                                            value: defaultOrderExpandedInvoiceStatusFilters,
-                                                        },
-                                                    ],
-                                                    pagination: {
-                                                        pageSize: 50,
-                                                        pageIndex: 0,
                                                     },
-                                                    columnVisibility: {
-                                                        id: false,
-                                                        order_id: false,
-                                                        order_number: false,
-                                                        quotation_id: false,
-                                                        customer_id: false,
-                                                        customer_number: false,
-                                                        sales_id: false,
-                                                        created_at: false,
-                                                        updated_at: false,
-                                                    },
-                                                }}
-                                                renderFilter={(table) => (
-                                                    <>
-                                                        <ColumnFilter
-                                                            table={table}
-                                                            columnId="status"
-                                                            title="Status"
-                                                            options={
-                                                                invoiceStatuses
-                                                            }
-                                                        />
-                                                        <DateRangeFilter
-                                                            table={table}
-                                                            columnId="invoice_date"
-                                                            title="Invoice Date"
-                                                            quickDate={true}
-                                                        />
-                                                        <DateRangeFilter
-                                                            table={table}
-                                                            columnId="due_date"
-                                                            title="Due Date"
-                                                            quickDate={true}
-                                                        />
-                                                        <DateRangeFilter
-                                                            table={table}
-                                                            columnId="created_at"
-                                                            title="Created At"
-                                                            quickDate={true}
-                                                        />
-                                                    </>
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
+                                                });
+                                            }
+                                        }}
+                                        initialState={{
+                                            columnFilters: [
+                                                {
+                                                    id: 'status',
+                                                    value: defaultOrderExpandedInvoiceStatusFilters,
+                                                },
+                                            ],
+                                            pagination: {
+                                                pageSize: 50,
+                                                pageIndex: 0,
+                                            },
+                                            columnVisibility: {
+                                                id: false,
+                                                order_id: false,
+                                                order_number: false,
+                                                quotation_id: false,
+                                                customer_id: false,
+                                                customer_number: false,
+                                                package_number: false,
+                                                package_name: false,
+                                                sales_id: false,
+                                                created_at: false,
+                                                updated_at: false,
+                                            },
+                                        }}
+                                        renderFilter={(table) => (
+                                            <>
+                                                <ColumnFilter
+                                                    table={table}
+                                                    columnId="status"
+                                                    title="Status"
+                                                    options={invoiceStatuses}
+                                                />
+                                                <DateRangeFilter
+                                                    table={table}
+                                                    columnId="invoice_date"
+                                                    title="Invoice Date"
+                                                    quickDate={true}
+                                                />
+                                                <DateRangeFilter
+                                                    table={table}
+                                                    columnId="due_date"
+                                                    title="Due Date"
+                                                    quickDate={true}
+                                                />
+                                                <DateRangeFilter
+                                                    table={table}
+                                                    columnId="created_at"
+                                                    title="Created At"
+                                                    quickDate={true}
+                                                />
+                                            </>
+                                        )}
+                                    />
                                 );
                             }}
                         />

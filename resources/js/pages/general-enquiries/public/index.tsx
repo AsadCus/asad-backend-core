@@ -7,6 +7,13 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Head, useForm } from '@inertiajs/react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -141,18 +148,33 @@ export default function GeneralEnquiryForm({
                 </CardHeader>
 
                 <CardContent>
-                    <form onSubmit={submit} className="space-y-6">
-                        {/* Success Alert */}
-                        {isSubmitted && (
-                            <Alert className="border-green-600 bg-green-50 shadow-sm">
-                                <CheckCircle className="h-5 w-5 text-green-600" />
-                                <AlertDescription className="font-medium text-green-900">
-                                    Success! Your enquiry has been submitted. We
-                                    will contact you soon.
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                    <Dialog
+                        open={isSubmitted}
+                        onOpenChange={(open) => setIsSubmitted(open)}
+                    >
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-green-700">
+                                    <CheckCircle className="h-5 w-5" />
+                                    Submission Successful
+                                </DialogTitle>
+                                <DialogDescription className="text-base text-green-700">
+                                    Your enquiry has been submitted. We will
+                                    contact you soon.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="flex justify-end">
+                                <Button
+                                    type="button"
+                                    onClick={() => setIsSubmitted(false)}
+                                >
+                                    Close
+                                </Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
 
+                    <form onSubmit={submit} className="space-y-6">
                         {/* Error Alert */}
                         {Object.keys(errors).length > 0 && !isView && (
                             <Alert variant="destructive">
