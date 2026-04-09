@@ -43,7 +43,7 @@ import {
 } from '@/lib/numbering-formats';
 import { cn } from '@/lib/utils';
 import { Check, Loader2, Plus, Settings2, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface NumberingFormatFormState {
     id: number | null;
@@ -206,7 +206,7 @@ export default function ModelNumberInput({
     value,
     formatId,
     onValueChange,
-    onFormatIdChange = () => { },
+    onFormatIdChange = () => {},
     onSimpleLatestPersist,
     disabled = false,
     error,
@@ -231,6 +231,16 @@ export default function ModelNumberInput({
         'format' | 'model'
     >('model');
     const isSimpleMode = mode === 'simple';
+    const onValueChangeRef = useRef(onValueChange);
+    const onSimpleLatestPersistRef = useRef(onSimpleLatestPersist);
+
+    useEffect(() => {
+        onValueChangeRef.current = onValueChange;
+    }, [onValueChange]);
+
+    useEffect(() => {
+        onSimpleLatestPersistRef.current = onSimpleLatestPersist;
+    }, [onSimpleLatestPersist]);
 
     const isDialogBusy =
         isLoadingFormats || isSavingFormat || deletingFormatId !== null;
@@ -242,7 +252,33 @@ export default function ModelNumberInput({
         [formats, formatId],
     );
 
-    const loadFormats = async (): Promise<void> => {
+    const handleSuggest = useCallback(
+        async (nextFormatId?: number | null): Promise<void> => {
+            setIsSuggesting(true);
+            setInlineError(null);
+
+            try {
+                const suggestion = await suggestNumber(
+                    modelKey,
+                    nextFormatId ?? formatId,
+                    'format',
+                );
+                onValueChangeRef.current(suggestion.number);
+                onFormatIdChange(suggestion.format_id ?? null);
+            } catch (exception) {
+                setInlineError(
+                    exception instanceof Error
+                        ? exception.message
+                        : 'Unable to suggest the next model number.',
+                );
+            } finally {
+                setIsSuggesting(false);
+            }
+        },
+        [formatId, modelKey, onFormatIdChange],
+    );
+
+    const loadFormats = useCallback(async (): Promise<void> => {
         setIsLoadingFormats(true);
         setDialogError(null);
         setInlineError(null);
@@ -283,7 +319,15 @@ export default function ModelNumberInput({
         } finally {
             setIsLoadingFormats(false);
         }
-    };
+    }, [
+        disabled,
+        formatId,
+        handleSuggest,
+        modelKey,
+        onFormatIdChange,
+        skipInitialAutofill,
+        value,
+    ]);
 
     useEffect(() => {
         if (isSimpleMode) {
@@ -291,8 +335,7 @@ export default function ModelNumberInput({
         }
 
         void loadFormats();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [modelKey, isSimpleMode]);
+    }, [isSimpleMode, loadFormats]);
 
     useEffect(() => {
         if (!isSimpleMode) {
@@ -305,7 +348,7 @@ export default function ModelNumberInput({
             void (async () => {
                 try {
                     const simpleState = await fetchSimpleState(modelKey);
-                    onValueChange(simpleState.latest_number ?? '');
+                    onValueChangeRef.current(simpleState.latest_number ?? '');
                 } catch (exception) {
                     setInlineError(
                         exception instanceof Error
@@ -331,7 +374,7 @@ export default function ModelNumberInput({
                     null,
                     'simple',
                 );
-                onValueChange(suggestion.number ?? '');
+                onValueChangeRef.current(suggestion.number ?? '');
             } catch (exception) {
                 setInlineError(
                     exception instanceof Error
@@ -342,38 +385,7 @@ export default function ModelNumberInput({
                 setIsSuggesting(false);
             }
         })();
-
-        // fungsi yang tidak kena infinite loop
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [disabled, isSimpleMode, modelKey, simpleValueMode]);
-
-    // Fungsi yang terkena infinite Loop
-    // }, [disabled, isSimpleMode, modelKey, onValueChange, simpleValueMode, value]);
-
-    const handleSuggest = async (
-        nextFormatId?: number | null,
-    ): Promise<void> => {
-        setIsSuggesting(true);
-        setInlineError(null);
-
-        try {
-            const suggestion = await suggestNumber(
-                modelKey,
-                nextFormatId ?? formatId,
-                'format',
-            );
-            onValueChange(suggestion.number);
-            onFormatIdChange(suggestion.format_id ?? null);
-        } catch (exception) {
-            setInlineError(
-                exception instanceof Error
-                    ? exception.message
-                    : 'Unable to suggest the next model number.',
-            );
-        } finally {
-            setIsSuggesting(false);
-        }
-    };
+    }, [disabled, isSimpleMode, modelKey, simpleValueMode, value]);
 
     const handleFormatChange = async (nextValue: string): Promise<void> => {
         setInlineError(null);
@@ -420,11 +432,11 @@ export default function ModelNumberInput({
 
                         if (
                             simpleValueMode === 'latest' &&
-                            onSimpleLatestPersist &&
+                            onSimpleLatestPersistRef.current &&
                             validationMessage === null
                         ) {
                             void Promise.resolve(
-                                onSimpleLatestPersist(trimmed),
+                                onSimpleLatestPersistRef.current(trimmed),
                             ).catch((exception) => {
                                 setInlineError(
                                     exception instanceof Error
@@ -613,7 +625,7 @@ export default function ModelNumberInput({
                                 className={cn(
                                     'pr-11',
                                     isComponentBusy &&
-                                    'bg-muted/40 text-muted-foreground',
+                                        'bg-muted/40 text-muted-foreground',
                                 )}
                             />
                             {!disabled && (
@@ -797,9 +809,9 @@ export default function ModelNumberInput({
                                         className={cn(
                                             'cursor-pointer rounded-md border p-3 transition-colors hover:bg-muted/40',
                                             editingFormat.id === format.id &&
-                                            'border-primary bg-primary/5',
+                                                'border-primary bg-primary/5',
                                             isDialogBusy &&
-                                            'pointer-events-none opacity-70',
+                                                'pointer-events-none opacity-70',
                                         )}
                                         onClick={() => {
                                             if (isDialogBusy) {
@@ -845,7 +857,7 @@ export default function ModelNumberInput({
                                                     }}
                                                 >
                                                     {deletingFormatId ===
-                                                        format.id ? (
+                                                    format.id ? (
                                                         <Loader2 className="h-4 w-4 animate-spin" />
                                                     ) : (
                                                         <Trash2 className="h-4 w-4 text-destructive" />

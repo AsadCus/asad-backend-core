@@ -1525,7 +1525,7 @@ export default function ConfirmedCustomerIndex({
                     },
                     pagination: {
                         pageIndex: 0,
-                        pageSize: 10,
+                        pageSize: data.length,
                     },
                 }}
             />
@@ -1725,6 +1725,10 @@ export default function ConfirmedCustomerIndex({
                                     quoted_member_count: false,
                                     can_create_quotation: false,
                                     members_search_blob: false,
+                                },
+                                pagination: {
+                                    pageIndex: 0,
+                                    pageSize: dataGroups.length,
                                 },
                             }}
                             renderFilter={(table) => (

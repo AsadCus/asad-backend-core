@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ModuleTemplate, SignatureStampLayoutConfig } from './types';
 
 interface LivePreviewProps {
@@ -17,7 +17,9 @@ interface LivePreviewProps {
 
 /** Read a cookie by name. */
 function getCookie(name: string): string {
-    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    const match = document.cookie.match(
+        new RegExp('(?:^|; )' + name + '=([^;]*)'),
+    );
     return match ? decodeURIComponent(match[1]) : '';
 }
 
@@ -44,31 +46,24 @@ export function PdfPreview({
         () => JSON.stringify(custom_signature_stamp_layout),
         [custom_signature_stamp_layout],
     );
-    const moduleTemplateJson = useMemo(
-        () => JSON.stringify(module_templates[selectedModule]),
-        [module_templates, selectedModule],
-    );
-
     const fetchPreview = useCallback(() => {
         setLoading(true);
         setError(null);
 
         const xsrfToken = getCookie('XSRF-TOKEN');
 
-        // Parse the stable JSON strings back to objects for the request body
-        const parsedLayout = JSON.parse(customLayoutJson) as SignatureStampLayoutConfig;
-        const allModuleTemplates = JSON.parse(
-            // We need all templates, not just the selected one
-            // Re-stringify the whole map using the stable per-module json we track
-            JSON.stringify(module_templates),
-        ) as Record<string, ModuleTemplate>;
+        // Parse stable JSON string back to object for request body
+        const parsedLayout = JSON.parse(
+            customLayoutJson,
+        ) as SignatureStampLayoutConfig;
+        const allModuleTemplates = module_templates;
 
         fetch('/api/report-template/preview', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
+                Accept: 'application/json',
                 'X-XSRF-TOKEN': xsrfToken,
             },
             body: JSON.stringify({
@@ -97,7 +92,6 @@ export function PdfPreview({
             .finally(() => {
                 setLoading(false);
             });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         selectedModule,
         brand_color,
@@ -107,7 +101,7 @@ export function PdfPreview({
         company_email,
         signature_stamp_layout,
         customLayoutJson,
-        moduleTemplateJson,
+        module_templates,
     ]);
 
     useEffect(() => {
@@ -162,7 +156,10 @@ export function PdfPreview({
 
         if (scaleMode === 'fit-width') {
             const availableWidth = Math.max(320, iframe.clientWidth - 32);
-            const scale = Math.max(0.55, Math.min(2, availableWidth / contentWidth));
+            const scale = Math.max(
+                0.55,
+                Math.min(2, availableWidth / contentWidth),
+            );
             body.style.transform = `scale(${scale})`;
             body.style.width = `${contentWidth}px`;
             iframe.style.height = `${Math.ceil(contentHeight * scale) + 24}px`;
@@ -206,7 +203,9 @@ export function PdfPreview({
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/85 backdrop-blur-sm">
                         <div className="flex flex-col items-center gap-3 rounded-2xl border bg-white px-6 py-5 shadow-lg">
                             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                            <span className="text-sm font-medium text-muted-foreground">Generating preview…</span>
+                            <span className="text-sm font-medium text-muted-foreground">
+                                Generating preview…
+                            </span>
                         </div>
                     </div>
                 )}
@@ -214,7 +213,9 @@ export function PdfPreview({
                 {error && !loading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/10 p-6">
                         <div className="rounded-xl border-2 border-red-200 bg-red-50 p-6 text-center shadow-sm">
-                            <p className="text-sm font-semibold text-red-600">Preview Unavailable</p>
+                            <p className="text-sm font-semibold text-red-600">
+                                Preview Unavailable
+                            </p>
                             <p className="mt-2 text-xs text-red-500">{error}</p>
                         </div>
                     </div>
@@ -227,7 +228,9 @@ export function PdfPreview({
                         onLoad={applyScale}
                         className={cn(
                             'w-full border-0',
-                            scaleMode === 'fit-width' ? 'min-h-[70vh]' : 'h-full',
+                            scaleMode === 'fit-width'
+                                ? 'min-h-[70vh]'
+                                : 'h-full',
                         )}
                         title="PDF Preview"
                         sandbox="allow-same-origin"
