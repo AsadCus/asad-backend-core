@@ -1545,6 +1545,7 @@ export default function ConfirmedCustomerIndex({
                             searchFilterMode="outside"
                             columnFilterMode="outside"
                             inheritExpandedRowBackground
+                            groupByRowColorKey="id"
                             addButtonText={
                                 canCreateCustomerConfirmation
                                     ? 'Create Customer Confirmation'

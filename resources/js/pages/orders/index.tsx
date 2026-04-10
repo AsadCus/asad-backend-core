@@ -162,7 +162,7 @@ const columns: ColumnDef<OrderSchema>[] = [
             const color =
                 quotationStatusColors[
                     status as keyof typeof quotationStatusColors
-                ] ?? 'bg-gray-100 text-gray-800';
+                ];
 
             return (
                 <Badge
@@ -301,6 +301,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
                             searchFilterMode="outside"
                             columnFilterMode="outside"
                             inheritExpandedRowBackground
+                            groupByRowColorKey="id"
                             getRowActions={getRowActions}
                             url={index().url}
                             enableExpand={true}

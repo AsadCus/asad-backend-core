@@ -544,10 +544,8 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         if (groupByRowColorKey) {
             const classByValue = new Map<string, string>();
             const colorClasses = [
-                'bg-primary/10',
-                'bg-primary/20',
-                'bg-primary/10',
-                'bg-primary/20',
+                'bg-orange-50 dark:bg-orange-950/35',
+                'bg-orange-100 dark:bg-orange-900/35',
             ];
 
             let colorIndex = 0;
