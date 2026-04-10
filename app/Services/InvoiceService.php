@@ -35,6 +35,7 @@ class InvoiceService
         return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'order.quotation.customerConfirmation.package:id,package_number,name', 'order.quotation.createdBy:id,name'])
             ->with('receipt:id,invoice_id')
             ->withCount('receipt')
+            ->where('status', '!=', InvoiceStatus::Refund)
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('order.quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);

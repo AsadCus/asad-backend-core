@@ -82,6 +82,12 @@ class Invoice extends Model
         parent::boot();
 
         static::creating(function ($invoice) {
+            if (InvoiceStatus::isRefund($invoice->status ?? null)) {
+                $invoice->invoice_number = null;
+
+                return;
+            }
+
             if (empty($invoice->invoice_number)) {
                 $invoice->invoice_number = NumberGenerator::generate('invoice');
             }

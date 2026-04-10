@@ -299,7 +299,7 @@ class CustomerConfirmationController extends Controller
 
         return redirect()
             ->route('receipt.index')
-            ->with('success', $result['count'].' refund invoice/receipt document(s) created successfully.');
+            ->with('success', $result['count'].' refund receipt document(s) created successfully.');
     }
 
     /**

@@ -3545,6 +3545,7 @@ class CustomerConfirmationService
 
                 $refundInvoice = Invoice::create([
                     'order_id' => (int) $linkedInvoice->order_id,
+                    'invoice_number' => null,
                     'description' => $refundDescription,
                     'payment_method' => $paymentMethod,
                     'extensions' => [],

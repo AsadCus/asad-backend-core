@@ -238,5 +238,6 @@ class ReceiptControllerValidationTest extends TestCase
 
         $invoice->refresh();
         $this->assertSame('refund', (string) $invoice->status);
+        $this->assertNull($invoice->invoice_number);
     }
 }

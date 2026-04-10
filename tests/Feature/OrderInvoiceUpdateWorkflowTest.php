@@ -55,7 +55,7 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         return compact('order', 'quotation');
     }
 
-    public function test_order_datatable_and_edit_payload_include_refund_invoices(): void
+    public function test_order_datatable_and_edit_payload_exclude_refund_invoices(): void
     {
         $graph = $this->createBaseGraph();
         $order = $graph['order'];
@@ -85,13 +85,13 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             ->firstWhere('id', $order->id);
 
         $this->assertNotNull($datatableRow);
-        $this->assertCount(2, $datatableRow['invoices']);
-        $this->assertTrue(collect($datatableRow['invoices'])->contains(fn ($invoice) => ($invoice['status'] ?? null) === 'refund'));
+        $this->assertCount(1, $datatableRow['invoices']);
+        $this->assertFalse(collect($datatableRow['invoices'])->contains(fn ($invoice) => ($invoice['status'] ?? null) === 'refund'));
 
         $editPayload = $orderService->getForEditShow((int) $order->id);
 
-        $this->assertCount(2, $editPayload['invoices']);
-        $this->assertTrue(collect($editPayload['invoices'])->contains(fn ($invoice) => ($invoice['status'] ?? null) === 'refund'));
+        $this->assertCount(1, $editPayload['invoices']);
+        $this->assertFalse(collect($editPayload['invoices'])->contains(fn ($invoice) => ($invoice['status'] ?? null) === 'refund'));
     }
 
     public function test_order_update_cannot_remove_refund_invoice_when_missing_from_payload(): void
@@ -337,7 +337,7 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         }
     }
 
-    public function test_order_update_accepts_refund_row_without_id_when_invoice_number_matches_existing_refund(): void
+    public function test_order_update_rejects_refund_row_without_id_when_refund_invoice_cannot_be_resolved(): void
     {
         $graph = $this->createBaseGraph();
         $order = $graph['order'];
@@ -390,76 +390,81 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             'status' => 'refund',
         ]);
         $refundInvoice->quotationItems()->sync([$refundHeader->id, $refundDetail->id]);
+        $refundInvoice->refresh();
+
+        $this->assertNull($refundInvoice->invoice_number);
 
         /** @var OrderService $orderService */
         $orderService = app(OrderService::class);
 
-        $updatedOrder = $orderService->update([
-            'payment_plan' => 'full',
-            'invoices' => [
-                [
-                    'id' => $editableInvoice->id,
-                    '_key' => 'editable-row',
-                    'invoice_number' => 'INV-EDIT-001',
-                    'description' => 'Editable Invoice Updated',
-                    'payment_method' => 'transfer',
-                    'amount' => 1000,
-                    'invoice_date' => now()->format('Y-m-d'),
-                    'due_date' => now()->addDays(7)->format('Y-m-d'),
-                    'status' => 'issued',
-                    'items' => [
-                        [
-                            'id' => $editableItem->id,
-                            '_key' => 'editable-item',
-                            'description' => 'Editable Item Updated',
-                            'is_header' => false,
-                            'quantity' => 1,
-                            'rate' => 1000,
-                            'sort_order' => 1,
+        try {
+            $orderService->update([
+                'payment_plan' => 'full',
+                'invoices' => [
+                    [
+                        'id' => $editableInvoice->id,
+                        '_key' => 'editable-row',
+                        'invoice_number' => 'INV-EDIT-001',
+                        'description' => 'Editable Invoice Updated',
+                        'payment_method' => 'transfer',
+                        'amount' => 1000,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->addDays(7)->format('Y-m-d'),
+                        'status' => 'issued',
+                        'items' => [
+                            [
+                                'id' => $editableItem->id,
+                                '_key' => 'editable-item',
+                                'description' => 'Editable Item Updated',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => 1000,
+                                'sort_order' => 1,
+                            ],
+                        ],
+                    ],
+                    [
+                        '_key' => 'refund-row-no-id',
+                        'invoice_number' => 'INV-REFUND-001',
+                        'description' => 'Refund Invoice',
+                        'payment_method' => 'refund',
+                        'amount' => -200,
+                        'invoice_date' => now()->format('Y-m-d'),
+                        'due_date' => now()->format('Y-m-d'),
+                        'status' => 'refund',
+                        'is_refund' => true,
+                        'items' => [
+                            [
+                                'id' => $refundHeader->id,
+                                '_key' => 'refund-header',
+                                'description' => 'Refund',
+                                'is_header' => true,
+                                'quantity' => null,
+                                'rate' => null,
+                                'sort_order' => 2,
+                            ],
+                            [
+                                'id' => $refundDetail->id,
+                                '_key' => 'refund-detail',
+                                'description' => 'Refund - Detail',
+                                'is_header' => false,
+                                'quantity' => 1,
+                                'rate' => -200,
+                                'sort_order' => 3,
+                            ],
                         ],
                     ],
                 ],
-                [
-                    '_key' => 'refund-row-no-id',
-                    'invoice_number' => 'INV-REFUND-001',
-                    'description' => 'Refund Invoice',
-                    'payment_method' => 'refund',
-                    'amount' => -200,
-                    'invoice_date' => now()->format('Y-m-d'),
-                    'due_date' => now()->format('Y-m-d'),
-                    'status' => 'refund',
-                    'is_refund' => true,
-                    'items' => [
-                        [
-                            'id' => $refundHeader->id,
-                            '_key' => 'refund-header',
-                            'description' => 'Refund',
-                            'is_header' => true,
-                            'quantity' => null,
-                            'rate' => null,
-                            'sort_order' => 2,
-                        ],
-                        [
-                            'id' => $refundDetail->id,
-                            '_key' => 'refund-detail',
-                            'description' => 'Refund - Detail',
-                            'is_header' => false,
-                            'quantity' => 1,
-                            'rate' => -200,
-                            'sort_order' => 3,
-                        ],
-                    ],
-                ],
-            ],
-        ], $order->id);
+            ], $order->id);
 
-        $this->assertNotNull($updatedOrder);
-        $this->assertDatabaseHas('invoices', [
-            'id' => $refundInvoice->id,
-            'order_id' => $order->id,
-            'invoice_number' => 'INV-REFUND-001',
-            'status' => 'refund',
-        ]);
+            $this->fail('Expected refund row validation error was not thrown.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('invoices.1.invoice_number', $exception->errors());
+            $this->assertSame(
+                'Refund invoice row is invalid. Please refresh and try again.',
+                (string) ($exception->errors()['invoices.1.invoice_number'][0] ?? ''),
+            );
+        }
     }
 
     public function test_order_update_keeps_invoice_identity_and_syncs_receipt_amount_for_paid_invoice(): void

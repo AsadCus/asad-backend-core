@@ -1216,9 +1216,7 @@ export default function ConfirmedCustomerIndex({
                     paid_amount: Number(targetMember.paid_amount ?? 0),
                     total_amount: Number(targetMember.total_amount ?? 0),
                     overpaid_amount: resolveOverpaidAmount(targetMember),
-                    payment_method:
-                        targetMember.latest_invoice_payment_method ??
-                        defaultRefundPaymentMethod,
+                    payment_method: defaultRefundPaymentMethod,
                     description: REFUND_DESCRIPTION_BY_TYPE.cancel,
                     selected: true,
                     mode: 'fixed',
@@ -1234,9 +1232,7 @@ export default function ConfirmedCustomerIndex({
                     paid_amount: Number(member.paid_amount ?? 0),
                     total_amount: Number(member.total_amount ?? 0),
                     overpaid_amount: resolveOverpaidAmount(member),
-                    payment_method:
-                        member.latest_invoice_payment_method ??
-                        defaultRefundPaymentMethod,
+                    payment_method: defaultRefundPaymentMethod,
                     description: REFUND_DESCRIPTION_BY_TYPE.cancel,
                     selected: true,
                     mode: 'fixed',
@@ -2094,13 +2090,6 @@ export default function ConfirmedCustomerIndex({
                                 const selectedRows = refundRows.filter(
                                     (row) => row.selected,
                                 );
-                                const canShowOverpaidType =
-                                    refundType === 'overpaid' ||
-                                    (selectedRows.length > 0 &&
-                                        selectedRows.every(
-                                            (row) =>
-                                                resolveOverpaidAmount(row) > 0,
-                                        ));
 
                                 return (
                                     <div className="space-y-4">
@@ -2135,14 +2124,10 @@ export default function ConfirmedCustomerIndex({
                                                                 label: REFUND_PURPOSE_LABELS.cancel,
                                                                 value: 'cancel',
                                                             },
-                                                            ...(canShowOverpaidType
-                                                                ? [
-                                                                      {
-                                                                          label: REFUND_PURPOSE_LABELS.overpaid,
-                                                                          value: 'overpaid',
-                                                                      },
-                                                                  ]
-                                                                : []),
+                                                            {
+                                                                label: REFUND_PURPOSE_LABELS.overpaid,
+                                                                value: 'overpaid',
+                                                            },
                                                         ]}
                                                         value={refundType}
                                                         onValueChange={(
@@ -2168,13 +2153,6 @@ export default function ConfirmedCustomerIndex({
                                                 {selectedRows.length} /{' '}
                                                 {refundRows.length}
                                             </p>
-                                            {!canShowOverpaidType && (
-                                                <p className="text-base text-muted-foreground">
-                                                    Overpaid Refund appears only
-                                                    when all selected members
-                                                    have overpaid amount.
-                                                </p>
-                                            )}
                                         </div>
 
                                         <div className="space-y-3 rounded-md border p-3">
