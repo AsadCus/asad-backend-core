@@ -1,6 +1,7 @@
 import { ActionType } from '@/components/action-column';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
+import { DatePickerField } from '@/components/date-picker';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { formatUserTime } from '@/lib/timezone';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
     create as customerCreate,
@@ -180,9 +181,30 @@ export default function Dashboard({ data }: DashboardProps) {
         useState<PaymentSummaryType | null>(null);
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
         useState(false);
+    const [exportDateMode, setExportDateMode] = useState<'single' | 'range'>(
+        'single',
+    );
+    const [singleExportDate, setSingleExportDate] = useState<string>(
+        formatDateForDisplay(new Date()),
+    );
+    const [rangeExportStartDate, setRangeExportStartDate] = useState<string>(
+        formatDateForDisplay(new Date()),
+    );
+    const [rangeExportEndDate, setRangeExportEndDate] = useState<string>(
+        formatDateForDisplay(new Date()),
+    );
 
     const buildPaymentSummaryParams = useCallback(
-        (period: 'daily' | 'monthly' | 'yearly', yearId?: number) => {
+        (
+            period: 'daily' | 'monthly' | 'yearly',
+            yearId?: number,
+            exportDates?: {
+                mode: 'single' | 'range';
+                singleDate?: string;
+                rangeStartDate?: string;
+                rangeEndDate?: string;
+            },
+        ) => {
             const params = new URLSearchParams({ period });
 
             if (yearId) {
@@ -205,18 +227,58 @@ export default function Dashboard({ data }: DashboardProps) {
                 userTimezone || 'UTC',
             );
 
-            const localRangeStart =
+            let localRangeStart =
                 period === 'monthly'
                     ? nowInUserTimezone.startOf('month')
                     : period === 'yearly'
                       ? nowInUserTimezone.startOf('year')
                       : nowInUserTimezone.startOf('day');
-            const localRangeEnd =
+            let localRangeEnd =
                 period === 'monthly'
                     ? nowInUserTimezone.endOf('month')
                     : period === 'yearly'
                       ? nowInUserTimezone.endOf('year')
                       : nowInUserTimezone.endOf('day');
+
+            if (period === 'daily' && exportDates) {
+                if (exportDates.mode === 'single') {
+                    const parsedSingleDate = parseDisplayDate(
+                        exportDates.singleDate,
+                    );
+
+                    if (parsedSingleDate) {
+                        const singleDate = DateTime.fromJSDate(
+                            parsedSingleDate,
+                        ).setZone(userTimezone || 'UTC');
+
+                        localRangeStart = singleDate.startOf('day');
+                        localRangeEnd = singleDate.endOf('day');
+                    }
+                }
+
+                if (exportDates.mode === 'range') {
+                    const parsedStartDate = parseDisplayDate(
+                        exportDates.rangeStartDate,
+                    );
+                    const parsedEndDate = parseDisplayDate(
+                        exportDates.rangeEndDate,
+                    );
+
+                    if (parsedStartDate && parsedEndDate) {
+                        const startDate = DateTime.fromJSDate(
+                            parsedStartDate,
+                        ).setZone(userTimezone || 'UTC');
+                        const endDate = DateTime.fromJSDate(
+                            parsedEndDate,
+                        ).setZone(userTimezone || 'UTC');
+
+                        if (endDate >= startDate) {
+                            localRangeStart = startDate.startOf('day');
+                            localRangeEnd = endDate.endOf('day');
+                        }
+                    }
+                }
+            }
 
             const rangeStartUtc = localRangeStart.toUTC().toISO();
             const rangeEndUtc = localRangeEnd.toUTC().toISO();
@@ -290,13 +352,27 @@ export default function Dashboard({ data }: DashboardProps) {
         const params = buildPaymentSummaryParams(
             paymentSummaryPeriod,
             data.selectedYearId,
+            {
+                mode: exportDateMode,
+                singleDate: singleExportDate,
+                rangeStartDate: rangeExportStartDate,
+                rangeEndDate: rangeExportEndDate,
+            },
         );
 
         window.open(
             `/dashboard/export-payment-summary-pdf?${params.toString()}`,
             '_blank',
         );
-    }, [buildPaymentSummaryParams, data.selectedYearId, paymentSummaryPeriod]);
+    }, [
+        buildPaymentSummaryParams,
+        data.selectedYearId,
+        exportDateMode,
+        paymentSummaryPeriod,
+        rangeExportEndDate,
+        rangeExportStartDate,
+        singleExportDate,
+    ]);
 
     const paymentSectionTitle = 'Daily Payment';
 
@@ -488,6 +564,61 @@ export default function Dashboard({ data }: DashboardProps) {
                                 </div>
 
                                 <div className="flex items-center gap-2">
+                                    <Select
+                                        value={exportDateMode}
+                                        onValueChange={(value) =>
+                                            setExportDateMode(
+                                                value as 'single' | 'range',
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger className="h-9 w-[120px]">
+                                            <SelectValue placeholder="Date mode" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="single">
+                                                Single Date
+                                            </SelectItem>
+                                            <SelectItem value="range">
+                                                Date Range
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    {exportDateMode === 'single' ? (
+                                        <div className="w-[170px]">
+                                            <DatePickerField
+                                                id="dashboard-export-single-date"
+                                                value={singleExportDate}
+                                                disabled={false}
+                                                onChange={setSingleExportDate}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-[170px]">
+                                                <DatePickerField
+                                                    id="dashboard-export-range-start-date"
+                                                    value={rangeExportStartDate}
+                                                    disabled={false}
+                                                    onChange={
+                                                        setRangeExportStartDate
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="w-[170px]">
+                                                <DatePickerField
+                                                    id="dashboard-export-range-end-date"
+                                                    value={rangeExportEndDate}
+                                                    disabled={false}
+                                                    onChange={
+                                                        setRangeExportEndDate
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -495,7 +626,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                         onClick={handleExportPaymentSummaryPdf}
                                     >
                                         <Download className="h-4 w-4" />
-                                        Export PDF
+                                        Export Daily Report
                                     </Button>
                                 </div>
                             </div>

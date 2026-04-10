@@ -2,6 +2,13 @@
     $mode = $branding['signature_stamp_layout'] ?? 'default';
     $showStamp = !empty($branding['show_stamp']);
     $showSignature = !empty($branding['show_signature']);
+    $showQr = !empty($branding['show_qr']);
+    $qrAlignmentValue = $branding['qr_alignment'] ?? 'center';
+    $qrAlignment = in_array($qrAlignmentValue, ['left', 'center', 'right'], true)
+        ? $qrAlignmentValue
+        : 'center';
+    $qrSourceAbsolute = $branding['qr_path_absolute'] ?? null;
+    $qrSourceUrl = $branding['qr_url'] ?? null;
 
     // Always prefer custom paths (from "Configure Layout" dialog), fall back to regular paths.
     // The $mode variable is intentionally kept for the positioning/layout logic below.
@@ -54,8 +61,21 @@
     }
 @endphp
 
-@if ($showStamp || $showSignature)
+@if ($showStamp || $showSignature || $showQr)
     <div style="display:block; margin-top:8px;">
+        @if ($showQr)
+            <div style="text-align:{{ $qrAlignment }}; margin-bottom:6px;">
+                @if (($is_pdf ?? false) && !empty($qrSourceAbsolute) && file_exists($qrSourceAbsolute))
+                    <img src="{{ $qrSourceAbsolute }}" alt="QR Code"
+                        style="height:74px; width:74px; object-fit:contain; display:inline-block;">
+                @elseif(!empty($qrSourceUrl))
+                    <img src="{{ $qrSourceUrl }}" alt="QR Code"
+                        style="height:74px; width:74px; object-fit:contain; display:inline-block;">
+                @endif
+            </div>
+        @endif
+
+        @if ($showStamp || $showSignature)
         <div style="{{ $isStacked ? 'position:relative; width:fit-content; height:' . $stackedHeight . ';' : 'display:flex; flex-direction:' . $flexDirection . '; align-items:' . $alignItems . '; gap:10px; width:fit-content;' }}">
             @if ($signatureFirst)
                 @if ($showSignature)
@@ -105,15 +125,16 @@
                 @endif
             @endif
         </div>
-        @if ($showNameDate && (!empty($fullName) || !empty($displayDate)))
-            <div style="margin-top:{{ $isStacked ? '4px' : '2px' }}; font-size:10px; line-height:1.2; display:flex; gap:12px; width:fit-content;">
-                @if (!empty($fullName))
-                    <span>{{ $fullName }}</span>
-                @endif
-                @if (!empty($displayDate))
-                    <span>{{ $displayDate }}</span>
-                @endif
-            </div>
+            @if ($showNameDate && (!empty($fullName) || !empty($displayDate)))
+                <div style="margin-top:{{ $isStacked ? '4px' : '2px' }}; font-size:10px; line-height:1.2; display:flex; gap:12px; width:fit-content;">
+                    @if (!empty($fullName))
+                        <span>{{ $fullName }}</span>
+                    @endif
+                    @if (!empty($displayDate))
+                        <span>{{ $displayDate }}</span>
+                    @endif
+                </div>
+            @endif
         @endif
     </div>
 @endif

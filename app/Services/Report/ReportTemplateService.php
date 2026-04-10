@@ -48,6 +48,7 @@ class ReportTemplateService
         $logo = $this->resolveAsset($settings->logo_path, 'logo-primary.png');
         $stamp = $this->resolveAsset($settings->stamp_path);
         $signature = $this->resolveAsset($settings->signature_path);
+        $qrImage = $this->resolveAsset($settings->qr_image_path);
         $customStamp = $this->resolveAsset($settings->custom_stamp_path);
         $customSignature = $this->resolveAsset($settings->custom_signature_path);
 
@@ -58,16 +59,21 @@ class ReportTemplateService
             'company_email' => $settings->company_email,
             'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
             'custom_signature_stamp_layout' => $settings->custom_signature_stamp_layout,
+            'qr_alignment' => in_array($settings->qr_alignment, ['left', 'center', 'right'], true)
+                ? $settings->qr_alignment
+                : 'center',
             // Relative URL versions (for web/frontend display) - works regardless of APP_URL or port
             'logo_url' => $logo['url'],
             'stamp_url' => $stamp['url'],
             'signature_url' => $signature['url'],
+            'qr_url' => $qrImage['url'],
             'custom_stamp_url' => $customStamp['url'],
             'custom_signature_url' => $customSignature['url'],
             // Absolute path versions (for DomPDF)
             'logo_path_absolute' => $logo['absolute'],
             'stamp_path_absolute' => $stamp['absolute'],
             'signature_path_absolute' => $signature['absolute'],
+            'qr_path_absolute' => $qrImage['absolute'],
             'custom_stamp_path_absolute' => $customStamp['absolute'],
             'custom_signature_path_absolute' => $customSignature['absolute'],
             'footer_text' => $settings->footer_text,
@@ -111,6 +117,7 @@ class ReportTemplateService
         // Ensure boolean values are properly cast
         $moduleTemplate['show_stamp'] = (bool) ($moduleTemplate['show_stamp'] ?? false);
         $moduleTemplate['show_signature'] = (bool) ($moduleTemplate['show_signature'] ?? false);
+        $moduleTemplate['show_qr'] = (bool) ($moduleTemplate['show_qr'] ?? true);
         $moduleTemplate['show_signature_stamp_name'] = (bool) ($moduleTemplate['show_signature_stamp_name'] ?? false);
         $moduleTemplate['show_signature_stamp_date'] = (bool) ($moduleTemplate['show_signature_stamp_date'] ?? false);
 

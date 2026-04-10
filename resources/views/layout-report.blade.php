@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4;
-            margin: 0.2cm 0.4cm;
+            margin: 0.35cm 0.45cm;
         }
 
         * {
@@ -28,6 +28,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 5px;
+            page-break-inside: avoid;
         }
 
         .logo-cell {
@@ -79,6 +80,7 @@
             padding: 4px 6px;
             letter-spacing: 1px;
             margin-bottom: 5px;
+            page-break-inside: avoid;
         }
 
         /* ── Footer ── */
@@ -86,6 +88,7 @@
             font-size: 12px;
             padding-top: 6px;
             border-top: 1px solid #d0d0d0;
+            page-break-inside: avoid;
         }
 
         .footer-note {

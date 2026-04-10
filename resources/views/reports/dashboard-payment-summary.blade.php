@@ -12,7 +12,7 @@
     <style>
         @page {
             size: A4 landscape;
-            margin: 0.15cm 0.25cm;
+            margin: 0.35cm 0.45cm;
         }
 
         /* ── Base table styles ─────────────────────────────────── */
@@ -20,8 +20,9 @@
         .section-table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
-            margin-bottom: 6px;
+            table-layout: auto;
+            margin-bottom: 8px;
+            page-break-inside: auto;
         }
 
         .summary-grid th,
@@ -46,6 +47,17 @@
         .section-table th {
             background: #f4f8fb;
             font-weight: 700;
+        }
+
+        .summary-grid thead,
+        .section-table thead {
+            display: table-header-group;
+        }
+
+        .summary-grid tr,
+        .section-table tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
         }
 
         .text-center {

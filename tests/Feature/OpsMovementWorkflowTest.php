@@ -669,4 +669,32 @@ class OpsMovementWorkflowTest extends TestCase
         $budgetResponse->assertOk();
         $budgetResponse->assertHeader('content-type', 'application/pdf');
     }
+
+    public function test_ops_movement_budget_defaults_to_required_sections_when_empty(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-OPS-BUDGET-DEFAULT-001',
+            'name' => 'Ops Budget Default Package',
+            'status' => 'open',
+        ]);
+
+        Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-OPS-BUDGET-DEFAULT-001',
+            'ops_movement_extension' => [
+                'budget' => [],
+            ],
+        ]);
+
+        $opsMovement = app(OpsMovementService::class)->getForShow($package->id);
+        $budgetTitles = collect(data_get($opsMovement, 'budget', []))
+            ->pluck('title')
+            ->values()
+            ->all();
+
+        $this->assertSame(
+            ['Main Powerexpense', 'Petty Cash', 'Contigency'],
+            $budgetTitles,
+        );
+    }
 }

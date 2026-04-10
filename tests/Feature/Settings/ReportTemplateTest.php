@@ -123,6 +123,50 @@ class ReportTemplateTest extends TestCase
         Storage::disk('public')->assertExists($settings->signature_path);
     }
 
+    public function test_qr_image_can_be_uploaded_and_alignment_persisted(): void
+    {
+        $user = $this->createAdminUser();
+        $qrImage = UploadedFile::fake()->image('qr-image.png', 300, 300);
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('report-template.update'), [
+                'company_name' => 'Test Company',
+                'qr_file' => $qrImage,
+                'qr_alignment' => 'right',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
+        $this->assertNotNull($settings->qr_image_path);
+        $this->assertSame('right', $settings->qr_alignment);
+        Storage::disk('public')->assertExists($settings->qr_image_path);
+    }
+
+    public function test_module_show_qr_setting_can_be_updated(): void
+    {
+        $user = $this->createAdminUser();
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('report-template.update'), [
+                'company_name' => 'Test Company',
+                'module_templates' => [
+                    'invoice' => [
+                        'show_qr' => false,
+                    ],
+                ],
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $settings = ReportSetting::current();
+        $invoiceTemplate = $settings->getModuleTemplate('invoice');
+
+        $this->assertFalse((bool) ($invoiceTemplate['show_qr'] ?? true));
+    }
+
     public function test_report_setting_singleton_pattern_works(): void
     {
         $first = ReportSetting::current();
