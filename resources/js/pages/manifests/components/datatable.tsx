@@ -61,7 +61,6 @@ import { toast } from 'sonner';
 import {
     confirmationMemberStatusColors,
     confirmationMemberStatusLabels,
-    packageCategoryOptions,
 } from '../../customer/schema';
 import { type MemberWithUI } from '../types';
 
@@ -155,10 +154,6 @@ function ensureExtraBedRemarks(
 
 const MANIFEST_DATATABLE_EXPANDED_STORAGE_PREFIX =
     'manifest-datatable-expanded';
-
-const PACKAGE_CATEGORY_LABELS = Object.fromEntries(
-    packageCategoryOptions.map((option) => [option.value, option.label]),
-) as Record<string, string>;
 
 interface GroupMember {
     member: MemberWithUI;
@@ -1255,7 +1250,7 @@ export default function ManifestDatatable({
         const drag = allowReorder ? 1 : 0;
 
         if (mode === 'members') {
-            return drag + 27;
+            return drag + 26;
         }
 
         if (mode === 'room') {
@@ -1305,9 +1300,6 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-40">Group</TableHead>
             )}
             {mode === 'members' && (
-                <TableHead className="min-w-40">Package Category</TableHead>
-            )}
-            {mode === 'members' && (
                 <TableHead className="min-w-55">Date of Sign Up</TableHead>
             )}
             {mode === 'members' && (
@@ -1344,9 +1336,6 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-40">Birth Place</TableHead>
             )}
             {mode === 'members' && (
-                <TableHead className="min-w-35">Package Price</TableHead>
-            )}
-            {mode === 'members' && (
                 <TableHead className="min-w-35">Discount</TableHead>
             )}
             {mode === 'members' && (
@@ -1375,6 +1364,9 @@ export default function ManifestDatatable({
             )}
             {mode === 'members' && (
                 <TableHead className="min-w-35">Balance Due</TableHead>
+            )}
+            {mode === 'members' && (
+                <TableHead className="min-w-35">Package Price</TableHead>
             )}
             {mode === 'members' && (
                 <TableHead className="min-w-40">Receipt 1</TableHead>
@@ -1997,6 +1989,7 @@ export default function ManifestDatatable({
 
         const renderReceiptDocument = (
             document?: {
+                file?: File | null;
                 file_path?: string | null;
                 file_name?: string | null;
             },
@@ -2012,9 +2005,14 @@ export default function ManifestDatatable({
             );
 
             if (href.length === 0) {
+                const pendingLabel =
+                    String(document?.file_name ?? '').trim() ||
+                    String(document?.file?.name ?? '').trim() ||
+                    String(fallbackValue ?? '').trim();
+
                 return (
                     <div className="text-sm text-muted-foreground">
-                        {String(fallbackValue ?? '').trim() || '-'}
+                        {pendingLabel || '-'}
                     </div>
                 );
             }
@@ -2240,23 +2238,6 @@ export default function ManifestDatatable({
                 {mode === 'members' && (
                     <TableCell>
                         <ProperInput
-                            value={
-                                PACKAGE_CATEGORY_LABELS[
-                                    member.package_category ?? ''
-                                ] ??
-                                member.package_category ??
-                                ''
-                            }
-                            disabled={true}
-                            onCommit={() => {}}
-                            size="default"
-                        />
-                    </TableCell>
-                )}
-
-                {mode === 'members' && (
-                    <TableCell>
-                        <ProperInput
                             value={member.date_of_sign_up ?? ''}
                             disabled={true}
                             onCommit={() => {}}
@@ -2295,7 +2276,7 @@ export default function ManifestDatatable({
                                     value,
                                 )
                             }
-                            disabled={disabled}
+                            disabled
                             options={SHARING_PLAN_OPTIONS}
                         />
                         {renderCellError(flatIndex, 'sharing_plan')}
@@ -2483,23 +2464,6 @@ export default function ManifestDatatable({
                         <ProperInput
                             value={
                                 !isOfficialMemberRow &&
-                                member.package_price !== null &&
-                                member.package_price !== undefined
-                                    ? formatCurrency(member.package_price, '$')
-                                    : ''
-                            }
-                            disabled={true}
-                            onCommit={() => {}}
-                            size="default"
-                        />
-                    </TableCell>
-                )}
-
-                {mode === 'members' && (
-                    <TableCell>
-                        <ProperInput
-                            value={
-                                !isOfficialMemberRow &&
                                 member.discount !== null &&
                                 member.discount !== undefined
                                     ? formatCurrency(member.discount, '$')
@@ -2628,6 +2592,23 @@ export default function ManifestDatatable({
                                           Number(member.balance_due ?? 0),
                                           '$',
                                       )
+                                    : ''
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
+                            value={
+                                !isOfficialMemberRow &&
+                                member.package_price !== null &&
+                                member.package_price !== undefined
+                                    ? formatCurrency(member.package_price, '$')
                                     : ''
                             }
                             disabled={true}

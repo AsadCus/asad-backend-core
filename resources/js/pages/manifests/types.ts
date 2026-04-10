@@ -211,7 +211,6 @@ export type MemberWithUI = MemberSchema & {
     room_label?: string;
     room_number?: string;
     room_remarks?: string;
-    package_category?: string | null;
     date_of_sign_up?: string | null;
     is_first_time_umrah?: boolean | null;
     status?:

@@ -145,6 +145,19 @@ class CustomerConfirmationController extends Controller
             $validated['source_manifest_id'] ?? null,
         );
 
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($newConfirmation)
+            ->withProperties([
+                'subject_type' => 'CustomerConfirmation',
+                'subject_id' => (int) $id,
+                'new_subject_id' => (int) $newConfirmation->id,
+                'member_ids' => $validated['member_ids'],
+                'target_package_id' => $validated['target_package_id'] ?? null,
+                'source_manifest_id' => $validated['source_manifest_id'] ?? null,
+            ])
+            ->log('Customer confirmation members moved to holding confirmation');
+
         return back()->with('success', 'Customer members moved to holding confirmation successfully.');
     }
 
@@ -235,6 +248,16 @@ class CustomerConfirmationController extends Controller
 
         $successMessage = count($quotations).' quotation(s) created successfully.';
 
+        if (count($quotations) === 1) {
+            $quotation = $quotations[0] ?? null;
+
+            if ($quotation) {
+                return redirect()
+                    ->route('quotation.edit', ['quotation' => (int) $quotation->id])
+                    ->with('success', $successMessage);
+            }
+        }
+
         return redirect()->route('quotation.index')->with('success', $successMessage);
     }
 
@@ -243,7 +266,7 @@ class CustomerConfirmationController extends Controller
      */
     public function createRefunds(Request $request, string $id): RedirectResponse
     {
-        CustomerConfirmation::query()->findOrFail((int) $id);
+        $confirmation = CustomerConfirmation::query()->findOrFail((int) $id);
 
         $validated = $request->validate([
             'refund_type' => ['required', 'string', 'in:cancel,overpaid'],
@@ -262,31 +285,21 @@ class CustomerConfirmationController extends Controller
             (string) $validated['refund_type'],
         );
 
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($confirmation)
+            ->withProperties([
+                'subject_type' => 'CustomerConfirmation',
+                'subject_id' => (int) $confirmation->id,
+                'refund_type' => (string) $validated['refund_type'],
+                'member_refund_count' => count($validated['member_refunds']),
+                'created_count' => (int) ($result['count'] ?? 0),
+            ])
+            ->log('Customer confirmation refund documents created');
+
         return redirect()
             ->route('receipt.index')
             ->with('success', $result['count'].' refund invoice/receipt document(s) created successfully.');
-    }
-
-    /**
-     * Create overpayment-only refund receipt(s) for one or more members.
-     */
-    public function createOverpaymentRefunds(Request $request, string $id): RedirectResponse
-    {
-        CustomerConfirmation::query()->findOrFail((int) $id);
-
-        $validated = $request->validate([
-            'member_ids' => ['required', 'array', 'min:1'],
-            'member_ids.*' => ['required', 'integer', 'exists:customer_confirmation_members,id'],
-        ]);
-
-        $result = $this->customerConfirmationService->createOverpaymentRefundReceipts(
-            (int) $id,
-            $validated['member_ids'],
-        );
-
-        return redirect()
-            ->route('receipt.index')
-            ->with('success', $result['count'].' overpayment refund invoice/receipt document(s) created successfully.');
     }
 
     /**
@@ -294,12 +307,24 @@ class CustomerConfirmationController extends Controller
      */
     public function createBalanceInvoice(Request $request, string $id, string $memberId): RedirectResponse
     {
-        CustomerConfirmation::query()->findOrFail((int) $id);
+        $confirmation = CustomerConfirmation::query()->findOrFail((int) $id);
 
         $invoice = $this->customerConfirmationService->createBalanceInvoiceForUnderpaidMember(
             (int) $id,
             (int) $memberId,
         );
+
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($confirmation)
+            ->withProperties([
+                'subject_type' => 'CustomerConfirmation',
+                'subject_id' => (int) $confirmation->id,
+                'member_id' => (int) $memberId,
+                'invoice_id' => (int) $invoice->id,
+                'invoice_number' => (string) ($invoice->invoice_number ?? ''),
+            ])
+            ->log('Customer confirmation balance invoice created');
 
         return redirect()
             ->route('invoice.index')
@@ -308,9 +333,18 @@ class CustomerConfirmationController extends Controller
 
     public function syncBilling(Request $request, string $id): RedirectResponse
     {
-        CustomerConfirmation::query()->findOrFail((int) $id);
+        $confirmation = CustomerConfirmation::query()->findOrFail((int) $id);
 
         $this->customerConfirmationService->syncBillingForConfirmation((int) $id);
+
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($confirmation)
+            ->withProperties([
+                'subject_type' => 'CustomerConfirmation',
+                'subject_id' => (int) $confirmation->id,
+            ])
+            ->log('Customer confirmation billing synchronized');
 
         return back()->with('success', 'Billing sync completed successfully.');
     }

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 interface FormFieldProps {
     label: string;
     fieldRequirementsProps?: FieldRequirementsProps;
+    labelAction?: React.ReactNode;
     error?: string;
     children: React.ReactNode;
     htmlFor?: string;
@@ -18,6 +19,7 @@ interface FormFieldProps {
 export function FormField({
     label,
     fieldRequirementsProps,
+    labelAction,
     error,
     children,
     htmlFor,
@@ -33,15 +35,18 @@ export function FormField({
                 isInline ? 'md:grid-cols-[minmax(0,1fr)_auto] md:gap-4' : ''
             } ${className}`}
         >
-            <Label htmlFor={htmlFor}>
-                {label}
-                {fieldRequirementsProps && (
-                    <FieldRequirements
-                        {...fieldRequirementsProps}
-                        ignoreTabFocus={ignoreFieldRequirementsTabFocus}
-                    />
-                )}
-            </Label>
+            <div className="flex items-center gap-3">
+                <Label htmlFor={htmlFor}>
+                    {label}
+                    {fieldRequirementsProps && (
+                        <FieldRequirements
+                            {...fieldRequirementsProps}
+                            ignoreTabFocus={ignoreFieldRequirementsTabFocus}
+                        />
+                    )}
+                </Label>
+                {labelAction}
+            </div>
             <div className="relative">
                 {children}
                 {error && <p className="mt-1 text-sm text-red-500">{error}</p>}

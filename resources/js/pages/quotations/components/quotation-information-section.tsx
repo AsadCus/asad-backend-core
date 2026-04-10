@@ -204,20 +204,39 @@ export default function QuotationInformationSection({
 
                         {data.customer_name && (
                             <div className="mt-3 rounded-md border border-gray-300 p-3">
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-base font-semibold text-gray-800">
+                                <dl className="grid grid-cols-[84px_14px_minmax(0,1fr)] gap-y-1 text-base text-gray-700">
+                                    <dt className="font-medium text-gray-800">
+                                        Name
+                                    </dt>
+                                    <dd className="text-gray-800">:</dd>
+                                    <dd className="break-words">
                                         {data.customer_name}
-                                    </span>
-                                    <div className="text-base whitespace-pre-line text-gray-600">
+                                    </dd>
+
+                                    <dt className="font-medium text-gray-800">
+                                        Address
+                                    </dt>
+                                    <dd className="text-gray-800">:</dd>
+                                    <dd className="break-words whitespace-pre-line">
                                         {normalizedCustomerAddress || '-'}
-                                    </div>
-                                    <span className="text-base text-gray-600">
+                                    </dd>
+
+                                    <dt className="font-medium text-gray-800">
+                                        Contact
+                                    </dt>
+                                    <dd className="text-gray-800">:</dd>
+                                    <dd className="break-words">
                                         {data.customer_contact ?? '-'}
-                                    </span>
-                                    <span className="text-base text-gray-600">
+                                    </dd>
+
+                                    <dt className="font-medium text-gray-800">
+                                        Email
+                                    </dt>
+                                    <dd className="text-gray-800">:</dd>
+                                    <dd className="break-words">
                                         {data.customer_email ?? '-'}
-                                    </span>
-                                </div>
+                                    </dd>
+                                </dl>
                             </div>
                         )}
                     </FormField>

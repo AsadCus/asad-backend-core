@@ -4,6 +4,7 @@ import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
+import TextLink from '@/components/text-link';
 import { parseDisplayDate } from '@/lib/utils';
 import {
     genderOptions,
@@ -18,6 +19,8 @@ interface CustomerFormFieldsProps {
     useGeneratedDocumentName?: boolean;
     isView: boolean;
     processing: boolean;
+    showUseMainAddressButton?: boolean;
+    onUseMainAddress?: () => void;
     getError: (path: string) => string | undefined;
     onUpdateCustomer: (
         field: keyof CustomerSchema,
@@ -57,6 +60,8 @@ export default function CustomerFormFields({
     useGeneratedDocumentName = false,
     isView,
     processing,
+    showUseMainAddressButton = false,
+    onUseMainAddress,
     getError,
     onUpdateCustomer,
 }: CustomerFormFieldsProps) {
@@ -286,6 +291,20 @@ export default function CustomerFormFields({
                             example:
                                 '111 Orchard Road #10-05, Orchard Towers, Singapore 238858',
                         }}
+                        labelAction={
+                            !disabled &&
+                            showUseMainAddressButton &&
+                            onUseMainAddress ? (
+                                <TextLink
+                                    as="button"
+                                    type="button"
+                                    onClick={onUseMainAddress}
+                                    disabled={disabled}
+                                >
+                                    Use Main Address
+                                </TextLink>
+                            ) : null
+                        }
                         htmlFor={fieldPath('address')}
                         error={getError(fieldPath('address'))}
                         className="md:col-span-2"

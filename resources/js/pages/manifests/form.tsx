@@ -2723,6 +2723,7 @@ export default function ManifestForm({
         }stay_on_form=1&tab=${encodeURIComponent(activeTab)}`;
 
         post(submitUrl, {
+            preserveState: false,
             preserveScroll: 'errors',
             forceFormData: true,
             onError: handleError,

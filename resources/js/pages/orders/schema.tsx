@@ -19,6 +19,8 @@ export const orderSchema = z.object({
 
     quotation_id: z.number().optional(),
     quotation_number: z.string().nullable().optional(),
+    package_number: z.string().nullable().optional(),
+    package_name: z.string().nullable().optional(),
     quotation_status: z.string().nullable().optional(),
     has_receipts: z.boolean().optional(),
 });

@@ -5,6 +5,25 @@ import type { PackageSchema } from '../packages/schema';
 
 export type ClientValidationErrors = Record<string, string>;
 
+export type CustomerConfirmationPublicEditLinkType = 'one_time' | 'continuous';
+
+export const customerConfirmationPublicEditLinkLabels: Record<
+    CustomerConfirmationPublicEditLinkType,
+    string
+> = {
+    one_time: 'One-Time Link',
+    continuous: 'Continuous Link',
+};
+
+export const confirmedCustomerPublicEditLinkConfig: {
+    enabledLinkTypes: CustomerConfirmationPublicEditLinkType[];
+    defaultLinkType: CustomerConfirmationPublicEditLinkType;
+} = {
+    // Keep only one-time link visible by default. Add "continuous" to re-enable.
+    enabledLinkTypes: ['one_time'],
+    defaultLinkType: 'one_time',
+};
+
 export interface LinkedPackageInfo {
     id: number;
     package_number?: string | null;

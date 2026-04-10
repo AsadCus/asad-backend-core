@@ -70,7 +70,6 @@ export const customerConfirmationFormSchema = z.object({
     enquiry_id: z.number().nullable().optional(),
     package_id: z.number().nullable().optional(),
     package_room_type: z.string().nullable().optional(),
-    package_category: z.string().nullable().optional(),
     date_of_application: z.string(),
     members: z.array(customerSchema),
     terms_accepted: z.boolean().optional(),
@@ -127,11 +126,6 @@ export const packageRoomTypeOptions = [
     { label: 'Quad Sharing', value: 'quad' },
 ];
 
-export const packageCategoryOptions = [
-    { label: 'Classic Umrah', value: 'classic_umrah' },
-    { label: 'Deluxe Umrah', value: 'deluxe_umrah' },
-];
-
 export const genderOptions = [
     { label: 'Male', value: 'male' },
     { label: 'Female', value: 'female' },
@@ -156,6 +150,7 @@ export interface CustomerConfirmationMemberDatatableSchema {
     has_quotation?: boolean;
     paid_amount: number;
     total_amount: number;
+    discount?: number;
     overpaid_amount?: number;
     billed_amount?: number;
     balance_invoice_amount?: number;
@@ -207,7 +202,7 @@ export const confirmationMemberStatusLabels: Record<string, string> = {
     partially_paid: 'Partially Paid',
     fully_paid: 'Fully Paid',
     overpaid: 'Overpaid',
-    cancelled: 'Cancelled',
+    cancelled: 'Trip Cancelled',
 };
 
 // ── Default empty member ──

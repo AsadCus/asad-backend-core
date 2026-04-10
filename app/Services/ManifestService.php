@@ -251,7 +251,6 @@ class ManifestService
                         : 'group-'.$member->id,
                     'group_sort_order' => $member->sharingGroup?->sort_order,
                     'sort_order' => $member->sort_order,
-                    'package_category' => $confirmation?->package_category,
                     'date_of_sign_up' => ($enquiryCreatedAt ?? $confirmation?->created_at)?->translatedFormat('d F Y'),
                     'package_price' => $packagePrice,
                     'discount' => $financialSnapshot['discount'],

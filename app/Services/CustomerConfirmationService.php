@@ -61,7 +61,6 @@ class CustomerConfirmationService
                 'created_by' => auth()->id(),
                 'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
                 'package_room_type' => $data['package_room_type'] ?? null,
-                'package_category' => $data['package_category'] ?? null,
                 'date_of_application' => $data['date_of_application'] ?? null,
             ]);
 
@@ -375,6 +374,7 @@ class CustomerConfirmationService
                             'has_quotation' => $this->hasActiveQuotationItemLink($member),
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
+                            'discount' => round((float) ($summary['discount'] ?? 0), 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
                             'billed_amount' => round((float) $summary['billed_amount'], 2),
                             'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
@@ -420,11 +420,12 @@ class CustomerConfirmationService
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function (CustomerConfirmation $group) {
-                $leader = $group->members->firstWhere('is_leader', true);
-
                 $activeMembers = $group->members->filter(
                     fn (CustomerConfirmationMember $member) => $member->status !== 'cancelled'
-                );
+                )->values();
+
+                $leader = $activeMembers->firstWhere('is_leader', true)
+                    ?? $activeMembers->first();
 
                 $memberSummaries = $activeMembers
                     ->mapWithKeys(function (CustomerConfirmationMember $member) use ($group) {
@@ -457,7 +458,7 @@ class CustomerConfirmationService
                     'customer_number' => $leader?->customer?->customer_number ?? '-',
                     'enquiry_email' => $group->enquiry?->email ?? ($leader?->customer?->user?->email ?? '-'),
                     'enquiry_contact' => $group->enquiry?->contact_number ?? ($leader?->customer?->user?->contact ?? '-'),
-                    'member_count' => $group->members->count(),
+                    'member_count' => $activeMembers->count(),
                     'active_member_count' => $activeMembers->count(),
                     'quoted_member_count' => $quotedMemberCount,
                     'paid_amount' => round($groupPaidAmount, 2),
@@ -466,7 +467,7 @@ class CustomerConfirmationService
                     'can_create_quotation' => $canCreateQuotation,
                     'can_delete' => $activeMembers->count() === 0,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
-                    'members' => $group->members->map(function (CustomerConfirmationMember $member) use ($group) {
+                    'members' => $activeMembers->map(function (CustomerConfirmationMember $member) use ($group) {
                         $summary = $this->resolveMemberFinancialSnapshot($member, $group->package);
 
                         return [
@@ -480,6 +481,7 @@ class CustomerConfirmationService
                             'has_quotation' => $this->hasActiveQuotationItemLink($member),
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
+                            'discount' => round((float) ($summary['discount'] ?? 0), 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
                             'billed_amount' => round((float) $summary['billed_amount'], 2),
                             'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
@@ -495,6 +497,8 @@ class CustomerConfirmationService
                     })->all(),
                 ];
             })
+            ->filter(fn (array $group) => (int) ($group['active_member_count'] ?? 0) > 0)
+            ->values()
             ->all();
     }
 
@@ -585,6 +589,7 @@ class CustomerConfirmationService
                             'has_quotation' => $this->hasActiveQuotationItemLink($member),
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
+                            'discount' => round((float) ($summary['discount'] ?? 0), 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
                             'billed_amount' => round((float) $summary['billed_amount'], 2),
                             'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
@@ -739,7 +744,7 @@ class CustomerConfirmationService
     }
 
     /**
-     * @return array{status:string,paid_amount:float,total_amount:float,overpaid_amount:float,billed_amount:float}
+     * @return array{status:string,paid_amount:float,total_amount:float,discount:float,overpaid_amount:float,billed_amount:float}
      */
     private function resolveMemberFinancialSnapshot(CustomerConfirmationMember $member, ?Package $package): array
     {
@@ -750,23 +755,286 @@ class CustomerConfirmationService
                 'status' => 'cancelled',
                 'paid_amount' => 0.0,
                 'total_amount' => 0.0,
+                'discount' => 0.0,
                 'overpaid_amount' => 0.0,
                 'billed_amount' => 0.0,
             ];
         }
 
-        $paidAmount = $this->resolveMemberPaidAmount($member);
+        $packagePrice = $package ? $this->resolveMemberTotalAmount($member, $package) : 0.0;
+        $discountAmount = $this->resolveNegativeExtensionDiscountShareForMember(
+            $member,
+            $package,
+            $packagePrice,
+        );
+        $payableAmount = round(max($packagePrice - $discountAmount, 0.0), 2);
+
+        $invoiceAmountsByOrder = $this->resolveMemberInvoiceItemAmountsByInvoiceOrder($member);
+        $firstInvoiceAmount = round((float) ($invoiceAmountsByOrder->get(0) ?? 0), 2);
+        $secondInvoiceAmount = round((float) ($invoiceAmountsByOrder->get(1) ?? 0), 2);
+        $thirdAndLaterInvoiceAmount = round((float) $invoiceAmountsByOrder->slice(2)->sum(), 2);
+
+        [$depositPayment, $secondPayment, $thirdPayment] = $this->applyDiscountOffsetToPaymentBuckets(
+            [$firstInvoiceAmount, $secondInvoiceAmount, $thirdAndLaterInvoiceAmount],
+            $discountAmount,
+        );
+
+        $paidAmount = round(
+            $depositPayment + $secondPayment + $thirdPayment,
+            2,
+        );
         $billedAmount = $this->resolveMemberBilledAmount($member);
-        $totalAmount = $package ? $this->resolveMemberTotalAmount($member, $package) : 0.0;
-        $overpaidAmount = max(0.0, round($paidAmount - $totalAmount, 2));
+        $overpaidAmount = max(0.0, round($paidAmount - $payableAmount, 2));
 
         return [
-            'status' => $this->resolveComputedMemberStatus($normalizedStatus, $package, $paidAmount, $totalAmount),
+            'status' => $this->resolveComputedMemberStatus($normalizedStatus, $package, $paidAmount, $payableAmount),
             'paid_amount' => round($paidAmount, 2),
-            'total_amount' => round($totalAmount, 2),
+            'total_amount' => round($payableAmount, 2),
+            'discount' => round($discountAmount, 2),
             'overpaid_amount' => round($overpaidAmount, 2),
             'billed_amount' => round($billedAmount, 2),
         ];
+    }
+
+    /**
+     * @return Collection<int, float>
+     */
+    private function resolveMemberInvoiceItemAmountsByInvoiceOrder(CustomerConfirmationMember $member): Collection
+    {
+        $memberItems = $member->quotationItems
+            ->filter(fn ($item): bool => ! (bool) ($item->is_header ?? false))
+            ->values();
+
+        if ($memberItems->isEmpty()) {
+            return collect();
+        }
+
+        return $memberItems
+            ->flatMap(fn ($item) => $item->invoices)
+            ->unique('id')
+            ->values()
+            ->map(function ($invoice) use ($member): ?array {
+                $invoiceItems = $invoice->quotationItems
+                    ->filter(fn ($item): bool => ! (bool) ($item->is_header ?? false))
+                    ->values();
+
+                if ($invoiceItems->isEmpty()) {
+                    return null;
+                }
+
+                $memberSubtotal = (float) $invoiceItems
+                    ->where('customer_confirmation_member_id', $member->id)
+                    ->sum(function ($item): float {
+                        return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                    });
+
+                if ($memberSubtotal === 0.0) {
+                    return null;
+                }
+
+                $hasReceiptDate = $invoice->receipt
+                    ->pluck('receipt_date')
+                    ->contains(fn ($date): bool => ! empty($date));
+
+                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+                $isPaid = $normalizedStatus === InvoiceStatus::Paid;
+                $isRefund = $normalizedStatus === InvoiceStatus::Refund;
+
+                if (! $isPaid && ! $isRefund && ! $hasReceiptDate) {
+                    return null;
+                }
+
+                return [
+                    'amount' => round($memberSubtotal, 2),
+                    'invoice_id' => (int) ($invoice->id ?? 0),
+                ];
+            })
+            ->filter(fn ($row): bool => is_array($row))
+            ->sortBy(fn (array $row): int => (int) ($row['invoice_id'] ?? 0))
+            ->pluck('amount')
+            ->map(fn ($amount): float => round((float) $amount, 2))
+            ->values();
+    }
+
+    /**
+     * @param  array<int, float>  $paymentBuckets
+     * @return array<int, float>
+     */
+    private function applyDiscountOffsetToPaymentBuckets(array $paymentBuckets, float $discountAmount): array
+    {
+        $remainingDiscount = max($discountAmount, 0.0);
+        $adjustedBuckets = [];
+
+        foreach ($paymentBuckets as $amount) {
+            $bucketAmount = round((float) $amount, 2);
+
+            if ($remainingDiscount > 0.0 && $bucketAmount > 0.0) {
+                $discountOffset = min($remainingDiscount, $bucketAmount);
+                $bucketAmount -= $discountOffset;
+                $remainingDiscount -= $discountOffset;
+            }
+
+            $adjustedBuckets[] = round($bucketAmount, 2);
+        }
+
+        return $adjustedBuckets;
+    }
+
+    private function resolveNegativeExtensionDiscountShareForMember(
+        CustomerConfirmationMember $member,
+        ?Package $package,
+        float $memberPackagePrice,
+    ): float {
+        $memberItems = $member->quotationItems
+            ->filter(fn ($item): bool => ! (bool) $item->is_header)
+            ->values();
+
+        if ($memberItems->isEmpty()) {
+            return 0.0;
+        }
+
+        $discountByMemberId = [];
+
+        $memberItemsByQuotation = $memberItems
+            ->filter(fn ($item): bool => ! empty($item->quotation_id))
+            ->groupBy('quotation_id');
+
+        foreach ($memberItemsByQuotation as $groupedItems) {
+            $quotation = $groupedItems->first()?->quotation;
+
+            if (! $quotation || $quotation->trashed()) {
+                continue;
+            }
+
+            $quotationItems = $quotation->quotationItems
+                ->where('is_header', false)
+                ->sortBy(function ($item): array {
+                    return [
+                        (int) ($item->sort_order ?? PHP_INT_MAX),
+                        (int) ($item->id ?? 0),
+                    ];
+                })
+                ->values();
+
+            $orderedMemberIds = $quotationItems
+                ->pluck('customer_confirmation_member_id')
+                ->map(fn ($id): int => (int) $id)
+                ->filter(fn (int $id): bool => $id > 0)
+                ->unique()
+                ->values();
+
+            if ($orderedMemberIds->isEmpty()) {
+                continue;
+            }
+
+            $memberCustomerIds = CustomerConfirmationMember::query()
+                ->whereIn('id', $orderedMemberIds->all())
+                ->pluck('customer_id', 'id');
+
+            $memberSharingPlans = CustomerConfirmationMember::query()
+                ->whereIn('id', $orderedMemberIds->all())
+                ->pluck('sharing_plan', 'id');
+
+            $memberQuotationSubtotals = $quotationItems
+                ->groupBy(fn ($item): int => (int) ($item->customer_confirmation_member_id ?? 0))
+                ->map(function (Collection $items): float {
+                    return (float) $items->sum(function ($item): float {
+                        return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                    });
+                });
+
+            $memberCapsById = [];
+
+            foreach ($orderedMemberIds as $memberId) {
+                $sharingPlan = $memberSharingPlans->get($memberId);
+                $packagePriceCap = $package
+                    ? $this->getPackagePriceForSharingPlan($package, is_string($sharingPlan) ? $sharingPlan : null)
+                    : 0;
+
+                $fallbackSubtotalCap = (float) ($memberQuotationSubtotals->get($memberId) ?? 0);
+
+                $memberCapsById[$memberId] = round(max(
+                    $packagePriceCap > 0 ? (float) $packagePriceCap : $fallbackSubtotalCap,
+                    0,
+                ), 2);
+            }
+
+            if (! array_key_exists((int) $member->id, $memberCapsById)) {
+                $memberCapsById[(int) $member->id] = round(max($memberPackagePrice, 0), 2);
+            }
+
+            $payerMemberId = $orderedMemberIds->first(function (int $id) use ($memberCustomerIds, $quotation): bool {
+                return (int) ($memberCustomerIds->get($id) ?? 0) === (int) ($quotation->customer_id ?? 0);
+            });
+
+            if (! is_int($payerMemberId)) {
+                $payerMemberId = $orderedMemberIds->first();
+            }
+
+            $quotationDiscountTotal = (float) collect(is_array($quotation->extensions) ? $quotation->extensions : [])
+                ->sum(function ($extension): float {
+                    if (! is_array($extension)) {
+                        return 0;
+                    }
+
+                    $amount = (float) ($extension['amount'] ?? 0);
+
+                    return $amount < 0 ? abs($amount) : 0;
+                });
+
+            $invoiceDiscountTotal = (float) collect($quotation->order?->invoices ?? collect())
+                ->sum(function ($invoice): float {
+                    return (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
+                        ->sum(function ($extension): float {
+                            if (! is_array($extension)) {
+                                return 0;
+                            }
+
+                            $amount = (float) ($extension['amount'] ?? 0);
+
+                            return $amount < 0 ? abs($amount) : 0;
+                        });
+                });
+
+            $totalDiscount = round($quotationDiscountTotal + $invoiceDiscountTotal, 2);
+
+            if ($totalDiscount <= 0 || ! is_int($payerMemberId)) {
+                continue;
+            }
+
+            $allocationOrder = $orderedMemberIds
+                ->sortBy(fn (int $memberId): int => $memberId === $payerMemberId ? 0 : 1)
+                ->values();
+
+            $remainingDiscount = round($totalDiscount, 2);
+
+            foreach ($allocationOrder as $memberId) {
+                if ($remainingDiscount <= 0) {
+                    break;
+                }
+
+                $memberCap = round((float) ($memberCapsById[$memberId] ?? 0), 2);
+
+                if ($memberCap <= 0) {
+                    continue;
+                }
+
+                $allocatedDiscount = round(min($remainingDiscount, $memberCap), 2);
+
+                if ($allocatedDiscount <= 0) {
+                    continue;
+                }
+
+                $discountByMemberId[$memberId] = round(
+                    (float) ($discountByMemberId[$memberId] ?? 0) + $allocatedDiscount,
+                    2,
+                );
+
+                $remainingDiscount = round($remainingDiscount - $allocatedDiscount, 2);
+            }
+        }
+
+        return round((float) ($discountByMemberId[(int) $member->id] ?? 0), 2);
     }
 
     private function resolveComputedMemberStatus(
@@ -981,6 +1249,10 @@ class CustomerConfirmationService
         $group = CustomerConfirmation::with(['members.customer.user', 'members.customer.files', 'members.quotationItems.quotation', 'enquiry.package', 'package'])
             ->findOrFail($id);
 
+        $visibleMembers = $group->members
+            ->filter(fn (CustomerConfirmationMember $member) => $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled')
+            ->values();
+
         return [
             'id' => $group->id,
             'enquiry_id' => $group->enquiry_id,
@@ -994,9 +1266,8 @@ class CustomerConfirmationService
             'child_no_bed_price' => $group->package?->child_no_bed_price,
             'infant_price' => $group->package?->infant_price,
             'package_room_type' => $group->package_room_type,
-            'package_category' => $group->package_category,
             'date_of_application' => $group->date_of_application_formatted,
-            'members' => $group->members->map(function (CustomerConfirmationMember $member) {
+            'members' => $visibleMembers->map(function (CustomerConfirmationMember $member) {
                 $customer = $member->customer;
                 $user = $customer?->user;
                 $documents = $customer ? $this->getCustomerDocumentsByField($customer) : collect();
@@ -1074,7 +1345,6 @@ class CustomerConfirmationService
                 'package_id' => $data['package_id'] ?? null,
                 'is_holding' => ($group->is_holding && ! empty($data['package_id'])) ? false : $group->is_holding,
                 'package_room_type' => $data['package_room_type'] ?? $group->package_room_type,
-                'package_category' => $data['package_category'] ?? $group->package_category,
                 'date_of_application' => $data['date_of_application'] ?? $group->date_of_application,
             ]);
 
@@ -1152,6 +1422,10 @@ class CustomerConfirmationService
                 ->filter(fn (CustomerConfirmationMember $member) => ! in_array($member->id, $updatedMemberIds, true));
 
             foreach ($removedMembers as $removedMember) {
+                if ($this->normalizePaymentStatus($removedMember->status ?? null) === 'cancelled') {
+                    continue;
+                }
+
                 if ($this->memberHasPaidBilling($removedMember->id)) {
                     $memberName = $removedMember->customer?->user?->name ?? "#{$removedMember->id}";
 
@@ -1564,11 +1838,7 @@ class CustomerConfirmationService
                 ->all();
 
             if ($remainingInvoiceItemIds === []) {
-                $invoice->quotationItems()->sync([]);
-                $invoice->update([
-                    'amount' => 0,
-                    'status' => InvoiceStatus::Cancelled,
-                ]);
+                $this->deleteUnpaidInvoiceForCancellation($invoice);
 
                 continue;
             }
@@ -1648,10 +1918,13 @@ class CustomerConfirmationService
             }
 
             $quotation->loadMissing('order.invoices.receipt');
+            $hasBlockingInvoiceHistory = false;
 
             if ($quotation->order) {
                 foreach ($quotation->order->invoices as $invoice) {
                     if (InvoiceStatus::isRefund($invoice->status)) {
+                        $hasBlockingInvoiceHistory = true;
+
                         continue;
                     }
 
@@ -1660,20 +1933,47 @@ class CustomerConfirmationService
                     });
 
                     if (abs($receiptTotal) > 0.0) {
+                        $hasBlockingInvoiceHistory = true;
+
                         continue;
                     }
 
-                    $invoice->quotationItems()->sync([]);
-                    $invoice->update([
-                        'amount' => 0,
-                        'status' => InvoiceStatus::Cancelled,
-                    ]);
+                    $this->deleteUnpaidInvoiceForCancellation($invoice);
                 }
             }
 
-            $quotation->update([
-                'status' => QuotationStatus::Cancelled->value,
-            ]);
+            if ($hasBlockingInvoiceHistory) {
+                $quotation->update([
+                    'status' => QuotationStatus::Cancelled->value,
+                ]);
+
+                continue;
+            }
+
+            $this->deleteQuotationForCancellation($quotation);
+        }
+    }
+
+    private function deleteUnpaidInvoiceForCancellation(Invoice $invoice): void
+    {
+        $invoiceNumber = trim((string) ($invoice->invoice_number ?? ''));
+
+        $invoice->quotationItems()->sync([]);
+        $invoice->delete();
+
+        if ($invoiceNumber !== '') {
+            $this->numberingService->rollbackByNumbers('invoice', [$invoiceNumber]);
+        }
+    }
+
+    private function deleteQuotationForCancellation(Quotation $quotation): void
+    {
+        $quotationNumber = trim((string) ($quotation->quotation_number ?? ''));
+
+        $quotation->forceDelete();
+
+        if ($quotationNumber !== '') {
+            $this->numberingService->rollbackByNumbers('quotation', [$quotationNumber]);
         }
     }
 
@@ -1726,7 +2026,6 @@ class CustomerConfirmationService
                 'package_id' => $targetPackageId,
                 'is_holding' => $targetPackageId ? false : true,
                 'package_room_type' => $sourceGroup->package_room_type,
-                'package_category' => $sourceGroup->package_category,
                 'date_of_application' => now(),
             ]);
 
@@ -2596,7 +2895,6 @@ class CustomerConfirmationService
                 'enquiry_id' => $group->enquiry_id,
                 'package_id' => $group->package_id,
                 'package_room_type' => $group->package_room_type,
-                'package_category' => $group->package_category,
                 'date_of_application' => optional($group->date_of_application)?->format('Y-m-d'),
                 'member_count' => $group->members->count(),
             ],
@@ -3155,6 +3453,12 @@ class CustomerConfirmationService
             $normalizedRefundType = in_array($refundType, ['cancel', 'overpaid'], true)
                 ? $refundType
                 : 'cancel';
+            $refundPurposeLabel = $normalizedRefundType === 'cancel'
+                ? 'Trip Cancelled-Refund'
+                : 'Overpaid Refund';
+            $defaultRefundDescription = $normalizedRefundType === 'cancel'
+                ? 'Receipt For Trip Cancelled-Refund'
+                : 'Receipt For Overpaid Refund';
 
             foreach ($memberRefunds as $refundPayload) {
                 $memberId = (int) ($refundPayload['member_id'] ?? 0);
@@ -3212,7 +3516,7 @@ class CustomerConfirmationService
                 $refundDescription = trim((string) ($refundPayload['description'] ?? ''));
 
                 if ($refundDescription === '') {
-                    $refundDescription = 'Receipt For Refund';
+                    $refundDescription = $defaultRefundDescription;
                 }
 
                 $refundSortOrder = ((int) QuotationItem::query()
@@ -3223,7 +3527,7 @@ class CustomerConfirmationService
                     'quotation_id' => (int) $sourceQuotation->id,
                     'customer_confirmation_member_id' => null,
                     'parent_id' => null,
-                    'description' => 'Refund',
+                    'description' => $refundPurposeLabel,
                     'is_header' => true,
                     'sort_order' => $refundSortOrder,
                 ]);
@@ -3232,7 +3536,7 @@ class CustomerConfirmationService
                     'quotation_id' => (int) $sourceQuotation->id,
                     'customer_confirmation_member_id' => (int) $member->id,
                     'parent_id' => (int) $refundHeaderItem->id,
-                    'description' => 'Refund - '.$memberName,
+                    'description' => $refundPurposeLabel.' - '.$memberName,
                     'is_header' => false,
                     'quantity' => 1,
                     'rate' => -$refundAmount,
@@ -3241,7 +3545,7 @@ class CustomerConfirmationService
 
                 $refundInvoice = Invoice::create([
                     'order_id' => (int) $linkedInvoice->order_id,
-                    'description' => 'Refund Invoice - '.$memberName,
+                    'description' => $refundDescription,
                     'payment_method' => $paymentMethod,
                     'extensions' => [],
                     'amount' => -$refundAmount,

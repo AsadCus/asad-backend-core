@@ -989,6 +989,32 @@ class EnquiryWorkflowTest extends TestCase
             'date_of_application' => now()->toDateString(),
         ]);
 
+        $confirmedMemberOneUser = User::factory()->create([
+            'name' => 'Confirmed Active One',
+            'email' => 'confirmed-active-one@test.com',
+        ]);
+        $confirmedMemberOneCustomer = Customer::create([
+            'user_id' => $confirmedMemberOneUser->id,
+        ]);
+        $confirmedWithPackage->members()->create([
+            'customer_id' => $confirmedMemberOneCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+        ]);
+
+        $confirmedMemberTwoUser = User::factory()->create([
+            'name' => 'Confirmed Active Two',
+            'email' => 'confirmed-active-two@test.com',
+        ]);
+        $confirmedMemberTwoCustomer = Customer::create([
+            'user_id' => $confirmedMemberTwoUser->id,
+        ]);
+        $confirmedWithoutPackage->members()->create([
+            'customer_id' => $confirmedMemberTwoCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+        ]);
+
         $confirmedResponse = $this->get(route('confirmed-customer.index'));
         $confirmedResponse->assertStatus(200);
         $confirmedResponse->assertInertia(

@@ -29,6 +29,7 @@ export const quotationSchema = z.object({
     nric_number: z.string().nullable().optional(),
     customer_number: z.string().nullable().optional(),
     customer_name: z.string().nullable().optional(),
+    package_number: z.string().nullable().optional(),
     customer_contact: z.string().nullable().optional(),
     customer_address: z.string().nullable().optional(),
     customer_email: z.email().nullable().optional(),

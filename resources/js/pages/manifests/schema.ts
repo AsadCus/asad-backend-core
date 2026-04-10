@@ -15,7 +15,6 @@ export const memberSchema = z.object({
     name_as_per_passport: z.string().nullable().optional(),
     arabic_name: z.string().nullable().optional(),
     date_of_sign_up: z.string().nullable().optional(),
-    package_category: z.string().nullable().optional(),
     is_first_time_umrah: z.boolean().nullable().optional(),
     passport_number: z.string().nullable().optional(),
     gender: z.string().nullable().optional(),

@@ -169,6 +169,8 @@ export default function Customer({
                             columns={columns}
                             data={data}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             addButtonText="Add New Customer"
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];

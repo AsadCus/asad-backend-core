@@ -12,7 +12,6 @@ class CustomerConfirmationRule
             'number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
             'package_room_type' => ['nullable', 'string', 'in:single,double,triple,quad'],
-            'package_category' => ['nullable', 'string', 'in:classic_umrah,deluxe_umrah'],
             'date_of_application' => ['required', 'date'],
 
             // Members

@@ -133,6 +133,8 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             columns={columns}
                             data={manifestsForDatatable}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url={index().url}
                             onAction={(action, row) => {
                                 const manifestId = row?.original.id;

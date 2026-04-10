@@ -128,7 +128,6 @@
         .total-amount {
             width: 32%;
             text-align: right;
-            font-weight: bold;
             font-size: 12px;
             white-space: nowrap;
         }
@@ -136,6 +135,10 @@
         .totals-table .total-row-grand td {
             border-top: 1px solid #cfcfcf;
             padding-top: 4px;
+        }
+
+        .totals-table .total-row-grand .total-label {
+            font-weight: bold;
         }
 
         /* ── Footer ── */

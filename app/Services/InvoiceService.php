@@ -32,7 +32,7 @@ class InvoiceService
 
     public function getForDataTable(array $filters = [])
     {
-        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'order.quotation.createdBy:id,name'])
+        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'order.quotation.customerConfirmation.package:id,package_number,name', 'order.quotation.createdBy:id,name'])
             ->with('receipt:id,invoice_id')
             ->withCount('receipt')
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
@@ -51,6 +51,8 @@ class InvoiceService
                     'customer_id' => $i->order->quotation->customer->id ?? '-',
                     'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
                     'customer_name' => $i->order->quotation->customer->user->name ?? '-',
+                    'package_name' => $i->order->quotation->customerConfirmation?->package?->name ?? '',
+                    'package_number' => $i->order->quotation->customerConfirmation?->package?->package_number ?? '',
                     'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
                     'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
                     'description' => $i->description,
@@ -232,22 +234,37 @@ class InvoiceService
     }
 
     /**
-     * Build invoice payment progress rows showing cumulative payments and pending balance.
-     * Each invoice shows all previous payments plus its own, and the remaining pending amount.
+     * Build invoice payment progress rows showing each payment invoice amount.
      *
      * @param  Collection<int, mixed>  $invoices
      * @return array<int, array{label:string,amount_paid:float,total_amount:float,pending_amount:float}>
      */
     private function buildInvoicePaymentProgressRows(Collection $invoices, float $totalAmount): array
     {
-        $normalizedTotalAmount = $this->formatService->cleanDecimal($totalAmount);
-        $orderedInvoices = $invoices
+        $nonCancelledInvoices = $invoices
+            ->filter(function ($invoice): bool {
+                return strtolower(trim((string) ($invoice->status ?? ''))) !== InvoiceStatus::Cancelled;
+            })
             ->sortBy(function ($invoice): int {
                 return (int) ($invoice->invoice_date?->timestamp ?? $invoice->id ?? 0);
             })
             ->values();
 
-        if ($orderedInvoices->isEmpty()) {
+        $normalizedTotalAmount = $nonCancelledInvoices->isNotEmpty()
+            ? $this->formatService->cleanDecimal($nonCancelledInvoices->sum(function ($invoice): float {
+                return $this->resolveInvoiceTotalWithExtensions($invoice);
+            }))
+            : $this->formatService->cleanDecimal($totalAmount);
+
+        $milestoneInvoices = $nonCancelledInvoices
+            ->filter(function ($invoice): bool {
+                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+
+                return $normalizedStatus === InvoiceStatus::Paid || InvoiceStatus::isRefund($invoice->status);
+            })
+            ->values();
+
+        if ($milestoneInvoices->isEmpty()) {
             return [
                 [
                     'label' => 'Pending Payment',
@@ -258,19 +275,40 @@ class InvoiceService
             ];
         }
 
-        $cumulativePaid = 0.0;
-
-        return $orderedInvoices->map(function ($invoice, int $index) use (&$cumulativePaid, $normalizedTotalAmount): array {
-            $cumulativePaid += max(0.0, (float) ($invoice->amount ?? 0));
-            $pendingAmount = max(0.0, $normalizedTotalAmount - $cumulativePaid);
+        return $milestoneInvoices->map(function ($invoice, int $index) use ($normalizedTotalAmount): array {
+            $invoiceAmount = $this->resolveInvoiceTotalWithExtensions($invoice);
+            $pendingAmount = max(0.0, $normalizedTotalAmount - $invoiceAmount);
+            $labelSuffix = InvoiceStatus::isRefund($invoice->status) ? 'Refund' : 'Payment';
 
             return [
-                'label' => $this->toOrdinal($index + 1).' Payment',
-                'amount_paid' => $this->formatService->cleanDecimal($cumulativePaid),
+                'label' => $this->toOrdinal($index + 1).' '.$labelSuffix,
+                'amount_paid' => $invoiceAmount,
                 'total_amount' => $normalizedTotalAmount,
                 'pending_amount' => $this->formatService->cleanDecimal($pendingAmount),
             ];
         })->values()->all();
+    }
+
+    private function resolveInvoiceTotalWithExtensions($invoice): float
+    {
+        $baseAmount = $this->formatService->cleanDecimal((float) ($invoice->amount ?? 0));
+
+        if ($baseAmount !== 0.0) {
+            // invoice.amount is the source of truth and already includes invoice-level extensions.
+            return $baseAmount;
+        }
+
+        $extensions = is_array($invoice->extensions ?? null) ? $invoice->extensions : [];
+
+        $extensionsTotal = collect($extensions)->sum(function ($extension): float {
+            if (! is_array($extension)) {
+                return 0.0;
+            }
+
+            return (float) ($extension['amount'] ?? 0);
+        });
+
+        return $this->formatService->cleanDecimal($baseAmount + $extensionsTotal);
     }
 
     private function toOrdinal(int $number): string

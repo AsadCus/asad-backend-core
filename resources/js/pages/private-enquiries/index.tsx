@@ -407,6 +407,8 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                             columns={columns}
                             data={enquiriesForDatatable}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             addButtonText="Create New Private Enquiry"
                             getRowActions={(row) => {
                                 const rowActions: ActionType[] = [];

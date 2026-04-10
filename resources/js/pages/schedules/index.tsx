@@ -109,6 +109,8 @@ export default function Schedules({ data }: SchedulesProps) {
                         columns={columns}
                         data={data}
                         actions={['preview', 'download']}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                         onAction={(action, row) => {
                             if (row && 'original' in row) {
                                 handleAction(action as string, row.original);

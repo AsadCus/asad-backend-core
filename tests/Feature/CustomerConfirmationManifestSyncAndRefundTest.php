@@ -202,12 +202,13 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $this->assertNotNull($groupRow);
         $this->assertSame(700.0, (float) ($groupRow['paid_amount'] ?? 0));
-        $this->assertSame(1000.0, (float) ($groupRow['total_amount'] ?? 0));
+        $this->assertSame(700.0, (float) ($groupRow['total_amount'] ?? 0));
 
         $memberRow = collect($groupRow['members'] ?? [])->firstWhere('id', $member->id);
         $this->assertNotNull($memberRow);
         $this->assertSame(700.0, (float) ($memberRow['paid_amount'] ?? 0));
-        $this->assertSame(1000.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(700.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRow['overpaid_amount'] ?? 0));
     }
 
@@ -588,8 +589,8 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $this->assertNotNull($refundHeader);
         $this->assertNotNull($refundDetail);
-        $this->assertSame('Refund', (string) ($refundHeader?->description ?? ''));
-        $this->assertSame('Refund - Refund Member', (string) ($refundDetail?->description ?? ''));
+        $this->assertSame('Trip Cancelled-Refund', (string) ($refundHeader?->description ?? ''));
+        $this->assertSame('Trip Cancelled-Refund - Refund Member', (string) ($refundDetail?->description ?? ''));
         $this->assertSame((int) ($refundHeader?->id ?? 0), (int) ($refundDetail?->parent_id ?? 0));
         $this->assertSame(-500.0, (float) ($refundDetail?->rate ?? 0));
 
@@ -601,7 +602,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $this->assertNotNull($refundReceipt);
         $this->assertSame('transfer', (string) ($refundReceipt->payment_method ?? ''));
-        $this->assertSame('Receipt For Refund', (string) ($refundReceipt->description ?? ''));
+        $this->assertSame('Receipt For Trip Cancelled-Refund', (string) ($refundReceipt->description ?? ''));
 
         $member->refresh();
 
@@ -720,7 +721,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $this->assertNotNull($refundReceipt);
         $this->assertSame(0.0, (float) ($refundReceipt->amount ?? 0));
-        $this->assertSame('Receipt For Refund', (string) ($refundReceipt->description ?? ''));
+        $this->assertSame('Receipt For Trip Cancelled-Refund', (string) ($refundReceipt->description ?? ''));
     }
 
     public function test_customer_confirmation_member_refund_uses_custom_payment_method_and_description(): void
@@ -1020,7 +1021,13 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             ],
         ]);
 
-        $allowedResponse->assertRedirect(route('quotation.index'));
+        $createdQuotation = Quotation::query()
+            ->where('customer_confirmation_id', $group->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($createdQuotation);
+        $allowedResponse->assertRedirect(route('quotation.edit', ['quotation' => (int) $createdQuotation->id]));
 
         $this->assertDatabaseHas('quotation_items', [
             'customer_confirmation_member_id' => $member->id,
@@ -1943,19 +1950,15 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $response->assertRedirect(route('confirmed-customer.index'));
 
+        $quotationId = (int) $quotation->id;
+
         $member->refresh();
-        $quotation->refresh();
 
         $this->assertSame('cancelled', (string) ($member->status ?? ''));
-        $this->assertSame('cancelled', (string) ($quotation->status?->value ?? $quotation->status ?? ''));
-
-        $this->assertSame(
-            0,
-            QuotationItem::query()
-                ->where('quotation_id', $quotation->id)
-                ->where('is_header', false)
-                ->count(),
-        );
+        $this->assertDatabaseMissing('quotations', [
+            'id' => $quotationId,
+        ]);
+        $this->assertSame(0, QuotationItem::query()->where('quotation_id', $quotationId)->count());
     }
 
     public function test_cancel_member_with_paid_amount_is_rejected_and_must_use_refund_flow(): void

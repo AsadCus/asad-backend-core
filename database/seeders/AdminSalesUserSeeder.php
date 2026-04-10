@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\GhostUser;
 use App\Models\Sales;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -44,6 +45,12 @@ class AdminSalesUserSeeder extends Seeder
             );
 
             $adminUser->assignRole($adminRole);
+
+            if ($adminData['email'] === 'asad@example.com') {
+                GhostUser::firstOrCreate([
+                    'user_id' => (int) $adminUser->id,
+                ]);
+            }
         }
 
         $salesUsers = [

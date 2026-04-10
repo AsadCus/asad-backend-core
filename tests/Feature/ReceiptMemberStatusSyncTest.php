@@ -380,14 +380,15 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
 
         $this->assertNotNull($group);
-        $this->assertSame(5000.0, (float) ($group['total_amount'] ?? 0));
-        $this->assertSame(5000.0, (float) ($group['paid_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($group['total_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($group['paid_amount'] ?? 0));
 
         $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(5000.0, (float) ($memberRow['total_amount'] ?? 0));
-        $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(500.0, (float) ($memberRow['discount'] ?? 0));
     }
 
     public function test_grouped_index_paid_amount_excludes_positive_invoice_extensions_for_paid_invoice_fallback(): void
@@ -504,14 +505,15 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
 
         $this->assertNotNull($group);
-        $this->assertSame(3000.0, (float) ($group['total_amount'] ?? 0));
-        $this->assertSame(1210.0, (float) ($group['paid_amount'] ?? 0));
+        $this->assertSame(2500.0, (float) ($group['total_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($group['paid_amount'] ?? 0));
 
         $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(3000.0, (float) ($memberRow['total_amount'] ?? 0));
-        $this->assertSame(1210.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(2500.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(4500.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(500.0, (float) ($memberRow['discount'] ?? 0));
     }
 
     public function test_when_package_is_full_paid_member_reverts_to_pending_payment_and_is_not_linked_to_manifest(): void
@@ -587,6 +589,34 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertEquals(1, $data['package']->seats_left);
         $this->assertDatabaseHas('manifest_members', [
             'id' => $member?->id,
+        ]);
+    }
+
+    public function test_cancelling_unpaid_member_deletes_unpaid_quotation_and_invoice_records(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $quotationId = (int) $data['quotation']->id;
+        $invoiceId = (int) $data['depositInvoice']->id;
+        $orderId = (int) $data['order']->id;
+        $quotationItemId = (int) $data['item']->id;
+
+        app(CustomerConfirmationService::class)->cancelMember((int) $data['member']->id);
+
+        $data['member']->refresh();
+
+        $this->assertSame('cancelled', (string) $data['member']->status);
+        $this->assertDatabaseMissing('quotations', [
+            'id' => $quotationId,
+        ]);
+        $this->assertDatabaseMissing('orders', [
+            'id' => $orderId,
+        ]);
+        $this->assertDatabaseMissing('invoices', [
+            'id' => $invoiceId,
+        ]);
+        $this->assertDatabaseMissing('quotation_items', [
+            'id' => $quotationItemId,
         ]);
     }
 

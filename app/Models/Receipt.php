@@ -63,25 +63,23 @@ class Receipt extends Model
 
             // Check if quotation is cancelled or soft deleted - don't create financial transaction
             $quotation = $invoice->order?->quotation;
-            if ($quotation && ($quotation->status === QuotationStatus::Cancelled || $quotation->trashed())) {
-                return;
+            if (! ($quotation && ($quotation->status === QuotationStatus::Cancelled || $quotation->trashed()))) {
+                $financialTransactionService = app(\App\Services\FinancialTransactionService::class);
+
+                $financialTransactionService->recordRevenue(
+                    amount: (float) $receipt->amount,
+                    description: "Payment received - Invoice #{$invoice->invoice_number}",
+                    date: Carbon::parse($receipt->receipt_date),
+                    referenceType: 'App\Models\Receipt',
+                    referenceId: $receipt->id,
+                    metadata: [
+                        'receipt_number' => $receipt->receipt_number,
+                        'invoice_number' => $invoice->invoice_number,
+                        'payment_method' => $receipt->payment_method,
+                        'reference' => $receipt->reference,
+                    ]
+                );
             }
-
-            $financialTransactionService = app(\App\Services\FinancialTransactionService::class);
-
-            $financialTransactionService->recordRevenue(
-                amount: (float) $receipt->amount,
-                description: "Payment received - Invoice #{$invoice->invoice_number}",
-                date: Carbon::parse($receipt->receipt_date),
-                referenceType: 'App\Models\Receipt',
-                referenceId: $receipt->id,
-                metadata: [
-                    'receipt_number' => $receipt->receipt_number,
-                    'invoice_number' => $invoice->invoice_number,
-                    'payment_method' => $receipt->payment_method,
-                    'reference' => $receipt->reference,
-                ]
-            );
 
             app(\App\Services\PaymentStatusService::class)
                 ->syncAfterReceiptMutation((int) $receipt->invoice_id);

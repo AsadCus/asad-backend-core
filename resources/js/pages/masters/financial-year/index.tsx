@@ -125,6 +125,8 @@ export default function FinancialYear({ data }: FinancialYearProps) {
                             columns={columns}
                             data={data.financialYears}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             onAction={(action, row) => {
                                 if (action === 'add') {
                                     router.get(create().url);

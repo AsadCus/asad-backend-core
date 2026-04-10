@@ -84,6 +84,8 @@ export default function Sales({ data, dataBranch }: SalesProps) {
                             columns={columns}
                             data={data}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             url={index().url}
                             onAction={(action, row) => {
                                 if (action === 'add') {

@@ -12,15 +12,20 @@ class SalesUserService
 {
     public function getForDataTable()
     {
-        return User::role('sales')->with('roles', 'sales.branch.country')->get()->map(function ($user) {
-            $user->role = 'sales';
-            $user->contact = $user->contact ?? '';
-            $user->branch_id = (string) ($user->sales->branch_id ?? '');
-            $user->branch_name = $user->sales->branch?->name ?? '-';
-            $user->country_name = $user->sales->branch?->country?->name ?? '-';
+        return User::query()
+            ->whereDoesntHave('ghostUser')
+            ->role('sales')
+            ->with('roles', 'sales.branch.country')
+            ->get()
+            ->map(function ($user) {
+                $user->role = 'sales';
+                $user->contact = $user->contact ?? '';
+                $user->branch_id = (string) ($user->sales->branch_id ?? '');
+                $user->branch_name = $user->sales->branch?->name ?? '-';
+                $user->country_name = $user->sales->branch?->country?->name ?? '-';
 
-            return $user;
-        });
+                return $user;
+            });
     }
 
     public function store(array $data)

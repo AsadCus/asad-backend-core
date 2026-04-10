@@ -56,7 +56,6 @@ import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fie
 import CustomerFormFields from '../customer/form-fields';
 import {
     emptyMember,
-    packageCategoryOptions,
     type CustomerConfirmationFormData,
     type CustomerMemberFormData,
     type CustomerOption,
@@ -225,8 +224,7 @@ export default function CustomerConfirmationForm({
         enquiry_id: enquiryId ?? null,
         package_id: prefillPackageId ?? null,
         package_room_type: '',
-        package_category: '',
-        date_of_application: '',
+        date_of_application: formatDateForDisplay(new Date()),
         members: [
             {
                 ...emptyMember(true),
@@ -695,6 +693,37 @@ export default function CustomerConfirmationForm({
         setActiveTab(`customer-${Math.max(0, newIdx)}`);
     };
 
+    const applyMainMemberAddressToMember = (index: number) => {
+        const members = data.members ?? [];
+
+        if (members.length === 0) {
+            return;
+        }
+
+        const mainMember = members.find((member) => member.is_leader);
+        const mainAddress = String(
+            mainMember?.address ?? members[0]?.address ?? '',
+        );
+
+        setData((currentData) => {
+            const nextMembers = [...(currentData.members ?? [])];
+
+            if (!nextMembers[index]) {
+                return currentData;
+            }
+
+            nextMembers[index] = {
+                ...nextMembers[index],
+                address: mainAddress,
+            };
+
+            return {
+                ...currentData,
+                members: nextMembers,
+            };
+        });
+    };
+
     const applyCustomerUpdate = (
         index: number,
         field: keyof CustomerMemberFormData,
@@ -908,11 +937,12 @@ export default function CustomerConfirmationForm({
                     </div>
 
                     <div className="space-y-2">
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-center gap-3">
                             <Checkbox
                                 id="terms_dialog_accept"
                                 checked={data.terms_accepted}
                                 disabled={processing || !hasReachedTermsBottom}
+                                className="h-5 w-5 border-2 border-primary"
                                 onCheckedChange={(checked) => {
                                     const accepted = checked === true;
                                     setData('terms_accepted', accepted);
@@ -1190,37 +1220,6 @@ export default function CustomerConfirmationForm({
                             </FormField>
 
                             <FormField
-                                label="Category"
-                                fieldRequirementsProps={{
-                                    hint: 'Select the package category based on services',
-                                    example: 'Economy, Standard, Premium, VIP',
-                                }}
-                                htmlFor="package_category"
-                                error={getError('package_category')}
-                            >
-                                <ProperInputSelect
-                                    id="package_category"
-                                    mode="classic"
-                                    options={packageCategoryOptions}
-                                    value={data.package_category ?? ''}
-                                    onValueChange={(nextValue) => {
-                                        if (Array.isArray(nextValue)) {
-                                            return;
-                                        }
-
-                                        setData(
-                                            'package_category',
-                                            nextValue
-                                                ? String(nextValue)
-                                                : null,
-                                        );
-                                    }}
-                                    placeholder="Select category..."
-                                    disabled={isView || processing}
-                                />
-                            </FormField>
-
-                            <FormField
                                 label="Date of Application"
                                 fieldRequirementsProps={{
                                     required: true,
@@ -1283,8 +1282,7 @@ export default function CustomerConfirmationForm({
                                 )}
                                 <Button
                                     type="button"
-                                    variant="outline"
-                                    size="sm"
+                                    variant="default"
                                     onClick={addCustomer}
                                 >
                                     <Plus className="mr-1 h-4 w-4" />
@@ -1446,6 +1444,14 @@ export default function CustomerConfirmationForm({
                                                         useGeneratedDocumentName
                                                         isView={isView}
                                                         processing={processing}
+                                                        showUseMainAddressButton={
+                                                            !customer.is_leader
+                                                        }
+                                                        onUseMainAddress={() =>
+                                                            applyMainMemberAddressToMember(
+                                                                idx,
+                                                            )
+                                                        }
                                                         getError={getError}
                                                         onUpdateCustomer={(
                                                             field,
@@ -1472,17 +1478,26 @@ export default function CustomerConfirmationForm({
                 {isPublic && (
                     <Card className="py-3 md:py-6">
                         <CardContent className="px-3 md:px-6">
-                            <div className="flex flex-col items-start gap-3">
+                            <div className="flex flex-col items-start gap-3 rounded-md border border-primary/25 bg-primary/5 p-3">
                                 <div className="flex items-center gap-3">
                                     <Checkbox
                                         id="terms_accepted"
                                         checked={data.terms_accepted}
-                                        disabled
-                                        className="h-4.5 w-4.5"
+                                        onCheckedChange={(checked) => {
+                                            if (checked === true) {
+                                                setTermsDialogOpen(true);
+                                            } else {
+                                                setData(
+                                                    'terms_accepted',
+                                                    false,
+                                                );
+                                            }
+                                        }}
+                                        className="h-5 w-5 border-2 border-primary"
                                     />
                                     <Label
                                         htmlFor="terms_accepted"
-                                        className="text-base"
+                                        className="cursor-pointer text-base"
                                     >
                                         <span>
                                             I agree to the Terms and Conditions{' '}
@@ -1497,14 +1512,16 @@ export default function CustomerConfirmationForm({
                                     the information provided is accurate and you
                                     agree to our terms of service.
                                 </p>
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    className="h-auto px-0"
-                                    onClick={() => setTermsDialogOpen(true)}
-                                >
-                                    Read and Accept Terms & Conditions
-                                </Button>
+                                {!data.terms_accepted && (
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        className="h-auto p-0"
+                                        onClick={() => setTermsDialogOpen(true)}
+                                    >
+                                        Read and Accept Terms & Conditions
+                                    </Button>
+                                )}
                             </div>
                             {getError('terms_accepted') && (
                                 <p className="mt-1 text-base font-medium text-red-600">

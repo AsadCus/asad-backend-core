@@ -268,9 +268,13 @@ const columns: ColumnDef<ActivityLog>[] = [
 
 interface UserLogsProps {
     activities: ActivityLog[];
+    canViewChangeSummary: boolean;
 }
 
-export default function UserLogs({ activities }: UserLogsProps) {
+export default function UserLogs({
+    activities,
+    canViewChangeSummary,
+}: UserLogsProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedActivity, setSelectedActivity] =
         useState<ActivityLog | null>(null);
@@ -312,6 +316,8 @@ export default function UserLogs({ activities }: UserLogsProps) {
                             columns={columns}
                             data={activities}
                             actions={actions}
+                            searchFilterMode="outside"
+                            columnFilterMode="outside"
                             onAction={(action, row) => {
                                 if (action === 'view' && row?.original) {
                                     openDetailDialog(row.original);
@@ -416,126 +422,132 @@ export default function UserLogs({ activities }: UserLogsProps) {
                                 </div>
                             </div>
 
-                            <div className="rounded-md border p-4">
-                                <p className="mb-3 text-sm font-semibold">
-                                    Changes Summary
-                                </p>
-                                {attributeChanges.length === 0 ? (
-                                    <p className="text-muted-foreground">
-                                        No old/new change data available.
+                            {canViewChangeSummary && (
+                                <div className="rounded-md border p-4">
+                                    <p className="mb-3 text-sm font-semibold">
+                                        Changes Summary
                                     </p>
-                                ) : (
-                                    <Tabs
-                                        defaultValue="path-view"
-                                        className="w-full"
-                                    >
-                                        <TabsList>
-                                            <TabsTrigger value="path-view">
-                                                Path View
-                                            </TabsTrigger>
-                                            <TabsTrigger value="tree-view">
-                                                Tree View
-                                            </TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent
-                                            value="path-view"
-                                            className="mt-3"
+                                    {attributeChanges.length === 0 ? (
+                                        <p className="text-muted-foreground">
+                                            No old/new change data available.
+                                        </p>
+                                    ) : (
+                                        <Tabs
+                                            defaultValue="path-view"
+                                            className="w-full"
                                         >
-                                            <div className="grid gap-3">
-                                                {attributeChanges.map(
-                                                    (change) => (
-                                                        <div
-                                                            key={change.path}
-                                                            className="rounded-md border bg-muted/30 p-3"
-                                                        >
-                                                            <div className="mb-2 flex items-center justify-between gap-2">
-                                                                <p className="font-medium">
-                                                                    {formatDiffPath(
-                                                                        change.path,
-                                                                    )}
-                                                                </p>
-                                                                <Badge
-                                                                    variant="secondary"
-                                                                    className={
-                                                                        diffTypeClassName[
-                                                                            change
-                                                                                .type
-                                                                        ]
-                                                                    }
-                                                                >
-                                                                    {change.type
-                                                                        .charAt(
-                                                                            0,
-                                                                        )
-                                                                        .toUpperCase() +
-                                                                        change.type.slice(
-                                                                            1,
+                                            <TabsList>
+                                                <TabsTrigger value="path-view">
+                                                    Path View
+                                                </TabsTrigger>
+                                                <TabsTrigger value="tree-view">
+                                                    Tree View
+                                                </TabsTrigger>
+                                            </TabsList>
+
+                                            <TabsContent
+                                                value="path-view"
+                                                className="mt-3"
+                                            >
+                                                <div className="grid gap-3">
+                                                    {attributeChanges.map(
+                                                        (change) => (
+                                                            <div
+                                                                key={
+                                                                    change.path
+                                                                }
+                                                                className="rounded-md border bg-muted/30 p-3"
+                                                            >
+                                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                                                    <p className="font-medium">
+                                                                        {formatDiffPath(
+                                                                            change.path,
                                                                         )}
-                                                                </Badge>
+                                                                    </p>
+                                                                    <Badge
+                                                                        variant="secondary"
+                                                                        className={
+                                                                            diffTypeClassName[
+                                                                                change
+                                                                                    .type
+                                                                            ]
+                                                                        }
+                                                                    >
+                                                                        {change.type
+                                                                            .charAt(
+                                                                                0,
+                                                                            )
+                                                                            .toUpperCase() +
+                                                                            change.type.slice(
+                                                                                1,
+                                                                            )}
+                                                                    </Badge>
+                                                                </div>
+
+                                                                {change.type !==
+                                                                    'added' && (
+                                                                    <div className="mb-2">
+                                                                        <p className="text-xs font-medium text-muted-foreground">
+                                                                            Old
+                                                                        </p>
+                                                                        <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
+                                                                            {formatChangeValue(
+                                                                                change.oldValue,
+                                                                            )}
+                                                                        </pre>
+                                                                    </div>
+                                                                )}
+
+                                                                {change.type !==
+                                                                    'removed' && (
+                                                                    <div>
+                                                                        <p className="text-xs font-medium text-muted-foreground">
+                                                                            New
+                                                                        </p>
+                                                                        <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
+                                                                            {formatChangeValue(
+                                                                                change.newValue,
+                                                                            )}
+                                                                        </pre>
+                                                                    </div>
+                                                                )}
                                                             </div>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </TabsContent>
 
-                                                            {change.type !==
-                                                                'added' && (
-                                                                <div className="mb-2">
-                                                                    <p className="text-xs font-medium text-muted-foreground">
-                                                                        Old
-                                                                    </p>
-                                                                    <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
-                                                                        {formatChangeValue(
-                                                                            change.oldValue,
-                                                                        )}
-                                                                    </pre>
-                                                                </div>
-                                                            )}
-
-                                                            {change.type !==
-                                                                'removed' && (
-                                                                <div>
-                                                                    <p className="text-xs font-medium text-muted-foreground">
-                                                                        New
-                                                                    </p>
-                                                                    <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
-                                                                        {formatChangeValue(
-                                                                            change.newValue,
-                                                                        )}
-                                                                    </pre>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ),
-                                                )}
-                                            </div>
-                                        </TabsContent>
-
-                                        <TabsContent
-                                            value="tree-view"
-                                            className="mt-3"
-                                        >
-                                            <pre className="overflow-x-auto rounded-md bg-muted/30 p-3 text-xs">
-                                                {JSON.stringify(
-                                                    changesTree,
-                                                    null,
-                                                    2,
-                                                )}
-                                            </pre>
-                                        </TabsContent>
-                                    </Tabs>
-                                )}
-                            </div>
-
-                            <div className="rounded-md border p-4">
-                                <p className="mb-3 text-sm font-semibold">
-                                    Properties JSON
-                                </p>
-                                <pre className="overflow-x-auto rounded-md bg-muted/30 p-3 text-xs">
-                                    {JSON.stringify(
-                                        selectedActivity.properties ?? {},
-                                        null,
-                                        2,
+                                            <TabsContent
+                                                value="tree-view"
+                                                className="mt-3"
+                                            >
+                                                <pre className="overflow-x-auto rounded-md bg-muted/30 p-3 text-xs">
+                                                    {JSON.stringify(
+                                                        changesTree,
+                                                        null,
+                                                        2,
+                                                    )}
+                                                </pre>
+                                            </TabsContent>
+                                        </Tabs>
                                     )}
-                                </pre>
-                            </div>
+                                </div>
+                            )}
+
+                            {canViewChangeSummary && (
+                                <div className="rounded-md border p-4">
+                                    <p className="mb-3 text-sm font-semibold">
+                                        Properties JSON
+                                    </p>
+                                    <pre className="overflow-x-auto rounded-md bg-muted/30 p-3 text-xs">
+                                        {JSON.stringify(
+                                            selectedActivity.properties ?? {},
+                                            null,
+                                            2,
+                                        )}
+                                    </pre>
+                                </div>
+                            )}
                         </div>
                     )}
                 </DialogContent>
