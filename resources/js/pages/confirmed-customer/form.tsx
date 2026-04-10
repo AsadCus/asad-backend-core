@@ -1404,6 +1404,9 @@ export default function CustomerConfirmationForm({
                                                         isView={isView}
                                                         processing={processing}
                                                         showStatusField={true}
+                                                        showRelationshipField={
+                                                            !isPublic
+                                                        }
                                                         forceStatusDisabled={
                                                             isPublic ||
                                                             isEdit ||

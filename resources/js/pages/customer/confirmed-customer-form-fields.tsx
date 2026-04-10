@@ -11,6 +11,7 @@ interface ConfirmedCustomerFormFieldsProps {
     isView: boolean;
     processing: boolean;
     showStatusField?: boolean;
+    showRelationshipField?: boolean;
     forceStatusDisabled?: boolean;
     getError: (path: string) => string | undefined;
     sharingPlanSelectOptions?: Array<{ label: string; value: string }>;
@@ -35,6 +36,7 @@ export default function ConfirmedCustomerFormFields({
     isView,
     processing,
     showStatusField = true,
+    showRelationshipField = true,
     forceStatusDisabled = false,
     getError,
     sharingPlanSelectOptions,
@@ -111,28 +113,30 @@ export default function ConfirmedCustomerFormFields({
                     />
                 </FormField>
 
-                <FormField
-                    label="Relationship"
-                    htmlFor={fieldPath('relationship')}
-                    error={getError(fieldPath('relationship'))}
-                    className="md:col-span-2"
-                    fieldRequirementsProps={{
-                        required: false,
-                        hint: "Customer's relationship in the booking",
-                        example: 'Parent, Child, or Family Member',
-                        format: 'Up to 255 characters',
-                    }}
-                >
-                    <ProperInput
-                        id={fieldPath('relationship')}
-                        value={customer.relationship ?? ''}
-                        onCommit={(value) =>
-                            onUpdateCustomer('relationship', value || null)
-                        }
-                        placeholder="Enter relationship"
-                        disabled={disabled}
-                    />
-                </FormField>
+                {showRelationshipField && (
+                    <FormField
+                        label="Relationship"
+                        htmlFor={fieldPath('relationship')}
+                        error={getError(fieldPath('relationship'))}
+                        className="md:col-span-2"
+                        fieldRequirementsProps={{
+                            required: false,
+                            hint: "Customer's relationship in the booking",
+                            example: 'Parent, Child, or Family Member',
+                            format: 'Up to 255 characters',
+                        }}
+                    >
+                        <ProperInput
+                            id={fieldPath('relationship')}
+                            value={customer.relationship ?? ''}
+                            onCommit={(value) =>
+                                onUpdateCustomer('relationship', value || null)
+                            }
+                            placeholder="Enter relationship"
+                            disabled={disabled}
+                        />
+                    </FormField>
+                )}
             </div>
         </div>
     );
