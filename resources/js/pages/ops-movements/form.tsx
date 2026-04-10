@@ -237,12 +237,6 @@ const YES_NO_OPTIONS = [
     { label: 'No', value: 'no' },
 ];
 
-const BUDGET_CURRENCY_OPTIONS = [
-    { label: 'Saudi Riyal (SAR)', value: 'SAR' },
-    { label: 'Singapore Dollar (SGD)', value: 'SGD' },
-    { label: 'US Dollar (USD)', value: 'USD' },
-    { label: 'Malaysian Ringgit (MYR)', value: 'MYR' },
-];
 
 export default function OpsMovementForm({
     initialData,
@@ -1587,17 +1581,19 @@ export default function OpsMovementForm({
                         <FormField
                             label="Budget Currency"
                             fieldRequirementsProps={{
-                                hint: 'Currency used for budget section totals and grand total label.',
+                                hint: 'Currency code used for budget totals (e.g. SAR, SGD, USD, MYR).',
+                                example: 'SAR',
                             }}
                         >
-                            <ProperInputSelect
-                                mode="classic"
-                                options={BUDGET_CURRENCY_OPTIONS}
+                            <ProperInput
                                 value={data.budget_currency ?? 'SAR'}
                                 disabled={processing}
-                                searchable={false}
-                                onValueChange={(value) =>
-                                    setFormData('budget_currency', value)
+                                placeholder="e.g. SAR"
+                                onCommit={(value) =>
+                                    setFormData(
+                                        'budget_currency',
+                                        value.trim().toUpperCase() || 'SAR',
+                                    )
                                 }
                             />
                         </FormField>
