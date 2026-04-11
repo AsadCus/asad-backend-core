@@ -646,7 +646,7 @@ export default function ManifestDatatable({
     }, [groups, expanded, isGrouped]);
 
     const roomRowColorByGroupKey = useMemo<Record<string, string>>(() => {
-        if (mode !== 'room' && mode !== 'room_check') {
+        if (mode !== 'members' && mode !== 'room' && mode !== 'room_check') {
             return {};
         }
 
@@ -667,9 +667,12 @@ export default function ManifestDatatable({
             )?.members;
             const leadMember = groupMembers?.[0]?.member;
 
-            const normalizedLabel = String(leadMember?.room_label ?? '')
-                .trim()
-                .toLowerCase();
+            const normalizedLabel =
+                mode === 'room' || mode === 'room_check'
+                    ? String(leadMember?.room_label ?? '')
+                          .trim()
+                          .toLowerCase()
+                    : '';
             const labelKey =
                 normalizedLabel.length > 0
                     ? normalizedLabel
@@ -1619,7 +1622,6 @@ export default function ManifestDatatable({
                                 size="default"
                             />
                         </TableCell>
-                        <TableCell />
                         <TableCell />
                         <TableCell />
                         <TableCell />

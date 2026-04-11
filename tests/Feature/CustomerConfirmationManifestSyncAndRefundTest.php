@@ -577,6 +577,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertNotNull($refundInvoice);
         $this->assertNotSame((int) $invoice->id, (int) $refundInvoice->id);
         $this->assertSame(-500.0, (float) ($refundInvoice->amount ?? 0));
+        $this->assertNull($refundInvoice->invoice_number);
 
         $refundItems = $refundInvoice->quotationItems()
             ->orderBy('sort_order')
@@ -935,6 +936,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $this->assertNotNull($refundInvoice);
         $this->assertSame(-1000.0, (float) ($refundInvoice->amount ?? 0));
+        $this->assertNull($refundInvoice->invoice_number);
 
         $refundReceipt = Receipt::query()
             ->where('invoice_id', $refundInvoice->id)

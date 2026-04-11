@@ -67,6 +67,7 @@ class OrderService
                     'updated_at' => $o->updated_at?->translatedFormat('d F Y'),
                     'has_receipts' => $hasReceipts,
                     'invoices' => $o->invoices
+                        ->filter(fn ($invoice) => ! InvoiceStatus::isRefund($invoice->status))
                         ->values()
                         ->map(function ($i) {
                             return [
@@ -219,6 +220,7 @@ class OrderService
             'quotation_number' => $o->quotation->quotation_number ?? '-',
             'payment_plan' => $o->payment_plan,
             'invoices' => $o->invoices
+                ->filter(fn ($invoice) => ! InvoiceStatus::isRefund($invoice->status))
                 ->values()
                 ->map(fn ($invoice) => [
                     'id' => $invoice->id,

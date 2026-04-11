@@ -50,7 +50,14 @@ class PaymentStatusService
     {
         if ((float) ($invoice->amount ?? 0) < 0) {
             if (! InvoiceStatus::isRefund($invoice->status)) {
-                $invoice->update(['status' => InvoiceStatus::Refund]);
+                $invoice->update([
+                    'status' => InvoiceStatus::Refund,
+                    'invoice_number' => null,
+                ]);
+            } elseif (! is_null($invoice->invoice_number)) {
+                $invoice->update([
+                    'invoice_number' => null,
+                ]);
             }
 
             return;
