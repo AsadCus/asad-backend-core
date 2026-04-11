@@ -81,6 +81,7 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     settingsKey?: string;
     groupByRowColorKey?: string;
     inheritExpandedRowBackground?: boolean;
+    showSettings?: boolean;
 }
 
 const ROW_CLICK_IGNORE_SELECTOR = [
@@ -236,6 +237,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     settingsKey,
     groupByRowColorKey,
     inheritExpandedRowBackground = false,
+    showSettings = true,
 }: DataTableProps<TData, TValue>) {
     const hasActionsColumn = columns.some(
         (col) => 'id' in col && col.id === 'actions',
@@ -607,6 +609,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         addButtonText={addButtonText}
                         searchFilterMode={searchFilterMode}
                         columnFilterMode={columnFilterMode}
+                        showSettings={showSettings}
                     />
                 </div>
             </div>

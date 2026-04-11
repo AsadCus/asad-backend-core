@@ -25,6 +25,7 @@ interface DataTableToolbarProps<TData> {
     addButtonText?: string;
     searchFilterMode?: 'inside' | 'outside';
     columnFilterMode?: 'inside' | 'outside';
+    showSettings?: boolean;
 }
 
 export function DataTableToolbar<TData>({
@@ -43,6 +44,7 @@ export function DataTableToolbar<TData>({
     addButtonText = 'Add',
     searchFilterMode = 'inside',
     columnFilterMode = 'inside',
+    showSettings = true,
 }: DataTableToolbarProps<TData>) {
     const isFiltered = table.getState().columnFilters.length > 0;
     const showOutsideSearch = searchFilterMode === 'outside';
@@ -69,20 +71,22 @@ export function DataTableToolbar<TData>({
             <div className="flex w-full flex-col gap-3">
                 <div className="flex w-full justify-between">
                     <div className="flex flex-1 items-center gap-2">
-                        <DataTableSettings
-                            table={table}
-                            globalFilter={globalFilter}
-                            setGlobalFilter={setGlobalFilter}
-                            density={density}
-                            setDensity={setDensity}
-                            searchQuery={searchQuery}
-                            setSearchQuery={setSearchQuery}
-                            renderFilter={renderFilter}
-                            searchFilterMode={searchFilterMode}
-                            columnFilterMode={columnFilterMode}
-                        />
+                        {showSettings && (
+                            <DataTableSettings
+                                table={table}
+                                globalFilter={globalFilter}
+                                setGlobalFilter={setGlobalFilter}
+                                density={density}
+                                setDensity={setDensity}
+                                searchQuery={searchQuery}
+                                setSearchQuery={setSearchQuery}
+                                renderFilter={renderFilter}
+                                searchFilterMode={searchFilterMode}
+                                columnFilterMode={columnFilterMode}
+                            />
+                        )}
 
-                        {(isFiltered || globalFilter) && (
+                        {showSettings && (isFiltered || globalFilter) && (
                             <Button
                                 variant="ghost"
                                 onClick={() => {

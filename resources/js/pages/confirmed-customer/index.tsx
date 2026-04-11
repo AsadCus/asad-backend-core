@@ -1420,6 +1420,7 @@ export default function ConfirmedCustomerIndex({
                 columns={memberColumns}
                 data={data}
                 actions={['view']}
+                showSettings={false}
                 getRowActions={(member) => {
                     const rowActions: ActionType[] = [];
                     const memberPaidAmount = Number(member.paid_amount ?? 0);

@@ -3,7 +3,7 @@ import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
-import { createSelectColumn } from '@/components/select-column';
+// import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -96,7 +96,7 @@ const shouldProceedWithNegativeReceipt = (invoice: InvoiceSchema): boolean => {
 };
 
 export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
-    createSelectColumn<InvoiceSchema>(),
+    // createSelectColumn<InvoiceSchema>(),
     {
         accessorKey: 'id',
         header: 'ID',

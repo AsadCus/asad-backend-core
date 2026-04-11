@@ -652,8 +652,8 @@ export default function ManifestDatatable({
 
         const colorByGroupKey: Record<string, string> = {};
         const colorClasses = [
-            'bg-orange-50 dark:bg-orange-950/35',
-            'bg-orange-100 dark:bg-orange-900/35',
+            'bg-orange-50 dark:bg-orange-950',
+            'bg-orange-100 dark:bg-orange-900',
         ];
 
         let activeColorIndex = 0;
@@ -1271,6 +1271,43 @@ export default function ManifestDatatable({
         return drag + 11;
     };
 
+    const dragColumnWidth = 52;
+    const serialColumnWidth = 72;
+
+    const getStickyColumnLeft = (
+        column: 'drag' | 'serial' | 'name',
+    ): number => {
+        if (column === 'drag') {
+            return 0;
+        }
+
+        if (column === 'serial') {
+            return allowReorder ? dragColumnWidth : 0;
+        }
+
+        return (allowReorder ? dragColumnWidth : 0) + serialColumnWidth;
+    };
+
+    const getStickyColumnStyle = (column: 'drag' | 'serial' | 'name') => ({
+        left: `${getStickyColumnLeft(column)}px`,
+    });
+
+    const getStickyHeaderClassName = (column: 'drag' | 'serial' | 'name') => {
+        return cn(
+            'sticky top-0 bg-muted',
+            column === 'name' ? '!z-[220]' : '!z-[210]',
+            'shadow-[1px_0_0_0_hsl(var(--border))]',
+        );
+    };
+
+    const getStickyBodyClassName = (column: 'drag' | 'serial' | 'name') => {
+        return cn(
+            'sticky bg-background group-hover:bg-muted',
+            column === 'name' ? 'z-[70]' : 'z-[60]',
+            'shadow-[1px_0_0_0_hsl(var(--border))]',
+        );
+    };
+
     const getGroupRoomInfo = (groupKey: string) => {
         const group = groups.find((item) => item.key === groupKey);
         const first = group?.members[0]?.member;
@@ -1289,11 +1326,24 @@ export default function ManifestDatatable({
 
     const renderTableHeaders = () => (
         <TableRow>
-            {allowReorder && <TableHead className="w-[52px]" />}
-            <TableHead className="w-[72px]">
+            {allowReorder && (
+                <TableHead
+                    className={cn('w-[52px]', getStickyHeaderClassName('drag'))}
+                    style={getStickyColumnStyle('drag')}
+                />
+            )}
+            <TableHead
+                className={cn('w-[72px]', getStickyHeaderClassName('serial'))}
+                style={getStickyColumnStyle('serial')}
+            >
                 {isGrouped ? '#' : 'S/N'}
             </TableHead>
-            <TableHead className="min-w-60">Name as per passport</TableHead>
+            <TableHead
+                className={cn('min-w-60', getStickyHeaderClassName('name'))}
+                style={getStickyColumnStyle('name')}
+            >
+                Name as per passport
+            </TableHead>
             {(mode === 'members' ||
                 mode === 'room' ||
                 mode === 'room_check') && (
@@ -1342,7 +1392,7 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-35">Discount</TableHead>
             )}
             {mode === 'members' && (
-                <TableHead className="min-w-55">
+                <TableHead className="min-w-30">
                     Date of Deposit Payment
                 </TableHead>
             )}
@@ -1350,7 +1400,7 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-35">Deposit Payment</TableHead>
             )}
             {mode === 'members' && (
-                <TableHead className="min-w-55">
+                <TableHead className="min-w-30">
                     Date of Second Payment
                 </TableHead>
             )}
@@ -1358,7 +1408,7 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-35">Second Payment</TableHead>
             )}
             {mode === 'members' && (
-                <TableHead className="min-w-55">
+                <TableHead className="min-w-30">
                     Date of Third Payment
                 </TableHead>
             )}
@@ -1477,7 +1527,7 @@ export default function ManifestDatatable({
             )}
             {mode === 'members' && <TableHead>Payment Status</TableHead>}
             {mode !== 'course_collection' && (
-                <TableHead className="min-w-60">Remarks</TableHead>
+                <TableHead className="min-w-80">Remarks</TableHead>
             )}
             <TableHead>Action</TableHead>
         </TableRow>
@@ -1523,6 +1573,8 @@ export default function ManifestDatatable({
             (mode === 'members' || mode === 'room') &&
             !disabled &&
             item.memberCount > 1;
+        const rowToneClass =
+            roomRowColorByGroupKey[item.groupKey] ?? 'bg-muted/30';
 
         const rowContent = (
             <TableRow
@@ -1532,13 +1584,20 @@ export default function ManifestDatatable({
                     transition,
                 }}
                 className={cn(
-                    'items-start bg-muted/30',
+                    'group items-start',
                     isExpanded && 'border-b-0',
-                    roomRowColorByGroupKey[item.groupKey],
+                    rowToneClass,
                 )}
             >
                 {allowReorder && (
-                    <TableCell>
+                    <TableCell
+                        className={cn(
+                            'w-[52px] min-w-[52px]',
+                            getStickyBodyClassName('drag'),
+                            rowToneClass,
+                        )}
+                        style={getStickyColumnStyle('drag')}
+                    >
                         <Button
                             type="button"
                             variant="outline"
@@ -1553,7 +1612,14 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                <TableCell>
+                <TableCell
+                    className={cn(
+                        'w-[72px] min-w-[72px]',
+                        getStickyBodyClassName('serial'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('serial')}
+                >
                     <Button
                         type="button"
                         variant="ghost"
@@ -1569,7 +1635,14 @@ export default function ManifestDatatable({
                     </Button>
                 </TableCell>
 
-                <TableCell>
+                <TableCell
+                    className={cn(
+                        'min-w-60',
+                        getStickyBodyClassName('name'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('name')}
+                >
                     <div className="flex items-center gap-2">
                         <span className="text-base font-medium">
                             {isRoomMode
@@ -2139,6 +2212,8 @@ export default function ManifestDatatable({
             canSplitMemberFromGroup ||
             canShowUnassignByLocation ||
             canShowAssignByLocation;
+        const rowToneClass =
+            roomRowColorByGroupKey[item.groupKey] ?? 'bg-background';
 
         const rowContent = (
             <TableRow
@@ -2148,12 +2223,20 @@ export default function ManifestDatatable({
                     transition,
                 }}
                 className={cn(
+                    'group',
                     !isLastChild && 'border-b-0',
-                    roomRowColorByGroupKey[item.groupKey],
+                    rowToneClass,
                 )}
             >
                 {allowReorder && (
-                    <TableCell>
+                    <TableCell
+                        className={cn(
+                            'w-[52px] min-w-[52px]',
+                            getStickyBodyClassName('drag'),
+                            rowToneClass,
+                        )}
+                        style={getStickyColumnStyle('drag')}
+                    >
                         <div className="pl-2">
                             <Button
                                 type="button"
@@ -2170,11 +2253,26 @@ export default function ManifestDatatable({
                     </TableCell>
                 )}
 
-                <TableCell className="text-muted-foreground">
+                <TableCell
+                    className={cn(
+                        'w-[72px] min-w-[72px]',
+                        'text-muted-foreground',
+                        getStickyBodyClassName('serial'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('serial')}
+                >
                     {member.sn ?? flatIndex + 1}
                 </TableCell>
 
-                <TableCell>
+                <TableCell
+                    className={cn(
+                        'min-w-60',
+                        getStickyBodyClassName('name'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('name')}
+                >
                     {/* {mode === 'room' && (
                         <Badge
                             variant="outline"
@@ -3426,11 +3524,28 @@ export default function ManifestDatatable({
             const currentValue = row[field];
             updateFlatRow(index, field, !currentValue);
         };
+        const rowToneClass = index % 2 === 0 ? 'bg-background' : 'bg-muted/35';
 
         const rowContent = (
-            <TableRow key={row._rowId} className="odd:bg-muted/35">
-                <TableCell>{row.sn ?? index + 1}</TableCell>
-                <TableCell>
+            <TableRow key={row._rowId} className={cn('group', rowToneClass)}>
+                <TableCell
+                    className={cn(
+                        'w-[72px] min-w-[72px]',
+                        getStickyBodyClassName('serial'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('serial')}
+                >
+                    {row.sn ?? index + 1}
+                </TableCell>
+                <TableCell
+                    className={cn(
+                        'min-w-60',
+                        getStickyBodyClassName('name'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('name')}
+                >
                     <span className="font-medium">
                         {row.name_as_per_passport ?? '-'}
                     </span>
@@ -3556,10 +3671,28 @@ export default function ManifestDatatable({
         row: MemberWithUI & { _rowId: string },
         index: number,
     ) => {
+        const rowToneClass = index % 2 === 0 ? 'bg-background' : 'bg-muted/40';
+
         const rowContent = (
-            <TableRow key={row._rowId} className="odd:bg-muted/40">
-                <TableCell>{row.sn ?? index + 1}</TableCell>
-                <TableCell>
+            <TableRow key={row._rowId} className={cn('group', rowToneClass)}>
+                <TableCell
+                    className={cn(
+                        'w-[72px] min-w-[72px]',
+                        getStickyBodyClassName('serial'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('serial')}
+                >
+                    {row.sn ?? index + 1}
+                </TableCell>
+                <TableCell
+                    className={cn(
+                        'min-w-60',
+                        getStickyBodyClassName('name'),
+                        rowToneClass,
+                    )}
+                    style={getStickyColumnStyle('name')}
+                >
                     <ProperInput
                         id={
                             errorPrefix
@@ -3760,73 +3893,79 @@ export default function ManifestDatatable({
                     </Button>
                 </div>
             )}
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-            >
-                <SortableContext
-                    items={dndIds}
-                    strategy={verticalListSortingStrategy}
+            <div className="max-h-[75vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
                 >
-                    <Table
-                        className={cn(
-                            'min-w-[1600px]',
-                            '[&_td]:align-top [&_th]:align-middle',
-                            // '[&_td]:p-1 [&_th]:px-1 [&_th]:py-2',
-                            // '[&_tfoot_td]:p-2',
-                        )}
+                    <SortableContext
+                        items={dndIds}
+                        strategy={verticalListSortingStrategy}
                     >
-                        <TableHeader>{renderTableHeaders()}</TableHeader>
-
-                        <TableBody>
-                            {isGrouped
-                                ? visibleItems.map((item) => (
-                                      <SortableRow
-                                          key={item.dndId}
-                                          id={item.dndId}
-                                          disabled={!allowReorder || disabled}
-                                      >
-                                          {(sortableProps) =>
-                                              item.isGroupHeader
-                                                  ? renderGroupHeader(
-                                                        item,
-                                                        sortableProps,
-                                                    )
-                                                  : renderMemberRow(
-                                                        item,
-                                                        sortableProps,
-                                                    )
-                                          }
-                                      </SortableRow>
-                                  ))
-                                : flatRows.map((row, index) => {
-                                      if (mode === 'course_collection') {
-                                          return renderCourseCollectionRow(
-                                              row,
-                                              index,
-                                          );
-                                      }
-
-                                      return renderAirlineRow(row, index);
-                                  })}
-
-                            {(isGrouped
-                                ? visibleItems.length
-                                : flatRows.length) === 0 && (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={getColumnCount()}
-                                        className="py-8 text-center text-muted-foreground"
-                                    >
-                                        No members added yet
-                                    </TableCell>
-                                </TableRow>
+                        <Table
+                            className={cn(
+                                'min-w-[1600px]',
+                                'border-separate border-spacing-0',
+                                '[&_td]:align-top [&_th]:align-middle',
+                                '[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-[80] [&_thead_th]:bg-muted',
+                                // '[&_td]:p-1 [&_th]:px-1 [&_th]:py-2',
+                                // '[&_tfoot_td]:p-2',
                             )}
-                        </TableBody>
-                    </Table>
-                </SortableContext>
-            </DndContext>
+                        >
+                            <TableHeader>{renderTableHeaders()}</TableHeader>
+
+                            <TableBody>
+                                {isGrouped
+                                    ? visibleItems.map((item) => (
+                                          <SortableRow
+                                              key={item.dndId}
+                                              id={item.dndId}
+                                              disabled={
+                                                  !allowReorder || disabled
+                                              }
+                                          >
+                                              {(sortableProps) =>
+                                                  item.isGroupHeader
+                                                      ? renderGroupHeader(
+                                                            item,
+                                                            sortableProps,
+                                                        )
+                                                      : renderMemberRow(
+                                                            item,
+                                                            sortableProps,
+                                                        )
+                                              }
+                                          </SortableRow>
+                                      ))
+                                    : flatRows.map((row, index) => {
+                                          if (mode === 'course_collection') {
+                                              return renderCourseCollectionRow(
+                                                  row,
+                                                  index,
+                                              );
+                                          }
+
+                                          return renderAirlineRow(row, index);
+                                      })}
+
+                                {(isGrouped
+                                    ? visibleItems.length
+                                    : flatRows.length) === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={getColumnCount()}
+                                            className="py-8 text-center text-muted-foreground"
+                                        >
+                                            No members added yet
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </SortableContext>
+                </DndContext>
+            </div>
         </div>
     );
 }

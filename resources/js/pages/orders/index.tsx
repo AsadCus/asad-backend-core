@@ -406,6 +406,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                         columns={invoiceColumns}
                                         data={invoices}
                                         actions={[]}
+                                        showSettings={false}
                                         getRowActions={(
                                             invoice: InvoiceSchema,
                                         ) => {
