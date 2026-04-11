@@ -71,11 +71,93 @@
 @section('report-content')
     @php
         $opsMovement = is_array($opsMovement ?? null) ? $opsMovement : [];
-        $budgetSections = collect($opsMovement['budget'] ?? []);
-        $budgetGrandTotal = $budgetSections->sum(function ($section) {
-            return collect($section['items'] ?? [])->sum(function ($item) {
-                return (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0);
+
+        $adultTotal = (int) data_get($opsMovement, 'passengers.adult_total', 0);
+        $officialTotal = (int) data_get($opsMovement, 'passengers.official_total', 0);
+        $grandPaxTotal =
+            (int) data_get($opsMovement, 'passengers.grand_total', 0) ?:
+            $adultTotal +
+                (int) data_get($opsMovement, 'passengers.child_total', 0) +
+                (int) data_get($opsMovement, 'passengers.infant_total', 0) +
+                $officialTotal;
+
+        /*
+        |----------------------------------------------------------------------
+        | DEFAULT TEMPLATE ITEMS (max 3 per section)
+        | Used only when no real data exists for that section.
+        |----------------------------------------------------------------------
+        */
+        $defaultItems = [
+            'manpower' => [
+                ['item_name' => 'Mutawwif', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Assisting Mutawwif', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Mutawwif Meal', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+            ],
+            'pettycash' => [
+                ['item_name' => 'Hotel Porter', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Bus Tipping', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Tipping for Airport Porter', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+            ],
+            'contingency' => [
+                [
+                    'item_name' => 'Contingency Fund',
+                    'unit_price' => 0,
+                    'quantity' => 0,
+                    'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
+                ],
+                ['item_name' => 'Emergency Reserve', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Miscellaneous', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+            ],
+        ];
+
+        /*
+        |----------------------------------------------------------------------
+        | RESOLVE SECTIONS
+        | Match dynamic budget data to the 3 fixed sections by key or title.
+        | Falls back to template items if no data found.
+        |----------------------------------------------------------------------
+        */
+        $budgetData = collect($opsMovement['budget'] ?? []);
+
+        $resolveItems = function (array $slugs) use ($budgetData): array {
+            $normalize = fn($v) => strtolower(str_replace([' ', '_', '-'], '', $v ?? ''));
+            $matched = $budgetData->first(function ($s) use ($slugs, $normalize) {
+                return in_array($normalize($s['key'] ?? ''), $slugs) || in_array($normalize($s['title'] ?? ''), $slugs);
             });
+            return $matched['items'] ?? [];
+        };
+
+        $sections = [
+            [
+                'title' => 'Manpower Expenses',
+                'items' => $resolveItems(['manpowerexpenses', 'manpower']) ?: $defaultItems['manpower'],
+            ],
+            [
+                'title' => 'Petty Cash',
+                'items' => $resolveItems(['pettycash']) ?: $defaultItems['pettycash'],
+            ],
+            [
+                'title' => 'Contingency',
+                'items' => $resolveItems(['contingency']) ?: $defaultItems['contingency'],
+            ],
+        ];
+
+        // Append any extra sections from data that are not one of the 3 defaults
+        $reservedSlugs = ['manpowerexpenses', 'manpower', 'pettycash', 'contingency'];
+        $normalize = fn($v) => strtolower(str_replace([' ', '_', '-'], '', $v ?? ''));
+        $extraSections = $budgetData
+            ->filter(function ($s) use ($reservedSlugs, $normalize) {
+                return !in_array($normalize($s['key'] ?? ($s['title'] ?? '')), $reservedSlugs);
+            })
+            ->values()
+            ->toArray();
+
+        $allSections = array_merge($sections, $extraSections);
+
+        $budgetGrandTotal = collect($allSections)->sum(function ($section) {
+            return collect($section['items'] ?? [])->sum(
+                fn($item) => (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0),
+            );
         });
     @endphp
 
@@ -91,69 +173,71 @@
         </tr>
         <tr>
             <th>No. of Jemaah</th>
-            <td>{{ $opsMovement['passengers']['grand_total'] ?? '-' }}</td>
+            <td>{{ $adultTotal > 0 ? $adultTotal . ' adults' : $opsMovement['passengers']['grand_total'] ?? '-' }}</td>
             <th>No. of Officials</th>
-            <td>{{ $opsMovement['passengers']['official_total'] ?? '-' }}</td>
+            <td>{{ $officialTotal ?: $opsMovement['passengers']['official_total'] ?? '-' }}</td>
             <th>Mutawwif</th>
             <td>{{ $opsMovement['mutawwif_name'] ?? '-' }}</td>
+        </tr>
+        <tr>
+            <th>Total Pax</th>
+            <td>{{ $grandPaxTotal ?: '-' }}</td>
+            <th colspan="4" style="font-size: 7.5px; font-weight: 400; color: #777; font-style: italic;">
+                Official to indicate amount spent on remarks column. Be reminded to keep receipts if available.
+            </th>
         </tr>
     </table>
 
     {{-- Budget Sections --}}
-    @forelse ($budgetSections as $section)
+    @foreach ($allSections as $section)
         @php
             $items = collect($section['items'] ?? []);
             $sectionTotal = $items->sum(
                 fn($item) => (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0),
             );
+            $sectionTitle = $section['title'] ?? 'Budget Section';
         @endphp
 
-        <div class="section-title">{{ $section['title'] ?? 'Budget Section' }}</div>
+        <div class="section-title">{{ $sectionTitle }}</div>
         <table class="section-table">
             <tr>
                 <th style="width: 28%;">Items</th>
                 <th style="width: 12%;" class="text-right">Unit Price</th>
                 <th style="width: 10%;" class="text-right">Quantity</th>
-                <th style="width: 18%;" class="text-right">Amount</th>
-                {{-- <th style="width: 18%;" class="text-right">Total (Saudi Riyal)</th> --}}
+                <th style="width: 18%;" class="text-right">Total (Saudi Riyal)</th>
                 <th style="width: 32%;">Remarks</th>
             </tr>
             @forelse ($items as $item)
                 @php
-                    $lineTotal = (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0);
+                    $unitPrice = (float) ($item['unit_price'] ?? 0);
+                    $qty = (float) ($item['quantity'] ?? 0);
+                    $lineTotal = $unitPrice * $qty;
                 @endphp
                 <tr>
                     <td>{{ $item['item_name'] ?? '-' }}</td>
-                    <td class="text-right">{{ number_format((float) ($item['unit_price'] ?? 0), 2) }}</td>
-                    <td class="text-right">{{ number_format((float) ($item['quantity'] ?? 0), 2) }}</td>
-                    <td class="text-right">{{ number_format($lineTotal, 2) }}</td>
-                    <td>{{ $item['remarks'] ?? '-' }}</td>
+                    <td class="text-right">{{ $unitPrice > 0 ? number_format($unitPrice, 2) : '' }}</td>
+                    <td class="text-right">{{ $qty > 0 ? number_format($qty, 0) : '' }}</td>
+                    <td class="text-right">{{ $lineTotal > 0 ? number_format($lineTotal, 2) : '' }}</td>
+                    <td>{{ $item['remarks'] ?? '' }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" class="text-center">No budget item.</td>
+                    <td colspan="5" class="text-center" style="color: #999; font-style: italic;">No items added yet.</td>
                 </tr>
             @endforelse
             <tr>
-                <th colspan="3" class="text-right">{{ $section['title'] ?? 'Section' }} Budget (SAR)</th>
-                <th class="text-right">{{ number_format($sectionTotal, 2) }}</th>
+                <th colspan="3" class="text-right">{{ $sectionTitle }} Budget (SAR)</th>
+                <th class="text-right">SAR {{ number_format($sectionTotal, 2) }}</th>
                 <th></th>
             </tr>
         </table>
-    @empty
-        <div class="section-title">Budget</div>
-        <table class="section-table">
-            <tr>
-                <td colspan="5" class="text-center">No budget data.</td>
-            </tr>
-        </table>
-    @endforelse
+    @endforeach
 
     {{-- Grand Total --}}
     <table class="section-table">
         <tr>
             <th colspan="3" class="text-right" style="font-size: 10px;">Grand Total (SAR)</th>
-            <th class="text-right" style="font-size: 10px;">{{ number_format($budgetGrandTotal, 2) }}</th>
+            <th class="text-right" style="font-size: 10px;">SAR {{ number_format($budgetGrandTotal, 2) }}</th>
             <th></th>
         </tr>
     </table>

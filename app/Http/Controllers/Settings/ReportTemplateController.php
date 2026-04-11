@@ -21,6 +21,7 @@ class ReportTemplateController extends Controller
 {
     private const FILE_KEY_MAP = [
         'logo_file' => 'logo_path',
+        'qr_file' => 'qr_image_path',
         'stamp_file' => 'stamp_path',
         'signature_file' => 'signature_path',
         'custom_stamp_file' => 'custom_stamp_path',
@@ -115,11 +116,15 @@ class ReportTemplateController extends Controller
                 'company_phone' => $settings->company_phone,
                 'company_email' => $settings->company_email,
                 'brand_color' => $settings->brand_color ?? '#c05427',
+                'qr_alignment' => in_array($settings->qr_alignment, ['left', 'center', 'right'], true)
+                    ? $settings->qr_alignment
+                    : 'center',
                 'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
                 'custom_signature_stamp_layout' => $this->normalizeCustomSignatureStampLayout(
                     $settings->custom_signature_stamp_layout,
                 ),
                 'logo_path' => $settings->logo_path,
+                'qr_image_path' => $settings->qr_image_path,
                 'footer_text' => $settings->footer_text,
                 'stamp_path' => $settings->stamp_path,
                 'signature_path' => $settings->signature_path,
@@ -149,6 +154,9 @@ class ReportTemplateController extends Controller
             'company_phone' => $validated['company_phone'] ?? null,
             'company_email' => $validated['company_email'] ?? null,
             'brand_color' => $validated['brand_color'] ?? '#c05427',
+            'qr_alignment' => in_array($validated['qr_alignment'] ?? null, ['left', 'center', 'right'], true)
+                ? $validated['qr_alignment']
+                : 'center',
             'signature_stamp_layout' => $validated['signature_stamp_layout'] ?? 'default',
             'custom_signature_stamp_layout' => $this->normalizeCustomSignatureStampLayout(
                 $validated['custom_signature_stamp_layout'] ?? null,
@@ -171,6 +179,9 @@ class ReportTemplateController extends Controller
                 }
                 if (isset($moduleConfig['show_signature'])) {
                     $moduleConfig['show_signature'] = filter_var($moduleConfig['show_signature'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+                }
+                if (isset($moduleConfig['show_qr'])) {
+                    $moduleConfig['show_qr'] = filter_var($moduleConfig['show_qr'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
                 }
                 if (isset($moduleConfig['show_signature_stamp_name'])) {
                     $moduleConfig['show_signature_stamp_name'] = filter_var($moduleConfig['show_signature_stamp_name'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
@@ -444,6 +455,11 @@ class ReportTemplateController extends Controller
             'absolute' => storage_path('app/public/'.$settings->signature_path),
         ] : ['url' => null, 'absolute' => null];
 
+        $qrImage = $settings->qr_image_path ? [
+            'url' => '/storage/'.$settings->qr_image_path,
+            'absolute' => storage_path('app/public/'.$settings->qr_image_path),
+        ] : ['url' => null, 'absolute' => null];
+
         $customStamp = $settings->custom_stamp_path ? [
             'url' => '/storage/'.$settings->custom_stamp_path,
             'absolute' => storage_path('app/public/'.$settings->custom_stamp_path),
@@ -465,13 +481,18 @@ class ReportTemplateController extends Controller
             'company_email' => $request->input('company_email', $settings->company_email),
             'title_color' => $brandColor,
             'signature_stamp_layout' => $signatureStampLayout,
+            'qr_alignment' => in_array((string) $request->input('qr_alignment', $settings->qr_alignment), ['left', 'center', 'right'], true)
+                ? (string) $request->input('qr_alignment', $settings->qr_alignment)
+                : 'center',
             'custom_signature_stamp_layout' => is_array($customLayout) ? $customLayout : ($settings->custom_signature_stamp_layout ?? []),
             'logo_url' => $logo['url'],
+            'qr_url' => $qrImage['url'],
             'stamp_url' => $stamp['url'],
             'signature_url' => $signature['url'],
             'custom_stamp_url' => $customStamp['url'],
             'custom_signature_url' => $customSignature['url'],
             'logo_path_absolute' => $logo['absolute'],
+            'qr_path_absolute' => $qrImage['absolute'],
             'stamp_path_absolute' => $stamp['absolute'],
             'signature_path_absolute' => $signature['absolute'],
             'custom_stamp_path_absolute' => $customStamp['absolute'],
@@ -479,6 +500,7 @@ class ReportTemplateController extends Controller
             'footer_text' => $moduleConfig['footer_text'] ?? $settings->footer_text ?? '',
             'show_stamp' => (bool) ($moduleConfig['show_stamp'] ?? false),
             'show_signature' => (bool) ($moduleConfig['show_signature'] ?? false),
+            'show_qr' => (bool) ($moduleConfig['show_qr'] ?? true),
             'show_signature_stamp_name' => (bool) ($moduleConfig['show_signature_stamp_name'] ?? false),
             'show_signature_stamp_date' => (bool) ($moduleConfig['show_signature_stamp_date'] ?? false),
         ];

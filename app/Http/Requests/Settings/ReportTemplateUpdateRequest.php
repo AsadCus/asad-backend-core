@@ -30,14 +30,17 @@ class ReportTemplateUpdateRequest extends FormRequest
             'company_email' => ['nullable', 'email', 'max:255'],
             'brand_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'signature_stamp_layout' => ['nullable', 'string', 'in:default,custom'],
+            'qr_alignment' => ['nullable', 'string', 'in:left,center,right'],
             'footer_text' => ['nullable', 'string', 'max:2000'],
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
+            'qr_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
             'stamp_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'signature_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'custom_stamp_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'custom_signature_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'custom_signature_data' => ['nullable', 'string'],
             'logo_path' => ['nullable', 'string'], // Allow empty string for deletion signal
+            'qr_image_path' => ['nullable', 'string'], // Allow empty string for deletion signal
             'stamp_path' => ['nullable', 'string'], // Allow empty string for deletion signal
             'signature_path' => ['nullable', 'string'], // Allow empty string for deletion signal
             'custom_stamp_path' => ['nullable', 'string'],
@@ -74,6 +77,7 @@ class ReportTemplateUpdateRequest extends FormRequest
             'module_templates.*.footer_text' => ['nullable', 'string', 'max:2000'],
             'module_templates.*.show_stamp' => ['nullable', 'boolean'],
             'module_templates.*.show_signature' => ['nullable', 'boolean'],
+            'module_templates.*.show_qr' => ['nullable', 'boolean'],
             'module_templates.*.show_signature_stamp_name' => ['nullable', 'boolean'],
             'module_templates.*.show_signature_stamp_date' => ['nullable', 'boolean'],
         ];
@@ -92,9 +96,12 @@ class ReportTemplateUpdateRequest extends FormRequest
             'company_email.email' => 'Please provide a valid email address.',
             'brand_color.regex' => 'Brand color must be a valid hex color (e.g. #c05427).',
             'signature_stamp_layout.in' => 'Signature and stamp layout must be either default or custom.',
+            'qr_alignment.in' => 'QR alignment must be left, center, or right.',
             'custom_signature_stamp_layout.placement.in' => 'Placement must be left side, right side, stack each other, up side, or down side.',
             'logo_file.image' => 'Logo must be an image file.',
             'logo_file.max' => 'Logo file size must not exceed 2MB.',
+            'qr_file.image' => 'QR image must be an image file.',
+            'qr_file.max' => 'QR image file size must not exceed 2MB.',
             'stamp_file.image' => 'Stamp must be an image file.',
             'stamp_file.max' => 'Stamp file size must not exceed 2MB.',
             'signature_file.image' => 'Signature must be an image file.',

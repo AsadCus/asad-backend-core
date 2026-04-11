@@ -1,6 +1,7 @@
 import { ActionType } from '@/components/action-column';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
+import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+
 import AppLayout from '@/layouts/app-layout';
 import { formatUserTime } from '@/lib/timezone';
 import { formatCurrency } from '@/lib/utils';
@@ -180,9 +182,17 @@ export default function Dashboard({ data }: DashboardProps) {
         useState<PaymentSummaryType | null>(null);
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
         useState(false);
+    const [exportDateRange, setExportDateRange] = useState<{
+        from?: string;
+        to?: string;
+    }>({});
 
     const buildPaymentSummaryParams = useCallback(
-        (period: 'daily' | 'monthly' | 'yearly', yearId?: number) => {
+        (
+            period: 'daily' | 'monthly' | 'yearly',
+            yearId?: number,
+            dateRange?: { from?: string; to?: string },
+        ) => {
             const params = new URLSearchParams({ period });
 
             if (yearId) {
@@ -205,18 +215,41 @@ export default function Dashboard({ data }: DashboardProps) {
                 userTimezone || 'UTC',
             );
 
-            const localRangeStart =
+            let localRangeStart =
                 period === 'monthly'
                     ? nowInUserTimezone.startOf('month')
                     : period === 'yearly'
                       ? nowInUserTimezone.startOf('year')
                       : nowInUserTimezone.startOf('day');
-            const localRangeEnd =
+            let localRangeEnd =
                 period === 'monthly'
                     ? nowInUserTimezone.endOf('month')
                     : period === 'yearly'
                       ? nowInUserTimezone.endOf('year')
                       : nowInUserTimezone.endOf('day');
+
+            if (period === 'daily' && dateRange) {
+                const fromDate = dateRange.from
+                    ? DateTime.fromFormat(dateRange.from, 'dd MMMM yyyy', {
+                          zone: userTimezone || 'UTC',
+                          locale: 'en-GB',
+                      })
+                    : null;
+                const toDate = dateRange.to
+                    ? DateTime.fromFormat(dateRange.to, 'dd MMMM yyyy', {
+                          zone: userTimezone || 'UTC',
+                          locale: 'en-GB',
+                      })
+                    : null;
+
+                if (fromDate?.isValid) {
+                    localRangeStart = fromDate.startOf('day');
+                    // If only a start date set (no end), treat as single-day
+                    localRangeEnd = (toDate?.isValid ? toDate : fromDate).endOf(
+                        'day',
+                    );
+                }
+            }
 
             const rangeStartUtc = localRangeStart.toUTC().toISO();
             const rangeEndUtc = localRangeEnd.toUTC().toISO();
@@ -290,13 +323,19 @@ export default function Dashboard({ data }: DashboardProps) {
         const params = buildPaymentSummaryParams(
             paymentSummaryPeriod,
             data.selectedYearId,
+            exportDateRange,
         );
 
         window.open(
             `/dashboard/export-payment-summary-pdf?${params.toString()}`,
             '_blank',
         );
-    }, [buildPaymentSummaryParams, data.selectedYearId, paymentSummaryPeriod]);
+    }, [
+        buildPaymentSummaryParams,
+        data.selectedYearId,
+        exportDateRange,
+        paymentSummaryPeriod,
+    ]);
 
     const paymentSectionTitle = 'Daily Payment';
 
@@ -488,14 +527,23 @@ export default function Dashboard({ data }: DashboardProps) {
                                 </div>
 
                                 <div className="flex items-center gap-2">
+                                    <DateRangeFilter
+                                        title="Export Date"
+                                        quickDate={true}
+                                        compact={true}
+                                        value={exportDateRange}
+                                        onChange={setExportDateRange}
+                                    />
+
                                     <Button
                                         type="button"
                                         variant="outline"
+                                        size="sm"
                                         disabled={isLoadingPaymentSummary}
                                         onClick={handleExportPaymentSummaryPdf}
                                     >
                                         <Download className="h-4 w-4" />
-                                        Export PDF
+                                        Export Daily Report
                                     </Button>
                                 </div>
                             </div>

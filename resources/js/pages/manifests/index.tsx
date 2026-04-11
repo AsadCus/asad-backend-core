@@ -172,6 +172,7 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                                 columnVisibility: {
                                     id: false,
                                     created_at: false,
+                                    members_count: false,
                                 },
                             }}
                             renderFilter={(table) => (

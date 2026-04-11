@@ -23,8 +23,10 @@ interface ReportTemplateSettings {
     company_phone: string;
     company_email: string;
     brand_color: string;
+    qr_alignment: 'left' | 'center' | 'right';
     custom_signature_stamp_layout: SignatureStampLayoutConfig | null;
     logo_path: string | null;
+    qr_image_path: string | null;
     stamp_path: string | null;
     signature_path: string | null;
     custom_signature_path: string | null;
@@ -38,13 +40,16 @@ interface ReportTemplateFormData {
     company_phone: string;
     company_email: string;
     brand_color: string;
+    qr_alignment: 'left' | 'center' | 'right';
     custom_signature_stamp_layout: SignatureStampLayoutConfig;
     _method: 'put';
     logo_file: File | null;
+    qr_file: File | null;
     stamp_file: File | null;
     signature_file: File | null;
     custom_signature_data: string | null;
     logo_path: string | null;
+    qr_image_path: string | null;
     stamp_path: string | null;
     signature_path: string | null;
     custom_signature_path: string | null;
@@ -197,6 +202,7 @@ export default function ReportTemplate({
                 footer_text: serverData?.footer_text ?? '',
                 show_stamp: Boolean(serverData?.show_stamp ?? false),
                 show_signature: Boolean(serverData?.show_signature ?? false),
+                show_qr: Boolean(serverData?.show_qr ?? true),
                 show_signature_stamp_name: Boolean(
                     serverData?.show_signature_stamp_name ?? false,
                 ),
@@ -215,13 +221,16 @@ export default function ReportTemplate({
             company_phone: settings.company_phone || '',
             company_email: settings.company_email || '',
             brand_color: settings.brand_color || '#c05427',
+            qr_alignment: settings.qr_alignment || 'center',
             custom_signature_stamp_layout: resolveCustomLayout(),
             _method: 'put',
             logo_file: null,
+            qr_file: null,
             stamp_file: null,
             signature_file: null,
             custom_signature_data: null,
             logo_path: settings.logo_path ?? null,
+            qr_image_path: settings.qr_image_path ?? null,
             stamp_path: settings.stamp_path ?? null,
             signature_path: settings.signature_path ?? null,
             custom_signature_path: settings.custom_signature_path ?? null,
@@ -234,6 +243,9 @@ export default function ReportTemplate({
     const [stampPreviewFileName, setStampPreviewFileName] = useState<
         string | null
     >(extractFileName(settings.stamp_path));
+    const [qrPreviewFileName, setQrPreviewFileName] = useState<
+        string | null
+    >(extractFileName(settings.qr_image_path));
     const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<
         string | null
     >(extractFileName(settings.signature_path));
@@ -243,6 +255,7 @@ export default function ReportTemplate({
         (
             field:
                 | 'logo_file'
+                | 'qr_file'
                 | 'stamp_file'
                 | 'signature_file',
             setPreviewFileName: (v: string | null) => void,
@@ -259,11 +272,13 @@ export default function ReportTemplate({
         (
             field:
                 | 'logo_file'
+                | 'qr_file'
                 | 'stamp_file'
                 | 'signature_file',
             setPreviewFileName: (v: string | null) => void,
             pathKey:
                 | 'logo_path'
+                | 'qr_image_path'
                 | 'stamp_path'
                 | 'signature_path',
             hasDatabaseFile: boolean,
@@ -288,6 +303,7 @@ export default function ReportTemplate({
                     footer_text: '',
                     show_stamp: false,
                     show_signature: false,
+                    show_qr: true,
                     show_signature_stamp_name: false,
                     show_signature_stamp_date: false,
                 }),
@@ -304,6 +320,7 @@ export default function ReportTemplate({
                     footer_text: '',
                     show_stamp: false,
                     show_signature: false,
+                    show_qr: true,
                     show_signature_stamp_name: false,
                     show_signature_stamp_date: false,
                 }),
@@ -343,6 +360,7 @@ export default function ReportTemplate({
         footer_text: '',
         show_stamp: false,
         show_signature: false,
+        show_qr: true,
         show_signature_stamp_name: false,
         show_signature_stamp_date: false,
     };
@@ -415,10 +433,12 @@ export default function ReportTemplate({
                                     }
                                     logoPreviewFileName={logoPreviewFileName}
                                     stampPreviewFileName={stampPreviewFileName}
+                                    qrPreviewFileName={qrPreviewFileName}
                                     signaturePreviewFileName={
                                         signaturePreviewFileName
                                     }
                                     initialLogoDatabasePath={settings.logo_path}
+                                    initialQrDatabasePath={settings.qr_image_path}
                                     initialStampDatabasePath={
                                         settings.stamp_path
                                     }
@@ -430,6 +450,9 @@ export default function ReportTemplate({
                                     }
                                     setStampPreviewFileName={
                                         setStampPreviewFileName
+                                    }
+                                    setQrPreviewFileName={
+                                        setQrPreviewFileName
                                     }
                                     setSignaturePreviewFileName={
                                         setSignaturePreviewFileName

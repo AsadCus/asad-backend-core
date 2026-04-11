@@ -19,6 +19,7 @@ interface DateRangeFilterProps<TData> {
     fromYear?: number;
     toYear?: number;
     quickDate?: boolean;
+    compact?: boolean;
 
     value?: { from?: string; to?: string };
     onChange?: (value: { from?: string; to?: string }) => void;
@@ -49,6 +50,7 @@ export function DateRangeFilter<TData>({
     fromYear = new Date().getFullYear() - 3,
     toYear = new Date().getFullYear() + 3,
     quickDate = false,
+    compact = false,
     value,
     onChange,
 }: DateRangeFilterProps<TData>) {
@@ -199,38 +201,32 @@ export function DateRangeFilter<TData>({
 
     const hasFilter = filterValue?.from || filterValue?.to;
 
-    if (table && columnId) {
-        return (
-            <div className="space-y-1">
-                {/* <DropdownMenuLabel>{title}</DropdownMenuLabel> */}
-                <Popover open={open} onOpenChange={setOpen}>
+    const renderContent = () => (
+        <div className="space-y-1">
+            {/* <DropdownMenuLabel>{title}</DropdownMenuLabel> */}
+            <Popover open={open} onOpenChange={setOpen}>
                     <PopoverTrigger asChild>
                         <Button
                             variant="outline"
-                            className="w-full justify-start border-dashed"
+                            size={compact ? 'sm' : 'default'}
+                            className={compact ? 'h-9 justify-start gap-1.5 border-dashed' : 'w-full justify-start border-dashed'}
                         >
-                            <CalendarIcon className="h-4 w-4" />
-                            {title}
+                            <CalendarIcon className="h-4 w-4 shrink-0" />
+                            {!hasFilter && title}
                             {hasFilter && (
-                                <>
-                                    <Separator
-                                        orientation="vertical"
-                                        className="mx-2 h-4"
-                                    />
-                                    <span className="text-sm">
-                                        {filterValue?.from && filterValue?.to
-                                            ? `${filterValue.from} - ${filterValue.to}`
-                                            : filterValue?.from ||
-                                              filterValue?.to}
-                                    </span>
-                                </>
+                                <span className="text-sm font-normal">
+                                    {filterValue?.from && filterValue?.to
+                                        ? `${filterValue.from} – ${filterValue.to}`
+                                        : filterValue?.from || filterValue?.to}
+                                </span>
                             )}
                         </Button>
                     </PopoverTrigger>
 
-                    <PopoverContent className="w-auto p-4" align="center">
-                        <div className="flex gap-4">
+                    <PopoverContent className="w-auto p-3" align="end" side="bottom" sideOffset={4}>
+                        <div className="flex gap-3">
                             <div className="space-y-2">
+                                {!compact && (
                                 <div className="flex w-full flex-col gap-2">
                                     <div className="grid w-full gap-1">
                                         <Label>From</Label>
@@ -264,6 +260,7 @@ export function DateRangeFilter<TData>({
                                         </div>
                                     </div>
                                 </div>
+                                )}
 
                                 <Calendar
                                     mode="range"
@@ -341,6 +338,7 @@ export function DateRangeFilter<TData>({
                     </PopoverContent>
                 </Popover>
             </div>
-        );
-    }
+    );
+
+    return renderContent();
 }

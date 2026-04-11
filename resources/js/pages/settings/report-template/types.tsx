@@ -2,6 +2,7 @@ export interface ModuleTemplate {
     footer_text: string;
     show_stamp: boolean;
     show_signature: boolean;
+    show_qr: boolean;
     show_signature_stamp_name: boolean;
     show_signature_stamp_date: boolean;
 }

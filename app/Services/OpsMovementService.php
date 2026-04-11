@@ -698,7 +698,7 @@ class OpsMovementService
     private function normalizeBudgetPayload(mixed $budget): array
     {
         if (! is_array($budget)) {
-            return [];
+            return $this->defaultBudgetSections();
         }
 
         $sections = array_is_list($budget) ? $budget : [];
@@ -739,7 +739,33 @@ class OpsMovementService
             ];
         }
 
-        return $normalized;
+        return count($normalized) > 0
+            ? $normalized
+            : $this->defaultBudgetSections();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function defaultBudgetSections(): array
+    {
+        return [
+            [
+                'title' => 'Main Powerexpense',
+                'sort_order' => 1,
+                'items' => [],
+            ],
+            [
+                'title' => 'Petty Cash',
+                'sort_order' => 2,
+                'items' => [],
+            ],
+            [
+                'title' => 'Contigency',
+                'sort_order' => 3,
+                'items' => [],
+            ],
+        ];
     }
 
     private function storeDocumentFile(mixed $file, string $field): ?string

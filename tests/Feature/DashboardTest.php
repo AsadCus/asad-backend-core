@@ -441,6 +441,127 @@ class DashboardTest extends TestCase
         $this->assertSame(0.0, (float) ($secondPaymentRow['master'] ?? 0));
     }
 
+    public function test_dashboard_payment_summary_uses_invoice_created_at_order_for_installment_remarks(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $maker = User::factory()->create(['name' => 'Created At Maker']);
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-DB-CREATED-AT-001',
+        ]);
+
+        $package = Package::create([
+            'name' => 'Created At Package',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $maker->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $confirmationMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'status' => 'pending_payment',
+            'is_leader' => true,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'created_by' => $maker->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+            'description' => 'Created-at ordering test quotation',
+        ]);
+
+        $header = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $confirmationMember->id,
+            'parent_id' => $header->id,
+            'description' => 'Created At Package Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 200,
+            'sort_order' => 2,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $invoiceOlderCreatedAt = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Older Created At Invoice',
+            'amount' => 100,
+            'invoice_date' => now()->addDays(2)->format('Y-m-d'),
+            'due_date' => now()->addDays(2)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceOlderCreatedAt->quotationItems()->sync([$item->id]);
+
+        $invoiceNewerCreatedAt = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Newer Created At Invoice',
+            'amount' => 100,
+            'invoice_date' => now()->subDay()->format('Y-m-d'),
+            'due_date' => now()->subDay()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoiceNewerCreatedAt->quotationItems()->sync([$item->id]);
+
+        $invoiceOlderCreatedAt->update([
+            'created_at' => now()->subDays(3),
+        ]);
+        $invoiceNewerCreatedAt->update([
+            'created_at' => now(),
+        ]);
+
+        Receipt::withoutEvents(function () use ($invoiceOlderCreatedAt, $invoiceNewerCreatedAt): void {
+            Receipt::create([
+                'invoice_id' => $invoiceOlderCreatedAt->id,
+                'amount' => 100,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'cash',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => $invoiceNewerCreatedAt->id,
+                'amount' => 100,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'mastercard',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+
+        $rows = collect($response->json('rows'));
+        $cashRow = $rows->first(fn (array $row): bool => (float) ($row['cash'] ?? 0) > 0);
+        $masterRow = $rows->first(fn (array $row): bool => (float) ($row['master'] ?? 0) > 0);
+
+        $this->assertNotNull($cashRow);
+        $this->assertNotNull($masterRow);
+        $this->assertSame('First Payment', (string) ($cashRow['remarks'] ?? ''));
+        $this->assertSame('Second Payment', (string) ($masterRow['remarks'] ?? ''));
+    }
+
     public function test_dashboard_payment_summary_includes_receipts_without_invoice_as_others(): void
     {
         $this->actingAs(User::factory()->create());

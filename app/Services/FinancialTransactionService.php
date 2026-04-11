@@ -885,12 +885,11 @@ class FinancialTransactionService
         $paymentPlan = strtolower((string) ($order->payment_plan ?? $order->quotation?->payment_plan ?? ''));
 
         $orderedInvoices = $order->invoices
-            ->sortBy(function (Invoice $orderedInvoice): string {
-                $invoiceDate = $orderedInvoice->invoice_date
-                    ? Carbon::parse($orderedInvoice->invoice_date)->format('Y-m-d')
-                    : '';
-
-                return $invoiceDate.'-'.str_pad((string) $orderedInvoice->id, 10, '0', STR_PAD_LEFT);
+            ->sortBy(function (Invoice $orderedInvoice): array {
+                return [
+                    (int) ($orderedInvoice->created_at?->getTimestamp() ?? 0),
+                    (int) ($orderedInvoice->id ?? 0),
+                ];
             })
             ->values();
 
