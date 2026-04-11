@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Invoice;
+use App\Models\Sales;
 use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
@@ -9,10 +11,12 @@ use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
 use App\Services\UserRoles\SalesUserService;
 use App\Services\UserService;
+use App\Support\InvoiceStatus;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class SalesController extends Controller
@@ -208,7 +212,7 @@ class SalesController extends Controller
                 'is_pdf' => true,
             ])->render();
 
-            $filename = 'sales-profile-' . str()->slug($data['name']) . '.pdf';
+            $filename = 'sales-profile-'.str()->slug($data['name']).'.pdf';
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4')
@@ -218,7 +222,7 @@ class SalesController extends Controller
         } catch (\Throwable $e) {
             Log::error('Sales PDF error', ['error' => $e->getMessage()]);
 
-            return response()->json(['error' => 'Failed to generate PDF: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
 
@@ -227,7 +231,7 @@ class SalesController extends Controller
         $userData = $this->salesUserService->getForEditShow($id);
 
         $branchName = '-';
-        if (!empty($userData['branch_id'])) {
+        if (! empty($userData['branch_id'])) {
             $branch = $this->branchService->getForFilter()
                 ->firstWhere('id', $userData['branch_id']);
             $branchName = $branch['name'] ?? '-';
@@ -238,8 +242,90 @@ class SalesController extends Controller
             'email' => $userData['email'],
             'contact' => $userData['contact'] ?? '-',
             'branch_name' => $branchName,
-            'registration_number' => \App\Models\Sales::where('user_id', $id)
-                ->value('registration_number') ?? '-',
+            'registration_number' => $this->resolveSalesRegistrationNumber((int) $id),
+            'payment_info' => $this->buildSalesPaymentInfoRows((int) $id),
         ];
+    }
+
+    private function resolveSalesRegistrationNumber(int $salesUserId): string
+    {
+        if (! Schema::hasColumn('sales', 'registration_number')) {
+            return '-';
+        }
+
+        $registrationNumber = Sales::query()
+            ->where('user_id', $salesUserId)
+            ->value('registration_number');
+
+        return is_string($registrationNumber) && trim($registrationNumber) !== ''
+            ? $registrationNumber
+            : '-';
+    }
+
+    /**
+     * @return array<int, array{label: string, amount_paid: float, total_amount: float, status: string}>
+     */
+    private function buildSalesPaymentInfoRows(int $salesUserId): array
+    {
+        $invoices = Invoice::query()
+            ->whereHas('order.quotation', function ($query) use ($salesUserId): void {
+                $query->where('created_by', $salesUserId);
+            })
+            ->whereNotIn('status', [InvoiceStatus::Cancelled, InvoiceStatus::Refund])
+            ->orderBy('invoice_date')
+            ->orderBy('id')
+            ->get();
+
+        return $invoices
+            ->values()
+            ->map(function (Invoice $invoice, int $index): array {
+                $invoiceAmount = $this->resolveInvoiceTotalWithExtensions($invoice);
+                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+                $isPaid = $normalizedStatus === InvoiceStatus::Paid;
+
+                return [
+                    'label' => $this->toOrdinal($index + 1).' Payment',
+                    'amount_paid' => $isPaid ? $invoiceAmount : 0.0,
+                    'total_amount' => $invoiceAmount,
+                    'status' => $isPaid ? 'Paid' : 'Outstanding',
+                ];
+            })
+            ->all();
+    }
+
+    private function resolveInvoiceTotalWithExtensions(Invoice $invoice): float
+    {
+        $baseAmount = round((float) ($invoice->amount ?? 0), 2);
+
+        if ($baseAmount !== 0.0) {
+            return $baseAmount;
+        }
+
+        $extensions = is_array($invoice->extensions ?? null) ? $invoice->extensions : [];
+        $extensionsTotal = collect($extensions)->sum(function ($extension): float {
+            if (! is_array($extension)) {
+                return 0;
+            }
+
+            return (float) ($extension['amount'] ?? 0);
+        });
+
+        return round($baseAmount + (float) $extensionsTotal, 2);
+    }
+
+    private function toOrdinal(int $number): string
+    {
+        $mod100 = $number % 100;
+
+        if ($mod100 >= 11 && $mod100 <= 13) {
+            return $number.'th';
+        }
+
+        return match ($number % 10) {
+            1 => $number.'st',
+            2 => $number.'nd',
+            3 => $number.'rd',
+            default => $number.'th',
+        };
     }
 }

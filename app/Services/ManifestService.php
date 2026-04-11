@@ -2056,17 +2056,40 @@ class ManifestService
             ->filter(fn ($date): bool => ! empty($date))
             ->first();
 
-        $discount = $this->resolveNegativeExtensionDiscountShareForMember($member, $package, $packagePrice);
+        $discountShareByInvoice = $this->resolveNegativeExtensionDiscountShareByInvoiceForMember(
+            $member,
+            $package,
+            $packagePrice,
+        );
+
+        $discount = round((float) array_sum($discountShareByInvoice), 2);
         $memberPayableAmount = round(max($packagePrice - $discount, 0), 2);
 
         $depositPaymentAmountRaw = round((float) ($firstInvoiceAmount ?? 0), 2);
         $secondPaymentAmountRaw = round((float) ($secondInvoiceAmount ?? 0), 2);
         $thirdPaymentAmountRaw = round((float) $thirdAndLaterInvoiceAmounts->sum(), 2);
 
-        [$depositPaymentAmount, $secondPaymentAmount, $thirdPaymentAmount] = $this->applyDiscountOffsetToPaymentBuckets(
-            [$depositPaymentAmountRaw, $secondPaymentAmountRaw, $thirdPaymentAmountRaw],
-            $discount,
+        $firstInvoiceId = (int) ($memberPaymentBuckets->get(0)['invoice_id'] ?? 0);
+        $secondInvoiceId = (int) ($memberPaymentBuckets->get(1)['invoice_id'] ?? 0);
+
+        $depositDiscountAmount = round(
+            (float) ($firstInvoiceId > 0 ? ($discountShareByInvoice[$firstInvoiceId] ?? 0.0) : 0.0),
+            2,
         );
+        $secondDiscountAmount = round(
+            (float) ($secondInvoiceId > 0 ? ($discountShareByInvoice[$secondInvoiceId] ?? 0.0) : 0.0),
+            2,
+        );
+        $thirdDiscountAmount = round(
+            (float) $memberPaymentBuckets
+                ->slice(2)
+                ->sum(fn (array $bucket): float => (float) ($discountShareByInvoice[(int) ($bucket['invoice_id'] ?? 0)] ?? 0.0)),
+            2,
+        );
+
+        $depositPaymentAmount = round(max($depositPaymentAmountRaw - $depositDiscountAmount, 0), 2);
+        $secondPaymentAmount = round(max($secondPaymentAmountRaw - $secondDiscountAmount, 0), 2);
+        $thirdPaymentAmount = round(max($thirdPaymentAmountRaw - $thirdDiscountAmount, 0), 2);
 
         $depositPayment = $depositPaymentAmountRaw !== 0.0 ? $depositPaymentAmount : null;
         $secondPayment = $secondPaymentAmountRaw !== 0.0 ? $secondPaymentAmount : null;
@@ -2094,30 +2117,6 @@ class ManifestService
             'third_payment' => $thirdPayment,
             'balance_due' => $balanceDue,
         ];
-    }
-
-    /**
-     * @param  array<int, float>  $paymentBuckets
-     * @return array<int, float>
-     */
-    private function applyDiscountOffsetToPaymentBuckets(array $paymentBuckets, float $discountAmount): array
-    {
-        $remainingDiscount = max($discountAmount, 0);
-        $adjustedBuckets = [];
-
-        foreach ($paymentBuckets as $amount) {
-            $bucketAmount = round((float) $amount, 2);
-
-            if ($remainingDiscount > 0 && $bucketAmount > 0) {
-                $discountOffset = min($remainingDiscount, $bucketAmount);
-                $bucketAmount -= $discountOffset;
-                $remainingDiscount -= $discountOffset;
-            }
-
-            $adjustedBuckets[] = round($bucketAmount, 2);
-        }
-
-        return $adjustedBuckets;
     }
 
     private function areAllMemberInvoicesSettled(CustomerConfirmationMember $member): bool
@@ -2304,15 +2303,31 @@ class ManifestService
         ?Package $package,
         float $memberPackagePrice,
     ): float {
+        return round((float) array_sum($this->resolveNegativeExtensionDiscountShareByInvoiceForMember(
+            $member,
+            $package,
+            $memberPackagePrice,
+        )), 2);
+    }
+
+    /**
+     * @return array<int, float>
+     */
+    private function resolveNegativeExtensionDiscountShareByInvoiceForMember(
+        CustomerConfirmationMember $member,
+        ?Package $package,
+        float $memberPackagePrice,
+    ): array {
         $memberItems = $member->quotationItems
             ->filter(fn ($item): bool => ! (bool) $item->is_header)
             ->values();
 
         if ($memberItems->isEmpty()) {
-            return 0.0;
+            return [];
         }
 
-        $discountByMemberId = [];
+        $targetMemberId = (int) $member->id;
+        $discountByInvoiceId = [];
 
         $memberItemsByQuotation = $memberItems
             ->filter(fn ($item): bool => ! empty($item->quotation_id))
@@ -2390,21 +2405,7 @@ class ManifestService
                 $payerMemberId = $orderedMemberIds->first();
             }
 
-            $invoiceDiscountTotal = (float) collect($quotation->order?->invoices ?? collect())
-                ->sum(function ($invoice): float {
-                    return (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
-                        ->sum(function ($extension): float {
-                            if (! is_array($extension)) {
-                                return 0;
-                            }
-
-                            $amount = (float) ($extension['amount'] ?? 0);
-
-                            return $amount < 0 ? abs($amount) : 0;
-                        });
-                });
-
-            if ($invoiceDiscountTotal <= 0 || ! is_int($payerMemberId)) {
+            if (! is_int($payerMemberId)) {
                 continue;
             }
 
@@ -2412,35 +2413,74 @@ class ManifestService
                 ->sortBy(fn (int $memberId): int => $memberId === $payerMemberId ? 0 : 1)
                 ->values();
 
-            $remainingDiscount = round($invoiceDiscountTotal, 2);
+            $remainingCapByMemberId = [];
+            foreach ($memberCapsById as $memberId => $memberCap) {
+                $remainingCapByMemberId[(int) $memberId] = round(max((float) $memberCap, 0), 2);
+            }
 
-            foreach ($allocationOrder as $memberId) {
-                if ($remainingDiscount <= 0) {
-                    break;
-                }
+            $orderedInvoices = collect($quotation->order?->invoices ?? collect())
+                ->sortBy(fn ($invoice): int => (int) ($invoice->id ?? 0))
+                ->values();
 
-                $memberCap = round((float) ($memberCapsById[$memberId] ?? 0), 2);
+            foreach ($orderedInvoices as $invoice) {
+                $invoiceId = (int) ($invoice->id ?? 0);
 
-                if ($memberCap <= 0) {
+                if ($invoiceId <= 0) {
                     continue;
                 }
 
-                $allocatedDiscount = round(min($remainingDiscount, $memberCap), 2);
+                $invoiceDiscountTotal = (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
+                    ->sum(function ($extension): float {
+                        if (! is_array($extension)) {
+                            return 0;
+                        }
 
-                if ($allocatedDiscount <= 0) {
+                        $amount = (float) ($extension['amount'] ?? 0);
+
+                        return $amount < 0 ? abs($amount) : 0;
+                    });
+
+                if ($invoiceDiscountTotal <= 0) {
                     continue;
                 }
 
-                $discountByMemberId[$memberId] = round(
-                    (float) ($discountByMemberId[$memberId] ?? 0) + $allocatedDiscount,
-                    2,
-                );
+                $remainingDiscount = round($invoiceDiscountTotal, 2);
 
-                $remainingDiscount = round($remainingDiscount - $allocatedDiscount, 2);
+                foreach ($allocationOrder as $memberId) {
+                    if ($remainingDiscount <= 0) {
+                        break;
+                    }
+
+                    $memberCapRemaining = round((float) ($remainingCapByMemberId[$memberId] ?? 0), 2);
+
+                    if ($memberCapRemaining <= 0) {
+                        continue;
+                    }
+
+                    $allocatedDiscount = round(min($remainingDiscount, $memberCapRemaining), 2);
+
+                    if ($allocatedDiscount <= 0) {
+                        continue;
+                    }
+
+                    if ((int) $memberId === $targetMemberId) {
+                        $discountByInvoiceId[$invoiceId] = round(
+                            (float) ($discountByInvoiceId[$invoiceId] ?? 0) + $allocatedDiscount,
+                            2,
+                        );
+                    }
+
+                    $remainingCapByMemberId[$memberId] = round(max($memberCapRemaining - $allocatedDiscount, 0), 2);
+                    $remainingDiscount = round($remainingDiscount - $allocatedDiscount, 2);
+                }
             }
         }
 
-        return round((float) ($discountByMemberId[(int) $member->id] ?? 0), 2);
+        foreach ($discountByInvoiceId as $invoiceId => $allocatedDiscount) {
+            $discountByInvoiceId[(int) $invoiceId] = round(max((float) $allocatedDiscount, 0), 2);
+        }
+
+        return $discountByInvoiceId;
     }
 
     /**

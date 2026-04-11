@@ -78,6 +78,33 @@
             white-space: nowrap;
         }
 
+        .payment-title {
+            margin: 16px 0 8px;
+            font-size: 13px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 18px;
+        }
+
+        .payment-table th,
+        .payment-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        .payment-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+
         /* Footer */
         .footer-section {
             clear: both;
@@ -121,13 +148,51 @@
             </tr>
         </table>
 
+        <div class="payment-title">Payment Info</div>
+        @if (empty($data['payment_info']) || count($data['payment_info']) === 0)
+            <table class="payment-table">
+                <tbody>
+                    <tr>
+                        <td colspan="3">No Payment Records</td>
+                    </tr>
+                </tbody>
+            </table>
+        @else
+            <table class="payment-table">
+                <thead>
+                    <tr>
+                        <th>Installment</th>
+                        <th>Paid / Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (($data['payment_info'] ?? []) as $paymentRow)
+                        <tr>
+                            <td>{{ $paymentRow['label'] ?? '-' }}</td>
+                            <td>{{ number_format((float) ($paymentRow['amount_paid'] ?? 0), 2, '.', ',') }} /
+                                {{ number_format((float) ($paymentRow['total_amount'] ?? 0), 2, '.', ',') }}</td>
+                            <td>{{ $paymentRow['status'] ?? '-' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+
         <!-- Footer -->
         <div class="footer-section">
+            @php
+                $activeNotes = collect($data['notes'] ?? [])
+                    ->filter(fn ($n) => !empty(trim(strip_tags($n['description'] ?? ''))))
+                    ->sortBy('sort_order')
+                    ->values();
+            @endphp
+
             {{-- Notes: always shown above footer if description is filled --}}
             @include('partials.report-notes')
 
             {{-- Module footer text from Report Template Settings --}}
-            @if (!empty($branding['footer_text']))
+            @if (! empty($branding['footer_text']))
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @elseif ($activeNotes->isEmpty())
                 <div class="footer-note">Thank you for your business!</div>

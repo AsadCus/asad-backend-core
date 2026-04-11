@@ -280,47 +280,45 @@ class ReceiptService
      */
     private function buildInvoicePaymentProgressRows(Collection $invoices, float $totalAmount): array
     {
-        $nonCancelledInvoices = $invoices
+        $progressInvoices = $invoices
             ->filter(function ($invoice): bool {
-                return strtolower(trim((string) ($invoice->status ?? ''))) !== InvoiceStatus::Cancelled;
+                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+
+                if ($normalizedStatus === InvoiceStatus::Cancelled || InvoiceStatus::isRefund($invoice->status)) {
+                    return false;
+                }
+
+                return in_array($normalizedStatus, [
+                    InvoiceStatus::Paid,
+                    InvoiceStatus::Outstanding,
+                    InvoiceStatus::Issued,
+                    InvoiceStatus::Overdue,
+                ], true);
             })
             ->sortBy(function ($invoice): int {
                 return (int) ($invoice->invoice_date?->timestamp ?? $invoice->id ?? 0);
             })
             ->values();
 
-        $normalizedTotalAmount = $nonCancelledInvoices->isNotEmpty()
-            ? $this->formatService->cleanDecimal($nonCancelledInvoices->sum(function ($invoice): float {
-                return $this->resolveInvoiceTotalWithExtensions($invoice);
-            }))
-            : $this->formatService->cleanDecimal($totalAmount);
-
-        $milestoneInvoices = $nonCancelledInvoices
-            ->filter(function ($invoice): bool {
-                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
-
-                return $normalizedStatus === InvoiceStatus::Paid || InvoiceStatus::isRefund($invoice->status);
-            })
-            ->values();
-
-        if ($milestoneInvoices->isEmpty()) {
+        if ($progressInvoices->isEmpty()) {
             return [
                 [
                     'label' => 'Pending Payment',
                     'amount_paid' => 0.0,
-                    'total_amount' => $normalizedTotalAmount,
+                    'total_amount' => $this->formatService->cleanDecimal($totalAmount),
                 ],
             ];
         }
 
-        return $milestoneInvoices->map(function ($invoice, int $index) use ($normalizedTotalAmount): array {
+        return $progressInvoices->map(function ($invoice, int $index): array {
             $invoiceAmount = $this->resolveInvoiceTotalWithExtensions($invoice);
-            $labelSuffix = InvoiceStatus::isRefund($invoice->status) ? 'Refund' : 'Payment';
+            $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+            $isPaid = $normalizedStatus === InvoiceStatus::Paid;
 
             return [
-                'label' => $this->toOrdinal($index + 1).' '.$labelSuffix,
-                'amount_paid' => $invoiceAmount,
-                'total_amount' => $normalizedTotalAmount,
+                'label' => $this->toOrdinal($index + 1).' Payment',
+                'amount_paid' => $isPaid ? $invoiceAmount : 0.0,
+                'total_amount' => $invoiceAmount,
             ];
         })->values()->all();
     }

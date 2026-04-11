@@ -2798,17 +2798,17 @@ class ManifestWorkflowTest extends TestCase
             \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
-        $this->assertSame(4700.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
             \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
-        $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
             \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_third_payment'] ?? ''),
         );
-        $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
@@ -2986,6 +2986,106 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame(0.0, (float) ($memberRows[$members[1]->id]['balance_due'] ?? 0));
     }
 
+    public function test_get_for_edit_show_applies_second_invoice_discount_to_second_payment_stage_only(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-STAGE-002',
+            'name' => 'Manifest Discount Stage Mapping Package',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-STAGE-002',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Discount Stage Member', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-06-01',
+            'expiry_date' => '2026-06-30',
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Installment package line',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $createInvoice = function (string $description, string $date, array $extensions = []) use ($order, $quotationItem): void {
+            $invoice = Invoice::create([
+                'order_id' => $order->id,
+                'description' => $description,
+                'extensions' => $extensions,
+                'amount' => 5000,
+                'invoice_date' => $date,
+                'due_date' => $date,
+                'status' => 'issued',
+            ]);
+
+            $invoice->quotationItems()->sync([$quotationItem->id]);
+
+            Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => 5000,
+                'receipt_date' => $date,
+                'payment_method' => 'transfer',
+            ]);
+        };
+
+        $createInvoice('Deposit invoice', '2026-06-01');
+        $createInvoice('Second invoice', '2026-06-10', [
+            [
+                'name' => 'Second Stage Discount',
+                'type' => 'discount',
+                'calculation_mode' => 'fixed',
+                'calculation_value' => 300,
+                'amount' => -300,
+                'sort_order' => 1,
+            ],
+        ]);
+        $createInvoice('Third invoice', '2026-06-20');
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
+        $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(4700.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
     public function test_get_for_edit_show_accumulates_third_payment_from_third_invoice_and_later(): void
     {
         $actingUser = User::factory()->create();
@@ -3095,17 +3195,17 @@ class ManifestWorkflowTest extends TestCase
             \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
-        $this->assertSame(4600.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
             \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
-        $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
             \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_third_payment'] ?? ''),
         );
-        $this->assertSame(10000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(9800.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
@@ -3924,17 +4024,17 @@ class ManifestWorkflowTest extends TestCase
             \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
-        $this->assertSame(4700.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
             \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
-        $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
             \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_third_payment'] ?? ''),
         );
-        $this->assertSame(5000.0, (float) ($memberRow['third_payment'] ?? 0));
+        $this->assertSame(4900.0, (float) ($memberRow['third_payment'] ?? 0));
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 

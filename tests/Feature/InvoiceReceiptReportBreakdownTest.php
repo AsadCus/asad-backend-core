@@ -253,11 +253,9 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         ];
     }
 
-    public function test_payment_progress_rows_include_refund_and_use_non_cancelled_invoice_totals_as_denominator(): void
+    public function test_payment_progress_rows_use_paid_or_outstanding_values_and_exclude_refund_rows(): void
     {
         $graph = $this->createMixedPaymentStatusGraph();
-
-        $expectedDenominator = 7550.0;
 
         $quotationPayload = app(QuotationService::class)->getForEditShow((int) $graph['quotation']->id);
         $invoicePayload = app(InvoiceService::class)->getForEditShow((int) $graph['invoice']->id);
@@ -265,27 +263,28 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
 
         $this->assertSame('1st Payment', (string) data_get($quotationPayload, 'invoice_payment_progress.0.label'));
         $this->assertSame('2nd Payment', (string) data_get($quotationPayload, 'invoice_payment_progress.1.label'));
-        $this->assertSame('3rd Refund', (string) data_get($quotationPayload, 'invoice_payment_progress.2.label'));
+        $this->assertSame('3rd Payment', (string) data_get($quotationPayload, 'invoice_payment_progress.2.label'));
         $this->assertSame(3100.0, (float) data_get($quotationPayload, 'invoice_payment_progress.0.amount_paid'));
         $this->assertSame(2000.0, (float) data_get($quotationPayload, 'invoice_payment_progress.1.amount_paid'));
-        $this->assertSame(-550.0, (float) data_get($quotationPayload, 'invoice_payment_progress.2.amount_paid'));
-        $this->assertSame($expectedDenominator, (float) data_get($quotationPayload, 'invoice_payment_progress.0.total_amount'));
-        $this->assertSame($expectedDenominator, (float) data_get($quotationPayload, 'invoice_payment_progress.2.total_amount'));
+        $this->assertSame(0.0, (float) data_get($quotationPayload, 'invoice_payment_progress.2.amount_paid'));
+        $this->assertSame(3100.0, (float) data_get($quotationPayload, 'invoice_payment_progress.0.total_amount'));
+        $this->assertSame(3000.0, (float) data_get($quotationPayload, 'invoice_payment_progress.2.total_amount'));
 
         $this->assertSame('1st Payment', (string) data_get($invoicePayload, 'invoice_payment_progress.0.label'));
         $this->assertSame('2nd Payment', (string) data_get($invoicePayload, 'invoice_payment_progress.1.label'));
-        $this->assertSame('3rd Refund', (string) data_get($invoicePayload, 'invoice_payment_progress.2.label'));
+        $this->assertSame('3rd Payment', (string) data_get($invoicePayload, 'invoice_payment_progress.2.label'));
         $this->assertSame(3100.0, (float) data_get($invoicePayload, 'invoice_payment_progress.0.amount_paid'));
         $this->assertSame(2000.0, (float) data_get($invoicePayload, 'invoice_payment_progress.1.amount_paid'));
-        $this->assertSame(-550.0, (float) data_get($invoicePayload, 'invoice_payment_progress.2.amount_paid'));
-        $this->assertSame($expectedDenominator, (float) data_get($invoicePayload, 'invoice_payment_progress.1.total_amount'));
+        $this->assertSame(0.0, (float) data_get($invoicePayload, 'invoice_payment_progress.2.amount_paid'));
+        $this->assertSame(2000.0, (float) data_get($invoicePayload, 'invoice_payment_progress.1.total_amount'));
+        $this->assertSame(3000.0, (float) data_get($invoicePayload, 'invoice_payment_progress.2.total_amount'));
 
         $this->assertSame('1st Payment', (string) data_get($receiptPayload, 'invoice_payment_progress.0.label'));
         $this->assertSame('2nd Payment', (string) data_get($receiptPayload, 'invoice_payment_progress.1.label'));
-        $this->assertSame('3rd Refund', (string) data_get($receiptPayload, 'invoice_payment_progress.2.label'));
+        $this->assertSame('3rd Payment', (string) data_get($receiptPayload, 'invoice_payment_progress.2.label'));
         $this->assertSame(3100.0, (float) data_get($receiptPayload, 'invoice_payment_progress.0.amount_paid'));
         $this->assertSame(2000.0, (float) data_get($receiptPayload, 'invoice_payment_progress.1.amount_paid'));
-        $this->assertSame(-550.0, (float) data_get($receiptPayload, 'invoice_payment_progress.2.amount_paid'));
-        $this->assertSame($expectedDenominator, (float) data_get($receiptPayload, 'invoice_payment_progress.2.total_amount'));
+        $this->assertSame(0.0, (float) data_get($receiptPayload, 'invoice_payment_progress.2.amount_paid'));
+        $this->assertSame(3000.0, (float) data_get($receiptPayload, 'invoice_payment_progress.2.total_amount'));
     }
 }
