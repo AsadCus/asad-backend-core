@@ -655,28 +655,36 @@
             </tr>
         @endif
 
+        @php
+            $bBottom = 'border-bottom: none !important;';
+            $bTop    = 'border-top: none !important;';
+            $bBoth   = 'border-top: none !important; border-bottom: none !important;';
+        @endphp
+
         @foreach ($plan as $grp)
 
             {{-- ════════════════════════════════════════════════════
                  DAILY — no L1/L2, single date column
                  ════════════════════════════════════════════════════ --}}
             @if ($grp['type'] === 'daily')
-                @php $dateRendered = false; @endphp
+                @php $dateFirst = true; @endphp
 
                 @foreach ($grp['cats'] as $cat)
-                    @php $catRendered = false; @endphp
+                    @php $catFirst = true; @endphp
 
                     @if (count($cat['rows']) === 0)
                         {{-- Empty category: one placeholder row --}}
                         <tr>
-                            @if (!$dateRendered)
-                                <td class="td-date" rowspan="{{ $grp['rowspan'] }}">
-                                    {{ $grp['label'] }}
-                                </td>
-                                @php $dateRendered = true; @endphp
-                            @endif
-                            <td class="td-category" rowspan="{{ $cat['rowspan'] }}">{{ $cat['label'] }}</td>
-                            @php $catRendered = true; @endphp
+                            <td class="td-date" style="{{ $dateFirst ? $bBottom : $bBoth }}">
+                                {{ $dateFirst ? $grp['label'] : '' }}
+                            </td>
+                            @php $dateFirst = false; @endphp
+
+                            <td class="td-category" style="{{ $catFirst ? $bBottom : $bBoth }}">
+                                {{ $catFirst ? $cat['label'] : '' }}
+                            </td>
+                            @php $catFirst = false; @endphp
+
                             <td>-</td>
                             <td>-</td>
                             @foreach ($fields as $f)
@@ -688,16 +696,21 @@
                     @else
                         @foreach ($cat['rows'] as $row)
                             <tr>
-                                @if (!$dateRendered)
-                                    <td class="td-date" rowspan="{{ $grp['rowspan'] }}">
+                                <td class="td-date" style="{{ $dateFirst ? $bBottom : $bBoth }}">
+                                    @if ($dateFirst)
                                         {{ $grp['label'] }}
-                                    </td>
-                                    @php $dateRendered = true; @endphp
-                                @endif
-                                @if (!$catRendered)
-                                    <td class="td-category" rowspan="{{ $cat['rowspan'] }}">{{ $cat['label'] }}</td>
-                                    @php $catRendered = true; @endphp
-                                @endif
+                                        @if (!empty($grp['day_name']))
+                                            <br><span class="day-name">{{ $grp['day_name'] }}</span>
+                                        @endif
+                                    @endif
+                                </td>
+                                @php $dateFirst = false; @endphp
+                                
+                                <td class="td-category" style="{{ $catFirst ? $bBottom : $bBoth }}">
+                                    {{ $catFirst ? $cat['label'] : '' }}
+                                </td>
+                                @php $catFirst = false; @endphp
+                                
                                 <td>{{ $row['package_item'] ?? '-' }}</td>
                                 <td>{{ $row['ref_no'] ?? '-' }}</td>
                                 @foreach ($fields as $f)
@@ -711,6 +724,8 @@
 
                     {{-- Category subtotal --}}
                     <tr class="row-subtotal">
+                        <td class="td-date" style="{{ $bBoth }}"></td>
+                        <td class="td-category" style="{{ $bTop }}"></td>
                         <td colspan="2" class="text-right">Total</td>
                         @foreach ($fields as $f)
                             <td class="text-right">{{ $fmt($cat['total'][$f]) }}</td>
@@ -721,6 +736,7 @@
 
                 {{-- Daily grand total --}}
                 <tr class="row-subperiod-total">
+                    <td class="td-date" style="{{ $bTop }}"></td>
                     <td colspan="3" class="text-right">Grand Total</td>
                     @foreach ($fields as $f)
                         <td class="text-right">{{ $fmt($grp['total'][$f]) }}</td>
@@ -732,27 +748,32 @@
                  MONTHLY / YEARLY — L1 (Month/Year) + L2 (Week/Month)
                  ════════════════════════════════════════════════════ --}}
             @else
-                @php $l1Rendered = false; @endphp
+                @php $l1First = true; @endphp
 
                 @foreach ($grp['subs'] as $sub)
-                    @php $l2Rendered = false; @endphp
+                    @php $l2First = true; @endphp
 
                     @foreach ($sub['cats'] as $cat)
-                        @php $catRendered = false; @endphp
+                        @php $catFirst = true; @endphp
 
                         @if (count($cat['rows']) === 0)
                             {{-- Empty category: one placeholder row --}}
                             <tr>
-                                @if (!$l1Rendered)
-                                    <td class="td-l1" rowspan="{{ $grp['rowspan'] }}">{{ $grp['label'] }}</td>
-                                    @php $l1Rendered = true; @endphp
-                                @endif
-                                @if (!$l2Rendered)
-                                    <td class="td-l2" rowspan="{{ $sub['rowspan'] }}">{{ $sub['label'] }}</td>
-                                    @php $l2Rendered = true; @endphp
-                                @endif
-                                <td class="td-category" rowspan="{{ $cat['rowspan'] }}">{{ $cat['label'] }}</td>
-                                @php $catRendered = true; @endphp
+                                <td class="td-l1" style="{{ $l1First ? $bBottom : $bBoth }}">
+                                    {{ $l1First ? $grp['label'] : '' }}
+                                </td>
+                                @php $l1First = false; @endphp
+                                
+                                <td class="td-l2" style="{{ $l2First ? $bBottom : $bBoth }}">
+                                    {{ $l2First ? $sub['label'] : '' }}
+                                </td>
+                                @php $l2First = false; @endphp
+                                
+                                <td class="td-category" style="{{ $catFirst ? $bBottom : $bBoth }}">
+                                    {{ $catFirst ? $cat['label'] : '' }}
+                                </td>
+                                @php $catFirst = false; @endphp
+                                
                                 <td>-</td>
                                 <td>-</td>
                                 @foreach ($fields as $f)
@@ -764,18 +785,21 @@
                         @else
                             @foreach ($cat['rows'] as $row)
                                 <tr>
-                                    @if (!$l1Rendered)
-                                        <td class="td-l1" rowspan="{{ $grp['rowspan'] }}">{{ $grp['label'] }}</td>
-                                        @php $l1Rendered = true; @endphp
-                                    @endif
-                                    @if (!$l2Rendered)
-                                        <td class="td-l2" rowspan="{{ $sub['rowspan'] }}">{{ $sub['label'] }}</td>
-                                        @php $l2Rendered = true; @endphp
-                                    @endif
-                                    @if (!$catRendered)
-                                        <td class="td-category" rowspan="{{ $cat['rowspan'] }}">{{ $cat['label'] }}</td>
-                                        @php $catRendered = true; @endphp
-                                    @endif
+                                    <td class="td-l1" style="{{ $l1First ? $bBottom : $bBoth }}">
+                                        {{ $l1First ? $grp['label'] : '' }}
+                                    </td>
+                                    @php $l1First = false; @endphp
+                                    
+                                    <td class="td-l2" style="{{ $l2First ? $bBottom : $bBoth }}">
+                                        {{ $l2First ? $sub['label'] : '' }}
+                                    </td>
+                                    @php $l2First = false; @endphp
+                                    
+                                    <td class="td-category" style="{{ $catFirst ? $bBottom : $bBoth }}">
+                                        {{ $catFirst ? $cat['label'] : '' }}
+                                    </td>
+                                    @php $catFirst = false; @endphp
+                                    
                                     <td>{{ $row['package_item'] ?? '-' }}</td>
                                     <td>{{ $row['ref_no'] ?? '-' }}</td>
                                     @foreach ($fields as $f)
@@ -789,6 +813,9 @@
 
                         {{-- Category subtotal --}}
                         <tr class="row-subtotal">
+                            <td class="td-l1" style="{{ $bBoth }}"></td>
+                            <td class="td-l2" style="{{ $bBoth }}"></td>
+                            <td class="td-category" style="{{ $bTop }}"></td>
                             <td colspan="2" class="text-right">Total</td>
                             @foreach ($fields as $f)
                                 <td class="text-right">{{ $fmt($cat['total'][$f]) }}</td>
@@ -799,6 +826,8 @@
 
                     {{-- Sub-period grand total (per Week / per Month) --}}
                     <tr class="row-subperiod-total">
+                        <td class="td-l1" style="{{ $bBoth }}"></td>
+                        <td class="td-l2" style="{{ $bTop }}"></td>
                         <td colspan="3" class="text-right">Grand Total {{ $sub['label'] }}</td>
                         @foreach ($fields as $f)
                             <td class="text-right">{{ $fmt($sub['total'][$f]) }}</td>
@@ -809,6 +838,7 @@
 
                 {{-- L1 grand total (per Month / per Year) --}}
                 <tr class="row-l1-total">
+                    <td class="td-l1" style="{{ $bTop }}"></td>
                     <td colspan="4" class="text-right">Total {{ $grp['label'] }}</td>
                     @foreach ($fields as $f)
                         <td class="text-right">{{ $fmt($grp['total'][$f]) }}</td>
@@ -822,7 +852,7 @@
         {{-- Overall grand total — only when multiple L1 groups --}}
         @if ($multiL1)
             <tr class="row-overall-total">
-                <td colspan="{{ $isDailyMode ? 5 : 5 }}" class="text-right">Overall Grand Total</td>
+                <td colspan="{{ $isDailyMode ? 4 : 5 }}" class="text-right">Overall Grand Total</td>
                 @foreach ($fields as $f)
                     <td class="text-right">{{ $fmt($overallTotal[$f]) }}</td>
                 @endforeach

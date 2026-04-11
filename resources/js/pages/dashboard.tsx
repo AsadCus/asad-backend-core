@@ -230,13 +230,15 @@ export default function Dashboard({ data }: DashboardProps) {
 
             if (period === 'daily' && dateRange) {
                 const fromDate = dateRange.from
-                    ? DateTime.fromFormat(dateRange.from, 'dd/MM/yyyy', {
+                    ? DateTime.fromFormat(dateRange.from, 'dd MMMM yyyy', {
                           zone: userTimezone || 'UTC',
+                          locale: 'en-GB',
                       })
                     : null;
                 const toDate = dateRange.to
-                    ? DateTime.fromFormat(dateRange.to, 'dd/MM/yyyy', {
+                    ? DateTime.fromFormat(dateRange.to, 'dd MMMM yyyy', {
                           zone: userTimezone || 'UTC',
+                          locale: 'en-GB',
                       })
                     : null;
 
@@ -526,8 +528,9 @@ export default function Dashboard({ data }: DashboardProps) {
 
                                 <div className="flex items-center gap-2">
                                     <DateRangeFilter
-                                        title="Date Range"
+                                        title="Export Date"
                                         quickDate={true}
+                                        compact={true}
                                         value={exportDateRange}
                                         onChange={setExportDateRange}
                                     />
@@ -535,6 +538,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     <Button
                                         type="button"
                                         variant="outline"
+                                        size="sm"
                                         disabled={isLoadingPaymentSummary}
                                         onClick={handleExportPaymentSummaryPdf}
                                     >
