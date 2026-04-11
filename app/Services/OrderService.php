@@ -154,7 +154,7 @@ class OrderService
                     'amount' => $invoice['amount'],
                     'invoice_date' => $invoice['invoice_date'],
                     'due_date' => $invoice['due_date'],
-                    'status' => $invoice['status'] ?? 'issued',
+                    'status' => $invoice['status'] ?? InvoiceStatus::Outstanding,
                     'items' => $invoice['items'] ?? [],
                     'delete_missing_quotation_items' => false,
                 ]);

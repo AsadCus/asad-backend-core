@@ -2715,7 +2715,7 @@ class CustomerConfirmationService
             'amount' => $shortfallAmount,
             'invoice_date' => now()->format('Y-m-d'),
             'due_date' => now()->format('Y-m-d'),
-            'status' => InvoiceStatus::Issued,
+            'status' => InvoiceStatus::Outstanding,
         ]);
 
         $balanceInvoice->quotationItems()->sync([
@@ -3757,7 +3757,7 @@ class CustomerConfirmationService
                 'amount' => $unbilledAmount,
                 'invoice_date' => now()->format('Y-m-d'),
                 'due_date' => now()->format('Y-m-d'),
-                'status' => InvoiceStatus::Issued,
+                'status' => InvoiceStatus::Outstanding,
             ]);
 
             $balanceInvoice->quotationItems()->sync([

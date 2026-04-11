@@ -80,7 +80,7 @@ export type InvoiceSchema = z.infer<typeof invoiceSchema>;
 
 export const statuses = [
     { label: 'Draft', value: 'draft' },
-    { label: 'Outstanding', value: 'issued' },
+    { label: 'Outstanding', value: 'outstanding' },
     { label: 'Paid', value: 'paid' },
     { label: 'Overdue', value: 'overdue' },
     { label: 'Void', value: 'cancelled' },
@@ -95,6 +95,7 @@ export const indexStatusValues = indexStatuses.map((status) => status.value);
 
 export const statusColors = {
     draft: 'bg-gray-100 text-gray-800',
+    outstanding: 'bg-cyan-100 text-cyan-800',
     issued: 'bg-cyan-100 text-cyan-800',
     paid: 'bg-green-100 text-green-800',
     overdue: 'bg-yellow-100 text-yellow-800',

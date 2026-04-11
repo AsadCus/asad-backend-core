@@ -17,10 +17,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { parseDisplayDate } from '@/lib/utils';
+import { listCustomers } from '@/routes/enquiries';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type CustomerOption } from '../customer/schema';
 import PackageForm from '../packages/form';
 import PackageInformationSection from '../packages/package-information-section';
 import { type PackageSchema } from '../packages/schema';
@@ -79,6 +81,11 @@ export default function GeneralEnquiryForm({
 
     const normalizedPackageOptions =
         packageOptions as GeneralEnquiryPackageOption[];
+    const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>(
+        [],
+    );
+    const [selectedExistingCustomerId, setSelectedExistingCustomerId] =
+        useState<string>('');
 
     const groupedPackageOptions = useMemo(() => {
         const options = [...normalizedPackageOptions].sort((left, right) => {
@@ -145,6 +152,21 @@ export default function GeneralEnquiryForm({
         useState<PackageSchema | null>(null);
     const [packageDialogOpen, setPackageDialogOpen] = useState(false);
     const [isLoadingLinkedPackage, setIsLoadingLinkedPackage] = useState(false);
+
+    useEffect(() => {
+        if (!isCreate || isView) {
+            return;
+        }
+
+        fetch(listCustomers().url)
+            .then((response) => response.json())
+            .then((rows) => {
+                setCustomerOptions(rows as CustomerOption[]);
+            })
+            .catch(() => {
+                setCustomerOptions([]);
+            });
+    }, [isCreate, isView]);
 
     const loadPackageInfo = useCallback(async (packageId: number) => {
         setIsLoadingLinkedPackage(true);
@@ -334,21 +356,82 @@ export default function GeneralEnquiryForm({
                 )}
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-xl">
-                            {isView
-                                ? 'View General Enquiry'
-                                : isEdit
-                                  ? 'Edit General Enquiry'
-                                  : 'Create General Enquiry'}
-                        </CardTitle>
-                        <CardDescription>
-                            {isView
-                                ? 'Details of the general enquiry.'
-                                : isEdit
-                                  ? 'Modify the details of the general enquiry and submit to save changes.'
-                                  : 'Fill in the details of the general enquiry and submit.'}
-                        </CardDescription>
+                    <CardHeader className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-0">
+                            <CardTitle className="text-xl">
+                                {isView
+                                    ? 'View General Enquiry'
+                                    : isEdit
+                                      ? 'Edit General Enquiry'
+                                      : 'Create General Enquiry'}
+                            </CardTitle>
+                            <CardDescription>
+                                {isView
+                                    ? 'Details of the general enquiry.'
+                                    : isEdit
+                                      ? 'Modify the details of the general enquiry and submit to save changes.'
+                                      : 'Fill in the details of the general enquiry and submit.'}
+                            </CardDescription>
+                        </div>
+
+                        {isCreate && !isView && customerOptions.length > 0 && (
+                            <div className="flex items-end justify-start md:justify-end">
+                                <ProperInputSelect
+                                    id="existing_customer_id"
+                                    options={customerOptions.map(
+                                        (customer) => ({
+                                            value: String(customer.value),
+                                            label: customer.label,
+                                        }),
+                                    )}
+                                    value={selectedExistingCustomerId}
+                                    onValueChange={(nextValue) => {
+                                        if (Array.isArray(nextValue)) {
+                                            return;
+                                        }
+
+                                        const nextId = String(
+                                            nextValue ?? '',
+                                        ).trim();
+                                        setSelectedExistingCustomerId(nextId);
+
+                                        if (nextId.length === 0) {
+                                            return;
+                                        }
+
+                                        const selectedCustomer =
+                                            customerOptions.find(
+                                                (customer) =>
+                                                    String(customer.value) ===
+                                                    nextId,
+                                            );
+
+                                        if (!selectedCustomer) {
+                                            return;
+                                        }
+
+                                        setData(
+                                            'name',
+                                            selectedCustomer.name ?? '',
+                                        );
+                                        setData(
+                                            'contact_number',
+                                            selectedCustomer.contact_number ??
+                                                '',
+                                        );
+                                        setData(
+                                            'email',
+                                            selectedCustomer.email ?? '',
+                                        );
+                                    }}
+                                    placeholder="Search & select customer..."
+                                    maxWidth="320px"
+                                    responsive={true}
+                                    disabled={processing}
+                                    truncate={100}
+                                />
+                            </div>
+                        )}
                     </CardHeader>
                     <CardContent>
                         <GeneralEnquiryFormFields

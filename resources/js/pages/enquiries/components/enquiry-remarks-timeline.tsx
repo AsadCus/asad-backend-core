@@ -60,7 +60,18 @@ export default function EnquiryRemarksTimeline({
     const handleSubmit = async () => {
         if (!enquiryId) return;
 
-        const result = enquiryRemarkValidationSchema.safeParse({ remark });
+        const remarkInput = document.getElementById('remark') as
+            | HTMLInputElement
+            | HTMLTextAreaElement
+            | null;
+        const latestRemarkRaw = remarkInput?.value ?? remark;
+        const latestRemark = latestRemarkRaw.trim();
+
+        setRemark(latestRemarkRaw);
+
+        const result = enquiryRemarkValidationSchema.safeParse({
+            remark: latestRemark,
+        });
         if (!result.success) {
             setError(result.error.issues[0]?.message ?? 'Invalid input');
             return;
@@ -73,7 +84,7 @@ export default function EnquiryRemarksTimeline({
             if (editingRemarkId) {
                 router.put(
                     update({ enquiryId, remarkId: editingRemarkId }).url,
-                    { remark },
+                    { remark: latestRemark },
                     {
                         preserveScroll: true,
                         onSuccess: () => {
@@ -87,7 +98,7 @@ export default function EnquiryRemarksTimeline({
             } else {
                 router.post(
                     store(enquiryId).url,
-                    { remark },
+                    { remark: latestRemark },
                     {
                         preserveScroll: true,
                         onSuccess: () => {
@@ -155,7 +166,7 @@ export default function EnquiryRemarksTimeline({
                     <Button
                         size="sm"
                         onClick={handleSubmit}
-                        disabled={isSubmitting || !remark.trim()}
+                        disabled={isSubmitting}
                     >
                         {isSubmitting
                             ? 'Saving...'

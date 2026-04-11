@@ -102,7 +102,7 @@ class InvoiceService
                 'amount' => $data['amount'],
                 'invoice_date' => $data['invoice_date'],
                 'due_date' => $data['due_date'] ?? null,
-                'status' => $data['status'] ?? InvoiceStatus::Issued,
+                'status' => $data['status'] ?? InvoiceStatus::Outstanding,
             ]);
 
             if (! empty($data['items'])) {

@@ -6,7 +6,6 @@ use App\Enums\EnquiryStatus;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\Enquiry;
-use App\Models\EnquiryRemark;
 use App\Models\GeneralEnquiry;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
@@ -227,13 +226,6 @@ class EnquiryWorkflowTest extends TestCase
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Contacted, $enquiry->status);
         $this->assertSame($this->adminUser->id, $enquiry->handled_by);
-
-        $this->assertDatabaseHas('enquiry_remarks', [
-            'enquiry_id' => $enquiry->id,
-            'created_by' => $this->adminUser->id,
-            'status_at_time' => EnquiryStatus::Contacted->value,
-            'remark' => 'Status updated from New Lead to Contacted.',
-        ]);
     }
 
     public function test_enquiry_status_cannot_skip_steps(): void
@@ -289,7 +281,6 @@ class EnquiryWorkflowTest extends TestCase
 
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
-        $this->assertEquals(2, EnquiryRemark::where('enquiry_id', $enquiry->id)->count());
     }
 
     public function test_confirm_endpoint_creates_customer_confirmation(): void
@@ -382,13 +373,6 @@ class EnquiryWorkflowTest extends TestCase
 
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
         $this->assertSame($this->adminUser->id, $enquiry->handled_by);
-
-        $this->assertDatabaseHas('enquiry_remarks', [
-            'enquiry_id' => $enquiry->id,
-            'created_by' => $this->adminUser->id,
-            'status_at_time' => EnquiryStatus::Confirmed->value,
-            'remark' => 'Status updated from Contacted to Confirmed.',
-        ]);
     }
 
     public function test_confirm_endpoint_does_not_fail_when_already_confirmed(): void

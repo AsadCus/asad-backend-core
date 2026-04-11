@@ -9,6 +9,7 @@ interface UserPasswordFieldsProps {
     password: string;
     passwordConfirmation: string;
     sendEmail: boolean;
+    showSendEmailOption?: boolean;
     isView: boolean;
     onPasswordChange: (value: string) => void;
     onPasswordConfirmationChange: (value: string) => void;
@@ -22,6 +23,7 @@ export function UserPasswordFields({
     password,
     passwordConfirmation,
     sendEmail,
+    showSendEmailOption = true,
     isView,
     onPasswordChange,
     onPasswordConfirmationChange,
@@ -115,21 +117,23 @@ export function UserPasswordFields({
                 </FormField>
             </div>
 
-            <div className="flex items-center gap-2">
-                <input
-                    id="send_email"
-                    type="checkbox"
-                    checked={sendEmail}
-                    onChange={(event) =>
-                        onSendEmailChange(event.target.checked)
-                    }
-                    disabled={isView}
-                    aria-label="Send email access to this user"
-                />
-                <Label htmlFor="send_email">
-                    Send email access to this user (optional)
-                </Label>
-            </div>
+            {showSendEmailOption && (
+                <div className="flex items-center gap-2">
+                    <input
+                        id="send_email"
+                        type="checkbox"
+                        checked={sendEmail}
+                        onChange={(event) =>
+                            onSendEmailChange(event.target.checked)
+                        }
+                        disabled={isView}
+                        aria-label="Send email access to this user"
+                    />
+                    <Label htmlFor="send_email">
+                        Send email access to this user (optional)
+                    </Label>
+                </div>
+            )}
         </div>
     );
 }

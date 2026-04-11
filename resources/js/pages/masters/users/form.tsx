@@ -483,6 +483,7 @@ export function UserForm({
                                     data.password_confirmation ?? ''
                                 }
                                 sendEmail={data.send_email ?? false}
+                                showSendEmailOption={false}
                                 isView={isView}
                                 onGenerateRandom={generatePassword}
                                 onPasswordChange={(value) => {

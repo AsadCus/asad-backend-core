@@ -76,7 +76,7 @@ class PaymentStatusService
         if ($outstandingAmount <= 0) {
             $newStatus = 'paid';
         } else {
-            $newStatus = 'issued';
+            $newStatus = InvoiceStatus::Outstanding;
         }
 
         if ($invoice->status !== $newStatus) {

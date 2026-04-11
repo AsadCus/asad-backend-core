@@ -7,7 +7,7 @@ import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseDisplayDate } from '@/lib/utils';
 import {
     create as createInvoice,
     destroy as destroyInvoice,
@@ -25,7 +25,6 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import {
-    indexStatusValues,
     InvoiceItemSchema,
     InvoiceSchema,
     statusColors,
@@ -51,7 +50,38 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const defaultInvoiceIndexStatusFilters = [...indexStatusValues];
+const invoiceIndexFilterStatuses = statuses.filter(
+    (status) => status.value !== 'refund',
+);
+const defaultInvoiceIndexStatusFilters = invoiceIndexFilterStatuses.map(
+    (status) => status.value,
+);
+
+const compareNaturalText = (left: unknown, right: unknown): number => {
+    return String(left ?? '').localeCompare(String(right ?? ''), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+    });
+};
+
+const compareFormattedDate = (left: unknown, right: unknown): number => {
+    const leftDate = parseDisplayDate(String(left ?? ''));
+    const rightDate = parseDisplayDate(String(right ?? ''));
+
+    if (leftDate && rightDate) {
+        return leftDate.getTime() - rightDate.getTime();
+    }
+
+    if (leftDate) {
+        return 1;
+    }
+
+    if (rightDate) {
+        return -1;
+    }
+
+    return compareNaturalText(left, right);
+};
 
 const shouldProceedWithNegativeReceipt = (invoice: InvoiceSchema): boolean => {
     const invoiceAmount = Number(invoice.amount ?? 0);
@@ -76,6 +106,11 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         accessorKey: 'package_number',
         header: 'Package Number',
         meta: { exportable: true },
+        sortingFn: (rowA, rowB, columnId) =>
+            compareNaturalText(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'package_name',
@@ -92,6 +127,11 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         accessorKey: 'customer_number',
         header: 'Customer Number',
         meta: { exportable: true },
+        sortingFn: (rowA, rowB, columnId) =>
+            compareNaturalText(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'customer_name',
@@ -108,6 +148,11 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         accessorKey: 'quotation_number',
         header: 'Quotation No.',
         meta: { exportable: true },
+        sortingFn: (rowA, rowB, columnId) =>
+            compareNaturalText(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'order_id',
@@ -119,23 +164,43 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         accessorKey: 'order_number',
         header: 'Order No.',
         meta: { exportable: true },
+        sortingFn: (rowA, rowB, columnId) =>
+            compareNaturalText(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'invoice_number',
         header: 'Invoice No.',
         meta: { exportable: true },
+        sortingFn: (rowA, rowB, columnId) =>
+            compareNaturalText(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'invoice_date',
         header: 'Invoice Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
+        sortingFn: (rowA, rowB, columnId) =>
+            compareFormattedDate(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'due_date',
         header: 'Due Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
+        sortingFn: (rowA, rowB, columnId) =>
+            compareFormattedDate(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'status',
@@ -232,12 +297,22 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
+        sortingFn: (rowA, rowB, columnId) =>
+            compareFormattedDate(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
     {
         accessorKey: 'updated_at',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
+        sortingFn: (rowA, rowB, columnId) =>
+            compareFormattedDate(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
     },
 ];
 
@@ -491,7 +566,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                         table={table}
                                         columnId="status"
                                         title="Status"
-                                        options={statuses}
+                                        options={invoiceIndexFilterStatuses}
                                     />
                                     <ColumnFilter
                                         table={table}

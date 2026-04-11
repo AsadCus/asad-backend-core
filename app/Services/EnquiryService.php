@@ -13,7 +13,6 @@ class EnquiryService
     public function __construct(
         public GeneralEnquiryService $generalEnquiryService,
         public PrivateEnquiryService $privateEnquiryService,
-        public EnquiryRemarkService $enquiryRemarkService,
     ) {}
 
     /**
@@ -104,7 +103,6 @@ class EnquiryService
     {
         return DB::transaction(function () use ($id, $newStatus) {
             $enquiry = Enquiry::findOrFail($id);
-            $previousStatus = $enquiry->status;
             $targetStatus = EnquiryStatus::from($newStatus);
 
             // Block direct transition to confirmed — must go through confirm endpoint
@@ -120,8 +118,6 @@ class EnquiryService
                 'status' => $targetStatus->value,
                 'handled_by' => auth()->id(),
             ]);
-
-            $this->createStatusUpdatedRemark($enquiry->id, $previousStatus, $targetStatus);
 
             activity()
                 ->performedOn($enquiry)
@@ -153,14 +149,10 @@ class EnquiryService
                 abort(422, "Cannot confirm enquiry from status {$enquiry->status->label()}. It must be in Contacted status.");
             }
 
-            $previousStatus = $enquiry->status;
-
             $enquiry->update([
                 'status' => EnquiryStatus::Confirmed->value,
                 'handled_by' => auth()->id(),
             ]);
-
-            $this->createStatusUpdatedRemark($enquiry->id, $previousStatus, EnquiryStatus::Confirmed);
 
             activity()
                 ->performedOn($enquiry)
@@ -174,13 +166,6 @@ class EnquiryService
 
             return $enquiry->fresh();
         });
-    }
-
-    private function createStatusUpdatedRemark(int $enquiryId, EnquiryStatus $fromStatus, EnquiryStatus $toStatus): void
-    {
-        $this->enquiryRemarkService->store($enquiryId, [
-            'remark' => "Status updated from {$fromStatus->label()} to {$toStatus->label()}.",
-        ]);
     }
 
     /**

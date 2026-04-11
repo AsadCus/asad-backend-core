@@ -6,6 +6,8 @@ final class InvoiceStatus
 {
     public const Draft = 'draft';
 
+    public const Outstanding = 'outstanding';
+
     public const Issued = 'issued';
 
     public const Paid = 'paid';
@@ -23,6 +25,7 @@ final class InvoiceStatus
     {
         return [
             self::Draft,
+            self::Outstanding,
             self::Issued,
             self::Paid,
             self::Overdue,
@@ -38,6 +41,7 @@ final class InvoiceStatus
     {
         return [
             self::Draft,
+            self::Outstanding,
             self::Issued,
             self::Paid,
             self::Overdue,
