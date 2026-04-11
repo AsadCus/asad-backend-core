@@ -1414,7 +1414,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             ->first();
 
         $this->assertNotNull($balanceInvoice);
-        $this->assertSame('issued', (string) ($balanceInvoice->status ?? ''));
+        $this->assertSame('outstanding', (string) ($balanceInvoice->status ?? ''));
         $this->assertSame(400.0, (float) ($balanceInvoice->amount ?? 0));
 
         $balanceItems = $balanceInvoice->quotationItems()

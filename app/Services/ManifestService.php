@@ -2087,9 +2087,18 @@ class ManifestService
             2,
         );
 
-        $depositPaymentAmount = round(max($depositPaymentAmountRaw - $depositDiscountAmount, 0), 2);
-        $secondPaymentAmount = round(max($secondPaymentAmountRaw - $secondDiscountAmount, 0), 2);
-        $thirdPaymentAmount = round(max($thirdPaymentAmountRaw - $thirdDiscountAmount, 0), 2);
+        $depositPaymentAmount = $this->resolveStagePaymentAmount(
+            $depositPaymentAmountRaw,
+            $depositDiscountAmount,
+        );
+        $secondPaymentAmount = $this->resolveStagePaymentAmount(
+            $secondPaymentAmountRaw,
+            $secondDiscountAmount,
+        );
+        $thirdPaymentAmount = $this->resolveStagePaymentAmount(
+            $thirdPaymentAmountRaw,
+            $thirdDiscountAmount,
+        );
 
         $depositPayment = $depositPaymentAmountRaw !== 0.0 ? $depositPaymentAmount : null;
         $secondPayment = $secondPaymentAmountRaw !== 0.0 ? $secondPaymentAmount : null;
@@ -2117,6 +2126,17 @@ class ManifestService
             'third_payment' => $thirdPayment,
             'balance_due' => $balanceDue,
         ];
+    }
+
+    private function resolveStagePaymentAmount(float $rawAmount, float $discountAmount): float
+    {
+        $normalizedRawAmount = round($rawAmount, 2);
+
+        if ($normalizedRawAmount <= 0) {
+            return $normalizedRawAmount;
+        }
+
+        return round(max($normalizedRawAmount - max($discountAmount, 0), 0), 2);
     }
 
     private function areAllMemberInvoicesSettled(CustomerConfirmationMember $member): bool

@@ -1,6 +1,6 @@
 import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Calendar } from './ui/calendar';
 import { Input } from './ui/input';
@@ -70,6 +70,21 @@ export function DatePickerField({
     const [minutes, setMinutes] = useState(initialTime.minutes);
     const resolvedReadOnlyValue =
         disabled && (!value || value.trim().length === 0) ? '-' : (value ?? '');
+
+    useEffect(() => {
+        const parsedTime = parseTimeFromValue(value);
+        const nextDate = parseDisplayDate(
+            useTime ? parsedTime.datePart : value,
+        );
+
+        setSelectedDate(nextDate);
+        setMonth(nextDate);
+
+        if (useTime) {
+            setHours(parsedTime.hours);
+            setMinutes(parsedTime.minutes);
+        }
+    }, [value, useTime]);
 
     function emitDateTime(date: Date | undefined, h: number, m: number) {
         const dateStr = formatDateForDisplay(date);

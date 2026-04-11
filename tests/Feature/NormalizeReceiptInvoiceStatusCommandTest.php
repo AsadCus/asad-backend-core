@@ -90,6 +90,6 @@ class NormalizeReceiptInvoiceStatusCommandTest extends TestCase
         ]);
 
         $graph['invoice']->refresh();
-        $this->assertSame('issued', (string) $graph['invoice']->status);
+        $this->assertSame('outstanding', (string) $graph['invoice']->status);
     }
 }

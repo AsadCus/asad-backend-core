@@ -400,90 +400,45 @@ export default function PackageForm({
             return;
         }
 
-        const departureParsed = parseDisplayDate(departureDate);
-        if (!departureParsed) {
-            previousDepartureDateRef.current = departureDate;
-
-            return;
-        }
-
-        const shouldPromoteDate = (value?: string | null): boolean => {
-            const trimmed = String(value ?? '').trim();
-
-            if (trimmed.length === 0) {
-                return true;
-            }
-
-            const parsed = parseDisplayDate(trimmed);
-
-            if (!parsed) {
-                return false;
-            }
-
-            const currentDate = new Date(parsed);
-            currentDate.setHours(0, 0, 0, 0);
-
-            const nextDepartureDate = new Date(departureParsed);
-            nextDepartureDate.setHours(0, 0, 0, 0);
-
-            return currentDate < nextDepartureDate;
-        };
-
         setData((currentData) => {
             const nextFlights = (currentData.flights ?? []).map((flight) => ({
                 ...flight,
-                departure_datetime: shouldPromoteDate(flight.departure_datetime)
-                    ? departureDate
-                    : (flight.departure_datetime ?? ''),
-                arrival_datetime: shouldPromoteDate(flight.arrival_datetime)
-                    ? departureDate
-                    : (flight.arrival_datetime ?? ''),
+                departure_datetime: departureDate,
+                arrival_datetime: departureDate,
             }));
 
             const nextTransportationPlans = (
                 currentData.transportation_plans ?? []
             ).map((plan) => ({
                 ...plan,
-                travel_date: shouldPromoteDate(plan.travel_date)
-                    ? departureDate
-                    : (plan.travel_date ?? ''),
+                travel_date: departureDate,
             }));
 
             const nextTrainTickets = (currentData.train_tickets ?? []).map(
                 (ticket) => ({
                     ...ticket,
-                    travel_date: shouldPromoteDate(ticket.travel_date)
-                        ? departureDate
-                        : (ticket.travel_date ?? ''),
+                    travel_date: departureDate,
                 }),
             );
 
             const nextAccommodations = (currentData.accommodations ?? []).map(
                 (accommodation) => ({
                     ...accommodation,
-                    check_in: shouldPromoteDate(accommodation.check_in)
-                        ? departureDate
-                        : (accommodation.check_in ?? ''),
-                    check_out: shouldPromoteDate(accommodation.check_out)
-                        ? departureDate
-                        : (accommodation.check_out ?? ''),
+                    check_in: departureDate,
+                    check_out: departureDate,
                 }),
             );
 
             const nextRawdahTasreehs = (currentData.rawdah_tasreehs ?? []).map(
                 (tasreeh) => ({
                     ...tasreeh,
-                    date: shouldPromoteDate(tasreeh.date)
-                        ? departureDate
-                        : (tasreeh.date ?? ''),
+                    date: departureDate,
                 }),
             );
 
             return {
                 ...currentData,
-                return_date: shouldPromoteDate(currentData.return_date)
-                    ? departureDate
-                    : (currentData.return_date ?? ''),
+                return_date: departureDate,
                 flights: nextFlights,
                 transportation_plans: nextTransportationPlans,
                 train_tickets: nextTrainTickets,
@@ -2385,7 +2340,8 @@ export default function PackageForm({
                                                                     updateRawdahTasreeh(
                                                                         index,
                                                                         'date',
-                                                                        v || null,
+                                                                        v ||
+                                                                            null,
                                                                     )
                                                                 }
                                                             />
@@ -2414,7 +2370,8 @@ export default function PackageForm({
                                                                     updateRawdahTasreeh(
                                                                         index,
                                                                         'women_time',
-                                                                        v || null,
+                                                                        v ||
+                                                                            null,
                                                                     )
                                                                 }
                                                             />
@@ -2443,7 +2400,8 @@ export default function PackageForm({
                                                                     updateRawdahTasreeh(
                                                                         index,
                                                                         'men_time',
-                                                                        v || null,
+                                                                        v ||
+                                                                            null,
                                                                     )
                                                                 }
                                                             />
@@ -2461,7 +2419,9 @@ export default function PackageForm({
                                                         >
                                                             <Input
                                                                 type="number"
-                                                                value={womenCount}
+                                                                value={
+                                                                    womenCount
+                                                                }
                                                                 disabled={true}
                                                                 className="bg-muted"
                                                             />
@@ -2489,7 +2449,9 @@ export default function PackageForm({
                                                             }}
                                                         >
                                                             <Input
-                                                                value={totalCount}
+                                                                value={
+                                                                    totalCount
+                                                                }
                                                                 disabled={true}
                                                                 className="bg-muted"
                                                             />

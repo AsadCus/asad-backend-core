@@ -10,7 +10,6 @@ import { Button } from './ui/button';
 import { Calendar } from './ui/calendar';
 import { Label } from './ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Separator } from './ui/separator';
 
 interface DateRangeFilterProps<TData> {
     table?: Table<TData> | null;
@@ -205,63 +204,73 @@ export function DateRangeFilter<TData>({
         <div className="space-y-1">
             {/* <DropdownMenuLabel>{title}</DropdownMenuLabel> */}
             <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size={compact ? 'sm' : 'default'}
-                            className={compact ? 'h-9 justify-start gap-1.5 border-dashed' : 'w-full justify-start border-dashed'}
-                        >
-                            <CalendarIcon className="h-4 w-4 shrink-0" />
-                            {!hasFilter && title}
-                            {hasFilter && (
-                                <span className="text-sm font-normal">
-                                    {filterValue?.from && filterValue?.to
-                                        ? `${filterValue.from} – ${filterValue.to}`
-                                        : filterValue?.from || filterValue?.to}
-                                </span>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        size={compact ? 'sm' : 'default'}
+                        className={
+                            compact
+                                ? 'h-9 justify-start gap-1.5 border-dashed'
+                                : 'w-full justify-start border-dashed'
+                        }
+                    >
+                        <CalendarIcon className="h-4 w-4 shrink-0" />
+                        {!hasFilter && title}
+                        {hasFilter && (
+                            <span className="text-sm font-normal">
+                                {filterValue?.from && filterValue?.to
+                                    ? `${filterValue.from} – ${filterValue.to}`
+                                    : filterValue?.from || filterValue?.to}
+                            </span>
+                        )}
+                    </Button>
+                </PopoverTrigger>
 
-                    <PopoverContent className="w-auto p-3" align="end" side="bottom" sideOffset={4}>
-                        <div className="flex gap-3">
-                            <div className="space-y-2">
-                                {!compact && (
-                                <div className="flex w-full flex-col gap-2">
-                                    <div className="grid w-full gap-1">
-                                        <Label>From</Label>
-                                        <div className="relative">
-                                            <ProperInput
-                                                placeholder={formatDateForDisplay(
-                                                    new Date(),
-                                                )}
-                                                value={filterValue?.from ?? ''}
-                                                onCommit={(e) =>
-                                                    handleDateChange('from', e)
-                                                }
-                                                type="text"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid w-full gap-1">
-                                        <Label>To</Label>
-                                        <div className="relative">
-                                            <ProperInput
-                                                placeholder={formatDateForDisplay(
-                                                    new Date(),
-                                                )}
-                                                value={filterValue?.to ?? ''}
-                                                onCommit={(e) =>
-                                                    handleDateChange('to', e)
-                                                }
-                                                type="text"
-                                            />
-                                        </div>
+                <PopoverContent
+                    className="w-auto p-3"
+                    align="end"
+                    side="bottom"
+                    sideOffset={4}
+                >
+                    <div className="space-y-3">
+                        {!compact && (
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="grid w-full gap-1">
+                                    <Label>From</Label>
+                                    <div className="relative">
+                                        <ProperInput
+                                            placeholder={formatDateForDisplay(
+                                                new Date(),
+                                            )}
+                                            value={filterValue?.from ?? ''}
+                                            onCommit={(e) =>
+                                                handleDateChange('from', e)
+                                            }
+                                            type="text"
+                                        />
                                     </div>
                                 </div>
-                                )}
 
+                                <div className="grid w-full gap-1">
+                                    <Label>To</Label>
+                                    <div className="relative">
+                                        <ProperInput
+                                            placeholder={formatDateForDisplay(
+                                                new Date(),
+                                            )}
+                                            value={filterValue?.to ?? ''}
+                                            onCommit={(e) =>
+                                                handleDateChange('to', e)
+                                            }
+                                            type="text"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex gap-3">
+                            <div className="space-y-2">
                                 <Calendar
                                     mode="range"
                                     numberOfMonths={1}
@@ -335,9 +344,10 @@ export function DateRangeFilter<TData>({
                                 </div>
                             )}
                         </div>
-                    </PopoverContent>
-                </Popover>
-            </div>
+                    </div>
+                </PopoverContent>
+            </Popover>
+        </div>
     );
 
     return renderContent();
