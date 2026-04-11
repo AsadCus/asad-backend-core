@@ -199,11 +199,10 @@ export function DateRangeFilter<TData>({
 
     const hasFilter = filterValue?.from || filterValue?.to;
 
-    if (table && columnId) {
-        return (
-            <div className="space-y-1">
-                {/* <DropdownMenuLabel>{title}</DropdownMenuLabel> */}
-                <Popover open={open} onOpenChange={setOpen}>
+    const renderContent = () => (
+        <div className="space-y-1">
+            {/* <DropdownMenuLabel>{title}</DropdownMenuLabel> */}
+            <Popover open={open} onOpenChange={setOpen}>
                     <PopoverTrigger asChild>
                         <Button
                             variant="outline"
@@ -228,7 +227,7 @@ export function DateRangeFilter<TData>({
                         </Button>
                     </PopoverTrigger>
 
-                    <PopoverContent className="w-auto p-4" align="center">
+                    <PopoverContent className="w-auto p-4" align="center" side="bottom" sideOffset={4}>
                         <div className="flex gap-4">
                             <div className="space-y-2">
                                 <div className="flex w-full flex-col gap-2">
@@ -341,6 +340,7 @@ export function DateRangeFilter<TData>({
                     </PopoverContent>
                 </Popover>
             </div>
-        );
-    }
+    );
+
+    return renderContent();
 }

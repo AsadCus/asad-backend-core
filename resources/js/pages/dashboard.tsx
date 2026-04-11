@@ -1,7 +1,7 @@
 import { ActionType } from '@/components/action-column';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
-import { DatePickerField } from '@/components/date-picker';
+import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,9 +13,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+
 import AppLayout from '@/layouts/app-layout';
 import { formatUserTime } from '@/lib/timezone';
-import { formatCurrency, formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
     create as customerCreate,
@@ -181,29 +182,16 @@ export default function Dashboard({ data }: DashboardProps) {
         useState<PaymentSummaryType | null>(null);
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
         useState(false);
-    const [exportDateMode, setExportDateMode] = useState<'single' | 'range'>(
-        'single',
-    );
-    const [singleExportDate, setSingleExportDate] = useState<string>(
-        formatDateForDisplay(new Date()),
-    );
-    const [rangeExportStartDate, setRangeExportStartDate] = useState<string>(
-        formatDateForDisplay(new Date()),
-    );
-    const [rangeExportEndDate, setRangeExportEndDate] = useState<string>(
-        formatDateForDisplay(new Date()),
-    );
+    const [exportDateRange, setExportDateRange] = useState<{
+        from?: string;
+        to?: string;
+    }>({});
 
     const buildPaymentSummaryParams = useCallback(
         (
             period: 'daily' | 'monthly' | 'yearly',
             yearId?: number,
-            exportDates?: {
-                mode: 'single' | 'range';
-                singleDate?: string;
-                rangeStartDate?: string;
-                rangeEndDate?: string;
-            },
+            dateRange?: { from?: string; to?: string },
         ) => {
             const params = new URLSearchParams({ period });
 
@@ -240,43 +228,24 @@ export default function Dashboard({ data }: DashboardProps) {
                       ? nowInUserTimezone.endOf('year')
                       : nowInUserTimezone.endOf('day');
 
-            if (period === 'daily' && exportDates) {
-                if (exportDates.mode === 'single') {
-                    const parsedSingleDate = parseDisplayDate(
-                        exportDates.singleDate,
+            if (period === 'daily' && dateRange) {
+                const fromDate = dateRange.from
+                    ? DateTime.fromFormat(dateRange.from, 'dd/MM/yyyy', {
+                          zone: userTimezone || 'UTC',
+                      })
+                    : null;
+                const toDate = dateRange.to
+                    ? DateTime.fromFormat(dateRange.to, 'dd/MM/yyyy', {
+                          zone: userTimezone || 'UTC',
+                      })
+                    : null;
+
+                if (fromDate?.isValid) {
+                    localRangeStart = fromDate.startOf('day');
+                    // If only a start date set (no end), treat as single-day
+                    localRangeEnd = (toDate?.isValid ? toDate : fromDate).endOf(
+                        'day',
                     );
-
-                    if (parsedSingleDate) {
-                        const singleDate = DateTime.fromJSDate(
-                            parsedSingleDate,
-                        ).setZone(userTimezone || 'UTC');
-
-                        localRangeStart = singleDate.startOf('day');
-                        localRangeEnd = singleDate.endOf('day');
-                    }
-                }
-
-                if (exportDates.mode === 'range') {
-                    const parsedStartDate = parseDisplayDate(
-                        exportDates.rangeStartDate,
-                    );
-                    const parsedEndDate = parseDisplayDate(
-                        exportDates.rangeEndDate,
-                    );
-
-                    if (parsedStartDate && parsedEndDate) {
-                        const startDate = DateTime.fromJSDate(
-                            parsedStartDate,
-                        ).setZone(userTimezone || 'UTC');
-                        const endDate = DateTime.fromJSDate(
-                            parsedEndDate,
-                        ).setZone(userTimezone || 'UTC');
-
-                        if (endDate >= startDate) {
-                            localRangeStart = startDate.startOf('day');
-                            localRangeEnd = endDate.endOf('day');
-                        }
-                    }
                 }
             }
 
@@ -352,12 +321,7 @@ export default function Dashboard({ data }: DashboardProps) {
         const params = buildPaymentSummaryParams(
             paymentSummaryPeriod,
             data.selectedYearId,
-            {
-                mode: exportDateMode,
-                singleDate: singleExportDate,
-                rangeStartDate: rangeExportStartDate,
-                rangeEndDate: rangeExportEndDate,
-            },
+            exportDateRange,
         );
 
         window.open(
@@ -367,11 +331,8 @@ export default function Dashboard({ data }: DashboardProps) {
     }, [
         buildPaymentSummaryParams,
         data.selectedYearId,
-        exportDateMode,
+        exportDateRange,
         paymentSummaryPeriod,
-        rangeExportEndDate,
-        rangeExportStartDate,
-        singleExportDate,
     ]);
 
     const paymentSectionTitle = 'Daily Payment';
@@ -564,60 +525,12 @@ export default function Dashboard({ data }: DashboardProps) {
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                    <Select
-                                        value={exportDateMode}
-                                        onValueChange={(value) =>
-                                            setExportDateMode(
-                                                value as 'single' | 'range',
-                                            )
-                                        }
-                                    >
-                                        <SelectTrigger className="h-9 w-[120px]">
-                                            <SelectValue placeholder="Date mode" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="single">
-                                                Single Date
-                                            </SelectItem>
-                                            <SelectItem value="range">
-                                                Date Range
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-
-                                    {exportDateMode === 'single' ? (
-                                        <div className="w-[170px]">
-                                            <DatePickerField
-                                                id="dashboard-export-single-date"
-                                                value={singleExportDate}
-                                                disabled={false}
-                                                onChange={setSingleExportDate}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-[170px]">
-                                                <DatePickerField
-                                                    id="dashboard-export-range-start-date"
-                                                    value={rangeExportStartDate}
-                                                    disabled={false}
-                                                    onChange={
-                                                        setRangeExportStartDate
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="w-[170px]">
-                                                <DatePickerField
-                                                    id="dashboard-export-range-end-date"
-                                                    value={rangeExportEndDate}
-                                                    disabled={false}
-                                                    onChange={
-                                                        setRangeExportEndDate
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
+                                    <DateRangeFilter
+                                        title="Date Range"
+                                        quickDate={true}
+                                        value={exportDateRange}
+                                        onChange={setExportDateRange}
+                                    />
 
                                     <Button
                                         type="button"
