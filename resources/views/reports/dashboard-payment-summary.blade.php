@@ -863,11 +863,29 @@
     </table>
 
     <div class="footer-section">
-        @if (!empty($report['notes']))
-            <div class="footer-note">{!! nl2br(e((string) $report['notes'])) !!}</div>
-        @elseif (!empty($branding['footer_text']))
+        @php
+            // Prepare activeNotes collection for the partial to consume
+            $rawNotes = $report['notes'] ?? null;
+            if (is_string($rawNotes) && trim($rawNotes) !== '') {
+                $activeNotes = collect([['description' => nl2br(e($rawNotes))]]);
+            } elseif (is_array($rawNotes)) {
+                $activeNotes = collect($rawNotes)
+                    ->filter(fn($n) => !empty(trim(strip_tags($n['description'] ?? ''))))
+                    ->sortBy('sort_order')
+                    ->values();
+            } else {
+                $activeNotes = collect();
+            }
+        @endphp
+
+        {{-- Notes: always shown above footer if provided --}}
+        @include('partials.report-notes')
+
+        {{-- Module footer text from Report Template Settings --}}
+        @if (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @endif
+
         @include('partials.report-signature-stamp')
     </div>
 @endsection
