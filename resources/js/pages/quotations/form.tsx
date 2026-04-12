@@ -1587,6 +1587,8 @@ export function QuotationForm({
         };
     }, [isEdit]);
 
+    console.log(data);
+
     return (
         <div className="mx-auto w-full">
             {/* Progress Header */}

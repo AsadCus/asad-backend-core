@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\EnquiryStatus;
+use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\Enquiry;
@@ -81,11 +82,13 @@ class EnquiryWorkflowTest extends TestCase
     public function test_creating_general_enquiry_creates_parent_enquiry(): void
     {
         $this->actingAs($this->adminUser);
+        $country = Country::factory()->create();
 
         $response = $this->post(route('general-enquiries.store'), [
             'name' => 'John Doe',
             'contact_number' => '0123456789',
             'email' => 'john@example.com',
+            'country_id' => $country->id,
             'preferred_destinations' => 'Japan, Korea',
             'preferred_travelling_date' => '2026-06-01',
             'no_of_adults' => 2,
@@ -93,6 +96,7 @@ class EnquiryWorkflowTest extends TestCase
         ]);
 
         $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('enquiries', [
             'type' => 'general',
@@ -117,11 +121,13 @@ class EnquiryWorkflowTest extends TestCase
     public function test_creating_private_enquiry_creates_parent_enquiry(): void
     {
         $this->actingAs($this->adminUser);
+        $country = Country::factory()->create();
 
         $response = $this->post(route('private-enquiries.store'), [
             'name' => 'Jane Smith',
             'contact_number' => '0198765432',
             'email' => 'jane@example.com',
+            'country_id' => $country->id,
             'passport_expiry_date' => '2027-12-31',
             'departure_date' => '2026-06-01',
             'return_date' => '2026-06-15',
@@ -150,6 +156,7 @@ class EnquiryWorkflowTest extends TestCase
         ]);
 
         $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('enquiries', [
             'type' => 'private',

@@ -59,7 +59,16 @@ function mergeSummaryExtensionsByNameAndType(
         const type = String(extension.type ?? 'discount')
             .trim()
             .toLowerCase();
-        const key = `${name.toLowerCase()}|${type}`;
+        const calculationMode =
+            String(extension.calculation_mode ?? 'fixed') === 'percentage'
+                ? 'percentage'
+                : 'fixed';
+        const calculationValue = Number(extension.calculation_value ?? 0);
+        const mergeLabel =
+            calculationMode === 'percentage'
+                ? `${name} ${calculationValue}%`
+                : name;
+        const key = mergeLabel.toLowerCase();
         const amount = Number(extension.amount ?? 0);
 
         if (!grouped.has(key)) {
@@ -367,7 +376,16 @@ export default function QuotationDetailSection({
             const type = String(extension.type ?? 'tax')
                 .trim()
                 .toLowerCase();
-            const key = `${name.toLowerCase()}|${type}`;
+            const calculationMode =
+                String(extension.calculation_mode ?? 'fixed') === 'percentage'
+                    ? 'percentage'
+                    : 'fixed';
+            const calculationValue = Number(extension.calculation_value ?? 0);
+            const mergeLabel =
+                calculationMode === 'percentage'
+                    ? `${name} ${calculationValue}%`
+                    : name;
+            const key = mergeLabel.toLowerCase();
 
             if (!grouped.has(key)) {
                 grouped.set(key, {

@@ -892,29 +892,27 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         return name;
     }, []);
 
-    const openTaxEditor = useCallback(
-        (item: T, taxIndex: number, seedTax?: QuotationItemTaxInput): void => {
-            const displayTaxes = getDisplayTaxes(item);
-            const targetTax =
-                seedTax ??
-                displayTaxes[taxIndex] ??
-                createEmptyTax(taxIndex + 1);
+    const openTaxEditor = (
+        item: T,
+        taxIndex: number,
+        seedTax?: QuotationItemTaxInput,
+    ): void => {
+        const displayTaxes = getDisplayTaxes(item);
+        const targetTax =
+            seedTax ?? displayTaxes[taxIndex] ?? createEmptyTax(taxIndex + 1);
 
-            setTaxEditorTarget({ itemKey: item._key, taxIndex });
-            setTaxDraft({
-                name: String(targetTax.name ?? '').trim() || 'Extension',
-                type: inferTaxType(targetTax),
-                calculation_mode:
-                    String(targetTax.calculation_mode ?? 'fixed') ===
-                    'percentage'
-                        ? 'percentage'
-                        : 'fixed',
-                amount: Math.abs(Number(targetTax.calculation_value ?? 0)),
-            });
-            setIsTaxEditorOpen(true);
-        },
-        [inferTaxType],
-    );
+        setTaxEditorTarget({ itemKey: item._key, taxIndex });
+        setTaxDraft({
+            name: String(targetTax.name ?? '').trim() || 'Extension',
+            type: inferTaxType(targetTax),
+            calculation_mode:
+                String(targetTax.calculation_mode ?? 'fixed') === 'percentage'
+                    ? 'percentage'
+                    : 'fixed',
+            amount: Math.abs(Number(targetTax.calculation_value ?? 0)),
+        });
+        setIsTaxEditorOpen(true);
+    };
 
     const closeTaxEditor = useCallback((open: boolean): void => {
         setIsTaxEditorOpen(open);
@@ -924,7 +922,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         }
     }, []);
 
-    const saveTaxEditor = useCallback((): void => {
+    const saveTaxEditor = (): void => {
         if (!taxEditorTarget) {
             return;
         }
@@ -966,7 +964,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
         setIsTaxEditorOpen(false);
         setTaxEditorTarget(null);
-    }, [items, taxDraft, taxEditorTarget]);
+    };
 
     // Columns
     const columns: ColumnDef<VisibleItem<T>>[] = [
